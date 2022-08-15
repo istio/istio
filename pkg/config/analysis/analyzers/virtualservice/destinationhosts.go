@@ -118,11 +118,12 @@ func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName]
 }
 
 func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
-	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
+	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry,
+) {
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, d := range getRouteDestinations(vs) {
-		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.Destination.GetHost(), serviceEntryHosts)
+		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, vs.ExportTo, d.Destination.GetHost(), serviceEntryHosts)
 		if s == nil {
 
 			m := msg.NewReferencedResourceNotFound(r, "host", d.Destination.GetHost())
@@ -139,7 +140,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	}
 
 	for _, d := range getHTTPMirrorDestinations(vs) {
-		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.Destination.GetHost(), serviceEntryHosts)
+		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, vs.ExportTo, d.Destination.GetHost(), serviceEntryHosts)
 		if s == nil {
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror host", d.Destination.GetHost())

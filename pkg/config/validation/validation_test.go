@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
@@ -36,6 +38,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -1807,6 +1811,44 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 				HttpStatus: 200,
 			},
 		}, valid: false},
+		{name: "grpc: nil", in: nil, valid: true},
+		{name: "grpc: valid", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: true},
+		{name: "grpc: valid default percentage", in: &networking.HTTPFaultInjection_Abort{
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: true},
+		{name: "grpc: invalid status", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 20,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "BAD_STATUS",
+			},
+		}, valid: false},
+		{name: "grpc: valid percentage", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: 0.001,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "INTERNAL",
+			},
+		}, valid: true},
+		{name: "grpc: invalid fractional percent", in: &networking.HTTPFaultInjection_Abort{
+			Percentage: &networking.Percent{
+				Value: -10.0,
+			},
+			ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+				GrpcStatus: "DEADLINE_EXCEEDED",
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2112,11 +2154,117 @@ func TestValidateHTTPRedirect(t *testing.T) {
 	}
 }
 
+func TestValidateHTTPDirectResponse(t *testing.T) {
+	testCases := []struct {
+		name           string
+		directResponse *networking.HTTPDirectResponse
+		valid          bool
+		warning        bool
+	}{
+		{
+			name:           "nil redirect",
+			directResponse: nil,
+			valid:          true,
+		},
+		{
+			name: "status 200",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+			},
+			valid: true,
+		},
+		{
+			name: "status 100",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 199,
+			},
+			valid: false,
+		},
+		{
+			name: "status 600",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 601,
+			},
+			valid: false,
+		},
+		{
+			name: "with string body",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_String_{String_: "hello"},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "with string body over 100kb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_String_{String_: strings.Repeat("a", 101*kb)},
+				},
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "with string body over 1mb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_String_{String_: strings.Repeat("a", 2*mb)},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "with bytes body",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_Bytes{Bytes: []byte("hello")},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "with bytes body over 100kb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_Bytes{Bytes: []byte(strings.Repeat("a", (100*kb)+1))},
+				},
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "with bytes body over 1mb",
+			directResponse: &networking.HTTPDirectResponse{
+				Status: 200,
+				Body: &networking.HTTPBody{
+					Specifier: &networking.HTTPBody_Bytes{Bytes: []byte(strings.Repeat("a", (1*mb)+1))},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateHTTPDirectResponse(tc.directResponse); (err.Err == nil) != tc.valid {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
+			}
+			if err := validateHTTPDirectResponse(tc.directResponse); (err.Warning != nil) != tc.warning {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Warning != nil, tc.warning, err)
+			}
+		})
+	}
+}
+
 func TestValidateDestinationWithInheritance(t *testing.T) {
-	features.EnableDestinationRuleInheritance = true
-	defer func() {
-		features.EnableDestinationRuleInheritance = false
-	}()
+	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
 	cases := []struct {
 		name  string
 		in    proto.Message
@@ -2142,6 +2290,124 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 				},
 			},
 		}, valid: true},
+		{name: "global tunnel settings without protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with POST protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "POST",
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "subset tunnel settings without protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "reviews-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: true},
+		{name: "subset tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "reviews-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							Protocol:   "CONNECT",
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: true},
+		{name: "subset tunnel settings with POST protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "example-com-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							Protocol:   "POST",
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with IPv4 target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "192.168.1.2",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with IPv6 target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "2001:db8:1234::",
+					TargetPort: 80,
+				},
+			},
+		}, valid: true},
+		{name: "global tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "masque",
+					TargetHost: "example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "subset tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			Subsets: []*networking.Subset{
+				{
+					Name: "example-com-80",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tunnel: &networking.TrafficPolicy_TunnelSettings{
+							Protocol:   "masque",
+							TargetHost: "example.com",
+							TargetPort: 80,
+						},
+					},
+				},
+			},
+		}, valid: false},
 		{name: "global rule with subsets", in: &networking.DestinationRule{
 			TrafficPolicy: &networking.TrafficPolicy{
 				Tls: &networking.ClientTLSSettings{
@@ -2183,6 +2449,44 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 							MinHealthPercent: 20,
 						},
 					},
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings for wildcard target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "*.example.com",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings for with invalid port", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "example.com",
+					TargetPort: 0,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings without required target host", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetPort: 80,
+				},
+			},
+		}, valid: false},
+		{name: "tunnel settings without required target port", in: &networking.DestinationRule{
+			Host: "tunnel-proxy.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					Protocol:   "CONNECT",
+					TargetHost: "example.com",
 				},
 			},
 		}, valid: false},
@@ -2280,12 +2584,12 @@ func TestValidateHTTPRoute(t *testing.T) {
 		{name: "total weight > 100", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
-				Weight:      55,
+				Weight:      550,
 			}, {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
-				Weight:      50,
+				Weight:      500,
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "total weight < 100", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
@@ -2294,7 +2598,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
 				Weight:      50,
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "simple redirect", route: &networking.HTTPRoute{
 			Redirect: &networking.HTTPRedirect{
 				Uri:       "/lerp",
@@ -2548,7 +2852,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route, false); (err.Err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, false, false); (err.Err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Err == nil, tc.valid, err)
 			}
 		})
@@ -2598,18 +2902,18 @@ func TestValidateRouteDestination(t *testing.T) {
 		}}, valid: false},
 		{name: "total weight > 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
-			Weight:      55,
+			Weight:      550,
 		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
-			Weight:      50,
-		}}, valid: false},
+			Weight:      500,
+		}}, valid: true},
 		{name: "total weight < 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
 		}, {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
-		}}, valid: false},
+		}}, valid: true},
 		{name: "total weight = 100", routes: []*networking.RouteDestination{{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      100,
@@ -3362,6 +3666,21 @@ func TestValidateTrafficPolicy(t *testing.T) {
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
 					MinHealthPercent: 20,
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid traffic policy, bad max connection duration", in: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						MaxConnectionDuration: &durationpb.Duration{Nanos: 500},
+					},
 				},
 			},
 			valid: false,
@@ -4589,6 +4908,32 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "protocol unset for addresses empty", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Name: "http-valid2"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "protocol is TCP for addresses empty", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 81, Protocol: "TCP", Name: "tcp-valid1"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -5697,6 +6042,18 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ingress without port and with IPv6 endpoint", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					DefaultEndpoint: "[::1]:110",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5722,6 +6079,31 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ingress with duplicate ports and IPv6 endpoint", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:110",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "bar",
+					},
+					DefaultEndpoint: "[::1]:110",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5738,7 +6120,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
-		{"ingress with invalid default endpoint IP", &networking.Sidecar{
+		{"ingress with invalid default endpoint in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5747,6 +6129,18 @@ func TestValidateSidecar(t *testing.T) {
 						Name:     "foo",
 					},
 					DefaultEndpoint: "1.1.1.1:90",
+				},
+			},
+		}, false, false},
+		{"ingress with invalid default endpoint in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[1:1:1:1:1:1:1:1]:90",
 				},
 			},
 		}, false, false},
@@ -5767,7 +6161,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress with invalid default endpoint port", &networking.Sidecar{
+		{"ingress with invalid default endpoint port in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5784,7 +6178,24 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"valid ingress and egress", &networking.Sidecar{
+		{"ingress with invalid default endpoint port in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:hi",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
+		{"valid ingress and egress in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5801,7 +6212,24 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
-		{"valid ingress and empty egress", &networking.Sidecar{
+		{"valid ingress and egress in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true, false},
+		{"valid ingress and empty egress in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5813,11 +6241,23 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
+		{"valid ingress and empty egress in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+				},
+			},
+		}, true, false},
 		{"empty", &networking.Sidecar{}, false, false},
 		{"just outbound traffic policy", &networking.Sidecar{OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 			Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
 		}}, true, false},
-		{"empty protocol", &networking.Sidecar{
+		{"empty protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5825,6 +6265,22 @@ func TestValidateSidecar(t *testing.T) {
 						Name:   "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true, false},
+		{"empty protocol in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number: 90,
+						Name:   "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
 				},
 			},
 			Egress: []*networking.IstioEgressListener{
@@ -5947,7 +6403,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, true},
-		{"ingress tls mode set to ISTIO_MUTUAL", &networking.Sidecar{
+		{"ingress tls mode set to ISTIO_MUTUAL in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5962,7 +6418,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH", &networking.Sidecar{
+		{"ingress tls mode set to ISTIO_MUTUAL in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5977,7 +6448,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls invalid protocol", &networking.Sidecar{
+		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_AUTO_PASSTHROUGH,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls invalid protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -5992,7 +6478,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls httpRedirect is not supported", &networking.Sidecar{
+		{"ingress tls invalid protocol in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_SIMPLE,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls httpRedirect is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -6008,7 +6509,23 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls SAN entries are not supported", &networking.Sidecar{
+		{"ingress tls httpRedirect is not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:          networking.ServerTLSSettings_SIMPLE,
+						HttpsRedirect: true,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls SAN entries are not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -6024,7 +6541,23 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls credentialName is not supported", &networking.Sidecar{
+		{"ingress tls SAN entries are not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						SubjectAltNames: []string{"httpbin.com"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialName is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
@@ -6033,6 +6566,22 @@ func TestValidateSidecar(t *testing.T) {
 						Name:     "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:           networking.ServerTLSSettings_SIMPLE,
+						CredentialName: "secret-name",
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialName is not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
 					Tls: &networking.ServerTLSSettings{
 						Mode:           networking.ServerTLSSettings_SIMPLE,
 						CredentialName: "secret-name",
@@ -7307,4 +7856,21 @@ func TestValidateWasmPlugin(t *testing.T) {
 			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
+}
+
+func TestRecurseMissingTypedConfig(t *testing.T) {
+	good := &listener.Filter{
+		Name:       wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: nil},
+	}
+	ecds := &hcm.HttpFilter{
+		Name:       "something",
+		ConfigType: &hcm.HttpFilter_ConfigDiscovery{},
+	}
+	bad := &listener.Filter{
+		Name: wellknown.TCPProxy,
+	}
+	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
+	assert.Equal(t, recurseMissingTypedConfig(ecds.ProtoReflect()), []string{}, "config discovery set")
+	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
 }

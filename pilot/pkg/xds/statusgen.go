@@ -21,10 +21,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -75,7 +75,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 		for _, v := range sg.Server.Clients() {
 			res = append(res, &discovery.Resource{
 				Name:     v.node.Id,
-				Resource: util.MessageToAny(v.node),
+				Resource: protoconv.MessageToAny(v.node),
 			})
 		}
 	case TypeDebugSyncronization:
@@ -112,6 +112,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 		v3.RouteType,
 		v3.EndpointType,
 		v3.ClusterType,
+		v3.ExtensionConfigurationType,
 	}
 
 	for _, con := range sg.Server.Clients() {
@@ -133,13 +134,14 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			}
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
-					Id: con.proxy.ID,
+					Id:       con.proxy.ID,
+					Metadata: con.proxy.Metadata.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,
 			}
 			res = append(res, &discovery.Resource{
 				Name:     clientConfig.Node.Id,
-				Resource: util.MessageToAny(clientConfig),
+				Resource: protoconv.MessageToAny(clientConfig),
 			})
 		}
 		con.proxy.RUnlock()
@@ -166,7 +168,7 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
-	dump, err := sg.Server.configDump(conn)
+	dump, err := sg.Server.configDump(conn, false)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +203,9 @@ func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
 		return
 	}
 
-	resources := make([]*any.Any, 0, len(data))
+	resources := make([]*anypb.Any, 0, len(data))
 	for _, v := range data {
-		resources = append(resources, util.MessageToAny(v))
+		resources = append(resources, protoconv.MessageToAny(v))
 	}
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,

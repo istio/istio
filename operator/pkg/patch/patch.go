@@ -15,68 +15,68 @@
 /*
 Package patch implements a simple patching mechanism for k8s resources.
 Paths are specified in the form a.b.c.[key:value].d.[list_entry_value], where:
- -  [key:value] selects a list entry in list c which contains an entry with key:value
- -  [list_entry_value] selects a list entry in list d which is a regex match of list_entry_value.
+  - [key:value] selects a list entry in list c which contains an entry with key:value
+  - [list_entry_value] selects a list entry in list d which is a regex match of list_entry_value.
 
 Some examples are given below. Given a resource:
 
-kind: Deployment
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-a:
-  b:
-  - name: n1
-    value: v1
-  - name: n2
-    list:
-    - "vv1"
-    - vv2=foo
+	kind: Deployment
+	metadata:
+	  name: istio-citadel
+	  namespace: istio-system
+	a:
+	  b:
+	  - name: n1
+	    value: v1
+	  - name: n2
+	    list:
+	    - "vv1"
+	    - vv2=foo
 
 values and list entries can be added, modifed or deleted.
 
-MODIFY
+# MODIFY
 
 1. set v1 to v1new
 
-  path: a.b.[name:n1].value
-  value: v1new
+	path: a.b.[name:n1].value
+	value: v1new
 
 2. set vv1 to vv3
 
-  // Note the lack of quotes around vv1 (see NOTES below).
-  path: a.b.[name:n2].list.[vv1]
-  value: vv3
+	// Note the lack of quotes around vv1 (see NOTES below).
+	path: a.b.[name:n2].list.[vv1]
+	value: vv3
 
 3. set vv2=foo to vv2=bar (using regex match)
 
-  path: a.b.[name:n2].list.[vv2]
-  value: vv2=bar
+	path: a.b.[name:n2].list.[vv2]
+	value: vv2=bar
 
 4. replace a port whose port was 15010
 
-   - path: spec.ports.[port:15010]
-     value:
-       port: 15020
-       name: grpc-xds
-       protocol: TCP
+  - path: spec.ports.[port:15010]
+    value:
+    port: 15020
+    name: grpc-xds
+    protocol: TCP
 
-DELETE
+# DELETE
 
 1. Delete container with name: n1
 
-  path: a.b.[name:n1]
+	path: a.b.[name:n1]
 
 2. Delete list value vv1
 
-  path: a.b.[name:n2].list.[vv1]
+	path: a.b.[name:n2].list.[vv1]
 
-ADD
+# ADD
 
 1. Add vv3 to list
 
-  path: a.b.[name:n2].list.[1000]
-  value: vv3
+	path: a.b.[name:n2].list.[1000]
+	value: vv3
 
 Note: the value 1000 is an example. That value used in the patch should
 be a value greater than number of the items in the list. Choose 1000 is
@@ -84,9 +84,9 @@ just an example which normally is greater than the most of the lists used.
 
 2. Add new key:value to container name: n1
 
-  path: a.b.[name:n1]
-  value:
-    new_attr: v3
+	path: a.b.[name:n1]
+	value:
+	  new_attr: v3
 
 *NOTES*
 - Due to loss of string quoting during unmarshaling, keys and values should not be string quoted, even if they appear
@@ -173,7 +173,7 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
 func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML string, errs util.Errors) {
-	bo := make(map[interface{}]interface{})
+	bo := make(map[any]any)
 	by, err := base.YAML()
 	if err != nil {
 		return "", util.NewErrs(err)

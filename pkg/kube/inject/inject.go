@@ -102,7 +102,7 @@ type SidecarTemplateData struct {
 	Spec                 corev1.PodSpec
 	ProxyConfig          *meshconfig.ProxyConfig
 	MeshConfig           *meshconfig.MeshConfig
-	Values               map[string]interface{}
+	Values               map[string]any
 	Revision             string
 	EstimatedConcurrency int
 	ProxyImage           string
@@ -115,7 +115,7 @@ type (
 )
 
 type Injector interface {
-	Inject(pod *corev1.Pod) ([]byte, error)
+	Inject(pod *corev1.Pod, namespace string) ([]byte, error)
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -336,7 +336,7 @@ func imageURL(hub, imageName, tag, imageType string) string {
 }
 
 // KnownImageTypes are image types that istio pubishes.
-var KnownImageTypes []string = []string{ImageTypeDistroless, ImageTypeDebug}
+var KnownImageTypes = []string{ImageTypeDistroless, ImageTypeDebug}
 
 func updateImageTypeIfPresent(tag string, imageType string) string {
 	if imageType == "" {
@@ -514,7 +514,7 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	return &iStatus
 }
 
-func parseDryTemplate(tmplStr string, funcMap map[string]interface{}) (*template.Template, error) {
+func parseDryTemplate(tmplStr string, funcMap map[string]any) (*template.Template, error) {
 	temp := template.New("inject")
 	t, err := temp.Funcs(sprig.TxtFuncMap()).Funcs(funcMap).Parse(tmplStr)
 	if err != nil {
@@ -539,7 +539,8 @@ func runTemplate(tmpl *template.Template, data SidecarTemplateData) (bytes.Buffe
 // kubernetes YAML file.
 // nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
-	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string),
+) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -600,7 +601,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig ValuesConfig,
-	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
+	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string),
+) (any, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata metav1.ObjectMeta
@@ -679,6 +681,10 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
+	namespace := metadata.Namespace
+	if namespace == "" {
+		namespace = deploymentMetadata.Namespace
+	}
 
 	var fullName string
 	if deploymentMetadata.Namespace != "" {
@@ -731,7 +737,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	var patchBytes []byte
 	var err error
 	if injector != nil {
-		patchBytes, err = injector.Inject(pod)
+		patchBytes, err = injector.Inject(pod, namespace)
 	}
 	if err != nil {
 		return nil, err
@@ -745,6 +751,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			return nil, merr
 		}
 	}
+
 	if patchBytes == nil {
 		if !injectRequired(IgnoredNamespaces.UnsortedList(), &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)

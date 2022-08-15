@@ -23,17 +23,16 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestJWTHTTPS tests the requestauth policy with https jwks server.
@@ -43,19 +42,17 @@ func TestJWTHTTPS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
-			if t.Clusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307")
-			}
-
 			ns := apps.Namespace1
 			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
-			t.ConfigKube().EvalFile(istioSystemNS.Name(), map[string]string{
-				"Namespace": istioSystemNS.Name(),
-			}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
+			for _, cluster := range t.AllClusters() {
+				t.ConfigKube(cluster).EvalFile(istioSystemNS.Name(), map[string]string{
+					"Namespace": istioSystemNS.Name(),
+				}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
+			}
 
 			for _, cluster := range t.AllClusters() {
-				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
+				fetchFn := kube.NewPodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
 				_, err := kube.WaitUntilPodsAreReady(fetchFn)
 				if err != nil {
 					t.Fatalf("pod is not getting ready : %v", err)
@@ -63,7 +60,7 @@ func TestJWTHTTPS(t *testing.T) {
 			}
 
 			for _, cluster := range t.AllClusters() {
-				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
+				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster.Kube(), istioSystemNS.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
@@ -71,17 +68,17 @@ func TestJWTHTTPS(t *testing.T) {
 			cases := []struct {
 				name          string
 				policyFile    string
-				customizeCall func(opts *echo.CallOptions)
+				customizeCall func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions)
 			}{
 				{
 					name:       "valid-token-forward-remote-jwks",
 					policyFile: "./testdata/remotehttps.yaml.tmpl",
-					customizeCall: func(opts *echo.CallOptions) {
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
 						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(opts),
+							check.ReachedTargetClusters(t),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,
@@ -98,8 +95,7 @@ func TestJWTHTTPS(t *testing.T) {
 								"Namespace": ns.Name(),
 								"dst":       to.Config().Service,
 							}
-							return t.ConfigIstio().EvalFile(ns.Name(), args, c.policyFile).
-								Apply(resource.Wait)
+							return t.ConfigIstio().EvalFile(ns.Name(), args, c.policyFile).Apply(apply.Wait)
 						}).
 						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
@@ -112,10 +108,9 @@ func TestJWTHTTPS(t *testing.T) {
 								Port: echo.Port{
 									Name: "http",
 								},
-								Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
 							}
 
-							c.customizeCall(&opts)
+							c.customizeCall(t, from, &opts)
 
 							from.CallOrFail(t, opts)
 						})

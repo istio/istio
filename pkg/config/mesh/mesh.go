@@ -86,7 +86,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
-		TrustDomain:                 constants.DefaultKubernetesDomain,
+		TrustDomain:                 constants.DefaultClusterLocalDomain,
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              &wrappers.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
@@ -102,9 +102,14 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		DefaultServiceExportTo:         []string{"*"},
 		DefaultVirtualServiceExportTo:  []string{"*"},
 		DefaultDestinationRuleExportTo: []string{"*"},
-		DnsRefreshRate:                 durationpb.New(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
-		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
-		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
+		// DnsRefreshRate is only used when DNS requests fail (NXDOMAIN or SERVFAIL). For success, the TTL
+		// will be used.
+		// https://datatracker.ietf.org/doc/html/rfc2308#section-3 defines how negative DNS results should handle TTLs,
+		// but Envoy does not respect this (https://github.com/envoyproxy/envoy/issues/20885).
+		// To counter this, we bump up the default to 60s to avoid overloading DNS servers.
+		DnsRefreshRate:  durationpb.New(60 * time.Second),
+		ThriftConfig:    &meshconfig.MeshConfig_ThriftConfig{},
+		ServiceSettings: make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
 		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
@@ -154,7 +159,7 @@ func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshco
 	return proxyConfig, nil
 }
 
-func extractYamlField(key string, mp map[string]interface{}) (string, error) {
+func extractYamlField(key string, mp map[string]any) (string, error) {
 	proxyConfig := mp[key]
 	if proxyConfig == nil {
 		return "", nil
@@ -166,8 +171,8 @@ func extractYamlField(key string, mp map[string]interface{}) (string, error) {
 	return string(bytes), nil
 }
 
-func toMap(yamlText string) (map[string]interface{}, error) {
-	mp := map[string]interface{}{}
+func toMap(yamlText string) (map[string]any, error) {
+	mp := map[string]any{}
 	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
 		return nil, err
 	}

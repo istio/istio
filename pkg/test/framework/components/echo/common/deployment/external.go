@@ -15,18 +15,22 @@
 package deployment
 
 import (
+	"path"
 	"strconv"
 
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 const (
 	ExternalSvc      = "external"
-	externalHostname = "fake.external.com"
+	ExternalHostname = "fake.external.com"
 )
 
 type External struct {
@@ -41,10 +45,21 @@ func (e External) build(b deployment.Builder) deployment.Builder {
 	return b.WithConfig(echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
-		DefaultHostHeader: externalHostname,
+		DefaultHostHeader: ExternalHostname,
 		Ports:             ports.All(),
+		// Set up TLS certs on the server. This will make the server listen with these credentials.
+		TLSSettings: &common.TLSSettings{
+			// Echo has these test certs baked into the docker image
+			RootCert:   file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			ClientCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
+			Key:        file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
+			// Override hostname to match the SAN in the cert we are using
+			// TODO(nmittler): We should probably make this the same as ExternalHostname
+			Hostname: "server.default.svc",
+		},
 		Subsets: []echo.SubsetConfig{
 			{
+				Version: "v1",
 				Annotations: map[echo.Annotation]*echo.AnnotationValue{
 					echo.SidecarInject: {
 						Value: strconv.FormatBool(false),

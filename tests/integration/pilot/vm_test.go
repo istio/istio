@@ -28,11 +28,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
@@ -77,12 +77,15 @@ func TestVmOSPost(t *testing.T) {
 			}
 			instances := b.BuildOrFail(t)
 
-			for i, image := range images {
-				i, image := i, image
+			for idx, image := range images {
+				idx, image := idx, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
-					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, &apps) {
-						tt.Run(t, apps.Namespace.Name())
+					tc := common.TrafficContext{
+						TestContext: t,
+						Istio:       i,
+						Apps:        apps,
 					}
+					common.VMTestCases(echo.Instances{instances[idx]})(tc)
 				})
 			}
 		})
@@ -90,6 +93,7 @@ func TestVmOSPost(t *testing.T) {
 
 func TestVMRegistrationLifecycle(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/33154")
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -112,22 +116,23 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}).BuildOrFail(t)
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					res, err := client.Call(echo.CallOptions{
-						To:   autoVM,
-						Port: autoVM.Config().Ports[0],
+					result, err := client.Call(echo.CallOptions{
+						To:    autoVM,
+						Count: 1,
+						Port:  autoVM.Config().Ports[0],
 						Retry: echo.Retry{
 							NoRetry: true,
 						},
 					})
 					return check.And(
 						check.NoError(),
-						check.OK()).Check(res, err)
+						check.OK()).Check(result, err)
 				}, retry.Timeout(15*time.Second))
 			})
 			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {
 				// ensure we have two pilot instances, other tests can pass before the second one comes up
 				retry.UntilSuccessOrFail(t, func() error {
-					pilotRes, err := t.Clusters().Default().CoreV1().Pods(i.Settings().SystemNamespace).
+					pilotRes, err := t.Clusters().Default().Kube().CoreV1().Pods(i.Settings().SystemNamespace).
 						List(context.TODO(), metav1.ListOptions{LabelSelector: "istio=pilot"})
 					if err != nil {
 						return err
@@ -146,7 +151,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				initialWLE := entries[0]
 
 				// keep force-disconnecting until we observe a reconnect to a different istiod instance
-				initialPilot := initialWLE.Annotations[workloadentry.WorkloadControllerAnnotation]
+				initialPilot := initialWLE.Annotations[autoregistration.WorkloadControllerAnnotation]
 				disconnectProxy(t, initialPilot, autoVM)
 				retry.UntilSuccessOrFail(t, func() error {
 					entries := getWorkloadEntriesOrFail(t, autoVM)
@@ -154,7 +159,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 						t.Fatalf("WorkloadEntry was cleaned up unexpectedly")
 					}
 
-					currentPilot := entries[0].Annotations[workloadentry.WorkloadControllerAnnotation]
+					currentPilot := entries[0].Annotations[autoregistration.WorkloadControllerAnnotation]
 					if currentPilot == initialPilot || !strings.HasPrefix(currentPilot, "istiod-") {
 						disconnectProxy(t, currentPilot, autoVM)
 						return errors.New("expected WorkloadEntry to be updated by other pilot")
@@ -187,13 +192,13 @@ func disconnectProxy(t framework.TestContext, pilot string, instance echo.Instan
 }
 
 func scaleDeploymentOrFail(t framework.TestContext, name, namespace string, scale int32) {
-	s, err := t.Clusters().Default().AppsV1().Deployments(namespace).
+	s, err := t.Clusters().Default().Kube().AppsV1().Deployments(namespace).
 		GetScale(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.Spec.Replicas = scale
-	_, err = t.Clusters().Default().AppsV1().Deployments(namespace).
+	_, err = t.Clusters().Default().Kube().AppsV1().Deployments(namespace).
 		UpdateScale(context.TODO(), name, s, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)

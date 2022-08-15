@@ -16,6 +16,7 @@ package status
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,7 +35,8 @@ import (
 	"time"
 
 	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/prometheus/pkg/textparse"
+	"github.com/prometheus/prometheus/model/textparse"
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
@@ -48,7 +50,11 @@ import (
 	"istio.io/pkg/log"
 )
 
-type handler struct{}
+type handler struct {
+	// LastALPN stores the most recent ALPN requested. This is needed to determine info about a request,
+	// since the appProber strips all headers/responses.
+	lastAlpn *atomic.String
+}
 
 const (
 	testHeader      = "Some-Header"
@@ -59,6 +65,7 @@ const (
 var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.lastAlpn.Store(r.Proto)
 	segments := strings.Split(r.URL.Path[1:], "/")
 	switch segments[0] {
 	case "header":
@@ -384,7 +391,6 @@ jmx_config_reload_failure_created 1.624025983489E9
 `
 	envoy := `# TYPE my_metric counter
 my_metric{} 0
-
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `
@@ -523,13 +529,96 @@ func TestStatsError(t *testing.T) {
 	}
 }
 
+// initServerWithSize size is kB
+func initServerWithSize(t *testing.B, size int) *Server {
+	appText := `# TYPE jvm info
+# HELP jvm VM version info
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
+# TYPE jmx_config_reload_success counter
+# HELP jmx_config_reload_success Number of times configuration have successfully been reloaded.
+jmx_config_reload_success_total 0.0
+jmx_config_reload_success_created 1.623984612719E9
+`
+	appOpenMetrics := appText + "# EOF"
+	envoy := `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`
+	for i := 0; len(envoy)+len(appText) < size<<10; i++ {
+		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
+	}
+
+	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte(envoy)); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
+	}))
+	t.Cleanup(envoyServer.Close)
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+		var negotiatedMetrics string
+		if format == expfmt.FmtOpenMetrics {
+			negotiatedMetrics = appOpenMetrics
+			w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
+		} else {
+			negotiatedMetrics = appText
+			w.Header().Set("Content-Type", string(expfmt.FmtText))
+		}
+		if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
+	}))
+	t.Cleanup(app.Close)
+	envoyPort, err := strconv.Atoi(strings.Split(envoyServer.URL, ":")[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{
+		prometheus: &PrometheusScrapeConfiguration{
+			Port: strings.Split(app.URL, ":")[2],
+		},
+		envoyStatsPort: envoyPort,
+	}
+	return server
+}
+
+func BenchmarkStats(t *testing.B) {
+	tests := map[int]string{
+		1:        "1kb",
+		1 << 10:  "1mb",
+		10 << 10: "10mb",
+	}
+	for size, v := range tests {
+		server := initServerWithSize(t, size)
+		t.Run("stats-fmttext-"+v, func(t *testing.B) {
+			for i := 0; i < t.N; i++ {
+				req := &http.Request{}
+				req.Header = make(http.Header)
+				req.Header.Add("Accept", string(expfmt.FmtText))
+				rec := httptest.NewRecorder()
+				server.handleStats(rec, req)
+			}
+		})
+		t.Run("stats-fmtopenmetrics-"+v, func(t *testing.B) {
+			for i := 0; i < t.N; i++ {
+				req := &http.Request{}
+				req.Header = make(http.Header)
+				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
+				rec := httptest.NewRecorder()
+				server.handleStats(rec, req)
+			}
+		})
+	}
+}
+
 func TestAppProbe(t *testing.T) {
 	// Starts the application first.
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Errorf("failed to allocate unused port %v", err)
 	}
-	go http.Serve(listener, &handler{})
+	go http.Serve(listener, &handler{lastAlpn: atomic.NewString("")})
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
 	simpleHTTPConfig := KubeAppProbers{
@@ -601,8 +690,8 @@ func TestAppProbe(t *testing.T) {
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
 						HTTPHeaders: []apimirror.HTTPHeader{
-							{"Host", testHostValue},
-							{testHeader, testHeaderValue},
+							{Name: "Host", Value: testHostValue},
+							{Name: testHeader, Value: testHeaderValue},
 						},
 					},
 				},
@@ -666,7 +755,7 @@ func TestAppProbe(t *testing.T) {
 			name:       "tcp-livez-wrapped-ipv6",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
-			statusCode: http.StatusOK,
+			statusCode: http.StatusInternalServerError,
 			podIP:      "[::1]",
 			ipv6:       true,
 		},
@@ -795,72 +884,135 @@ func TestAppProbe(t *testing.T) {
 }
 
 func TestHttpsAppProbe(t *testing.T) {
-	// Starts the application first.
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Errorf("failed to allocate unused port %v", err)
-	}
-	keyFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.key"
-	crtFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.crt"
-	go http.ServeTLS(listener, &handler{}, crtFile, keyFile)
-	appPort := listener.Addr().(*net.TCPAddr).Port
-
-	// Starts the pilot agent status server.
-	server, err := NewServer(Options{
-		StatusPort: 0,
-		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
-"/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
-	})
-	if err != nil {
-		t.Errorf("failed to create status server %v", err)
-		return
-	}
-	go server.Run(context.Background())
-
-	var statusPort uint16
-	if err := retry.UntilSuccess(func() error {
-		server.mutex.RLock()
-		statusPort = server.statusPort
-		server.mutex.RUnlock()
-		if statusPort == 0 {
-			return fmt.Errorf("no port allocated")
+	setupServer := func(t *testing.T, alpn []string) (uint16, func() string) {
+		// Starts the application first.
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			t.Errorf("failed to allocate unused port %v", err)
 		}
-		return nil
-	}); err != nil {
-		t.Fatalf("failed to getport: %v", err)
+		t.Cleanup(func() { listener.Close() })
+		keyFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.key"
+		crtFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.crt"
+		cert, err := tls.LoadX509KeyPair(crtFile, keyFile)
+		if err != nil {
+			t.Fatalf("could not load TLS keys: %v", err)
+		}
+		serverTLSConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			NextProtos:   alpn,
+		}
+		tlsListener := tls.NewListener(listener, serverTLSConfig)
+		h := &handler{lastAlpn: atomic.NewString("")}
+		srv := http.Server{Handler: h}
+		go srv.Serve(tlsListener)
+		appPort := listener.Addr().(*net.TCPAddr).Port
+
+		// Starts the pilot agent status server.
+		server, err := NewServer(Options{
+			StatusPort: 0,
+			KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
+"/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
+		})
+		if err != nil {
+			t.Fatalf("failed to create status server %v", err)
+		}
+		go server.Run(context.Background())
+
+		var statusPort uint16
+		if err := retry.UntilSuccess(func() error {
+			server.mutex.RLock()
+			statusPort = server.statusPort
+			server.mutex.RUnlock()
+			if statusPort == 0 {
+				return fmt.Errorf("no port allocated")
+			}
+			return nil
+		}); err != nil {
+			t.Fatalf("failed to getport: %v", err)
+		}
+		t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
+		return statusPort, h.lastAlpn.Load
 	}
-	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
-		probePath  string
-		statusCode int
+		name             string
+		probePath        string
+		expectedProtocol string
+		statusCode       int
+		alpns            []string
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
+			name:       "bad-path-should-be-disallowed",
+			probePath:  "bad-path-should-be-disallowed",
 			statusCode: http.StatusNotFound,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
-			statusCode: http.StatusOK,
+			name:             "readyz",
+			probePath:        "app-health/hello-world/readyz",
+			statusCode:       http.StatusOK,
+			expectedProtocol: "HTTP/1.1",
+			alpns:            nil,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
-			statusCode: http.StatusOK,
+			name:             "livez",
+			probePath:        "app-health/hello-world/livez",
+			statusCode:       http.StatusOK,
+			expectedProtocol: "HTTP/1.1",
+		},
+		{
+			name:             "h1 only",
+			probePath:        "app-health/hello-world/readyz",
+			statusCode:       http.StatusOK,
+			expectedProtocol: "HTTP/1.1",
+			alpns:            []string{"http/1.1"},
+		},
+		{
+			name:             "h2 only",
+			probePath:        "app-health/hello-world/readyz",
+			statusCode:       http.StatusOK,
+			expectedProtocol: "HTTP/2.0",
+			alpns:            []string{"h2"},
+		},
+		{
+			name:             "prefer h2",
+			probePath:        "app-health/hello-world/readyz",
+			statusCode:       http.StatusOK,
+			expectedProtocol: "HTTP/2.0",
+			alpns:            []string{"h2", "http/1.1"},
+		},
+		{
+			name:             "prefer h1",
+			probePath:        "app-health/hello-world/readyz",
+			statusCode:       http.StatusOK,
+			expectedProtocol: "HTTP/2.0",
+			alpns:            []string{"h2", "http/1.1"},
+		},
+		{
+			name:       "unknown alpn",
+			probePath:  "app-health/hello-world/readyz",
+			statusCode: http.StatusInternalServerError,
+			alpns:      []string{"foo"},
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			statusPort, getAlpn := setupServer(t, tc.alpns)
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
+			if err != nil {
+				t.Fatalf("failed to create request")
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("unexpected status code, want = %v, got = %v", tc.statusCode, resp.StatusCode)
+			}
+			if got := getAlpn(); got != tc.expectedProtocol {
+				t.Errorf("unexpected protocol, want = %v, got = %v", tc.expectedProtocol, got)
+			}
+		})
 	}
 }
 
@@ -936,44 +1088,52 @@ func TestGRPCAppProbe(t *testing.T) {
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		statusCode int
 	}{
 		{
+			name:       "bad-path-should-be-disallowed",
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "foo-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "foo-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 		{
+			name:       "bar-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "bar-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			if err != nil {
+				t.Errorf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		})
 	}
 }
 
@@ -1053,44 +1213,52 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		statusCode int
 	}{
 		{
+			name:       "bad-path-should-be-disallowed",
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "foo-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "foo-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 		{
+			name:       "bar-livez",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "bar-readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			if err != nil {
+				t.Errorf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		})
 	}
 }
 

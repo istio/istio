@@ -45,9 +45,6 @@ const (
 	NakedSvc         = "naked"
 	HeadlessNakedSvc = "headless-naked"
 	ExternalSvc      = "external"
-
-	// CallsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-	CallsPerCluster = 5
 )
 
 type EchoDeployments struct {
@@ -311,18 +308,6 @@ func SetupApps(ctx resource.Context, _ istio.Instance, apps *EchoDeployments, bu
 	apps.External = anyNamespace(ExternalSvc).GetMatches(echos)
 
 	return nil
-}
-
-func (apps *EchoDeployments) IsNaked(t echo.Target) bool {
-	return apps.HeadlessNaked.ContainsTarget(t) || apps.Naked.ContainsTarget(t)
-}
-
-func (apps *EchoDeployments) IsHeadless(t echo.Target) bool {
-	return apps.HeadlessNaked.ContainsTarget(t) || apps.Headless.ContainsTarget(t)
-}
-
-func (apps *EchoDeployments) IsVM(t echo.Target) bool {
-	return apps.VM.ContainsTarget(t)
 }
 
 // IsMultiversion matches instances that have Multi-version specific setup.

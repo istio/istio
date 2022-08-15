@@ -33,17 +33,16 @@ import (
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
@@ -55,12 +54,8 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			if !supportsCRDv1(t) {
-				t.Skip("Not supported; requires CRDv1 support.")
-			}
-			if err := t.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
-				t.Fatal(err)
-			}
+			DeployGatewayAPICRD(t)
+
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 				false, t.Clusters().Configs()...)
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
@@ -218,7 +213,8 @@ spec:
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
 						_ = apps.A[0].CallOrFail(t, echo.CallOptions{
-							To: apps.B,
+							To:    apps.B,
+							Count: 1,
 							Port: echo.Port{
 								Name: "http",
 							},
@@ -383,7 +379,7 @@ spec:
 `
 			}
 
-			successChecker := check.And(check.OK(), check.ReachedClusters(apps.B.Clusters()))
+			successChecker := check.And(check.OK(), check.ReachedClusters(t.AllClusters(), apps.B.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
 			count := 2 * t.Clusters().Len()
 
@@ -594,7 +590,7 @@ spec:
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
 					if apiVersion == "v1beta1" {
-						ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+						ing, err := t.Clusters().Default().Kube().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 						if err != nil {
 							return err
 						}
@@ -610,7 +606,7 @@ spec:
 						}
 						return nil
 					}
-					ing, err := t.Clusters().Default().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+					ing, err := t.Clusters().Default().Kube().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -655,12 +651,12 @@ spec:
 							Path:    "/update-test",
 							Headers: headers.New().WithHost("server").Build(),
 						},
-						Check: func(rs echoClient.Responses, err error) error {
+						Check: func(result echo.CallResult, err error) error {
 							if err != nil {
 								return nil
 							}
 
-							return check.Status(http.StatusNotFound).Check(rs, nil)
+							return check.Status(http.StatusNotFound).Check(result, nil)
 						},
 					},
 				},
@@ -797,7 +793,7 @@ spec:
         host: {{ .host }}
         port:
           number: 80
-`).Apply(resource.NoCleanup)
+`).Apply(apply.NoCleanup)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
@@ -875,7 +871,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+`, apps.A.Config().ClusterLocalFQDN())).Apply(apply.NoCleanup)
 				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
@@ -942,7 +938,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+`, apps.A.Config().ClusterLocalFQDN())).Apply(apply.NoCleanup)
 				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,

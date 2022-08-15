@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"testing"
 
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
 func TestTproxy(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		Features("traffic.original-source-ip").
@@ -51,9 +51,9 @@ func TestTproxy(t *testing.T) {
 
 func checkOriginalSrcIP(t framework.TestContext, from echo.Caller, to echo.Target, expected []string) {
 	t.Helper()
-	checker := func(resp echoClient.Responses, inErr error) error {
+	checker := func(result echo.CallResult, inErr error) error {
 		// Check that each response saw one of the workload IPs for the src echo instance
-		for _, r := range resp {
+		for _, r := range result.Responses {
 			found := false
 			for _, ip := range expected {
 				if r.IP == ip {

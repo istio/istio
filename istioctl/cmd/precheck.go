@@ -235,7 +235,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 		},
 	}
 
-	response, err := c.AuthorizationV1().SelfSubjectAccessReviews().Create(context.Background(), s, metav1.CreateOptions{})
+	response, err := c.Kube().AuthorizationV1().SelfSubjectAccessReviews().Create(context.Background(), s, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 }
 
 func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
-	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods
 		FieldSelector: "status.phase=Running",
 		// Find all injected pods

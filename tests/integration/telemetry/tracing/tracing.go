@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/telemetry"
 )
 
 var (
@@ -194,7 +193,6 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 			Port: echo.Port{
 				Name: "http",
 			},
-			Count: telemetry.RequestCountMultipler * server.WorkloadsOrFail(t).Len(),
 			HTTP: echo.HTTP{
 				Headers: headers,
 			},

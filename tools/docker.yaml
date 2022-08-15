@@ -31,7 +31,8 @@ images:
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
-  - ${TARGET_OUT_LINUX}/release/${SIDECAR}
+  - ${TARGET_OUT_LINUX}/${RELEASE_MODE}/${SIDECAR}
+  # WASM has no debug mode, always use release/
   - ${TARGET_OUT_LINUX}/release/stats-filter.wasm
   - ${TARGET_OUT_LINUX}/release/stats-filter.compiled.wasm
   - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.wasm
@@ -75,6 +76,12 @@ images:
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
 
+# Sample authz server
+- name: ext-authz
+  dockerfile: samples/extauthz/docker/Dockerfile
+  targets:
+    - ${TARGET_OUT_LINUX}/extauthz
+
 # TODO(https://github.com/istio/istio/issues/38224)
 #- name: app_sidecar_rockylinux_8
 #  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
@@ -82,6 +89,7 @@ images:
 #  - tools/packaging/common/envoy_bootstrap.json
 #  - tests/testdata/certs
 #  - pkg/test/echo/docker/echo-start.sh
+#  - pkg/test/echo/docker/sudoers
 #  targets:
 #  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
 #  - ${TARGET_OUT_LINUX}/client
@@ -92,40 +100,48 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 - name: app_sidecar_debian_11
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 - name: app_sidecar_ubuntu_jammy
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 - name: app_sidecar_ubuntu_xenial
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
   targets:
   - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
+  emulationRequired: true
 
 # Test base images
 - name: app_sidecar_base_debian_11 # latest debian

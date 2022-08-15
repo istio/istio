@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +34,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
@@ -116,12 +117,8 @@ func TestNewServerCertInit(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			originalCert, originalCA := features.PilotCertProvider, features.EnableCAServer
-			features.PilotCertProvider, features.EnableCAServer = c.certProvider, c.enableCA
-			t.Cleanup(func() {
-				features.PilotCertProvider, features.EnableCAServer = originalCert, originalCA
-			})
-			features.EnableCAServer = c.enableCA
+			test.SetStringForTest(t, &features.PilotCertProvider, c.certProvider)
+			test.SetBoolForTest(t, &features.EnableCAServer, c.enableCA)
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -136,12 +133,12 @@ func TestNewServerCertInit(t *testing.T) {
 					FileDir: configDir,
 				}
 
-				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 			g := NewWithT(t)
-			s, err := NewServer(args)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
@@ -252,12 +249,12 @@ func TestNewServer(t *testing.T) {
 		{
 			name:           "default domain",
 			domain:         "",
-			expectedDomain: constants.DefaultKubernetesDomain,
+			expectedDomain: constants.DefaultClusterLocalDomain,
 		},
 		{
 			name:           "default domain with JwtRule",
 			domain:         "",
-			expectedDomain: constants.DefaultKubernetesDomain,
+			expectedDomain: constants.DefaultClusterLocalDomain,
 			jwtRule:        `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`,
 		},
 		{
@@ -268,7 +265,7 @@ func TestNewServer(t *testing.T) {
 		{
 			name:             "override default secured grpc port",
 			domain:           "",
-			expectedDomain:   constants.DefaultKubernetesDomain,
+			expectedDomain:   constants.DefaultClusterLocalDomain,
 			enableSecureGRPC: true,
 		},
 	}
@@ -303,15 +300,15 @@ func TestNewServer(t *testing.T) {
 					FileDir: configDir,
 				}
 
-				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 
 				p.JwtRule = c.jwtRule
 			})
 
 			g := NewWithT(t)
-			s, err := NewServer(args)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
 			g.Expect(err).To(Succeed())
 			stop := make(chan struct{})
 			g.Expect(s.Start(stop)).To(Succeed())
@@ -387,7 +384,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 				}
 
 				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 

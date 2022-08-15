@@ -42,8 +42,6 @@ spec:
               WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
               imagePullPolicy:
-                description: The pull behaviour to be applied when fetching an OCI
-                  image.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
@@ -201,12 +199,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -232,6 +229,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
                                   type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
@@ -449,13 +449,11 @@ spec:
                                         - UPGRADE
                                         type: string
                                       http1MaxPendingRequests:
-                                        description: Maximum number of pending HTTP
-                                          requests to a destination.
                                         format: int32
                                         type: integer
                                       http2MaxRequests:
-                                        description: Maximum number of requests to
-                                          a backend.
+                                        description: Maximum number of active requests
+                                          to a destination.
                                         format: int32
                                         type: integer
                                       idleTimeout:
@@ -482,6 +480,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      maxConnectionDuration:
+                                        description: The maximum duration of a connection.
                                         type: string
                                       maxConnections:
                                         description: Maximum number of HTTP1 /TCP
@@ -757,6 +758,21 @@ spec:
                                 type: string
                               type: array
                           type: object
+                        tunnel:
+                          properties:
+                            protocol:
+                              description: Specifies which protocol to use for tunneling
+                                the downstream connection.
+                              type: string
+                            targetHost:
+                              description: Specifies a host to which the downstream
+                                connection is tunneled.
+                              type: string
+                            targetPort:
+                              description: Specifies a port to which the downstream
+                                connection is tunneled.
+                              type: integer
+                          type: object
                       type: object
                   type: object
                 type: array
@@ -776,12 +792,10 @@ spec:
                             - UPGRADE
                             type: string
                           http1MaxPendingRequests:
-                            description: Maximum number of pending HTTP requests to
-                              a destination.
                             format: int32
                             type: integer
                           http2MaxRequests:
-                            description: Maximum number of requests to a backend.
+                            description: Maximum number of active requests to a destination.
                             format: int32
                             type: integer
                           idleTimeout:
@@ -807,6 +821,9 @@ spec:
                         properties:
                           connectTimeout:
                             description: TCP connection timeout.
+                            type: string
+                          maxConnectionDuration:
+                            description: The maximum duration of a connection.
                             type: string
                           maxConnections:
                             description: Maximum number of HTTP1 /TCP connections
@@ -1020,12 +1037,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -1051,6 +1067,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
                                   type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
@@ -1321,6 +1340,21 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                  tunnel:
+                    properties:
+                      protocol:
+                        description: Specifies which protocol to use for tunneling
+                          the downstream connection.
+                        type: string
+                      targetHost:
+                        description: Specifies a host to which the downstream connection
+                          is tunneled.
+                        type: string
+                      targetPort:
+                        description: Specifies a port to which the downstream connection
+                          is tunneled.
+                        type: integer
                     type: object
                 type: object
               workloadSelector:
@@ -1396,12 +1430,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -1427,6 +1460,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
                                   type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
@@ -1644,13 +1680,11 @@ spec:
                                         - UPGRADE
                                         type: string
                                       http1MaxPendingRequests:
-                                        description: Maximum number of pending HTTP
-                                          requests to a destination.
                                         format: int32
                                         type: integer
                                       http2MaxRequests:
-                                        description: Maximum number of requests to
-                                          a backend.
+                                        description: Maximum number of active requests
+                                          to a destination.
                                         format: int32
                                         type: integer
                                       idleTimeout:
@@ -1677,6 +1711,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      maxConnectionDuration:
+                                        description: The maximum duration of a connection.
                                         type: string
                                       maxConnections:
                                         description: Maximum number of HTTP1 /TCP
@@ -1952,6 +1989,21 @@ spec:
                                 type: string
                               type: array
                           type: object
+                        tunnel:
+                          properties:
+                            protocol:
+                              description: Specifies which protocol to use for tunneling
+                                the downstream connection.
+                              type: string
+                            targetHost:
+                              description: Specifies a host to which the downstream
+                                connection is tunneled.
+                              type: string
+                            targetPort:
+                              description: Specifies a port to which the downstream
+                                connection is tunneled.
+                              type: integer
+                          type: object
                       type: object
                   type: object
                 type: array
@@ -1971,12 +2023,10 @@ spec:
                             - UPGRADE
                             type: string
                           http1MaxPendingRequests:
-                            description: Maximum number of pending HTTP requests to
-                              a destination.
                             format: int32
                             type: integer
                           http2MaxRequests:
-                            description: Maximum number of requests to a backend.
+                            description: Maximum number of active requests to a destination.
                             format: int32
                             type: integer
                           idleTimeout:
@@ -2002,6 +2052,9 @@ spec:
                         properties:
                           connectTimeout:
                             description: TCP connection timeout.
+                            type: string
+                          maxConnectionDuration:
+                            description: The maximum duration of a connection.
                             type: string
                           maxConnections:
                             description: Maximum number of HTTP1 /TCP connections
@@ -2215,12 +2268,11 @@ spec:
                                   - UPGRADE
                                   type: string
                                 http1MaxPendingRequests:
-                                  description: Maximum number of pending HTTP requests
-                                    to a destination.
                                   format: int32
                                   type: integer
                                 http2MaxRequests:
-                                  description: Maximum number of requests to a backend.
+                                  description: Maximum number of active requests to
+                                    a destination.
                                   format: int32
                                   type: integer
                                 idleTimeout:
@@ -2246,6 +2298,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                maxConnectionDuration:
+                                  description: The maximum duration of a connection.
                                   type: string
                                 maxConnections:
                                   description: Maximum number of HTTP1 /TCP connections
@@ -2516,6 +2571,21 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                  tunnel:
+                    properties:
+                      protocol:
+                        description: Specifies which protocol to use for tunneling
+                          the downstream connection.
+                        type: string
+                      targetHost:
+                        description: Specifies a host to which the downstream connection
+                          is tunneled.
+                        type: string
+                      targetPort:
+                        description: Specifies a port to which the downstream connection
+                          is tunneled.
+                        type: integer
                     type: object
                 type: object
               workloadSelector:
@@ -3882,6 +3952,35 @@ spec:
                             delegate VirtualService resides.
                           type: string
                       type: object
+                    directResponse:
+                      description: A HTTP rule can either return a direct_response,
+                        redirect or forward (default) traffic.
+                      properties:
+                        body:
+                          description: Specifies the content of the response body.
+                          oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - string
+                              - required:
+                                - bytes
+                          - required:
+                            - string
+                          - required:
+                            - bytes
+                          properties:
+                            bytes:
+                              description: response body as base64 encoded bytes.
+                              format: binary
+                              type: string
+                            string:
+                              type: string
+                          type: object
+                        status:
+                          description: Specifies the HTTP response status to be returned.
+                          type: integer
+                      type: object
                     fault:
                       description: Fault injection policy to apply on HTTP traffic
                         at the client side.
@@ -3904,6 +4003,7 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
+                              description: GRPC status code to use to abort the request.
                               type: string
                             http2Error:
                               type: string
@@ -4146,6 +4246,10 @@ spec:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
                             type: string
+                          statPrefix:
+                            description: The human readable prefix to use when emitting
+                              statistics for this route.
+                            type: string
                           uri:
                             oneOf:
                             - not:
@@ -4240,8 +4344,8 @@ spec:
                       description: The name assigned to the route for debugging purposes.
                       type: string
                     redirect:
-                      description: A HTTP rule can either redirect or forward (default)
-                        traffic.
+                      description: A HTTP rule can either return a direct_response,
+                        redirect or forward (default) traffic.
                       oneOf:
                       - not:
                           anyOf:
@@ -4307,8 +4411,8 @@ spec:
                           type: string
                       type: object
                     route:
-                      description: A HTTP rule can either redirect or forward (default)
-                        traffic.
+                      description: A HTTP rule can either return a direct_response,
+                        redirect or forward (default) traffic.
                       items:
                         properties:
                           destination:
@@ -4631,6 +4735,35 @@ spec:
                             delegate VirtualService resides.
                           type: string
                       type: object
+                    directResponse:
+                      description: A HTTP rule can either return a direct_response,
+                        redirect or forward (default) traffic.
+                      properties:
+                        body:
+                          description: Specifies the content of the response body.
+                          oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - string
+                              - required:
+                                - bytes
+                          - required:
+                            - string
+                          - required:
+                            - bytes
+                          properties:
+                            bytes:
+                              description: response body as base64 encoded bytes.
+                              format: binary
+                              type: string
+                            string:
+                              type: string
+                          type: object
+                        status:
+                          description: Specifies the HTTP response status to be returned.
+                          type: integer
+                      type: object
                     fault:
                       description: Fault injection policy to apply on HTTP traffic
                         at the client side.
@@ -4653,6 +4786,7 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
+                              description: GRPC status code to use to abort the request.
                               type: string
                             http2Error:
                               type: string
@@ -4895,6 +5029,10 @@ spec:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
                             type: string
+                          statPrefix:
+                            description: The human readable prefix to use when emitting
+                              statistics for this route.
+                            type: string
                           uri:
                             oneOf:
                             - not:
@@ -4989,8 +5127,8 @@ spec:
                       description: The name assigned to the route for debugging purposes.
                       type: string
                     redirect:
-                      description: A HTTP rule can either redirect or forward (default)
-                        traffic.
+                      description: A HTTP rule can either return a direct_response,
+                        redirect or forward (default) traffic.
                       oneOf:
                       - not:
                           anyOf:
@@ -5056,8 +5194,8 @@ spec:
                           type: string
                       type: object
                     route:
-                      description: A HTTP rule can either redirect or forward (default)
-                        traffic.
+                      description: A HTTP rule can either return a direct_response,
+                        redirect or forward (default) traffic.
                       items:
                         properties:
                           destination:

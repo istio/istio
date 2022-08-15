@@ -50,8 +50,8 @@ func TestValidateConfig(t *testing.T) {
 						Enabled: &wrappers.BoolValue{Value: true},
 					},
 				},
-				Values: util.MustStruct(map[string]interface{}{
-					"grafana": map[string]interface{}{
+				Values: util.MustStruct(map[string]any{
+					"grafana": map[string]any{
 						"enabled": true,
 					},
 				}),
@@ -63,9 +63,9 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "global",
 			value: &v1alpha12.IstioOperatorSpec{
-				Values: util.MustStruct(map[string]interface{}{
-					"global": map[string]interface{}{
-						"localityLbSetting": map[string]interface{}{"foo": "bar"},
+				Values: util.MustStruct(map[string]any{
+					"global": map[string]any{
+						"localityLbSetting": map[string]any{"foo": "bar"},
 					},
 				}),
 			},
@@ -225,6 +225,24 @@ components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleE
 components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should not be set when values.gateways.istio-ingressgateway.autoscaleEnabled is true
 components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true
 `),
+		},
+		{
+			name: "pilot.k8s.replicaCount is default value set when autoscaleEnabled is true",
+			values: `
+values:
+  pilot:
+    autoscaleEnabled: true
+  gateways:
+    istio-ingressgateway:
+      autoscaleEnabled: true
+    istio-egressgateway:
+      autoscaleEnabled: true
+components:
+  pilot:
+    k8s:
+      replicaCount: 1
+`,
+			warnings: strings.TrimSpace(``),
 		},
 	}
 	for _, tt := range tests {

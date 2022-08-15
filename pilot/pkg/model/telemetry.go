@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -34,8 +35,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
@@ -71,7 +74,8 @@ type Telemetries struct {
 	// The computedMetricsFilters lifetime is bound to the Telemetries object. During a push context
 	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
 	// As result, this cache will live until any Telemetry is modified.
-	computedMetricsFilters map[metricsKey]interface{}
+	computedMetricsFilters map[metricsKey]any
+	computedLoggingConfig  map[loggingKey][]LoggingConfig
 	mu                     sync.Mutex
 }
 
@@ -83,6 +87,13 @@ type telemetryKey struct {
 	Namespace NamespacedName
 	// Workload stores the Telemetry in the root namespace, if any
 	Workload NamespacedName
+}
+
+// loggingKey defines a key into the computedLoggingConfig cache.
+type loggingKey struct {
+	telemetryKey
+	Class    networking.ListenerClass
+	Protocol networking.ListenerProtocol
 }
 
 // metricsKey defines a key into the computedMetricsFilters cache.
@@ -98,7 +109,8 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
-		computedMetricsFilters: map[metricsKey]interface{}{},
+		computedMetricsFilters: map[metricsKey]any{},
+		computedLoggingConfig:  map[loggingKey][]LoggingConfig{},
 	}
 
 	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
@@ -161,11 +173,24 @@ type tagOverride struct {
 type computedTelemetries struct {
 	telemetryKey
 	Metrics []*tpb.Metrics
-	Logging []*tpb.AccessLogging
+	Logging []*computedAccessLogging
 	Tracing []*tpb.Tracing
 }
 
+// computedAccessLogging contains the various AccessLogging configurations in scope for a given proxy,
+// include combined configurations for one of the following levels: 1. the root namespace level
+// 2. namespace level 3. workload level combined.
+type computedAccessLogging struct {
+	telemetryKey
+	Logging []*tpb.AccessLogging
+}
+
 type TracingConfig struct {
+	ServerSpec TracingSpec
+	ClientSpec TracingSpec
+}
+
+type TracingSpec struct {
 	Provider                     *meshconfig.MeshConfig_ExtensionProvider
 	Disabled                     bool
 	RandomSamplingPercentage     float64
@@ -174,28 +199,72 @@ type TracingConfig struct {
 }
 
 type LoggingConfig struct {
-	Providers []*meshconfig.MeshConfig_ExtensionProvider
+	AccessLog *accesslog.AccessLog
+	Provider  *meshconfig.MeshConfig_ExtensionProvider
 	Filter    *tpb.AccessLogging_Filter
 }
 
-// AccessLogging returns the logging configuration for a given proxy. If nil is returned, access logs
-// are not configured via Telemetry and should use fallback mechanisms. If a non-nil but empty configuration
-// is passed, access logging is explicitly disabled.
-func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
+func workloadMode(class networking.ListenerClass) tpb.WorkloadMode {
+	switch class {
+	case networking.ListenerClassGateway:
+		return tpb.WorkloadMode_CLIENT
+	case networking.ListenerClassSidecarInbound:
+		return tpb.WorkloadMode_SERVER
+	case networking.ListenerClassSidecarOutbound:
+		return tpb.WorkloadMode_CLIENT
+	case networking.ListenerClassUndefined:
+		// this should not happen, just in case
+		return tpb.WorkloadMode_CLIENT
+	}
+
+	return tpb.WorkloadMode_CLIENT
+}
+
+// AccessLogging returns the logging configuration for a given proxy and listener class.
+// If nil is returned, access logs are not configured via Telemetry and should use fallback mechanisms.
+// If a non-nil but empty configuration is passed, access logging is explicitly disabled.
+func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class networking.ListenerClass) []LoggingConfig {
 	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
+		// No Telemetry API configured, fall back to legacy mesh config setting
 		return nil
 	}
-	cfg := LoggingConfig{}
-	providers, f := mergeLogs(ct.Logging, t.meshConfig)
-	cfg.Filter = f
-	for _, p := range providers.SortedList() {
-		fp := t.fetchProvider(p)
-		if fp != nil {
-			cfg.Providers = append(cfg.Providers, fp)
-		}
+
+	key := loggingKey{
+		telemetryKey: ct.telemetryKey,
+		Class:        class,
 	}
-	return &cfg
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	precomputed, ok := t.computedLoggingConfig[key]
+	if ok {
+		return precomputed
+	}
+
+	providers := mergeLogs(ct.Logging, t.meshConfig, workloadMode(class))
+	cfgs := make([]LoggingConfig, 0, len(providers))
+	for p, f := range providers {
+		fp := t.fetchProvider(p)
+		if fp == nil {
+			log.Debugf("fail to fetch provider %s", p)
+			continue
+		}
+		cfg := LoggingConfig{
+			Provider: fp,
+			Filter:   f,
+		}
+
+		al := telemetryAccessLog(push, fp)
+		if al == nil {
+			// stackdriver will be handled in HTTPFilters/TCPFilters
+			continue
+		}
+		cfg.AccessLog = al
+		cfgs = append(cfgs, cfg)
+	}
+
+	t.computedLoggingConfig[key] = cfgs
+	return cfgs
 }
 
 // Tracing returns the logging tracing for a given proxy. If nil is returned, tracing
@@ -205,67 +274,83 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	ct := t.applicableTelemetries(proxy)
 
 	providerNames := t.meshConfig.GetDefaultProviders().GetTracing()
-	for _, m := range ct.Tracing {
-		currentNames := getProviderNames(m.Providers)
-		// If we set providers are current level, use that. Otherwise, keep parent providers
-		if len(currentNames) > 0 {
-			providerNames = currentNames
-		}
-	}
-	if len(providerNames) == 0 {
-		// No providers set at all, use fallback
+	hasDefaultProvider := len(providerNames) > 0
+
+	if len(ct.Tracing) == 0 && !hasDefaultProvider {
 		return nil
 	}
-	if len(providerNames) > 1 {
-		// User can set multiple, but we don't actually support it, so we will pick the first one
-		log.Debugf("invalid tracing configure; only one provider supported: %v", providerNames)
-	}
-	supportedProvider := providerNames[0]
 
-	cfg := TracingConfig{
-		Provider:                     t.fetchProvider(supportedProvider),
-		UseRequestIDForTraceSampling: true,
+	clientSpec := TracingSpec{UseRequestIDForTraceSampling: true}
+	serverSpec := TracingSpec{UseRequestIDForTraceSampling: true}
+
+	if hasDefaultProvider {
+		// todo: what do we want to do with more than one default provider?
+		// for now, use only the first provider.
+		fetched := t.fetchProvider(providerNames[0])
+		clientSpec.Provider = fetched
+		serverSpec.Provider = fetched
 	}
-	if cfg.Provider == nil {
-		cfg.Disabled = true
-		return &cfg
-	}
+
 	for _, m := range ct.Tracing {
 		names := getProviderNames(m.Providers)
 
-		// We need to figure out if the tracing config at this level is relevant. For example, if we selected
-		// provider X but this config applies to provider Y, we should ignore it.
-		includeConfig := false
-		// If there is no provider set it applies to the default.
-		if len(names) == 0 {
-			includeConfig = true
-		}
-		// Otherwise, make sure one of the configured providers is our selected provider.
-		for _, n := range names {
-			if n == supportedProvider {
-				includeConfig = true
-				break
+		specs := []*TracingSpec{&clientSpec, &serverSpec}
+		if m.Match != nil {
+			switch m.Match.Mode {
+			case tpb.WorkloadMode_CLIENT:
+				specs = []*TracingSpec{&clientSpec}
+			case tpb.WorkloadMode_SERVER:
+				specs = []*TracingSpec{&serverSpec}
 			}
 		}
-		if !includeConfig {
-			break
+
+		if len(names) > 0 {
+			// NOTE: we only support a single provider per mode
+			// so, choosing the first provider returned in the list
+			// is the "safest"
+			fetched := t.fetchProvider(names[0])
+			for _, spec := range specs {
+				spec.Provider = fetched
+			}
 		}
 
 		// Now merge in any overrides
 		if m.DisableSpanReporting != nil {
-			cfg.Disabled = m.DisableSpanReporting.GetValue()
+			for _, spec := range specs {
+				spec.Disabled = m.DisableSpanReporting.GetValue()
+			}
 		}
 		// TODO: metrics overrides do a deep merge, but here we do a shallow merge.
 		// We should consider if we want to reconcile the two.
 		if m.CustomTags != nil {
-			cfg.CustomTags = m.CustomTags
+			for _, spec := range specs {
+				spec.CustomTags = m.CustomTags
+			}
 		}
 		if m.RandomSamplingPercentage != nil {
-			cfg.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+			for _, spec := range specs {
+				spec.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+			}
 		}
 		if m.UseRequestIdForTraceSampling != nil {
-			cfg.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+			for _, spec := range specs {
+				spec.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+			}
 		}
+	}
+
+	// If no provider is configured (and retrieved) for the tracing specs,
+	// then we will disable the configuration.
+	if clientSpec.Provider == nil {
+		clientSpec.Disabled = true
+	}
+	if serverSpec.Provider == nil {
+		serverSpec.Disabled = true
+	}
+
+	cfg := TracingConfig{
+		ClientSpec: clientSpec,
+		ServerSpec: serverSpec,
 	}
 	return &cfg
 }
@@ -293,10 +378,9 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	}
 
 	namespace := proxy.ConfigNamespace
-	workload := labels.Collection{proxy.Metadata.Labels}
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
-	ls := []*tpb.AccessLogging{}
+	ls := []*computedAccessLogging{}
 	ts := []*tpb.Tracing{}
 	key := telemetryKey{}
 	if t.RootNamespace != "" {
@@ -304,7 +388,12 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, telemetry.Spec.GetAccessLogging()...)
+			ls = append(ls, &computedAccessLogging{
+				telemetryKey: telemetryKey{
+					Root: key.Root,
+				},
+				Logging: telemetry.Spec.GetAccessLogging(),
+			})
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -314,7 +403,12 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, telemetry.Spec.GetAccessLogging()...)
+			ls = append(ls, &computedAccessLogging{
+				telemetryKey: telemetryKey{
+					Namespace: key.Namespace,
+				},
+				Logging: telemetry.Spec.GetAccessLogging(),
+			})
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -325,10 +419,15 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 			continue
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if workload.IsSupersetOf(selector) {
+		if selector.SubsetOf(proxy.Metadata.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
-			ls = append(ls, spec.GetAccessLogging()...)
+			ls = append(ls, &computedAccessLogging{
+				telemetryKey: telemetryKey{
+					Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
+				},
+				Logging: telemetry.Spec.GetAccessLogging(),
+			})
 			ts = append(ts, spec.GetTracing()...)
 			break
 		}
@@ -346,7 +445,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 // set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
 // extension providers in the mesh config. Where possible, the result is cached.
 // Currently, this includes metrics and access logging, as some providers are implemented in filters.
-func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
+func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) any {
 	if t == nil {
 		return nil
 	}
@@ -369,11 +468,14 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)
 	// Additionally, fetch relevant access logging configurations
-	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
+	tml := mergeLogs(c.Logging, t.meshConfig, workloadMode(class))
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	allKeys := sets.New(tml.UnsortedList()...)
+	allKeys := sets.New()
+	for k := range tml {
+		allKeys.Insert(k)
+	}
 	for k := range tmm {
 		allKeys.Insert(k)
 	}
@@ -386,17 +488,18 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		}
 		_, logging := tml[k]
 		_, metrics := tmm[k]
+
 		cfg := telemetryFilterConfig{
 			Provider:      p,
 			metricsConfig: tmm[k],
 			AccessLogging: logging,
 			Metrics:       metrics,
-			LogsFilter:    logsFilter,
+			LogsFilter:    tml[p.Name],
 		}
 		m = append(m, cfg)
 	}
 
-	var res interface{}
+	var res any
 	// Finally, compute the actual filters based on the protoc
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
@@ -411,54 +514,79 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 }
 
 // mergeLogs returns the set of providers for the given logging configuration.
-// This currently is just the names of providers as there is no access logging configuration, but
-// in the future it will likely be extended
-func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter) {
-	providers := sets.New()
+// The provider names are mapped to any applicable access logging filter that has been applied in provider configuration.
+func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode tpb.WorkloadMode) map[string]*tpb.AccessLogging_Filter {
+	providers := map[string]*tpb.AccessLogging_Filter{}
 
 	if len(logs) == 0 {
 		for _, dp := range mesh.GetDefaultProviders().GetAccessLogging() {
 			// Insert the default provider.
-			providers.Insert(dp)
+			providers[dp] = nil
 		}
-		return providers, nil
+		return providers
 	}
-	var loggingFilter *tpb.AccessLogging_Filter
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
+	filters := map[string]*tpb.AccessLogging_Filter{}
 	for _, m := range logs {
-		names := getProviderNames(m.Providers)
-		if len(names) > 0 {
-			providerNames = names
+		names := sets.New()
+		for _, p := range m.Logging {
+			subProviders := getProviderNames(p.Providers)
+			names.InsertAll(subProviders...)
+
+			for _, prov := range subProviders {
+				filters[prov] = p.Filter
+			}
 		}
 
-		if m.Filter != nil {
-			loggingFilter = m.Filter
+		if len(names) > 0 {
+			providerNames = names.UnsortedList()
 		}
 	}
 	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
-	for _, m := range logs {
-		providerNames := getProviderNames(m.Providers)
-		if len(providerNames) == 0 {
-			providerNames = parentProviders
-		}
-		parentProviders = providerNames
-		for _, provider := range providerNames {
-			if !inScopeProviders.Contains(provider) {
-				// We don't care about this, remove it
-				// This occurs when a top level provider is later disabled by a lower level
-				continue
+	for _, l := range logs {
+		for _, m := range l.Logging {
+			providerNames := getProviderNames(m.Providers)
+			if len(providerNames) == 0 {
+				providerNames = parentProviders
 			}
-			if m.GetDisabled().GetValue() {
-				providers.Delete(provider)
-				continue
+			parentProviders = providerNames
+			for _, provider := range providerNames {
+				if !inScopeProviders.Contains(provider) {
+					// We don't care about this, remove it
+					// This occurs when a top level provider is later disabled by a lower level
+					continue
+				}
+
+				if !matchWorkloadMode(m.Match, mode) {
+					continue
+				}
+
+				// see UT: server - multi filters disabled
+				if m.GetDisabled().GetValue() {
+					delete(providers, provider)
+					continue
+				}
+
+				providers[provider] = filters[provider]
 			}
-			providers.Insert(provider)
 		}
 	}
 
-	return providers, loggingFilter
+	return providers
+}
+
+func matchWorkloadMode(selector *tpb.AccessLogging_LogSelector, mode tpb.WorkloadMode) bool {
+	if selector == nil {
+		return true
+	}
+
+	if selector.Mode == tpb.WorkloadMode_CLIENT_AND_SERVER {
+		return true
+	}
+
+	return selector.Mode == mode
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
@@ -681,11 +809,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
-const (
-	statsFilterName       = "istio.stats"
-	stackdriverFilterName = "istio.stackdriver"
-)
-
 func statsRootIDForClass(class networking.ListenerClass) string {
 	switch class {
 	case networking.ListenerClassSidecarInbound:
@@ -718,8 +841,8 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       statsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				Name:       xds.StatsFilterName,
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -736,8 +859,8 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 
 			f := &hcm.HttpFilter{
-				Name:       stackdriverFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				Name:       xds.StackdriverFilterName,
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		default:
@@ -767,8 +890,8 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       statsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				Name:       xds.StatsFilterName,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -785,8 +908,8 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 
 			f := &listener.Filter{
-				Name:       stackdriverFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: networking.MessageToAny(wasmConfig)},
+				Name:       xds.StackdriverFilterName,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
 			}
 			res = append(res, f)
 		default:
@@ -897,7 +1020,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	// to mimic MarshalProtoNames() with configured JSON Encoder.
 	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
 
-	return networking.MessageToAny(pb)
+	return protoconv.MessageToAny(pb)
 }
 
 var metricToPrometheusMetric = map[string]string{
@@ -939,7 +1062,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 	}
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {

@@ -15,6 +15,10 @@
     "containerSecurityContext": {
       "type": ["object", "null"]
     },
+    "kind":{
+      "type": "string",
+      "enum": ["Deployment", "DaemonSet"]
+    },
     "annotations": {
       "additionalProperties": {
         "type": [
@@ -173,6 +177,9 @@
       }
     },
     "tolerations": {
+      "type": "array"
+    },
+    "topologySpreadConstraints": {
       "type": "array"
     },
     "networkGateway": {

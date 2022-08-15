@@ -27,7 +27,10 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -80,30 +83,19 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildListenerEnv(services)
-			env.PushContext.InitContext(env, nil, nil)
-			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
+			m := mesh.DefaultMeshConfig()
+			m.InboundClusterStatName = tt.statPattern
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:   services,
+				MeshConfig: m,
+			})
 
-			instance := &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname:       "v0.default.example.org",
-					DefaultAddress: "9.9.9.9",
-					CreationTime:   tnow,
-					Attributes: model.ServiceAttributes{
-						Namespace: "not-default",
-					},
-				},
-				ServicePort: &model.Port{
-					Port: 9999,
-					Name: "http",
-				},
-				Endpoint: &model.IstioEndpoint{
-					EndpointPort: 8888,
-				},
+			fcc := inboundChainConfig{
+				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "v0.default.example.org"},
+				clusterName:       "inbound|8888||",
 			}
 
-			listenerFilters := buildInboundNetworkFilters(env.PushContext, &model.Proxy{Metadata: &model.NodeMetadata{}},
-				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -142,33 +134,234 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildListenerEnv(services)
-			env.PushContext.InitContext(env, nil, nil)
+			cg := NewConfigGenTest(t, TestOptions{Services: services})
 
-			instance := &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname:       "v0.default.example.org",
-					DefaultAddress: "9.9.9.9",
-					CreationTime:   tnow,
-					Attributes: model.ServiceAttributes{
-						Namespace: "not-default",
-					},
-				},
-				ServicePort: &model.Port{
-					Port: 9999,
-					Name: "http",
-				},
-				Endpoint: &model.IstioEndpoint{
-					EndpointPort: 8888,
-				},
-			}
+			fcc := inboundChainConfig{}
 			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
-			listenerFilters := buildInboundNetworkFilters(env.PushContext, node,
-				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listenerFilters := NewListenerBuilder(cg.SetupProxy(node), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if !reflect.DeepEqual(tcp.IdleTimeout, tt.expected) {
 				t.Fatalf("Unexpected IdleTimeout, Expecting %s, Got %s", tt.expected, tcp.IdleTimeout)
+			}
+		})
+	}
+}
+
+func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
+	type tunnelingConfig struct {
+		hostname string
+		usePost  bool
+	}
+
+	ns := "not-default"
+	tunnelingEnabled := &networking.DestinationRule{
+		Host: "tunnel-proxy.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tunnel: &networking.TrafficPolicy_TunnelSettings{
+				Protocol:   "CONNECT",
+				TargetHost: "example.com",
+				TargetPort: 8443,
+			},
+		},
+	}
+	tunnelingEnabledWithoutProtocol := &networking.DestinationRule{
+		Host: "tunnel-proxy.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tunnel: &networking.TrafficPolicy_TunnelSettings{
+				TargetHost: "example.com",
+				TargetPort: 8443,
+			},
+		},
+	}
+	tunnelingEnabledForSubset := &networking.DestinationRule{
+		Host: "tunnel-proxy.com",
+		Subsets: []*networking.Subset{
+			{
+				Name: "example-com-8443",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tunnel: &networking.TrafficPolicy_TunnelSettings{
+						Protocol:   "POST",
+						TargetHost: "example.com",
+						TargetPort: 8443,
+					},
+				},
+			},
+		},
+	}
+	weightedRouteDestinations := []*networking.RouteDestination{
+		{
+			Destination: &networking.Destination{
+				Host:   "tunnel-proxy.com",
+				Port:   &networking.PortSelector{Number: 3128},
+				Subset: "v1",
+			},
+			Weight: 25,
+		},
+		{
+			Destination: &networking.Destination{
+				Host:   "tunnel-proxy.com",
+				Port:   &networking.PortSelector{Number: 3128},
+				Subset: "v2",
+			},
+			Weight: 75,
+		},
+	}
+	tunnelProxyDestination := []*networking.RouteDestination{
+		{
+			Destination: &networking.Destination{
+				Host: "tunnel-proxy.com",
+				Port: &networking.PortSelector{Number: 3128},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name                    string
+		routeDestinations       []*networking.RouteDestination
+		destinationRule         *networking.DestinationRule
+		expectedTunnelingConfig *tunnelingConfig
+	}{
+		{
+			name: "tunneling_config should not be applied when destination rule and listener subsets do not match",
+			routeDestinations: []*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host:   "tunnel-proxy.com",
+						Port:   &networking.PortSelector{Number: 3128},
+						Subset: "random-subset",
+					},
+				},
+			},
+			destinationRule:         tunnelingEnabledForSubset,
+			expectedTunnelingConfig: nil,
+		},
+		{
+			name:              "tunneling_config should be applied when destination rule has specified tunnel settings",
+			routeDestinations: tunnelProxyDestination,
+			destinationRule:   tunnelingEnabled,
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "example.com:8443",
+				usePost:  false,
+			},
+		},
+		{
+			name:              "tunneling_config should be applied with disabled usePost property when tunneling settings does not specify protocol",
+			routeDestinations: tunnelProxyDestination,
+			destinationRule:   tunnelingEnabledWithoutProtocol,
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "example.com:8443",
+				usePost:  false,
+			},
+		},
+		{
+			name:              "tunneling_config should be applied when destination rule has specified tunnel settings and the target host is an IPv4 address",
+			routeDestinations: tunnelProxyDestination,
+			destinationRule: &networking.DestinationRule{
+				Host: "tunnel-proxy.com",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tunnel: &networking.TrafficPolicy_TunnelSettings{
+						Protocol:   "CONNECT",
+						TargetHost: "192.168.1.2",
+						TargetPort: 8443,
+					},
+				},
+			},
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "192.168.1.2:8443",
+				usePost:  false,
+			},
+		},
+		{
+			name:              "tunneling_config should be applied when destination rule has specified tunnel settings and the target host is an IPv6 address",
+			routeDestinations: tunnelProxyDestination,
+			destinationRule: &networking.DestinationRule{
+				Host: "tunnel-proxy.com",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tunnel: &networking.TrafficPolicy_TunnelSettings{
+						Protocol:   "CONNECT",
+						TargetHost: "2001:db8:1234::",
+						TargetPort: 8443,
+					},
+				},
+			},
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "[2001:db8:1234::]:8443",
+				usePost:  false,
+			},
+		},
+		{
+			name: "tunneling_config should be applied when destination rule has specified tunnel settings for a subset matching the destination route subset",
+			routeDestinations: []*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host:   "tunnel-proxy.com",
+						Port:   &networking.PortSelector{Number: 3128},
+						Subset: "example-com-8443",
+					},
+				},
+			},
+			destinationRule: tunnelingEnabledForSubset,
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "example.com:8443",
+				usePost:  true,
+			},
+		},
+		{
+			name: "tunneling_config should be applied when multiple destination routes with weights are specified" +
+				" and destination rule with tunnel settings has no subset",
+			routeDestinations: weightedRouteDestinations,
+			destinationRule:   tunnelingEnabled,
+			expectedTunnelingConfig: &tunnelingConfig{
+				hostname: "example.com:8443",
+				usePost:  false,
+			},
+		},
+		{
+			name: "tunneling_config should not be applied when multiple destination routes with weights are specified " +
+				"and destination rule has tunnel settings for a subset",
+			routeDestinations:       weightedRouteDestinations,
+			destinationRule:         tunnelingEnabledForSubset,
+			expectedTunnelingConfig: nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			destinationRuleConfig := config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "tunnel-config",
+					Namespace:        ns,
+				},
+				Spec: tt.destinationRule,
+			}
+			cg := NewConfigGenTest(t, TestOptions{
+				ConfigPointers: []*config.Config{&destinationRuleConfig},
+				Services: []*model.Service{
+					buildServiceWithPort("example.com", 443, protocol.TLS, tnow),
+					buildServiceWithPort("tunnel-proxy.com", 3128, protocol.HTTP, tnow),
+				},
+			})
+			proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: ns})
+
+			filters := buildOutboundNetworkFilters(proxy, tt.routeDestinations, cg.PushContext(),
+				&model.Port{Port: 443}, config.Meta{Name: "routing-config-for-example-com", Namespace: ns})
+
+			tcpProxy := xdstest.ExtractTCPProxy(t, &listener.FilterChain{Filters: filters})
+			if tt.expectedTunnelingConfig == nil {
+				if tcpProxy.TunnelingConfig != nil {
+					t.Fatalf("Unexpected tunneling config in TcpProxy filter: %s", filters[0].String())
+				}
+			} else {
+				if tcpProxy.TunnelingConfig.GetHostname() != tt.expectedTunnelingConfig.hostname {
+					t.Fatalf("Expected to get tunneling_config.hostname: %s, but got: %s",
+						tt.expectedTunnelingConfig.hostname, tcpProxy.TunnelingConfig.GetHostname())
+				}
+				if tcpProxy.TunnelingConfig.GetUsePost() != tt.expectedTunnelingConfig.usePost {
+					t.Fatalf("Expected to get tunneling_config.use_post: %t, but got: %t",
+						tt.expectedTunnelingConfig.usePost, tcpProxy.TunnelingConfig.GetUsePost())
+				}
 			}
 		})
 	}
@@ -269,15 +462,13 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			env := buildListenerEnv(services)
-			env.PushContext.InitContext(env, nil, nil)
-			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern
+			m := mesh.DefaultMeshConfig()
+			m.OutboundClusterStatName = tt.statPattern
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: m, Services: services})
 
-			proxy := getProxy()
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-
-			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
+			listeners := buildOutboundNetworkFilters(
+				cg.SetupProxy(nil), tt.routes, cg.PushContext(),
+				&model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -393,12 +584,12 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	destinationRules := []*config.Config{&destinationRule, &simpleDestinationRule, &subsetdestinationRule, &subsetDifferentdestinationRule}
 
-	env := buildListenerEnvWithAdditionalConfig(services, nil, destinationRules)
-	env.PushContext.InitContext(env, nil, nil)
+	cg := NewConfigGenTest(t, TestOptions{
+		ConfigPointers: destinationRules,
+		Services:       services,
+	})
 
-	proxy := getProxy()
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
 	cases := []struct {
 		name        string
 		routes      []*networking.RouteDestination
@@ -471,7 +662,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, tt.configMeta)
+			listeners := buildOutboundNetworkFilters(proxy, tt.routes, cg.PushContext(), &model.Port{Port: 9999}, tt.configMeta)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			hasSourceIP := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil

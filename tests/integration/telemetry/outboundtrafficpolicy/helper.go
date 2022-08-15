@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -154,10 +153,12 @@ type TestCase struct {
 // prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
-	Query          prometheus.Query
-	StatusCode     int
-	Protocol       string
-	RequestHeaders map[string]string
+	Query           prometheus.Query
+	StatusCode      int
+	Metric          string
+	PromQueryFormat string
+	Protocol        string
+	RequestHeaders  map[string]string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -254,7 +255,8 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 			for _, tc := range cases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					client.CallOrFail(t, echo.CallOptions{
-						To: to,
+						To:    to,
+						Count: 1,
 						Port: echo.Port{
 							Name: tc.PortName,
 						},
@@ -262,14 +264,14 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 							HTTP2:   tc.HTTP2,
 							Headers: headers.New().WithHost(tc.Host).Build(),
 						},
-						Check: func(rs echoClient.Responses, err error) error {
+						Check: func(result echo.CallResult, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition
 							if err != nil && tc.Expected.StatusCode > 0 {
 								return fmt.Errorf("request failed: %v", err)
 							}
 							codeStr := strconv.Itoa(tc.Expected.StatusCode)
-							for i, r := range rs {
+							for i, r := range result.Responses {
 								if codeStr != r.Code {
 									return fmt.Errorf("response[%d] received status code %s, expected %d", i, r.Code, tc.Expected.StatusCode)
 								}

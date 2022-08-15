@@ -32,10 +32,14 @@ metadata:
     service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
     service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
   annotations: {
-    {{- if eq (len $containers) 1 }}
+    {{- if ge (len $containers) 1 }}
+    {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
     kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
+    {{- end }}
+    {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-container`) }}
     kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
-    {{ end }}
+    {{- end }}
+    {{- end }}
 {{- if .Values.istio_cni.enabled }}
     {{- if not .Values.istio_cni.chained }}
     k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}',
@@ -52,6 +56,7 @@ metadata:
     traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}",
     {{- end }}
     {{ with index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}traffic.sidecar.istio.io/kubevirtInterfaces: "{{.}}",{{ end }}
+    {{ with index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}traffic.sidecar.istio.io/excludeInterfaces: "{{.}}",{{ end }}
 {{- end }}
   }
 spec:
@@ -101,6 +106,14 @@ spec:
     {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces`) -}}
     - "-k"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
+    {{ end -}}
+     {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces`) -}}
+    - "-c"
+    - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}"
+    {{ end -}}
+    - "--log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}"
+    {{ if .Values.global.logAsJson -}}
+    - "--log_as_json"
     {{ end -}}
     {{ if .Values.istio_cni.enabled -}}
     - "--run-validation"
@@ -358,6 +371,8 @@ spec:
     volumeMounts:
     - name: workload-socket
       mountPath: /var/run/secrets/workload-spiffe-uds
+    - name: credential-socket
+      mountPath: /var/run/secrets/credential-uds
     {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
     - name: gke-workload-certificate
       mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -405,6 +420,8 @@ spec:
   volumes:
   - emptyDir:
     name: workload-socket
+  - emptyDir:
+    name: credential-socket
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:

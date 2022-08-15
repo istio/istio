@@ -18,23 +18,17 @@
 package cacustomroot
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"testing"
-	"time"
 
-	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -96,11 +90,7 @@ spec:
 func TestTrustDomainValidation(t *testing.T) {
 	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
 		func(ctx framework.TestContext) {
-			if ctx.AllClusters().IsMulticluster() {
-				ctx.Skip("https://github.com/istio/istio/issues/37307")
-			}
-
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
 			ctx.ConfigIstio().YAML(testNS.Name(), fmt.Sprintf(policy, testNS.Name())).ApplyOrFail(ctx)
 
@@ -123,9 +113,9 @@ func TestTrustDomainValidation(t *testing.T) {
 					// naked: only test app without sidecar, send requests from trust domain aliases
 					// client: app with sidecar, send request from cluster.local
 					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
-					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					naked := match.Cluster(cluster).FirstOrFail(t, apps.Naked)
-					server := match.Cluster(cluster).FirstOrFail(t, apps.Server)
+					server := match.Cluster(cluster).FirstOrFail(t, server)
 					verify := func(ctx framework.TestContext, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
 						ctx.Helper()
 						want := "allow"
@@ -136,7 +126,8 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								To: apps.Server,
+								To:    server,
+								Count: 1,
 								Port: echo.Port{
 									Name: port,
 								},
@@ -146,31 +137,23 @@ func TestTrustDomainValidation(t *testing.T) {
 									Cert: trustDomains[td].cert,
 									Key:  trustDomains[td].key,
 								},
-								Retry: echo.Retry{
-									NoRetry: true,
-								},
 							}
-							retry.UntilSuccessOrFail(t, func() error {
-								var resp echoClient.Responses
-								var err error
-								if port == passThrough {
-									// Manually make the request for pass through port.
-									fromWorkload := from.WorkloadsOrFail(t)[0]
-									toWorkload := server.WorkloadsOrFail(t)[0]
-									resp, err = fromWorkload.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-										Url:   fmt.Sprintf("tcp://%s", net.JoinHostPort(toWorkload.Address(), "9000")),
-										Count: 1,
-										Cert:  trustDomains[td].cert,
-										Key:   trustDomains[td].key,
-									})
-								} else {
-									resp, err = from.Call(opt)
+							if port == passThrough {
+								// Manually make the request for pass through port.
+								opt = echo.CallOptions{
+									ToWorkload: server,
+									Port:       echo.Port{Name: tcpWL},
+									TLS: echo.TLS{
+										Cert: trustDomains[td].cert,
+										Key:  trustDomains[td].key,
+									},
+									Check: check.OK(),
 								}
-								if allow {
-									return check.OK().Check(resp, err)
-								}
-								return check.ErrorContains("tls: unknown certificate").Check(resp, err)
-							}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second), retry.Converge(5))
+							}
+							if !allow {
+								opt.Check = check.ErrorContains("tls: unknown certificate")
+							}
+							from.CallOrFail(t, opt)
 						})
 					}
 

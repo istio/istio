@@ -33,11 +33,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking/util"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -48,26 +47,29 @@ type SecretResource struct {
 var _ model.XdsCacheEntry = SecretResource{}
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []config.GroupVersionKind {
+func (sr SecretResource) DependentTypes() []kind.Kind {
 	return nil
 }
 
-func (sr SecretResource) DependentConfigs() []model.ConfigKey {
-	return relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})
+func (sr SecretResource) DependentConfigs() []model.ConfigHash {
+	configs := []model.ConfigHash{}
+	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
+		configs = append(configs, config.HashCode())
+	}
+	return configs
 }
 
 func (sr SecretResource) Cacheable() bool {
 	return true
 }
 
-func sdsNeedsPush(proxy *model.Proxy, updates model.XdsUpdates) bool {
-	if proxy.Type != model.Router {
-		return false
-	}
+func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
-	if len(model.ConfigNamesOfKind(updates, gvk.Secret)) > 0 {
+	if model.ConfigsHaveKind(updates, kind.Secret) ||
+		model.ConfigsHaveKind(updates, kind.ReferencePolicy) ||
+		model.ConfigsHaveKind(updates, kind.ReferenceGrant) {
 		return true
 	}
 	return false
@@ -94,12 +96,12 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	if req == nil || !sdsNeedsPush(proxy, req.ConfigsUpdated) {
+	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
 
 	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
@@ -125,7 +127,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
-			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
@@ -146,7 +148,10 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			results = append(results, res)
 		}
 	}
-	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+	return results, model.XdsLogDetails{
+		Incremental:    updatedSecrets != nil,
+		AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated),
+	}, nil
 }
 
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
@@ -290,7 +295,7 @@ func atMostNJoin(data []string, limit int) string {
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&envoytls.Secret{
+	res := protoconv.MessageToAny(&envoytls.Secret{
 		Name: name,
 		Type: &envoytls.Secret_ValidationContext{
 			ValidationContext: &envoytls.CertificateValidationContext{
@@ -314,7 +319,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 	switch pkpConf.GetProvider().(type) {
 	case *mesh.PrivateKeyProvider_Cryptomb:
 		crypto := pkpConf.GetCryptomb()
-		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+		msg := protoconv.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 			PrivateKey: &core.DataSource{
 				Specifier: &core.DataSource_InlineBytes{
@@ -322,7 +327,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 				},
 			},
 		})
-		res = util.MessageToAny(&envoytls.Secret{
+		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
 				TlsCertificate: &envoytls.TlsCertificate{
@@ -341,7 +346,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 			},
 		})
 	default:
-		res = util.MessageToAny(&envoytls.Secret{
+		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
 				TlsCertificate: &envoytls.TlsCertificate{
@@ -404,7 +409,8 @@ type SecretGen struct {
 var _ model.XdsResourceGenerator = &SecretGen{}
 
 func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID,
-	meshConfig *mesh.MeshConfig) *SecretGen {
+	meshConfig *mesh.MeshConfig,
+) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{

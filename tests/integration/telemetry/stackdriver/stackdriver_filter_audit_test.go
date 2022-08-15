@@ -96,7 +96,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 							errs = append(errs, errAuditAll.Error())
 						}
 
-						entries, err := SDInst.ListLogEntries(stackdriver.ServerAuditLog, EchoNsInst.Name())
+						entries, err := SDInst.ListLogEntries(stackdriver.ServerAuditLog, EchoNsInst.Name(), "")
 						if err != nil {
 							errs = append(errs, err.Error())
 						} else {
@@ -139,7 +139,6 @@ func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 				Headers: headers,
 				Path:    path,
 			},
-			Count: telemetry.RequestCountMultipler * Srv.WorkloadsOrFail(t).Len(),
 			Retry: echo.Retry{
 				NoRetry: true,
 			},

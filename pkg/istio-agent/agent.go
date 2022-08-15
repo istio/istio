@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,14 +28,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
@@ -46,6 +50,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -86,10 +91,15 @@ const (
 )
 
 const (
-	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
+	// MetadataClientCertKey is ISTIO_META env var used for client key.
+	MetadataClientCertKey = "ISTIO_META_TLS_CLIENT_KEY"
+	// MetadataClientCertChain is ISTIO_META env var used for client cert chain.
 	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
-	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
+	// MetadataClientRootCert is ISTIO_META env var used for client root cert.
+	MetadataClientRootCert = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
 )
+
+var _ ready.Prober = &Agent{}
 
 // Agent contains the configuration of the agent, based on the injected
 // environment:
@@ -136,6 +146,8 @@ type AgentOptions struct {
 	DNSCapture bool
 	// DNSAddr is the DNS capture address
 	DNSAddr string
+	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
+	DNSForwardParallel bool
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -196,7 +208,7 @@ type AgentOptions struct {
 
 	IstiodSAN string
 
-	WASMInsecureRegistries []string
+	WASMOptions wasm.Options
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -257,8 +269,11 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	})
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+func (a *Agent) initializeEnvoyAgent(ctx context.Context, credentialSocketExists bool) error {
 	node, err := a.generateNodeMetadata()
+	if credentialSocketExists {
+		node.RawMetadata[security.CredentialMetaDataName] = "true"
+	}
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
@@ -275,7 +290,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node: node,
-		}).CreateFileForEpoch(0)
+		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
 		}
@@ -412,15 +427,21 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if socketExists {
-		log.Info("SDS socket found. Istio SDS Server won't be started")
+		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
 	} else {
-		log.Info("SDS socket not found. Starting Istio SDS Server")
+		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {
 			return nil, fmt.Errorf("failed to start SDS server: %v", err)
 		}
 	}
-
+	credentialSocketExists, err := checkSocket(ctx, security.CredentialNameSocketPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check credential SDS socket: %v", err)
+	}
+	if credentialSocketExists {
+		log.Info("Credential SDS socket found")
+	}
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start xds proxy: %v", err)
@@ -433,11 +454,10 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if a.cfg.GRPCBootstrapPath != "" {
-		if err := a.generateGRPCBootstrap(); err != nil {
+		if err := a.generateGRPCBootstrap(credentialSocketExists); err != nil {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
 	}
-
 	rootCAForXDS, err := a.FindRootCAForXDS()
 	if err != nil {
 		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
@@ -445,7 +465,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	go a.caFileWatcherHandler(ctx, rootCAForXDS)
 
 	if !a.EnvoyDisabled() {
-		err = a.initializeEnvoyAgent(ctx)
+		err = a.initializeEnvoyAgent(ctx, credentialSocketExists)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
 		}
@@ -491,23 +511,64 @@ func (a *Agent) initSdsServer() error {
 		a.secOpts.RootCertFilePath = security.WorkloadIdentityRootCertPath
 		a.secOpts.CertChainFilePath = security.WorkloadIdentityCertChainPath
 		a.secOpts.KeyFilePath = security.WorkloadIdentityKeyPath
-
-		a.secretCache, err = cache.NewSecretManagerClient(nil, a.secOpts)
-		if err != nil {
-			return fmt.Errorf("failed to start workload secret manager %v", err)
-		}
-	} else {
-		a.secretCache, err = a.newSecretManager()
-		if err != nil {
-			return fmt.Errorf("failed to start workload secret manager %v", err)
-		}
+		a.secOpts.FileMountedCerts = true
 	}
 
-	pkpConf := a.proxyConfig.GetPrivateKeyProvider()
-	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
-	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
+	a.secretCache, err = a.newSecretManager()
+	if err != nil {
+		return fmt.Errorf("failed to start workload secret manager %v", err)
+	}
+
+	if a.cfg.DisableEnvoy {
+		// For proxyless we don't need an SDS server, but still need the keys and
+		// we need them refreshed periodically.
+		//
+		// This is based on the code from newSDSService, but customized to have explicit rotation.
+		go func() {
+			st := a.secretCache
+			st.RegisterSecretHandler(func(resourceName string) {
+				// The secret handler is called when a secret should be renewed, after invalidating the cache.
+				// The handler does not call GenerateSecret - it is a side-effect of the SDS generate() method, which
+				// is called by sdsServer.OnSecretUpdate, which triggers a push and eventually calls sdsservice.Generate
+				// TODO: extract the logic to detect expiration time, and use a simpler code to rotate to files.
+				_, _ = a.getWorkloadCerts(st)
+			})
+			_, _ = a.getWorkloadCerts(st)
+		}()
+	} else {
+		pkpConf := a.proxyConfig.GetPrivateKeyProvider()
+		a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
+		a.secretCache.RegisterSecretHandler(a.sdsServer.OnSecretUpdate)
+	}
 
 	return nil
+}
+
+// getWorkloadCerts will attempt to get a cert, with infinite exponential backoff
+// It will not return until both workload cert and root cert are generated.
+//
+// TODO: evaluate replacing the STS server with a file data source, to simplify Envoy config
+func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 0
+
+	for {
+		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)
+		if err == nil {
+			break
+		}
+		log.Warnf("failed to get certificate: %v", err)
+		time.Sleep(b.NextBackOff())
+	}
+	for {
+		_, err := st.GenerateSecret(security.RootCertReqResourceName)
+		if err == nil {
+			break
+		}
+		log.Warnf("failed to get root certificate: %v", err)
+		time.Sleep(b.NextBackOff())
+	}
+	return
 }
 
 func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
@@ -520,7 +581,7 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 		select {
 		case gotEvent := <-a.caFileWatcher.Events(caFile):
 			log.Debugf("Receive file %s event %v", caFile, gotEvent)
-			if err := a.xdsProxy.InitIstiodDialOptions(a); err != nil {
+			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
 				log.Warnf("Failed to init xds proxy dial options")
 			}
 		case <-ctx.Done():
@@ -532,7 +593,8 @@ func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we don't need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
+			a.cfg.DNSForwardParallel); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
@@ -540,12 +602,20 @@ func (a *Agent) initLocalDNSServer() (err error) {
 	return nil
 }
 
-func (a *Agent) generateGRPCBootstrap() error {
+func (a *Agent) generateGRPCBootstrap(credentialSocketExists bool) error {
 	// generate metadata
 	node, err := a.generateNodeMetadata()
+	if credentialSocketExists {
+		node.RawMetadata[security.CredentialMetaDataName] = "true"
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
 	}
+
+	// GRPC bootstrap requires this. Original implementation injected this via env variable, but
+	// this interfere with envoy, we should be able to use both envoy for TCP/HTTP and proxyless.
+	node.Metadata.Generator = "grpc"
 
 	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
 		return err
@@ -563,6 +633,7 @@ func (a *Agent) generateGRPCBootstrap() error {
 	return nil
 }
 
+// Check is used in to readiness check of agent to ensure DNSServer is ready.
 func (a *Agent) Check() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
@@ -573,14 +644,34 @@ func (a *Agent) Check() (err error) {
 	return nil
 }
 
+// GetDNSTable builds DNS table used in debugging interface.
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
-	if a.localDNSServer != nil {
-		return a.localDNSServer.NameTable()
+	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
+		nt := a.localDNSServer.NameTable()
+		nt = proto.Clone(nt).(*dnsProto.NameTable)
+		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, _ []string) {
+			for host := range althosts {
+				if _, exists := nt.Table[host]; !exists {
+					addresses := make([]string, len(ipv4)+len(ipv6))
+					for _, ip := range ipv4 {
+						addresses = append(addresses, ip.String())
+					}
+					for _, ip := range ipv6 {
+						addresses = append(addresses, ip.String())
+					}
+					nt.Table[host] = &dnsProto.NameTable_NameInfo{
+						Ips:      addresses,
+						Registry: "Kubernetes",
+					}
+				}
+			}
+		})
+		return nt
 	}
 	return nil
 }
 
-func (a *Agent) Close() {
+func (a *Agent) close() {
 	if a.xdsProxy != nil {
 		a.xdsProxy.close()
 	}
@@ -771,7 +862,6 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}
-
 	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.

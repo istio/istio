@@ -18,48 +18,11 @@ package forwarder
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"time"
 
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
-	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/echo/proto"
 )
 
-type request struct {
-	URL              string
-	Header           http.Header
-	RequestID        int
-	Message          string
-	ExpectedResponse *wrappers.StringValue
-	Timeout          time.Duration
-	ServerFirst      bool
-	Method           string
-}
-
 type protocol interface {
-	makeRequest(ctx context.Context, req *request) (string, error)
+	ForwardEcho(ctx context.Context, c *Config) (*proto.ForwardEchoResponse, error)
 	Close() error
-}
-
-func newProtocol(cfg *Config) (protocol, error) {
-	switch cfg.scheme {
-	case scheme.HTTP, scheme.HTTPS:
-		return newHTTPProtocol(cfg)
-	case scheme.GRPC:
-		return newGRPCProtocol(cfg)
-	case scheme.XDS:
-		return newXDSProtocol(cfg)
-	case scheme.WebSocket:
-		return newWebsocketProtocol(cfg)
-	case scheme.DNS:
-		return &dnsProtocol{}, nil
-	case scheme.TCP:
-		return newTCPProtocol(cfg)
-	case scheme.TLS:
-		return newTLSProtocol(cfg)
-	default:
-		return nil, fmt.Errorf("unrecognized protocol %q", cfg.scheme)
-	}
 }

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,6 +31,7 @@ func TestDeploymentYAML(t *testing.T) {
 		wantFilePath  string
 		config        echo.Config
 		revVerMap     resource.RevVerMap
+		settings      func(*resource.Settings)
 		compatibility bool
 	}{
 		{
@@ -169,6 +170,47 @@ func TestDeploymentYAML(t *testing.T) {
 			},
 			compatibility: true,
 		},
+		{
+			name:         "proxyless",
+			wantFilePath: "testdata/proxyless.yaml",
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Subsets: []echo.SubsetConfig{{
+					Annotations: echo.NewAnnotations().Set(echo.SidecarInjectTemplates, "grpc-agent"),
+				}},
+				Ports: []echo.Port{
+					{
+						Name:         "grpc",
+						Protocol:     protocol.GRPC,
+						WorkloadPort: 7070,
+						ServicePort:  7070,
+					},
+				},
+			},
+		},
+		{
+			name:         "proxyless-custom-image",
+			wantFilePath: "testdata/proxyless-custom-image.yaml",
+			settings: func(s *resource.Settings) {
+				s.CustomGRPCEchoImage = "grpc/echo:cpp"
+			},
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Subsets: []echo.SubsetConfig{{
+					Annotations: echo.NewAnnotations().Set(echo.SidecarInjectTemplates, "grpc-agent"),
+				}},
+				Ports: []echo.Port{
+					{
+						Name:         "grpc",
+						Protocol:     protocol.GRPC,
+						WorkloadPort: 7070,
+						ServicePort:  7070,
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
@@ -196,11 +238,14 @@ func TestDeploymentYAML(t *testing.T) {
 					PullSecret: "testdata/secret.yaml",
 				},
 			}
+			if tc.settings != nil {
+				tc.settings(settings)
+			}
 			serviceYAML, err := GenerateService(tc.config)
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := GenerateDeployment(tc.config, settings)
+			deploymentYAML, err := GenerateDeployment(nil, tc.config, settings)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}

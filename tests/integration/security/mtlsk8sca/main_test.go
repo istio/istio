@@ -36,8 +36,6 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
-		RequireMultiPrimary().
 		Label(label.CustomSetup).
 		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
 		RequireMaxVersion(21).
@@ -55,5 +53,4 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.pilotCertProvider"] = "kubernetes"
-	cfg.DeployEastWestGW = false
 }

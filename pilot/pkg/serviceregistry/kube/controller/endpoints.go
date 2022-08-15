@@ -106,7 +106,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	return out
 }
 
-func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
+func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
 	item, exists, err := e.informer.GetIndexer().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
@@ -126,9 +126,9 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
-		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labelsList, svcPort, model.Healthy)...)
-		if features.SendUnhealthyEndpoints {
-			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labelsList, svcPort, model.UnHealthy)...)
+		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labels, svcPort, model.Healthy)...)
+		if features.SendUnhealthyEndpoints.Load() {
+			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labels, svcPort, model.UnHealthy)...)
 		}
 	}
 	return out
@@ -138,7 +138,7 @@ func (e *endpointsController) getInformer() filter.FilteredSharedIndexInformer {
 	return e.informer
 }
 
-func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
+func (e *endpointsController) onEvent(curr any, event model.Event) error {
 	ep, ok := curr.(*v1.Endpoints)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -156,7 +156,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
-func (e *endpointsController) forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint {
+func (e *endpointsController) forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint {
 	ep := endpoint.(*v1.Endpoints)
 	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
@@ -167,7 +167,7 @@ func (e *endpointsController) forgetEndpoint(endpoint interface{}) map[host.Name
 	return make(map[host.Name][]*model.IstioEndpoint)
 }
 
-func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
+func (e *endpointsController) buildIstioEndpoints(endpoint any, host host.Name) []*model.IstioEndpoint {
 	var endpoints []*model.IstioEndpoint
 	ep := endpoint.(*v1.Endpoints)
 
@@ -175,7 +175,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 
 	for _, ss := range ep.Subsets {
 		endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.Addresses, host, discoverabilityPolicy, model.Healthy)...)
-		if features.SendUnhealthyEndpoints {
+		if features.SendUnhealthyEndpoints.Load() {
 			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, model.UnHealthy)...)
 		}
 	}
@@ -183,8 +183,9 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 }
 
 func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
-	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, labelsList labels.Collection,
-	svcPort *model.Port, health model.HealthStatus) []*model.ServiceInstance {
+	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, lbls labels.Instance,
+	svcPort *model.Port, health model.HealthStatus,
+) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	for _, ea := range endpoints {
 		var podLabels labels.Instance
@@ -196,7 +197,7 @@ func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.Endp
 			podLabels = pod.Labels
 		}
 		// check that one of the input labels is a subset of the labels
-		if !labelsList.HasSubsetOf(podLabels) {
+		if !lbls.SubsetOf(podLabels) {
 			continue
 		}
 
@@ -220,7 +221,8 @@ func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.Endp
 }
 
 func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
-	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, health model.HealthStatus) []*model.IstioEndpoint {
+	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, health model.HealthStatus,
+) []*model.IstioEndpoint {
 	var istioEndpoints []*model.IstioEndpoint
 	for _, ea := range endpoints {
 		pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
@@ -248,14 +250,14 @@ func (e *endpointsController) buildIstioEndpointsWithService(name, namespace str
 	return e.buildIstioEndpoints(ep, host)
 }
 
-func (e *endpointsController) getServiceNamespacedName(ep interface{}) types.NamespacedName {
+func (e *endpointsController) getServiceNamespacedName(ep any) types.NamespacedName {
 	endpoint := ep.(*v1.Endpoints)
 	return kube.NamespacedNameForK8sObject(endpoint)
 }
 
 // endpointsEqual returns true if the two endpoints are the same in aspects Pilot cares about
 // This currently means only looking at "Ready" endpoints
-func endpointsEqual(first, second interface{}) bool {
+func endpointsEqual(first, second any) bool {
 	a := first.(*v1.Endpoints)
 	b := second.(*v1.Endpoints)
 	if len(a.Subsets) != len(b.Subsets) {

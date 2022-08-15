@@ -72,7 +72,7 @@ type Config struct {
 }
 
 // toTemplateParams creates a new template configuration for the given configuration.
-func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
+func (cfg Config) toTemplateParams() (map[string]any, error) {
 	opts := make([]option.Instance, 0)
 
 	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
@@ -115,7 +115,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
+	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
@@ -280,9 +280,9 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 	runtimeFlags := map[string]string{
 		"overload.global_downstream_max_connections":                                                           "2147483647",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"envoy.reloadable_features.require_strict_1xx_and_204_response_headers":                                "false",
 		"re2.max_program_size.error_level":                                                                     "32768",
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
+		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -435,9 +435,9 @@ func getInt64ValueOrDefault(src *wrapperspb.Int64Value, defaultVal int64) int64 
 	return val
 }
 
-type setMetaFunc func(m map[string]interface{}, key string, val string)
+type setMetaFunc func(m map[string]any, key string, val string)
 
-func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
+func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]any) {
 	metaPrefixLen := len(prefix)
 	for _, e := range envs {
 		if !shouldExtract(e, prefix) {
@@ -522,13 +522,13 @@ type MetadataOptions struct {
 // ISTIO_META_* env variables are passed thru
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
-	untypedMeta := map[string]interface{}{}
+	untypedMeta := map[string]any{}
 
-	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]any, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
 
-	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]any, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
@@ -543,7 +543,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, err
 	}
-	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
@@ -558,6 +557,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 	// Add all instance labels with lower precedence than pod labels
 	extractInstanceLabels(options.Platform, meta)
 

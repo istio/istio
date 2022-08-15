@@ -30,13 +30,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -71,7 +71,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, labels.Collection{node.Metadata.Labels})
+	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, node.Metadata.Labels)
 	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
 	for _, si := range node.ServiceInstances {
 		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
@@ -112,7 +112,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
-			Resource: util.MessageToAny(ll),
+			Resource: protoconv.MessageToAny(ll),
 		})
 	}
 	return out
@@ -121,6 +121,12 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 // nolint: unparam
 func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
 	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
+
+	// auto-mtls label is set - clients will attempt to connect using mtls, and
+	// gRPC doesn't support permissive.
+	if node.Metadata.Labels[label.SecurityTlsMode.Name] == "istio" && mode == model.MTLSPermissive {
+		mode = model.MTLSStrict
+	}
 
 	var tlsContext *tls.DownstreamTlsContext
 	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
@@ -140,7 +146,8 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
+		// replacement for permissive.
 		mode = model.MTLSDisable
 	}
 
@@ -160,7 +167,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, labels.Collection{node.Metadata.Labels})
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.Labels)
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
@@ -170,7 +177,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			fc = append(fc,
 				&hcm.HttpFilter{
 					Name:       RBACHTTPFilterNameDeny,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 				})
 		}
 		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
@@ -181,7 +188,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			fc = append(fc,
 				&hcm.HttpFilter{
 					Name:       RBACHTTPFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 				})
 		}
 	}
@@ -195,7 +202,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 		Filters: []*listener.Filter{{
 			Name: "inbound-hcm" + nameSuffix,
 			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+				TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 					RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 						// https://github.com/grpc/grpc-go/issues/4924
 						RouteConfig: &route.RouteConfiguration{
@@ -219,7 +226,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	if tlsContext != nil {
 		out.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
 	return out
@@ -229,18 +236,16 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 // See: xds/interal/httpfilter/rbac
 //
-//
 // TODO: gRPC also supports 'per route override' - not yet clear how to use it, Istio uses path expressions instead and we don't generate
 // vhosts or routes for the inbound listener.
 //
 // For gateways it would make a lot of sense to use this concept, same for moving path prefix at top level ( more scalable, easier for users)
 // This should probably be done for the v2 API.
 //
-//
-//
 // nolint: unparam
 func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
-	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
+) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
 		Policies: map[string]*rbacpb.Policy{},
@@ -289,7 +294,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						},
 					},
 					ApiListener: &listener.ApiListener{
-						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+						ApiListener: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 							HttpFilters: supportedFilters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
@@ -307,7 +312,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
-					Resource: util.MessageToAny(ll),
+					Resource: protoconv.MessageToAny(ll),
 				})
 			}
 		}

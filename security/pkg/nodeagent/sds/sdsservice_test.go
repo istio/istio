@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@ package sds
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"testing"
 
@@ -80,7 +81,7 @@ func (s *TestServer) Connect() *xds.AdsTest {
 func (s *TestServer) UpdateSecret(name string, secret *ca2.SecretItem) {
 	s.t.Helper()
 	s.store.Set(name, secret)
-	s.server.UpdateCallback(name)
+	s.server.OnSecretUpdate(name)
 }
 
 type Expectation struct {
@@ -138,6 +139,8 @@ func setupSDS(t *testing.T) *TestServer {
 
 	opts := &ca2.Options{}
 
+	// SDS uses a hardcoded UDS path relative to current dir, so switch to a new one for the test.
+	os.Chdir(t.TempDir())
 	if usefakePrivateKeyProviderConf {
 		server = NewServer(opts, st, fakePrivateKeyProviderConf)
 	} else {

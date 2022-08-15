@@ -55,22 +55,14 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "cluster-0"
-          - --port
-          - "8090"
-          - --tcp
-          - "9000"
-          - --grpc
-          - "9090"
-          - --port
-          - "8080"
-          - --port
-          - "3333"
-          - --version
-          - "v-istio"
-          - --istio-version
-          - ""
+          - --cluster=cluster-0
+          - --port=8090
+          - --tcp=9000
+          - --grpc=9090
+          - --port=8080
+          - --port=3333
+          - --version=v-istio
+          - --istio-version=
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -136,22 +128,14 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "cluster-0"
-          - --port
-          - "8090"
-          - --tcp
-          - "9000"
-          - --grpc
-          - "9090"
-          - --port
-          - "8080"
-          - --port
-          - "3333"
-          - --version
-          - "v-legacy"
-          - --istio-version
-          - ""
+          - --cluster=cluster-0
+          - --port=8090
+          - --tcp=9000
+          - --grpc=9090
+          - --port=8080
+          - --port=3333
+          - --version=v-legacy
+          - --istio-version=
           - --crt=/cert.crt
           - --key=/cert.key
         ports:

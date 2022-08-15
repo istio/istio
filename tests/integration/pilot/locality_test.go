@@ -28,7 +28,6 @@ import (
 	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
@@ -106,6 +105,7 @@ distribute:
     region: 20`
 
 func TestLocality(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		Features("traffic.locality").
@@ -210,7 +210,8 @@ func TestLocality(t *testing.T) {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					t.ConfigIstio().YAML(apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).ApplyOrFail(t)
+					t.ConfigIstio().YAML(apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).
+						ApplyOrFail(t)
 					sendTrafficOrFail(t, apps.A[0], hostname, tt.expected)
 				})
 			}
@@ -227,12 +228,12 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	t.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
-	checker := func(resp echoClient.Responses, inErr error) error {
+	checker := func(result echo.CallResult, inErr error) error {
 		if inErr != nil {
 			return inErr
 		}
 		got := map[string]int{}
-		for _, r := range resp {
+		for _, r := range result.Responses {
 			// Hostname will take form of svc-v1-random. We want to extract just 'svc'
 			parts := strings.SplitN(r.Hostname, "-", 2)
 			if len(parts) < 2 {
@@ -265,7 +266,7 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	})
 }
 
-func runTemplate(t test.Failer, tmpl string, input interface{}) string {
+func runTemplate(t test.Failer, tmpl string, input any) string {
 	tt, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmpl)
 	if err != nil {
 		t.Fatal(err)

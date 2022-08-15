@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
@@ -114,7 +114,12 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
-			expect:    map[string]Expected{},
+			expect: map[string]Expected{
+				"kubernetes://generic": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+				},
+			},
 		},
 		{
 			name:      "unauthenticated",
@@ -154,7 +159,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert"},
 			request: &model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
@@ -175,7 +180,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic", Namespace: "istio-system", Kind: kind.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
@@ -189,7 +194,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls": {
@@ -206,7 +211,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
@@ -223,7 +228,7 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: gvk.Secret}: {},
+				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: kind.Secret}: {},
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
@@ -276,7 +281,7 @@ func TestGenerate(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				credentials.DisableAuthorizationForTest(cc)
+				disableAuthorizationForSecret(cc)
 			}
 			cc.Fake.Unlock()
 
@@ -308,7 +313,7 @@ func TestCaching(t *testing.T) {
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			credentials.DisableAuthorizationForTest(cc)
+			disableAuthorizationForSecret(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]

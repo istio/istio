@@ -25,17 +25,15 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
-
-const multiclusterRequestCountMultiplier = 20
 
 var (
 	multiclusterRetryTimeout = retry.Timeout(1 * time.Minute)
@@ -43,6 +41,7 @@ var (
 )
 
 func TestClusterLocal(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		Features(
 			"installation.multicluster.cluster_local",
@@ -64,7 +63,7 @@ func TestClusterLocal(t *testing.T) {
 				{
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
-						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
+						i.PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
@@ -108,7 +107,7 @@ spec:
         host: {{$.host}}
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
-`, map[string]interface{}{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
+`, map[string]any{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
 						t.ConfigIstio().YAML(sources.Config().Namespace.Name(), cfg).ApplyOrFail(t)
 					},
 				},
@@ -122,14 +121,13 @@ spec:
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallOrFail(t, echo.CallOptions{
-								To:    to,
-								Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
+								To: to,
 								Port: echo.Port{
 									Name: "http",
 								},
 								Check: check.And(
 									check.OK(),
-									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
+									check.ReachedClusters(t.AllClusters(), cluster.Clusters{source.Config().Cluster}),
 								),
 								Retry: echo.Retry{
 									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
@@ -146,14 +144,13 @@ spec:
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallOrFail(t, echo.CallOptions{
-							To:    to,
-							Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
+							To: to,
 							Port: echo.Port{
 								Name: "http",
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(to.Clusters()),
+								check.ReachedTargetClusters(t),
 							),
 							Retry: echo.Retry{
 								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
@@ -166,6 +163,7 @@ spec:
 }
 
 func TestBadRemoteSecret(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Features(
@@ -189,7 +187,7 @@ func TestBadRemoteSecret(t *testing.T) {
 				pod = "istiod-bad-secrets-test"
 			)
 			t.Logf("creating service account %s/%s", ns, sa)
-			if _, err := remote.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
+			if _, err := remote.Kube().CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{Name: sa},
 			}, metav1.CreateOptions{}); err != nil {
 				t.Fatal(err)
@@ -203,7 +201,7 @@ func TestBadRemoteSecret(t *testing.T) {
 				var secret string
 				retry.UntilSuccessOrFail(t, func() error {
 					var err error
-					secret, err = istio.CreateRemoteSecret(t, remote, i.Settings(), opts...)
+					secret, err = i.CreateRemoteSecret(t, remote, opts...)
 					return err
 				}, retry.Timeout(15*time.Second))
 
@@ -245,7 +243,7 @@ stringData:
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment
 			t.Logf("creating pod %s/%s", ns, pod)
-			deps, err := primary.AppsV1().
+			deps, err := primary.Kube().AppsV1().
 				Deployments(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
 			if err != nil {
 				t.Fatal(err)
@@ -253,7 +251,7 @@ stringData:
 			if len(deps.Items) == 0 {
 				t.Skip("no deployments with label app=istiod")
 			}
-			pods := primary.CoreV1().Pods(ns)
+			pods := primary.Kube().CoreV1().Pods(ns)
 			podMeta := deps.Items[0].Spec.Template.ObjectMeta
 			podMeta.Name = pod
 			_, err = pods.Create(context.TODO(), &corev1.Pod{
@@ -269,6 +267,19 @@ stringData:
 				}
 			})
 
+			retry.UntilSuccessOrFail(t, func() error {
+				pod, err := pods.Get(context.TODO(), pod, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.Started != nil && !*status.Started {
+						return fmt.Errorf("container %s in %s is not started", status.Name, pod)
+					}
+				}
+				return nil
+			}, retry.Timeout(5*time.Minute), retry.Delay(time.Second))
+
 			// make sure the pod comes up healthy
 			retry.UntilSuccessOrFail(t, func() error {
 				pod, err := pods.Get(context.TODO(), pod, metav1.GetOptions{})
@@ -277,7 +288,8 @@ stringData:
 				}
 				status := pod.Status.ContainerStatuses
 				if len(status) < 1 || !status[0].Ready {
-					return fmt.Errorf("%s not ready", pod)
+					conditions, _ := yaml.Marshal(pod.Status.ContainerStatuses)
+					return fmt.Errorf("%s not ready: %s", pod.Name, conditions)
 				}
 				return nil
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))

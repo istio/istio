@@ -19,6 +19,8 @@ import "google/protobuf/wrappers.proto";
 // Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
 package proto;
 option go_package="../proto";
+option java_package = "io.istio.test";
+option java_outer_classname = "Echo";
 
 service EchoTestService {
   rpc Echo (EchoRequest) returns (EchoResponse);
@@ -74,6 +76,32 @@ message ForwardEchoRequest {
   // Expected response determines what string to look for in the response to validate TCP requests succeeded.
   // If not set, defaults to "StatusCode=200"
   google.protobuf.StringValue expectedResponse = 21;
+  // If set, a new connection will be made to the server for each individual request. If false, an attempt
+  // will be made to re-use the connection for the life of the forward request. This is automatically
+  // set for DNS, TCP, TLS, and WebSocket protocols.
+  bool newConnectionPerRequest = 22;
+  // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
+  bool forceDNSLookup = 23;
+
+  // HBONE communication settings. If provided, requests will be tunnelled.
+  HBONE hbone = 24;
+}
+
+message HBONE {
+  string address = 9;
+  repeated Header headers = 1;
+  // If non-empty, make the request with the corresponding cert and key.
+  string cert = 2;
+  string key = 3;
+  // If non-empty, verify the server CA
+  string caCert = 4;
+  // If non-empty, make the request with the corresponding cert and key file.
+  string certFile = 5;
+  string keyFile = 6;
+  // If non-empty, verify the server CA with the ca cert file.
+  string caCertFile = 7;
+  // Skip verifying peer's certificate.
+  bool insecureSkipVerify = 8;
 }
 
 message Alpn {

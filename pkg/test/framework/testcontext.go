@@ -20,13 +20,14 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -42,7 +43,7 @@ type TestContext interface {
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
 	NewSubTest(name string) Test
-	NewSubTestf(format string, a ...interface{}) Test
+	NewSubTestf(format string, a ...any) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -56,18 +57,15 @@ type TestContext interface {
 	// SkipDumping will skip dumping debug logs/configs/etc for this scope only (child scopes are not skipped).
 	SkipDumping()
 
-	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
-	// allocated resources.
-	Done()
-
 	// Methods for interacting with the underlying *testing.T.
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
+
+	Error(args ...any)
+	Errorf(format string, args ...any)
 	Failed() bool
 	Name() string
-	Skip(args ...interface{})
+	Skip(args ...any)
 	SkipNow()
-	Skipf(format string, args ...interface{})
+	Skipf(format string, args ...any)
 	Skipped() bool
 }
 
@@ -99,48 +97,7 @@ type testContext struct {
 	workDir string
 }
 
-// Before executing a new context, we should wait for existing contexts to terminate if they are NOT parents of this context.
-// This is to workaround termination of functions run with RunParallel. When this is used, child tests will not run until the parent
-// has terminated. This means that the parent cannot synchronously cleanup, or it would block its children. However, if we do async cleanup,
-// then new tests can unexpectedly start during the cleanup of another. This may lead to odd results, like a test cleanup undoing the setup of a future test.
-// To workaround this, we maintain a set of all contexts currently terminating. Before starting the context, we will search this set;
-// if any non-parent contexts are found, we will wait.
-func waitForParents(test *testImpl) {
-	iterations := 0
-	for {
-		iterations++
-		done := true
-		globalParentLock.Range(func(key, value interface{}) bool {
-			k := key.(*testImpl)
-			current := test
-			for current != nil {
-				if current == k {
-					return true
-				}
-				current = current.parent
-
-			}
-			// We found an item in the list, and we are *not* a child of it. This means another test hierarchy has exclusive access right now
-			// Wait until they are finished before proceeding
-			done = false
-			return true
-		})
-		if done {
-			return
-		}
-		time.Sleep(time.Millisecond * 50)
-		// Add some logging in case something locks up so we can debug
-		if iterations%10 == 0 {
-			globalParentLock.Range(func(key, value interface{}) bool {
-				scopes.Framework.Warnf("Stuck waiting for parent test suites to terminate... %v is blocking", key.(*testImpl).goTest.Name())
-				return true
-			})
-		}
-	}
-}
-
 func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
-	waitForParents(test)
 	id := s.allocateContextID(goTest.Name())
 
 	allLabels := s.suiteLabels.Merge(labels)
@@ -174,7 +131,7 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 	}
 
 	scopeID := fmt.Sprintf("[%s]", id)
-	return &testContext{
+	ctx := &testContext{
 		id:         id,
 		test:       test,
 		T:          goTest,
@@ -183,6 +140,11 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 		workDir:    workDir,
 		FileWriter: yml.NewFileWriter(workDir),
 	}
+
+	// Register the cleanup handler for the context.
+	goTest.Cleanup(ctx.close)
+
+	return ctx
 }
 
 func (c *testContext) Settings() *resource.Settings {
@@ -196,7 +158,7 @@ func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
-func (c *testContext) GetResource(ref interface{}) error {
+func (c *testContext) GetResource(ref any) error {
 	return c.scope.get(ref)
 }
 
@@ -257,12 +219,12 @@ func (c *testContext) SkipDumping() {
 	c.scope.skipDumping()
 }
 
-func (c *testContext) ConfigKube(clusters ...cluster.Cluster) resource.ConfigManager {
-	return newConfigManager(c, clusters)
+func (c *testContext) ConfigKube(clusters ...cluster.Cluster) config.Factory {
+	return newConfigFactory(c, clusters)
 }
 
-func (c *testContext) ConfigIstio() resource.ConfigManager {
-	return newConfigManager(c, c.Clusters().Configs())
+func (c *testContext) ConfigIstio() config.Factory {
+	return newConfigFactory(c, c.Clusters().Configs())
 }
 
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
@@ -294,31 +256,51 @@ func (c *testContext) NewSubTest(name string) Test {
 	}
 }
 
-func (c *testContext) NewSubTestf(format string, a ...interface{}) Test {
+func (c *testContext) NewSubTestf(format string, a ...any) Test {
 	return c.NewSubTest(fmt.Sprintf(format, a...))
 }
 
-func (c *testContext) ConditionalCleanup(fn func()) {
-	c.scope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}, noskip: true})
+func (c *testContext) CleanupConditionally(fn func()) {
+	c.CleanupStrategy(cleanup.Conditionally, fn)
 }
 
 func (c *testContext) Cleanup(fn func()) {
-	c.scope.addCloser(&closer{fn: func() error {
-		fn()
-		return nil
-	}})
+	c.CleanupStrategy(cleanup.Always, fn)
 }
 
-func (c *testContext) Done() {
-	if c.Failed() && c.Settings().CIMode {
+func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
+	switch strategy {
+	case cleanup.Always:
+		c.scope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}})
+	case cleanup.Conditionally:
+		c.scope.addCloser(&closer{fn: func() error {
+			fn()
+			return nil
+		}, noskip: true})
+	default:
+		// No cleanup.
+		return
+	}
+}
+
+func (c *testContext) dump() {
+	if c.suite.RequestTestDump() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
 		// make sure we dump suite-level resources, but don't dump sibling tests or their children
-		rt.DumpShallow(c)
+		rt.DumpCustom(c, false)
 		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
+	} else {
+		scopes.Framework.Debugf("Begin skipping dump of testContext: %q. Maximum number of test dumps exceeded", c.id)
+	}
+}
+
+func (c *testContext) close() {
+	if c.Failed() && c.Settings().CIMode {
+		c.dump()
 	}
 
 	scopes.Framework.Debugf("Begin cleaning up testContext: %q", c.id)
@@ -333,12 +315,12 @@ func (c *testContext) Done() {
 	scopes.Framework.Debugf("Completed cleaning up testContext: %q", c.id)
 }
 
-func (c *testContext) Error(args ...interface{}) {
+func (c *testContext) Error(args ...any) {
 	c.Helper()
 	c.T.Error(args...)
 }
 
-func (c *testContext) Errorf(format string, args ...interface{}) {
+func (c *testContext) Errorf(format string, args ...any) {
 	c.Helper()
 	c.T.Errorf(format, args...)
 }
@@ -358,22 +340,22 @@ func (c *testContext) Failed() bool {
 	return c.T.Failed()
 }
 
-func (c *testContext) Fatal(args ...interface{}) {
+func (c *testContext) Fatal(args ...any) {
 	c.Helper()
 	c.T.Fatal(args...)
 }
 
-func (c *testContext) Fatalf(format string, args ...interface{}) {
+func (c *testContext) Fatalf(format string, args ...any) {
 	c.Helper()
 	c.T.Fatalf(format, args...)
 }
 
-func (c *testContext) Log(args ...interface{}) {
+func (c *testContext) Log(args ...any) {
 	c.Helper()
 	c.T.Log(args...)
 }
 
-func (c *testContext) Logf(format string, args ...interface{}) {
+func (c *testContext) Logf(format string, args ...any) {
 	c.Helper()
 	c.T.Logf(format, args...)
 }
@@ -383,7 +365,7 @@ func (c *testContext) Name() string {
 	return c.T.Name()
 }
 
-func (c *testContext) Skip(args ...interface{}) {
+func (c *testContext) Skip(args ...any) {
 	c.Helper()
 	c.T.Skip(args...)
 }
@@ -393,7 +375,7 @@ func (c *testContext) SkipNow() {
 	c.T.SkipNow()
 }
 
-func (c *testContext) Skipf(format string, args ...interface{}) {
+func (c *testContext) Skipf(format string, args ...any) {
 	c.Helper()
 	c.T.Skipf(format, args...)
 }
@@ -401,6 +383,10 @@ func (c *testContext) Skipf(format string, args ...interface{}) {
 func (c *testContext) Skipped() bool {
 	c.Helper()
 	return c.T.Skipped()
+}
+
+func (c *testContext) ID() string {
+	return c.id
 }
 
 var _ io.Closer = &closer{}
@@ -414,7 +400,7 @@ func (c *closer) Close() error {
 	return c.fn()
 }
 
-func (c *testContext) RecordTraceEvent(key string, value interface{}) {
+func (c *testContext) RecordTraceEvent(string, any) {
 	// Currently, only supported at suite level.
 	panic("TODO: implement tracing in test context")
 }

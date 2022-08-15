@@ -24,10 +24,11 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
-var defaultRetryPriorityTypedConfig = util.MessageToAny(buildPreviousPrioritiesConfig())
+var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())
 
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {
@@ -36,11 +37,9 @@ func DefaultPolicy() *route.RetryPolicy {
 		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
 		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
-			{
-				// to configure retries to prefer hosts that haven’t been attempted already,
-				// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
-				Name: "envoy.retry_host_predicates.previous_hosts",
-			},
+			// to configure retries to prefer hosts that haven’t been attempted already,
+			// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+			xdsfilters.RetryPreviousHosts,
 		},
 		// TODO: allow this to be configured via API.
 		HostSelectionRetryMaxAttempts: 5,

@@ -15,9 +15,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"k8s.io/utils/env"
@@ -56,22 +58,48 @@ type Target struct {
 }
 
 type Args struct {
-	Push          bool
-	Save          bool
-	BuildxEnabled bool
-	NoClobber     bool
-	NoCache       bool
-	Targets       []string
-	Variants      []string
-	Architectures []string
-	BaseVersion   string
-	ProxyVersion  string
-	IstioVersion  string
-	Tags          []string
-	Hubs          []string
+	Push              bool
+	Save              bool
+	Builder           string
+	SupportsEmulation bool
+	NoClobber         bool
+	NoCache           bool
+	Targets           []string
+	Variants          []string
+	Architectures     []string
+	BaseVersion       string
+	ProxyVersion      string
+	IstioVersion      string
+	Tags              []string
+	Hubs              []string
+	// Suffix on artifacts, used for multi-arch images where we cannot use manifests
+	suffix string
 
-	// Plan describes the build plan, read from file
-	Plan BuildPlan
+	// Plan describes the build plan, read from file.
+	// This is a map of architecture -> plan, as the plan is arch specific.
+	Plan map[string]BuildPlan
+}
+
+func (a Args) PlanFor(arch string) BuildPlan {
+	return a.Plan[arch]
+}
+
+func (a Args) String() string {
+	var b strings.Builder
+	b.WriteString("Push:          " + fmt.Sprint(a.Push) + "\n")
+	b.WriteString("Save:          " + fmt.Sprint(a.Save) + "\n")
+	b.WriteString("NoClobber:     " + fmt.Sprint(a.NoClobber) + "\n")
+	b.WriteString("NoCache:       " + fmt.Sprint(a.NoCache) + "\n")
+	b.WriteString("Targets:       " + fmt.Sprint(a.Targets) + "\n")
+	b.WriteString("Variants:      " + fmt.Sprint(a.Variants) + "\n")
+	b.WriteString("Architectures: " + fmt.Sprint(a.Architectures) + "\n")
+	b.WriteString("BaseVersion:   " + fmt.Sprint(a.BaseVersion) + "\n")
+	b.WriteString("ProxyVersion:  " + fmt.Sprint(a.ProxyVersion) + "\n")
+	b.WriteString("IstioVersion:  " + fmt.Sprint(a.IstioVersion) + "\n")
+	b.WriteString("Tags:          " + fmt.Sprint(a.Tags) + "\n")
+	b.WriteString("Hubs:          " + fmt.Sprint(a.Hubs) + "\n")
+	b.WriteString("Builder:       " + fmt.Sprint(a.Builder) + "\n")
+	return b.String()
 }
 
 type ImagePlan struct {
@@ -85,6 +113,10 @@ type ImagePlan struct {
 	Targets []string `json:"targets"`
 	// Base indicates if this is a base image or not
 	Base bool `json:"base"`
+	// EmulationRequired indicates if emulation is required when cross-compiling. It typically is not,
+	// as most building in Istio is done outside of docker.
+	// When this is set, cross-compile is disabled for components unless emulation is epxlicitly specified
+	EmulationRequired bool `json:"emulationRequired"`
 }
 
 func (p ImagePlan) Dependencies() []string {
@@ -99,20 +131,20 @@ type BuildPlan struct {
 }
 
 func (p BuildPlan) Targets() []string {
-	tgts := sets.New()
+	tgts := sets.New("init") // All targets depend on init
 	for _, img := range p.Images {
 		tgts.InsertAll(img.Targets...)
 	}
 	return tgts.SortedList()
 }
 
-func (p BuildPlan) Find(n string) ImagePlan {
+func (p BuildPlan) Find(n string) *ImagePlan {
 	for _, i := range p.Images {
 		if i.Name == n {
-			return i
+			return &i
 		}
 	}
-	panic("couldn't find target " + n)
+	return nil
 }
 
 // Define variants, which control the base image of an image.
@@ -127,6 +159,11 @@ const (
 	DefaultVariant    = "default"
 	DebugVariant      = "debug"
 	DistrolessVariant = "distroless"
+)
+
+const (
+	CraneBuilder  = "crane"
+	DockerBuilder = "docker"
 )
 
 func DefaultArgs() Args {
@@ -178,25 +215,40 @@ func DefaultArgs() Args {
 		tag = strings.Split(tags, " ")
 	}
 
+	builder := DockerBuilder
+	if b, f := os.LookupEnv("ISTIO_DOCKER_BUILDER"); f {
+		builder = b
+	}
+
+	// TODO: consider automatically detecting Qemu support
+	qemu := false
+	if b, f := os.LookupEnv("ISTIO_DOCKER_QEMU"); f {
+		q, err := strconv.ParseBool(b)
+		if err == nil {
+			qemu = q
+		}
+	}
+
 	return Args{
-		Push:          false,
-		Save:          false,
-		NoCache:       false,
-		BuildxEnabled: true,
-		Hubs:          hub,
-		Tags:          tag,
-		BaseVersion:   fetchBaseVersion(),
-		IstioVersion:  fetchIstioVersion(),
-		ProxyVersion:  pv,
-		Architectures: arch,
-		Targets:       targets,
-		Variants:      variants,
+		Push:              false,
+		Save:              false,
+		NoCache:           false,
+		Hubs:              hub,
+		Tags:              tag,
+		BaseVersion:       fetchBaseVersion(),
+		IstioVersion:      fetchIstioVersion(),
+		ProxyVersion:      pv,
+		Architectures:     arch,
+		Targets:           targets,
+		Variants:          variants,
+		Builder:           builder,
+		SupportsEmulation: qemu,
 	}
 }
 
 var (
-	args    = DefaultArgs()
-	version = false
+	globalArgs = DefaultArgs()
+	version    = false
 )
 
 var baseVersionRegexp = regexp.MustCompile(`BASE_VERSION \?= (.*)`)

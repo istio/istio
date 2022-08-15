@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+releaseNotes:
+  - |
+    **Fixed** the tcp metadata exchange between sidecar client and ISTIO_MUTUAL, tcp server at the gateway

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ func (ts *Setter) AddReadinessTaint(node *v1.Node) error {
 	return nil
 }
 
-// DeleteTaint removes all the the taints that have the same key and effect to given taintToDelete.
+// DeleteTaint removes all the taints that have the same key and effect to given taintToDelete.
 func deleteTaint(taints []v1.Taint, taintToDelete *v1.Taint) []v1.Taint {
 	newTaints := []v1.Taint{}
 	for i := range taints {

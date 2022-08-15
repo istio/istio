@@ -33,10 +33,10 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -79,7 +79,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 
 		names := sets.New(resources...)
 		found := false
-		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
+		for name := range model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret) {
 			if names.Contains(name.Name) {
 				found = true
 				break
@@ -156,7 +156,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
+		res := protoconv.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -178,7 +178,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 	names := []string{}
 	watched := sets.New(w.ResourceNames...)
 	for i := range updates.ConfigsUpdated {
-		if i.Kind == gvk.Secret && watched.Contains(i.Name) {
+		if i.Kind == kind.Secret && watched.Contains(i.Name) {
 			names = append(names, i.Name)
 		}
 	}
@@ -214,7 +214,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-	cfg := security.SdsCertificateConfig{}
+	var cfg security.SdsCertificateConfig
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
 		cfg, ok = security.SdsCertificateConfigFromResourceNameForOSCACert(caRootPath)
@@ -235,7 +235,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 		switch pkpConf.GetProvider().(type) {
 		case *mesh.PrivateKeyProvider_Cryptomb:
 			crypto := pkpConf.GetCryptomb()
-			msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+			msg := protoconv.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 				PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{

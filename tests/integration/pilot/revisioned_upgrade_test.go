@@ -43,6 +43,7 @@ const (
 
 // TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
 func TestRevisionedUpgrade(t *testing.T) {
+	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
@@ -69,7 +70,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 // TODO(monkeyanator) pass this a generic UpgradeFunc allowing for reuse across in-place and revisioned upgrades
 func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	configs := make(map[string]string)
-	t.ConditionalCleanup(func() {
+	t.CleanupConditionally(func() {
 		for _, config := range configs {
 			_ = t.ConfigIstio().YAML("istio-system", config).Delete()
 		}
@@ -103,7 +104,8 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	g := traffic.NewGenerator(t, traffic.Config{
 		Source: apps.A[0],
 		Options: echo.CallOptions{
-			To: apps.B,
+			To:    apps.B,
+			Count: 1,
 			Port: echo.Port{
 				Name: "http",
 			},

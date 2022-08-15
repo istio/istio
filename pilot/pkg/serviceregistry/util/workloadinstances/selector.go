@@ -21,9 +21,9 @@ import (
 
 // ByServiceSelector returns a predicate that matches workload instances
 // of a given service.
-func ByServiceSelector(namespace string, selector labels.Collection) func(*model.WorkloadInstance) bool {
+func ByServiceSelector(namespace string, selector labels.Instance) func(*model.WorkloadInstance) bool {
 	return func(wi *model.WorkloadInstance) bool {
-		return wi.Namespace == namespace && selector.HasSubsetOf(wi.Endpoint.Labels)
+		return wi.Namespace == namespace && selector.SubsetOf(wi.Endpoint.Labels)
 	}
 }
 

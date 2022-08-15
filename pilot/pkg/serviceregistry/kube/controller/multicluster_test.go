@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -31,13 +30,13 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
 	testSecretNameSpace = "istio-system"
 	DomainSuffix        = "fake_domain"
-	ResyncPeriod        = 1 * time.Second
 )
 
 var mockserviceController = aggregate.NewController(aggregate.Options{})
@@ -57,14 +56,14 @@ func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 
 	data[cname] = []byte("Test")
 	secret.Data = data
-	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+	_, err := k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	return err
 }
 
 func deleteMultiClusterSecret(k8s kube.Client, sname string) error {
 	var immediate int64
 
-	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
+	return k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Delete(
 		context.TODO(),
 		sname, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
@@ -82,7 +81,7 @@ func initController(client kube.ExtendedClient, ns string, stop <-chan struct{},
 	sc := multicluster.NewController(client, ns, "cluster-1")
 	sc.AddHandler(mc)
 	_ = sc.Run(stop)
-	cache.WaitForCacheSync(stop, sc.HasSynced)
+	kube.WaitForCacheSync(stop, sc.HasSynced)
 }
 
 func Test_KubeSecretController(t *testing.T) {
@@ -90,20 +89,15 @@ func Test_KubeSecretController(t *testing.T) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset,
+		clientset.Kube(),
 		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
-			ResyncPeriod:          ResyncPeriod,
-			SyncInterval:          time.Microsecond,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
 		}, nil, nil, "default", false, nil, s)
@@ -138,33 +132,22 @@ func Test_KubeSecretController(t *testing.T) {
 }
 
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
-	externalIstiod := features.ExternalIstiod
-	webhookName := features.InjectionWebhookConfigName
-	features.ExternalIstiod = true
-	features.InjectionWebhookConfigName = ""
-	defer func() {
-		features.ExternalIstiod = externalIstiod
-		features.InjectionWebhookConfigName = webhookName
-	}()
+	test.SetBoolForTest(t, &features.ExternalIstiod, true)
+	test.SetStringForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
+	stop := test.NewStop(t)
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset,
+		clientset.Kube(),
 		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
-			ResyncPeriod:          ResyncPeriod,
-			SyncInterval:          time.Microsecond,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
 		}, nil, certWatcher, "default", false, nil, s)

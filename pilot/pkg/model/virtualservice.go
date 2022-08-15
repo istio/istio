@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -151,7 +151,8 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 // Return merged virtual services and the root->delegate vs map
 func mergeVirtualServicesIfNeeded(
 	vServices []config.Config,
-	defaultExportTo map[visibility.Instance]bool) ([]config.Config, map[ConfigKey][]ConfigKey) {
+	defaultExportTo map[visibility.Instance]bool,
+) ([]config.Config, map[ConfigKey][]ConfigKey) {
 	out := make([]config.Config, 0, len(vServices))
 	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
@@ -195,7 +196,7 @@ func mergeVirtualServicesIfNeeded(
 
 	// 2. merge delegates and root
 	for _, root := range rootVses {
-		rootConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: root.Name, Namespace: root.Namespace}
+		rootConfigKey := ConfigKey{Kind: kind.VirtualService, Name: root.Name, Namespace: root.Namespace}
 		rootVs := root.Spec.(*networking.VirtualService)
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, route := range rootVs.Http {
@@ -205,7 +206,7 @@ func mergeVirtualServicesIfNeeded(
 				if delegateNamespace == "" {
 					delegateNamespace = root.Namespace
 				}
-				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
+				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
 				delegateVS, ok := delegatesMap[key(delegate.Name, delegateNamespace)]
 				if !ok {
@@ -276,6 +277,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	}
 	if delegate.Rewrite == nil {
 		delegate.Rewrite = root.Rewrite
+	}
+	if delegate.DirectResponse == nil {
+		delegate.DirectResponse = root.DirectResponse
 	}
 	if delegate.Timeout == nil {
 		delegate.Timeout = root.Timeout
@@ -411,6 +415,9 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Gateways = root.Gateways
 	}
 
+	if len(out.StatPrefix) == 0 {
+		out.StatPrefix = root.StatPrefix
+	}
 	return out
 }
 
@@ -483,9 +490,17 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 	if root == nil || leaf == nil {
 		return false
 	}
-	// regex match is not allowed
-	if root.GetRegex() != "" || leaf.GetRegex() != "" {
-		return true
+	// If root regex match is specified, delegate should not have other matches.
+	if root.GetRegex() != "" {
+		if leaf.GetRegex() != "" || leaf.GetPrefix() != "" || leaf.GetExact() != "" {
+			return true
+		}
+	}
+	// If delgate regex match is specified, root should not have other matches.
+	if leaf.GetRegex() != "" {
+		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
+			return true
+		}
 	}
 	// root is exact match
 	if exact := root.GetExact(); exact != "" {
@@ -524,6 +539,13 @@ func isRootVs(vs *networking.VirtualService) bool {
 		}
 	}
 	return false
+}
+
+// UseIngressSemantics determines which logic we should use for VirtualService
+// This allows ingress and VS to both be represented by VirtualService, but have different
+// semantics.
+func UseIngressSemantics(cfg config.Config) bool {
+	return cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsIngress
 }
 
 // UseGatewaySemantics determines which logic we should use for VirtualService

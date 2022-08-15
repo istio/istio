@@ -156,7 +156,7 @@ func (w *configMapWatcher) Run(stop <-chan struct{}) {
 }
 
 func (w *configMapWatcher) Get() (*Config, string, error) {
-	cms := w.client.CoreV1().ConfigMaps(w.namespace)
+	cms := w.client.Kube().CoreV1().ConfigMaps(w.namespace)
 	cm, err := cms.Get(context.TODO(), w.name, metav1.GetOptions{})
 	if err != nil {
 		return nil, "", err

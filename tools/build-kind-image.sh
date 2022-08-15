@@ -29,7 +29,7 @@ IFS=" " read -r -a __arches__ <<< "$ARCHES"
 images=()
 for arch in "${__arches__[@]}"; do
     image="${registry}-${arch}"
-    kind build node-image --image="${image}" --arch="${arch}" --kube-root "${kdir}"
+    kind build node-image --image="${image}" --arch="${arch}" "${kdir}"
     images+=("${image}")
 done
 

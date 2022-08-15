@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -31,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -82,20 +80,16 @@ func buildMockController() *Controller {
 	return ctls
 }
 
-func buildMockControllerForMultiCluster() *Controller {
-	discovery1 := memory.NewServiceDiscovery(mock.MakeService(mock.ServiceArgs{
-		Hostname:        "hello.default.svc.cluster.local",
-		Address:         "10.1.1.0",
-		ServiceAccounts: []string{},
-		ClusterID:       "cluster-1",
-	}))
+// return aggregator and cluster1 and cluster2 service discovery
+func buildMockControllerForMultiCluster() (*Controller, *memory.ServiceDiscovery, *memory.ServiceDiscovery) {
+	discovery1 := memory.NewServiceDiscovery(mock.HelloService)
 
 	discovery2 := memory.NewServiceDiscovery(mock.MakeService(mock.ServiceArgs{
-		Hostname:        "hello.default.svc.cluster.local",
+		Hostname:        mock.HelloService.Hostname,
 		Address:         "10.1.2.0",
 		ServiceAccounts: []string{},
 		ClusterID:       "cluster-2",
-	}), mock.WorldService.DeepCopy())
+	}), mock.WorldService)
 
 	registry1 := serviceregistry.Simple{
 		ProviderID:       provider.Kubernetes,
@@ -115,11 +109,12 @@ func buildMockControllerForMultiCluster() *Controller {
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
-	return ctls
+	return ctls, discovery1, discovery2
 }
 
 func TestServicesForMultiCluster(t *testing.T) {
-	aggregateCtl := buildMockControllerForMultiCluster()
+	originalHelloService := mock.HelloService.DeepCopy()
+	aggregateCtl, _, registry2 := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
 	services := aggregateCtl.Services()
 
@@ -145,7 +140,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	// Now verify ClusterVIPs for each service
 	ClusterVIPs := map[host.Name]map[cluster.ID][]string{
 		mock.HelloService.Hostname: {
-			"cluster-1": []string{"10.1.1.0"},
+			"cluster-1": []string{"10.1.0.0"},
 			"cluster-2": []string{"10.1.2.0"},
 		},
 		mock.WorldService.Hostname: {
@@ -158,7 +153,30 @@ func TestServicesForMultiCluster(t *testing.T) {
 				svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname])
 		}
 	}
-	t.Logf("Return service ClusterVIPs match ground truth")
+
+	registry2.RemoveService(mock.HelloService.Hostname)
+	// List Services from aggregate controller
+	services = aggregateCtl.Services()
+	// Now verify ClusterVIPs for each service
+	ClusterVIPs = map[host.Name]map[cluster.ID][]string{
+		mock.HelloService.Hostname: {
+			"cluster-1": []string{"10.1.0.0"},
+		},
+		mock.WorldService.Hostname: {
+			"cluster-2": []string{"10.2.0.0"},
+		},
+	}
+	for _, svc := range services {
+		if !reflect.DeepEqual(svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname]) {
+			t.Fatalf("Service %s ClusterVIPs actual %v, expected %v", svc.Hostname,
+				svc.ClusterVIPs.Addresses, ClusterVIPs[svc.Hostname])
+		}
+	}
+
+	// check HelloService is not mutated
+	if !reflect.DeepEqual(originalHelloService, mock.HelloService) {
+		t.Errorf("Original hello service is mutated")
+	}
 }
 
 func TestServices(t *testing.T) {
@@ -251,9 +269,7 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.InstancesByPort(mock.HelloService,
-		80,
-		labels.Collection{})
+	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80, nil)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -267,9 +283,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.InstancesByPort(mock.WorldService,
-		80,
-		labels.Collection{})
+	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80, nil)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -280,59 +294,6 @@ func TestInstances(t *testing.T) {
 		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
 			t.Fatal("Returned instance does not contain desired port")
 		}
-	}
-}
-
-func TestGetIstioServiceAccounts(t *testing.T) {
-	aggregateCtl := buildMockController()
-	testCases := []struct {
-		name               string
-		svc                *model.Service
-		trustDomainAliases []string
-		want               []string
-	}{
-		{
-			name: "HelloEmpty",
-			svc:  mock.HelloService,
-			want: []string{},
-		},
-		{
-			name: "World",
-			svc:  mock.WorldService,
-			want: []string{
-				"spiffe://cluster.local/ns/default/sa/world1",
-				"spiffe://cluster.local/ns/default/sa/world2",
-			},
-		},
-		{
-			name: "ReplicatedFoo",
-			svc:  mock.ReplicatedFooServiceV1,
-			want: []string{
-				"spiffe://cluster.local/ns/default/sa/foo-share",
-				"spiffe://cluster.local/ns/default/sa/foo1",
-				"spiffe://cluster.local/ns/default/sa/foo2",
-			},
-		},
-		{
-			name:               "ExpansionByTrustDomainAliases",
-			trustDomainAliases: []string{"cluster.local", "example.com"},
-			svc:                mock.WorldService,
-			want: []string{
-				"spiffe://cluster.local/ns/default/sa/world1",
-				"spiffe://cluster.local/ns/default/sa/world2",
-				"spiffe://example.com/ns/default/sa/world1",
-				"spiffe://example.com/ns/default/sa/world2",
-			},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			aggregateCtl.meshHolder = &mockMeshConfigHolder{trustDomainAliases: tc.trustDomainAliases}
-			accounts := aggregateCtl.GetIstioServiceAccounts(tc.svc, []int{})
-			if diff := cmp.Diff(accounts, tc.want); diff != "" {
-				t.Errorf("unexpected service account, diff %v, %v", diff, accounts)
-			}
-		})
 	}
 }
 
@@ -363,7 +324,6 @@ func TestAddRegistry(t *testing.T) {
 			counter = registry2Counter
 		}
 		ctrl.AppendServiceHandlerForCluster(clusterID, func(service *model.Service, event model.Event) {
-			t.Logf("---run %s service handler", clusterID)
 			counter.Add(1)
 		})
 		ctrl.AddRegistry(r)

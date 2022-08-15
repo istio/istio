@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 package authenticate
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -43,7 +43,17 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // method assumes that certificate chain has been properly validated before
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
-func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
+func (cca *ClientCertAuthenticator) Authenticate(authCtx security.AuthContext) (*security.Caller, error) {
+	if authCtx.GrpcContext != nil {
+		return cca.authenticateGrpc(authCtx.GrpcContext)
+	}
+	if authCtx.Request != nil {
+		return cca.authenticateHTTP(authCtx.Request)
+	}
+	return nil, nil
+}
+
+func (cca *ClientCertAuthenticator) authenticateGrpc(ctx context.Context) (*security.Caller, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok || peer.AuthInfo == nil {
 		return nil, fmt.Errorf("no client certificate is presented")
@@ -70,9 +80,9 @@ func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*security
 	}, nil
 }
 
-// AuthenticateRequest performs mTLS authentication for http requests. Requires having the endpoints on a listener
+// authenticateHTTP performs mTLS authentication for http requests. Requires having the endpoints on a listener
 // with proper TLS configuration.
-func (cca *ClientCertAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+func (cca *ClientCertAuthenticator) authenticateHTTP(req *http.Request) (*security.Caller, error) {
 	if req.TLS == nil || req.TLS.VerifiedChains == nil {
 		return nil, fmt.Errorf("no client certificate is presented")
 	}

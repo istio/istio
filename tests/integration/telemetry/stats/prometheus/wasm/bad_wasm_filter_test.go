@@ -40,14 +40,9 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// Test bad wasm remote load in only one cluster.
 			// There is no need to repeat the same testing logic in multiple clusters.
-			cltInstance := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
+			to := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
 			// Verify that echo server could return 200
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(cltInstance); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
+			common.SendTrafficOrFail(t, to)
 			t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 			// Apply bad filter config
@@ -56,7 +51,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {
 				q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
-				c := cltInstance.Config().Cluster
+				c := to.Config().Cluster
 				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 					util.PromDiff(t, common.GetPromInstance(), c, q)
 					return err
@@ -64,14 +59,12 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				return nil
 			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 
-			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
-
 			if t.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
 				// Verify that istiod has a stats about rejected ECDS update
 				// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
 				retry.UntilSuccessOrFail(t, func() error {
 					q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
-					c := cltInstance.Config().Cluster
+					c := to.Config().Cluster
 					if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 						util.PromDiff(t, common.GetPromInstance(), c, q)
 						return err
@@ -80,13 +73,10 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 			}
 
+			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
+
 			// Verify that echo server could still return 200
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(cltInstance); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(10*time.Second))
+			common.SendTrafficOrFail(t, to)
 
 			t.Log("echo server still returns ok after bad wasm filter is applied.")
 		})

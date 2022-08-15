@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -111,8 +112,21 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 	return -1, nil
 }
 
+func (pc *PodCache) labelFilter(old, cur interface{}) bool {
+	oldPod := old.(*v1.Pod)
+	curPod := cur.(*v1.Pod)
+
+	// If labels updated, trigger proxy push
+	if curPod.Status.PodIP != "" && !reflect.DeepEqual(oldPod.Labels, curPod.Labels) {
+		pc.proxyUpdates(curPod.Status.PodIP)
+	}
+
+	// always continue calling pc.onEvent
+	return false
+}
+
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
+func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
 	pod, ok := curr.(*v1.Pod)
 	if !ok {
@@ -167,6 +181,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
 func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
+	// if no workload handler registered, skip building WorkloadInstance
+	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
+		return
+	}
 	// fire instance handles for workload
 	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable)
 	workloadInstance := &model.WorkloadInstance{

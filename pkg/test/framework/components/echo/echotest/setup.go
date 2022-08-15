@@ -17,6 +17,7 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type (
@@ -28,13 +29,13 @@ type (
 // Setup runs the given function in the source deployment context.
 //
 // For example, given apps a, b, and c in 2 clusters,
-// these tests would all run before the the context is cleaned up:
-//     a/to_b/from_cluster-1
-//     a/to_b/from_cluster-2
-//     a/to_c/from_cluster-1
-//     a/to_c/from_cluster-2
-//     cleanup...
-//     b/to_a/from_cluster-1
+// these tests would all run before the context is cleaned up:
+//   - a/to_b/from_cluster-1
+//   - a/to_b/from_cluster-2
+//   - a/to_c/from_cluster-1
+//   - a/to_c/from_cluster-2
+//   - cleanup...
+//   - b/to_a/from_cluster-1
 //     ...
 func (t *T) Setup(setupFn srcSetupFn) *T {
 	t.sourceDeploymentSetup = append(t.sourceDeploymentSetup, setupFn)
@@ -44,7 +45,7 @@ func (t *T) Setup(setupFn srcSetupFn) *T {
 func (t *T) setup(ctx framework.TestContext, from echo.Callers) {
 	if !t.hasSourceSetup() {
 		ctx.SkipDumping()
-		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+		scopes.Framework.Debugf("No echotest setup; skipping test dump at this scope.")
 	}
 	for _, setupFn := range t.sourceDeploymentSetup {
 		if err := setupFn(ctx, from); err != nil {
@@ -61,11 +62,11 @@ func (t *T) hasSourceSetup() bool {
 // destination service.
 //
 // Example of how long this setup lasts before the given context is cleaned up:
-//     a/to_b/from_cluster-1
-//     a/to_b/from_cluster-2
-//     cleanup...
-//     a/to_b/from_cluster-2
-//     ...
+//   - a/to_b/from_cluster-1
+//   - a/to_b/from_cluster-2
+//   - cleanup...
+//   - a/to_b/from_cluster-2
+//   - ...
 func (t *T) SetupForPair(setupFn func(ctx framework.TestContext, from echo.Callers, dsts echo.Instances) error) *T {
 	return t.SetupForServicePair(func(ctx framework.TestContext, from echo.Callers, dsts echo.Services) error {
 		return setupFn(ctx, from, dsts.Instances())
@@ -93,7 +94,7 @@ func (t *T) hasDestinationSetup() bool {
 func (t *T) setupPair(ctx framework.TestContext, from echo.Callers, dsts echo.Services) {
 	if !t.hasDestinationSetup() {
 		ctx.SkipDumping()
-		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+		scopes.Framework.Debugf("No echotest setup; skipping test dump at this scope.")
 	}
 	for _, setupFn := range t.deploymentPairSetup {
 		if err := setupFn(ctx, from, dsts); err != nil {

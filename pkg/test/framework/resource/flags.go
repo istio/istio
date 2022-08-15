@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/config"
@@ -58,6 +59,12 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		// TODO we may also want to trigger this if we have an old verion
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta")
 	}
+	// Allow passing a single CSV flag as well
+	normalized := make(ArrayFlags, 0)
+	for _, sk := range s.SkipWorkloadClasses {
+		normalized = append(normalized, strings.Split(sk, ",")...)
+	}
+	s.SkipWorkloadClasses = normalized
 
 	if s.Image.Hub == "" {
 		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")
@@ -69,6 +76,14 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 
 	if s.Image.PullPolicy == "" {
 		s.Image.PullPolicy = env.PULL_POLICY.ValueOrDefault("Always")
+	}
+
+	if s.EchoImage == "" {
+		s.EchoImage = env.ECHO_IMAGE.ValueOrDefault("")
+	}
+
+	if s.CustomGRPCEchoImage == "" {
+		s.CustomGRPCEchoImage = env.GRPC_ECHO_IMAGE.ValueOrDefault("")
 	}
 
 	if err = validate(s); err != nil {
@@ -133,6 +148,9 @@ func init() {
 	flag.Var(&settingsFromCommandLine.SkipWorkloadClasses, "istio.test.skipWorkloads",
 		"Skips deploying and using workloads of the given comma-separated classes (e.g. vm, proxyless, etc.)")
 
+	flag.Var(&settingsFromCommandLine.OnlyWorkloadClasses, "istio.test.onlyWorkloads",
+		"Skips deploying and using workloads not included in the given comma-separated classes (e.g. vm, proxyless, etc.)")
+
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
 
@@ -168,4 +186,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.Image.PullSecret, "istio.test.imagePullSecret", settingsFromCommandLine.Image.PullSecret,
 		"Path to a file containing a DockerConfig secret use for test apps. This will be pushed to all created namespaces."+
 			"Secret should already exist when used with istio.test.stableNamespaces.")
+
+	flag.Uint64Var(&settingsFromCommandLine.MaxDumps, "istio.test.maxDumps", settingsFromCommandLine.MaxDumps,
+		"Maximum number of full test dumps that are allowed to occur within a test suite.")
 }

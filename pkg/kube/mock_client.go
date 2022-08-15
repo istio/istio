@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/rest/fake"
+	"k8s.io/client-go/tools/cache"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
 	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
@@ -77,6 +78,13 @@ type MockClient struct {
 	IstioVersions     *version.MeshInfo
 	KubernetesVersion uint
 	IstiodVersion     string
+}
+
+func (c MockClient) SetPortManager(manager PortManager) {
+}
+
+func (c MockClient) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+	return WaitForCacheSync(stop, cacheSyncs...)
 }
 
 func (c MockClient) ExtInformer() kubeExtInformers.SharedInformerFactory {
@@ -151,6 +159,14 @@ func (c MockClient) EnvoyDo(ctx context.Context, podName, podNamespace, method, 
 	return results, nil
 }
 
+func (c MockClient) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	results, ok := c.Results[podName]
+	if !ok {
+		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
+	}
+	return results, nil
+}
+
 func (c MockClient) RESTConfig() *rest.Config {
 	return c.ConfigValue
 }
@@ -204,7 +220,8 @@ func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {
 
 // CreatePerRPCCredentials -- when implemented -- mocks per-RPC credentials (bearer token)
 func (c MockClient) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
-	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	expirationSeconds int64,
+) (credentials.PerRPCCredentials, error) {
 	panic("not implemented by mock")
 }
 

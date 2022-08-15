@@ -23,16 +23,15 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestCase represents reachability test cases.
@@ -105,18 +104,14 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
-			if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
-				t.Skip("https://github.com/istio/istio/issues/37307")
-			}
-
 			// Apply the policy.
 			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return cfg.Apply(resource.Wait)
+				return cfg.Apply(apply.Wait)
 			})
-			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
+			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, from := range clients {
 					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
@@ -143,15 +138,9 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								continue
 							}
 							// grabbing the 0th assumes all echos in destinations have the same service name
-							if isNakedToVM(apps, from, to) {
+							if isNakedToVM(from, to) {
 								// No need to waste time on these tests which will time out on connection instead of fail-fast
 								continue
-							}
-
-							callCount := 1
-							if len(toClusters) > 1 {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							}
 
 							copts := &callOptions
@@ -165,10 +154,14 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 								// Set the target on the call options.
 								opts.To = to
-								opts.Count = callCount
+								if len(toClusters) == 1 {
+									opts.Count = 1
+								}
 
 								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
 								opts.Retry.Options = []retry.Option{retry.Converge(1)}
+								// TODO(https://github.com/istio/istio/issues/37629) go back to 5s
+								opts.Timeout = time.Second * 10
 
 								expectSuccess := c.ExpectSuccess(from, opts)
 								expectMTLS := c.ExpectMTLS(from, opts)
@@ -177,16 +170,15 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 									tpe = "positive"
 									opts.Check = check.And(
 										check.OK(),
-										scheck.ReachedClusters(&opts))
+										check.ReachedTargetClusters(t))
 									if expectMTLS {
 										opts.Check = check.And(opts.Check,
 											check.MTLSForHTTP())
 									}
 								} else {
 									tpe = "negative"
-									opts.Check = scheck.NotOK()
+									opts.Check = check.NotOK()
 								}
-
 								include := c.Include
 								if include == nil {
 									include = func(_ echo.Instance, _ echo.CallOptions) bool { return true }
@@ -200,12 +192,8 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 										tpe)
 
 									t.NewSubTest(subTestName).
-										RunParallel(func(t framework.TestContext) {
-											// TODO: fix Multiversion related test in multicluster
-											if t.Clusters().IsMulticluster() && apps.Multiversion.ContainsTarget(to) {
-												t.Skip("https://github.com/istio/istio/issues/37307")
-											}
-											if (apps.IsNaked(from)) && len(toClusters) > 1 {
+										Run(func(t framework.TestContext) {
+											if (from.Config().IsNaked()) && len(toClusters) > 1 {
 												// TODO use echotest to generate the cases that would work for multi-network + naked
 												t.Skip("https://github.com/istio/istio/issues/37307")
 											}
@@ -224,6 +212,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 // Exclude calls from naked->VM since naked has no Envoy
 // However, no endpoint exists for VM in k8s, so calls from naked->VM will fail, regardless of mTLS
-func isNakedToVM(apps *util.EchoDeployments, from echo.Instance, to echo.Target) bool {
-	return apps.IsNaked(from) && apps.IsVM(to)
+func isNakedToVM(from echo.Instance, to echo.Target) bool {
+	return from.Config().IsNaked() && to.Config().IsVM()
 }

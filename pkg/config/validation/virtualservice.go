@@ -42,7 +42,7 @@ func getHTTPRouteType(http *networking.HTTPRoute, isDelegate bool) HTTPRouteType
 	return IndependentRoute
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validation) {
+func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bool) (errs Validation) {
 	routeType := getHTTPRouteType(http, delegate)
 	// check for conflicts
 	errs = WrapError(validateHTTPRouteConflict(http, routeType))
@@ -97,10 +97,11 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 
 	errs = appendValidation(errs, validateDestination(http.Mirror))
 	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
+	errs = appendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
 	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
 	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
 	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
-	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
+	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
 	if http.Timeout != nil {
 		errs = appendValidation(errs, ValidateDuration(http.Timeout))
 	}
@@ -156,25 +157,9 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 	} else {
 		for _, match := range http.Match {
 			if match != nil {
-				if containRegexMatch(match.Uri) {
-					errs = appendErrors(errs, errors.New("url match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Scheme) {
-					errs = appendErrors(errs, errors.New("scheme match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Method) {
-					errs = appendErrors(errs, errors.New("method match does not support regex match for delegating"))
-				}
-				if containRegexMatch(match.Authority) {
-					errs = appendErrors(errs, errors.New("authority match does not support regex match for delegating"))
-				}
-
 				for name, header := range match.Headers {
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
-					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
 					}
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
@@ -182,16 +167,10 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 					if param == nil {
 						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
 					}
-					if containRegexMatch(param) {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
-					}
 				}
 				for name, header := range match.WithoutHeaders {
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
-					}
-					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
 					}
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
@@ -251,23 +230,31 @@ func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteTy
 		if http.Rewrite != nil {
 			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
 		}
+
+		if http.DirectResponse != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both direct_response and redirect"))
+		}
+	} else if http.DirectResponse != nil {
+		if len(http.Route) > 0 {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and direct_response"))
+		}
+
+		if http.Fault != nil {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and direct_response"))
+		}
+
+		if http.Rewrite != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and direct_response"))
+		}
+
+		if http.Redirect != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both redirect and direct_response"))
+		}
 	} else if len(http.Route) == 0 {
-		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
+		errs = appendErrors(errs, errors.New("HTTP route, redirect or direct_response is required"))
 	}
 
 	return errs
-}
-
-func containRegexMatch(config *networking.StringMatch) bool {
-	if config == nil {
-		return false
-	}
-	switch config.GetMatchType().(type) {
-	case *networking.StringMatch_Regex:
-		return true
-	default:
-		return false
-	}
 }
 
 // isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/36290
+releaseNotes:
+  - |
+    **Added** the cluster id to `experimental ps`.

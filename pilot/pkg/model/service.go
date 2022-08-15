@@ -32,7 +32,6 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -41,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -80,9 +78,10 @@ type Service struct {
 	// Do not access directly. Use GetAddressForProxy
 	DefaultAddress string `json:"defaultAddress,omitempty"`
 
-	// AutoAllocatedAddress specifies the automatically allocated
-	// IPv4 address out of the reserved Class E subnet
-	// (240.240.0.0/16) for service entries with non-wildcard
+	// AutoAllocatedIPv4Address and AutoAllocatedIPv6Address specifies
+	// the automatically allocated IPv4/IPv6 address out of the reserved
+	// Class E subnet (240.240.0.0/16) or reserved Benchmarking IP range
+	// (2001:2::/48) in RFC5180.for service entries with non-wildcard
 	// hostnames. The IPs assigned to services are not
 	// synchronized across istiod replicas as the DNS resolution
 	// for these service entries happens completely inside a pod
@@ -90,7 +89,8 @@ type Service struct {
 	// to allocate IPs is pretty deterministic that at stable state, two
 	// istiods will allocate the exact same set of IPs for a given set of
 	// service entries.
-	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
+	AutoAllocatedIPv4Address string `json:"autoAllocatedIPv4Address,omitempty"`
+	AutoAllocatedIPv6Address string `json:"autoAllocatedIPv6Address,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -225,10 +225,11 @@ const (
 //
 // For example, the set of service instances associated with catalog.mystore.com
 // are modeled like this
-//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//
+//	--> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//	--> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
+//	--> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
+//	--> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
 	Service     *Service       `json:"service,omitempty"`
 	ServicePort *Port          `json:"servicePort,omitempty"`
@@ -410,8 +411,9 @@ const (
 //
 // then internally, we have two endpoint structs for the
 // service catalog.mystore.com
-//  --> 172.16.0.1:55446 (with ServicePort pointing to 80) and
-//  --> 172.16.0.1:33333 (with ServicePort pointing to 8080)
+//
+//	--> 172.16.0.1:55446 (with ServicePort pointing to 80) and
+//	--> 172.16.0.1:33333 (with ServicePort pointing to 8080)
 //
 // TODO: Investigate removing ServiceInstance entirely.
 type IstioEndpoint struct {
@@ -458,11 +460,6 @@ type IstioEndpoint struct {
 
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	SubDomain string
-
-	// The ingress tunnel supportability of this endpoint.
-	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
-	// which are generated for h2 tunnel.
-	TunnelAbility networking.TunnelAbility
 
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
@@ -605,7 +602,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance
+	InstancesByPort(svc *Service, servicePort int, labels labels.Instance) []*ServiceInstance
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -625,12 +622,7 @@ type ServiceDiscovery interface {
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) []*ServiceInstance
-	GetProxyWorkloadLabels(*Proxy) labels.Collection
-
-	// GetIstioServiceAccounts returns a list of service accounts looked up from
-	// the specified service hostname and ports.
-	// Deprecated - service account tracking moved to XdsServer, incremental.
-	GetIstioServiceAccounts(svc *Service, ports []int) []string
+	GetProxyWorkloadLabels(*Proxy) labels.Instance
 
 	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
@@ -769,9 +761,13 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 			}
 		}
 
-		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
-			s.DefaultAddress == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
-			return s.AutoAllocatedAddress
+		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate && s.DefaultAddress == constants.UnspecifiedIP {
+			if node.SupportsIPv4() && s.AutoAllocatedIPv4Address != "" {
+				return s.AutoAllocatedIPv4Address
+			}
+			if node.SupportsIPv6() && s.AutoAllocatedIPv6Address != "" {
+				return s.AutoAllocatedIPv6Address
+			}
 		}
 	}
 
@@ -802,28 +798,6 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	return DisabledTLSModeLabel
 }
 
-// GetServiceAccounts returns aggregated list of service accounts of Service plus its instances.
-func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) []string {
-	sa := sets.Set{}
-
-	instances := make([]*ServiceInstance, 0)
-	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
-	// the service is deployed on, and the service accounts of the pods.
-	for _, port := range ports {
-		svcInstances := discovery.InstancesByPort(svc, port, labels.Collection{})
-		instances = append(instances, svcInstances...)
-	}
-
-	for _, si := range instances {
-		if si.Endpoint.ServiceAccount != "" {
-			sa.Insert(si.Endpoint.ServiceAccount)
-		}
-	}
-	sa.InsertAll(svc.ServiceAccounts...)
-
-	return sa.UnsortedList()
-}
-
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
 	// nolint: govet
@@ -846,9 +820,7 @@ func (s *Service) DeepCopy() *Service {
 
 	if s.ServiceAccounts != nil {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
-		for i, sa := range s.ServiceAccounts {
-			out.ServiceAccounts[i] = sa
-		}
+		copy(out.ServiceAccounts, s.ServiceAccounts)
 	}
 	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
 	return &out
@@ -859,7 +831,7 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
 }
 
-func copyInternal(v interface{}) interface{} {
+func copyInternal(v any) any {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:

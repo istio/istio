@@ -40,7 +40,7 @@ if [ "${ISTIO_VERSION}" = "" ] ; then
 fi
 
 if [ "${ISTIO_VERSION}" = "" ] ; then
-  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
+  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.14.0"
   exit 1;
 fi
 
@@ -143,7 +143,7 @@ rm -r "${tmp}"
 printf "\n"
 printf "Add the istioctl to your path with:"
 printf "\n"
-printf "  export PATH=\$PATH:\$HOME/.istioctl/bin \n"
+printf "  export PATH=\$HOME/.istioctl/bin:\$PATH \n"
 printf "\n"
 printf "Begin the Istio pre-installation check by running:\n"
 printf "\t istioctl x precheck \n"

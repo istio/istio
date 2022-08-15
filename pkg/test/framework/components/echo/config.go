@@ -43,8 +43,25 @@ type Cluster interface {
 type Configurable interface {
 	Config() Config
 
-	// NamespacedName is a short form for Config().NamespacedName().
+	// ServiceName is the name of this service within the namespace.
+	ServiceName() string
+
+	// NamespaceName returns the name of the namespace or "" if the Namespace is nil.
+	NamespaceName() string
+
+	// NamespacedName returns the namespaced name for this service.
+	// Short form for Config().NamespacedName().
 	NamespacedName() NamespacedName
+
+	// ServiceAccountName returns the service account string for this service.
+	ServiceAccountName() string
+
+	// ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
+	ClusterLocalFQDN() string
+
+	// ClusterSetLocalFQDN returns the fully qualified domain name for the Kubernetes
+	// Multi-Cluster Services (MCS) Cluster Set host.
+	ClusterSetLocalFQDN() string
 
 	// PortForName is a short form for Config().Ports.MustForName().
 	PortForName(name string) Port
@@ -127,6 +144,9 @@ type Config struct {
 
 	// If enabled, echo will be deployed as a "VM". This means it will run Envoy in the same pod as echo,
 	// disable sidecar injection, etc.
+	// This aims to simulate a VM, but instead of managing the complex test setup of spinning up a VM,
+	// connecting, etc we run it inside a pod. The pod has pretty much all Kubernetes features disabled (DNS and SA token mount)
+	// such that we can adequately simulate a VM and DIY the bootstrapping.
 	DeployAsVM bool
 
 	// If enabled, ISTIO_META_AUTO_REGISTER_GROUP will be set on the VM and the WorkloadEntry will be created automatically.
@@ -150,12 +170,38 @@ type Config struct {
 	IPFamilyPolicy string
 }
 
+// Getter for a custom echo deployment
+type ConfigGetter func() []Config
+
+// Get is a utility method that helps in readability of call sites.
+func (g ConfigGetter) Get() []Config {
+	return g()
+}
+
+// Future creates a Getter for a variable the custom echo deployment that will be set at sometime in the future.
+// This is helpful for configuring a setup chain for a test suite that operates on global variables.
+func ConfigFuture(custom *[]Config) ConfigGetter {
+	return func() []Config {
+		return *custom
+	}
+}
+
+// NamespaceName returns the string name of the namespace.
+func (c Config) NamespaceName() string {
+	return c.NamespacedName().NamespaceName()
+}
+
 // NamespacedName returns the namespaced name for the service.
 func (c Config) NamespacedName() NamespacedName {
 	return NamespacedName{
 		Name:      c.Service,
 		Namespace: c.Namespace,
 	}
+}
+
+// ServiceAccountName returns the service account name for this service.
+func (c Config) ServiceAccountName() string {
+	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -216,17 +262,32 @@ func (c Config) IsStatefulSet() bool {
 }
 
 // IsNaked checks if the config has no sidecar.
-// Note: mixed workloads are considered 'naked'
+// Note: instances that mix subsets with and without sidecars are considered 'naked'.
 func (c Config) IsNaked() bool {
 	for _, s := range c.Subsets {
-		if s.Annotations == nil {
-			continue
-		}
-		if !s.Annotations.GetBool(SidecarInject) {
+		if s.Annotations != nil && !s.Annotations.GetBool(SidecarInject) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsAllNaked checks if every subset is configured with no sidecar.
+func (c Config) IsAllNaked() bool {
+	if len(c.Subsets) == 0 {
+		// No subsets - default to not-naked.
+		return false
+	}
+
+	for _, s := range c.Subsets {
+		if s.Annotations == nil || s.Annotations.GetBool(SidecarInject) {
+			// Sidecar injection is enabled - it's not naked.
+			return false
+		}
+	}
+
+	// All subsets were annotated indicating no sidecar injection.
+	return true
 }
 
 func (c Config) IsProxylessGRPC() bool {
@@ -276,7 +337,7 @@ const (
 	defaultService   = "echo"
 	defaultVersion   = "v1"
 	defaultNamespace = "echo"
-	defaultDomain    = constants.DefaultKubernetesDomain
+	defaultDomain    = constants.DefaultClusterLocalDomain
 )
 
 func (c *Config) FillDefaults(ctx resource.Context) (err error) {
@@ -386,7 +447,7 @@ func (c *Config) addPortIfMissing(protocol protocol.Instance) {
 	}
 }
 
-func copyInternal(v interface{}) interface{} {
+func copyInternal(v any) any {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
@@ -402,7 +463,7 @@ func copyInternal(v interface{}) interface{} {
 // than attempting to Claim the configured namespace.
 func ParseConfigs(bytes []byte) ([]Config, error) {
 	// parse into flexible type, so we can remove Namespace and parse that ourselves
-	raw := make([]map[string]interface{}, 0)
+	raw := make([]map[string]any, 0)
 	if err := yaml.Unmarshal(bytes, &raw); err != nil {
 		return nil, err
 	}

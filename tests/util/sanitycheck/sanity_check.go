@@ -16,9 +16,9 @@ package sanitycheck
 
 import (
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -63,7 +63,8 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
 	_ = client.CallOrFail(t, echo.CallOptions{
-		To: server,
+		To:    server,
+		Count: 1,
 		Port: echo.Port{
 			Name: "http",
 		},

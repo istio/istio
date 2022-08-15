@@ -32,7 +32,7 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.21.1"
 
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
@@ -152,6 +152,7 @@ function setup_kind_cluster() {
   IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   CONFIG="${3:-}"
   NOMETALBINSTALL="${4:-}"
+  CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
 
@@ -163,7 +164,9 @@ function setup_kind_cluster() {
 
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
-  trap "cleanup_kind_cluster ${NAME}" EXIT
+  if [[ "${CLEANUP}" == "true" ]]; then
+    trap "cleanup_kind_cluster ${NAME}" EXIT
+  fi
 
     # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
@@ -184,6 +187,8 @@ EOF
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
   fi
+  # Workaround kind issue causing taints to not be removed in 1.24
+  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
@@ -203,23 +208,23 @@ EOF
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
   if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
-      # Get the current config
-      original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
-      echo "Original CoreDNS config:"
-      echo "${original_coredns}"
-      # Patch it
-      fixed_coredns=$(
-        printf '%s' "${original_coredns}" | sed \
-          -e 's/^.*kubernetes cluster\.local/& internal/' \
-          -e '/^.*upstream$/d' \
-          -e '/^.*fallthrough.*$/d' \
-          -e '/^.*forward . \/etc\/resolv.conf$/d' \
-          -e '/^.*loop$/d' \
-      )
-      echo "Patched CoreDNS config:"
-      echo "${fixed_coredns}"
-      printf '%s' "${fixed_coredns}" | kubectl apply -f -
-    fi
+    # Get the current config
+    original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
+    echo "Original CoreDNS config:"
+    echo "${original_coredns}"
+    # Patch it
+    fixed_coredns=$(
+      printf '%s' "${original_coredns}" | sed \
+        -e 's/^.*kubernetes cluster\.local/& internal/' \
+        -e '/^.*upstream$/d' \
+        -e '/^.*fallthrough.*$/d' \
+        -e '/^.*forward . \/etc\/resolv.conf$/d' \
+        -e '/^.*loop$/d' \
+    )
+    echo "Patched CoreDNS config:"
+    echo "${fixed_coredns}"
+    printf '%s' "${fixed_coredns}" | kubectl apply -f -
+  fi
 }
 
 ###############################################################################
@@ -250,7 +255,7 @@ function setup_kind_clusters() {
 
   check_default_cluster_yaml
 
-  # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
+  # Trap replaces any previous trap's, so we need to explicitly cleanup clusters here
   trap cleanup_kind_clusters EXIT
 
   function deploy_kind() {
@@ -271,7 +276,7 @@ EOF
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
     # Create the clusters.
-    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true"
+    KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true" "false"
 
     # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
     # its much simpler if we have a single kubeconfig that can be used internally and externally.
@@ -409,9 +414,17 @@ function cidr_to_ips() {
     # cidr_to_ips returns a list of single IPs from a CIDR. We skip 1000 (since they are likely to be allocated
     # already to other services), then pick the next 100.
     python3 - <<EOF
-from ipaddress import ip_network;
+from ipaddress import ip_network, IPv6Network;
 from itertools import islice;
-[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), 1000, 1100)]
+
+net = ip_network('$CIDR')
+net_bits = 128 if type(net) == IPv6Network else 32;
+net_len = pow(2, net_bits - net.prefixlen)
+start, end = int(net_len / 4 * 3), net_len
+if net_len > 2000:
+  start, end = 1000, 2000
+
+[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), start, end)]
 EOF
 }
 

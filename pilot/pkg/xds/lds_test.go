@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -40,6 +39,7 @@ func TestLDSIsolated(t *testing.T) {
 
 	// Sidecar in 'none' mode
 	t.Run("sidecar_none", func(t *testing.T) {
+		wd := t.TempDir()
 		adscon := s.Connect(&model.Proxy{
 			Metadata: &model.NodeMetadata{
 				InterceptionMode: model.InterceptionNone,
@@ -49,7 +49,7 @@ func TestLDSIsolated(t *testing.T) {
 			ConfigNamespace: "none",
 		}, nil, watchAll)
 
-		err := adscon.Save(env.IstioOut + "/none")
+		err := adscon.Save(wd + "/none")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,7 +69,7 @@ func TestLDSIsolated(t *testing.T) {
 		}
 
 		for _, s := range []string{"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
-			want, err := os.ReadFile(env.IstioOut + "/none_" + s + ".json")
+			want, err := os.ReadFile(wd + "/none_" + s + ".json")
 			if err != nil {
 				t.Fatal(err)
 			}

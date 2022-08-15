@@ -31,13 +31,17 @@ type NamespacedName struct {
 	Name string
 }
 
+// NamespaceName returns the string name of the namespace, or "" if Namespace is nil.
+func (n NamespacedName) NamespaceName() string {
+	if n.Namespace != nil {
+		return n.Namespace.Name()
+	}
+	return ""
+}
+
 // String returns the Istio-formatted service name in the form of <namespace>/<name>.
 func (n NamespacedName) String() string {
-	ns := ""
-	if n.Namespace != nil {
-		ns = n.Namespace.Name()
-	}
-	return ns + "/" + n.Name
+	return n.NamespaceName() + "/" + n.Name
 }
 
 // PrefixString returns a string in the form of <name>.<prefix>. This is helpful for

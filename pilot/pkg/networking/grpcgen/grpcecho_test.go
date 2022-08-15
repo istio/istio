@@ -4,14 +4,13 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 package grpcgen_test
 
 import (
@@ -26,7 +25,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-
 	//  To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 
@@ -59,14 +57,14 @@ type configGenTest struct {
 // For each of the given servers, we serve echo (only supporting Echo, no ForwardEcho) and
 // create a corresponding WorkloadEntry. The WorkloadEntry will have the given format:
 //
-//    meta:
-//      name: echo-{generated portnum}-{server.version}
-//      namespace: {server.namespace or "default"}
-//      labels: {"app": "grpc", "version": "{server.version}"}
-//    spec:
-//      address: {grpcEchoHost}
-//      ports:
-//        grpc: {generated portnum}
+//	meta:
+//	  name: echo-{generated portnum}-{server.version}
+//	  namespace: {server.namespace or "default"}
+//	  labels: {"app": "grpc", "version": "{server.version}"}
+//	spec:
+//	  address: {grpcEchoHost}
+//	  ports:
+//	    grpc: {generated portnum}
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
 	if runtime.GOOS == "darwin" && len(servers) > 1 {
 		// TODO always skip if this breaks anywhere else

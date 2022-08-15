@@ -12,4 +12,4 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 15
+        weight: -15

@@ -1,0 +1,20 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  mtls:
+    mode: STRICT
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  host: "{{ .To.ClusterLocalFQDN }}"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

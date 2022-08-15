@@ -54,7 +54,7 @@ type IstiodAnalyzer struct {
 	// internalStore stores synthetic configs for analysis (mesh config, etc)
 	internalStore model.ConfigStore
 	// stores contains all the (non file) config sources to analyze
-	stores []model.ConfigStoreCache
+	stores []model.ConfigStoreController
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
@@ -62,7 +62,7 @@ type IstiodAnalyzer struct {
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
-	initializedStore model.ConfigStoreCache
+	initializedStore model.ConfigStoreController
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -85,7 +85,8 @@ type IstiodAnalyzer struct {
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
 func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
+	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration,
+) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
@@ -93,7 +94,8 @@ func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioName
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool,
+) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -127,8 +129,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
 
-	cache.WaitForCacheSync(cancel,
-		store.HasSynced)
+	kubelib.WaitForCacheSync(cancel, store.HasSynced)
 
 	ctx := NewContext(store, cancel, sa.collectionReporter)
 
@@ -262,10 +263,13 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
+	sa.AddRunningKubeSourceWithRevision(c, "default")
+}
+
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
-	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources)
+	store, err := crdclient.NewForSchemas(c, revision, "cluster.local", "analysis-controller", sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
@@ -285,7 +289,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
-		_, err := c.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
+		_, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			// An AnalysisMessage already show up to warn the absence of istio-system namespace, so making it debug level.
 			scope.Analysis.Debugf("%v namespace not found. Istio may not be installed in the target cluster. "+
@@ -299,7 +303,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 // AddSource adds a source based on user supplied configstore to the current IstiodAnalyzer
 // Assumes that the source has same or subset of resource types that this analyzer is configured with.
 // This can be used by external users who import the analyzer as a module within their own controllers.
-func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreCache) {
+func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreController) {
 	sa.stores = append(sa.stores, src)
 }
 
@@ -353,7 +357,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {
-	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}

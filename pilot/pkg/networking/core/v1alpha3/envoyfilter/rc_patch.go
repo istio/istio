@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -32,8 +33,9 @@ func ApplyRouteConfigurationPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	efw *model.EnvoyFilterWrapper,
-	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	routeConfiguration *route.RouteConfiguration,
+) (out *route.RouteConfiguration) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})
@@ -55,7 +57,7 @@ func ApplyRouteConfigurationPatches(
 		}
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
-			proto.Merge(routeConfiguration, rp.Value)
+			merge.Merge(routeConfiguration, rp.Value)
 			IncrementEnvoyFilterMetric(rp.Key(), Route, true)
 		} else {
 			IncrementEnvoyFilterMetric(rp.Key(), Route, false)
@@ -68,7 +70,8 @@ func ApplyRouteConfigurationPatches(
 
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap,
+) {
 	removedVirtualHosts := sets.New()
 	// first do removes/merges/replaces
 	for i := range routeConfiguration.VirtualHosts {
@@ -107,7 +110,8 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHosts []*route.VirtualHost,
-	idx int, portMap model.GatewayPortMap) bool {
+	idx int, portMap model.GatewayPortMap,
+) bool {
 	for _, rp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		applied := false
 		if commonConditionMatch(patchContext, rp) &&
@@ -117,7 +121,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				proto.Merge(virtualHosts[idx], rp.Value)
+				merge.Merge(virtualHosts[idx], rp.Value)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
 			}
@@ -144,7 +148,8 @@ func hasRouteMatch(rp *model.EnvoyFilterConfigPatchWrapper) bool {
 
 func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
+) {
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
@@ -236,7 +241,8 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap,
+) {
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		applied := false
 		if commonConditionMatch(patchContext, rp) &&
@@ -251,7 +257,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				proto.Merge(virtualHost.Routes[routeIndex], rp.Value)
+				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
 		}
@@ -260,7 +266,8 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *route.RouteConfiguration,
-	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap) bool {
+	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap,
+) bool {
 	rMatch := rp.Match.GetRouteConfiguration()
 	if rMatch == nil {
 		return true

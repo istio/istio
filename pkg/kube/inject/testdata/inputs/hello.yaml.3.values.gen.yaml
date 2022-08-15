@@ -1,5 +1,6 @@
 {
   "global": {
+    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "configCluster": false,
@@ -125,10 +126,6 @@
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
-    "objectSelector": {
-      "autoInject": true,
-      "enabled": true
-    },
     "rewriteAppHTTPProbe": true,
     "templates": {}
   }

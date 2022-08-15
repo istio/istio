@@ -32,6 +32,7 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -48,7 +49,6 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tests/integration/telemetry"
 )
 
 const (
@@ -87,7 +87,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigKube().EvalFile(EchoNsInst.Name(), map[string]interface{}{
+	err = ctx.ConfigKube().EvalFile(EchoNsInst.Name(), map[string]any{
 		"StackdriverAddress": SDInst.Address(),
 		"EchoNamespace":      EchoNsInst.Name(),
 		"UseRealSD":          stackdriver.UseRealStackdriver(),
@@ -166,7 +166,6 @@ func TestSetup(ctx resource.Context) (err error) {
 
 // send both a grpc and http requests (http with forced tracing).
 func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) error {
-	callCount := telemetry.RequestCountMultipler * Srv.MustWorkloads().Len()
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	if onlyTCP {
@@ -175,7 +174,6 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 			Port: echo.Port{
 				Name: "tcp",
 			},
-			Count: callCount,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -187,7 +185,6 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		Port: echo.Port{
 			Name: "grpc",
 		},
-		Count: callCount,
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -201,7 +198,6 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		HTTP: echo.HTTP{
 			Headers: headers,
 		},
-		Count: callCount,
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -215,6 +211,17 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	return nil
 }
 
+func clusterProject(t framework.TestContext, clusterName string) string {
+	cluster := t.Clusters().GetByName(clusterName)
+	if cluster == nil {
+		t.Logf("cluster lookup failed: using empty cluster project value")
+		return ""
+	}
+	proj := cluster.MetadataValue(platform.GCPProject)
+	t.Logf("using cluster project: %q", proj)
+	return proj
+}
+
 func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, clName, trustDomain string) error {
 	t.Helper()
 
@@ -226,8 +233,7 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
-	// Traverse all time series received and compare with expected client and server time series.
-	ts, err := SDInst.ListTimeSeries(EchoNsInst.Name())
+	ts, err := SDInst.ListTimeSeries(EchoNsInst.Name(), clusterProject(t, clName))
 	if err != nil {
 		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
 	}
@@ -264,7 +270,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
-	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
+	resource, err := tmpl.Evaluate(string(templateFile), map[string]any{
 		"EchoNamespace": EchoNsInst.Name(),
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,
@@ -285,22 +291,22 @@ func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
 			return
 		}
 	} else {
-		scopes.Framework.Infof("On GCE, setup fake GCE metadata server")
+		scopes.Framework.Infof("On GCE, use the real GCE metadata server")
 	}
 	return nil
 }
 
-func ValidateLogs(t test.Failer, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
+func ValidateLogs(t framework.TestContext, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
-	return ValidateLogEntry(t, &wantLog, filter)
+	return ValidateLogEntry(t, &wantLog, filter, clusterProject(t, clName))
 }
 
-func ValidateLogEntry(t test.Failer, want *loggingpb.LogEntry, filter stackdriver.LogType) error {
+func ValidateLogEntry(t framework.TestContext, want *loggingpb.LogEntry, filter stackdriver.LogType, project string) error {
 	// Traverse all log entries received and compare with expected server log entry.
-	entries, err := SDInst.ListLogEntries(filter, EchoNsInst.Name())
+	entries, err := SDInst.ListLogEntries(filter, EchoNsInst.Name(), project)
 	if err != nil {
 		return fmt.Errorf("logs: failed to get received log entries: %v", err)
 	}

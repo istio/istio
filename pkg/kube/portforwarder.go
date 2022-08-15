@@ -70,11 +70,11 @@ func (f *forwarder) Start() error {
 			fw, err := f.buildK8sPortForwarder(readyCh)
 			if err != nil {
 				errCh <- err
-				break
+				return
 			}
 			if err = fw.ForwardPorts(); err != nil {
 				errCh <- err
-				break
+				return
 			}
 			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
 			// the port forwarder should have already been ready before.
@@ -106,13 +106,13 @@ func (f *forwarder) WaitForStop() {
 	<-f.stopCh
 }
 
-func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string, localPort, podPort int) (PortForwarder, error) {
+func newPortForwarder(c *client, podName, ns, localAddress string, localPort, podPort int) (PortForwarder, error) {
 	if localAddress == "" {
 		localAddress = defaultLocalAddress
 	}
 	f := &forwarder{
 		stopCh:       make(chan struct{}),
-		restConfig:   restConfig,
+		restConfig:   c.config,
 		podName:      podName,
 		ns:           ns,
 		localAddress: localAddress,
@@ -121,10 +121,11 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 	}
 	if f.localPort == 0 {
 		var err error
-		f.localPort, err = availablePort(f.localAddress)
+		reserved, err := c.portManager()
 		if err != nil {
 			return nil, fmt.Errorf("failure allocating port: %v", err)
 		}
+		f.localPort = int(reserved)
 	}
 
 	sLocalPort := fmt.Sprintf("%d", f.localPort)
@@ -175,18 +176,4 @@ func (f *forwarder) buildK8sPortForwarder(readyCh chan struct{}) (*portforward.P
 	}
 
 	return fw, nil
-}
-
-func availablePort(localAddr string) (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(localAddr, "0"))
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	return port, l.Close()
 }

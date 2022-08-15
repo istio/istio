@@ -57,7 +57,6 @@ pilot:
   # Additional labels to apply to the deployment.
   deploymentLabels: {}
 
-
   ## Mesh config settings
 
   # Install the mesh config map, generated from values.yaml.
@@ -66,7 +65,6 @@ pilot:
 
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
-
 
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
@@ -94,12 +92,6 @@ sidecarInjectorWebhook:
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
 
-  # Enable objectSelector to filter out pods with no need for sidecar before calling istiod.
-  # It is enabled by default as the minimum supported Kubernetes version is 1.15+
-  objectSelector:
-    enabled: true
-    autoInject: true
-
   rewriteAppHTTPProbe: true
 
   # Templates defines a set of custom injection templates that can be used. For example, defining:
@@ -116,8 +108,8 @@ sidecarInjectorWebhook:
   templates: {}
 
   # Default templates specifies a set of default templates that are used in sidecar injection.
-  # By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
-  # To inject other additional templates, define it using the `templates` option, and add it to 
+  # By default, a template `sidecar` is always provided, which contains the template of default sidecar.
+  # To inject other additional templates, define it using the `templates` option, and add it to
   # the default templates list.
   # For example:
   #
@@ -325,7 +317,6 @@ global:
     excludeInboundPorts: ""
     includeInboundPorts: "*"
 
-
     # istio egress capture allowlist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
     # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
@@ -374,13 +365,6 @@ global:
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2
-    resources:
-      limits:
-        cpu: 2000m
-        memory: 1024Mi
-      requests:
-        cpu: 10m
-        memory: 10Mi
 
   # configure remote pilot and istiod service and endpoint
   remotePilotAddress: ""
@@ -400,7 +384,7 @@ global:
   # discovery charts are enabled.
   externalIstiod: false
 
-  #  Configure a remote cluster as the config cluster for an external istiod.
+  # Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
 
   # Configure the policy for validating JWT.
@@ -505,8 +489,8 @@ global:
       # Host:Port for submitting traces to the Datadog agent.
       address: "$(HOST_IP):8126"
     lightstep:
-      address: ""                # example: lightstep-satellite:443
-      accessToken: ""            # example: abcdefg1234567
+      address: "" # example: lightstep-satellite:443
+      accessToken: "" # example: abcdefg1234567
     stackdriver:
       # enables trace output to stdout.
       debug: false
@@ -530,6 +514,10 @@ global:
   # The default value is "" and when caName="", the CA will be configured by other
   # mechanisms (e.g., environmental variable CA_PROVIDER).
   caName: ""
+
+  # whether to use autoscaling/v2 template for HPA settings
+  # for internal usage only, not to be configured by users.
+  autoscalingv2API: true
 
 base:
   # For istioctl usage to disable istio config crds in base

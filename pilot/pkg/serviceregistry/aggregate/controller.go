@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"sort"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -25,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -161,30 +159,38 @@ func (c *Controller) getRegistryIndex(clusterID cluster.ID, provider provider.ID
 
 // Services lists services from all platforms
 func (c *Controller) Services() []*model.Service {
-	// smap is a map of hostname (string) to service, used to identify services that
+	// smap is a map of hostname (string) to service index, used to identify services that
 	// are installed in multiple clusters.
-	smap := make(map[host.Name]*model.Service)
-
+	smap := make(map[host.Name]int)
+	index := 0
 	services := make([]*model.Service, 0)
 	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.GetRegistries() {
 		svcs := r.Services()
 		if r.Provider() != provider.Kubernetes {
+			index += len(svcs)
 			services = append(services, svcs...)
 		} else {
 			for _, s := range svcs {
-				sp, ok := smap[s.Hostname]
+				previous, ok := smap[s.Hostname]
 				if !ok {
 					// First time we see a service. The result will have a single service per hostname
 					// The first cluster will be listed first, so the services in the primary cluster
 					// will be used for default settings. If a service appears in multiple clusters,
 					// the order is less clear.
-					smap[s.Hostname] = s
+					smap[s.Hostname] = index
+					index++
 					services = append(services, s)
 				} else {
+					// We must deepcopy before merge, and after merging, the ClusterVips length will be >= 2.
+					// This is an optimization to prevent deepcopy multi-times
+					if len(services[previous].ClusterVIPs.GetAddresses()) < 2 {
+						// Deep copy before merging, otherwise there is a case
+						// a service in remote cluster can be deleted, but the ClusterIP left.
+						services[previous] = services[previous].DeepCopy()
+					}
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
-					// Note: mutating the service of underlying registry here, should have no effect.
-					mergeService(sp, s, r)
+					mergeService(services[previous], s, r)
 				}
 			}
 		}
@@ -241,7 +247,7 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
 	var instances []*model.ServiceInstance
 	for _, r := range c.GetRegistries() {
 		instances = append(instances, r.InstancesByPort(svc, port, labels)...)
@@ -288,29 +294,26 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
-	var out labels.Collection
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	clusterID := nodeClusterID(proxy)
 	for _, r := range c.GetRegistries() {
 		// If proxy clusterID unset, we may find incorrect workload label.
 		// This can not happen in k8s env.
 		if clusterID == "" {
-			wlLabels := r.GetProxyWorkloadLabels(proxy)
-			if len(wlLabels) > 0 {
-				out = append(out, wlLabels...)
-				break
+			lbls := r.GetProxyWorkloadLabels(proxy)
+			if lbls != nil {
+				return lbls
 			}
 		} else if clusterID == r.Cluster() {
 			// find proxy in the specified cluster
-			wlLabels := r.GetProxyWorkloadLabels(proxy)
-			if len(wlLabels) > 0 {
-				out = append(out, wlLabels...)
+			lbls := r.GetProxyWorkloadLabels(proxy)
+			if lbls != nil {
+				return lbls
 			}
-			break
 		}
 	}
 
-	return out
+	return nil
 }
 
 // Run starts all the controllers
@@ -378,43 +381,4 @@ func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	delete(c.handlersByCluster, id)
-}
-
-// GetIstioServiceAccounts implements model.ServiceAccounts operation.
-// The returned list contains all SPIFFE based identities that backs the service.
-// This method also expand the results from different registries based on the mesh config trust domain aliases.
-// To retain such trust domain expansion behavior, the xDS server implementation should wrap any (even if single)
-// service registry by this aggreated one.
-// For example,
-// - { "spiffe://cluster.local/bar@iam.gserviceaccount.com"}; when annotation is used on corresponding workloads.
-// - { "spiffe://cluster.local/ns/default/sa/foo" }; normal kubernetes cases
-// - { "spiffe://cluster.local/ns/default/sa/foo", "spiffe://trust-domain-alias/ns/default/sa/foo" };
-//   if the trust domain alias is configured.
-func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	out := map[string]struct{}{}
-	for _, r := range c.GetRegistries() {
-		svcAccounts := r.GetIstioServiceAccounts(svc, ports)
-		for _, sa := range svcAccounts {
-			out[sa] = struct{}{}
-		}
-	}
-	result := make([]string, 0, len(out))
-	for k := range out {
-		result = append(result, k)
-	}
-	tds := make([]string, 0)
-	if c.meshHolder != nil {
-		m := c.meshHolder.Mesh()
-		if m != nil {
-			tds = m.TrustDomainAliases
-		}
-	}
-	expanded := spiffe.ExpandWithTrustDomains(result, tds)
-	result = make([]string, 0, len(expanded))
-	for k := range expanded {
-		result = append(result, k)
-	}
-	// Sort to make the return result deterministic.
-	sort.Strings(result)
-	return result
 }

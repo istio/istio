@@ -33,11 +33,11 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -129,7 +129,8 @@ func TestEgressGatewayTls(t *testing.T) {
 						t.ConfigIstio().YAML(systemNamespace.Name(), bufDestinationRule.String()).ApplyOrFail(t)
 
 						opts := echo.CallOptions{
-							To: externalServer,
+							To:    externalServer,
+							Count: 1,
 							Port: echo.Port{
 								Name: "http",
 							},
@@ -213,7 +214,8 @@ spec:
 )
 
 func createDestinationRule(t framework.TestContext, serviceNamespace namespace.Instance,
-	destinationRuleMode string, fakeRootCert bool) bytes.Buffer {
+	destinationRuleMode string, fakeRootCert bool,
+) bytes.Buffer {
 	var destinationRuleToParse string
 	var rootCertPathToUse string
 	if destinationRuleMode == "MUTUAL" {

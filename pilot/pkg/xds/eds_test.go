@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,6 @@
 package xds_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -32,17 +31,19 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	uatomic "go.uber.org/atomic"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -76,7 +77,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: false,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: gvk.ServiceEntry}: {},
+				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: kind.ServiceEntry}: {},
 			},
 		})
 		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
@@ -89,7 +90,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: gvk.ServiceEntry}: {},
+				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: kind.ServiceEntry}: {},
 			},
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
@@ -104,8 +105,8 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "foo.bar", Namespace: "default", Kind: gvk.ServiceEntry}:   {},
-				{Name: "destall", Namespace: "testns", Kind: gvk.DestinationRule}: {},
+				{Name: "foo.bar", Namespace: "default", Kind: kind.ServiceEntry}:   {},
+				{Name: "destall", Namespace: "testns", Kind: kind.DestinationRule}: {},
 			},
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
@@ -120,7 +121,7 @@ func TestIncrementalPush(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "destall", Namespace: "testns", Kind: gvk.DestinationRule}: {},
+				{Name: "destall", Namespace: "testns", Kind: kind.DestinationRule}: {},
 			},
 		})
 		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
@@ -130,6 +131,48 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
 		}
 	})
+}
+
+// Regression test for https://github.com/istio/istio/issues/38709
+func TestSAUpdate(t *testing.T) {
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
+
+	ports := model.PortList{
+		{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		},
+	}
+	svc := &model.Service{
+		Ports:    ports,
+		Hostname: host.Name("test1"),
+	}
+	s.MemRegistry.AddServiceNotify(svc)
+	if _, err := ads.Wait(time.Second*10, watchAll...); err != nil {
+		t.Fatal(err)
+	}
+	i := &model.ServiceInstance{
+		Service:     svc,
+		ServicePort: svc.Ports[0],
+		Endpoint: &model.IstioEndpoint{
+			Address:        "1.2.3.4",
+			ServiceAccount: "spiffe://td1/ns/def/sa/def",
+			HealthStatus:   model.UnHealthy,
+		},
+	}
+	s.MemRegistry.AddInstanceNotify("test1", i)
+	if _, err := ads.Wait(time.Second*10, v3.EndpointType); err != nil {
+		t.Fatal(err)
+	}
+	transport := &tls.UpstreamTlsContext{}
+	ads.GetEdsClusters()["outbound|80||test1"].GetTransportSocketMatches()[0].GetTransportSocket().GetTypedConfig().UnmarshalTo(transport)
+	sans := transport.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() //nolint: staticcheck
+	if len(sans) != 1 {
+		t.Fatalf("expected 1 san, got %v", sans)
+	}
 }
 
 func TestEds(t *testing.T) {
@@ -185,8 +228,6 @@ func TestEds(t *testing.T) {
 		if len(clusters) == 0 {
 			t.Error("No clusters in ADS response")
 		}
-		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = os.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
 }
 
@@ -203,78 +244,6 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServiceAccount:  account,
 		},
 	}
-}
-
-func TestTunnelServerEndpointEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		[]*model.IstioEndpoint{
-			{
-				Address:         "127.0.0.1",
-				ServicePortName: "http-main",
-				EndpointPort:    80,
-				// Labels:          map[string]string{"version": version},
-				ServiceAccount: "hello-sa",
-				TunnelAbility:  networking.MakeTunnelAbility(networking.H2Tunnel),
-			},
-		})
-
-	t.Run("TestClientWantsTunnelEndpoints", func(t *testing.T) {
-		t.Helper()
-		adscConn1 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{
-				ProxyMetadata: map[string]string{
-					"tunnel": networking.H2TunnelTypeName,
-				},
-			},
-		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 15009, adscConn1, t)
-	})
-	t.Run("TestClientWantsNoTunnelEndpoints", func(t *testing.T) {
-		t.Helper()
-		adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}, Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{},
-		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn2, t)
-	})
-}
-
-func TestNoTunnelServerEndpointEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-	addTestClientEndpoints(s.Discovery)
-
-	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		[]*model.IstioEndpoint{
-			{
-				Address:         "127.0.0.1",
-				ServicePortName: "http-main",
-				EndpointPort:    80,
-				// Labels:          map[string]string{"version": version},
-				ServiceAccount: "hello-sa",
-				// No Tunnel Support at this endpoint.
-				TunnelAbility: networking.MakeTunnelAbility(),
-			},
-		})
-
-	t.Run("TestClientWantsTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}, Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{
-				ProxyMetadata: map[string]string{
-					"tunnel": networking.H2TunnelTypeName,
-				},
-			},
-		}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn, t)
-	})
-
-	t.Run("TestClientWantsNoTunnelEndpoints", func(t *testing.T) {
-		adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}, Metadata: &model.NodeMetadata{}}, nil, watchAll)
-		testTunnelEndpoints("127.0.0.1", 80, adscConn, t)
-	})
 }
 
 func mustReadFile(t *testing.T, fpaths ...string) string {
@@ -354,6 +323,7 @@ func TestEDSOverlapping(t *testing.T) {
 }
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addUnhealthyCluster(s)
 	adscon := s.Connect(nil, nil, watchEds)
@@ -577,9 +547,9 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
 	}
 
-	// Validate that keys in service still exist in EndpointShardsByService - this prevents full push.
-	if len(s.Discovery.EndpointShardsByService["flipflop.com"]) == 0 {
-		t.Fatalf("Expected service key %s to be present in EndpointShardsByService. But missing %v", "flipflop.com", s.Discovery.EndpointShardsByService)
+	// Validate that keys in service still exist in EndpointIndex - this prevents full push.
+	if _, ok := s.Discovery.Env.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
+		t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.Env.EndpointIndex.Shardz())
 	}
 
 	// Set the endpoints again and validate it does not trigger full push.
@@ -605,7 +575,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
 }
 
-// Validate that deleting a service clears entries from EndpointShardsByService.
+// Validate that deleting a service clears entries from EndpointIndex.
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
@@ -617,11 +587,16 @@ func TestDeleteService(t *testing.T) {
 
 	s.Discovery.MemRegistry.RemoveService("removeservice.com")
 
-	if len(s.Discovery.EndpointShardsByService["removeservice.com"]) != 0 {
-		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
-			"removeservice.com", s.Discovery.EndpointShardsByService)
+	if _, ok := s.Discovery.Env.EndpointIndex.ShardsForService("removeservice.com", ""); ok {
+		t.Fatalf("Expected service key %s to be deleted in EndpointIndex. But is still there %v",
+			"removeservice.com", s.Discovery.Env.EndpointIndex.Shardz())
 	}
 }
+
+var (
+	c1Key = model.ShardKey{Cluster: "c1"}
+	c2Key = model.ShardKey{Cluster: "c2"}
+)
 
 func TestUpdateServiceAccount(t *testing.T) {
 	cluster1Endppoints := []*model.IstioEndpoint{
@@ -637,19 +612,19 @@ func TestUpdateServiceAccount(t *testing.T) {
 	}{
 		{
 			name:      "added new endpoint",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
 			name:     "updated endpoints address",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.5", ServiceAccount: "sa1"},
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
@@ -658,7 +633,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with unique sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
 			},
@@ -666,7 +641,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:     "deleted one endpoint with duplicate sa",
-			shardKey: "c1",
+			shardKey: c1Key,
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
@@ -674,7 +649,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:      "deleted endpoints",
-			shardKey:  "c1",
+			shardKey:  c1Key,
 			endpoints: nil,
 			expect:    true,
 		},
@@ -683,10 +658,10 @@ func TestUpdateServiceAccount(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := new(xds.DiscoveryServer)
-			originalEndpointsShard := &xds.EndpointShards{
+			originalEndpointsShard := &model.EndpointShards{
 				Shards: map[model.ShardKey][]*model.IstioEndpoint{
-					"c1": cluster1Endppoints,
-					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
+					c1Key: cluster1Endppoints,
+					c2Key: {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
 				},
 				ServiceAccounts: map[string]struct{}{
 					"sa1":    {},
@@ -708,21 +683,19 @@ func TestZeroEndpointShardSA(t *testing.T) {
 		{Address: "10.172.0.1", ServiceAccount: "sa1"},
 	}
 	s := new(xds.DiscoveryServer)
-	originalEndpointsShard := &xds.EndpointShards{
-		Shards: map[model.ShardKey][]*model.IstioEndpoint{
-			"c1": cluster1Endppoints,
-		},
-		ServiceAccounts: map[string]struct{}{
-			"sa1": {},
-		},
-	}
-	s.EndpointShardsByService = make(map[string]map[string]*xds.EndpointShards)
-	s.EndpointShardsByService["test"] = make(map[string]*xds.EndpointShards)
-	s.EndpointShardsByService["test"]["test"] = originalEndpointsShard
 	s.Cache = model.DisabledCache{}
-	s.EDSCacheUpdate("c1", "test", "test", []*model.IstioEndpoint{})
-	if len(s.EndpointShardsByService["test"]["test"].ServiceAccounts) != 0 {
-		t.Errorf("endpoint shard service accounts got %v want 0", len(s.EndpointShardsByService["test"]["test"].ServiceAccounts))
+	s.Env = model.NewEnvironment()
+	originalEndpointsShard, _ := s.Env.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	originalEndpointsShard.Shards = map[model.ShardKey][]*model.IstioEndpoint{
+		c1Key: cluster1Endppoints,
+	}
+	originalEndpointsShard.ServiceAccounts = map[string]struct{}{
+		"sa1": {},
+	}
+	s.EDSCacheUpdate(c1Key, "test", "test", []*model.IstioEndpoint{})
+	modifiedShard, _ := s.Env.EndpointIndex.GetOrCreateEndpointShard("test", "test")
+	if len(modifiedShard.ServiceAccounts) != 0 {
+		t.Errorf("endpoint shard service accounts got %v want 0", len(modifiedShard.ServiceAccounts))
 	}
 }
 
@@ -797,31 +770,6 @@ func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.
 	t.Fatalf("Expecting %s got %v", expected, found)
 }
 
-// Verify server sends the tunneled endpoints.
-// nolint: unparam
-func testTunnelEndpoints(expectIP string, expectPort uint32, adsc *adsc.ADSC, t *testing.T) {
-	t.Helper()
-	cluster := "outbound|8080||eds.test.svc.cluster.local"
-	allClusters := adsc.GetEndpoints()
-	cla, f := allClusters[cluster]
-	if !f || len(cla.Endpoints) == 0 {
-		t.Fatalf("No lb endpoints for %v, %v", cluster, adsc.EndpointsJSON())
-	}
-	var found []string
-	for _, lbe := range cla.Endpoints {
-		for _, e := range lbe.LbEndpoints {
-			addr := e.GetEndpoint().Address.GetSocketAddress().Address
-			port := e.GetEndpoint().Address.GetSocketAddress().GetPortValue()
-			found = append(found, fmt.Sprintf("%s:%d", addr, port))
-			if expectIP == addr && expectPort == port {
-				return
-			}
-		}
-	}
-	t.Errorf("REACH HERE cannot find %s:%d", expectIP, expectPort)
-	t.Fatalf("Expecting address %s:%d got %v", expectIP, expectPort, found)
-}
-
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
 	endpoints1 := adsc.GetEndpoints()
 	endpoints2 := adsc2.GetEndpoints()
@@ -843,7 +791,7 @@ func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testin
 	s.Discovery.Push(&model.PushRequest{
 		Full: true,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind: gvk.ServiceEntry,
+			Kind: kind.ServiceEntry,
 			Name: "overlapping.cluster.local",
 		}: {}},
 	})
@@ -1017,7 +965,8 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
 func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
-	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
+	nPushes int, to time.Duration, _ map[string]string, t *testing.T,
+) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, nclients)
@@ -1098,7 +1047,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			s.Discovery.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind: gvk.ServiceEntry,
+					Kind: kind.ServiceEntry,
 					Name: edsIncSvc,
 				}: {}},
 				Push: s.Discovery.Env.PushContext,

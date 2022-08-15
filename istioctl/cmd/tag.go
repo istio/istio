@@ -285,7 +285,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
 	}
-	if err := analyzeWebhook(resName, tagWhYAML, kubeClient.RESTConfig()); err != nil {
+	if err := analyzeWebhook(resName, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
 		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
 		// warning; when actually applying we will also confirm to ensure the user does not see the
 		// warning *after* it has applied
@@ -314,7 +314,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 	return nil
 }
 
-func analyzeWebhook(name, wh string, config *rest.Config) error {
+func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
@@ -324,7 +324,7 @@ func analyzeWebhook(name, wh string, config *rest.Config) error {
 	if err != nil {
 		return err
 	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSourceWithRevision(k, revision)
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {
 		return err

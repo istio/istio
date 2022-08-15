@@ -24,7 +24,6 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
+	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -67,8 +67,7 @@ func TestServiceNotExported(t *testing.T) {
 			for _, endpointMode := range EndpointModes {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
-					ec, cleanup := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					defer cleanup()
+					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
 
 					// Check that the endpoint is cluster-local
 					ec.checkServiceInstancesOrFail(t, false)
@@ -84,8 +83,7 @@ func TestServiceExported(t *testing.T) {
 			for _, endpointMode := range EndpointModes {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
-					ec, cleanup := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					defer cleanup()
+					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
 
 					// Export the service.
 					ec.export(t)
@@ -104,8 +102,7 @@ func TestServiceUnexported(t *testing.T) {
 			for _, endpointMode := range EndpointModes {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
-					ec, cleanup := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					defer cleanup()
+					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
 
 					// Export the service and then unexport it immediately.
 					ec.export(t)
@@ -133,27 +130,16 @@ func newServiceExport() *unstructured.Unstructured {
 	return toUnstructured(se)
 }
 
-func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl, cleanup func()) {
+func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
 	t.Helper()
 
-	stopCh := make(chan struct{})
-	prevEnableMCSServiceDiscovery := features.EnableMCSServiceDiscovery
-	features.EnableMCSServiceDiscovery = true
-	prevEnableMCSClusterLocal := features.EnableMCSClusterLocal
-	features.EnableMCSClusterLocal = clusterLocalMode == alwaysClusterLocal
-	cleanup = func() {
-		close(stopCh)
-		features.EnableMCSServiceDiscovery = prevEnableMCSServiceDiscovery
-		features.EnableMCSClusterLocal = prevEnableMCSClusterLocal
-	}
+	istiotest.SetBoolForTest(t, &features.EnableMCSServiceDiscovery, true)
+	istiotest.SetBoolForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
 
-	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
-		Stop:      stopCh,
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
 		Mode:      endpointMode,
 	})
-	go c.Run(c.stop)
-	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	// Create the test service and endpoints.
 	createService(c, serviceExportName, serviceExportNamespace, map[string]string{},

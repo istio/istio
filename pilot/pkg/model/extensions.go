@@ -28,7 +28,7 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -40,6 +40,10 @@ const (
 
 	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
 	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
+	// name of environment variable at Wasm VM, which will carry the Wasm image pull policy.
+	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
+	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
+	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 )
 
 type WasmPluginWrapper struct {
@@ -69,7 +73,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = networking.MessageToAny(&wrapperspb.StringValue{
+		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
 			Value: cfgJSON,
 		})
 	}
@@ -91,7 +95,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
-			Vm:            buildVMConfig(datasource, wasmPlugin.VmConfig, wasmPlugin.ImagePullSecret),
+			Vm:            buildVMConfig(datasource, plugin.ResourceVersion, wasmPlugin),
 		},
 	}
 	if err != nil {
@@ -159,7 +163,11 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 	}
 }
 
-func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig, secretName string) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+func buildVMConfig(
+	datasource *envoyCoreV3.AsyncDataSource,
+	resourceVersion string,
+	wasmPlugin *extensions.WasmPlugin,
+) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,
@@ -170,10 +178,17 @@ func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmCon
 		},
 	}
 
-	if secretName != "" {
-		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = secretName
+	if wasmPlugin.ImagePullSecret != "" {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = wasmPlugin.ImagePullSecret
 	}
 
+	if wasmPlugin.ImagePullPolicy != extensions.PullPolicy_UNSPECIFIED_POLICY {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmPolicyEnv] = wasmPlugin.ImagePullPolicy.String()
+	}
+
+	cfg.VmConfig.EnvironmentVariables.KeyValues[WasmResourceVersionEnv] = resourceVersion
+
+	vm := wasmPlugin.VmConfig
 	if vm != nil && len(vm.Env) != 0 {
 		hostEnvKeys := make([]string, 0, len(vm.Env))
 		for _, e := range vm.Env {

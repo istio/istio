@@ -33,8 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -57,7 +55,7 @@ type TestOptions struct {
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
-	ConfigTemplateInput interface{}
+	ConfigTemplateInput any
 
 	// Services to pre-populate as part of the service discovery
 	Services  []*model.Service
@@ -71,14 +69,11 @@ type TestOptions struct {
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
-	// Additional ConfigStoreCache to use
-	ConfigStoreCaches []model.ConfigStoreCache
+	// Additional ConfigStoreController to use
+	ConfigStoreCaches []model.ConfigStoreController
 
-	// CreateConfigStore defines a function that, given a ConfigStoreCache, returns another ConfigStoreCache to use
-	CreateConfigStore func(c model.ConfigStoreCache) model.ConfigStoreCache
-
-	// ConfigGen plugins to use. If not set, all default plugins will be used
-	Plugins []plugin.Plugin
+	// CreateConfigStore defines a function that, given a ConfigStoreController, returns another ConfigStoreController to use
+	CreateConfigStore func(c model.ConfigStoreController) model.ConfigStoreController
 
 	// Mutex used for push context access. Should generally only be used by NewFakeDiscoveryServer
 	PushContextLock *sync.RWMutex
@@ -90,14 +85,28 @@ type TestOptions struct {
 	ClusterID cluster2.ID
 }
 
+func (to TestOptions) FuzzValidate() bool {
+	for _, csc := range to.ConfigStoreCaches {
+		if csc == nil {
+			return false
+		}
+	}
+	for _, sr := range to.ServiceRegistries {
+		if sr == nil {
+			return false
+		}
+	}
+	return true
+}
+
 type ConfigGenTest struct {
 	t                    test.Failer
 	pushContextLock      *sync.RWMutex
-	store                model.ConfigStoreCache
+	store                model.ConfigStoreController
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
-	ServiceEntryRegistry *serviceentry.ServiceEntryStore
+	ServiceEntryRegistry *serviceentry.Controller
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
@@ -105,16 +114,11 @@ type ConfigGenTest struct {
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	t.Helper()
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
-
 	configs := getConfigs(t, opts)
 	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
 	cc := memory.NewSyncController(configStore)
-	controllers := []model.ConfigStoreCache{cc}
+	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
 		controllers = append(controllers, opts.CreateConfigStore(cc))
 	}
@@ -127,7 +131,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
-	se := serviceentry.NewServiceDiscovery(
+	se := serviceentry.NewController(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
@@ -137,7 +141,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
 	msd.AddGateways(opts.Gateways...)
-	msd.ClusterID = string(provider.Mock)
+	msd.ClusterID = cluster2.ID(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
 		ProviderID:       provider.Mock,
@@ -148,27 +152,23 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		serviceDiscovery.AddRegistry(reg)
 	}
 
-	env := &model.Environment{PushContext: model.NewPushContext()}
+	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
 	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configController)
+	env.ConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
-
-	if opts.Plugins == nil {
-		opts.Plugins = registry.NewPlugins([]string{plugin.AuthzCustom, plugin.Authn, plugin.Authz})
-	}
 
 	fake := &ConfigGenTest{
 		t:                    t,
 		store:                configController,
 		env:                  env,
 		initialConfigs:       configs,
-		stop:                 stop,
-		ConfigGen:            NewConfigGenerator(opts.Plugins, &model.DisabledCache{}),
+		stop:                 test.NewStop(t),
+		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
@@ -215,7 +215,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.14.0"
+		p.Metadata.IstioVersion = "1.16.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -244,7 +244,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	p.SetSidecarScope(pc)
 	p.SetServiceInstances(f.env.ServiceDiscovery)
 	p.SetGatewaysForProxy(pc)
-	p.DiscoverIPVersions()
+	p.DiscoverIPMode()
 	return p
 }
 
@@ -312,7 +312,7 @@ func (f *ConfigGenTest) Env() *model.Environment {
 	return f.env
 }
 
-func (f *ConfigGenTest) Store() model.ConfigStoreCache {
+func (f *ConfigGenTest) Store() model.ConfigStoreController {
 	return f.store
 }
 

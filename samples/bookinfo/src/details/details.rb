@@ -172,9 +172,17 @@ def get_forward_headers(request)
       'x-b3-sampled',
       'x-b3-flags',
 
+      # SkyWalking trace headers.
+      'sw8',
+
       # Application-specific headers to forward.
       'end-user',
       'user-agent',
+
+      # Context and session specific headers
+      'cookie',
+      'authorization',
+      'jwt'
   ]
 
   request.each do |header, value|

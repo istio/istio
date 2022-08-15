@@ -19,7 +19,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -27,11 +27,10 @@ import (
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -73,7 +72,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				for _, inst := range registry.InstancesByPort(svc, port.Port, labels.Collection{}) {
+				for _, inst := range registry.InstancesByPort(svc, port.Port, nil) {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}
@@ -87,11 +86,11 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
-	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointShardsByService to
+	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointIndex to
 	// prevent memory leaks.
 	if event == model.EventDelete {
 		inboundServiceDeletes.Increment()
-		s.deleteService(shard, hostname, namespace)
+		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, false)
 	} else {
 		inboundServiceUpdates.Increment()
 	}
@@ -103,7 +102,8 @@ func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, names
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) {
+	istioEndpoints []*model.IstioEndpoint,
+) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	pushType := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
@@ -112,7 +112,7 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 		s.ConfigUpdate(&model.PushRequest{
 			Full: pushType == FullPush,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      serviceName,
 				Namespace: namespace,
 			}: {}},
@@ -129,7 +129,8 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 //
 // Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
 func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) {
+	istioEndpoints []*model.IstioEndpoint,
+) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
@@ -139,30 +140,31 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) PushType {
+	istioEndpoints []*model.IstioEndpoint,
+) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
-		// but we should not delete the keys from EndpointShardsByService map - that will trigger
+		// but we should not delete the keys from EndpointIndex map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
-		s.deleteEndpointShards(shard, hostname, namespace)
+		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, true)
 		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
 		return IncrementalPush
 	}
 
 	pushType := IncrementalPush
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
-	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
+	ep, created := s.Env.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
 		log.Infof("Full push, new service %s/%s", namespace, hostname)
 		pushType = FullPush
 	}
 
-	ep.mutex.Lock()
-	defer ep.mutex.Unlock()
+	ep.Lock()
+	defer ep.Unlock()
 	newIstioEndpoints := istioEndpoints
-	if features.SendUnhealthyEndpoints {
+	if features.SendUnhealthyEndpoints.Load() {
 		oldIstioEndpoints := ep.Shards[shard]
 		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
 
@@ -232,7 +234,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
 	s.Cache.Clear(map[model.ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
+		Kind:      kind.ServiceEntry,
 		Name:      hostname,
 		Namespace: namespace,
 	}: {}})
@@ -241,104 +243,12 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	for svc, shardsByNamespace := range s.EndpointShardsByService {
-		for ns := range shardsByNamespace {
-			s.deleteServiceInner(shardKey, svc, ns)
-		}
-	}
-	s.Cache.ClearAll()
-}
-
-func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if _, exists := s.EndpointShardsByService[serviceName]; !exists {
-		s.EndpointShardsByService[serviceName] = map[string]*EndpointShards{}
-	}
-	if ep, exists := s.EndpointShardsByService[serviceName][namespace]; exists {
-		return ep, false
-	}
-	// This endpoint is for a service that was not previously loaded.
-	ep := &EndpointShards{
-		Shards:          map[model.ShardKey][]*model.IstioEndpoint{},
-		ServiceAccounts: sets.Set{},
-	}
-	s.EndpointShardsByService[serviceName][namespace] = ep
-	// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
-	s.Cache.Clear(map[model.ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
-		Name:      serviceName,
-		Namespace: namespace,
-	}: {}})
-	return ep, true
-}
-
-// deleteEndpointShards deletes matching endpoint shards from EndpointShardsByService map. This is called when
-// endpoints are deleted.
-func (s *DiscoveryServer) deleteEndpointShards(shard model.ShardKey, serviceName, namespace string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.EndpointShardsByService[serviceName] != nil &&
-		s.EndpointShardsByService[serviceName][namespace] != nil {
-		epShards := s.EndpointShardsByService[serviceName][namespace]
-		epShards.mutex.Lock()
-		delete(epShards.Shards, shard)
-		epShards.ServiceAccounts = sets.Set{}
-		for _, shard := range epShards.Shards {
-			for _, ep := range shard {
-				if ep.ServiceAccount != "" {
-					epShards.ServiceAccounts.Insert(ep.ServiceAccount)
-				}
-			}
-		}
-		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
-		s.Cache.Clear(map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
-			Name:      serviceName,
-			Namespace: namespace,
-		}: {}})
-		epShards.mutex.Unlock()
-	}
-}
-
-// deleteService deletes all service related references from EndpointShardsByService. This is called
-// when a service is deleted.
-func (s *DiscoveryServer) deleteService(shard model.ShardKey, serviceName, namespace string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.deleteServiceInner(shard, serviceName, namespace)
-}
-
-func (s *DiscoveryServer) deleteServiceInner(shard model.ShardKey, serviceName, namespace string) {
-	if s.EndpointShardsByService[serviceName] != nil &&
-		s.EndpointShardsByService[serviceName][namespace] != nil {
-		epShards := s.EndpointShardsByService[serviceName][namespace]
-		epShards.mutex.Lock()
-		delete(epShards.Shards, shard)
-		shardsLen := len(epShards.Shards)
-		s.UpdateServiceAccount(epShards, serviceName)
-		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
-		s.Cache.Clear(map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
-			Name:      serviceName,
-			Namespace: namespace,
-		}: {}})
-		epShards.mutex.Unlock()
-		if shardsLen == 0 {
-			delete(s.EndpointShardsByService[serviceName], namespace)
-		}
-		if len(s.EndpointShardsByService[serviceName]) == 0 {
-			delete(s.EndpointShardsByService, serviceName)
-		}
-	}
+	s.Env.EndpointIndex.DeleteShard(shardKey)
 }
 
 // UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
 // Note: it is not concurrent safe.
-func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, serviceName string) bool {
+func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, serviceName string) bool {
 	oldServiceAccount := shards.ServiceAccounts
 	serviceAccounts := sets.Set{}
 	for _, epShards := range shards.Shards {
@@ -359,10 +269,8 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, serviceNa
 	return false
 }
 
-// llbEndpointAndOptionsForCluster return the endpoints for a cluster
-// Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests.
-func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
+// localityEndpointsForCluster returns the endpoints for a cluster
+func (s *DiscoveryServer) localityEndpointsForCluster(b EndpointBuilder) ([]*LocalityEndpoints, error) {
 	if b.service == nil {
 		// Shouldn't happen here
 		log.Debugf("can not find the service for cluster %s", b.clusterName)
@@ -388,9 +296,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 		return nil, nil
 	}
 
-	s.mutex.RLock()
-	epShards, f := s.EndpointShardsByService[string(b.hostname)][b.service.Attributes.Namespace]
-	s.mutex.RUnlock()
+	epShards, f := s.Env.EndpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
@@ -401,24 +307,22 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 }
 
 func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	llbOpts, err := s.llbEndpointAndOptionsForCluster(b)
+	localityLbEndpoints, err := s.localityEndpointsForCluster(b)
 	if err != nil {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	// Apply the Split Horizon EDS filter, if applicable.
-	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
+	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
 		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
 		// request is a valid mTLS request or not, since its passthrough TLS.
 		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
-		llbOpts = b.EndpointsWithMTLSFilter(llbOpts)
+		localityLbEndpoints = b.EndpointsWithMTLSFilter(localityLbEndpoints)
 	}
-	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
-
-	l := b.createClusterLoadAssignment(llbOpts)
+	l := b.createClusterLoadAssignment(localityLbEndpoints)
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
@@ -428,10 +332,10 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
-		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(llbOpts))
-		for i := range llbOpts {
+		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
+		for i := range localityLbEndpoints {
 			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
-				IstioEndpoints:      llbOpts[i].istioEndpoints,
+				IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
 				LocalityLbEndpoints: l.Endpoints[i],
 			}
 		}
@@ -449,16 +353,16 @@ type EdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
-var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
-	gvk.WorkloadGroup:         {},
-	gvk.AuthorizationPolicy:   {},
-	gvk.RequestAuthentication: {},
-	gvk.Secret:                {},
-	gvk.Telemetry:             {},
-	gvk.WasmPlugin:            {},
-	gvk.ProxyConfig:           {},
+var skippedEdsConfigs = map[kind.Kind]struct{}{
+	kind.Gateway:               {},
+	kind.VirtualService:        {},
+	kind.WorkloadGroup:         {},
+	kind.AuthorizationPolicy:   {},
+	kind.RequestAuthentication: {},
+	kind.Secret:                {},
+	kind.Telemetry:             {},
+	kind.WasmPlugin:            {},
+	kind.ProxyConfig:           {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
@@ -485,7 +389,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 func getOutlierDetectionAndLoadBalancerSettings(
 	destinationRule *networkingapi.DestinationRule,
 	portNumber int,
-	subsetName string) (bool, *networkingapi.LoadBalancerSettings) {
+	subsetName string,
+) (bool, *networkingapi.LoadBalancerSettings) {
 	if destinationRule == nil {
 		return false, nil
 	}
@@ -512,7 +417,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*any.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*anypb.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		TypeUrl: v3.EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -535,7 +440,8 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 }
 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
@@ -560,7 +466,7 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 func onlyEndpointsChanged(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) > 0 {
 		for k := range req.ConfigsUpdated {
-			if k.Kind != gvk.ServiceEntry {
+			if k.Kind != kind.ServiceEntry {
 				return false
 			}
 		}
@@ -571,7 +477,8 @@ func onlyEndpointsChanged(req *model.PushRequest) bool {
 
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
+	w *model.WatchedResource,
+) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
 	// canSendPartialFullPushes determines if we can send a partial push (ie a subset of known CLAs).
 	// This is safe when only Services has changed, as this implies that only the CLAs for the
@@ -580,7 +487,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
 	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
 	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
-		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
 	}
 	var resources model.Resources
 	empty := 0
@@ -612,7 +519,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 			resource := &discovery.Resource{
 				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
+				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, req, resource)
@@ -627,8 +534,9 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 // TODO(@hzxuzhonghu): merge with buildEndpoints
 func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails) {
-	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+	w *model.WatchedResource,
+) (model.Resources, []string, model.XdsLogDetails) {
+	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
 	var resources model.Resources
 	var removed []string
 	empty := 0
@@ -664,7 +572,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			}
 			resource := &discovery.Resource{
 				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
+				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, req, resource)

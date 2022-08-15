@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/40246
+releaseNotes:
+  - |
+    **Fixed** istioctl install to not show a warning message when `values.pilot.replicaCount` is set equal to its default value.

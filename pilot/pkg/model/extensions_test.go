@@ -85,23 +85,29 @@ func TestBuildDataSource(t *testing.T) {
 
 func TestBuildVMConfig(t *testing.T) {
 	cases := []struct {
+		desc     string
 		vm       *extensions.VmConfig
+		policy   extensions.PullPolicy
 		expected *envoyExtensionsWasmV3.PluginConfig_VmConfig
 	}{
 		{
-			vm: nil,
+			desc:   "Build VMConfig without a base VMConfig",
+			vm:     nil,
+			policy: extensions.PullPolicy_UNSPECIFIED_POLICY,
 			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 				VmConfig: &envoyExtensionsWasmV3.VmConfig{
 					Runtime: defaultRuntime,
 					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
 						KeyValues: map[string]string{
-							WasmSecretEnv: "secret-name",
+							WasmSecretEnv:          "secret-name",
+							WasmResourceVersionEnv: "dummy-resource-version",
 						},
 					},
 				},
 			},
 		},
 		{
+			desc: "Build VMConfig on top of a base VMConfig",
 			vm: &extensions.VmConfig{
 				Env: []*extensions.EnvVar{
 					{
@@ -114,14 +120,33 @@ func TestBuildVMConfig(t *testing.T) {
 					},
 				},
 			},
+			policy: extensions.PullPolicy_UNSPECIFIED_POLICY,
 			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 				VmConfig: &envoyExtensionsWasmV3.VmConfig{
 					Runtime: defaultRuntime,
 					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
 						HostEnvKeys: []string{"POD_NAME"},
 						KeyValues: map[string]string{
-							"ENV1":        "VAL1",
-							WasmSecretEnv: "secret-name",
+							"ENV1":                 "VAL1",
+							WasmSecretEnv:          "secret-name",
+							WasmResourceVersionEnv: "dummy-resource-version",
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:   "Build VMConfig with if-not-present pull policy",
+			vm:     nil,
+			policy: extensions.PullPolicy_IfNotPresent,
+			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
+				VmConfig: &envoyExtensionsWasmV3.VmConfig{
+					Runtime: defaultRuntime,
+					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							WasmSecretEnv:          "secret-name",
+							WasmPolicyEnv:          extensions.PullPolicy_name[int32(extensions.PullPolicy_IfNotPresent)],
+							WasmResourceVersionEnv: "dummy-resource-version",
 						},
 					},
 				},
@@ -130,8 +155,12 @@ func TestBuildVMConfig(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run("", func(t *testing.T) {
-			got := buildVMConfig(nil, tc.vm, "secret-name")
+		t.Run(tc.desc, func(t *testing.T) {
+			got := buildVMConfig(nil, "dummy-resource-version", &extensions.WasmPlugin{
+				VmConfig:        tc.vm,
+				ImagePullSecret: "secret-name",
+				ImagePullPolicy: tc.policy,
+			})
 			assert.Equal(t, tc.expected, got)
 		})
 	}

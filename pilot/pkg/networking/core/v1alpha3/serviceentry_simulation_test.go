@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -77,14 +77,14 @@ func TestServiceEntry(t *testing.T) {
 			kubeConfig: "",
 			calls: []simulation.Expect{{
 				// Expect listener, but no routing
-				"defined port",
-				simulation.Call{
+				Name: "defined port",
+				Call: simulation.Call{
 					Port:       9999,
 					HostHeader: "blah.somedomain",
 					Address:    "1234:1f1:1:1:1:1:1:1",
 					Protocol:   simulation.HTTP,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					ListenerMatched: "0.0.0.0_9999",
 					ClusterMatched:  "outbound|9999||blah.somedomain",
 				},
@@ -97,14 +97,14 @@ func TestServiceEntry(t *testing.T) {
 			kubeConfig: "",
 			calls: []simulation.Expect{{
 				// Expect listener, but no routing
-				"defined port",
-				simulation.Call{
+				Name: "defined port",
+				Call: simulation.Call{
 					Port:       9999,
 					HostHeader: "blah.somedomain",
 					Address:    "1234:1f1:1:1:1:1:1:1",
 					Protocol:   simulation.HTTP,
 				},
-				simulation.Result{
+				Result: simulation.Result{
 					Error:           simulation.ErrMultipleFilterChain,
 					ListenerMatched: "0.0.0.0_9999",
 				},

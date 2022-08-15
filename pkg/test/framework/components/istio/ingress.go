@@ -16,15 +16,16 @@ package istio
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -37,15 +38,11 @@ import (
 )
 
 const (
-	defaultIngressIstioLabel  = "ingressgateway"
-	defaultIngressServiceName = "istio-" + defaultIngressIstioLabel
+	defaultIngressIstioNameLabel = "ingressgateway"
+	defaultIngressIstioLabel     = "istio=" + defaultIngressIstioNameLabel
+	defaultIngressServiceName    = "istio-" + defaultIngressIstioNameLabel
 
-	eastWestIngressIstioLabel  = "eastwestgateway"
-	eastWestIngressServiceName = "istio-" + eastWestIngressIstioLabel
-
-	proxyContainerName = "istio-proxy"
-	proxyAdminPort     = 15000
-	discoveryPort      = 15012
+	discoveryPort = 15012
 )
 
 var (
@@ -53,53 +50,53 @@ var (
 	getAddressDelay   = retry.BackoffDelay(500 * time.Millisecond)
 
 	_ ingress.Instance = &ingressImpl{}
+	_ io.Closer        = &ingressImpl{}
 )
 
 type ingressConfig struct {
-	// ServiceName is the kubernetes Service name for the cluster
-	ServiceName string
-	// Namespace the ingress can be found in
-	Namespace string
-	// IstioLabel is the value for the "istio" label on the ingress kubernetes objects
-	IstioLabel string
+	// Service is the kubernetes Service name for the cluster
+	Service types.NamespacedName
+	// LabelSelector is the value for the label on the ingress kubernetes objects
+	LabelSelector string
 
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
 }
 
 func newIngress(ctx resource.Context, cfg ingressConfig) (i ingress.Instance) {
-	if cfg.ServiceName == "" {
-		cfg.ServiceName = defaultIngressServiceName
-	}
-	if cfg.IstioLabel == "" {
-		cfg.IstioLabel = defaultIngressIstioLabel
+	if cfg.LabelSelector == "" {
+		cfg.LabelSelector = defaultIngressIstioLabel
 	}
 	c := &ingressImpl{
-		serviceName: cfg.ServiceName,
-		istioLabel:  cfg.IstioLabel,
-		namespace:   cfg.Namespace,
-		env:         ctx.Environment().(*kube.Environment),
-		cluster:     ctx.Clusters().GetOrDefault(cfg.Cluster),
+		service:       cfg.Service,
+		labelSelector: cfg.LabelSelector,
+		env:           ctx.Environment().(*kube.Environment),
+		cluster:       ctx.Clusters().GetOrDefault(cfg.Cluster),
+		caller:        common.NewCaller(),
 	}
 	return c
 }
 
 type ingressImpl struct {
-	serviceName string
-	istioLabel  string
-	namespace   string
+	service       types.NamespacedName
+	labelSelector string
 
 	env     *kube.Environment
 	cluster cluster.Cluster
+	caller  *common.Caller
+}
+
+func (c *ingressImpl) Close() error {
+	return c.caller.Close()
 }
 
 // getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
 // the returned net.Addr will have the externally reachable NodePort address and port.
 func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 	attempts := 0
-	addr, err := retry.UntilComplete(func() (result interface{}, completed bool, err error) {
+	addr, err := retry.UntilComplete(func() (result any, completed bool, err error) {
 		attempts++
-		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.namespace, c.istioLabel, c.serviceName, port)
+		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
 		if err != nil && attempts > 1 {
 			// Log if we fail more than once to avoid test appearing to hang
 			// LB provision be slow, so timeout here needs to be long we should give context
@@ -169,11 +166,11 @@ func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	return net.TCPAddr{IP: ip, Port: port}
 }
 
-func (c *ingressImpl) Call(options echo.CallOptions) (echoClient.Responses, error) {
+func (c *ingressImpl) Call(options echo.CallOptions) (echo.CallResult, error) {
 	return c.callEcho(options)
 }
 
-func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
+func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echo.CallResult {
 	t.Helper()
 	resp, err := c.Call(options)
 	if err != nil {
@@ -182,7 +179,7 @@ func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoCl
 	return resp
 }
 
-func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, error) {
+func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	var (
 		addr string
 		port int
@@ -192,7 +189,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, err
 	if opts.Port.ServicePort == 0 {
 		s, err := c.schemeFor(opts)
 		if err != nil {
-			return nil, err
+			return echo.CallResult{}, err
 		}
 		opts.Scheme = s
 
@@ -205,7 +202,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, err
 		case scheme.TCP:
 			addr, port = c.TCPAddress()
 		default:
-			return nil, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
+			return echo.CallResult{}, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
 		}
 	} else {
 		addr, port = c.AddressForPort(opts.Port.ServicePort)
@@ -227,10 +224,10 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, err
 	if host := opts.GetHost(); len(host) > 0 {
 		opts.HTTP.Headers.Set(headers.Host, host)
 	}
-	if len(c.cluster.HTTPProxy()) > 0 {
+	if len(c.cluster.HTTPProxy()) > 0 && !c.cluster.ProxyKubectlOnly() {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
-	return common.CallEcho(&opts)
+	return c.caller.CallEcho(c, opts)
 }
 
 func (c *ingressImpl) schemeFor(opts echo.CallOptions) (scheme.Instance, error) {
@@ -245,17 +242,8 @@ func (c *ingressImpl) schemeFor(opts echo.CallOptions) (scheme.Instance, error) 
 	return opts.Port.Scheme()
 }
 
-func (c *ingressImpl) ProxyStats() (map[string]int, error) {
-	var stats map[string]int
-	statsJSON, err := c.adminRequest("stats?format=json")
-	if err != nil {
-		return stats, fmt.Errorf("failed to get response from admin port: %v", err)
-	}
-	return c.unmarshalStats(statsJSON)
-}
-
 func (c *ingressImpl) PodID(i int) (string, error) {
-	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
+	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.service.Namespace, c.labelSelector)
 	if err != nil {
 		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
 	}
@@ -265,48 +253,6 @@ func (c *ingressImpl) PodID(i int) (string, error) {
 	return pods.Items[i].Name, nil
 }
 
-// adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
-func (c *ingressImpl) adminRequest(path string) (string, error) {
-	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
-	if err != nil {
-		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
-	}
-	podNs, podName := pods.Items[0].Namespace, pods.Items[0].Name
-	// Exec onto the pod and make a curl request to the admin port
-	command := fmt.Sprintf("curl http://127.0.0.1:%d/%s", proxyAdminPort, path)
-	stdout, stderr, err := c.env.Clusters().Default().PodExec(podName, podNs, proxyContainerName, command)
-	return stdout + stderr, err
-}
-
-type statEntry struct {
-	Name  string      `json:"name"`
-	Value json.Number `json:"value"`
-}
-
-type stats struct {
-	StatList []statEntry `json:"stats"`
-}
-
-// unmarshalStats unmarshals Envoy stats from JSON format into a map, where stats name is
-// key, and stats value is value.
-func (c *ingressImpl) unmarshalStats(statsJSON string) (map[string]int, error) {
-	statsMap := make(map[string]int)
-
-	var statsArray stats
-	if err := json.Unmarshal([]byte(statsJSON), &statsArray); err != nil {
-		return statsMap, fmt.Errorf("unable to unmarshal stats from json: %v", err)
-	}
-
-	for _, v := range statsArray.StatList {
-		if v.Value == "" {
-			continue
-		}
-		tmp, _ := v.Value.Float64()
-		statsMap[v.Name] = int(tmp)
-	}
-	return statsMap, nil
-}
-
 func (c *ingressImpl) Namespace() string {
-	return c.namespace
+	return c.service.Namespace
 }

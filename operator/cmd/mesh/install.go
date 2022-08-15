@@ -193,18 +193,21 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	// Detect whether previous installation exists prior to performing the installation.
-	exists := revtag.PreviousInstallExists(context.Background(), kubeClient)
-	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	rev := iop.Spec.Revision
-	if rev == "" && pilotEnabled {
-		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient, revtag.DefaultRevisionName)
+	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	operatorManageWebhooks := operatorManageWebhooks(iop)
+
+	if !operatorManageWebhooks && isDefaultInstallation {
+		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
 	}
+
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	if !exists || rev == "" {
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
 		p.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
@@ -249,13 +252,33 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	return nil
 }
 
+// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
+func operatorManageWebhooks(iop *v1alpha12.IstioOperator) bool {
+	if iop.Spec.GetValues() == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	global, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	omw, ok := global["operatorManageWebhooks"].(bool)
+	if !ok {
+		return false
+	}
+	return omw
+}
+
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
-//  force   validation warnings are written to logger but command is not aborted
-//  DryRun  all operations are done but nothing is written
+//
+//	force   validation warnings are written to logger but command is not aborted
+//	DryRun  all operations are done but nothing is written
+//
 // Returns final IstioOperator after installation if successful.
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
-	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
+	waitTimeout time.Duration, l clog.Logger,
+) (*v1alpha12.IstioOperator, error) {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{
@@ -407,7 +430,7 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 		return false
 	}
 	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
-	sidecarMap, ok := sidecarValues.(map[string]interface{})
+	sidecarMap, ok := sidecarValues.(map[string]any)
 	if !ok {
 		return false
 	}

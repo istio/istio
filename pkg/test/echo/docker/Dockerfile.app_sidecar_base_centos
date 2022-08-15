@@ -7,6 +7,11 @@ RUN yum install -y \
     iptables \
     iproute \
     sudo \
+    curl \
+    netcat \
+    tcpdump \
+    conntrack \
+    net-tools \
     ca-certificates \
     && update-ca-trust \
     && yum clean all \

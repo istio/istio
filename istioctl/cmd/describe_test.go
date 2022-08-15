@@ -23,12 +23,15 @@ import (
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	apiannotation "istio.io/api/annotation"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
@@ -77,6 +80,55 @@ func TestDescribe(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyExecAndK8sConfigTestCaseTestOutput(t, c)
+		})
+	}
+}
+
+func TestGetRevisionFromPodAnnotation(t *testing.T) {
+	cases := []struct {
+		anno k8s_labels.Set
+
+		expected string
+	}{
+		{
+			anno: k8s_labels.Set{
+				apiannotation.SidecarStatus.Name: "",
+			},
+			expected: "",
+		},
+		{
+			anno:     k8s_labels.Set{},
+			expected: "",
+		},
+		{
+			anno: k8s_labels.Set{
+				apiannotation.SidecarStatus.Name: `
+				{
+					"initContainers": [
+						"istio-init"
+					],
+					"containers": [
+						"istio-proxy"
+					],
+					"volumes": [
+						"istio-envoy",
+						"istio-data",
+						"istio-podinfo",
+						"istio-token",
+						"istiod-ca-cert"
+					],
+					"imagePullSecrets": null,
+					"revision": "1-13-2"
+				}`,
+			},
+			expected: "1-13-2",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run("", func(t *testing.T) {
+			got := getRevisionFromPodAnnotation(tc.anno)
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }

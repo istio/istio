@@ -27,19 +27,26 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/xds"
 )
 
 type mockCache struct {
 	wantSecret []byte
+	wantPolicy extensions.PullPolicy
 }
 
-func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
+func (c *mockCache) Get(
+	downloadURL, checksum, resourceName, resourceVersion string,
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
+) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -52,6 +59,10 @@ func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration, pul
 	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, pullSecret) {
 		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(pullSecret), c.wantSecret)
 	}
+	if c.wantPolicy != pullPolicy {
+		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, pullPolicy, c.wantPolicy)
+	}
+
 	return module, err
 }
 func (c *mockCache) Cleanup() {}
@@ -159,9 +170,9 @@ func TestWasmConvert(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			resources := make([]*any.Any, 0, len(c.input))
+			resources := make([]*anypb.Any, 0, len(c.input))
 			for _, i := range c.input {
-				resources = append(resources, util.MessageToAny(i))
+				resources = append(resources, protoconv.MessageToAny(i))
 			}
 			mc := &mockCache{}
 			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
@@ -189,9 +200,9 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	ws, _ := conversion.MessageToStruct(wasm)
 	return &core.TypedExtensionConfig{
 		Name: name,
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&udpa.TypedStruct{
-				TypeUrl: wasmHTTPFilterType,
+				TypeUrl: xds.WasmHTTPFilterType,
 				Value:   ws,
 			},
 		),
@@ -201,21 +212,21 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: util.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(wasm),
 	}
 }
 
 var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 	"empty": {
 		Name: "empty",
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&structpb.Struct{},
 		),
 	},
 	"no-wasm": {
 		Name: "no-wasm",
-		TypedConfig: util.MessageToAny(
-			&udpa.TypedStruct{TypeUrl: apiTypePrefix + "sometype"},
+		TypedConfig: protoconv.MessageToAny(
+			&udpa.TypedStruct{TypeUrl: resource.APITypePrefix + "sometype"},
 		),
 	},
 	"no-remote-load": buildTypedStructExtensionConfig("no-remote-load", &wasm.Wasm{

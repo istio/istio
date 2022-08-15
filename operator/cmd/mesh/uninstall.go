@@ -96,13 +96,13 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		Short: "Uninstall Istio from a cluster",
 		Long:  "The uninstall command uninstalls Istio from a cluster",
 		Example: `  # Uninstall a single control plane by revision
-  istioctl x uninstall --revision foo
+  istioctl uninstall --revision foo
 
   # Uninstall a single control plane by iop file
-  istioctl x uninstall -f iop.yaml
+  istioctl uninstall -f iop.yaml
   
   # Uninstall all control planes and shared resources
-  istioctl x uninstall --purge`,
+  istioctl uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")
@@ -158,7 +158,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 		}
 		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, nil, l)
 
-		if err := h.DeleteObjectsList(objectsList); err != nil {
+		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
 		opts.ProgressLog.SetState(progress.StateUninstallComplete)
@@ -190,7 +190,8 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger) {
+	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger,
+) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())

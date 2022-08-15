@@ -57,7 +57,7 @@ func (s *ImageSettings) PullSecretName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	secret := unstructured.Unstructured{Object: map[string]interface{}{}}
+	secret := unstructured.Unstructured{Object: map[string]any{}}
 	if err := yaml.Unmarshal(data, secret.Object); err != nil {
 		return "", err
 	}
@@ -114,6 +114,9 @@ type Settings struct {
 	// SkipWorkloadClasses can be used to skip deploying special workload types like TPROXY, VMs, etc.
 	SkipWorkloadClasses ArrayFlags
 
+	// OnlyWorkloadClasses can be used to only deploy specific workload types like TPROXY, VMs, etc.
+	OnlyWorkloadClasses ArrayFlags
+
 	// The label selector, in parsed form.
 	Selector label.Selector
 
@@ -150,14 +153,33 @@ type Settings struct {
 
 	// Image settings
 	Image ImageSettings
+
+	// EchoImage is the app image to be used by echo deployments.
+	EchoImage string
+
+	// CustomGRPCEchoImage if specified will run an extra container in the echo Pods responsible for gRPC ports
+	CustomGRPCEchoImage string
+
+	// MaxDumps is the maximum number of full test dumps that are allowed to occur within a test suite.
+	MaxDumps uint64
 }
 
 func (s Settings) Skip(class string) bool {
-	return s.SkipWorkloadClassesAsSet().Contains(class)
+	if s.SkipWorkloadClassesAsSet().Contains(class) {
+		return true
+	}
+	if len(s.OnlyWorkloadClasses) > 0 && !s.OnlyWorkloadClassesAsSet().Contains(class) {
+		return true
+	}
+	return false
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.Set {
 	return sets.New(s.SkipWorkloadClasses...)
+}
+
+func (s *Settings) OnlyWorkloadClassesAsSet() sets.Set {
+	return sets.New(s.OnlyWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -183,7 +205,8 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		RunID: uuid.New(),
+		RunID:    uuid.New(),
+		MaxDumps: 10,
 	}
 }
 
@@ -208,6 +231,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Tag:               %s\n", s.Image.Tag)
 	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
 	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
+	result += fmt.Sprintf("MaxDumps:          %d\n", s.MaxDumps)
 	return result
 }
 

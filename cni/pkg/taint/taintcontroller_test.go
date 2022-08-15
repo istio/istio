@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ import (
 // simplified taintsetter controller build upon fake sourcer, return controller and namespace, label based sourcer created by configmap
 func newMockTaintSetterController(ts *Setter,
 	nodeSource *fcache.FakeControllerSource) (c *Controller,
-	sourcer map[string]map[string]*fcache.FakeControllerSource) {
+	sourcer map[string]map[string]*fcache.FakeControllerSource,
+) {
 	c = &Controller{
 		clientset:       ts.Client,
 		podWorkQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),

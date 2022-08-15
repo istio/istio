@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -56,8 +57,7 @@ func TestInjection(t *testing.T) {
 		skipWebhook   bool
 		expectedError string
 		expectedLog   string
-		setup         func()
-		teardown      func()
+		setup         func(t test.Failer)
 	}
 	cases := []testCase{
 		// verify cni
@@ -256,13 +256,9 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "hello.yaml",
 			want: "hello-no-seccontext.yaml.injected",
-			setup: func() {
-				features.EnableLegacyFSGroupInjection = false
-				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "false")
-			},
-			teardown: func() {
-				features.EnableLegacyFSGroupInjection = true
-				os.Setenv("ENABLE_LEGACY_FSGROUP_INJECTION", "true")
+			setup: func(t test.Failer) {
+				test.SetBoolForTest(t, &features.EnableLegacyFSGroupInjection, false)
+				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
 			},
 		},
 		{
@@ -303,11 +299,8 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "tcp-probes.yaml",
 			want: "tcp-probes-disabled.yaml.injected",
-			setup: func() {
-				features.RewriteTCPProbes = false
-			},
-			teardown: func() {
-				features.RewriteTCPProbes = true
+			setup: func(t test.Failer) {
+				test.SetBoolForTest(t, &features.RewriteTCPProbes, false)
 			},
 		},
 		{
@@ -374,13 +367,10 @@ func TestInjection(t *testing.T) {
 		}
 		t.Run(testName, func(t *testing.T) {
 			if c.setup != nil {
-				c.setup()
+				c.setup(t)
 			} else {
 				// Tests with custom setup modify global state and cannot run in parallel
 				t.Parallel()
-			}
-			if c.teardown != nil {
-				t.Cleanup(c.teardown)
 			}
 
 			mc, err := mesh.DeepCopyMeshConfig(defaultMesh)
@@ -762,11 +752,11 @@ func TestSkipUDPPorts(t *testing.T) {
 		expectPorts := cases[i].ports
 		ports := getPortsForContainer(cases[i].c)
 		if len(ports) != len(expectPorts) {
-			t.Fatalf("unexpect ports result for case %d", i)
+			t.Fatalf("unexpected ports result for case %d", i)
 		}
 		for j := 0; j < len(ports); j++ {
 			if ports[j] != expectPorts[j] {
-				t.Fatalf("unexpect ports result for case %d: expect %v, got %v", i, expectPorts, ports)
+				t.Fatalf("unexpected ports result for case %d: expect %v, got %v", i, expectPorts, ports)
 			}
 		}
 	}
@@ -979,7 +969,7 @@ func TestQuantityConversion(t *testing.T) {
 }
 
 func TestProxyImage(t *testing.T) {
-	val := func(hub string, tag interface{}) *opconfig.Values {
+	val := func(hub string, tag any) *opconfig.Values {
 		t, _ := structpb.NewValue(tag)
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{

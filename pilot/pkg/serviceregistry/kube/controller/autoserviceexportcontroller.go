@@ -67,7 +67,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 
 	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
 	c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { c.onServiceAdd(obj) },
+		AddFunc: func(obj any) { c.onServiceAdd(obj) },
 
 		// Do nothing on update. The controller only acts on parts of the service
 		// that are immutable (e.g. name).
@@ -80,7 +80,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	return c
 }
 
-func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
+func (c *autoServiceExportController) onServiceAdd(obj any) {
 	c.queue.Push(func() error {
 		if !c.mcsSupported {
 			// Don't create ServiceExport if MCS is not supported on the cluster.
@@ -88,7 +88,7 @@ func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 			return nil
 		}
 
-		svc, err := convertToService(obj)
+		svc, err := extractService(obj)
 		if err != nil {
 			log.Warnf("%s failed converting service: %v", c.logPrefix(), err)
 			return err
@@ -106,7 +106,7 @@ func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 }
 
 func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
 		log.Errorf("%s failed to sync cache", c.logPrefix())
 		return
 	}

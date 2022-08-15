@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -50,7 +51,8 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
 func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
-	client kube.Client, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
+	client kube.Client, l clog.Logger,
+) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, client, l)
 	if err != nil {
 		return nil, nil, err
@@ -61,8 +63,14 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 	}
 
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter)
+	var ver *version.Info
+	if client != nil {
+		ver, err = client.GetKubernetesVersion()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter, ver)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,7 +97,8 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setFlags []string, force bool, client kube.Client,
-	l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
@@ -103,7 +112,8 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, client 
 }
 
 func OverlayYAMLStrings(profile string, fy string,
-	setFlags []string, force bool, client kube.Client, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	setFlags []string, force bool, client kube.Client, l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, client, l)
 	if err != nil {
 		return "", nil, err
@@ -123,7 +133,8 @@ func OverlayYAMLStrings(profile string, fy string,
 // GenIOPFromProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperator string and struct.
 func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
-	client kube.Client, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	client kube.Client, l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
 		return "", nil, err
@@ -325,7 +336,8 @@ func GetProfile(iop *iopv1alpha1.IstioOperator) string {
 }
 
 func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client kube.Client,
-	logger clog.Logger) (*iopv1alpha1.IstioOperator, error) {
+	logger clog.Logger,
+) (*iopv1alpha1.IstioOperator, error) {
 	extraFlags := make([]string, 0)
 	if manifestsPath != "" {
 		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
@@ -340,12 +352,15 @@ func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client ku
 	return mergedIOP, nil
 }
 
-// validateSetFlags validates that setFlags all have path=value format.
+// validateSetFlags 1: validates that setFlags all have path=value format, 2: check profile whether it is deprecated.
 func validateSetFlags(setFlags []string) error {
 	for _, sf := range setFlags {
 		pv := strings.Split(sf, "=")
 		if len(pv) != 2 {
 			return fmt.Errorf("set flag %s has incorrect format, must be path=value", sf)
+		}
+		if pv[0] == "profile" && pv[1] == "remote" {
+			return fmt.Errorf("profile \"remote\" has been removed (use the \"default\" profile, which is equivalent)")
 		}
 	}
 	return nil
@@ -412,11 +427,7 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
-	fsgroup := getFSGroupOverlay(client)
-	if fsgroup != "" {
-		overlays = append(overlays, fsgroup)
-	}
-	jwt, err := getJwtTypeOverlay(client, l)
+	jwtStr, jwtPolicy, err := getJwtTypeOverlay(client, l)
 	if err != nil {
 		if force {
 			l.LogAndPrint(err)
@@ -424,14 +435,21 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 			return "", err
 		}
 	} else {
-		overlays = append(overlays, jwt)
+		overlays = append(overlays, jwtStr)
+	}
+	fsgroup := getFSGroupOverlay(client, jwtPolicy)
+	if fsgroup != "" {
+		overlays = append(overlays, fsgroup)
 	}
 	return makeTreeFromSetList(overlays)
 }
 
-func getFSGroupOverlay(config kube.Client) string {
-	if kube.IsAtLeastVersion(config, 19) {
-		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false"
+func getFSGroupOverlay(config kube.Client, jwtPolicy util.JWTPolicy) string {
+	// Set ENABLE_LEGACY_FSGROUP_INJECTION to true only for Kubernetes 1.18 or older,
+	// together with third-party-jwt, as we need the fsGroup configuration for the projected
+	// service account volume mount, which is only used by third-party-jwt.
+	if kube.IsLessThanVersion(config, 19) && jwtPolicy == util.ThirdPartyJWT {
+		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
 	}
 	return ""
 }
@@ -441,7 +459,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	if len(setOverlay) == 0 {
 		return "", nil
 	}
-	tree := make(map[string]interface{})
+	tree := make(map[string]any)
 	for _, kv := range setOverlay {
 		kvv := strings.Split(kv, "=")
 		if len(kvv) != 2 {
@@ -469,17 +487,17 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	return tpath.AddSpecRoot(string(out))
 }
 
-func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(client)
+func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, util.JWTPolicy, error) {
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(client.Kube())
 	if err != nil {
-		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+		return "", "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
 	if jwtPolicy == util.FirstPartyJWT {
 		// nolint: lll
 		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
 			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
 	}
-	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
+	return "values.global.jwtPolicy=" + string(jwtPolicy), jwtPolicy, nil
 }
 
 // unmarshalAndValidateIOP unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
@@ -511,13 +529,13 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
-	iop := make(map[string]interface{})
+	iop := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
 		return "", err
 	}
 	// Unmarshal returns nil for empty manifests but we need something to insert into.
 	if iop == nil {
-		iop = make(map[string]interface{})
+		iop = make(map[string]any)
 	}
 
 	for _, sf := range setFlags {

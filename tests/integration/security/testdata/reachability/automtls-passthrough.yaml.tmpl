@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: passthrough
+spec:
+  host: "*"
+  trafficPolicy:
+    loadBalancer:
+      simple: PASSTHROUGH
+---
+# Apply a local policy to the system namespace to turn this off
+# Otherwise, the eastwest gateway will be impacted
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: "eastwest-opt-out"
+  annotations:
+    test-suite: "beta-mtls-on"
+spec:
+  exportTo: [.]
+  host: "*"
+  trafficPolicy:
+    loadBalancer:
+      simple: UNSPECIFIED

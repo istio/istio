@@ -1,7 +1,9 @@
 {
   "node": {
     {{ if (index .metadata.Labels "td.networking.gke.io/mesh-name") }}
-      "id": "projects/{{ .gcp_project_number }}/networks/{{ (index .metadata.Labels "td.networking.gke.io/mesh-name") }}/nodes/{{ .nodeID}}",
+      "id": "projects/{{ .gcp_project_number }}/networks/mesh:{{ (index .metadata.Labels "td.networking.gke.io/mesh-name") }}/nodes/{{ .nodeID}}",
+    {{ else if (index .metadata.Labels "td.networking.gke.io/gateway-name") }}
+      "id": "projects/{{ .gcp_project_number }}/networks/scope:{{ (index .metadata.Labels "td.networking.gke.io/gateway-name") }}/nodes/{{ .nodeID}}",
     {{ else }}
       "id": "projects/{{ .gcp_project_number }}/networks/default/nodes/{{ .nodeID}}",
     {{ end }}

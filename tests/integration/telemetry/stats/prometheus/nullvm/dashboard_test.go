@@ -161,7 +161,7 @@ func TestDashboard(t *testing.T) {
 							continue
 						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
-						cm, err := cl.CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
+						cm, err := cl.Kube().CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 						if err != nil {
 							t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
@@ -281,7 +281,7 @@ spec:
         exact: /echo-%s
     route:
     - destination:
-        host: server
+        host: b
         port:
           number: 80
   tcp:
@@ -289,9 +289,9 @@ spec:
     - port: 31400
     route:
     - destination:
-        host: server
+        host: b
         port:
-          number: 9000
+          number: 9090
 `
 
 func setupDashboardTest(done <-chan struct{}) {
@@ -356,7 +356,7 @@ func setupDashboardTest(done <-chan struct{}) {
 // Equivalent to jq command: '.panels[].targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {
 	var queries []string
-	js := map[string]interface{}{}
+	js := map[string]any{}
 	if err := json.Unmarshal([]byte(dash), &js); err != nil {
 		return nil, err
 	}
@@ -364,22 +364,22 @@ func extractQueries(dash string) ([]string, error) {
 	if !f {
 		return nil, fmt.Errorf("failed to find panels in %v", dash)
 	}
-	panelsList, f := panels.([]interface{})
+	panelsList, f := panels.([]any)
 	if !f {
 		return nil, fmt.Errorf("failed to find panelsList in type %T: %v", panels, panels)
 	}
 	for _, p := range panelsList {
-		pm := p.(map[string]interface{})
+		pm := p.(map[string]any)
 		targets, f := pm["targets"]
 		if !f {
 			continue
 		}
-		targetsList, f := targets.([]interface{})
+		targetsList, f := targets.([]any)
 		if !f {
 			return nil, fmt.Errorf("failed to find targetsList in type %T: %v", targets, targets)
 		}
 		for _, t := range targetsList {
-			tm := t.(map[string]interface{})
+			tm := t.(map[string]any)
 			expr, f := tm["expr"]
 			if !f {
 				return nil, fmt.Errorf("failed to find expr in %v", t)

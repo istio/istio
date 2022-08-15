@@ -44,6 +44,11 @@ var (
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
 )
 
+// mock net.InterfaceAddrs to make its unit test become available
+var (
+	LocalIPAddrs = net.InterfaceAddrs
+)
+
 var rootCmd = &cobra.Command{
 	Use:    "istio-iptables",
 	Short:  "Set up iptables rules for Istio Sidecar",
@@ -60,6 +65,7 @@ var rootCmd = &cobra.Command{
 		} else {
 			ext = &dep.RealDependencies{
 				CNIMode:          cfg.CNIMode,
+				HostNSEnterExec:  cfg.HostNSEnterExec,
 				NetworkNamespace: cfg.NetworkNamespace,
 			}
 		}
@@ -137,6 +143,7 @@ func constructConfig() *config.Config {
 		OutputPath:              viper.GetString(constants.OutputPath),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
+		HostNSEnterExec:         viper.GetBool(constants.HostNSEnterExec),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -179,7 +186,7 @@ func constructConfig() *config.Config {
 
 // getLocalIP returns the local IP address
 func getLocalIP() (net.IP, error) {
-	addrs, err := net.InterfaceAddrs()
+	addrs, err := LocalIPAddrs()
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +374,11 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.CNIMode, false)
+
+	if err := viper.BindPFlag(constants.HostNSEnterExec, cmd.Flags().Lookup(constants.HostNSEnterExec)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.HostNSEnterExec, false)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -403,7 +415,7 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 		"Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). "+
 			"Only applies when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
 
-	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "", "",
+	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "c", "",
 		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured")
 
 	rootCmd.Flags().StringP(constants.ServiceCidr, "i", "",
@@ -453,6 +465,8 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
 
 	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
+
+	rootCmd.Flags().Bool(constants.HostNSEnterExec, false, "Instead of using the internal go netns, use the nsenter command for switching network namespaces.")
 }
 
 func GetCommand() *cobra.Command {

@@ -32,11 +32,11 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
-	s.serviceEntryStore = serviceentry.NewServiceDiscovery(
-		s.configController, s.environment.IstioConfigStore, s.XDSServer,
+	s.serviceEntryController = serviceentry.NewController(
+		s.configController, s.environment.ConfigStore, s.XDSServer,
 		serviceentry.WithClusterID(s.clusterID),
 	)
-	serviceControllers.AddRegistry(s.serviceEntryStore)
+	serviceControllers.AddRegistry(s.serviceEntryController)
 
 	registered := make(map[provider.ID]bool)
 	for _, r := range args.RegistryOptions.Registries {
@@ -77,10 +77,10 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 
 	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
-		s.kubeClient,
+		s.kubeClient.Kube(),
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
-		s.serviceEntryStore,
+		s.serviceEntryController,
 		s.istiodCertBundleWatcher,
 		args.Revision,
 		s.shouldStartNsController(),

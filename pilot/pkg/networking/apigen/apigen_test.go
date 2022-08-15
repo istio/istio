@@ -51,7 +51,7 @@ func initDS() *xds.SimpleServer {
 // to represent the names. The protocol is based on GRPC resolution of XDS resources.
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
-	ds.DiscoveryServer.Generators["api"] = apigen.NewGenerator(ds.DiscoveryServer.Env.IstioConfigStore)
+	ds.DiscoveryServer.Generators["api"] = apigen.NewGenerator(ds.DiscoveryServer.Env.ConfigStore)
 	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["api/"+v3.EndpointType] = epGen
 
@@ -92,7 +92,7 @@ func TestAPIGen(t *testing.T) {
 			t.Fatal("Failed to receive lds", err)
 		}
 
-		ses := adscConn.Store.ServiceEntries()
+		ses, _ := adscConn.Store.List(gvk.ServiceEntry, "")
 		for _, se := range ses {
 			t.Log(se)
 		}

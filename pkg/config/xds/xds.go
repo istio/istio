@@ -62,11 +62,11 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_BOOTSTRAP:
 		obj = &bootstrapv3.Bootstrap{}
 	default:
-		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
+		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: stylecheck
 	}
 
 	if err := StructToMessage(value, obj, strict); err != nil {
-		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: golint,stylecheck
+		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: stylecheck
 	}
 	return obj, nil
 }

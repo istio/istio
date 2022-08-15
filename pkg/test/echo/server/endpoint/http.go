@@ -68,8 +68,12 @@ func (s *httpInstance) GetConfig() Config {
 }
 
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
-	h2s := &http2.Server{}
+	h2s := &http2.Server{
+		IdleTimeout: idleTimeout,
+	}
+
 	s.server = &http.Server{
+		IdleTimeout: idleTimeout,
 		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
 		}, h2s),
@@ -117,13 +121,13 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	}
 
 	if s.isUDS() {
-		fmt.Printf("Listening HTTP/1.1 on %v\n", s.UDSServer)
+		epLog.Infof("Listening HTTP/1.1 on %v\n", s.UDSServer)
 	} else if s.Port.TLS {
 		s.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening HTTPS/1.1 on %v\n", port)
+		epLog.Infof("Listening HTTPS/1.1 on %v\n", port)
 	} else {
 		s.server.Addr = fmt.Sprintf(":%d", port)
-		fmt.Printf("Listening HTTP/1.1 on %v\n", port)
+		epLog.Infof("Listening HTTP/1.1 on %v\n", port)
 	}
 
 	// Start serving HTTP traffic.
@@ -207,7 +211,11 @@ type codeAndSlices struct {
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
-	epLog.WithLabels("method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id).Infof("HTTP Request")
+	remoteAddr, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		epLog.Warnf("failed to get host from remote address: %s", err)
+	}
+	epLog.WithLabels("remoteAddr", remoteAddr, "method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id).Infof("%v Request", r.Proto)
 	if h.Port == nil {
 		defer common.Metrics.HTTPRequests.With(common.PortLabel.Value("uds")).Increment()
 	} else {
@@ -265,7 +273,7 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 	if _, err := w.Write(body.Bytes()); err != nil {
 		epLog.Warn(err)
 	}
-	epLog.WithLabels("code", code, "headers", w.Header(), "id", id).Infof("HTTP Response")
+	epLog.WithLabels("code", code, "headers", w.Header(), "id", id).Infof("%v Response", r.Proto)
 }
 
 func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
@@ -290,7 +298,7 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	h.addResponsePayload(r, &body)
 	body.Write(message)
 
-	writeField(&body, echo.StatusCodeField, strconv.Itoa(http.StatusOK))
+	echo.StatusCodeField.Write(&body, strconv.Itoa(http.StatusOK))
 
 	// pong
 	err = c.WriteMessage(mt, body.Bytes())
@@ -307,18 +315,18 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 		port = strconv.Itoa(h.Port.Port)
 	}
 
-	writeField(body, echo.ServiceVersionField, h.Version)
-	writeField(body, echo.ServicePortField, port)
-	writeField(body, echo.HostField, r.Host)
+	echo.ServiceVersionField.Write(body, h.Version)
+	echo.ServicePortField.Write(body, port)
+	echo.HostField.Write(body, r.Host)
 	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
-	writeField(body, echo.URLField, r.RequestURI)
-	writeField(body, echo.ClusterField, h.Cluster)
-	writeField(body, echo.IstioVersionField, h.IstioVersion)
+	echo.URLField.Write(body, r.RequestURI)
+	echo.ClusterField.Write(body, h.Cluster)
+	echo.IstioVersionField.Write(body, h.IstioVersion)
 
-	writeField(body, echo.MethodField, r.Method)
-	writeField(body, echo.ProtocolField, r.Proto)
+	echo.MethodField.Write(body, r.Method)
+	echo.ProtocolField.Write(body, r.Proto)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	writeField(body, echo.IPField, ip)
+	echo.IPField.Write(body, ip)
 
 	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
 	// not supported by the server (ie one of h2,http/1.1,http/1.0)
@@ -326,7 +334,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if r.TLS != nil {
 		alpn = r.TLS.NegotiatedProtocol
 	}
-	writeField(body, echo.AlpnField, alpn)
+	echo.AlpnField.Write(body, alpn)
 
 	var keys []string
 	for k := range r.Header {
@@ -336,12 +344,12 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	for _, key := range keys {
 		values := r.Header[key]
 		for _, value := range values {
-			writeRequestHeader(body, key, value)
+			echo.RequestHeaderField.WriteKeyValue(body, key, value)
 		}
 	}
 
 	if hostname, err := os.Hostname(); err == nil {
-		writeField(body, echo.HostnameField, hostname)
+		echo.HostnameField.Write(body, hostname)
 	}
 }
 

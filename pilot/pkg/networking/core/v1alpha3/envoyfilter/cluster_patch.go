@@ -26,13 +26,15 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/pkg/log"
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
 func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper,
-	c *cluster.Cluster, hosts []host.Name) (out *cluster.Cluster) {
-	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+	c *cluster.Cluster, hosts []host.Name,
+) (out *cluster.Cluster) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 		IncrementEnvoyFilterErrorMetric(Cluster)
 	})
@@ -56,7 +58,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			}
 			applied = true
 			if !ret {
-				proto.Merge(c, cp.Value)
+				merge.Merge(c, cp.Value)
 			}
 		}
 		IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
@@ -115,13 +117,13 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 			}
 
 			// Merge the above result with the whole cluster
-			proto.Merge(dstCluster, retVal)
+			merge.Merge(dstCluster, retVal)
 		}
 	}
 	return true, nil
 }
 
-// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is on so that it is removed.
+// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is one so that it is removed.
 func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) bool {
 	if efw == nil {
 		return true

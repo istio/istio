@@ -219,8 +219,16 @@ def getForwardHeaders(request):
         # 'x-b3-sampled',
         # 'x-b3-flags',
 
+        # SkyWalking trace headers.
+        'sw8',
+
         # Application-specific headers to forward.
         'user-agent',
+
+        # Context and session specific headers
+        'cookie',
+        'authorization',
+        'jwt',
     ]
     # For Zipkin, always propagate b3 headers.
     # For Lightstep, always propagate the x-ot-span-context header.

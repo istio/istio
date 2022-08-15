@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/check"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -88,7 +88,8 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 }
 
 func doIstioMutualTest(
-	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int) {
+	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int,
+) {
 	var client echo.Instance
 	deployment.New(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
@@ -108,7 +109,11 @@ func doIstioMutualTest(
 
 		if err := check.And(
 			check.NoError(),
-			check.Status(expectedCode)).Check(responses, err); err != nil {
+			check.Status(expectedCode)).Check(echo.CallResult{
+			From:      client,
+			Opts:      echo.CallOptions{},
+			Responses: responses,
+		}, err); err != nil {
 			ctx.Fatal(err)
 		}
 	}

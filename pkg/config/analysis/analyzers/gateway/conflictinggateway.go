@@ -58,7 +58,8 @@ func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context,
-	gwCMap map[string]map[string][]string) {
+	gwCMap map[string]map[string][]string,
+) {
 	gw := r.Message.(*v1alpha3.Gateway)
 	gwName := r.Metadata.FullName.String()
 	// For pods selected by gw.Selector, find Services that select them and remember those ports

@@ -1,0 +1,116 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage
+  namespace: foo
+spec:
+  hosts:
+  - '*.productpage' # should generate an error as this conflicts with VirtualService bar/productpage
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage
+  namespace: bar
+spec:
+  hosts:
+  - '*.productpage' # should generate an error as this conflicts with VirtualService foo/productpage
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage-b
+  namespace: foo
+spec:
+  hosts:
+  - '*.productpage.b' # should not generate an error as this conflicts with VirtualService bar/productpage-b
+  exportTo:
+  - foo
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage-b
+  namespace: bar
+spec:
+  hosts:
+  - '*.productpage.b' # should not generate an error as this conflicts with VirtualService foo/productpage-b
+  exportTo:
+  - '.'
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage-c
+  namespace: foo
+spec:
+  hosts:
+  - '*.productpage.c' # should generate an error as this conflicts with VirtualService bar/productpage-c
+  exportTo:
+  - foo
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage-c
+  namespace: bar
+spec:
+  hosts:
+  - '*.productpage.c' # should not generate an error as this conflicts with VirtualService foo/productpage-c
+  exportTo:
+  - '*' # export to all namespaces
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage-d
+  namespace: foo
+spec:
+  hosts:
+  - '*.productpage.d' # should generate an error as this conflicts with VirtualService bar/productpage-d
+  exportTo:
+  - '.'
+  http:
+  - route:
+    - destination:
+        host: productpage
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: productpage-d
+  namespace: bar
+spec:
+  hosts:
+  - '*.d' # should not generate an error as this conflicts with VirtualService foo/productpage-d
+  exportTo:
+  - '*' # export to all namespaces
+  http:
+  - route:
+    - destination:
+        host: productpage
+---

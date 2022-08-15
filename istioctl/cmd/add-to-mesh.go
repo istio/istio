@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
-	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
@@ -51,6 +50,16 @@ import (
 )
 
 var crdFactory = createDynamicInterface
+
+// For most common ports allow the protocol to be guessed, this isn't meant
+// to replace /etc/services. Fully qualified proto[-extra]:port is the
+// recommended usage.
+var portsToName = map[int32]string{
+	80:   "http",
+	443:  "https",
+	3306: "mysql",
+	8080: "http",
+}
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
 type vmServiceOpts struct {
@@ -232,7 +241,8 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 }
 
 func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
-	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
+) error {
 	var errs error
 	for _, dep := range deps {
 		err := injectSideCarIntoDeployment(client, &dep, sidecarTemplate, valuesConfig,
@@ -328,7 +338,8 @@ func setupParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string),
+) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
@@ -414,26 +425,56 @@ func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
 func convertPortList(ports []string) (model.PortList, error) {
 	portList := model.PortList{}
 	for _, p := range ports {
-		np, err := kube_registry.Str2NamedPort(p)
+		np, err := str2NamedPort(p)
 		if err != nil {
 			return nil, fmt.Errorf("invalid port format %v", p)
 		}
-		protocol := istioProtocol.Parse(np.Name)
+		protocol := istioProtocol.Parse(np.name)
 		if protocol == istioProtocol.Unsupported {
-			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.Name)
+			return nil, fmt.Errorf("protocol %s is not supported by Istio", np.name)
 		}
 		portList = append(portList, &model.Port{
-			Port:     int(np.Port),
+			Port:     int(np.port),
 			Protocol: protocol,
-			Name:     np.Name + "-" + strconv.Itoa(int(np.Port)),
+			Name:     np.name + "-" + strconv.Itoa(int(np.port)),
 		})
 	}
 	return portList, nil
 }
 
+// namedPort defines the Port and Name tuple needed for services and endpoints.
+type namedPort struct {
+	port int32
+	name string
+}
+
+// str2NamedPort parses a proto:port string into a namePort struct.
+func str2NamedPort(str string) (namedPort, error) {
+	var r namedPort
+	idx := strings.Index(str, ":")
+	if idx >= 0 {
+		r.name = str[:idx]
+		str = str[idx+1:]
+	}
+	p, err := strconv.Atoi(str)
+	if err != nil {
+		return r, err
+	}
+	r.port = int32(p)
+	if len(r.name) == 0 {
+		name, found := portsToName[r.port]
+		r.name = name
+		if !found {
+			r.name = str
+		}
+	}
+	return r, nil
+}
+
 // addServiceOnVMToMesh adds a service running on VM into Istio service mesh
 func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
-	args, l, a []string, svcAcctAnn string, writer io.Writer) error {
+	args, l, a []string, svcAcctAnn string, writer io.Writer,
+) error {
 	svcName := args[0]
 	ips := strings.Split(args[1], ",")
 	portsListStr := args[2:]
@@ -454,10 +495,10 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	u := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
 			"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"namespace": opts.Namespace,
 				"name":      resourceName(opts.Name),
 			},
@@ -517,7 +558,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Labels:  o.Labels,
 		})
 	}
-	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultKubernetesDomain)
+	host := fmt.Sprintf("%v.%v.svc.%s", o.Name, o.Namespace, constants.DefaultClusterLocalDomain)
 	spec := &v1alpha3.ServiceEntry{
 		Hosts:      []string{host},
 		Ports:      ports,
@@ -538,12 +579,12 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 // Because we are placing into an Unstructured, place as a map instead
 // of structured Istio types.  (The go-client can handle the structured data, but the
 // fake go-client used for mocking cannot.)
-func unstructureIstioType(spec interface{}) (map[string]interface{}, error) {
+func unstructureIstioType(spec any) (map[string]any, error) {
 	b, err := yaml.Marshal(spec)
 	if err != nil {
 		return nil, err
 	}
-	iSpec := map[string]interface{}{}
+	iSpec := map[string]any{}
 	err = yaml.Unmarshal(b, &iSpec)
 	if err != nil {
 		return nil, err
@@ -626,7 +667,8 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 
 // createServiceEntry creates an Istio ServiceEntry object in order to register vm service.
 func createServiceEntry(dynamicClient dynamic.Interface, ns string,
-	u *unstructured.Unstructured, name string, writer io.Writer) error {
+	u *unstructured.Unstructured, name string, writer io.Writer,
+) error {
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}

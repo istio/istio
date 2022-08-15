@@ -48,7 +48,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 ) {
 	otype := "Namespaces"
 	c.nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
@@ -58,7 +58,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 				})
 			}
 		},
-		UpdateFunc: func(old, new interface{}) {
+		UpdateFunc: func(old, new any) {
 			incrementEvent(otype, "update")
 			oldNs := old.(*v1.Namespace)
 			newNs := new.(*v1.Namespace)
@@ -79,7 +79,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 				c.queue.Push(handleFunc)
 			}
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			incrementEvent(otype, "delete")
 			ns, ok := obj.(*v1.Namespace)
 			if !ok {

@@ -34,7 +34,7 @@ func TestOptions(t *testing.T) {
 		key         string
 		option      option.Instance
 		expectError bool
-		expected    interface{}
+		expected    any
 	}{
 		{
 			testName: "proxy config",
@@ -109,7 +109,7 @@ func TestOptions(t *testing.T) {
 				NodeMetadata: model.NodeMetadata{
 					IstioVersion: "fake",
 				},
-			}, map[string]interface{}{
+			}, map[string]any{
 				"key": "value",
 			}),
 			expected: "{\"ISTIO_VERSION\":\"fake\",\"key\":\"value\"}",

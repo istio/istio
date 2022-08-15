@@ -15,14 +15,14 @@
 package deployment
 
 import (
-	"strconv"
+	"fmt"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
 const (
@@ -63,151 +63,49 @@ type EchoNamespace struct {
 	VM echo.Instances
 	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to A.
 	DeltaXDS echo.Instances
-
 	// All echo apps in this namespace
 	All echo.Services
 }
 
-func (n EchoNamespace) build(t resource.Context, b deployment.Builder) deployment.Builder {
-	b = b.WithConfig(echo.Config{
-		Service:        ASvc,
-		Namespace:      n.Namespace,
-		ServiceAccount: true,
-		Ports:          ports.All(),
-		Subsets:        []echo.SubsetConfig{{}},
-		Locality:       "region.zone.subzone",
-	}).
-		WithConfig(echo.Config{
-			Service:        BSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets:        []echo.SubsetConfig{{}},
-		}).
-		WithConfig(echo.Config{
-			Service:        CSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets:        []echo.SubsetConfig{{}},
-		}).
-		WithConfig(echo.Config{
-			Service:        HeadlessSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Headless:       true,
-			Ports:          ports.Headless(),
-			Subsets:        []echo.SubsetConfig{{}},
-		}).
-		WithConfig(echo.Config{
-			Service:        StatefulSetSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Headless:       true,
-			StatefulSet:    true,
-			Ports:          ports.Headless(),
-			Subsets:        []echo.SubsetConfig{{}},
-		}).
-		WithConfig(echo.Config{
-			Service:        NakedSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets: []echo.SubsetConfig{
-				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarInject: {
-							Value: strconv.FormatBool(false),
-						},
-					},
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Service:        TproxySvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			Subsets: []echo.SubsetConfig{{
-				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
-			}},
-		}).
-		WithConfig(echo.Config{
-			Service:        VMSvc,
-			Namespace:      n.Namespace,
-			ServiceAccount: true,
-			Ports:          ports.All(),
-			DeployAsVM:     true,
-			AutoRegisterVM: true,
-			Subsets:        []echo.SubsetConfig{{}},
-		})
-
-	if !skipDeltaXDS(t) {
-		b = b.
-			WithConfig(echo.Config{
-				Service:        DeltaSvc,
-				Namespace:      n.Namespace,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				Subsets: []echo.SubsetConfig{{
-					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-  ISTIO_DELTA_XDS: "true"`),
-				}},
-			})
+func (n EchoNamespace) build(b deployment.Builder, cfg Config) deployment.Builder {
+	for _, config := range cfg.Configs.Get() {
+		if config.Namespace == nil {
+			config.Namespace = n.Namespace
+		}
+		b = b.WithConfig(config)
 	}
 
-	if !t.Clusters().IsMulticluster() {
-		b = b.
-			// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
-			WithConfig(echo.Config{
-				Service:        ProxylessGRPCSvc,
-				Namespace:      n.Namespace,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInjectTemplates: {
-								Value: "grpc-agent",
-							},
-						},
-					},
-				},
-			})
-	}
 	return b
 }
 
 func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *Echos) error {
 	ns := n.Namespace
+	n.All = match.Namespace(ns).GetMatches(echos).Services()
 
-	all := func(is echo.Instances) echo.Instances {
-		if len(is) > 0 {
-			n.All = append(n.All, is)
-			return is
-		}
-		return nil
-	}
-
-	n.A = all(match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos))
-	n.B = all(match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos))
-	n.C = all(match.ServiceName(echo.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos))
-	n.Tproxy = all(match.ServiceName(echo.NamespacedName{Name: TproxySvc, Namespace: ns}).GetMatches(echos))
-	n.Headless = all(match.ServiceName(echo.NamespacedName{Name: HeadlessSvc, Namespace: ns}).GetMatches(echos))
-	n.StatefulSet = all(match.ServiceName(echo.NamespacedName{Name: StatefulSetSvc, Namespace: ns}).GetMatches(echos))
-	n.Naked = all(match.ServiceName(echo.NamespacedName{Name: NakedSvc, Namespace: ns}).GetMatches(echos))
-	n.ProxylessGRPC = all(match.ServiceName(echo.NamespacedName{Name: ProxylessGRPCSvc, Namespace: ns}).GetMatches(echos))
+	n.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos)
+	n.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos)
+	n.C = match.ServiceName(echo.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos)
+	n.Tproxy = match.ServiceName(echo.NamespacedName{Name: TproxySvc, Namespace: ns}).GetMatches(echos)
+	n.Headless = match.ServiceName(echo.NamespacedName{Name: HeadlessSvc, Namespace: ns}).GetMatches(echos)
+	n.StatefulSet = match.ServiceName(echo.NamespacedName{Name: StatefulSetSvc, Namespace: ns}).GetMatches(echos)
+	n.Naked = match.ServiceName(echo.NamespacedName{Name: NakedSvc, Namespace: ns}).GetMatches(echos)
+	n.ProxylessGRPC = match.ServiceName(echo.NamespacedName{Name: ProxylessGRPCSvc, Namespace: ns}).GetMatches(echos)
 	if !t.Settings().Skip(echo.VM) {
-		n.VM = all(match.ServiceName(echo.NamespacedName{Name: VMSvc, Namespace: ns}).GetMatches(echos))
+		n.VM = match.ServiceName(echo.NamespacedName{Name: VMSvc, Namespace: ns}).GetMatches(echos)
 	}
 	if !skipDeltaXDS(t) {
-		n.DeltaXDS = all(match.ServiceName(echo.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos))
+		n.DeltaXDS = match.ServiceName(echo.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos)
+	}
+
+	namespaces, err := namespace.GetAll(t)
+	if err != nil {
+		return fmt.Errorf("failed retrieving list of namespaces: %v", err)
 	}
 
 	// Restrict egress from this namespace to only those endpoints in the same Echos.
 	cfg := t.ConfigIstio().New()
-	cfg.Eval(ns.Name(), map[string]interface{}{
-		"otherNS": d.namespaces(n.Namespace),
+	cfg.Eval(ns.Name(), map[string]any{
+		"Namespaces": namespaces,
 	}, `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
@@ -216,23 +114,24 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "./*"
     - "istio-system/*"
-{{ range $ns := .otherNS }}
-    - "{{ $ns }}/*"
+{{ range $ns := .Namespaces }}
+    - "{{ $ns.Name }}/*"
 {{ end }}
 `)
 
 	// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
-	cfg.Eval(ns.Name(), map[string]interface{}{
-		"Namespace": d.External.Namespace.Name(),
-		"Hostname":  externalHostname,
-		"Ports":     serviceEntryPorts(),
-	}, `apiVersion: networking.istio.io/v1alpha3
+	if d.External.Namespace != nil {
+		cfg.Eval(ns.Name(), map[string]any{
+			"Namespace": d.External.Namespace.Name(),
+			"Hostname":  ExternalHostname,
+			"Ports":     serviceEntryPorts(),
+		}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
 spec:
+  exportTo: [.]
   hosts:
   - {{.Hostname}}
   location: MESH_EXTERNAL
@@ -254,6 +153,7 @@ spec:
     protocol: "{{$p.Protocol}}"
 {{- end }}
 `)
+	}
 
-	return cfg.Apply(resource.NoCleanup)
+	return cfg.Apply(apply.NoCleanup)
 }

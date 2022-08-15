@@ -1,6 +1,6 @@
 # Ext Authz Service
 
-[Ext Authz server](src/) implements the external server for the [Envoy ext_authz filter](https://www.envoyproxy.io/docs/envoy/v1.16.0/intro/arch_overview/security/ext_authz_filter)
+[Ext Authz server](cmd/extauthz) implements the external server for the [Envoy ext_authz filter](https://www.envoyproxy.io/docs/envoy/v1.16.0/intro/arch_overview/security/ext_authz_filter)
 as an example of integrating custom authorization system into Istio.
 
 The Ext Authz server supports authorization check request using either HTTP (port 8000) or gRPC v2/v3 (port 9000) API and

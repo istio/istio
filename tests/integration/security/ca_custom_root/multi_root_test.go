@@ -21,19 +21,18 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 func TestMultiRootSetup(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.multiple-root").
 		Run(func(t framework.TestContext) {
-			testNS := apps.Namespace
+			testNS := apps.EchoNamespace.Namespace
 
 			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
@@ -48,20 +47,21 @@ func TestMultiRootSetup(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opts := echo.CallOptions{
-								To: to,
+								To:    to,
+								Count: 1,
 								Port: echo.Port{
 									Name: "https",
 								},
 								Address: to.Config().Service,
 								Scheme:  s,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
+							opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 
 							from.CallOrFail(t, opts)
 						})
 					}
 
-					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, client)
 					cases := []struct {
 						from   echo.Instance
 						to     echo.Instances
@@ -69,7 +69,7 @@ func TestMultiRootSetup(t *testing.T) {
 					}{
 						{
 							from:   client,
-							to:     apps.ServerNakedFooAlt,
+							to:     serverNakedFooAlt,
 							expect: true,
 						},
 					}

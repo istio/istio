@@ -21,8 +21,6 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
-	echoclient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -30,18 +28,14 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-// callCountMultiplier is used to ensure cross-cluster load balancing has a chance to work
-const callCountMultiplier = 5
-
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	opts echo.CallOptions
 }
 
@@ -59,14 +53,14 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
-	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echo.CallResult
 	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, opts *echo.CallOptions)
 	// check is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	check     func(src echo.Caller, opts *echo.CallOptions) check.Checker
-	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
+	check     func(src echo.Caller, opts *echo.CallOptions) echo.Checker
+	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) echo.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip skip
@@ -87,7 +81,7 @@ type TrafficTestCase struct {
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
+	templateVars func(src echo.Callers, dest echo.Instances) map[string]any
 
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
@@ -118,7 +112,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
-				tmplData := map[string]interface{}{
+				tmplData := map[string]any{
 					// tests that use simple Run only need the first
 					"dst":    dsts[0],
 					"dstSvc": dsts[0][0].Config().Service,
@@ -141,10 +135,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				// we only apply to config clusters
 				return t.ConfigIstio().YAML("", cfg).Apply()
 			}).
-			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
 			ToMatch(match.And(append(c.targetMatchers, match.NotProxylessGRPC)...)).
+			WithDefaultFilters(1, c.toN).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {
@@ -156,9 +150,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				if c.checkForN != nil {
 					opts.Check = c.checkForN(from, to, &opts)
-				}
-				if opts.Count == 0 {
-					opts.Count = callCountMultiplier * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
@@ -235,49 +226,30 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
-func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.SingleNamespaceView) {
-	cases := map[string][]TrafficTestCase{}
-	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
-		cases["jwt-claim-route"] = jwtClaimRoute(apps)
-	}
-	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echo.VM))
-	cases["sniffing"] = protocolSniffingCases(apps)
-	cases["selfcall"] = selfCallsCases()
-	cases["serverfirst"] = serverFirstTestCases(apps)
-	cases["gateway"] = gatewayCases()
-	cases["autopassthrough"] = autoPassthroughCases(t, apps)
-	cases["loop"] = trafficLoopCases(apps)
-	cases["tls-origination"] = tlsOriginationCases(apps)
-	cases["instanceip"] = instanceIPTests(apps)
-	cases["services"] = serviceCases(apps)
-	if h, err := hostCases(apps); err != nil {
-		t.Fatal("failed to setup host cases: %v", err)
-	} else {
-		cases["host"] = h
-	}
-	cases["envoyfilter"] = envoyFilterCases(apps)
-	if len(t.Clusters().ByNetwork()) == 1 {
-		// Consistent hashing does not work for multinetwork. The first request will consistently go to a
-		// gateway, but that gateway will tcp_proxy it to a random pod.
-		cases["consistent-hash"] = consistentHashCases(apps)
-	}
-	cases["use-client-protocol"] = useClientProtocolCases(apps)
-	cases["destinationrule"] = destinationRuleCases(apps)
-	if !t.Settings().Skip(echo.VM) {
-		cases["vm"] = VMTestCases(apps.VM, apps)
-	}
-	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)
-	for name, tts := range cases {
+func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployment.SingleNamespaceView) {
+	RunCase := func(name string, f func(t TrafficContext)) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
-			for _, tt := range tts {
-				if tt.workloadAgnostic {
-					tt.RunForApps(t, apps.All.Instances(), apps.Namespace.Name())
-				} else {
-					tt.Run(t, apps.Namespace.Name())
-				}
-			}
+			f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
 		})
 	}
+	RunCase("jwt-claim-route", jwtClaimRoute)
+	RunCase("virtualservice", virtualServiceCases)
+	RunCase("sniffing", protocolSniffingCases)
+	RunCase("selfcall", selfCallsCases)
+	RunCase("serverfirst", serverFirstTestCases)
+	RunCase("gateway", gatewayCases)
+	RunCase("autopassthrough", autoPassthroughCases)
+	RunCase("loop", trafficLoopCases)
+	RunCase("tls-origination", tlsOriginationCases)
+	RunCase("instanceip", instanceIPTests)
+	RunCase("services", serviceCases)
+	RunCase("host", hostCases)
+	RunCase("envoyfilter", envoyFilterCases)
+	RunCase("consistent-hash", consistentHashCases)
+	RunCase("use-client-protocol", useClientProtocolCases)
+	RunCase("destinationrule", destinationRuleCases)
+	RunCase("vm", VMTestCases(apps.VM))
+	RunCase("dns", DNSTestCases)
 }
 
 func ExpectString(got, expected, help string) error {
@@ -294,4 +266,46 @@ func AlmostEquals(a, b, precision int) bool {
 		return false
 	}
 	return true
+}
+
+type TrafficContext struct {
+	framework.TestContext
+	Apps  deployment.SingleNamespaceView
+	Istio istio.Instance
+
+	// sourceFilters defines default filters for all cases
+	sourceMatchers []match.Matcher
+	// targetFilters defines default filters for all cases
+	targetMatchers []match.Matcher
+	// comboFilters defines default filters for all cases
+	comboFilters []echotest.CombinationFilter
+}
+
+func (t *TrafficContext) SetDefaultSourceMatchers(f ...match.Matcher) {
+	t.sourceMatchers = f
+}
+
+func (t *TrafficContext) SetDefaultTargetMatchers(f ...match.Matcher) {
+	t.targetMatchers = f
+}
+
+func (t *TrafficContext) SetDefaultComboFilter(f ...echotest.CombinationFilter) {
+	t.comboFilters = f
+}
+
+func (t TrafficContext) RunTraffic(tt TrafficTestCase) {
+	if tt.sourceMatchers == nil {
+		tt.sourceMatchers = t.sourceMatchers
+	}
+	if tt.targetMatchers == nil {
+		tt.targetMatchers = t.targetMatchers
+	}
+	if tt.comboFilters == nil {
+		tt.comboFilters = t.comboFilters
+	}
+	if tt.workloadAgnostic {
+		tt.RunForApps(t, t.Apps.All.Instances(), t.Apps.Namespace.Name())
+	} else {
+		tt.Run(t, t.Apps.Namespace.Name())
+	}
 }

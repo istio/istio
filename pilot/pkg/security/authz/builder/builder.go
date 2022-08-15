@@ -28,11 +28,9 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 var rbacPolicyMatchNever = &rbacpb.Policy{
@@ -67,8 +65,7 @@ type Builder struct {
 
 // New returns a new builder for the given workload with the authorization policy.
 // Returns nil if none of the authorization policies are enabled for the workload.
-func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Option) *Builder {
-	policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, labels.Collection{in.Node.Metadata.Labels})
+func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies model.AuthorizationPoliciesResult, option Option) *Builder {
 	if option.IsCustomBuilder {
 		option.Logger.AppendDebugf("found %d CUSTOM actions", len(policies.Custom))
 		if len(policies.Custom) == 0 {
@@ -76,7 +73,7 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 		}
 		return &Builder{
 			customPolicies:    policies.Custom,
-			extensions:        processExtensionProvider(in),
+			extensions:        processExtensionProvider(push),
 			trustDomainBundle: trustDomainBundle,
 			option:            option,
 		}
@@ -264,7 +261,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		return []*httppb.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
-				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -276,7 +273,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		return []*httppb.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
-				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -292,11 +289,11 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	return []*httppb.HttpFilter{
 		{
 			Name:       wellknown.HTTPRoleBasedAccessControl,
-			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 		},
 		{
 			Name:       wellknown.HTTPExternalAuthorization,
-			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(extauthz.http)},
+			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
 		},
 	}
 }
@@ -312,7 +309,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		return []*tcppb.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -326,7 +323,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		return []*tcppb.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	} else if extauthz.tcp == nil {
@@ -341,11 +338,11 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		return []*tcppb.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 			{
 				Name:       wellknown.ExternalAuthorization,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(extauthz.tcp)},
+				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
 			},
 		}
 	}

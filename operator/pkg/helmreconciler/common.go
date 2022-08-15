@@ -63,7 +63,7 @@ func init() {
 
 // ComponentTree represents a tree of component dependencies.
 type (
-	ComponentTree          map[name.ComponentName]interface{}
+	ComponentTree          map[name.ComponentName]any
 	componentNameToListMap map[name.ComponentName][]name.ComponentName
 )
 
@@ -161,12 +161,12 @@ func createPortMap(current *unstructured.Unstructured) map[string]uint32 {
 func saveNodePorts(current, overlay *unstructured.Unstructured) {
 	portMap := createPortMap(current)
 	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
-	portList, ok := ports.([]interface{})
+	portList, ok := ports.([]any)
 	if !ok {
 		return
 	}
 	for _, port := range portList {
-		m, ok := port.(map[string]interface{})
+		m, ok := port.(map[string]any)
 		if !ok {
 			continue
 		}

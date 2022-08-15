@@ -43,15 +43,12 @@ type Instance interface {
 	// TCPAddress returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
 	TCPAddress() (string, int)
-	// DiscoveryAddress returns the external XDS (!5012) address on the ingress gateway (or the NodePort address,
-	// when in an evnironment that doesn't support LoadBalancer).
+	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
+	// when in an environment that doesn't support LoadBalancer).
 	DiscoveryAddress() net.TCPAddr
 	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
 	AddressForPort(port int) (string, int)
-
-	// ProxyStats returns proxy stats, or error if failure happens.
-	ProxyStats() (map[string]int, error)
 
 	// PodID returns the name of the ingress gateway pod of index i. Returns error if failed to get the pod
 	// or the index is out of boundary.

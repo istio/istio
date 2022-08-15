@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,7 +72,7 @@ var (
 	testClient            client.Client
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
 
-	allNamespacedGVKs = append(helmreconciler.NamespacedResources,
+	allNamespacedGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "25"}),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
 	allClusterGVKs = append(helmreconciler.ClusterResources,
@@ -205,7 +206,7 @@ func fakeApplyExtraResources(inFile string) error {
 }
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
-	c := kube.NewFakeClient()
+	c := kube.NewFakeClientWithVersion("25")
 	l := clog.NewDefaultLogger()
 	_, iop, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},

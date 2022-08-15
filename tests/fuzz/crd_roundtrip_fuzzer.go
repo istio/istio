@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
@@ -25,7 +24,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/protobuf/proto"
+	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -81,7 +80,6 @@ func FuzzCRDRoundtrip(data []byte) int {
 		panic(fmt.Sprintf("%q is not a TypeMeta and cannot be tested - add it to nonRoundTrippableInternalTypes: %v\n", kgvk, err))
 	}
 	f := fuzz.NewConsumer(data[1:])
-	f.AllowUnexportedFields()
 	err = f.GenerateStruct(object)
 	if err != nil {
 		return 0
@@ -148,7 +146,7 @@ func dataAsString(data []byte) string {
 	dataString := string(data)
 	if !strings.HasPrefix(dataString, "{") {
 		dataString = "\n" + hex.Dump(data)
-		proto.NewBuffer(make([]byte, 0, 1024)).DebugPrint("decoded object", data)
+		legacyproto.NewBuffer(make([]byte, 0, 1024)).DebugPrint("decoded object", data)
 	}
 	return dataString
 }
@@ -156,7 +154,7 @@ func dataAsString(data []byte) string {
 // checkForNilValues is a helper to check for nil
 // values in the runtime objects.
 // This part only converts the interface to a reflect.Value.
-func checkForNilValues(targetStruct interface{}) error {
+func checkForNilValues(targetStruct any) error {
 	v := reflect.ValueOf(targetStruct)
 	e := v.Elem()
 	err := checkForNil(e)

@@ -27,7 +27,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var errAbort = errors.New("epoch aborted")
+var errAbort = errors.New("proxy aborted")
 
 const errOutOfMemory = "signal: killed"
 
@@ -35,7 +35,8 @@ var activeConnectionCheckDelay = 1 * time.Second
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
-	adminPort, statusPort, prometheusPort int, exitOnZeroActiveConnections bool) *Agent {
+	adminPort, statusPort, prometheusPort int, exitOnZeroActiveConnections bool,
+) *Agent {
 	knownIstioListeners := sets.New(
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", statusPort),
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", prometheusPort),
@@ -45,14 +46,11 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 	return &Agent{
 		proxy:                       proxy,
 		statusCh:                    make(chan exitStatus, 1), // context might stop drainage
-		drainCh:                     make(chan struct{}),
 		abortCh:                     make(chan error, 1),
 		terminationDrainDuration:    terminationDrainDuration,
 		minDrainDuration:            minDrainDuration,
 		exitOnZeroActiveConnections: exitOnZeroActiveConnections,
 		adminPort:                   adminPort,
-		statusPort:                  statusPort,
-		prometheusPort:              prometheusPort,
 		localhost:                   localhost,
 		knownIstioListeners:         knownIstioListeners,
 	}
@@ -60,14 +58,14 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 
 // Proxy defines command interface for a proxy
 type Proxy interface {
-	// Run command for an epoch, and abort channel
-	Run(int, <-chan error) error
+	// Run command with an abort channel
+	Run(<-chan error) error
 
-	// Drains the current epoch.
+	// Drains the envoy process.
 	Drain() error
 
-	// Cleanup command for an epoch
-	Cleanup(int)
+	// Cleanup command for cleans up the proxy.
+	Cleanup()
 
 	// UpdateConfig writes a new config file
 	UpdateConfig(config []byte) error
@@ -80,8 +78,6 @@ type Agent struct {
 	// channel for proxy exit notifications
 	statusCh chan exitStatus
 
-	drainCh chan struct{}
-
 	abortCh chan error
 
 	// time to allow for the proxy to drain before terminating all remaining proxy processes
@@ -91,23 +87,19 @@ type Agent struct {
 	adminPort int
 	localhost string
 
-	statusPort     int
-	prometheusPort int
-
 	knownIstioListeners sets.Set
 
 	exitOnZeroActiveConnections bool
 }
 
 type exitStatus struct {
-	epoch int
-	err   error
+	err error
 }
 
 // Run starts the envoy and waits until it terminates.
 func (a *Agent) Run(ctx context.Context) {
 	log.Info("Starting proxy agent")
-	go a.runWait(0, a.abortCh)
+	go a.runWait(a.abortCh)
 
 	select {
 	case status := <-a.statusCh:
@@ -115,19 +107,18 @@ func (a *Agent) Run(ctx context.Context) {
 			if status.err.Error() == errOutOfMemory {
 				log.Warnf("Envoy may have been out of memory killed. Check memory usage and limits.")
 			}
-			log.Errorf("Epoch %d exited with error: %v", status.epoch, status.err)
+			log.Errorf("Envoy exited with error: %v", status.err)
 		} else {
-			log.Infof("Epoch %d exited normally", status.epoch)
+			log.Infof("Envoy exited normally")
 		}
 
-		log.Infof("No more active epochs, terminating")
 	case <-ctx.Done():
 		a.terminate()
 		status := <-a.statusCh
 		if status.err == errAbort {
-			log.Infof("Epoch %d aborted normally", status.epoch)
+			log.Infof("Envoy aborted normally")
 		} else {
-			log.Warnf("Epoch %d aborted abnormally", status.epoch)
+			log.Warnf("Envoy aborted abnormally")
 		}
 		log.Info("Agent has successfully terminated")
 	}
@@ -173,7 +164,7 @@ func (a *Agent) terminate() {
 		log.Infof("Graceful termination period complete, terminating remaining proxies.")
 		a.abortCh <- errAbort
 	}
-	log.Warnf("Aborted all epochs")
+	log.Warnf("Aborted proxy instance")
 }
 
 func (a *Agent) activeProxyConnections() (int, error) {
@@ -217,9 +208,9 @@ func (a *Agent) activeProxyConnections() (int, error) {
 }
 
 // runWait runs the start-up command as a go routine and waits for it to finish
-func (a *Agent) runWait(epoch int, abortCh <-chan error) {
-	log.Infof("Epoch %d starting", epoch)
-	err := a.proxy.Run(epoch, abortCh)
-	a.proxy.Cleanup(epoch)
-	a.statusCh <- exitStatus{epoch: epoch, err: err}
+func (a *Agent) runWait(abortCh <-chan error) {
+	log.Infof("starting")
+	err := a.proxy.Run(abortCh)
+	a.proxy.Cleanup()
+	a.statusCh <- exitStatus{err: err}
 }

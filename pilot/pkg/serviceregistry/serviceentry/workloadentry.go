@@ -20,7 +20,7 @@ import (
 )
 
 // return the mesh network for the workload entry. Empty string if not found.
-func (s *ServiceEntryStore) workloadEntryNetwork(wle *networking.WorkloadEntry) network.ID {
+func (s *Controller) workloadEntryNetwork(wle *networking.WorkloadEntry) network.ID {
 	if s == nil {
 		return ""
 	}
@@ -30,8 +30,8 @@ func (s *ServiceEntryStore) workloadEntryNetwork(wle *networking.WorkloadEntry) 
 	}
 
 	// 2. fall back to the passed in getNetworkCb func.
-	if s.getNetworkIDCb != nil {
-		return s.getNetworkIDCb(wle.Address, wle.Labels)
+	if s.networkIDCallback != nil {
+		return s.networkIDCallback(wle.Address, wle.Labels)
 	}
 	return ""
 }

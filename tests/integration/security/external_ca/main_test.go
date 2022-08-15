@@ -22,58 +22,17 @@ import (
 
 	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 )
-
-const (
-	ASvc = "a"
-	BSvc = "b"
-)
-
-type EchoDeployments struct {
-	Namespace namespace.Instance
-	// workloads for TestSecureNaming
-	A, B echo.Instances
-}
 
 var (
-	inst     istio.Instance
-	apps     = &EchoDeployments{}
+	apps     deployment.SingleNamespaceView
 	stopChan = make(chan struct{})
 )
-
-func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
-	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
-
-	builder := deployment.New(ctx)
-	builder.
-		WithClusters(ctx.Clusters()...).
-		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
-		WithConfig(util.EchoConfig(BSvc, apps.Namespace, false, nil))
-
-	echos, err := builder.Build()
-	if err != nil {
-		return err
-	}
-	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
-	return nil
-}
 
 func TestMain(m *testing.M) {
 	// Integration test for testing interoperability with external CA's that are integrated with K8s CSR API
@@ -82,33 +41,38 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		RequireSingleCluster().
-		RequireMultiPrimary().
-		Setup(istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) error {
-			return SetupApps(ctx, apps)
-		}).
+		Setup(istio.Setup(nil, setupConfig)).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
 	stopChan <- struct{}{}
 	close(stopChan)
 }
 
 func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	certsChan := make(chan *csrctrl.SignerRootCert, 2)
-	go csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false,
-		ctx.Clusters()[0].RESTConfig(), stopChan, certsChan)
-	cert1 := <-certsChan
-	cert2 := <-certsChan
-
+	certs := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
 	if cfg == nil {
 		return
 	}
+	var isExternalControlPlane bool
+	for _, cluster := range ctx.AllClusters() {
+		if cluster.IsExternalControlPlane() {
+			isExternalControlPlane = true
+		}
+	}
+
+	cfg.ControlPlaneValues = generateConfigYaml(certs, false, isExternalControlPlane)
+	cfg.ConfigClusterValues = generateConfigYaml(certs, true, false)
+}
+
+func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, isExternalControlPlane bool) string {
+	cert1 := certs[0]
+	cert2 := certs[1]
+
 	cfgYaml := tmpl.MustEvaluate(`
 values:
   meshConfig:
     defaultConfig:
       proxyMetadata:
-        PROXY_CONFIG_XDS_AGENT: "true"
         ISTIO_META_CERT_SIGNER: signer1
     trustDomainAliases: [some-other, trust-domain-foo]
     caCertificates:
@@ -120,6 +84,7 @@ values:
 {{.rootcert2 | indent 8}}
       certSigners:
       - {{.signer2}}
+{{- if not .isConfigCluster}}
 components:
   pilot:
     enabled: true
@@ -146,7 +111,37 @@ components:
                 - signers
                 verbs:
                 - approve
-`, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
-	cfg.ControlPlaneValues = cfgYaml
-	cfg.DeployEastWestGW = false
+{{- end }}
+{{- if .isExternalControlPlane}}
+        - kind: Deployment
+          name: istiod
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: config-volume
+                configMap:
+                  name: istio
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: inject-volume
+                configMap:
+                  name: istio-sidecar-injector
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: config-volume
+                mountPath: /etc/istio/config
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: inject-volume
+                mountPath: /var/lib/istio/inject
+{{- end }}
+`, map[string]any{
+		"rootcert1":              cert1.Rootcert,
+		"signer1":                cert1.Signer,
+		"rootcert2":              cert2.Rootcert,
+		"signer2":                cert2.Signer,
+		"isConfigCluster":        isConfigCluster,
+		"isExternalControlPlane": isExternalControlPlane,
+	})
+	return cfgYaml
 }

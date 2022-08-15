@@ -36,7 +36,7 @@ type Manager struct {
 }
 
 func NewManager(store model.ConfigStore) *Manager {
-	writeFunc := func(m *config.Config, istatus interface{}) {
+	writeFunc := func(m *config.Config, istatus any) {
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		status := istatus.(GenerationProvider)
 		m.Status = status.Unwrap()
@@ -87,8 +87,8 @@ func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 	return result
 }
 
-func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus) *Controller {
-	wrapper := func(status interface{}, context interface{}) GenerationProvider {
+func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus) *Controller {
+	wrapper := func(status any, context any) GenerationProvider {
 		var input *v1alpha1.IstioStatus
 		if status != nil {
 			converted := status.(*IstioGenerationProvider)
@@ -104,7 +104,7 @@ func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStat
 	return result
 }
 
-type UpdateFunc func(status interface{}, context interface{}) GenerationProvider
+type UpdateFunc func(status any, context any) GenerationProvider
 
 type Controller struct {
 	fn      UpdateFunc
@@ -115,7 +115,7 @@ type Controller struct {
 // update the status of target, using the information in context.  Once the status
 // workers are ready to perform this update, the controller's UpdateFunc
 // will be called with target and context as input.
-func (c *Controller) EnqueueStatusUpdateResource(context interface{}, target Resource) {
+func (c *Controller) EnqueueStatusUpdateResource(context any, target Resource) {
 	// TODO: buffer this with channel
 	c.workers.Push(target, c, context)
 }

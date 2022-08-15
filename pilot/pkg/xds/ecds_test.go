@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,6 +31,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -178,7 +179,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.AuthorizationPolicy}: {},
+					{Kind: kind.AuthorizationPolicy}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
@@ -191,8 +192,8 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.AuthorizationPolicy}: {},
-					{Kind: gvk.WasmPlugin}:          {},
+					{Kind: kind.AuthorizationPolicy}: {},
+					{Kind: kind.WasmPlugin}:          {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -205,8 +206,8 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.AuthorizationPolicy}: {},
-					{Kind: gvk.Secret}:              {},
+					{Kind: kind.AuthorizationPolicy}: {},
+					{Kind: kind.Secret}:              {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -219,7 +220,7 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
@@ -232,12 +233,27 @@ func TestECDSGenerate(t *testing.T) {
 			request: &model.PushRequest{
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: gvk.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
 			wantSecrets:      sets.Set{"default-docker-credential": {}},
+		},
+		// All the credentials should be sent to istio-agent even if one of them is only updated,
+		// because `istio-agent` does not keep the credentials.
+		{
+			name:           "multi_wasmplugin_update_secret",
+			proxyNamespace: "default",
+			request: &model.PushRequest{
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
+				},
+			},
+			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
+			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 	}
 

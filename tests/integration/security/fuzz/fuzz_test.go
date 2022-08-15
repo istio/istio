@@ -102,10 +102,10 @@ func deploy(t framework.TestContext, name, ns, yaml string) {
 }
 
 func waitService(t framework.TestContext, name, ns string) {
-	if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns, name); err != nil {
+	if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default().Kube(), ns, name); err != nil {
 		t.Fatalf("Wait for service %s failed: %v", name, err)
 		if name == apacheServer || name == nginxServer || name == tomcatServer {
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns, name); err != nil {
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default().Kube(), ns, name); err != nil {
 				t.Fatalf("Wait for service %s failed: %v", name, err)
 			}
 		}

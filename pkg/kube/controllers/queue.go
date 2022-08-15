@@ -29,7 +29,7 @@ type Queue struct {
 	initialSync *atomic.Bool
 	name        string
 	maxAttempts int
-	workFn      func(key interface{}) error
+	workFn      func(key any) error
 	log         *istiolog.Scope
 }
 
@@ -54,11 +54,20 @@ func WithMaxAttempts(n int) func(q *Queue) {
 	}
 }
 
-// WithReconciler defines the to handle items on the queue
-func WithReconciler(f func(name types.NamespacedName) error) func(q *Queue) {
+// WithReconciler defines the handler function to handle items in the queue.
+func WithReconciler(f func(key types.NamespacedName) error) func(q *Queue) {
 	return func(q *Queue) {
-		q.workFn = func(key interface{}) error {
+		q.workFn = func(key any) error {
 			return f(key.(types.NamespacedName))
+		}
+	}
+}
+
+// WithGenericReconciler defines the handler function to handle items in the queue that can handle any type
+func WithGenericReconciler(f func(key any) error) func(q *Queue) {
+	return func(q *Queue) {
+		q.workFn = func(key any) error {
+			return f(key)
 		}
 	}
 }
@@ -80,7 +89,7 @@ func NewQueue(name string, options ...func(*Queue)) Queue {
 }
 
 // Add an item to the queue.
-func (q Queue) Add(item types.NamespacedName) {
+func (q Queue) Add(item any) {
 	q.queue.Add(item)
 }
 

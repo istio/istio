@@ -74,11 +74,6 @@ sidecarInjectorWebhook:
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
-  # Enable objectSelector to filter out pods with no need for sidecar before calling istiod.
-  # It is enabled by default as the minimum supported Kubernetes version is 1.15+
-  objectSelector:
-    enabled: true
-    autoInject: true
   rewriteAppHTTPProbe: true
   # Templates defines a set of custom injection templates that can be used. For example, defining:
   #
@@ -93,8 +88,8 @@ sidecarInjectorWebhook:
   # This is intended for advanced configuration only; most users should use the built in template
   templates: {}
   # Default templates specifies a set of default templates that are used in sidecar injection.
-  # By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
-  # To inject other additional templates, define it using the `templates` option, and add it to 
+  # By default, a template `sidecar` is always provided, which contains the template of default sidecar.
+  # To inject other additional templates, define it using the `templates` option, and add it to
   # the default templates list.
   # For example:
   #
@@ -182,9 +177,9 @@ meshConfig:
   # It is not clear if user should normally need to configure - the metadata is typically
   # used as an escape and to control testing and rollout, but it is not intended as a long-term
   # stable API.
-# What we may configure in mesh config is the ".global" - and use of other suffixes.
-# No hurry to do this in 1.6, we're trying to prove the code.
 
+  # What we may configure in mesh config is the ".global" - and use of other suffixes.
+  # No hurry to do this in 1.6, we're trying to prove the code.
 global:
   # Used to locate istiod.
   istioNamespace: istio-system
@@ -201,10 +196,10 @@ global:
   defaultResources:
     requests:
       cpu: 10m
-      #   memory: 128Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
@@ -315,13 +310,6 @@ global:
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2
-    resources:
-      limits:
-        cpu: 2000m
-        memory: 1024Mi
-      requests:
-        cpu: 10m
-        memory: 10Mi
   # configure remote pilot and istiod service and endpoint
   remotePilotAddress: ""
   ##############################################################################################
@@ -337,7 +325,7 @@ global:
   # When set to true, istiod is not deployed locally and only a subset of the other
   # discovery charts are enabled.
   externalIstiod: true
-  #  Configure a remote cluster as the config cluster for an external istiod.
+  # Configure a remote cluster as the config cluster for an external istiod.
   configCluster: false
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
@@ -455,6 +443,9 @@ global:
   # The default value is "" and when caName="", the CA will be configured by other
   # mechanisms (e.g., environmental variable CA_PROVIDER).
   caName: ""
+  # whether to use autoscaling/v2 template for HPA settings
+  # for internal usage only, not to be configured by users.
+  autoscalingv2API: true
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true

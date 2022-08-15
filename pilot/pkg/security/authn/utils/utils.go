@@ -17,6 +17,7 @@ package utils
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -37,7 +38,8 @@ var SupportedCiphers = []string{
 
 // BuildInboundTLS returns the TLS context corresponding to the mTLS mode.
 func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
-	protocol networking.ListenerProtocol, trustDomainAliases []string) *tls.DownstreamTlsContext {
+	protocol networking.ListenerProtocol, trustDomainAliases []string, minTLSVersion tls.TlsParameters_TlsProtocol,
+) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -45,15 +47,11 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		CommonTlsContext:         &tls.CommonTlsContext{},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
-	if protocol == networking.ListenerProtocolTCP {
+	if protocol == networking.ListenerProtocolTCP && features.MetadataExchange {
 		// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
 		// expect the same from server. This  is so that secure metadata exchange
 		// transfer can take place between sidecars for TCP with mTLS.
-		if features.MetadataExchange {
-			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
-		} else {
-			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
-		}
+		ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
 	} else {
 		// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
 		// which is used to differentiate between service mesh and legacy traffic.
@@ -69,11 +67,21 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-		CipherSuites:              SupportedCiphers,
+		CipherSuites: SupportedCiphers,
 	}
-
+	ctx.CommonTlsContext.TlsParams.TlsMinimumProtocolVersion = minTLSVersion
+	ctx.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_3
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{}, /*subjectAltNames*/
 		trustDomainAliases, ctx.RequireClientCertificate.Value)
 	return ctx
+}
+
+// GetMinTLSVersion returns the minimum TLS version for workloads based on the mesh config.
+func GetMinTLSVersion(ver meshconfig.MeshConfig_TLSConfig_TLSProtocol) tls.TlsParameters_TlsProtocol {
+	switch ver {
+	case meshconfig.MeshConfig_TLSConfig_TLSV1_3:
+		return tls.TlsParameters_TLSv1_3
+	default:
+		return tls.TlsParameters_TLSv1_2
+	}
 }

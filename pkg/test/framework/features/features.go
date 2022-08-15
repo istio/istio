@@ -33,7 +33,7 @@ type Checker interface {
 }
 
 type checkerImpl struct {
-	m map[string]interface{}
+	m map[string]any
 }
 
 func BuildChecker(yamlPath string) (Checker, error) {
@@ -42,14 +42,14 @@ func BuildChecker(yamlPath string) (Checker, error) {
 		log.Errorf("Error reading feature file: %s", yamlPath)
 		return nil, err
 	}
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 
 	err = yaml.Unmarshal(data, &m)
 	if err != nil {
 		log.Errorf("Error parsing features file: %s", err)
 		return nil, err
 	}
-	return &checkerImpl{m["features"].(map[string]interface{})}, nil
+	return &checkerImpl{m["features"].(map[string]any)}, nil
 }
 
 // returns true if the feature is defined in features.yaml,
@@ -58,13 +58,13 @@ func (c *checkerImpl) Check(feature Feature) (check bool, scenario string) {
 	return checkPathSegment(c.m, strings.Split(string(feature), "."))
 }
 
-func checkPathSegment(m map[string]interface{}, path []string) (check bool, scenario string) {
+func checkPathSegment(m map[string]any, path []string) (check bool, scenario string) {
 	if len(path) < 1 {
 		return false, ""
 	}
 	segment := path[0]
 	if val, ok := m[segment]; ok {
-		if valmap, ok := val.(map[string]interface{}); ok {
+		if valmap, ok := val.(map[string]any); ok {
 			return checkPathSegment(valmap, path[1:])
 		} else if val == nil {
 			return true, strings.Join(path[1:], ".")

@@ -1,0 +1,86 @@
+# The following policy denies access to "internal.{{ .To.ServiceName }}.company.com"
+# and path "/private", denies access from 172.17.72.46 or 192.168.4.0/23 to
+# "remoteipblocks.{{ .To.ServiceName }}.company.com", denies access from anything
+# but 172.23.240.0/22 to "notremoteipblocks.{{ .To.ServiceName }}.company.com",
+# and denies access to "remoteipattr.{{ .To.ServiceName }}.company.com" when the
+# remote ip is 10.242.5.7 or in the network 10.124.99.0/24.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .To.ServiceName }}
+  namespace: {{ .SystemNamespace.Name }}
+spec:
+  action: DENY
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+  rules:
+    - to:
+        - operation:
+            hosts: [
+              "deny.{{ .To.ServiceName }}.com",
+              "*.suffix.{{ .To.ServiceName }}.com",
+              "prefix.{{ .To.ServiceName }}.*"]
+    - to:
+        - operation:
+            hosts: ["internal.{{ .To.ServiceName }}.com"]
+        - operation:
+            paths: ["/private"]
+    - from:
+        - source:
+            remoteIpBlocks: ["172.17.72.46", "192.168.4.0/23"]
+      to:
+        - operation:
+            hosts: ["remoteipblocks.{{ .To.ServiceName }}.com"]
+    - from:
+        - source:
+            notRemoteIpBlocks: ["172.23.240.0/22"]
+      to:
+        - operation:
+            hosts: ["notremoteipblocks.{{ .To.ServiceName }}.com"]
+    - to:
+        - operation:
+            hosts: ["remoteipattr.{{ .To.ServiceName }}.com"]
+      when:
+        - key: remote.ip
+          values: ["10.242.5.7", "10.124.99.0/24"]
+---
+
+# The following gateway allows request to "*.{{ .To.ServiceName }}.com"
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: gw-{{ .To.ServiceName }}
+  namespace: {{ .To.NamespaceName }}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.{{ .To.ServiceName }}.com"
+---
+
+# The following virtual service routes requests to workload
+
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: vs-{{ .To.ServiceName }}
+  namespace: {{ .To.NamespaceName }}
+spec:
+  hosts:
+  - "*.{{ .To.ServiceName }}.com"
+  gateways:
+  - gw-{{ .To.ServiceName }}
+  http:
+  - route:
+    - destination:
+        host: "{{ .To.ClusterLocalFQDN }}"
+        port:
+          number: {{ (.To.PortForName "http").ServicePort }}

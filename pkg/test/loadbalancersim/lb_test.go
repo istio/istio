@@ -48,15 +48,15 @@ func TestLoadBalancing(t *testing.T) {
 		2: 1,
 	}
 	networkLatencies := map[mesh.RouteKey]time.Duration{
-		mesh.RouteKey{
+		{
 			Src:  sameZone,
 			Dest: sameZone,
 		}: 1 * time.Millisecond,
-		mesh.RouteKey{
+		{
 			Src:  sameZone,
 			Dest: sameRegion,
 		}: 10 * time.Millisecond,
-		mesh.RouteKey{
+		{
 			Src:  sameZone,
 			Dest: otherRegion,
 		}: 100 * time.Millisecond,
@@ -210,7 +210,7 @@ func TestLoadBalancing(t *testing.T) {
 		outputFile = fmt.Sprintf("%s/lb_output.csv", homeDir)
 	}
 
-	err := os.WriteFile(outputFile, []byte(sm.toCSV()), 0644)
+	err := os.WriteFile(outputFile, []byte(sm.toCSV()), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

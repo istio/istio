@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -109,7 +108,6 @@ type Options struct {
 	// MeshServiceController is a mesh-wide service Controller.
 	MeshServiceController *aggregate.Controller
 
-	ResyncPeriod time.Duration
 	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
@@ -140,24 +138,14 @@ type Options struct {
 	// Maximum burst for throttle when communicating with the kubernetes API
 	KubernetesAPIBurst int
 
-	// Duration to wait for cache syncs
-	SyncInterval time.Duration
-
-	// SyncTimeout, if set, causes HasSynced to be returned when marked true.
-	SyncTimeout *atomic.Bool
+	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
+	SyncTimeout time.Duration
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
-func (o Options) GetSyncInterval() time.Duration {
-	if o.SyncInterval != 0 {
-		return o.SyncInterval
-	}
-	return time.Millisecond * 100
-}
-
-// EnableEndpointSliceController determines whether to use Endpoints or EndpointSlice based on the
+// DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
 // feature flag and/or Kubernetes version
 func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
 	useEndpointslice, ok := features.EnableEndpointSliceController()
@@ -341,9 +329,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+	_ = c.nsInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if c.opts.SystemNamespace != "" {
-		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj interface{}) bool {
+		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj any) bool {
 			ns, ok := obj.(*v1.Namespace)
 			if !ok {
 				log.Warnf("Namespace watch getting wrong type in event: %T", obj)
@@ -374,6 +363,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
+	_ = c.nodeInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
 
@@ -394,7 +384,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			})
 		}
 	})
-	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
+	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -507,8 +497,8 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	svc, err := convertToService(curr)
+func (c *Controller) onServiceEvent(curr any, event model.Event) error {
+	svc, err := extractService(curr)
 	if err != nil {
 		log.Errorf(err)
 		return nil
@@ -577,6 +567,8 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 	c.Unlock()
 
+	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
+	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
@@ -604,7 +596,7 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
+func (c *Controller) onNodeEvent(obj any, event model.Event) error {
 	node, ok := obj.(*v1.Node)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -658,13 +650,13 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 }
 
 // FilterOutFunc func for filtering out objects during update callback
-type FilterOutFunc func(old, cur interface{}) bool
+type FilterOutFunc func(old, cur any) bool
 
 func (c *Controller) registerHandlers(
 	informer filter.FilteredSharedIndexInformer, otype string,
-	handler func(interface{}, model.Event) error, filter FilterOutFunc,
+	handler func(any, model.Event) error, filter FilterOutFunc,
 ) {
-	wrappedHandler := func(obj interface{}, event model.Event) error {
+	wrappedHandler := func(obj any, event model.Event) error {
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
 	}
@@ -673,7 +665,7 @@ func (c *Controller) registerHandlers(
 	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
+			AddFunc: func(obj any) {
 				incrementEvent(otype, "add")
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
@@ -682,7 +674,7 @@ func (c *Controller) registerHandlers(
 					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
-			UpdateFunc: func(old, cur interface{}) {
+			UpdateFunc: func(old, cur any) {
 				if filter != nil {
 					if filter(old, cur) {
 						incrementEvent(otype, "updatesame")
@@ -698,7 +690,7 @@ func (c *Controller) registerHandlers(
 					return wrappedHandler(cur, model.EventUpdate)
 				})
 			},
-			DeleteFunc: func(obj interface{}) {
+			DeleteFunc: func(obj any) {
 				incrementEvent(otype, "delete")
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
@@ -712,7 +704,7 @@ func (c *Controller) registerHandlers(
 
 // tryGetLatestObject attempts to fetch the latest version of the object from the cache.
 // Changes may have occurred between queuing and processing.
-func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interface{}) interface{} {
+func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj any) any {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		log.Warnf("failed creating key for informer object: %v", err)
@@ -730,7 +722,7 @@ func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj interfa
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return (c.opts.SyncTimeout != nil && c.opts.SyncTimeout.Load()) || c.initialSync.Load()
+	return c.initialSync.Load()
 }
 
 func (c *Controller) informersSynced() bool {
@@ -829,6 +821,14 @@ func (c *Controller) syncEndpoints() error {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
+	if c.opts.SyncTimeout != 0 {
+		time.AfterFunc(c.opts.SyncTimeout, func() {
+			if !c.informerInit.Load() {
+				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
+				c.informerInit.Store(true)
+			}
+		})
+	}
 	st := time.Now()
 	if c.opts.NetworksWatcher != nil {
 		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
@@ -837,7 +837,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	}
 	c.informerInit.Store(true)
 
-	kubelib.WaitForCacheSyncInterval(stop, c.opts.GetSyncInterval(), c.informersSynced)
+	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
 		log.Errorf("one or more errors force-syncing resources: %v", err)
@@ -885,7 +885,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
-	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
+	node, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
 		if pod.Spec.NodeName != "" {
 			log.Warnf("unable to get node %q for pod %q/%q: %v", pod.Spec.NodeName, pod.Namespace, pod.Name, err)
@@ -893,15 +893,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	nodeMeta, err := meta.Accessor(raw)
-	if err != nil {
-		log.Warnf("unable to get node meta: %v", nodeMeta)
-		return ""
-	}
-
-	region := getLabelValue(nodeMeta, NodeRegionLabel, NodeRegionLabelGA)
-	zone := getLabelValue(nodeMeta, NodeZoneLabel, NodeZoneLabelGA)
-	subzone := getLabelValue(nodeMeta, label.TopologySubzone.Name, "")
+	region := getLabelValue(node.ObjectMeta, NodeRegionLabelGA, NodeRegionLabel)
+	zone := getLabelValue(node.ObjectMeta, NodeZoneLabelGA, NodeZoneLabel)
+	subzone := getLabelValue(node.ObjectMeta, label.TopologySubzone.Name, "")
 
 	if region == "" && zone == "" && subzone == "" {
 		return ""
@@ -911,9 +905,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labels)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -998,7 +992,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 }
 
 func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port,
-	targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
+	targetPort serviceTargetPort, wi *model.WorkloadInstance,
+) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
 	istioEndpoint := *wi.Endpoint
 
@@ -1179,7 +1174,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
+				instances := c.InstancesByPort(service, port.Port, nil)
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
@@ -1190,7 +1185,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) error {
+func (c *Controller) onSystemNamespaceEvent(obj any, ev model.Event) error {
 	if ev == model.EventDelete {
 		return nil
 	}
@@ -1247,7 +1242,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 	}
 	if len(services) == 0 {
-		return nil, fmt.Errorf("no instances found for %s: %v", proxy.ID, err)
+		return nil, fmt.Errorf("no instances found for %s", proxy.ID)
 	}
 
 	out := make([]*model.ServiceInstance, 0)
@@ -1314,7 +1309,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 }
 
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
-	service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
+	service *v1.Service, proxy *model.Proxy,
+) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 
 	for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(service)) {
@@ -1366,20 +1362,26 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 	return out
 }
 
-func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		return labels.Collection{pod.Labels}
+		if _, exist := pod.Labels[model.LocalityLabel]; exist {
+			return pod.Labels
+		}
+		locality := c.getPodLocality(pod)
+		if locality == "" {
+			return pod.Labels
+		}
+		out := make(map[string]string, len(pod.Labels)+1)
+		for k, v := range pod.Labels {
+			out[k] = v
+		}
+		// Add locality labels to support locality Load balancing for proxy without service instances.
+		// As this may contain node topology labels, which could not be got from aggregator controller
+		out[model.LocalityLabel] = locality
+		return out
 	}
 	return nil
-}
-
-// GetIstioServiceAccounts returns the Istio service accounts running a service
-// hostname. Each service account is encoded according to the SPIFFE VSID spec.
-// For example, a service account named "bar" in namespace "foo" is encoded as
-// "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	return model.GetServiceAccounts(svc, ports, c)
 }
 
 // AppendServiceHandler implements a service catalog operation

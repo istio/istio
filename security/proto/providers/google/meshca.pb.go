@@ -21,11 +21,12 @@
 package google
 
 import (
+	reflect "reflect"
+	sync "sync"
+
 	duration "github.com/golang/protobuf/ptypes/duration"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -206,7 +207,7 @@ func file_security_proto_providers_google_meshca_proto_rawDescGZIP() []byte {
 }
 
 var file_security_proto_providers_google_meshca_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_security_proto_providers_google_meshca_proto_goTypes = []interface{}{
+var file_security_proto_providers_google_meshca_proto_goTypes = []any{
 	(*MeshCertificateRequest)(nil),  // 0: google.security.meshca.v1.MeshCertificateRequest
 	(*MeshCertificateResponse)(nil), // 1: google.security.meshca.v1.MeshCertificateResponse
 	(*duration.Duration)(nil),       // 2: google.protobuf.Duration
@@ -228,7 +229,7 @@ func file_security_proto_providers_google_meshca_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_security_proto_providers_google_meshca_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_security_proto_providers_google_meshca_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*MeshCertificateRequest); i {
 			case 0:
 				return &v.state
@@ -240,7 +241,7 @@ func file_security_proto_providers_google_meshca_proto_init() {
 				return nil
 			}
 		}
-		file_security_proto_providers_google_meshca_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_security_proto_providers_google_meshca_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*MeshCertificateResponse); i {
 			case 0:
 				return &v.state

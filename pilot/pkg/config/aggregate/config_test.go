@@ -226,7 +226,7 @@ func TestAggregateStoreCache(t *testing.T) {
 	controller2 := memory.NewController(store2)
 	go controller2.Run(stop)
 
-	stores := []model.ConfigStoreCache{controller1, controller2}
+	stores := []model.ConfigStoreController{controller1, controller2}
 
 	cacheStore, err := MakeCache(stores)
 	if err != nil {

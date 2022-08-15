@@ -38,9 +38,10 @@ var (
 	apps = deployment.SingleNamespaceView{}
 )
 
-func supportsCRDv1(t resource.Context) bool {
+// supportsGatewayAPI checks if the gateway API is supported.
+func supportsGatewayAPI(t resource.Context) bool {
 	for _, cluster := range t.Clusters() {
-		if !cluster.MinKubeVersion(16) {
+		if !cluster.MinKubeVersion(19) {
 			return false
 		}
 	}
@@ -54,9 +55,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(istio.Setup(&i, nil)).
-		Setup(func(t resource.Context) error {
-			return deployment.SetupSingleNamespace(t, &apps)
-		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup

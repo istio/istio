@@ -23,7 +23,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test/echo/check"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/util/retry"
@@ -98,8 +98,14 @@ type Target interface {
 
 // CallOptions defines options for calling a Endpoint.
 type CallOptions struct {
-	// To is the Target to be called. Required.
+	// To is the Target to be called.
 	To Target
+
+	// ToWorkload will call a specific workload in this instance, rather than the Service.
+	// If there are multiple workloads in the Instance, the first is used.
+	// Can be used with `ToWorkload: to.WithWorkloads(someWl)` to send to a specific workload.
+	// When using the Port field, the ServicePort should be used.
+	ToWorkload Instance
 
 	// Port to be used for the call. Ignored if Scheme == DNS. If the Port.ServicePort is set,
 	// either Port.Protocol or Scheme must also be set. If Port.ServicePort is not set,
@@ -115,11 +121,23 @@ type CallOptions struct {
 	Address string
 
 	// Count indicates the number of exchanges that should be made with the service endpoint.
-	// If Count <= 0, defaults to 1.
+	// If Count <= 0, a default will be selected. If To is specified, the value will be set to
+	// the numWorkloads * DefaultCallsPerWorkload. Otherwise, defaults to 1.
 	Count int
 
 	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
 	Timeout time.Duration
+
+	// NewConnectionPerRequest if true, the forwarder will establish a new connection to the server for
+	// each individual request. If false, it will attempt to reuse the same connection for the duration
+	// of the forward call. This is ignored for DNS, TCP, and TLS protocols, as well as
+	// Headless/StatefulSet deployments.
+	NewConnectionPerRequest bool
+
+	// ForceDNSLookup if true, the forwarder will force a DNS lookup for each individual request. This is
+	// useful for any situation where DNS is used for load balancing (e.g. headless). This is ignored if
+	// NewConnectionPerRequest is false or if the deployment is Headless or StatefulSet.
+	ForceDNSLookup bool
 
 	// Retry options for the call.
 	Retry Retry
@@ -138,7 +156,7 @@ type CallOptions struct {
 
 	// Check the server responses. If none is provided, only the number of responses received
 	// will be checked.
-	Check check.Checker
+	Check Checker
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following
@@ -200,28 +218,98 @@ func (o *CallOptions) FillDefaults() error {
 		o.Timeout = common.DefaultRequestTimeout
 	}
 
-	if o.Count <= 0 {
-		o.Count = common.DefaultCount
-	}
+	// Fill the number of calls to make.
+	o.fillCallCount()
 
-	// Add any user-specified options after the default options (last option wins for each type of option).
-	o.Retry.Options = append(append([]retry.Option{}, DefaultCallRetryOptions()...), o.Retry.Options...)
+	// Fill connection parameters based on scheme and workload type.
+	o.fillConnectionParams()
+
+	// Fill in default retry options, if not specified.
+	o.fillRetryOptions()
 
 	// If no Check was specified, assume no error.
 	if o.Check == nil {
-		o.Check = check.None()
+		o.Check = NoChecker()
 	}
 	return nil
 }
 
+// FillDefaultsOrFail calls FillDefaults and fails if an error occurs.
+func (o *CallOptions) FillDefaultsOrFail(t test.Failer) {
+	t.Helper()
+	if err := o.FillDefaults(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (o *CallOptions) fillCallCount() {
+	if o.Count > 0 {
+		// Nothing to do.
+		return
+	}
+
+	o.Count = common.DefaultCount
+
+	// Try setting an appropriate count for the number of workloads.
+	newCount := DefaultCallsPerWorkload() * o.numWorkloads()
+	if newCount > o.Count {
+		o.Count = newCount
+	}
+}
+
+func (o *CallOptions) numWorkloads() int {
+	if o.To == nil {
+		return 0
+	}
+	workloads, err := o.To.Workloads()
+	if err != nil {
+		return 0
+	}
+	return len(workloads)
+}
+
+func (o *CallOptions) fillConnectionParams() {
+	// Overrides connection parameters for scheme.
+	switch o.Scheme {
+	case scheme.DNS:
+		o.NewConnectionPerRequest = true
+		o.ForceDNSLookup = true
+	case scheme.TCP, scheme.TLS, scheme.WebSocket:
+		o.NewConnectionPerRequest = true
+	}
+
+	// Override connection parameters for workload type.
+	if o.To != nil {
+		toCfg := o.To.Config()
+		if toCfg.IsHeadless() || toCfg.IsStatefulSet() {
+			// Headless uses DNS for load balancing. Force DNS lookup each time so
+			// that we get proper load balancing behavior.
+			o.NewConnectionPerRequest = true
+			o.ForceDNSLookup = true
+		}
+	}
+
+	// ForceDNSLookup only applies when using new connections per request.
+	o.ForceDNSLookup = o.NewConnectionPerRequest && o.ForceDNSLookup
+}
+
 func (o *CallOptions) fillAddress() error {
 	if o.Address == "" {
-		if o.To == nil {
-			return errors.New("if address is not set, then To must be set")
+		if o.To != nil {
+			// No host specified, use the fully qualified domain name for the service.
+			o.Address = o.To.Config().ClusterLocalFQDN()
+			return nil
+		}
+		if o.ToWorkload != nil {
+			wl, err := o.ToWorkload.Workloads()
+			if err != nil {
+				return err
+			}
+			o.Address = wl[0].Address()
+			return nil
 		}
 
-		// No host specified, use the fully qualified domain name for the service.
-		o.Address = o.To.Config().ClusterLocalFQDN()
+		return errors.New("if address is not set, then To must be set")
 	}
 	return nil
 }
@@ -242,33 +330,57 @@ func (o *CallOptions) fillPort() error {
 	}
 
 	if o.To != nil {
-		servicePorts := o.To.Config().Ports.GetServicePorts()
-
-		if o.Port.Name != "" {
-			// Look up the port by name.
-			p, found := servicePorts.ForName(o.Port.Name)
-			if !found {
-				return fmt.Errorf("callOptions: no port named %s available in To Instance", o.Port.Name)
-			}
-			o.Port = p
-			return nil
+		return o.fillPort2(o.To)
+	} else if o.ToWorkload != nil {
+		err := o.fillPort2(o.ToWorkload)
+		if err != nil {
+			return err
 		}
-
-		if o.Port.Protocol != "" {
-			// Look up the port by protocol.
-			p, found := servicePorts.ForProtocol(o.Port.Protocol)
-			if !found {
-				return fmt.Errorf("callOptions: no port for protocol %s available in To Instance", o.Port.Protocol)
-			}
-			o.Port = p
-			return nil
-		}
+		// Set the ServicePort to workload port since we are not reaching it through the Service
+		p := o.Port
+		p.ServicePort = p.WorkloadPort
+		o.Port = p
 	}
 
 	if o.Port.ServicePort <= 0 || (o.Port.Protocol == "" && o.Scheme == "") || o.Address == "" {
 		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol or schema, and address must be set")
 	}
 
+	return nil
+}
+
+func (o *CallOptions) fillPort2(target Target) error {
+	servicePorts := target.Config().Ports.GetServicePorts()
+
+	if o.Port.Name != "" {
+		// Look up the port by name.
+		p, found := servicePorts.ForName(o.Port.Name)
+		if !found {
+			return fmt.Errorf("callOptions: no port named %s available in To Instance", o.Port.Name)
+		}
+		o.Port = p
+		return nil
+	}
+
+	if o.Port.Protocol != "" {
+		// Look up the port by protocol.
+		p, found := servicePorts.ForProtocol(o.Port.Protocol)
+		if !found {
+			return fmt.Errorf("callOptions: no port for protocol %s available in To Instance", o.Port.Protocol)
+		}
+		o.Port = p
+		return nil
+	}
+
+	if o.Port.ServicePort != 0 {
+		// We just have a single port number, populate the rest of the fields
+		p, found := servicePorts.ForServicePort(o.Port.ServicePort)
+		if !found {
+			return fmt.Errorf("callOptions: no port %d available in To Instance", o.Port.ServicePort)
+		}
+		o.Port = p
+		return nil
+	}
 	return nil
 }
 
@@ -284,6 +396,9 @@ func (o *CallOptions) fillScheme() error {
 }
 
 func (o *CallOptions) fillHeaders() {
+	if o.ToWorkload != nil {
+		return
+	}
 	// Initialize the headers and add a default Host header if none provided.
 	if o.HTTP.Headers == nil {
 		o.HTTP.Headers = make(http.Header)
@@ -295,4 +410,29 @@ func (o *CallOptions) fillHeaders() {
 	if h := o.GetHost(); len(h) > 0 {
 		o.HTTP.Headers.Set(headers.Host, h)
 	}
+}
+
+func (o *CallOptions) fillRetryOptions() {
+	if o.Retry.NoRetry {
+		// User specified no-retry, nothing to do.
+		return
+	}
+
+	// NOTE: last option wins, so order in the list is important!
+
+	// Start by getting the defaults.
+	retryOpts := DefaultCallRetryOptions()
+
+	// Don't use converge unless we need it. When sending large batches of requests (for example,
+	// when we attempt to reach all clusters), converging will result in sending at least
+	// `converge * count` requests. When running multiple requests in parallel, this can contribute
+	// to resource (e.g. port) exhaustion in the echo servers. To avoid that problem, we disable
+	// converging by default, so long as the count is greater than the default converge value.
+	// This, of course, can be overridden if the user supplies their own converge value.
+	if o.Count > callConverge {
+		retryOpts = append(retryOpts, retry.Converge(1))
+	}
+
+	// Now append user-provided options to override the defaults.
+	o.Retry.Options = append(retryOpts, o.Retry.Options...)
 }

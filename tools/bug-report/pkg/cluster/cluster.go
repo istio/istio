@@ -69,18 +69,18 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 			}
 		}
 		if len(eld.Labels) > 0 {
-			for kLabel, vLablel := range eld.Labels {
-				if evLablel, exists := pod.Labels[kLabel]; exists {
-					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+			for key, val := range eld.Labels {
+				if evLablel, exists := pod.Labels[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evLablel) {
 						return true
 					}
 				}
 			}
 		}
 		if len(eld.Annotations) > 0 {
-			for kAnnotation, vAnnotation := range eld.Annotations {
-				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+			for key, val := range eld.Annotations {
+				if evAnnotation, exists := pod.Annotations[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evAnnotation) {
 						return true
 					}
 				}
@@ -119,9 +119,9 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 
 		if len(ild.Labels) > 0 {
 			isLabelsMatch := false
-			for kLabel, vLablel := range ild.Labels {
-				if evLablel, exists := pod.Labels[kLabel]; exists {
-					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+			for key, val := range ild.Labels {
+				if evLablel, exists := pod.Labels[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evLablel) {
 						isLabelsMatch = true
 						break
 					}
@@ -134,9 +134,9 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 
 		if len(ild.Annotations) > 0 {
 			isAnnotationMatch := false
-			for kAnnotation, vAnnotation := range ild.Annotations {
-				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+			for key, val := range ild.Annotations {
+				if evAnnotation, exists := pod.Annotations[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evAnnotation) {
 						isAnnotationMatch = true
 						break
 					}
@@ -220,7 +220,7 @@ type Resources struct {
 	// Root is the first level in the cluster resource hierarchy.
 	// Each level in the hierarchy is a map[string]interface{} to the next level.
 	// The levels are: namespaces/deployments/pods/containers.
-	Root map[string]interface{}
+	Root map[string]any
 	// Labels maps a pod name to a map of labels key-values.
 	Labels map[string]map[string]string
 	// Annotations maps a pod name to a map of annotation key-values.
@@ -231,20 +231,20 @@ type Resources struct {
 
 func (r *Resources) insertContainer(namespace, deployment, pod, container string) {
 	if r.Root == nil {
-		r.Root = make(map[string]interface{})
+		r.Root = make(map[string]any)
 	}
 	if r.Root[namespace] == nil {
-		r.Root[namespace] = make(map[string]interface{})
+		r.Root[namespace] = make(map[string]any)
 	}
-	d := r.Root[namespace].(map[string]interface{})
+	d := r.Root[namespace].(map[string]any)
 	if d[deployment] == nil {
-		d[deployment] = make(map[string]interface{})
+		d[deployment] = make(map[string]any)
 	}
-	p := d[deployment].(map[string]interface{})
+	p := d[deployment].(map[string]any)
 	if p[pod] == nil {
-		p[pod] = make(map[string]interface{})
+		p[pod] = make(map[string]any)
 	}
-	c := p[pod].(map[string]interface{})
+	c := p[pod].(map[string]any)
 	c[container] = nil
 }
 
@@ -284,12 +284,12 @@ func (r *Resources) String() string {
 	return resourcesStringImpl(r.Root, "")
 }
 
-func resourcesStringImpl(node interface{}, prefix string) string {
+func resourcesStringImpl(node any, prefix string) string {
 	out := ""
 	if node == nil {
 		return ""
 	}
-	nv := node.(map[string]interface{})
+	nv := node.(map[string]any)
 	for k, n := range nv {
 		out += prefix + k + "\n"
 		out += resourcesStringImpl(n, prefix+"  ")

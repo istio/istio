@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -222,6 +222,7 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			bpr := brokenPodReconciler{
 				client: fake.NewSimpleClientset(),
@@ -236,8 +237,8 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 
 // Test the ListBrokenPods function
 // TODO:(stewartbutler) Add some simple field selector filter test logic to the client-go
-//  fake client. The fake client does NOT support filtering by field selector,
-//  so we need to add that ourselves to complete the test.
+// fake client. The fake client does NOT support filtering by field selector,
+// so we need to add that ourselves to complete the test.
 func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	type fields struct {
 		client kubernetes.Interface

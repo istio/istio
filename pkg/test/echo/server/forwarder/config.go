@@ -40,14 +40,25 @@ type Config struct {
 	Proxy string
 
 	// Filled in values.
-	scheme               scheme.Instance
-	tlsConfig            *tls.Config
-	getClientCertificate func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
-	checkRedirect        func(req *http.Request, via []*http.Request) error
-	proxyURL             func(*http.Request) (*url.URL, error)
-	timeout              time.Duration
-	count                int
-	headers              http.Header
+	scheme                  scheme.Instance
+	tlsConfig               *tls.Config
+	getClientCertificate    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	checkRedirect           func(req *http.Request, via []*http.Request) error
+	proxyURL                func(*http.Request) (*url.URL, error)
+	timeout                 time.Duration
+	count                   int
+	headers                 http.Header
+	newConnectionPerRequest bool
+	forceDNSLookup          bool
+	hostHeader              string
+	urlHost                 string
+	urlPath                 string
+	method                  string
+	secure                  bool
+
+	hboneTLSConfig    *tls.Config
+	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	hboneHeaders      http.Header
 }
 
 func (c *Config) fillDefaults() error {
@@ -55,6 +66,18 @@ func (c *Config) fillDefaults() error {
 	c.timeout = common.GetTimeout(c.Request)
 	c.count = common.GetCount(c.Request)
 	c.headers = common.GetHeaders(c.Request)
+	c.hboneHeaders = common.ProtoToHTTPHeaders(c.Request.Hbone.GetHeaders())
+
+	// Extract the host from the headers and then remove it.
+	c.hostHeader = c.headers.Get(hostHeader)
+	c.headers.Del(hostHeader)
+
+	c.urlHost, c.urlPath = splitPath(c.Request.Url)
+
+	c.method = c.Request.Method
+	if c.method == "" {
+		c.method = "GET"
+	}
 
 	if i := strings.IndexByte(c.Request.Url, ':'); i > 0 {
 		c.scheme = scheme.Instance(strings.ToLower(c.Request.Url[0:i]))
@@ -67,7 +90,18 @@ func (c *Config) fillDefaults() error {
 	if err != nil {
 		return err
 	}
-	c.tlsConfig, err = newTLSConfig(c.Request, c.getClientCertificate)
+	c.secure = c.getClientCertificate != nil
+
+	c.tlsConfig, err = newTLSConfig(c)
+	if err != nil {
+		return err
+	}
+	c.hboneClientConfig, err = getHBONEClientConfig(c.Request.Hbone)
+	if err != nil {
+		return err
+	}
+
+	c.hboneTLSConfig, err = newHBONETLSConfig(c)
 	if err != nil {
 		return err
 	}
@@ -82,7 +116,34 @@ func (c *Config) fillDefaults() error {
 		c.proxyURL = http.ProxyURL(proxyURL)
 	}
 
+	// Configure reuseConnection and forceDNSLookup as appropriate.
+	switch c.scheme {
+	case scheme.DNS:
+		c.newConnectionPerRequest = true
+		c.forceDNSLookup = true
+	case scheme.TCP, scheme.TLS, scheme.WebSocket, scheme.HTTPS:
+		c.newConnectionPerRequest = true
+		c.forceDNSLookup = c.Request.ForceDNSLookup
+	default:
+		c.newConnectionPerRequest = c.Request.NewConnectionPerRequest
+		c.forceDNSLookup = c.newConnectionPerRequest && c.Request.ForceDNSLookup
+	}
+
 	return nil
+}
+
+func splitPath(raw string) (url, path string) {
+	schemeSep := "://"
+	schemeBegin := strings.Index(raw, schemeSep)
+	if schemeBegin == -1 {
+		return raw, ""
+	}
+	schemeEnd := schemeBegin + len(schemeSep)
+	pathBegin := strings.IndexByte(raw[schemeEnd:], '/')
+	if pathBegin == -1 {
+		return raw, ""
+	}
+	return raw[:schemeEnd+pathBegin], raw[schemeEnd+pathBegin:]
 }
 
 func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
@@ -136,9 +197,64 @@ func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.Certi
 	return nil, nil
 }
 
-func newTLSConfig(r *proto.ForwardEchoRequest, getClientCertificate func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)) (*tls.Config, error) {
+func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
+	if r == nil {
+		return nil, nil
+	}
+	if r.KeyFile != "" && r.CertFile != "" {
+		certData, err := os.ReadFile(r.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		r.Cert = string(certData)
+		keyData, err := os.ReadFile(r.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
+		}
+		r.Key = string(keyData)
+	}
+
+	if r.Cert != "" && r.Key != "" {
+		cert, err := tls.X509KeyPair([]byte(r.Cert), []byte(r.Key))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse x509 key pair: %v", err)
+		}
+
+		for _, c := range cert.Certificate {
+			cert, err := x509.ParseCertificate(c)
+			if err != nil {
+				fwLog.Errorf("Failed to parse client certificate: %v", err)
+			}
+			fwLog.Debugf("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
+			for _, uri := range cert.URIs {
+				fwLog.Debugf("  URI SAN: %s", uri)
+			}
+		}
+		// nolint: unparam
+		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			fwLog.Debugf("Peer asking for client certificate")
+			for i, ca := range info.AcceptableCAs {
+				x := &pkix.RDNSequence{}
+				if _, err := asn1.Unmarshal(ca, x); err != nil {
+					fwLog.Errorf("Failed to decode AcceptableCA[%d]: %v", i, err)
+				} else {
+					name := &pkix.Name{}
+					name.FillFromRDNSequence(x)
+					fwLog.Debugf("  AcceptableCA[%d]: %s", i, name)
+				}
+			}
+
+			return &cert, nil
+		}, nil
+	}
+
+	return nil, nil
+}
+
+func newTLSConfig(c *Config) (*tls.Config, error) {
+	r := c.Request
 	tlsConfig := &tls.Config{
-		GetClientCertificate: getClientCertificate,
+		GetClientCertificate: c.getClientCertificate,
 		NextProtos:           r.GetAlpn().GetValue(),
 		ServerName:           r.ServerName,
 	}
@@ -158,6 +274,63 @@ func newTLSConfig(r *proto.ForwardEchoRequest, getClientCertificate func(info *t
 		}
 		tlsConfig.RootCAs = certPool
 	}
+
+	setALPNForHTTP := func() {
+		if r.Alpn == nil {
+			switch {
+			case r.Http3:
+				// Do nothing.
+			case r.Http2:
+				tlsConfig.NextProtos = []string{"h2"}
+			default:
+				tlsConfig.NextProtos = []string{"http/1.1"}
+			}
+		}
+	}
+
+	// Per-protocol setup.
+	switch c.scheme {
+	case scheme.HTTPS:
+		// Set SNI value to be same as the request Host
+		// For use with SNI routing tests
+		if tlsConfig.ServerName == "" {
+			tlsConfig.ServerName = c.hostHeader
+		}
+		setALPNForHTTP()
+	case scheme.HTTP:
+		if r.Http3 {
+			return nil, fmt.Errorf("http3 requires HTTPS")
+		}
+		setALPNForHTTP()
+	}
+	return tlsConfig, nil
+}
+
+func newHBONETLSConfig(c *Config) (*tls.Config, error) {
+	r := c.Request.Hbone
+	if r == nil {
+		return nil, nil
+	}
+	tlsConfig := &tls.Config{
+		GetClientCertificate: c.hboneClientConfig,
+	}
+	if r.CaCertFile != "" {
+		certData, err := os.ReadFile(r.CaCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		r.CaCert = string(certData)
+	}
+	if r.InsecureSkipVerify || r.CaCert == "" {
+		tlsConfig.InsecureSkipVerify = true
+	} else if r.CaCert != "" {
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(r.CaCert)) {
+			return nil, fmt.Errorf("failed to create cert pool")
+		}
+		tlsConfig.RootCAs = certPool
+	}
+
 	return tlsConfig, nil
 }
 

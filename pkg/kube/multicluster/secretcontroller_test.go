@@ -17,6 +17,8 @@ package multicluster
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +32,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 const secretNamespace string = "istio-system"
@@ -97,11 +101,25 @@ func resetCallbackData() {
 	deleted = ""
 }
 
+func GetFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+func Test_SecretControllert(t *testing.T) {
+	s := log.RegisterScope("x", "y", 0)
+	fmt.Println(GetFunctionName(log.Infof))
+	fmt.Println(GetFunctionName(log.WithLabels("baz", 1).Infof))
+	fmt.Println(GetFunctionName(s.Infof))
+	fmt.Println(GetFunctionName(s.WithLabels("foo", "bar").Infof))
+	s.WithLabels("foo", "bar").Infof("%s %s", 1)
+	log.Infof("%s %s", 1)
+}
+
 func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	features.RemoteClusterTimeout = 10 * time.Nanosecond
+	test.SetDurationForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
 	clientset := kube.NewFakeClient()
 
 	var (
@@ -136,17 +154,14 @@ func Test_SecretController(t *testing.T) {
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
-	stopCh := make(chan struct{})
-	t.Cleanup(func() {
-		close(stopCh)
-	})
+	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "")
 	c.AddHandler(&handler{})
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSyncInterval(stopCh, time.Microsecond, c.informer.HasSynced)
+	kube.WaitForCacheSync(stopCh, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)
 
 	for i, step := range steps {
@@ -157,13 +172,13 @@ func Test_SecretController(t *testing.T) {
 
 			switch {
 			case step.add != nil:
-				_, err := clientset.CoreV1().Secrets(secretNamespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
+				_, err := clientset.Kube().CoreV1().Secrets(secretNamespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.update != nil:
-				_, err := clientset.CoreV1().Secrets(secretNamespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
+				_, err := clientset.Kube().CoreV1().Secrets(secretNamespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.delete != nil:
-				g.Expect(clientset.CoreV1().Secrets(secretNamespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
+				g.Expect(clientset.Kube().CoreV1().Secrets(secretNamespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
 					Should(Succeed())
 			}
 

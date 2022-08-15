@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 32005
+
+releaseNotes:
+- |
+  **Added** support for policy/v1 PDB.

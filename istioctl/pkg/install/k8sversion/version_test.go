@@ -198,7 +198,7 @@ func TestIsK8VersionSupported(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.version), func(t *testing.T) {
 			k8sClient := kube.NewFakeClient()
-			k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = c.version
+			k8sClient.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = c.version
 
 			logger := clog.NewConsoleLogger(&outBuf, &errBuf, nil)
 			IsK8VersionSupported(k8sClient, logger)

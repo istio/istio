@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 443
+      name: mtls-tcp
+      protocol: TLS
+    hosts:
+    - fake.external.com
+    tls:
+      mode: ISTIO_MUTUAL

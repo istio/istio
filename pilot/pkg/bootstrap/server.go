@@ -36,9 +36,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -46,7 +44,6 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -63,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -79,14 +77,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
-
-// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
-// is specified through the command line
-var DefaultPlugins = []string{
-	plugin.AuthzCustom,
-	plugin.Authn,
-	plugin.Authz,
-}
 
 const (
 	// debounce file watcher events to minimize noise in logs
@@ -120,9 +110,9 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController  model.ConfigStoreCache
-	ConfigStores      []model.ConfigStoreCache
-	serviceEntryStore *serviceentry.ServiceEntryStore
+	configController       model.ConfigStoreController
+	ConfigStores           []model.ConfigStoreController
+	serviceEntryController *serviceentry.Controller
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
 	httpsServer      *http.Server // webhooks HTTPS Server.
@@ -136,6 +126,8 @@ type Server struct {
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
 	monitoringMux *http.ServeMux
+	// internalDebugMux is a mux for *internal* calls to the debug interface. That is, authentication is disabled.
+	internalDebugMux *http.ServeMux
 
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
@@ -168,9 +160,6 @@ type Server struct {
 	istiodCertBundleWatcher *keycertbundle.Watcher
 	server                  server.Instance
 
-	// requiredTerminations keeps track of components that should block server exit
-	// if they are not stopped. This allows important cleanup tasks to be completed.
-	// Note: this is still best effort; a process can die at any time.
 	readinessProbes map[string]readinessProbe
 
 	// duration used for graceful shutdown.
@@ -185,15 +174,13 @@ type Server struct {
 	statusReporter *distribution.Reporter
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
-	RWConfigStore model.ConfigStoreCache
+	RWConfigStore model.ConfigStoreController
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
-	e := &model.Environment{
-		PushContext:  model.NewPushContext(),
-		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-	}
+	e := model.NewEnvironment()
+	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
 	e.SetLedger(buildLedger(args.RegistryOptions))
 
 	ac := aggregate.NewController(aggregate.Options{
@@ -214,15 +201,41 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
+
+	// Used for readiness, monitoring and debug handlers.
+	var (
+		whMu sync.RWMutex
+		wh   *inject.Webhook
+	)
+	whc := func() map[string]string {
+		whMu.RLock()
+		defer whMu.RUnlock()
+		if wh != nil {
+			return wh.Config.RawTemplates
+		}
+		return map[string]string{}
+	}
+
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(s)
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
-	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace, args.RegistryOptions.KubeOptions.ClusterAliases)
+	s.XDSServer = xds.NewDiscoveryServer(e, args.PodName, args.RegistryOptions.KubeOptions.ClusterAliases)
 
 	prometheus.EnableHandlingTimeHistogram()
+
+	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
+	s.addReadinessProbe("discovery", func() (bool, error) {
+		return s.XDSServer.IsServerReady(), nil
+	})
+	if err := s.initIstiodAdminServer(args, whc); err != nil {
+		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
+	if err := s.serveHTTP(); err != nil {
+		return nil, fmt.Errorf("error serving http: %v", err)
+	}
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
@@ -263,7 +276,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace)
+	s.XDSServer.InitGenerators(e, args.Namespace, s.internalDebugMux)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -286,11 +299,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
-	var wh *inject.Webhook
 	// common https server for webhooks (e.g. injection, validation)
 	if s.kubeClient != nil {
 		s.initSecureWebhookServer(args)
+		whMu.Lock()
 		wh, err = s.initSidecarInjector(args)
+		whMu.Unlock()
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
@@ -299,17 +313,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		}
 	}
 
-	whc := func() map[string]string {
-		if wh != nil {
-			return wh.Config.RawTemplates
-		}
-		return map[string]string{}
-	}
-
-	// Used for readiness, monitoring and debug handlers.
-	if err := s.initIstiodAdminServer(args, whc); err != nil {
-		return nil, fmt.Errorf("error initializing debug server: %v", err)
-	}
 	// This should be called only after controllers are initialized.
 	s.initRegistryEventHandlers()
 
@@ -336,7 +339,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	if len(features.TrustedGatewayCIDR) > 0 {
+		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
+	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -357,10 +363,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 			return nil
 		})
 	}
-
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
 
 	return s, nil
 }
@@ -476,18 +478,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		s.httpServer.Handler = multiplexHandler
 	}
 
-	// At this point we are ready - start Http Listener so that it can respond to readiness events.
-	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
-	if err != nil {
-		return err
-	}
-	go func() {
-		log.Infof("starting HTTP service at %s", httpListener.Addr())
-		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
-			log.Errorf("error serving http server: %v", err)
-		}
-	}()
-
 	if s.httpsServer != nil {
 		httpsListener, err := net.Listen("tcp", s.httpsServer.Addr)
 		if err != nil {
@@ -527,7 +517,7 @@ func (s *Server) initSDSServer() {
 				Full: false,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{
 					{
-						Kind:      gvk.Secret,
+						Kind:      kind.Secret,
 						Name:      name,
 						Namespace: namespace,
 					}: {},
@@ -626,7 +616,8 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	}
 
 	// Debug Server.
-	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	internalMux := s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	s.internalDebugMux = internalMux
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
@@ -645,7 +636,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	return nil
 }
 
-// initDiscoveryService intializes discovery server on plain text port.
+// initDiscoveryService initializes discovery server on plain text port.
 func (s *Server) initDiscoveryService(args *PilotArgs) {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
@@ -819,7 +810,7 @@ func (s *Server) addTerminatingStartFunc(fn server.Component) {
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	start := time.Now()
 	log.Info("Waiting for caches to be synced")
-	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
+	if !kubelib.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
@@ -830,7 +821,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	expected := s.XDSServer.InboundUpdates.Load()
-	if !cache.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
+	if !kubelib.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
 		log.Errorf("Failed waiting for push context initialization")
 		return false
 	}
@@ -870,7 +861,7 @@ func (s *Server) initRegistryEventHandlers() {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
+				Kind:      kind.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
@@ -889,6 +880,7 @@ func (s *Server) initRegistryEventHandlers() {
 					s.statusReporter.DeleteInProgressResource(curr)
 				}
 			}()
+			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
 				log.Debugf("skipping push for %s as spec has not changed", prev.Key())
@@ -897,7 +889,7 @@ func (s *Server) initRegistryEventHandlers() {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      curr.GroupVersionKind,
+					Kind:      kind.FromGvk(curr.GroupVersionKind),
 					Name:      curr.Name,
 					Namespace: curr.Namespace,
 				}: {}},
@@ -954,12 +946,45 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
 	var err error
 
+	s.dnsNames = getDNSNames(args, host)
+	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+		// Use the DNS certificate provided via args.
+		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
+		if err != nil {
+			// Not crashing istiod - This typically happens if certs are missing and in tests.
+			log.Errorf("error initializing certificate watches: %v", err)
+			return nil
+		}
+	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts()
+	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts()
+	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts()
+	} else {
+		return nil
+	}
+
+	if err == nil {
+		err = s.initIstiodCertLoader()
+	}
+
+	return err
+}
+
+func getDNSNames(args *PilotArgs, host string) []string {
+	dnsNames := []string{host}
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
-	s.dnsNames = []string{host}
-	if customHost != "" && customHost != host {
-		log.Infof("Adding custom hostname %s", customHost)
-		s.dnsNames = append(s.dnsNames, customHost)
+	cHosts := strings.Split(customHost, ",")
+	for _, cHost := range cHosts {
+		if cHost != "" && cHost != host {
+			log.Infof("Adding custom hostname %s", cHost)
+			dnsNames = append(dnsNames, cHost)
+		}
 	}
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
@@ -973,49 +998,23 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 	for _, altName := range knownHosts {
 		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
-		if name == host || name == customHost {
-			continue
+		exist := false
+		for _, cHost := range cHosts {
+			if name == host || name == cHost {
+				exist = true
+			}
 		}
-		s.dnsNames = append(s.dnsNames, name)
-	}
-
-	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-		// Use the DNS certificate provided via args.
-		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
-		if err != nil {
-			// Not crashing istiod - This typically happens if certs are missing and in tests.
-			log.Errorf("error initializing certificate watches: %v", err)
-			return nil
-		}
-		err = s.initIstiodCertLoader()
-	} else if features.PilotCertProvider == constants.CertProviderNone {
-		return nil
-	} else if s.EnableCA() && features.PilotCertProvider == constants.CertProviderIstiod {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
-		if err == nil {
-			err = s.initIstiodCertLoader()
-		}
-	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
-		if err == nil {
-			err = s.initIstiodCertLoader()
-		}
-	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, args.Namespace)
-		if err == nil {
-			err = s.initIstiodCertLoader()
+		if !exist {
+			dnsNames = append(dnsNames, name)
 		}
 	}
 
-	return err
+	return dnsNames
 }
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isDisableCa() {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1107,36 +1106,31 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 // maybeCreateCA creates and initializes CA Key if needed.
 func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
-	if s.EnableCA() {
+	if features.EnableCAServer {
 		log.Info("creating CA and initializing public key")
 		var err error
-		var corev1 v1.CoreV1Interface
-		if s.kubeClient != nil {
-			corev1 = s.kubeClient.CoreV1()
-		}
 		if useRemoteCerts.Get() {
-			if err = s.loadRemoteCACerts(caOpts, LocalCertDir.Get()); err != nil {
+			if err = s.loadCACerts(caOpts, LocalCertDir.Get()); err != nil {
 				return fmt.Errorf("failed to load remote CA certs: %v", err)
 			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
 		if caOpts.ExternalCAType != "" {
-			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
+			if s.RA, err = s.createIstioRA(caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
 		}
-		if !s.isDisableCa() {
-			if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
+		if !s.isCADisabled() {
+			if s.CA, err = s.createIstioCA(caOpts); err != nil {
 				return fmt.Errorf("failed to create CA: %v", err)
 			}
 		}
-
 	}
 	return nil
 }
 
 func (s *Server) shouldStartNsController() bool {
-	if s.isDisableCa() {
+	if s.isCADisabled() {
 		return true
 	}
 	if s.CA == nil {
@@ -1262,19 +1256,20 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	return nil
 }
 
-// isDisableCa returns whether CA functionality is disabled in istiod.
-// It return true only if istiod certs is signed by Kubernetes and
+// isCADisabled returns whether CA functionality is disabled in istiod.
+// It returns true only if istiod certs is signed by Kubernetes or
 // workload certs are signed by external CA
-func (s *Server) isDisableCa() bool {
-	if s.RA != nil {
-		// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
-		if features.PilotCertProvider == constants.CertProviderKubernetes {
-			return true
-		}
-		// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
-		if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-			return true
-		}
+func (s *Server) isCADisabled() bool {
+	if s.RA == nil {
+		return false
+	}
+	// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
+	if features.PilotCertProvider == constants.CertProviderKubernetes {
+		return true
+	}
+	// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
+	if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+		return true
 	}
 	return false
 }
@@ -1285,4 +1280,19 @@ func (s *Server) initStatusManager(_ *PilotArgs) {
 		s.statusManager.Start(stop)
 		return nil
 	})
+}
+
+func (s *Server) serveHTTP() error {
+	// At this point we are ready - start Http Listener so that it can respond to readiness events.
+	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return err
+	}
+	go func() {
+		log.Infof("starting HTTP service at %s", httpListener.Addr())
+		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
+			log.Errorf("error serving http server: %v", err)
+		}
+	}()
+	return nil
 }

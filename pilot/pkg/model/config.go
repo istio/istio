@@ -24,17 +24,18 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // Statically link protobuf descriptors from UDPA
 var _ = udpa.TypedStruct{}
+
+type ConfigHash uint64
 
 // NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
 // places where the type is implied.
@@ -52,33 +53,26 @@ func (key NamespacedName) String() string {
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
-	Kind      config.GroupVersionKind
+	Kind      kind.Kind
 	Name      string
 	Namespace string
 }
 
-func (key ConfigKey) HashCode() uint64 {
+func (key ConfigKey) HashCode() ConfigHash {
 	hash := md5.New()
-	for _, v := range []string{
-		key.Name,
-		key.Namespace,
-		key.Kind.Kind,
-		key.Kind.Group,
-		key.Kind.Version,
-	} {
-		hash.Write([]byte(v))
-	}
-	var tmp [md5.Size]byte
-	sum := hash.Sum(tmp[:0])
-	return binary.BigEndian.Uint64(sum)
+	hash.Write([]byte{byte(key.Kind)})
+	hash.Write([]byte(key.Name))
+	hash.Write([]byte(key.Namespace))
+	sum := hash.Sum(nil)
+	return ConfigHash(binary.BigEndian.Uint64(sum))
 }
 
 func (key ConfigKey) String() string {
-	return key.Kind.Kind + "/" + key.Namespace + "/" + key.Name
+	return key.Kind.String() + "/" + key.Namespace + "/" + key.Name
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
+func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
 
 	for conf := range configs {
@@ -91,7 +85,7 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 }
 
 // ConfigsHaveKind checks if configurations have the specified kind.
-func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) bool {
+func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 	for conf := range configs {
 		if conf.Kind == kind {
 			return true
@@ -101,7 +95,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKin
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
+func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
 	ret := sets.New()
 
 	for conf := range configs {
@@ -178,8 +172,8 @@ type ConfigStore interface {
 
 type EventHandler = func(config.Config, config.Config, Event)
 
-// ConfigStoreCache is a local fully-replicated cache of the config store.  The
-// cache actively synchronizes its local state with the remote store and
+// ConfigStoreController is a local fully-replicated cache of the config store with additional handlers.  The
+// controller actively synchronizes its local state with the remote store and
 // provides a notification mechanism to receive update events. As such, the
 // notification handlers must be registered prior to calling _Run_, and the
 // cache requires initial synchronization grace period after calling  _Run_.
@@ -191,7 +185,7 @@ type EventHandler = func(config.Config, config.Config, Event)
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
-type ConfigStoreCache interface {
+type ConfigStoreController interface {
 	ConfigStore
 
 	// RegisterEventHandler adds a handler to receive config update events for a
@@ -206,21 +200,6 @@ type ConfigStoreCache interface {
 	HasSynced() bool
 }
 
-// IstioConfigStore is a specialized interface to access config store using
-// Istio configuration types
-type IstioConfigStore interface {
-	ConfigStore
-
-	// ServiceEntries lists all service entries
-	ServiceEntries() []config.Config
-
-	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels labels.Collection) []config.Config
-
-	// AuthorizationPolicies selects AuthorizationPolicies in the specified namespace.
-	AuthorizationPolicies(namespace string) []config.Config
-}
-
 const (
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
@@ -229,6 +208,10 @@ const (
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
 func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
+	if len(hostname) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return ""
+	}
 	out := hostname
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
@@ -292,7 +275,7 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
 // matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*consolidatedDestRule) (host.Name, bool) {
+func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*ConsolidatedDestRule) (host.Name, bool) {
 	matches := []host.Name{}
 
 	// exact match first
@@ -388,9 +371,9 @@ type istioConfigStore struct {
 }
 
 // MakeIstioStore creates a wrapper around a store.
-// In pilot it is initialized with a ConfigStoreCache, tests only use
+// In pilot it is initialized with a ConfigStoreController, tests only use
 // a regular ConfigStore.
-func MakeIstioStore(store ConfigStore) IstioConfigStore {
+func MakeIstioStore(store ConfigStore) ConfigStore {
 	return &istioConfigStore{store}
 }
 
@@ -419,29 +402,6 @@ func sortConfigByCreationTime(configs []config.Config) {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
-}
-
-func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []config.Config {
-	configs, err := store.List(gvk.Gateway, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-	out := make([]config.Config, 0)
-	for _, cfg := range configs {
-		gateway := cfg.Spec.(*networking.Gateway)
-		if gateway.GetSelector() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
-		} else {
-			gatewaySelector := labels.Instance(gateway.GetSelector())
-			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, cfg)
-			}
-		}
-	}
-	return out
 }
 
 // key creates a key from a reference's name and namespace.

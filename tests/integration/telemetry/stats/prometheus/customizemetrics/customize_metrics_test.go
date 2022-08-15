@@ -28,15 +28,16 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/containerregistry"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
@@ -46,14 +47,13 @@ var (
 	client, server echo.Instances
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
-	registry       containerregistry.Instance
+	registry       registryredirector.Instance
 )
 
 const (
-	removedTag            = "source_principal"
-	requestCountMultipler = 3
-	httpProtocol          = "http"
-	grpcProtocol          = "grpc"
+	removedTag   = "source_principal"
+	httpProtocol = "http"
+	grpcProtocol = "grpc"
 
 	// Same user name and password as specified at pkg/test/fakes/imageregistry
 	registryUser   = "user"
@@ -84,14 +84,16 @@ func TestCustomizeMetrics(t *testing.T) {
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, t.Clusters().Default(), httpDestinationQuery, promInst)
+					httpMetricVal, err = common.QueryPrometheus(t, cluster, httpDestinationQuery, promInst)
 					if err != nil {
+						util.PromDiff(t, promInst, cluster, httpDestinationQuery)
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, t.Clusters().Default(), grpcDestinationQuery, promInst)
+				_, err = common.QueryPrometheus(t, cluster, grpcDestinationQuery, promInst)
 				if err != nil {
+					util.PromDiff(t, promInst, cluster, grpcDestinationQuery)
 					return err
 				}
 				return nil
@@ -134,8 +136,13 @@ spec:
           - regex: "(custom_dimension=\\.=(.*?);\\.;)"
             tag_name: "custom_dimension"
 `
-	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(resource.Wait); err != nil {
+	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(apply.Wait); err != nil {
 		return err
+	}
+
+	registry, err = registryredirector.New(ctx, registryredirector.Config{Cluster: ctx.AllClusters().Default()})
+	if err != nil {
+		return
 	}
 
 	var nsErr error
@@ -146,9 +153,10 @@ spec:
 	if nsErr != nil {
 		return nsErr
 	}
-	enableBootstrapDiscovery := `
+	proxyMetadata := fmt.Sprintf(`
 proxyMetadata:
-  BOOTSTRAP_XDS_AGENT: "true"`
+  BOOTSTRAP_XDS_AGENT: "true"
+  WASM_INSECURE_REGISTRIES: %q`, registry.Address())
 
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
@@ -160,7 +168,7 @@ proxyMetadata:
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarProxyConfig: {
-							Value: enableBootstrapDiscovery,
+							Value: proxyMetadata,
 						},
 					},
 				},
@@ -173,7 +181,7 @@ proxyMetadata:
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarProxyConfig: {
-							Value: enableBootstrapDiscovery,
+							Value: proxyMetadata,
 						},
 					},
 				},
@@ -198,10 +206,6 @@ proxyMetadata:
 	client = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: appNsInst}).GetMatches(echos)
 	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
-	if err != nil {
-		return
-	}
-	registry, err = containerregistry.New(ctx, containerregistry.Config{Cluster: ctx.AllClusters().Default()})
 	if err != nil {
 		return
 	}
@@ -232,6 +236,7 @@ values:
              - %s
 `
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
+	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 func setupWasmExtension(ctx resource.Context) error {
@@ -247,13 +252,14 @@ func setupWasmExtension(ctx resource.Context) error {
 		useRemoteWasmModule = true
 	}
 
-	args := map[string]interface{}{
+	args := map[string]any{
 		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenImageURL,
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
-	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").Apply(); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").
+		Apply(); err != nil {
 		return err
 	}
 
@@ -262,7 +268,6 @@ func setupWasmExtension(ctx resource.Context) error {
 
 func sendTraffic() error {
 	for _, cltInstance := range client {
-		count := requestCountMultipler * server.MustWorkloads().Len()
 		httpOpts := echo.CallOptions{
 			To: server,
 			Port: echo.Port{
@@ -272,7 +277,6 @@ func sendTraffic() error {
 				Path:   "/path",
 				Method: "GET",
 			},
-			Count: count,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -292,7 +296,6 @@ func sendTraffic() error {
 			Port: echo.Port{
 				Name: "grpc",
 			},
-			Count: count,
 		}
 		if _, err := cltInstance.Call(grpcOpts); err != nil {
 			return err

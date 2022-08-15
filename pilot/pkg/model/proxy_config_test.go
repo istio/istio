@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/proto"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -223,10 +223,18 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				newProxyConfig("ns", "test-ns",
 					&v1beta1.ProxyConfig{
 						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
 					}),
 			},
-			proxy:    newMeta("test-ns", nil, nil),
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			proxy: newMeta("test-ns", nil, nil),
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				Image: &v1beta1.ProxyImage{
+					ImageType: "debug",
+				},
+			},
 		},
 		{
 			name: "CR takes precedence over meshConfig.defaultConfig",
@@ -267,6 +275,9 @@ func TestEffectiveProxyConfig(t *testing.T) {
 							"test": "selector",
 						}),
 						Concurrency: v(3),
+						Image: &v1beta1.ProxyImage{
+							ImageType: "debug",
+						},
 					}),
 			},
 			proxy: newMeta(
@@ -276,7 +287,12 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				}, map[string]string{
 					annotation.ProxyConfig.Name: "{ \"concurrency\": 5 }",
 				}),
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(3),
+				Image: &v1beta1.ProxyImage{
+					ImageType: "debug",
+				},
+			},
 		},
 		{
 			name: "CR in other namespaces get ignored",
@@ -411,7 +427,7 @@ func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	}
 }
 
-func newProxyConfigStore(t *testing.T, configs []config.Config) IstioConfigStore {
+func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 	t.Helper()
 
 	store := NewFakeStore()

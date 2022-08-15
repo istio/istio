@@ -135,7 +135,7 @@ func (g *generator) generate() error {
 			errs = multierror.Append(errs, fmt.Errorf("failed generating service for %s: %v", id, err))
 			continue
 		}
-		deployment, err := kube.GenerateDeployment(cfg, g.settings)
+		deployment, err := kube.GenerateDeployment(nil, cfg, g.settings)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed generating deployment for %s: %v", id, err))
 			continue

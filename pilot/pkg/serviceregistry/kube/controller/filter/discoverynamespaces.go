@@ -30,7 +30,7 @@ import (
 // It exposes a filter function used for filtering out objects that don't reside in namespaces selected for discovery.
 type DiscoveryNamespacesFilter interface {
 	// Filter returns true if the input object resides in a namespace selected for discovery
-	Filter(obj interface{}) bool
+	Filter(obj any) bool
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector) (selectedNamespaces []string, deselectedNamespaces []string)
 	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
@@ -66,7 +66,7 @@ func NewDiscoveryNamespacesFilter(
 	return discoveryNamespacesFilter
 }
 
-func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
+func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	// permit all objects if discovery selectors are not specified
