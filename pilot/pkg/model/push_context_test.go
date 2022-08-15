@@ -2382,6 +2382,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 		"envoy_http_als":       {},
 		"envoy_tcp_als":        {},
 		"envoy_otel_als":       {},
+		"opentelemetry":        {},
 	}
 
 	unexpectedProviders := make([]string, 0)

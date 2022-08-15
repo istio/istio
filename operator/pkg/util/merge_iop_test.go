@@ -76,6 +76,7 @@ func TestOverlayIOPExhaustiveness(t *testing.T) {
 		"skywalking":            {},
 		"envoy_http_als":        {},
 		"envoy_tcp_als":         {},
+		"opentelemetry":         {},
 	}
 
 	unexpectedProviders := make([]string, 0)
