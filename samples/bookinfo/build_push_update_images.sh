@@ -68,18 +68,22 @@ done
 # Build docker images
 ENABLE_MULTIARCH_IMAGES="${ENABLE_MULTIARCH_IMAGES}" src/build-services.sh "${VERSION}" "${PREFIX}"
 
-# Get all the new image names and tags
-for v in ${VERSION} "latest"
-do
-  IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
-  IMAGES+=" "
-done
+# Currently the `--load` argument does not work for multi arch images
+# Remove this once https://github.com/docker/buildx/issues/59 is addressed.
+if [[ "${ENABLE_MULTIARCH_IMAGES}" == "false" ]]; then
+  # Get all the new image names and tags
+  for v in ${VERSION} "latest"
+  do
+    IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
+    IMAGES+=" "
+  done
 
-# Check that $IMAGES contains the images we've just built
-if [[ "${IMAGES}" =~ ^\ +$ ]] ; then
-  echo "Found no images matching prefix \"${PREFIX}/examples-bookinfo\"."
-  echo "Try running the script without specifying the image registry in --prefix (e.g. --prefix=/foo instead of --prefix=docker.io/foo)."
-  exit 1
+  # Check that $IMAGES contains the images we've just built
+  if [[ "${IMAGES}" =~ ^\ +$ ]] ; then
+    echo "Found no images matching prefix \"${PREFIX}/examples-bookinfo\"."
+    echo "Try running the script without specifying the image registry in --prefix (e.g. --prefix=/foo instead of --prefix=docker.io/foo)."
+    exit 1
+  fi
 fi
 
 #
@@ -91,7 +95,7 @@ function run_vulnerability_scanning() {
   mkdir -p "$RESULT_DIR"
   # skip-dir added to prevent timeout of review images
   set +e
-  trivy image --ignore-unfixed --no-progress --exit-code 2 --skip-dirs /opt/ibm/wlp --output "$RESULT_DIR/$1_$VERSION.failed" "$2"
+  trivy image --ignore-unfixed --no-progress --exit-code 2 --skip-dirs /opt/ol/wlp --output "$RESULT_DIR/$1_$VERSION.failed" "$2"
   test $? -ne 0 || mv "$RESULT_DIR/$1_$VERSION.failed" "$RESULT_DIR/$1_$VERSION.passed"
   set -e
 }
