@@ -30,57 +30,96 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-func init() {
-	monitoring.MustRegister(xdsCacheReads)
-	monitoring.MustRegister(xdsCacheEvictions)
-	monitoring.MustRegister(xdsCacheSize)
-	monitoring.MustRegister(dependentConfigSize)
+// cacheMetrics defines interface for cache Metrics
+type cacheMetrics interface {
+	hit()
+	miss()
+	size(cs int)
+	dependentConfigSize(ds int)
+	evict(clear bool)
 }
 
+type noopMetrics struct{}
+
 var (
-	xdsCacheReads = monitoring.NewSum(
+	_ cacheMetrics = &noopMetrics{}
+	_ cacheMetrics = &defaultCacheMetrics{}
+)
+
+func (nm *noopMetrics) hit()                       {}
+func (nm *noopMetrics) miss()                      {}
+func (nm *noopMetrics) size(cs int)                {}
+func (nm *noopMetrics) evict(clear bool)           {}
+func (nm *noopMetrics) dependentConfigSize(ds int) {}
+
+type defaultCacheMetrics struct {
+	xdsCacheHits              monitoring.Metric
+	xdsCacheMisses            monitoring.Metric
+	xdsCacheSize              monitoring.Metric
+	dependentsSize            monitoring.Metric
+	xdsCacheEvictsionsOnClear monitoring.Metric
+	xdsCacheEvictsionsOnSize  monitoring.Metric
+}
+
+func (dcm *defaultCacheMetrics) hit() {
+	dcm.xdsCacheHits.Increment()
+}
+
+func (dcm *defaultCacheMetrics) miss() {
+	dcm.xdsCacheMisses.Increment()
+}
+
+func (dcm *defaultCacheMetrics) size(cs int) {
+	dcm.xdsCacheSize.Record(float64(cs))
+}
+
+func (dcm *defaultCacheMetrics) dependentConfigSize(ds int) {
+	dcm.dependentsSize.Record(float64(ds))
+}
+
+func (dcm *defaultCacheMetrics) evict(clear bool) {
+	if clear {
+		dcm.xdsCacheEvictsionsOnClear.Increment()
+	} else {
+		dcm.xdsCacheEvictsionsOnSize.Increment()
+	}
+}
+
+func newDefaultCacheMetrics() *defaultCacheMetrics {
+	xdsCacheReads := monitoring.NewSum(
 		"xds_cache_reads",
 		"Total number of xds cache xdsCacheReads.",
 		monitoring.WithLabels(typeTag),
 	)
 
-	xdsCacheEvictions = monitoring.NewSum(
+	xdsCacheEvictions := monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
 		monitoring.WithLabels(typeTag),
 	)
 
-	xdsCacheSize = monitoring.NewGauge(
+	xdsCacheSize := monitoring.NewGauge(
 		"xds_cache_size",
 		"Current size of xds cache",
 	)
 
-	dependentConfigSize = monitoring.NewGauge(
+	dependentConfigSize := monitoring.NewGauge(
 		"xds_cache_dependent_config_size",
 		"Current size of dependent configs",
 	)
 
-	xdsCacheHits              = xdsCacheReads.With(typeTag.Value("hit"))
-	xdsCacheMisses            = xdsCacheReads.With(typeTag.Value("miss"))
-	xdsCacheEvictsionsOnClear = xdsCacheEvictions.With(typeTag.Value("clear"))
-	xdsCacheEvictsionsOnSize  = xdsCacheEvictions.With(typeTag.Value("size"))
-)
+	monitoring.MustRegister(xdsCacheReads)
+	monitoring.MustRegister(xdsCacheEvictions)
+	monitoring.MustRegister(xdsCacheSize)
+	monitoring.MustRegister(dependentConfigSize)
 
-func hit() {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheHits.Increment()
-	}
-}
-
-func miss() {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheMisses.Increment()
-	}
-}
-
-func size(cs int) {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheSize.Record(float64(cs))
+	return &defaultCacheMetrics{
+		xdsCacheHits:              xdsCacheReads.With(typeTag.Value("hit")),
+		xdsCacheMisses:            xdsCacheReads.With(typeTag.Value("miss")),
+		xdsCacheSize:              xdsCacheSize,
+		dependentsSize:            dependentConfigSize,
+		xdsCacheEvictsionsOnClear: xdsCacheEvictions.With(typeTag.Value("clear")),
+		xdsCacheEvictsionsOnSize:  xdsCacheEvictions.With(typeTag.Value("size")),
 	}
 }
 
@@ -132,7 +171,7 @@ func NewXdsCache() XdsCache {
 		typesIndex:       map[kind.Kind]sets.Set{},
 	}
 	cache.store = newLru(cache.onEvict)
-
+	cache.metrics = newMetrics()
 	return cache
 }
 
@@ -144,7 +183,7 @@ func NewLenientXdsCache() XdsCache {
 		typesIndex:       map[kind.Kind]sets.Set{},
 	}
 	cache.store = newLru(cache.onEvict)
-
+	cache.metrics = newMetrics()
 	return cache
 }
 
@@ -158,8 +197,17 @@ type lruCache struct {
 	configIndex map[ConfigHash]sets.Set
 	typesIndex  map[kind.Kind]sets.Set
 
+	metrics cacheMetrics
+
 	// mark whether a key is evicted on Clear call, passively.
 	evictedOnClear bool
+}
+
+func newMetrics() cacheMetrics {
+	if features.EnableXDSCacheMetrics {
+		return newDefaultCacheMetrics()
+	}
+	return &noopMetrics{}
 }
 
 var _ XdsCache = &lruCache{}
@@ -184,18 +232,12 @@ func (l *lruCache) recordDependentConfigSize() {
 	for _, dependents := range l.configIndex {
 		dsize += len(dependents)
 	}
-	dependentConfigSize.Record(float64(dsize))
+	l.metrics.dependentConfigSize(dsize)
 }
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
 func (l *lruCache) onEvict(k any, v any) {
-	if features.EnableXDSCacheMetrics {
-		if l.evictedOnClear {
-			xdsCacheEvictsionsOnClear.Increment()
-		} else {
-			xdsCacheEvictsionsOnSize.Increment()
-		}
-	}
+	l.metrics.evict(l.evictedOnClear)
 
 	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
 	// because, passive eviction might be triggered by one of many dependent configs and we need to clear the
@@ -322,7 +364,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	l.token = token
 	l.updateConfigIndex(k, dependentConfigs)
 	l.updateTypesIndex(k, dependentTypes)
-	size(l.store.Len())
+	l.metrics.size(l.store.Len())
 }
 
 type cacheValue struct {
@@ -341,15 +383,15 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	defer l.mu.Unlock()
 	val, ok := l.store.Get(k)
 	if !ok {
-		miss()
+		l.metrics.miss()
 		return nil, false
 	}
 	cv := val.(cacheValue)
 	if cv.value == nil {
-		miss()
+		l.metrics.miss()
 		return nil, false
 	}
-	hit()
+	l.metrics.hit()
 	return cv.value, true
 }
 
@@ -373,7 +415,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 			l.store.Remove(key)
 		}
 	}
-	size(l.store.Len())
+	l.metrics.size(l.store.Len())
 }
 
 func (l *lruCache) ClearAll() {
@@ -386,7 +428,7 @@ func (l *lruCache) ClearAll() {
 	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.Set{}
 	l.typesIndex = map[kind.Kind]sets.Set{}
-	size(l.store.Len())
+	l.metrics.size(l.store.Len())
 }
 
 func (l *lruCache) Keys() []string {
