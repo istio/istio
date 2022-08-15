@@ -117,7 +117,7 @@ func (q *queueImpl) Closed() <-chan struct{} {
 	return q.closed
 }
 
-// Get blocks until it can return a task to be processed. If shutdown = true,
+// get blocks until it can return a task to be processed. If shutdown = true,
 // the processing go routine should stop.
 func (q *queueImpl) get() (task *BackoffTask, shutdown bool) {
 	q.cond.L.Lock()
@@ -127,7 +127,7 @@ func (q *queueImpl) get() (task *BackoffTask, shutdown bool) {
 		q.cond.Wait()
 	}
 
-	if len(q.tasks) == 0 {
+	if q.closing {
 		// We must be shutting down.
 		return nil, true
 	}
