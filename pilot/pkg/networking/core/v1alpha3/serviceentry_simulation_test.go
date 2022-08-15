@@ -114,7 +114,10 @@ func TestServiceEntry(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+			proxy := &model.Proxy{
+				Labels:   map[string]string{"app": "foo"},
+				Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
+			}
 			runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 				name:   tt.name,
 				config: tt.config,

@@ -358,6 +358,9 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
+		Labels: map[string]string{
+			"istio.io/benchmark": "true",
+		},
 		Metadata: &model.NodeMetadata{
 			Namespace: "default",
 			Labels: map[string]string{
