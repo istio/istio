@@ -16,7 +16,7 @@ FROM python:3.7.7-slim
 
 WORKDIR /
 RUN apt-get update \
-&& apt-get install gcc -y \
+&& apt-get install make gcc -y \
 && apt-get clean
 COPY requirements.txt ./
 RUN pip3 install -vvv --no-cache-dir -r requirements.txt
