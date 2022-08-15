@@ -93,7 +93,6 @@ var (
 		IPAddresses:     []string{"1.1.1.1"},
 		ID:              "v0.default",
 		DNSDomain:       "default.example.org",
-		Labels:          proxyGatewayMetadata.Labels,
 		Metadata:        &proxyGatewayMetadata,
 		ConfigNamespace: "not-default",
 	}

@@ -331,13 +331,9 @@ func TestSetTCPAccessLog(t *testing.T) {
 		expected *tcp.TcpProxy
 	}{
 		{
-			name: "telemetry",
-			push: env.PushContext,
-			proxy: &model.Proxy{
-				ConfigNamespace: "default",
-				Labels:          map[string]string{"app": "test"},
-				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
-			},
+			name:  "telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "test"}}},
 			tcp:   &tcp.TcpProxy{},
 			class: networking.ListenerClassSidecarInbound,
 			expected: &tcp.TcpProxy{
@@ -350,13 +346,9 @@ func TestSetTCPAccessLog(t *testing.T) {
 			},
 		},
 		{
-			name: "without-telemetry",
-			push: env.PushContext,
-			proxy: &model.Proxy{
-				ConfigNamespace: "default",
-				Labels:          map[string]string{"app": "without-telemetry"},
-				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
-			},
+			name:  "without-telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}}},
 			tcp:   &tcp.TcpProxy{},
 			class: networking.ListenerClassSidecarInbound,
 			expected: &tcp.TcpProxy{
@@ -392,13 +384,9 @@ func TestSetHttpAccessLog(t *testing.T) {
 		expected *httppb.HttpConnectionManager
 	}{
 		{
-			name: "telemetry",
-			push: env.PushContext,
-			proxy: &model.Proxy{
-				ConfigNamespace: "default",
-				Labels:          map[string]string{"app": "test"},
-				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
-			},
+			name:  "telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "test"}}},
 			hcm:   &httppb.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarInbound,
 			expected: &httppb.HttpConnectionManager{
@@ -411,13 +399,9 @@ func TestSetHttpAccessLog(t *testing.T) {
 			},
 		},
 		{
-			name: "without-telemetry",
-			push: env.PushContext,
-			proxy: &model.Proxy{
-				ConfigNamespace: "default",
-				Labels:          map[string]string{"app": "without-telemetry"},
-				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
-			},
+			name:  "without-telemetry",
+			push:  env.PushContext,
+			proxy: &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}}},
 			hcm:   &httppb.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarInbound,
 			expected: &httppb.HttpConnectionManager{
@@ -453,13 +437,9 @@ func TestSetListenerAccessLog(t *testing.T) {
 		expected *listener.Listener
 	}{
 		{
-			name: "telemetry",
-			push: env.PushContext,
-			proxy: &model.Proxy{
-				ConfigNamespace: "default",
-				Labels:          map[string]string{"app": "test"},
-				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
-			},
+			name:     "telemetry",
+			push:     env.PushContext,
+			proxy:    &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "test"}}},
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarInbound,
 			expected: &listener.Listener{
@@ -477,13 +457,9 @@ func TestSetListenerAccessLog(t *testing.T) {
 			},
 		},
 		{
-			name: "without-telemetry",
-			push: env.PushContext,
-			proxy: &model.Proxy{
-				ConfigNamespace: "default",
-				Labels:          map[string]string{"app": "without-telemetry"},
-				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
-			},
+			name:     "without-telemetry",
+			push:     env.PushContext,
+			proxy:    &model.Proxy{ConfigNamespace: "default", Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}}},
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarInbound,
 			expected: &listener.Listener{

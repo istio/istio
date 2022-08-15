@@ -342,10 +342,7 @@ spec:
 			},
 		},
 	}
-	proxy := &model.Proxy{
-		Labels:   map[string]string{"app": "foo"},
-		Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
-	}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
 	for _, tt := range cases {
 		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 			name:   tt.name,
@@ -609,10 +606,7 @@ spec:
 			},
 		},
 	}
-	proxy := &model.Proxy{
-		Labels:   map[string]string{"app": "foo"},
-		Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
-	}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
 	for _, tt := range cases {
 		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 			name:   tt.name,

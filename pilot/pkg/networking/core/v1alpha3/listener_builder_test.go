@@ -791,7 +791,6 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 			})
 			proxy := cg.SetupProxy(nil)
 			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
-			proxy.Labels = proxy.Metadata.Labels
 			proxy.SidecarScope = tt.sidecarScope
 			test.SetBoolForTest(t, &features.EnableTLSOnSidecarIngress, true)
 			listeners := cg.Listeners(proxy)

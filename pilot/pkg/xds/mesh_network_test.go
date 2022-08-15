@@ -498,8 +498,7 @@ func (w *workload) configs() []config.Config {
 
 func (w *workload) setupProxy(s *FakeDiscoveryServer) {
 	p := &model.Proxy{
-		ID:     strings.Join([]string{w.name, w.namespace}, "."),
-		Labels: w.labels,
+		ID: strings.Join([]string{w.name, w.namespace}, "."),
 		Metadata: &model.NodeMetadata{
 			Network:              w.metaNetwork,
 			Labels:               w.labels,
