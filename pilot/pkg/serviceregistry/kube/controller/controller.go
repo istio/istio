@@ -500,7 +500,7 @@ func (c *Controller) Cleanup() error {
 func (c *Controller) onServiceEvent(curr any, event model.Event) error {
 	svc, err := extractService(curr)
 	if err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		return nil
 	}
 
