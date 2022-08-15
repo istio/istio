@@ -104,8 +104,10 @@ func TestGatewayConformance(t *testing.T) {
 				if !ctx.Failed() {
 					return
 				}
-				for _, ns := range conformanceNamespaces {
-					namespace.Dump(ctx, ns)
+				if ctx.Settings().CIMode {
+					for _, ns := range conformanceNamespaces {
+						namespace.Dump(ctx, ns)
+					}
 				}
 			})
 			csuite := suite.New(opts)

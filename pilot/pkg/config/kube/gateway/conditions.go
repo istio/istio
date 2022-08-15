@@ -145,7 +145,9 @@ const (
 	// InvalidFilter indicates an issue with the filters
 	InvalidFilter ConfigErrorReason = "InvalidFilter"
 	// InvalidTLS indicates an issue with TLS settings
-	InvalidTLS ConfigErrorReason = "InvalidTLS"
+	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCertificateRef)
+	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
+	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
 )
