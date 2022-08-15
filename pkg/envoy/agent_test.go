@@ -18,7 +18,6 @@ import (
 	"context"
 	"net"
 	"testing"
-	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 )
@@ -59,16 +58,16 @@ var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
-	run          func(int, <-chan error) error
-	cleanup      func(int)
+	run          func(<-chan error) error
+	cleanup      func()
 	blockChannel chan any
 }
 
-func (tp TestProxy) Run(epoch int, stop <-chan error) error {
+func (tp TestProxy) Run(stop <-chan error) error {
 	if tp.run == nil {
 		return nil
 	}
-	return tp.run(epoch, stop)
+	return tp.run(stop)
 }
 
 func (tp TestProxy) Drain() error {
@@ -76,9 +75,9 @@ func (tp TestProxy) Drain() error {
 	return nil
 }
 
-func (tp TestProxy) Cleanup(epoch int) {
+func (tp TestProxy) Cleanup() {
 	if tp.cleanup != nil {
-		tp.cleanup(epoch)
+		tp.cleanup()
 	}
 }
 
@@ -98,78 +97,18 @@ func TestStartExit(t *testing.T) {
 	<-done
 }
 
-// TestStartDrain tests basic start, termination sequence
-//   - Runs with passed config
-//   - Terminate is called
-//   - Runs with drain config
-//   - Aborts all proxies
-func TestStartDrain(t *testing.T) {
-	wantEpoch := 0
-	proxiesStarted, wantProxiesStarted := 0, 1
-	blockChan := make(chan any)
-	ctx, cancel := context.WithCancel(context.Background())
-	start := func(currentEpoch int, _ <-chan error) error {
-		proxiesStarted++
-		if currentEpoch != wantEpoch {
-			t.Errorf("start wanted epoch %v, got %v", wantEpoch, currentEpoch)
-		}
-		wantEpoch = currentEpoch + 1
-		blockChan <- "unblock"
-		if currentEpoch == 0 {
-			<-ctx.Done()
-			time.Sleep(time.Second * 2) // ensure initial proxy doesn't terminate too quickly
-		}
-		return nil
-	}
-	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second, 0, "", 0, 0, 0, true)
-	go func() { a.Run(ctx) }()
-	<-blockChan
-	cancel()
-	<-blockChan
-	<-ctx.Done()
-
-	if proxiesStarted != wantProxiesStarted {
-		t.Errorf("expected %v proxies to be started, got %v", wantProxiesStarted, proxiesStarted)
-	}
-}
-
 // TestStartTwiceStop applies three configs and validates that cleanups are called in order
 func TestStartStop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	start := func(epoch int, _ <-chan error) error {
+	start := func(_ <-chan error) error {
 		return nil
 	}
-	cleanup := func(epoch int) {
-		if epoch == 0 {
-			cancel()
-		}
+	cleanup := func() {
+		cancel()
 	}
 	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 	<-ctx.Done()
-}
-
-// TestRecovery tests that recovery is applied once
-func TestRecovery(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	failed := false
-	start := func(epoch int, _ <-chan error) error {
-		if epoch == 0 && !failed {
-			failed = true
-			return nil
-		}
-		if epoch > 0 {
-			t.Errorf("Should not reconcile after success")
-		}
-		<-ctx.Done()
-		return nil
-	}
-	a := NewAgent(TestProxy{run: start}, 0, 0, "", 0, 0, 0, true)
-	go func() { a.Run(ctx) }()
-
-	// make sure we don't try to reconcile twice
-	<-time.After(100 * time.Millisecond)
-	cancel()
 }
 
 func TestActiveConnections(t *testing.T) {
