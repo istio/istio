@@ -18,8 +18,6 @@ import (
 	"context"
 	"time"
 
-	"istio.io/istio/pkg/bootstrap"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -31,6 +29,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
@@ -208,7 +207,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				node, err := p.ia.generateNodeMetadata()
 				if err != nil {
 					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
-				} else {
+				} else if node.ID != "" {
 					req.Node = bootstrap.ConvertNodeToXDSNode(node)
 				}
 			}

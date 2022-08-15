@@ -452,7 +452,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				node, err := p.ia.generateNodeMetadata()
 				if err != nil {
 					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
-				} else {
+				} else if node.ID != "" {
 					req.Node = bootstrap.ConvertNodeToXDSNode(node)
 				}
 			}
