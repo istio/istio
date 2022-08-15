@@ -420,7 +420,7 @@ func translateRoute(
 		return nil
 	}
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, node.Metadata.Labels, gatewayNames, node.Metadata.Namespace) {
+	if !sourceMatchHTTP(match, node.Labels, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
