@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
@@ -508,6 +509,7 @@ type MetadataOptions struct {
 	ID                          string
 	ProxyConfig                 *meshAPI.ProxyConfig
 	PilotSubjectAltName         []string
+	CredentialSocketExists      bool
 	XDSRootCert                 string
 	OutlierLogPath              string
 	ProvCert                    string
@@ -622,6 +624,9 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.XDSRootCert = options.XDSRootCert
 	meta.OutlierLogPath = options.OutlierLogPath
 	meta.ProvCert = options.ProvCert
+	if options.CredentialSocketExists {
+		untypedMeta[security.CredentialMetaDataName] = "true"
+	}
 
 	return &model.Node{
 		ID:          options.ID,

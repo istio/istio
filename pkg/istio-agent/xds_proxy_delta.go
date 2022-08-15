@@ -18,6 +18,8 @@ import (
 	"context"
 	"time"
 
+	"istio.io/istio/pkg/bootstrap"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -200,6 +202,15 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
+			}
+			// override the first xds request node metadata labels
+			if req.Node != nil {
+				node, err := p.ia.generateNodeMetadata()
+				if err != nil {
+					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
+				} else {
+					req.Node = bootstrap.ConvertNodeToXDSNode(node)
+				}
 			}
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)

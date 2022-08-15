@@ -45,11 +45,9 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -97,7 +95,7 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
 	proxyAddresses       []string
-	platform             platform.Environment
+	ia                   *Agent
 
 	httpTapServer      *http.Server
 	tapMutex           sync.RWMutex
@@ -157,7 +155,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
 		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
-		platform:              ia.cfg.Platform,
+		ia:                    ia,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
@@ -450,14 +448,12 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			}
 
 			// override the first xds request node metadata labels
-			// TODO: if we want to regenerate all metadata, use `GetNodeMetaData`
-			if !initialRequestsSent.Load() {
-				if req.Node != nil {
-					meta, _ := model.ParseBootstrapNodeMetadata(req.Node.Metadata)
-					if meta != nil {
-						meta.Labels, _ = bootstrap.GetNodeMetaDataLabels(p.platform)
-						req.Node.Metadata = meta.ToStruct()
-					}
+			if req.Node != nil {
+				node, err := p.ia.generateNodeMetadata()
+				if err != nil {
+					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
+				} else {
+					req.Node = bootstrap.ConvertNodeToXDSNode(node)
 				}
 			}
 

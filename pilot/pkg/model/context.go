@@ -703,21 +703,6 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ToStruct converts BootstrapNodeMetadata to a protobuf structure.
-func (m *BootstrapNodeMetadata) ToStruct() *structpb.Struct {
-	j, err := json.Marshal(m)
-	if err != nil {
-		return nil
-	}
-
-	pbs := &structpb.Struct{}
-	if err := protomarshal.Unmarshal(j, pbs); err != nil {
-		return nil
-	}
-
-	return pbs
-}
-
 // ToStruct converts NodeMetadata to a protobuf structure. This should be used only for debugging - performance is bad.
 func (m NodeMetadata) ToStruct() *structpb.Struct {
 	j, err := json.Marshal(m)
