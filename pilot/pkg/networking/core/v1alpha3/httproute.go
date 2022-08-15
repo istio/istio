@@ -201,6 +201,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
+	if util.IsIstioVersionGE115(node.IstioVersion) {
+		out.IgnorePortInHostMatching = true
+	}
 
 	// apply envoy filter patches
 	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
@@ -523,8 +526,13 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
+	if util.IsIstioVersionGE115(node.IstioVersion) {
+		// Indicate we do not need port, as we will set IgnorePortInHostMatching
+		port = 0
+	}
 	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
-	domains := []string{util.IPv6Compliant(string(service.Hostname)), util.DomainName(string(service.Hostname), port)}
+	domains := make([]string, 0, 4+len(altHosts))
+	domains = appendDomainPort(domains, string(service.Hostname), port)
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
@@ -536,9 +544,18 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 
 	svcAddr := service.GetAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		domains = append(domains, util.IPv6Compliant(svcAddr), util.DomainName(svcAddr, port))
+		domains = appendDomainPort(domains, svcAddr, port)
 	}
 	return domains, altHosts
+}
+
+// appendDomainPort appends `domain` and `domain:port` to `domains`. The `domain:port` variant is skipped
+// if port is unset.
+func appendDomainPort(domains []string, domain string, port int) []string {
+	if port == 0 {
+		return append(domains, util.IPv6Compliant(domain))
+	}
+	return append(domains, util.IPv6Compliant(domain), util.DomainName(domain, port))
 }
 
 // GenerateAltVirtualHosts given a service and a port, generates all possible HTTP Host headers.
@@ -584,11 +601,11 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")
 
 	// Add the uniqueHost.
-	vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
+	vhosts = appendDomainPort(vhosts, uniqueHostname, port)
 	if len(uniqueHostnameParts) == 2 {
 		// This is the case of uniqHostname having namespace already.
 		dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-		vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
+		vhosts = appendDomainPort(vhosts, dnsHostName, port)
 	}
 	return vhosts
 }
@@ -604,21 +621,36 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 		}
 		if hostname[ns+1:ih] == proxyDomain[:id] {
 			// Same namespace
-			return []string{
-				hostname[:ns],
-				util.DomainName(hostname[:ns], port),
-				hostname[:ih] + ".svc",
-				util.DomainName(hostname[:ih]+".svc", port),
-				hostname[:ih],
-				util.DomainName(hostname[:ih], port),
+			if port == 0 {
+				return []string{
+					hostname[:ns],
+					hostname[:ih] + ".svc",
+					hostname[:ih],
+				}
+			} else {
+				return []string{
+					hostname[:ns],
+					util.DomainName(hostname[:ns], port),
+					hostname[:ih] + ".svc",
+					util.DomainName(hostname[:ih]+".svc", port),
+					hostname[:ih],
+					util.DomainName(hostname[:ih], port),
+				}
 			}
 		}
 		// Different namespace
-		return []string{
-			hostname[:ih],
-			util.DomainName(hostname[:ih], port),
-			hostname[:ih] + ".svc",
-			util.DomainName(hostname[:ih]+".svc", port),
+		if port == 0 {
+			return []string{
+				hostname[:ih],
+				hostname[:ih] + ".svc",
+			}
+		} else {
+			return []string{
+				hostname[:ih],
+				util.DomainName(hostname[:ih], port),
+				hostname[:ih] + ".svc",
+				util.DomainName(hostname[:ih]+".svc", port),
+			}
 		}
 	}
 	// Proxy is in k8s, but service isn't. No alt hosts
