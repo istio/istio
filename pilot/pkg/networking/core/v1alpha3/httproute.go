@@ -640,15 +640,14 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 					hostname[:ih] + ".svc",
 					hostname[:ih],
 				}
-			} else {
-				return []string{
-					hostname[:ns],
-					util.DomainName(hostname[:ns], port),
-					hostname[:ih] + ".svc",
-					util.DomainName(hostname[:ih]+".svc", port),
-					hostname[:ih],
-					util.DomainName(hostname[:ih], port),
-				}
+			}
+			return []string{
+				hostname[:ns],
+				util.DomainName(hostname[:ns], port),
+				hostname[:ih] + ".svc",
+				util.DomainName(hostname[:ih]+".svc", port),
+				hostname[:ih],
+				util.DomainName(hostname[:ih], port),
 			}
 		}
 		// Different namespace
@@ -657,13 +656,12 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 				hostname[:ih],
 				hostname[:ih] + ".svc",
 			}
-		} else {
-			return []string{
-				hostname[:ih],
-				util.DomainName(hostname[:ih], port),
-				hostname[:ih] + ".svc",
-				util.DomainName(hostname[:ih]+".svc", port),
-			}
+		}
+		return []string{
+			hostname[:ih],
+			util.DomainName(hostname[:ih], port),
+			hostname[:ih] + ".svc",
+			util.DomainName(hostname[:ih]+".svc", port),
 		}
 	}
 	// Proxy is in k8s, but service isn't. No alt hosts
