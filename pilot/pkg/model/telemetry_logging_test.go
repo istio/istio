@@ -41,6 +41,36 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
+func TestFileAccessLogFormat(t *testing.T) {
+	cases := []struct {
+		name         string
+		formatString string
+		expected     string
+	}{
+		{
+			name:     "empty",
+			expected: EnvoyTextLogFormat,
+		},
+		{
+			name:         "contains newline",
+			formatString: "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% \n",
+			expected:     "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% \n",
+		},
+		{
+			name:         "miss newline",
+			formatString: "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+			expected:     "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%\n",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := fileAccessLogFormat(tc.formatString)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
 func TestAccessLogging(t *testing.T) {
 	labels := map[string]string{"app": "test"}
 	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: labels}}

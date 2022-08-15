@@ -1775,7 +1775,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	listeners = buildListeners(t, TestOptions{MeshConfig: m}, nil)
 
 	// Validate that access log filter uses the new format.
-	validateAccessLog(t, xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners), "format modified")
+	validateAccessLog(t, xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners), "format modified\n")
 }
 
 func TestListenerAccessLogs(t *testing.T) {
