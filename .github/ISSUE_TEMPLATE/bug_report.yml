@@ -34,7 +34,7 @@ body:
     attributes:
       label: Additional Information
       description: |
-        Please include the output of [`istioctl bug-report`](http://istio.io/help/bugs/#generating-a-cluster-state-archive).
+        Please include the output of [`istioctl bug-report`](https://istio.io/help/bugs/#generating-a-cluster-state-archive).
         If you are unable to do so, please ensure you have collected the relevant debugging information manually and attached below;
         issue without enough information will not be resolvable.
   - type: checkboxes
