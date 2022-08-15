@@ -472,7 +472,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
-	if util.IsIstioVersionGE115(node.IstioVersion) {
+	if SupportsIgnorePort(node) {
 		routeCfg.IgnorePortInHostMatching = true
 	}
 
@@ -1017,7 +1017,7 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 
 func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" || util.IsIstioVersionGE115(node.IstioVersion) {
+	if features.StripHostPort || hostname == "*" || SupportsIgnorePort(node) {
 		return domains
 	}
 

@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -201,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
-	if util.IsIstioVersionGE115(node.IstioVersion) {
+	if SupportsIgnorePort(node) {
 		out.IgnorePortInHostMatching = true
 	}
 
@@ -400,9 +401,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			domains = []string{util.IPv6Compliant(hostname), name}
+			if SupportsIgnorePort(node) {
+				domains = []string{util.IPv6Compliant(hostname)}
+			} else {
+				domains = []string{util.IPv6Compliant(hostname), name}
+			}
 		} else {
-			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
+			domains, altHosts = generateVirtualHostDomains(svc, listenerPort, vhwrapper.Port, node)
 		}
 		dl := len(domains)
 		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
@@ -500,10 +505,11 @@ func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string,
 // setup. This listener should only get the virtual hosts that correspond to this service+port and not
 // all virtual hosts that are usually supplied for 0.0.0.0:PORT.
 func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName string) []*route.VirtualHost {
+	nameWithoutPort, _, _ := net.SplitHostPort(routeName)
 	var virtualHosts []*route.VirtualHost
 	for _, vh := range vhosts {
 		for _, domain := range vh.Domains {
-			if domain == routeName {
+			if domain == routeName || domain == nameWithoutPort {
 				virtualHosts = append(virtualHosts, vh)
 				break
 			}
@@ -523,12 +529,16 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	return virtualHosts
 }
 
+func SupportsIgnorePort(node *model.Proxy) bool {
+	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc()
+}
+
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
-	if util.IsIstioVersionGE115(node.IstioVersion) {
+func generateVirtualHostDomains(service *model.Service, listenerPort int, port int, node *model.Proxy) ([]string, []string) {
+	if SupportsIgnorePort(node) && listenerPort != 0 {
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
-		port = 0
+		port = portNoAppendPortSuffix
 	}
 	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
 	domains := make([]string, 0, 4+len(altHosts))
@@ -552,7 +562,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // appendDomainPort appends `domain` and `domain:port` to `domains`. The `domain:port` variant is skipped
 // if port is unset.
 func appendDomainPort(domains []string, domain string, port int) []string {
-	if port == 0 {
+	if port == portNoAppendPortSuffix {
 		return append(domains, util.IPv6Compliant(domain))
 	}
 	return append(domains, util.IPv6Compliant(domain), util.DomainName(domain, port))
@@ -610,6 +620,9 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	return vhosts
 }
 
+// portNoAppendPortSuffix is a signal to not append port to vhost
+const portNoAppendPortSuffix = 0
+
 func generateAltVirtualHostsForKubernetesService(hostname string, port int, proxyDomain string) []string {
 	id := strings.Index(proxyDomain, ".svc.")
 	ih := strings.Index(hostname, ".svc.")
@@ -621,7 +634,7 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 		}
 		if hostname[ns+1:ih] == proxyDomain[:id] {
 			// Same namespace
-			if port == 0 {
+			if port == portNoAppendPortSuffix {
 				return []string{
 					hostname[:ns],
 					hostname[:ih] + ".svc",
@@ -639,7 +652,7 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 			}
 		}
 		// Different namespace
-		if port == 0 {
+		if port == portNoAppendPortSuffix {
 			return []string{
 				hostname[:ih],
 				hostname[:ih] + ".svc",
