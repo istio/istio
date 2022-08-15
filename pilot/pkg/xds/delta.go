@@ -155,7 +155,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.computeProxyState(con.proxy, pushRequest)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {

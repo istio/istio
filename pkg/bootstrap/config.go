@@ -543,6 +543,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, err
 	}
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
@@ -557,7 +558,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
-	extractAttributesMetadata(options.Envs, options.Platform, meta)
 	// Add all instance labels with lower precedence than pod labels
 	extractInstanceLabels(options.Platform, meta)
 
