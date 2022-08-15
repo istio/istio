@@ -463,7 +463,6 @@ func TestECDSWasmConversion(t *testing.T) {
 		ClusterID:   "Kubernetes",
 	}
 	proxy := setupXdsProxy(t)
-	proxy.ia.cfg.ServiceNode = "sidecar~1.1.1.1~debug~cluster.local"
 	// Reset wasm cache to a fake ACK cache.
 	proxy.wasmCache.Cleanup()
 	proxy.wasmCache = &fakeAckCache{}
