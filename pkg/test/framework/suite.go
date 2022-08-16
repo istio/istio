@@ -29,7 +29,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
-	"istio.io/istio/pkg/test/prow"
 
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/echo"
@@ -39,6 +38,7 @@ import (
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/pkg/log"

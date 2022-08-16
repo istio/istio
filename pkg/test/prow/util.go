@@ -16,7 +16,7 @@ package prow
 
 import (
 	"fmt"
-	"path/filepath"
+	"net/url"
 	"strings"
 
 	"istio.io/pkg/env"
@@ -41,7 +41,12 @@ func ArtifactsURL(filename string) string {
 	}
 	name := "artifacts/" + strings.TrimPrefix(filename, artifacts+"/")
 	if jobType == "presubmit" {
-		return filepath.Join(artifactsBase, "pr-logs/pull", fmt.Sprintf("%s_%s", repoOwner, repoName), pullNumber, jobName, buildID, name)
+		return join(artifactsBase, "pr-logs/pull", fmt.Sprintf("%s_%s", repoOwner, repoName), pullNumber, jobName, buildID, name)
 	}
-	return filepath.Join(artifactsBase, "logs", jobName, buildID, name)
+	return join(artifactsBase, "logs", jobName, buildID, name)
+}
+
+func join(base string, elem ...string) string {
+	res, _ := url.JoinPath(base, elem...)
+	return res
 }
