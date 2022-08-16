@@ -117,6 +117,48 @@ func (q *queueImpl) Closed() <-chan struct{} {
 	return q.closed
 }
 
+// get blocks until it can return a task to be processed. If shutdown = true,
+// the processing go routine should stop.
+func (q *queueImpl) get() (task *BackoffTask, shutdown bool) {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	// wait for closing to be set, or a task to be pushed
+	for !q.closing && len(q.tasks) == 0 {
+		q.cond.Wait()
+	}
+
+	if q.closing {
+		// We must be shutting down.
+		return nil, true
+	}
+	task = q.tasks[0]
+	// Slicing will not free the underlying elements of the array, so explicitly clear them out here
+	q.tasks[0] = nil
+	q.tasks = q.tasks[1:]
+	return task, false
+}
+
+func (q *queueImpl) processNextItem() bool {
+	// Wait until there is a new item in the queue
+	task, shuttingdown := q.get()
+	if shuttingdown {
+		return false
+	}
+
+	// Run the task.
+	if err := task.task(); err != nil {
+		delay := q.delay
+		if q.retryBackoff != nil {
+			delay = task.backoff.NextBackOff()
+		}
+		log.Infof("Work item handle failed (%v), retry after delay %v", err, delay)
+		time.AfterFunc(delay, func() {
+			q.pushRetryTask(task)
+		})
+	}
+	return true
+}
+
 func (q *queueImpl) Run(stop <-chan struct{}) {
 	log.Debugf("started queue %s", q.id)
 	defer func() {
@@ -133,36 +175,6 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		q.cond.L.Unlock()
 	}()
 
-	for {
-		q.cond.L.Lock()
-
-		// wait for closing to be set, or a task to be pushed
-		for !q.closing && len(q.tasks) == 0 {
-			q.cond.Wait()
-		}
-
-		if q.closing {
-			q.cond.L.Unlock()
-			// We must be shutting down.
-			return
-		}
-
-		backoffTask := q.tasks[0]
-		// Slicing will not free the underlying elements of the array, so explicitly clear them out here
-		q.tasks[0] = nil
-		q.tasks = q.tasks[1:]
-
-		q.cond.L.Unlock()
-
-		if err := backoffTask.task(); err != nil {
-			delay := q.delay
-			if q.retryBackoff != nil {
-				delay = backoffTask.backoff.NextBackOff()
-			}
-			log.Infof("Work item handle failed (%v), retry after delay %v", err, delay)
-			time.AfterFunc(delay, func() {
-				q.pushRetryTask(backoffTask)
-			})
-		}
+	for q.processNextItem() {
 	}
 }
