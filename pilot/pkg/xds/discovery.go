@@ -444,6 +444,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			if debouncedEvents == 0 {
 				timeChan = time.After(opts.debounceAfter)
 				startDebounce = lastConfigUpdateTime
+				r.DebounceStart = startDebounce
 			}
 			debouncedEvents++
 
