@@ -534,7 +534,6 @@ func GatewayIgnorePort(node *model.Proxy) bool {
 	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc()
 }
 
-
 // SidecarIgnorePort determines if we can exclude ports from domain matches for sidecars specifically.
 // This differs from GatewayIgnorePort as it is flag protected to avoid breaking change risks
 func SidecarIgnorePort(node *model.Proxy) bool {
