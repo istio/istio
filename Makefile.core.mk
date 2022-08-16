@@ -138,7 +138,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
-PROW_ARTIFACTS_BASE ?= "https://gcsweb.istio.io/gcs/istio-prow"
+PROW_ARTIFACTS_BASE ?= https://gcsweb.istio.io/gcs/istio-prow
 
 include tools/proto/proto.mk
 
