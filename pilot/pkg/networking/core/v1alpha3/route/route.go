@@ -434,6 +434,11 @@ func translateRoute(
 		Match:    translateRouteMatch(node, virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
+
+	if match != nil && match.StatPrefix != "" {
+		out.StatPrefix = match.StatPrefix
+	}
+
 	authority := ""
 	if in.Headers != nil {
 		operations := translateHeadersOperations(in.Headers)
