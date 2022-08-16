@@ -53,6 +53,9 @@ cni:
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
 
+  # Set to `type: RuntimeDefault` to use the default profile if available.
+  seccompProfile: {}
+
   resources:
     requests:
       cpu: 100m
