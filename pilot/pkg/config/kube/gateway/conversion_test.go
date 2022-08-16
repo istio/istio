@@ -337,12 +337,8 @@ func TestConvertResources(t *testing.T) {
 				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
 			})
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
-			if util.Refresh() {
-				res := append(output.Gateway, output.VirtualService...)
-				if err := os.WriteFile(goldenFile, marshalYaml(t, res), 0o644); err != nil {
-					t.Fatal(err)
-				}
-			}
+			res := append(output.Gateway, output.VirtualService...)
+			util.CompareContent(t, marshalYaml(t, res), goldenFile)
 			golden := splitOutput(readConfig(t, goldenFile, validator))
 
 			// sort virtual services to make the order deterministic
