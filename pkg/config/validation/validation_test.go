@@ -7652,6 +7652,46 @@ func TestValidateTelemetry(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"multi-accessloggings",
+			&telemetry.Telemetry{
+				AccessLogging: []*telemetry.AccessLogging{
+					{
+						Providers: []*telemetry.ProviderRef{
+							{
+								Name: "envoy",
+							},
+						},
+					},
+					{
+						Providers: []*telemetry.ProviderRef{
+							{
+								Name: "otel",
+							},
+						},
+					},
+				},
+			},
+			"", "",
+		},
+		{
+			"multi-accesslogging-providers",
+			&telemetry.Telemetry{
+				AccessLogging: []*telemetry.AccessLogging{
+					{
+						Providers: []*telemetry.ProviderRef{
+							{
+								Name: "envoy",
+							},
+							{
+								Name: "otel",
+							},
+						},
+					},
+				},
+			},
+			"", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
