@@ -38,6 +38,7 @@ import (
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/pkg/log"
@@ -455,7 +456,9 @@ func (s *suiteImpl) run() (errLevel int) {
 		ctx.RecordTraceEvent("suite-runtime", end.Sub(start).Seconds())
 		ctx.RecordTraceEvent("echo-calls", echo.GlobalEchoRequests.Load())
 		ctx.RecordTraceEvent("yaml-apply", GlobalYAMLWrites.Load())
-		_ = appendToFile(ctx.marshalTraceEvent(), filepath.Join(ctx.Settings().BaseDir, "trace.yaml"))
+		traceFile := filepath.Join(ctx.Settings().BaseDir, "trace.yaml")
+		scopes.Framework.Infof("Wrote trace to %v", prow.ArtifactsURL(traceFile))
+		_ = appendToFile(ctx.marshalTraceEvent(), traceFile)
 	}()
 
 	attempt := 0
