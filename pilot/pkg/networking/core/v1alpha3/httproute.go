@@ -202,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
-	if SupportsIgnorePort(node) {
+	if SidecarIgnorePort(node) {
 		out.IgnorePortInHostMatching = true
 	}
 
@@ -401,7 +401,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			if SupportsIgnorePort(node) {
+			if SidecarIgnorePort(node) {
 				domains = []string{util.IPv6Compliant(hostname)}
 			} else {
 				domains = []string{util.IPv6Compliant(hostname), name}
@@ -529,14 +529,22 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	return virtualHosts
 }
 
-func SupportsIgnorePort(node *model.Proxy) bool {
+// GatewayIgnorePort determines if we can exclude ports from domain matches
+func GatewayIgnorePort(node *model.Proxy) bool {
 	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc()
+}
+
+
+// SidecarIgnorePort determines if we can exclude ports from domain matches for sidecars specifically.
+// This differs from GatewayIgnorePort as it is flag protected to avoid breaking change risks
+func SidecarIgnorePort(node *model.Proxy) bool {
+	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc() && features.SidecarIgnorePort
 }
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, listenerPort int, port int, node *model.Proxy) ([]string, []string) {
-	if SupportsIgnorePort(node) && listenerPort != 0 {
+	if SidecarIgnorePort(node) && listenerPort != 0 {
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
 		port = portNoAppendPortSuffix
 	}
