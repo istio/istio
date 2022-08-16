@@ -493,7 +493,7 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 		if cfgDump, err := portForwardRequest(fw, "GET", path); err == nil {
 			fname := podOutputPath(workDir, c, pod, filename)
 			if err = os.WriteFile(fname, cfgDump, os.ModePerm); err != nil {
-				scopes.Framework.Errorf("Unable to write output for command %q on cluster/pod/container: %s/%s/%s: %v",
+				scopes.Framework.Errorf("Unable to write output for command %q on cluster/pod/container: %s/%s/%s/%s: %v",
 					path, c.Name(), pod.Namespace, pod.Name, container.Name, err)
 			}
 			if filename == "proxy-config.json" {
