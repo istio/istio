@@ -808,19 +808,42 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 		return
 	}
 
-	// TODO MinimumRingSize is an int, and zero could potentially be a valid value
-	// unable to distinguish between set and unset case currently GregHanson
-	// 1024 is the default value for envoy
-	minRingSize := &wrappers.UInt64Value{Value: 1024}
+	switch {
+	case consistentHash.GetMaglev() != nil:
+		c.LbPolicy = cluster.Cluster_MAGLEV
+		if consistentHash.GetMaglev().TableSize != 0 {
+			c.LbConfig = &cluster.Cluster_MaglevLbConfig_{
+				MaglevLbConfig: &cluster.Cluster_MaglevLbConfig{
+					TableSize: &wrappers.UInt64Value{Value: consistentHash.GetMaglev().TableSize},
+				},
+			}
+		}
+	case consistentHash.GetRingHash() != nil:
+		c.LbPolicy = cluster.Cluster_RING_HASH
+		if consistentHash.GetRingHash().MinimumRingSize != 0 {
+			c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
+				RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
+					MinimumRingSize: &wrappers.UInt64Value{Value: consistentHash.GetRingHash().MinimumRingSize},
+				},
+			}
+		}
+	default:
+		// Check the deprecated MinimumRingSize.
+		// TODO: MinimumRingSize is an int, and zero could potentially
+		// be a valid value unable to distinguish between set and unset
+		// case currently.
+		// 1024 is the default value for envoy.
+		minRingSize := &wrappers.UInt64Value{Value: 1024}
 
-	if consistentHash.MinimumRingSize != 0 { //nolint: staticcheck
-		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} //nolint: staticcheck
-	}
-	c.LbPolicy = cluster.Cluster_RING_HASH
-	c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
-		RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
-			MinimumRingSize: minRingSize,
-		},
+		if consistentHash.MinimumRingSize != 0 { //nolint: staticcheck
+			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} //nolint: staticcheck
+		}
+		c.LbPolicy = cluster.Cluster_RING_HASH
+		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
+			RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
+				MinimumRingSize: minRingSize,
+			},
+		}
 	}
 }
 

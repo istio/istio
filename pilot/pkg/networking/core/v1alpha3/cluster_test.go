@@ -435,6 +435,11 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 			2,
 			2,
 		},
+		{
+			"use ring hash",
+			2,
+			2,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -468,6 +473,172 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
 			g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(tt.expectedRingSize)))
 			g.Expect(c.ConnectTimeout).To(Equal(durationpb.New(time.Duration(10000000001))))
+		})
+	}
+}
+
+func TestApplyRingHashLoadBalancer(t *testing.T) {
+	cases := []struct {
+		name     string
+		lb       *networking.LoadBalancerSettings
+		validate func(c *cluster.Cluster) error
+	}{
+		{
+			"default consistent hash settings",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().GetMinimumRingSize().Value != 1024 {
+					return fmt.Errorf("unexpected minimum ring size. expected: %v, got: %v", 1024, c.GetRingHashLbConfig().GetMinimumRingSize().Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with deprecated minring size",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						MinimumRingSize: 10,
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().GetMinimumRingSize().Value != 10 {
+					return fmt.Errorf("unexpected minimum ring size. expected: %v, got: %v", 10, c.GetRingHashLbConfig().GetMinimumRingSize().Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with Maglev",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_Maglev{
+							Maglev: &networking.LoadBalancerSettings_ConsistentHashLB_MagLev{},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_MAGLEV {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_MAGLEV, c.LbPolicy)
+				}
+				if c.GetMaglevLbConfig() != nil {
+					return fmt.Errorf("unexpected maglev config. expected: %v, got: %v", nil, c.GetMaglevLbConfig())
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with Maglev and table size defined",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_Maglev{
+							Maglev: &networking.LoadBalancerSettings_ConsistentHashLB_MagLev{
+								TableSize: 10,
+							},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_MAGLEV {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_MAGLEV, c.LbPolicy)
+				}
+				if c.GetMaglevLbConfig().TableSize.Value != 10 {
+					return fmt.Errorf("unexpected maglev table size. expected: %v, got: %v", 10, c.GetMaglevLbConfig().TableSize.Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with Ringhash",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash_{
+							RingHash: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash{},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig() != nil {
+					return fmt.Errorf("unexpected ring hash config. expected: %v, got: %v", nil, c.GetRingHashLbConfig())
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with RingHash and min ringsize size defined",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash_{
+							RingHash: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash{
+								MinimumRingSize: 10,
+							},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().MinimumRingSize.Value != 10 {
+					return fmt.Errorf("unexpected min ring hash size. expected: %v, got: %v", 10, c.GetRingHashLbConfig().MinimumRingSize.Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with RingHash with min ringsize size defined along with deprecated minring size",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash_{
+							RingHash: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash{
+								MinimumRingSize: 10,
+							},
+						},
+						MinimumRingSize: 1000,
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().MinimumRingSize.Value != 10 {
+					return fmt.Errorf("unexpected min ring hash size. expected: %v, got: %v", 10, c.GetRingHashLbConfig().MinimumRingSize.Value)
+				}
+				return nil
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cluster.Cluster{}
+			ApplyRingHashLoadBalancer(c, tt.lb)
+			if err := tt.validate(c); err != nil {
+				t.Errorf("%s failed with error: %v", tt.name, err)
+			}
 		})
 	}
 }

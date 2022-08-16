@@ -3909,9 +3909,9 @@ func TestValidateLoadBalancer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := validateLoadBalancer(c.in); (got == nil) != c.valid {
+		if got := validateLoadBalancer(c.in); (got.Err == nil) != c.valid {
 			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got)
 		}
 	}
 }

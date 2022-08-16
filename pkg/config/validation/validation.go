@@ -1427,27 +1427,31 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return
 }
 
-func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error) {
+func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Validation) {
 	if settings == nil {
 		return
 	}
 
 	// simple load balancing is always valid
-
 	consistentHash := settings.GetConsistentHash()
 	if consistentHash != nil {
 		httpCookie := consistentHash.GetHttpCookie()
 		if httpCookie != nil {
 			if httpCookie.Name == "" {
-				errs = appendErrors(errs, fmt.Errorf("name required for HttpCookie"))
+				errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 			}
 			if httpCookie.Ttl == nil {
-				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
+				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
+		}
+		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
+			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
+			scope.Warnf(warn)
+			errs = appendValidation(errs, WrapWarning(errors.New(warn)))
 		}
 	}
 	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
-		errs = multierror.Append(errs, err)
+		errs = appendValidation(errs, err)
 	}
 	return
 }
