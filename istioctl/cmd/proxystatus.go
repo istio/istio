@@ -227,7 +227,6 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-
 			xdsRequest := xdsapi.DiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
@@ -244,6 +243,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
+	statusCmd.PersistentFlags().BoolVar(&centralOpts.XdsViaAgents, "xds-via-agents", false,
+		"Access Istiod via the tap service of each agent.")
 
 	return statusCmd
 }

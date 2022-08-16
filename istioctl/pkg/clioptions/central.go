@@ -54,6 +54,10 @@ type CentralControlPlaneOptions struct {
 
 	// Istiod address. For MCP may be different than Xds.
 	IstiodAddr string
+
+	// XdsViaAgents accesses Istiod via the tap service of each agent.
+	// This is only used in `proxy-status` command.
+	XdsViaAgents bool
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.

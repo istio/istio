@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -177,6 +178,9 @@ type CLIClient interface {
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
 	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
+
+	// GetProxyPods retrieves all the proxy pod objects: sidecar injected pods and gateway pods.
+	GetProxyPods(ctx context.Context, limit int, token string) (*v1.PodList, error)
 
 	// PodExecCommands takes a list of commands and the pod data to run the commands in the specified pod.
 	PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error)
@@ -892,6 +896,39 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		}
 	}
 	return &res, errs
+}
+
+func (c *client) GetProxyPods(ctx context.Context, limit int, token string) (*v1.PodList, error) {
+	params := make(map[string]string)
+	if c.revision != "" {
+		params["labelSelector"] = fmt.Sprintf("%s,%s=%s", label.ServiceCanonicalName.Name, label.IoIstioRev.Name, c.revision)
+	} else {
+		params["labelSelector"] = label.ServiceCanonicalName.Name
+	}
+	params["fieldSelector"] = "status.phase=Running"
+	// At this moment, just using a fixed limit.
+	params["limit"] = strconv.Itoa(limit)
+	if len(token) > 0 {
+		params["continue"] = token
+	}
+
+	req := c.restClient.Get().
+		Resource("pods")
+	for k, v := range params {
+		req.Param(k, v)
+	}
+
+	res := req.Do(ctx)
+	if res.Error() != nil {
+		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
+	}
+
+	list := &v1.PodList{}
+	if err := res.Into(list); err != nil {
+		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
+	}
+
+	return list, nil
 }
 
 func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
