@@ -63,6 +63,55 @@ func TestHeaderMatcher(t *testing.T) {
 	}
 }
 
+func TestHeaderMatcherWithRegex(t *testing.T) {
+	testCases := []struct {
+		Name   string
+		K      string
+		V      string
+		Expect *routepb.HeaderMatcher
+	}{
+		{
+			Name: "exact match",
+			K:    ":path",
+			V:    "/productpage",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+						Regex: "^/productpage$|^/productpage,.*|.*,/productpage,.*|.*,/productpage$",
+					},
+				},
+			},
+		},
+		{
+			Name: "suffix match",
+			K:    ":path",
+			V:    "*/productpage*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+						Regex: `^.*/productpage\*$|^.*/productpage\*,.*|.*,.*/productpage\*,.*|.*,.*/productpage\*$`,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := HeaderMatcherWithRegex(tc.K, tc.V)
+		if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+			t.Errorf("expecting %v, but got %v", tc.Expect, actual)
+		}
+	}
+}
+
 func TestHostMatcherWithRegex(t *testing.T) {
 	testCases := []struct {
 		Name   string
