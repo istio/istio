@@ -44,8 +44,6 @@ data:
         traces:
           receivers:
           - opencensus
-          processors:
-          - memory_limiter
           exporters:
           - zipkin
           - logging
