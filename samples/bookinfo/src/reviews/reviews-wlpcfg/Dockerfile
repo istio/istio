@@ -12,8 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ARG REGISTRY=istio
-FROM $REGISTRY/websphere-liberty:22.0.0.8-full-java8-ibmjava
+# Use library image once https://github.com/OpenLiberty/ci.docker/issues/241
+# is fixed
+FROM gcr.io/istio-testing/websphere-liberty:22.0.0.8-full-java8-ibmjava
 
 ENV SERVERDIRNAME reviews
 
