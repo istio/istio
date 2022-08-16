@@ -832,9 +832,8 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 						ToMatch(toMatch).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							type testCase struct {
-								path        string
-								allow       allowValue
-								updateLabel bool
+								path  string
+								allow allowValue
 							}
 
 							cases := []testCase{
@@ -842,13 +841,6 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 									// Make sure the bad policy did not select this workload.
 									path:  fmt.Sprintf("/policy-%s-%s-bad", to.Config().Namespace.Prefix(), to.Config().Service),
 									allow: false,
-								},
-								{
-									// Make sure the bad policy select this workload.
-									// Skip vm
-									path:        fmt.Sprintf("/policy-%s-%s-bad", to.Config().Namespace.Prefix(), to.Config().Service),
-									allow:       true,
-									updateLabel: true,
 								},
 							}
 
@@ -889,38 +881,12 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 							}
 
 							for _, c := range cases {
-								if c.updateLabel {
-									// skip updating pod labels for VM
-									if to.Config().DeployAsVM {
-										continue
-									}
-									for _, instance := range to.Instances() {
-										err := instance.UpdateWorkloadLabel(map[string]string{"foo": "bla"}, nil)
-										if err != nil {
-											t.Fatal(err)
-										}
-									}
-								}
 								newAuthzTest().
 									From(from).
 									To(to).
 									Allow(c.allow).
 									Path(c.path).
-									BuildForPorts(t, ports.HTTP, ports.HTTP2).
-									RunInSerial(t)
-
-								if c.updateLabel {
-									// skip updating pod labels for VM
-									if to.Config().DeployAsVM {
-										continue
-									}
-									for _, instance := range to.Instances() {
-										err := instance.UpdateWorkloadLabel(nil, []string{"foo"})
-										if err != nil {
-											t.Fatal(err)
-										}
-									}
-								}
+									BuildAndRunForPorts(t, ports.HTTP, ports.HTTP2)
 							}
 						})
 				})
@@ -1827,34 +1793,6 @@ func (tsts authzTests) RunAll(t framework.TestContext) {
 		for _, tst := range tsts {
 			tst := tst
 			t.NewSubTest(tst.opts.Port.Name).RunParallel(func(t framework.TestContext) {
-				tst.BuildAndRun(t)
-			})
-		}
-	})
-}
-
-func (tsts authzTests) RunInSerial(t framework.TestContext) {
-	t.Helper()
-
-	firstTest := tsts[0]
-	if len(tsts) == 1 {
-		// Testing a single port. Just run a single test.
-		testName := fmt.Sprintf("%s%s(%s)/%s", firstTest.prefix, firstTest.opts.HTTP.Path, firstTest.allow, firstTest.opts.Port.Name)
-		t.NewSubTest(testName).Run(func(t framework.TestContext) {
-			firstTest.BuildAndRun(t)
-		})
-		return
-	}
-
-	tsts.checkValid()
-
-	// Testing multiple ports...
-	// Name outer test with constant info. Name inner test with port.
-	outerTestName := fmt.Sprintf("%s%s(%s)", firstTest.prefix, firstTest.opts.HTTP.Path, firstTest.allow)
-	t.NewSubTest(outerTestName).Run(func(t framework.TestContext) {
-		for _, tst := range tsts {
-			tst := tst
-			t.NewSubTest(tst.opts.Port.Name).Run(func(t framework.TestContext) {
 				tst.BuildAndRun(t)
 			})
 		}

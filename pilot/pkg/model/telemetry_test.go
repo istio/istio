@@ -164,11 +164,7 @@ const (
 )
 
 func TestTracing(t *testing.T) {
-	sidecar := &Proxy{
-		ConfigNamespace: "default",
-		Labels:          map[string]string{"app": "test"},
-		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
-	}
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
 	envoy := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
@@ -495,11 +491,7 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}}
-	sidecar := &Proxy{
-		ConfigNamespace: "default",
-		Labels:          map[string]string{"app": "test"},
-		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
-	}
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
 	emptyPrometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
