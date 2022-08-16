@@ -335,6 +335,10 @@ type PushRequest struct {
 	// Note that this does not include time spent debouncing.
 	Start time.Time
 
+	// DebounceStart represents the time that debounce was started. This represents the time that the
+	// first config enters debouncing.
+	DebounceStart time.Time
+
 	// Reason represents the reason for requesting a push. This should only be a fixed set of values,
 	// to avoid unbounded cardinality in metrics. If this is not set, it may be automatically filled in later.
 	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
@@ -444,7 +448,8 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	}
 	merged := &PushRequest{
 		// Keep the first (older) start time
-		Start: pr.Start,
+		Start:         pr.Start,
+		DebounceStart: pr.DebounceStart,
 
 		// If either is full we need a full push
 		Full: pr.Full || other.Full,
