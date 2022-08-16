@@ -79,6 +79,12 @@ message CNIConfig {
   Resources resources = 17;
 
   google.protobuf.BoolValue privileged = 18;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 19;
+
 }
 
 
@@ -426,7 +432,7 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
-  
+
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
@@ -706,6 +712,11 @@ message PilotConfig {
   string hub = 34;
 
   google.protobuf.Value tag = 35;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 38;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

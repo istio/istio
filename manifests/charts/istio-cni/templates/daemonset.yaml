@@ -73,6 +73,10 @@ spec:
             runAsUser: 0
             runAsNonRoot: false
             privileged: {{ .Values.cni.privileged }}
+{{- if .Values.cni.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{- end }}
           command: ["install-cni"]
           args:
             {{- if .Values.global.logging.level }}
@@ -144,6 +148,10 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+{{- if .Values.cni.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{- end }}
           env:
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
