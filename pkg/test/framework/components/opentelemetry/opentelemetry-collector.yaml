@@ -89,7 +89,7 @@ spec:
     spec:
       containers:
         - name: opentelemetry-collector
-          image: "otel/opentelemetry-collector:0.9.0"
+          image: "otel/opentelemetry-collector:0.54.0"
           imagePullPolicy: IfNotPresent
           command:
             - "/otelcol"
