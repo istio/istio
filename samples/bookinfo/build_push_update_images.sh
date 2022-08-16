@@ -112,5 +112,5 @@ do
 done
 
 # Update image references in the yaml files
-find . -name "*bookinfo*.yaml" -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${PREFIX//\//\\/}\\1:$VERSION#g" {} +
+find ./platform -name "*bookinfo*.yaml" -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${PREFIX//\//\\/}\\1:$VERSION#g" {} +
 
