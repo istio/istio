@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -196,4 +197,24 @@ func FindRootCertFromCertificateChainBytes(certBytes []byte) ([]byte, error) {
 	}
 
 	return cert, nil
+}
+
+// IsCertExpired returns  whether a cert expires
+func IsCertExpired(filepath string) (bool, error) {
+	var err error
+	var certPEMBlock []byte
+	certPEMBlock, err = os.ReadFile(filepath)
+	if err != nil {
+		return true, fmt.Errorf("failed to read the cert, error is %v", err)
+	}
+	var certDERBlock *pem.Block
+	certDERBlock, _ = pem.Decode(certPEMBlock)
+	if certDERBlock == nil {
+		return true, fmt.Errorf("failed to decode certificate")
+	}
+	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+	if err != nil {
+		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
+	}
+	return x509Cert.NotAfter.Before(time.Now()), nil
 }
