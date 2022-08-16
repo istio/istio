@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 39791
+releaseNotes:
+- |
+  **Added** `seccompProfile` fields to set the `seccompProfile` field in container
+  `securityContext`s as per https://kubernetes.io/docs/tutorials/security/seccomp/.

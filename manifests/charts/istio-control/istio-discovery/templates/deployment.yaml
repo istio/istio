@@ -178,6 +178,10 @@ spec:
             capabilities:
               drop:
               - ALL
+{{- if .Values.pilot.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.pilot.seccompProfile | trim | indent 14 }}
+{{- end }}
           volumeMounts:
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
