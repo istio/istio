@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util"
 )
 
 // TestCase represents reachability test cases.
@@ -64,8 +63,22 @@ type TestCase struct {
 	SkippedForMulticluster bool
 }
 
+type AllAppInstances struct {
+	A             echo.Instances
+	B             echo.Instances
+	C             echo.Instances
+	D             echo.Instances
+	E             echo.Instances
+	Multiversion  echo.Instances
+	VM            echo.Instances
+	External      echo.Instances
+	Naked         echo.Instances
+	Headless      echo.Instances
+	HeadlessNaked echo.Instances
+}
+
 // Run runs the given reachability test cases with the context.
-func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeployments) {
+func Run(testCases []TestCase, t framework.TestContext, apps *AllAppInstances) {
 	callOptions := []echo.CallOptions{
 		{
 			Port: echo.Port{
@@ -111,7 +124,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return cfg.Apply(apply.Wait)
 			})
-			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
+			for _, clients := range []echo.Instances{apps.A, apps.B, apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, from := range clients {
 					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
