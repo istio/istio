@@ -24,12 +24,7 @@ data:
       opencensus:
         endpoint: 0.0.0.0:55678
     processors:
-      memory_limiter:
-        # Must be same as --mem-ballast-size-mib CLI argument
-        ballast_size_mib: 20
-        limit_mib: 100
-        spike_limit_mib: 10
-        check_interval: 5s
+      batch:
 
     exporters:
       zipkin:
@@ -94,7 +89,6 @@ spec:
           command:
             - "/otelcol"
             - "--config=/conf/config.yaml"
-            - "--mem-ballast-size-mib=20"
           ports:
             - name: grpc-opencensus
               containerPort: 55678
