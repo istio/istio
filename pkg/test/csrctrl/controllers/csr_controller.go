@@ -60,7 +60,7 @@ func (r *CertificateSigningRequestSigningReconciler) Reconcile(_ context.Context
 	case csr.Spec.SignerName == "":
 		log.Info("CSR does not have a signer name. Ignoring.")
 	case !exist:
-		log.Infof("CSR signer name does not match. Ignoring.", "signer-name: %s", csr.Spec.SignerName)
+		log.Infof("CSR signer name does not match. Ignoring. signer-name: %s", csr.Spec.SignerName)
 	case csr.Status.Certificate != nil:
 		log.Info("CSR has already been signed. Ignoring.")
 	case IsCertificateRequestApproved(&csr):

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - https://github.com/istio/istio/issues/39468
+releaseNotes:
+  - |
+    **Fixed** a bug that would ignore some configuration when specifying multiple `accessLogging` in Telemetry resources within a single stanza. With this fix, all provided access logging configuration within a single stanza of Telemetry resource are respected.

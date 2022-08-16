@@ -123,7 +123,7 @@ func unmarshalConfig(data []byte) (*Config, error) {
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Debugf("Templates: |\n  %v", c.RawTemplates, "\n", "\n  ", -1)
+	log.Debugf("Templates: %v", c.RawTemplates)
 	return &c, nil
 }
 

@@ -93,6 +93,7 @@ var (
 		IPAddresses:     []string{"1.1.1.1"},
 		ID:              "v0.default",
 		DNSDomain:       "default.example.org",
+		Labels:          proxyGatewayMetadata.Labels,
 		Metadata:        &proxyGatewayMetadata,
 		ConfigNamespace: "not-default",
 	}
@@ -1775,7 +1776,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	listeners = buildListeners(t, TestOptions{MeshConfig: m}, nil)
 
 	// Validate that access log filter uses the new format.
-	validateAccessLog(t, xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners), "format modified")
+	validateAccessLog(t, xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners), "format modified\n")
 }
 
 func TestListenerAccessLogs(t *testing.T) {

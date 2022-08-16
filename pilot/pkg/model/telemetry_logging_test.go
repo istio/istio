@@ -16,6 +16,7 @@ package model
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -40,9 +41,43 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
+func TestFileAccessLogFormat(t *testing.T) {
+	cases := []struct {
+		name         string
+		formatString string
+		expected     string
+	}{
+		{
+			name:     "empty",
+			expected: EnvoyTextLogFormat,
+		},
+		{
+			name:         "contains newline",
+			formatString: "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% \n",
+			expected:     "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% \n",
+		},
+		{
+			name:         "miss newline",
+			formatString: "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+			expected:     "[%START_TIME%] %REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%\n",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := fileAccessLogFormat(tc.formatString)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
 func TestAccessLogging(t *testing.T) {
 	labels := map[string]string{"app": "test"}
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: labels}}
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          labels,
+		Metadata:        &NodeMetadata{Labels: labels},
+	}
 	envoy := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -54,7 +89,6 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
-
 	client := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -191,6 +225,141 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
+	multiAccessLogging := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+			},
+		},
+	}
+	multiAccessLoggingWithDisabled := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Disabled: &wrappers.BoolValue{
+					Value: true,
+				},
+			},
+		},
+	}
+	multiAccessLoggingAndProviders := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+					{
+						Name: "envoy-json",
+					},
+				},
+			},
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
+	multiFilters := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT_AND_SERVER, // pickup last filter
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
+	multiFiltersDisabled := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT_AND_SERVER, // pickup last filter
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+				Disabled: &wrappers.BoolValue{
+					Value: true,
+				},
+			},
+		},
+	}
+	serverAndClientDifferent := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+			},
+		},
+	}
 	tests := []struct {
 		name             string
 		cfgs             []config.Config
@@ -205,7 +374,7 @@ func TestAccessLogging(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
-			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
 		},
 		{
 			"default provider only",
@@ -329,11 +498,11 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"override namespace",
-			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", defaultJSON)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
-			[]string{"stackdriver"},
+			[]string{"envoy-json"},
 		},
 		{
 			"empty config inherits",
@@ -342,6 +511,14 @@ func TestAccessLogging(t *testing.T) {
 			sidecar,
 			nil,
 			[]string{"envoy"},
+		},
+		{
+			"stackdriver",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{},
 		},
 		{
 			"default envoy JSON",
@@ -375,18 +552,75 @@ func TestAccessLogging(t *testing.T) {
 			[]string{"envoy"},
 			[]string{},
 		},
+		{
+			"server - multi filters",
+			[]config.Config{newTelemetry("istio-system", multiFilters)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"server - multi filters disabled",
+			[]config.Config{newTelemetry("istio-system", multiFiltersDisabled)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{},
+		},
+		{
+			"multi accesslogging",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", multiAccessLogging)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy", "envoy-json"},
+		},
+		{
+			"multi accesslogging with disabled",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", multiAccessLoggingWithDisabled)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"multi accesslogging - multi providers",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", multiAccessLoggingAndProviders)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy", "envoy-json"},
+		},
+		{
+			"server and client different - inbound",
+			[]config.Config{newTelemetry("istio-system", serverAndClientDifferent)},
+			networking.ListenerClassSidecarInbound,
+			sidecar,
+			nil,
+			[]string{"envoy"},
+		},
+		{
+			"server and client different - outbound",
+			[]config.Config{newTelemetry("istio-system", serverAndClientDifferent)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			[]string{"envoy-json"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			al := telemetry.AccessLogging(ctx, tt.proxy, tt.class)
 			var got []string
-			if al != nil {
-				got = []string{} // We distinguish between nil vs empty in the test
-				for _, p := range al.Providers {
-					got = append(got, p.Name)
+			cfgs := telemetry.AccessLogging(ctx, tt.proxy, tt.class)
+			if cfgs != nil {
+				got = []string{}
+				for _, p := range cfgs {
+					got = append(got, p.Provider.Name)
 				}
+				sort.Strings(got)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
@@ -396,13 +630,17 @@ func TestAccessLogging(t *testing.T) {
 }
 
 func TestAccessLoggingWithFilter(t *testing.T) {
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
-	filter1 := &tpb.Telemetry{
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{},
+	}
+	code400filter := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
 				Providers: []*tpb.ProviderRef{
 					{
-						Name: "custom-provider",
+						Name: "envoy-json",
 					},
 				},
 				Filter: &tpb.AccessLogging_Filter{
@@ -411,12 +649,12 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			},
 		},
 	}
-	filter2 := &tpb.Telemetry{
+	code500filter := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
 				Providers: []*tpb.ProviderRef{
 					{
-						Name: "custom-provider",
+						Name: "envoy-json",
 					},
 				},
 				Filter: &tpb.AccessLogging_Filter{
@@ -425,32 +663,125 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			},
 		},
 	}
+	multiAccessLoggingFilter := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+	}
+	multiAccessLoggingNilFilter := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+			},
+		},
+	}
+
 	tests := []struct {
 		name             string
 		cfgs             []config.Config
 		proxy            *Proxy
 		defaultProviders []string
-		want             *LoggingConfig
+		excepted         []LoggingConfig
 	}{
 		{
 			"filter",
-			[]config.Config{newTelemetry("default", filter1)},
+			[]config.Config{newTelemetry("default", code400filter)},
 			sidecar,
-			[]string{"custom-provider"},
-			&LoggingConfig{
-				Filter: &tpb.AccessLogging_Filter{
-					Expression: "response.code >= 400",
+			[]string{"envoy"},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+					Provider: jsonTextProvider,
+					Filter: &tpb.AccessLogging_Filter{
+						Expression: "response.code >= 400",
+					},
 				},
 			},
 		},
 		{
-			"multi-filter",
-			[]config.Config{newTelemetry("default", filter2), newTelemetry("default", filter1)},
+			"namespace-filter",
+			[]config.Config{newTelemetry("istio-system", code400filter), newTelemetry("default", code500filter)},
 			sidecar,
-			[]string{"custom-provider"},
-			&LoggingConfig{
-				Filter: &tpb.AccessLogging_Filter{
-					Expression: "response.code >= 500",
+			[]string{"envoy"},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+					Provider: jsonTextProvider,
+					Filter: &tpb.AccessLogging_Filter{
+						Expression: "response.code >= 500",
+					},
+				},
+			},
+		},
+		{
+			"multi-accesslogging",
+			[]config.Config{newTelemetry("default", multiAccessLoggingFilter)},
+			sidecar,
+			[]string{"envoy"},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+					Provider: jsonTextProvider,
+					Filter: &tpb.AccessLogging_Filter{
+						Expression: "response.code >= 400",
+					},
+				},
+			},
+		},
+		{
+			"multi-accesslogging-nil",
+			[]config.Config{newTelemetry("default", multiAccessLoggingNilFilter)},
+			sidecar,
+			[]string{"envoy"},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+					Provider: jsonTextProvider,
 				},
 			},
 		},
@@ -460,9 +791,35 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
 			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("got %v want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.excepted, got)
+		})
+	}
+}
+
+func TestAccessLoggingCache(t *testing.T) {
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	otherNamespace := &Proxy{ConfigNamespace: "common", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	cfgs := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+	}
+
+	telemetry, ctx := createTestTelemetries([]config.Config{newTelemetry("default", cfgs)}, t)
+	for _, s := range []*Proxy{sidecar, otherNamespace} {
+		t.Run(s.ConfigNamespace, func(t *testing.T) {
+			first := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
+			second := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
+			assert.Equal(t, first, second)
 		})
 	}
 }
@@ -555,29 +912,61 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 }
 
 func TestTelemetryAccessLog(t *testing.T) {
-	singleCfg := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
+	stdoutFormat := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "stdout",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: DevStdout,
+			},
+		},
+	}
+
+	customTextFormat := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "custom-text",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: DevStdout,
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
+						Text: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%",
 					},
 				},
 			},
 		},
 	}
 
-	customTextFormat := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
-							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
-								Text: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
+	customLabelsFormat := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "custom-label",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: DevStdout,
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+						Labels: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"start_time":                     {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
+								"route_name":                     {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
+								"method":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
+								"path":                           {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+								"protocol":                       {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+								"response_code":                  {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+								"response_flags":                 {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+								"response_code_details":          {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
+								"connection_termination_details": {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
+								"bytes_received":                 {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+								"bytes_sent":                     {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+								"duration":                       {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
+								"upstream_service_time":          {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+								"x_forwarded_for":                {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+								"user_agent":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+								"request_id":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+								"authority":                      {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+								"upstream_host":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+								"upstream_cluster":               {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+								"upstream_local_address":         {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+								"downstream_local_address":       {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+								"downstream_remote_address":      {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+								"requested_server_name":          {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
 							},
 						},
 					},
@@ -586,137 +975,39 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	defaultJSONFormat := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
-							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
-								Labels: &structpb.Struct{},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	customLabelsFormat := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
-							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
-								Labels: &structpb.Struct{
-									Fields: map[string]*structpb.Value{
-										"start_time":                     {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-										"route_name":                     {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-										"method":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-										"path":                           {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-										"protocol":                       {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-										"response_code":                  {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-										"response_flags":                 {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-										"response_code_details":          {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
-										"connection_termination_details": {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
-										"bytes_received":                 {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-										"bytes_sent":                     {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-										"duration":                       {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-										"upstream_service_time":          {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-										"x_forwarded_for":                {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-										"user_agent":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-										"request_id":                     {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-										"authority":                      {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-										"upstream_host":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-										"upstream_cluster":               {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-										"upstream_local_address":         {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-										"downstream_local_address":       {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-										"downstream_remote_address":      {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-										"requested_server_name":          {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	multiCfg := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-					},
-				},
-			},
-			{
-				Name: "stderr",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: "/dev/stderr",
-					},
-				},
+	stderr := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "stderr",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stderr",
 			},
 		},
 	}
 
 	fakeFilterStateObjects := []string{"fake-filter-state-object1", "fake-filter-state-object1"}
-	grpcCfg := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-					},
-				},
-			},
-			{
-				Name: "grpc-http-als",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls{
-					EnvoyHttpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-						LogName:                         "grpc-http-als",
-						Service:                         "grpc-als.foo.svc.cluster.local",
-						Port:                            9811,
-						AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
-						AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
-						AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
-						FilterStateObjectsToLog:         fakeFilterStateObjects,
-					},
-				},
+	grpcHTTPCfg := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "grpc-http-als",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls{
+			EnvoyHttpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+				LogName:                         "grpc-http-als",
+				Service:                         "grpc-als.foo.svc.cluster.local",
+				Port:                            9811,
+				AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
+				AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
+				AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
+				FilterStateObjectsToLog:         fakeFilterStateObjects,
 			},
 		},
 	}
 
-	grpcTCPCfg := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-					},
-				},
-			},
-			{
-				Name: "grpc-tcp-als",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls{
-					EnvoyTcpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-						LogName:                 "grpc-tcp-als",
-						Service:                 "grpc-als.foo.svc.cluster.local",
-						Port:                    9811,
-						FilterStateObjectsToLog: fakeFilterStateObjects,
-					},
-				},
+	grpcTCPCfg := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "grpc-tcp-als",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls{
+			EnvoyTcpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+				LogName:                 "grpc-tcp-als",
+				Service:                 "grpc-als.foo.svc.cluster.local",
+				Port:                    9811,
+				FilterStateObjectsToLog: fakeFilterStateObjects,
 			},
 		},
 	}
@@ -727,47 +1018,31 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	multiWithOtelCfg := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "stdout",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: DevStdout,
-					},
-				},
-			},
-			{
-				Name: OtelEnvoyAccessLogFriendlyName,
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
-					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-						Service: "otel.foo.svc.cluster.local",
-						Port:    9811,
-						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
-							Labels: labels,
-						},
-					},
+	otelCfg := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: OtelEnvoyAccessLogFriendlyName,
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+			EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "otel.foo.svc.cluster.local",
+				Port:    9811,
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
+					Labels: labels,
 				},
 			},
 		},
 	}
 
-	defaultEnvoyProvider := &LoggingConfig{
-		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
-			{
-				Name: "envoy",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-						Path: "/dev/stdout",
-					},
-				},
+	defaultEnvoyProvider := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
 			},
 		},
 	}
 
 	grpcBackendClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
 	grpcBackendAuthority := "grpc-als.foo.svc.cluster.local"
-	otelCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+	otelAtrributeCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: OtelEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
@@ -825,17 +1100,6 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	defaultJSONLabelsOut := &fileaccesslog.FileAccessLog{
-		Path: DevStdout,
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormatIstio,
-				},
-			},
-		},
-	}
-
 	customLabelsOut := &fileaccesslog.FileAccessLog{
 		Path: DevStdout,
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
@@ -873,7 +1137,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	errout := &fileaccesslog.FileAccessLog{
+	stderrout := &fileaccesslog.FileAccessLog{
 		Path: "/dev/stderr",
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
@@ -955,20 +1219,29 @@ func TestTelemetryAccessLog(t *testing.T) {
 		name       string
 		ctx        *PushContext
 		meshConfig *meshconfig.MeshConfig
-		spec       *LoggingConfig
-		expected   []*accesslog.AccessLog
+		fp         *meshconfig.MeshConfig_ExtensionProvider
+		expected   *accesslog.AccessLog
 	}{
 		{
-			name: "single",
+			name: "stdout",
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			spec: singleCfg,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stdout)},
-				},
+			fp: stdoutFormat,
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stdout)},
+			},
+		},
+		{
+			name: "stderr",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			fp: stderr,
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stderrout)},
 			},
 		},
 		{
@@ -976,12 +1249,10 @@ func TestTelemetryAccessLog(t *testing.T) {
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			spec: customTextFormat,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(customTextOut)},
-				},
+			fp: customTextFormat,
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(customTextOut)},
 			},
 		},
 		{
@@ -989,12 +1260,10 @@ func TestTelemetryAccessLog(t *testing.T) {
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			spec: defaultJSONFormat,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
-				},
+			fp: jsonTextProvider,
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
 			},
 		},
 		{
@@ -1002,81 +1271,44 @@ func TestTelemetryAccessLog(t *testing.T) {
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			spec: customLabelsFormat,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(customLabelsOut)},
-				},
+			fp: customLabelsFormat,
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(customLabelsOut)},
 			},
 		},
 		{
-			name: "multi",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			spec: multiCfg,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stdout)},
-				},
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(errout)},
-				},
-			},
-		},
-		{
-			name: "multi-with-open-telemetry",
+			name: "otel",
 			ctx:  ctx,
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			spec: multiWithOtelCfg,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stdout)},
-				},
-				{
-					Name:       OtelEnvoyALSName,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelCfg)},
-				},
+			fp: otelCfg,
+			expected: &accesslog.AccessLog{
+				Name:       OtelEnvoyALSName,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelAtrributeCfg)},
 			},
 		},
 		{
-			name: "grpc-als",
-			spec: grpcCfg,
+			name: "grpc-http",
+			fp:   grpcHTTPCfg,
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stdout)},
-				},
-				{
-					Name:       wellknown.HTTPGRPCAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(grpcHTTPout)},
-				},
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.HTTPGRPCAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(grpcHTTPout)},
 			},
 		},
 		{
-			name: "grpc-tcp-als",
-			spec: grpcTCPCfg,
+			name: "grpc-tcp",
+			fp:   grpcTCPCfg,
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stdout)},
-				},
-				{
-					Name:       TCPEnvoyALSName,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(grpcTCPOut)},
-				},
+			expected: &accesslog.AccessLog{
+				Name:       TCPEnvoyALSName,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(grpcTCPOut)},
 			},
 		},
 		{
@@ -1096,12 +1328,10 @@ func TestTelemetryAccessLog(t *testing.T) {
 					},
 				},
 			},
-			spec: defaultEnvoyProvider,
-			expected: []*accesslog.AccessLog{
-				{
-					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
-				},
+			fp: defaultEnvoyProvider,
+			expected: &accesslog.AccessLog{
+				Name:       wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
 			},
 		},
 	} {
@@ -1112,15 +1342,10 @@ func TestTelemetryAccessLog(t *testing.T) {
 			}
 			push.Mesh = tc.meshConfig
 
-			got := make([]*accesslog.AccessLog, 0, len(tc.spec.Providers))
-			for _, p := range tc.spec.Providers {
-				al := telemetryAccessLog(push, p)
-				if al == nil {
-					t.Fatalf("get nil accesslog")
-				}
-				got = append(got, al)
+			got := telemetryAccessLog(push, tc.fp)
+			if got == nil {
+				t.Fatalf("get nil accesslog")
 			}
-
 			assert.Equal(t, tc.expected, got)
 		})
 	}

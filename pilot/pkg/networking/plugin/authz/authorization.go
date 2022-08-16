@@ -48,7 +48,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 		IsCustomBuilder: actionType == Custom,
 		Logger:          &builder.AuthzLogger{},
 	}
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
 }

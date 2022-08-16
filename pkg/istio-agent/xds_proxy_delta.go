@@ -29,6 +29,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
@@ -200,6 +201,15 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
+			}
+			// override the first xds request node metadata labels
+			if req.Node != nil {
+				node, err := p.ia.generateNodeMetadata()
+				if err != nil {
+					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
+				} else if node.ID != "" {
+					req.Node = bootstrap.ConvertNodeToXDSNode(node)
+				}
 			}
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)

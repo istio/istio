@@ -212,6 +212,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches two envoyfilters",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -221,6 +222,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy in root namespace matches an envoyfilter",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "istio-system",
 			},
@@ -231,6 +233,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v2"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v2"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -240,6 +243,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches envoyfilter in root ns",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-n2",
 			},
@@ -249,6 +253,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy version matches no envoyfilters",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.3.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -565,6 +570,9 @@ func TestWasmPlugins(t *testing.T) {
 			name: "ingress",
 			node: &Proxy{
 				ConfigNamespace: "other",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
 				Metadata: &NodeMetadata{
 					Labels: map[string]string{
 						"istio": "ingressgateway",
@@ -581,6 +589,9 @@ func TestWasmPlugins(t *testing.T) {
 			name: "ingress-testns-1",
 			node: &Proxy{
 				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
 				Metadata: &NodeMetadata{
 					Labels: map[string]string{
 						"istio": "ingressgateway",
@@ -599,6 +610,9 @@ func TestWasmPlugins(t *testing.T) {
 			name: "testns-2",
 			node: &Proxy{
 				ConfigNamespace: "testns-2",
+				Labels: map[string]string{
+					"app": "productpage",
+				},
 				Metadata: &NodeMetadata{
 					Labels: map[string]string{
 						"app": "productpage",
@@ -2368,6 +2382,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 		"envoy_http_als":       {},
 		"envoy_tcp_als":        {},
 		"envoy_otel_als":       {},
+		"opentelemetry":        {},
 	}
 
 	unexpectedProviders := make([]string, 0)

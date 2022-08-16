@@ -151,12 +151,6 @@ var (
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
 	).Get()
 
-	UseMaglevForConsistentHash = env.RegisterBoolVar(
-		"PILOT_USE_MAGLEV_FOR_CONSISTENT_HASH",
-		true,
-		"Use MAGLEV load balancer when Consistent Hash load balancer is set in Destination Rules.",
-	).Get()
-
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(

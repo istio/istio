@@ -420,7 +420,7 @@ func translateRoute(
 		return nil
 	}
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, node.Metadata.Labels, gatewayNames, node.Metadata.Namespace) {
+	if !sourceMatchHTTP(match, node.Labels, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
@@ -1094,15 +1094,18 @@ func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *m
 	if vsTimeout != nil {
 		action.Timeout = vsTimeout
 	}
-	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
 	if node != nil && node.IsProxylessGrpc() {
 		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+			MaxStreamDuration: action.Timeout,
+		}
 	} else {
 		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
 		if action.Timeout.AsDuration().Nanoseconds() == 0 {
-			action.MaxStreamDuration.MaxStreamDuration = action.Timeout
-			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration:    notimeout,
+				GrpcTimeoutHeaderMax: notimeout,
+			}
 		} else {
 			// If not configured at all, the grpc-timeout header is not used and
 			// gRPC requests time out like any other requests using timeout or its default.

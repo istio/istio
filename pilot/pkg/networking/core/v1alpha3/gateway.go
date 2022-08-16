@@ -94,7 +94,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 		for transport, gwServers := range transportToServers {
 			if gwServers == nil {
-				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port)
+				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port.Number)
 				continue
 			}
 
