@@ -1546,14 +1546,8 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	tls, err := buildTLS(r.AllowedReferences, l.TLS, obj.Namespace, isAutoPassthrough(obj, l))
 	if err != nil {
-		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
-			Reason:  string(k8s.ListenerReasonInvalid),
-			Message: err.Message,
-		}
-		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = &ConfigError{
-			Reason:  string(k8s.ListenerReasonInvalidCertificateRef),
-			Message: err.Message,
-		}
+		listenerConditions[string(k8s.ListenerConditionReady)].error = err
+		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		return nil, false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.KubernetesResources, l)
@@ -1613,7 +1607,7 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
-			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+			return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
 		cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
 		if err != nil {
@@ -1623,7 +1617,7 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 		sameNamespace := credNs == namespace
 		if !sameNamespace && !refs.SecretAllowed(credentials.ToResourceName(cred), namespace) {
 			return nil, &ConfigError{
-				Reason: InvalidConfiguration,
+				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
 					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
 					tls.CertificateRefs[0].Name, credNs, namespace,
