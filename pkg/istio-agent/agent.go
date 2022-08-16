@@ -30,6 +30,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -47,6 +48,7 @@ import (
 	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -114,6 +116,10 @@ type Agent struct {
 	secOpts   *security.Options
 	envoyOpts envoy.ProxyConfig
 
+	// cache node
+	nodeMutex sync.RWMutex
+	node      *corev3.Node
+
 	envoyAgent  *envoy.Agent
 	envoyWaitCh chan error
 
@@ -121,8 +127,8 @@ type Agent struct {
 	secretCache *cache.SecretManagerClient
 
 	// Used when proxying envoy xds via istio-agent is enabled.
-	xdsProxy      *XdsProxy
-	caFileWatcher filewatcher.FileWatcher
+	xdsProxy    *XdsProxy
+	fileWatcher filewatcher.FileWatcher
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
 	localDNSServer *dnsClient.LocalDNSServer
@@ -216,11 +222,11 @@ type AgentOptions struct {
 // health checking for VMs and DNS proxying).
 func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options, eopts envoy.ProxyConfig) *Agent {
 	return &Agent{
-		proxyConfig:   proxyConfig,
-		cfg:           agentOpts,
-		secOpts:       sopts,
-		envoyOpts:     eopts,
-		caFileWatcher: filewatcher.NewWatcher(),
+		proxyConfig: proxyConfig,
+		cfg:         agentOpts,
+		secOpts:     sopts,
+		envoyOpts:   eopts,
+		fileWatcher: filewatcher.NewWatcher(),
 	}
 }
 
@@ -232,6 +238,14 @@ func (a *Agent) EnvoyDisabled() bool {
 // WaitForSigterm if true indicates calling Run will block until SIGTERM or SIGNT is received.
 func (a *Agent) WaitForSigterm() bool {
 	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly
+}
+
+// getXdsNode is only used by xds proxy to override discovery request node.
+// Note: currently it is set only when pod labels update.
+func (a *Agent) getXdsNode() *corev3.Node {
+	a.nodeMutex.RLock()
+	defer a.nodeMutex.RUnlock()
+	return a.node
 }
 
 func (a *Agent) generateNodeMetadata() (*model.Node, error) {
@@ -461,7 +475,26 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
 	}
-	go a.caFileWatcherHandler(ctx, rootCAForXDS)
+	go a.startFileWatcher(ctx, rootCAForXDS, func() {
+		if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
+			log.Warnf("Failed to init xds proxy dial options")
+		}
+	})
+	labelPath := constants.PodInfoLabelsPath
+	if file.Exists(labelPath) {
+		go a.startFileWatcher(ctx, labelPath, func() {
+			// re-generate node metadata
+			nodeMeta, err := a.generateNodeMetadata()
+			if err != nil {
+				log.Warnf("Failed to generateNodeMetadata %v", err)
+				return
+			}
+			log.Debugf("node meta updated: %v", nodeMeta)
+			a.nodeMutex.Lock()
+			a.node = bootstrap.ConvertNodeToXDSNode(nodeMeta)
+			a.nodeMutex.Unlock()
+		})
+	}
 
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
@@ -570,19 +603,20 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 	return
 }
 
-func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
-	if err := a.caFileWatcher.Add(caFile); err != nil {
-		log.Warnf("Failed to add file watcher %s, caFile", caFile)
+func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler func()) {
+	if err := a.fileWatcher.Add(filePath); err != nil {
+		log.Warnf("Failed to add file watcher %s", filePath)
+		return
 	}
 
-	log.Debugf("Add CA file %s watcher", caFile)
+	log.Debugf("Add file %s watcher", filePath)
 	for {
 		select {
-		case gotEvent := <-a.caFileWatcher.Events(caFile):
-			log.Debugf("Receive file %s event %v", caFile, gotEvent)
-			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
-				log.Warnf("Failed to init xds proxy dial options")
-			}
+		case gotEvent := <-a.fileWatcher.Events(filePath):
+			log.Debugf("Receive file %s event %v", filePath, gotEvent)
+			handler()
+		case err := <-a.fileWatcher.Errors(filePath):
+			log.Warnf("Watch file %s error: %v", filePath, err)
 		case <-ctx.Done():
 			return
 		}
@@ -679,8 +713,8 @@ func (a *Agent) close() {
 	if a.secretCache != nil {
 		a.secretCache.Close()
 	}
-	if a.caFileWatcher != nil {
-		_ = a.caFileWatcher.Close()
+	if a.fileWatcher != nil {
+		_ = a.fileWatcher.Close()
 	}
 }
 
