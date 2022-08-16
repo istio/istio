@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+	"istio.io/istio/pkg/test/prow"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -340,14 +341,15 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 			// Get previous container logs, if applicable
 			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
+				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
 				// only care about istio components restart
 				if proxyContainer.IsContainer(container) || discoveryContainer.IsContainer(container) || initContainer.IsContainer(container) ||
 					validationContainer.IsContainer(container) || strings.HasPrefix(pod.Name, "istio-cni-node") {
 					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 					// a log which will get highlighted in the test logs
 					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s restarted %d times",
-						c.Name(), pod.Namespace, pod.Name, container.Name, restarts)
+					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s restarted %d times. Logs: %v",
+						c.Name(), pod.Namespace, pod.Name, container.Name, restarts, prow.ArtifactsURL(fname))
 				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
@@ -355,7 +357,6 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 						c.Name(), pod.Namespace, pod.Name, container.Name, err)
 				}
 
-				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
 				if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write previous logs for cluster/pod/container: %s/%s/%s/%s: %v",
 						c.Name(), pod.Namespace, pod.Name, container.Name, err)
@@ -363,8 +364,8 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 			}
 
 			if crashed, terminateState := containerCrashed(pod, container.Name); crashed {
-				scopes.Framework.Errorf("FAIL: cluster/pod/container: %s/%s/%s/%s crashed with status: %+v",
-					c.Name(), pod.Namespace, pod.Name, container.Name, terminateState)
+				scopes.Framework.Errorf("FAIL: cluster/pod/container: %s/%s/%s/%s crashed with status: %+v. Logs: %v",
+					c.Name(), pod.Namespace, pod.Name, container.Name, terminateState, prow.ArtifactsURL(fname))
 			}
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
@@ -378,7 +379,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 					}
 					if strings.Contains(stdout, "envoy backtrace") {
 						scopes.Framework.Errorf("FAIL: VM envoy crashed in cluster/pod/container: %s/%s/%s/%s. See log: %s",
-							c.Name(), pod.Namespace, pod.Name, container.Name, fname)
+							c.Name(), pod.Namespace, pod.Name, container.Name, prow.ArtifactsURL(fname))
 
 						if strings.Contains(stdAll, "Too many open files") {
 							// Run netstat on the container with the crashed proxy to debug socket creation issues.
@@ -511,8 +512,8 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 						break
 					}
 					if attempts > 3 {
-						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt",
-							c.Name(), pod.Namespace, pod.Name, warming)
+						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt. Logs: %v",
+							c.Name(), pod.Namespace, pod.Name, warming, prow.ArtifactsURL(fname))
 						break
 					}
 					scopes.Framework.Warnf("cluster/pod %s/%s/%s found warming resources (%v) on attempt %d",
