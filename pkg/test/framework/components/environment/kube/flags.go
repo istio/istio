@@ -95,7 +95,7 @@ func getKubeConfigsFromEnvironment() ([]string, error) {
 		updatedValue := strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
 		_ = os.Setenv(env.KUBECONFIG.Name(), updatedValue)
 		scopes.Framework.Warnf("KUBECONFIG contains commas: %s.\nReplacing with %s: %s", value,
-			filepath.ListSeparator, updatedValue)
+			string(filepath.ListSeparator), updatedValue)
 		value = updatedValue
 	}
 	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))

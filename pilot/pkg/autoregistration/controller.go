@@ -222,7 +222,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	c.mutex.Unlock()
 
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		return err
 	}
 	return nil
@@ -300,7 +300,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		origConTime: origConnect,
 	}
 	if err := c.unregisterWorkload(workload); err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		c.queue.Add(workload)
 	}
 }

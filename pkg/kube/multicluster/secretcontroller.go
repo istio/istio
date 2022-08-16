@@ -334,8 +334,9 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 	}
 
 	for clusterID, kubeConfig := range s.Data {
+		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
 		if cluster.ID(clusterID) == c.configClusterID {
-			log.Infof("ignoring cluster %v from secret %v as it would overwrite the config cluster", clusterID, secretKey)
+			logger.Infof("ignoring cluster as it would overwrite the config cluster")
 			continue
 		}
 
@@ -345,30 +346,30 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
+				logger.Infof("skipping update (kubeconfig are identical)")
 				continue
 			}
 			// stop previous remote cluster
 			prev.Stop()
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
-			log.Warnf("cluster %d from secret %s has already been registered", clusterID, secretKey)
+			logger.Warnf("cluster has already been registered")
 			continue
 		}
-		log.Infof("%s cluster %v from secret %v", action, clusterID, secretKey)
+		logger.Infof("%s cluster", action)
 
 		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
 		if err != nil {
-			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretKey, err)
+			logger.Errorf("%s cluster failed: %v", action, err)
 			continue
 		}
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
 			remoteCluster.Stop()
-			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
+			logger.Errorf("%s cluster failed: %v", action, err)
 			continue
 		}
-		log.Infof("finished callback for %s and starting to sync", clusterID)
+		logger.Infof("finished callback for cluster and starting to sync")
 		go remoteCluster.Run()
 	}
 
