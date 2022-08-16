@@ -1444,7 +1444,7 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Valid
 				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
-		if consistentHash.MinimumRingSize != 0 {
+		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
 			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
 			scope.Warnf(warn)
 			errs = appendValidation(errs, WrapWarning(errors.New(warn)))
