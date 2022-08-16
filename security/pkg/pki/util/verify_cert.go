@@ -216,5 +216,5 @@ func IsCertExpired(filepath string) (bool, error) {
 	if err != nil {
 		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
 	}
-	return x509Cert.NotBefore.After(time.Now()) || x509Cert.NotAfter.Before(time.Now()), nil
+	return x509Cert.NotAfter.Before(time.Now()), nil
 }
