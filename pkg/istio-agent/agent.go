@@ -30,7 +30,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
@@ -48,7 +47,6 @@ import (
 	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
-	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -115,10 +113,6 @@ type Agent struct {
 	cfg       *AgentOptions
 	secOpts   *security.Options
 	envoyOpts envoy.ProxyConfig
-
-	// cache node
-	nodeMutex sync.RWMutex
-	node      *corev3.Node
 
 	envoyAgent  *envoy.Agent
 	envoyWaitCh chan error
@@ -238,14 +232,6 @@ func (a *Agent) EnvoyDisabled() bool {
 // WaitForSigterm if true indicates calling Run will block until SIGTERM or SIGNT is received.
 func (a *Agent) WaitForSigterm() bool {
 	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly
-}
-
-// getXdsNode is only used by xds proxy to override discovery request node.
-// Note: currently it is set only when pod labels update.
-func (a *Agent) getXdsNode() *corev3.Node {
-	a.nodeMutex.RLock()
-	defer a.nodeMutex.RUnlock()
-	return a.node
 }
 
 func (a *Agent) generateNodeMetadata() (*model.Node, error) {
@@ -480,21 +466,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			log.Warnf("Failed to init xds proxy dial options")
 		}
 	})
-	labelPath := constants.PodInfoLabelsPath
-	if file.Exists(labelPath) {
-		go a.startFileWatcher(ctx, labelPath, func() {
-			// re-generate node metadata
-			nodeMeta, err := a.generateNodeMetadata()
-			if err != nil {
-				log.Warnf("Failed to generateNodeMetadata %v", err)
-				return
-			}
-			log.Debugf("node meta updated: %v", nodeMeta)
-			a.nodeMutex.Lock()
-			a.node = bootstrap.ConvertNodeToXDSNode(nodeMeta)
-			a.nodeMutex.Unlock()
-		})
-	}
 
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)

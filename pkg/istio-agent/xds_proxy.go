@@ -446,14 +446,6 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				return
 			}
 
-			// override the first xds request node metadata labels
-			if req.Node != nil {
-				node := p.ia.getXdsNode()
-				if node != nil {
-					req.Node = node
-				}
-			}
-
 			// forward to istiod
 			con.sendRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
