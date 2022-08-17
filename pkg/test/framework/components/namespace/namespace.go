@@ -79,6 +79,15 @@ func NewOrFail(t test.Failer, ctx resource.Context, nsConfig Config) Instance {
 	return i
 }
 
+// GetAll returns all namespaces that have exist in the context.
+func GetAll(ctx resource.Context) ([]Instance, error) {
+	var out []Instance
+	if err := ctx.GetResource(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func overwriteRevisionIfEmpty(nsConfig *Config, revision string) {
 	// Overwrite the default namespace label (istio-injection=enabled)
 	// with istio.io/rev=XXX. If a revision label is already provided,
