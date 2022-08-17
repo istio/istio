@@ -390,16 +390,18 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	filters := []*hcm.HttpFilter{}
 	wasm := lb.push.WasmPlugins(lb.node)
-	// TODO: how to deal with ext-authz? It will be in the ordering twice
-	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
-	filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
-	filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+	if !httpOpts.skipRBACFilters { // TODO poorly named, probably should skip more. Meant for outer HBONE listener
+		// TODO: how to deal with ext-authz? It will be in the ordering twice
+		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
+		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
+		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 
-	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	}
 
 	// never enable MX for Ambient proxies (uProxies or PEPs)
 	if features.MetadataExchange && !lb.node.IsAmbient() {

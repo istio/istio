@@ -180,8 +180,16 @@ func (cb *ClusterBuilder) buildRemoteInboundVIPCluster(svc *model.Service, port 
 	// TODO should we apply connection pool here or at pod level?
 	//cb.applyTrafficPolicy(opts)
 
-	// no transport, we are just going to internal address
-	localCluster.cluster.TransportSocket = nil
+	// no TLS, we are just going to internal address
+	localCluster.cluster.TransportSocket = &core.TransportSocket{
+		Name: "envoy.transport_sockets.internal_upstream",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			TransportSocket: &core.TransportSocket{
+				Name:       "envoy.transport_sockets.raw_buffer",
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
+			},
+		})},
+	}
 	localCluster.cluster.TransportSocketMatches = nil
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
@@ -210,9 +218,6 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 						Name: "istio",
 					},
 				},
-				//PassthroughFilterStateObjects: []*internalupstream.InternalUpstreamTransport_FilterStateSource{{
-				//	Name: "envoy.network.upstream_socket_options",
-				//}},
 				TransportSocket: &core.TransportSocket{
 					Name:       "envoy.transport_sockets.raw_buffer",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},

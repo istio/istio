@@ -347,6 +347,8 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -361,6 +363,8 @@ spec:
             - NET_ADMIN
 {{- end }}
       volumes:
+      - emptyDir: {}
+        name: istio-data
       - name: kubelet-creds
         hostPath:
           path: /var/lib/kubelet/pki

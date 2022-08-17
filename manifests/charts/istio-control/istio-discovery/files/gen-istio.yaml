@@ -1352,6 +1352,7 @@ data:
                 ambient-proxy: {{.ServiceAccount}}-proxy
                 gateway.istio.io/managed: "istio.io-mesh-controller"
                 istio.io/gateway-name: "{{.GatewayName}}"
+                sidecar.istio.io/inject: "false"
             spec:
               terminationGracePeriodSeconds: 2
               serviceAccountName: {{.ServiceAccount}}

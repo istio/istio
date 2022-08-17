@@ -778,11 +778,15 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 
+	if lb.node.IsPEP() {
+		filters = append(filters, xdsfilters.RestoreTLSFilter)
+	}
+
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
-	hcm := lb.buildHTTPConnectionManager(httpOpts)
+	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
 	})
 	return filters
 }

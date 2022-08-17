@@ -163,6 +163,20 @@ var (
 	}
 
 	HTTPMx = buildHTTPMxFilter()
+
+	CaptureTLSFilter = &listener.Filter{
+		Name: "capture_tls",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.CaptureTLS"),
+		},
+	}
+
+	RestoreTLSFilter = &listener.Filter{
+		Name: "restore_tls",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.RestoreTLS"),
+		},
+	}
 )
 
 func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {

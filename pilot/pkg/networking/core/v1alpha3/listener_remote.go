@@ -42,6 +42,7 @@ import (
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -152,6 +153,7 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 		protocol:             protocol.HTTP2,
 		class:                istionetworking.ListenerClassSidecarInbound,
 		skipTelemetryFilters: true, // do not include telemetry filters on the CONNECT termination chain
+		skipRBACFilters:      true,
 	}
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
@@ -186,10 +188,13 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 						CommonTlsContext: buildCommonTLSContext(lb.node, nil, lb.push, true),
 					})},
 				},
-				Filters: []*listener.Filter{{
-					Name:       wellknown.HTTPConnectionManager,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
-				}},
+				Filters: []*listener.Filter{
+					xdsfilters.CaptureTLSFilter,
+					{
+						Name:       wellknown.HTTPConnectionManager,
+						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+					},
+				},
 			},
 		},
 	}
@@ -255,7 +260,7 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
-				Filters: lb.buildInboundNetworkFiltersForHTTPService(svc, cc),
+				Filters: lb.buildRemoteInboundVIPHTTPFilters(svc, cc),
 				Name:    httpName,
 			}
 			l := &listener.Listener{
@@ -266,11 +271,8 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 				ListenerFilters: []*listener.ListenerFilter{
 					util.InternalListenerSetAddressFilter(),
 					{
-						Name: "envoy.filters.listener.metadata_to_peer_node",
-						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: &any.Any{
-							// nolint: staticcheck
-							TypeUrl: "type.googleapis.com/" + "istio.telemetry.metadatatopeernode.v1.Config",
-						}},
+						Name:       "envoy.filters.listener.metadata_to_peer_node",
+						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config")},
 					},
 				},
 			}
@@ -385,9 +387,9 @@ func getPorts(services []*model.ServiceInstance) []model.Port {
 	return pl
 }
 
-// buildInboundNetworkFiltersForHTTPService builds the network filters that should be inserted before an HCM.
+// buildRemoteInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+func (lb *ListenerBuilder) buildRemoteInboundVIPHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 	if !lb.node.IsAmbient() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
@@ -407,9 +409,10 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 			},
 			ServerName: EnvoyServerName,
 		},
-		protocol:   cc.port.Protocol,
-		class:      istionetworking.ListenerClassSidecarInbound,
-		statPrefix: cc.StatPrefix(),
+		protocol:        cc.port.Protocol,
+		class:           istionetworking.ListenerClassSidecarInbound,
+		statPrefix:      cc.StatPrefix(),
+		skipRBACFilters: true, // Handled by pod listener
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
@@ -421,21 +424,21 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTPService(svc *model.S
 			AcceptHttp_10: true,
 		}
 	}
-	hcm := lb.buildHTTPConnectionManager(httpOpts)
+	h := lb.buildHTTPConnectionManager(httpOpts)
 
 	if lb.node.IsPEP() {
-		filters = append(filters, &listener.Filter{
-			Name: "istio.filters.network.internal_ssl_forwarder",
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: &any.Any{
-				// nolint: staticcheck
-				TypeUrl: "type.googleapis.com/" + "istio.telemetry.internal_ssl_forwarder.v1.Config",
-			}},
-		})
+		restoreTLSFilter := &listener.Filter{
+			Name: "restore_tls",
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.RestoreTLS"),
+			},
+		}
+		filters = append(filters, restoreTLSFilter)
 	}
 
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
 	})
 	return filters
 }
@@ -710,6 +713,7 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 			security.ConstructSdsSecretConfig(workloadSecret),
 		}
 	}
+	ctx.AlpnProtocols = []string{"h2"}
 
 	return ctx
 }

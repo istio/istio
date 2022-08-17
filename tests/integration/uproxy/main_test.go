@@ -189,8 +189,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:        Captured,
 			Namespace:      apps.Namespace,
-			ServiceAccount: true,
 			Ports:          ports.All(),
+			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -211,9 +211,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			},
 		}).
 		WithConfig(echo.Config{
-			Service:   Uncaptured,
-			Namespace: apps.Namespace,
-			Ports:     ports.All(),
+			Service:        Uncaptured,
+			Namespace:      apps.Namespace,
+			Ports:          ports.All(),
+			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -307,9 +308,10 @@ spec:
 		//		},
 		//	})
 		builder = builder.WithConfig(echo.Config{
-			Service:   SidecarUncaptured,
-			Namespace: apps.Namespace,
-			Ports:     ports.All(),
+			Service:        SidecarUncaptured,
+			Namespace:      apps.Namespace,
+			Ports:          ports.All(),
+			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,

@@ -17,6 +17,7 @@ package protoconv
 import (
 	"fmt"
 
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -45,4 +46,11 @@ func MessageToAny(msg proto.Message) *anypb.Any {
 		return nil
 	}
 	return out
+}
+
+func TypedStruct(typeURL string) *anypb.Any {
+	return MessageToAny(&udpa.TypedStruct{
+		TypeUrl: typeURL,
+		Value:   nil,
+	})
 }

@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/integration/security/util/reachability"
+	util "istio.io/istio/tests/integration/telemetry"
 )
 
 func IsL7() echo.Checker {
@@ -386,6 +387,8 @@ func TestAuthorization(t *testing.T) {
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
+			"Source":      src.Config().Service,
+			"Namespace":   apps.Namespace.Name(),
 		}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -398,23 +401,56 @@ spec:
   - to:
     - operation:
         paths: ["/allowed"]
-        methods: ["GET"]`).ApplyOrFail(t)
+        methods: ["GET"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+    to:
+    - operation:
+        paths: ["/allowed-identity"]
+        methods: ["GET"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
+    to:
+    - operation:
+        paths: ["/denied-identity"]
+        methods: ["GET"]
+`).ApplyOrFail(t)
 		if src.Config().IsUncaptured() && dst.Config().IsRemote() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// Because client request is not captured to perform the hairpin
 			// TODO: fix this and remove this skip
 			opt.Check = check.OK()
 		}
-		t.NewSubTest("deny").Run(func(t framework.TestContext) {
+		t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 			opt = opt.DeepCopy()
 			opt.HTTP.Path = "/deny"
 			opt.Check = CheckDeny
 
 			src.CallOrFail(t, opt)
 		})
-		t.NewSubTest("allow").Run(func(t framework.TestContext) {
+		t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
 			opt = opt.DeepCopy()
 			opt.HTTP.Path = "/allowed"
+			if supportsL7(opt, dst) {
+				opt.Check = check.OK()
+			} else {
+				// If we do not support HTTP, we fail closed on HTTP policies
+				opt.Check = CheckDeny
+			}
+			src.CallOrFail(t, opt)
+		})
+		t.NewSubTest("identity deny").Run(func(t framework.TestContext) {
+			opt = opt.DeepCopy()
+			opt.HTTP.Path = "/denied-identity"
+			opt.Check = CheckDeny
+
+			src.CallOrFail(t, opt)
+		})
+		t.NewSubTest("identity allow").Run(func(t framework.TestContext) {
+			opt = opt.DeepCopy()
+			opt.HTTP.Path = "/allowed-identity"
 			if supportsL7(opt, dst) {
 				opt.Check = check.OK()
 			} else {
@@ -924,11 +960,12 @@ func TestL7Telemetry(t *testing.T) {
 						}
 						// allow for delay between prometheus pulls from target pod
 						// pulls should happen every 15s, so timeout if not found within 30s
+
+						query := buildQuery(localSrc, localDst)
+						stc.Logf("prometheus query: %#v", query)
 						err := retry.Until(func() bool {
 							stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
 							localSrc.CallOrFail(stc, opt)
-							query := buildQuery(localSrc, localDst)
-							stc.Logf("prometheus query: %#v", query)
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
 							if err != nil {
 								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
@@ -941,6 +978,7 @@ func TestL7Telemetry(t *testing.T) {
 							return true
 						}, retry.Timeout(30*time.Second), retry.BackoffDelay(1*time.Second))
 						if err != nil {
+							util.PromDiff(t, prom, localSrc.Config().Cluster, query)
 							stc.Errorf("could not validate L7 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 						}
 					})
