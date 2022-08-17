@@ -870,10 +870,6 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 			log.Debugf("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
-
-	t := time.Since(req.DebounceStart)
-	debounceTime.Record(t.Seconds())
-
 	req.Start = time.Now()
 	for _, p := range s.AllClients() {
 		s.pushQueue.Enqueue(p, req)
