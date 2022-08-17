@@ -47,7 +47,6 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -445,16 +444,6 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				case <-con.stopChan:
 				}
 				return
-			}
-
-			// override the first xds request node metadata labels
-			if req.Node != nil {
-				node, err := p.ia.generateNodeMetadata()
-				if err != nil {
-					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
-				} else if node.ID != "" {
-					req.Node = bootstrap.ConvertNodeToXDSNode(node)
-				}
 			}
 
 			// forward to istiod
