@@ -56,16 +56,16 @@ const httpVirtualServiceTmpl = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: {{.VirtualServiceHost}}
+  name: "{{.VirtualServiceHost|replace "*" "wild"}}"
 spec:
   gateways:
   - {{.Gateway}}
   hosts:
-  - {{.VirtualServiceHost}}
+  - "{{.VirtualServiceHost}}"
   http:
   - route:
     - destination:
-        host: {{.VirtualServiceHost}}
+        host: "{{.DestinationHost | default .VirtualServiceHost}}"
         port:
           number: {{.Port}}
 {{- if .MatchScheme }}
@@ -84,9 +84,10 @@ func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(httpVirtualServiceTmpl, struct {
 		Gateway            string
 		VirtualServiceHost string
+		DestinationHost    string
 		Port               int
 		MatchScheme        string
-	}{gateway, host, port, ""})
+	}{gateway, host, "", port, ""})
 }
 
 const gatewayTmpl = `
@@ -1381,6 +1382,82 @@ spec:
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               ports.All().MustForName("auto-http").ServicePort,
+			}
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "wildcard hostname",
+		targetMatchers:   singleTarget,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.example.com"
+---
+` + httpVirtualServiceTmpl,
+		children: []TrafficCall{
+			{
+				name: "no port",
+				call: nil,
+				opts: echo.CallOptions{
+					HTTP: echo.HTTP{
+						HTTP2:   true,
+						Headers: headers.New().WithHost("foo.example.com").Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Check: check.OK(),
+				},
+			},
+			{
+				name: "correct port",
+				call: nil,
+				opts: echo.CallOptions{
+					HTTP: echo.HTTP{
+						HTTP2:   true,
+						Headers: headers.New().WithHost("foo.example.com:80").Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Check: check.OK(),
+				},
+			},
+			{
+				name: "random port",
+				call: nil,
+				opts: echo.CallOptions{
+					HTTP: echo.HTTP{
+						HTTP2:   true,
+						Headers: headers.New().WithHost("foo.example.com:12345").Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Check: check.OK(),
+				},
+			},
+		},
+		minIstioVersion: "1.15.0",
+		setupOpts:       noTarget,
+		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
+			return map[string]any{
+				"Gateway":            "gateway",
+				"VirtualServiceHost": "*.example.com",
+				"DestinationHost":    dests[0].Config().ClusterLocalFQDN(),
+				"Port":               ports.All().MustForName(ports.HTTP).ServicePort,
 			}
 		},
 	})
