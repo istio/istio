@@ -1450,7 +1450,7 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Valid
 			errs = appendValidation(errs, WrapWarning(errors.New(warn)))
 		}
 		// nolint: staticcheck
-		if consistentHash.MinimumRingSize != 0 && (consistentHash.GetMaglev() != nil || consistentHash.GetRingHash() != nil) {
+		if consistentHash.MinimumRingSize != 0 && consistentHash.GetHashAlgorithm() != nil {
 			errs = appendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
 	}
