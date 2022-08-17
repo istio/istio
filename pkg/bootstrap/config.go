@@ -484,6 +484,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 		case "ISTIO_METAJSON_LABELS":
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
+				meta.Labels = m
 				meta.StaticLabels = m
 			}
 		case "POD_NAME":
@@ -580,9 +581,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	// These are typically volume mounted by the downward API
 	lbls, err := readPodLabels()
 	if err == nil {
-		if meta.Labels == nil {
-			meta.Labels = map[string]string{}
-		}
+		meta.Labels = map[string]string{}
 		for k, v := range meta.StaticLabels {
 			meta.Labels[k] = v
 		}
