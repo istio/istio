@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/config"
+	config "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -1730,287 +1730,355 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		virtualServices                   []config.Config
 		gateways                          []config.Config
 		routeName                         string
+		expectedVirtualHostsLegacy        map[string][]string
 		expectedVirtualHosts              map[string][]string
 		expectedVirtualHostsHostPortStrip map[string][]string
 		expectedHTTPRoutes                map[string]int
 		redirect                          bool
 	}{
 		{
-			"404 when no services",
-			[]config.Config{},
-			[]config.Config{httpGateway},
-			"http.80",
-			map[string][]string{
+			name:            "404 when no services",
+			virtualServices: []config.Config{},
+			gateways:        []config.Config{httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"blackhole:80": {
 					"*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
 				"blackhole:80": {
 					"*",
 				},
 			},
-			map[string]int{"blackhole:80": 0},
-			false,
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"blackhole:80": {
+					"*",
+				},
+			},
+			expectedHTTPRoutes: map[string]int{"blackhole:80": 0},
 		},
 		{
-			"tls redirect without virtual services",
-			[]config.Config{virtualService},
-			[]config.Config{httpRedirectGatewayWithoutVS},
-			"http.80",
-			map[string][]string{
+			name:            "tls redirect without virtual services",
+			virtualServices: []config.Config{virtualService},
+			gateways:        []config.Config{httpRedirectGatewayWithoutVS},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
 			// We will setup a VHost which just redirects; no routes
-			map[string]int{"example.org:80": 0},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
+			redirect:           true,
 		},
 		{
-			"virtual services with tls redirect",
-			[]config.Config{virtualService},
-			[]config.Config{httpRedirectGateway},
-			"http.80",
-			map[string][]string{
+			name:            "virtual services with tls redirect",
+			virtualServices: []config.Config{virtualService},
+			gateways:        []config.Config{httpRedirectGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 1},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 1},
+			redirect:           true,
 		},
 		{
-			"merging of virtual services when tls redirect is set",
-			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpRedirectGateway, httpGateway},
-			"http.80",
-			map[string][]string{
+			name:            "merging of virtual services when tls redirect is set",
+			virtualServices: []config.Config{virtualService, virtualServiceCopy},
+			gateways:        []config.Config{httpRedirectGateway, httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 4},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 4},
+			redirect:           true,
 		},
 		{
-			"reverse merging of virtual services when tls redirect is set",
-			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway, httpRedirectGateway},
-			"http.80",
-			map[string][]string{
+			name:            "reverse merging of virtual services when tls redirect is set",
+			virtualServices: []config.Config{virtualService, virtualServiceCopy},
+			gateways:        []config.Config{httpGateway, httpRedirectGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 4},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 4},
+			redirect:           true,
 		},
 		{
-			"merging of virtual services when tls redirect is set without VS",
-			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway, httpRedirectGatewayWithoutVS},
-			"http.80",
-			map[string][]string{
+			name:            "merging of virtual services when tls redirect is set without VS",
+			virtualServices: []config.Config{virtualService, virtualServiceCopy},
+			gateways:        []config.Config{httpGateway, httpRedirectGatewayWithoutVS},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 2},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
+			redirect:           true,
 		},
 		{
-			"reverse merging of virtual services when tls redirect is set without VS",
-			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpRedirectGatewayWithoutVS, httpGateway},
-			"http.80",
-			map[string][]string{
+			name:            "reverse merging of virtual services when tls redirect is set without VS",
+			virtualServices: []config.Config{virtualService, virtualServiceCopy},
+			gateways:        []config.Config{httpRedirectGatewayWithoutVS, httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 2},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
+			redirect:           true,
 		},
 		{
-			"add a route for a virtual service",
-			[]config.Config{virtualService},
-			[]config.Config{httpGateway},
-			"http.80",
-			map[string][]string{
+			name:            "add a route for a virtual service",
+			virtualServices: []config.Config{virtualService},
+			gateways:        []config.Config{httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 1},
-			false,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 1},
 		},
 		{
-			"duplicate virtual service should merge",
-			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway},
-			"http.80",
-			map[string][]string{
+			name:            "duplicate virtual service should merge",
+			virtualServices: []config.Config{virtualService, virtualServiceCopy},
+			gateways:        []config.Config{httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 2},
-			false,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
 		},
 		{
-			"duplicate by wildcard should merge",
-			[]config.Config{virtualService, virtualServiceWildcard},
-			[]config.Config{httpGateway},
-			"http.80",
-			map[string][]string{
+			name:            "duplicate by wildcard should merge",
+			virtualServices: []config.Config{virtualService, virtualServiceWildcard},
+			gateways:        []config.Config{httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 2},
-			false,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
 		},
 		{
-			"wildcard virtual service",
-			[]config.Config{virtualServiceWildcard},
-			[]config.Config{httpGatewayWildcard},
-			"http.80",
-			map[string][]string{
+			name:            "wildcard virtual service",
+			virtualServices: []config.Config{virtualServiceWildcard},
+			gateways:        []config.Config{httpGatewayWildcard},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"*.org:80": {"*.org", "*.org:80"},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
 				"*.org:80": {"*.org"},
 			},
-			map[string]int{"*.org:80": 1},
-			false,
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"*.org:80": {"*.org"},
+			},
+			expectedHTTPRoutes: map[string]int{"*.org:80": 1},
 		},
 		{
-			"http redirection not working when virtualservice not match http port",
-			[]config.Config{virtualServiceHTTPS},
-			[]config.Config{httpsGateway},
-			"https.443.https.gateway-https.default",
-			map[string][]string{
+			name:            "http redirection not working when virtualservice not match http port",
+			virtualServices: []config.Config{virtualServiceHTTPS},
+			gateways:        []config.Config{httpsGateway},
+			routeName:       "https.443.https.gateway-https.default",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:443": {"example.org", "example.org:*"},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
 				"example.org:443": {"example.org"},
 			},
-			map[string]int{"example.org:443": 1},
-			false,
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"example.org:443": {"example.org"},
+			},
+			expectedHTTPRoutes: map[string]int{"example.org:443": 1},
 		},
 		{
-			"http redirection not working when virtualservice not match http port",
-			[]config.Config{virtualServiceHTTPS},
-			[]config.Config{httpsGateway},
-			"http.80",
-			map[string][]string{
+			name:            "http redirection not working when virtualservice not match http port",
+			virtualServices: []config.Config{virtualServiceHTTPS},
+			gateways:        []config.Config{httpsGateway},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {"example.org", "example.org:*"},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
 			// We will setup a VHost which just redirects; no routes
-			map[string]int{"example.org:80": 0},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
+			redirect:           true,
 		},
 		{
-			"http & https redirection not working when virtualservice not match http port",
-			[]config.Config{virtualServiceHTTPS},
-			[]config.Config{httpsGatewayRedirect},
-			"https.443.https.gateway-https.default",
-			map[string][]string{
+			name:            "http & https redirection not working when virtualservice not match http port",
+			virtualServices: []config.Config{virtualServiceHTTPS},
+			gateways:        []config.Config{httpsGatewayRedirect},
+			routeName:       "https.443.https.gateway-https.default",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:443": {"example.org", "example.org:*"},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
 				"example.org:443": {"example.org"},
 			},
-			map[string]int{"example.org:443": 1},
-			true,
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"example.org:443": {"example.org"},
+			},
+			expectedHTTPRoutes: map[string]int{"example.org:443": 1},
+			redirect:           true,
 		},
 		{
-			"http & https redirection not working when virtualservice not match http port",
-			[]config.Config{virtualServiceHTTPS},
-			[]config.Config{httpsGatewayRedirect},
-			"http.80",
-			map[string][]string{
+			name:            "http & https redirection not working when virtualservice not match http port",
+			virtualServices: []config.Config{virtualServiceHTTPS},
+			gateways:        []config.Config{httpsGatewayRedirect},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
 				"example.org:80": {"example.org", "example.org:*"},
 			},
-			map[string][]string{
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
 			// We will setup a VHost which just redirects; no routes
-			map[string]int{"example.org:80": 0},
-			true,
+			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
+			redirect:           true,
 		},
 	}
 
 	for _, value := range []bool{false, true} {
-		for _, tt := range cases {
-			t.Run(tt.name, func(t *testing.T) {
-				test.SetBoolForTest(t, &features.StripHostPort, value)
-				cfgs := tt.gateways
-				cfgs = append(cfgs, tt.virtualServices...)
-				cg := NewConfigGenTest(t, TestOptions{
-					Configs: cfgs,
-				})
-				r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
-				if r == nil {
-					t.Fatal("got an empty route configuration")
-				}
-				vh := make(map[string][]string)
-				hr := make(map[string]int)
-				for _, h := range r.VirtualHosts {
-					vh[h.Name] = h.Domains
-					hr[h.Name] = len(h.Routes)
-					if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
-						t.Errorf("expected attempt count to be set in virtual host, but not found")
+		for _, version := range []string{"1.14.0", "1.15.0"} {
+			for _, tt := range cases {
+				t.Run(tt.name, func(t *testing.T) {
+					test.SetBoolForTest(t, &features.StripHostPort, value)
+					cfgs := tt.gateways
+					cfgs = append(cfgs, tt.virtualServices...)
+					cg := NewConfigGenTest(t, TestOptions{
+						Configs: cfgs,
+					})
+					p := cg.SetupProxy(&proxyGateway)
+					p.IstioVersion = pilot_model.ParseIstioVersion(version)
+					r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
+					if r == nil {
+						t.Fatal("got an empty route configuration")
 					}
-					if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
-						t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
+					vh := make(map[string][]string)
+					hr := make(map[string]int)
+					for _, h := range r.VirtualHosts {
+						vh[h.Name] = h.Domains
+						hr[h.Name] = len(h.Routes)
+						if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+							t.Errorf("expected attempt count to be set in virtual host, but not found")
+						}
+						if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
+							t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
+						}
 					}
-				}
 
-				if features.StripHostPort {
-					if !reflect.DeepEqual(tt.expectedVirtualHostsHostPortStrip, vh) {
-						t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
+					if features.StripHostPort {
+						if !reflect.DeepEqual(tt.expectedVirtualHostsHostPortStrip, vh) {
+							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
+						}
+					} else if version == "1.14.0" {
+						if !reflect.DeepEqual(tt.expectedVirtualHostsLegacy, vh) {
+							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+						}
+					} else {
+						if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
+							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+						}
 					}
-				} else {
-					if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
-						t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+					if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
+						t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
 					}
-				}
-				if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
-					t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
-				}
-			})
+				})
+			}
 		}
 	}
 }
