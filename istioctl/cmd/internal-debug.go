@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
+func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 ) (map[string]*xdsapi.DiscoveryResponse, error) {
@@ -51,7 +51,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 	return xdsResponses, nil
 }
 
-func HandlerForDebugErrors(kubeClient kube.ExtendedClient,
+func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 	xdsResponses map[string]*xdsapi.DiscoveryResponse,

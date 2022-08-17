@@ -37,7 +37,7 @@ func init() {
 var _ echo.Cluster = &vmcluster{}
 
 type vmcluster struct {
-	kube.ExtendedClient
+	kube.CLIClient
 	cluster.Topology
 
 	vms []echo.Config

@@ -165,7 +165,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		}
 		t.Run(dir.Name(), func(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
-			kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
+			kubeClientWithRevision = func(_, _, _ string) (kube.CLIClient, error) {
 				return &kube.MockClient{
 					RevisionValue: "rev-1",
 					Interface: fake.NewSimpleClientset(
@@ -259,7 +259,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
 	noClusterID := "failed to automatically determine the --clusterID"
 
-	kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
+	kubeClientWithRevision = func(_, _, _ string) (kube.CLIClient, error) {
 		return &kube.MockClient{
 			Interface: fake.NewSimpleClientset(
 				&v1.ServiceAccount{

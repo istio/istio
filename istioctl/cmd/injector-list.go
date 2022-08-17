@@ -133,7 +133,7 @@ func filterSystemNamespaces(nss []v1.Namespace) []v1.Namespace {
 	return filtered
 }
 
-func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namespace, error) {
+func getNamespaces(ctx context.Context, client kube.CLIClient) ([]v1.Namespace, error) {
 	nslist, err := client.Kube().CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []v1.Namespace{}, err
@@ -176,7 +176,7 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 	return w.Flush()
 }
 
-func getWebhooks(ctx context.Context, client kube.ExtendedClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func getWebhooks(ctx context.Context, client kube.CLIClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	hooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []admit_v1.MutatingWebhookConfiguration{}, err
@@ -256,7 +256,7 @@ func getMatchingNamespaces(hook *admit_v1.MutatingWebhookConfiguration, namespac
 	return retval
 }
 
-func getPods(ctx context.Context, client kube.ExtendedClient) (map[resource.Namespace][]v1.Pod, error) {
+func getPods(ctx context.Context, client kube.CLIClient) (map[resource.Namespace][]v1.Pod, error) {
 	retval := map[resource.Namespace][]v1.Pod{}
 	// All pods in all namespaces
 	pods, err := client.Kube().CoreV1().Pods("").List(ctx, metav1.ListOptions{})
@@ -275,7 +275,7 @@ func getPods(ctx context.Context, client kube.ExtendedClient) (map[resource.Name
 }
 
 // getInjectedImages() returns a map of revision->dockerimage
-func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[string]string, error) {
+func getInjectedImages(ctx context.Context, client kube.CLIClient) (map[string]string, error) {
 	retval := map[string]string{}
 
 	// All configs in all namespaces that are Istio revisioned

@@ -33,7 +33,7 @@ type clusterTopology = map[clusterIndex]clusterIndex
 
 // ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
-type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, error)
+type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.CLIClient, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {

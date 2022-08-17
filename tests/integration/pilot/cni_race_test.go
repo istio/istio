@@ -86,7 +86,7 @@ func TestCNIRaceRepair(t *testing.T) {
 }
 
 func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *v1.DaemonSet {
-	cniDaemonSet, err := c.(istioKube.ExtendedClient).
+	cniDaemonSet, err := c.(istioKube.CLIClient).
 		Kube().AppsV1().DaemonSets("kube-system").
 		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
 	if err != nil {
@@ -99,7 +99,7 @@ func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *v1.DaemonSet
 }
 
 func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
-	if err := c.(istioKube.ExtendedClient).
+	if err := c.(istioKube.CLIClient).
 		Kube().AppsV1().DaemonSets("kube-system").
 		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
 		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
@@ -128,7 +128,7 @@ func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 		Labels:      cniDaemonSet.ObjectMeta.Labels,
 		Annotations: cniDaemonSet.ObjectMeta.Annotations,
 	}
-	_, err := c.(istioKube.ExtendedClient).Kube().AppsV1().DaemonSets("kube-system").
+	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets("kube-system").
 		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
 	if err != nil {
 		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)

@@ -46,7 +46,7 @@ import (
 	"istio.io/pkg/version"
 )
 
-var _ ExtendedClient = MockClient{}
+var _ CLIClient = MockClient{}
 
 type MockPortForwarder struct{}
 
