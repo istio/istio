@@ -56,7 +56,7 @@ var (
 	defaultGracePeriod = 300
 	GCEProvider        = "GoogleComputeEngine"
 	// GKEClusterURL is the URL to send requests to the token exchange service.
-	GKEClusterURL = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	GKEClusterURL = env.Register("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.

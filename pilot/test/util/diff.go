@@ -36,7 +36,7 @@ var statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\
 // Refresh controls whether to update the golden artifacts instead.
 // It is set using the environment variable REFRESH_GOLDEN.
 func Refresh() bool {
-	return env.RegisterBoolVar("REFRESH_GOLDEN", false, "").Get()
+	return env.Register("REFRESH_GOLDEN", false, "").Get()
 }
 
 // Compare compares two byte slices. It returns an error with a

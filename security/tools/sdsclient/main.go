@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	sdsServerUdsPath = env.RegisterStringVar(
+	sdsServerUdsPath = env.Register(
 		"CITADEL_AGENT_TESTING_UDS_PATH", "unix:///var/run/sds/uds_path",
 		"The server unix domain socket path").Get()
 	rootCmd = &cobra.Command{
