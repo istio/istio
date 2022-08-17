@@ -164,7 +164,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&hboneCaFile, "hbone-ca", "", "CA root cert file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientCert, "hbone-client-cert", "", "client certificate file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientKey, "hbone-client-key", "", "client certificate key file used for the HBONE request")
-	rootCmd.PersistentFlags().BoolVar(&hboneInsecureSkipVerify, "hbone-insecure-skip-vierfy", hboneInsecureSkipVerify, "skip TLS verification HBONE request")
+	rootCmd.PersistentFlags().BoolVar(&hboneInsecureSkipVerify, "hbone-insecure-skip-verify", hboneInsecureSkipVerify, "skip TLS verification of HBONE request")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
