@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -147,12 +148,13 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 			}
 			return &certificate, nil
 		},
-		RootCAs: certPool,
+		RootCAs:    certPool,
+		MinVersion: tls.VersionTLS12,
 	}
 
-	// strip the port from the address
-	parts := strings.Split(c.opts.CAEndpoint, ":")
-	config.ServerName = parts[0]
+	if host, _, err := net.SplitHostPort(c.opts.CAEndpoint); err != nil {
+		config.ServerName = host
+	}
 	// For debugging on localhost (with port forward)
 	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
 	if strings.Contains(c.opts.CAEndpoint, "localhost") {
