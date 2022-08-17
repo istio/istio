@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** Locality load balancing failover is now automatically enabled if the control plane
+  is configured to send unready endpoints (PILOT_SEND_UNHEALTHY_ENDPOINTS feature flag)
+  unless explictly disabled, even if no outlier detection is configured for target services.
