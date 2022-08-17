@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
       # Image from https://github.com/istio/proxy/tree/master/test/envoye2e/stackdriver_plugin
-      - image: gcr.io/istio-testing/fake-stackdriver:7.0
+      - image: gcr.io/istio-testing/fake-stackdriver:8.0
         name: stackdriver
         ports:
         - containerPort: 8090
