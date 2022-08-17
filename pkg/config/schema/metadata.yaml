@@ -140,6 +140,7 @@ collections:
     kind: "Secret"
     group: ""
     builtin: true
+    pilot: true
 
   - name: "k8s/core/v1/services"
     kind: "Service"

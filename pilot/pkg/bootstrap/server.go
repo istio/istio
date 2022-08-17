@@ -504,14 +504,17 @@ func (s *Server) WaitUntilCompletion() {
 
 // initSDSServer starts the SDS server
 func (s *Server) initSDSServer() {
-	if s.kubeClient == nil {
+	if s.kubeClient == nil && !features.EnableSecretOverMCP {
 		return
 	}
-	if !features.EnableXDSIdentityCheck {
+	if !features.EnableXDSIdentityCheck && !features.EnableSecretOverMCP {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
-	} else {
-		creds := kubecredentials.NewMulticluster(s.clusterID)
+		return
+	}
+	var creds *kubecredentials.Multicluster
+	if s.kubeClient != nil {
+		creds = kubecredentials.NewMulticluster(s.clusterID)
 		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full: false,
@@ -525,12 +528,12 @@ func (s *Server) initSDSServer() {
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
 		})
-		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.Mesh())
 		s.multiclusterController.AddHandler(creds)
 		if ecdsGen, found := s.XDSServer.Generators[v3.ExtensionConfigurationType]; found {
 			ecdsGen.(*xds.EcdsGenerator).SetCredController(creds)
 		}
 	}
+	s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.Mesh())
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.

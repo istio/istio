@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	v1 "k8s.io/api/core/v1"
 	"math"
 	"sort"
 	"strings"
@@ -196,6 +197,9 @@ type PushContext struct {
 
 	// gatewayIndex is the index of gateways.
 	gatewayIndex gatewayIndex
+
+	// secrets for each namespace
+	SecretsByNameSpace map[string]map[string]config.Config
 
 	// clusterLocalHosts extracted from the MeshConfig
 	clusterLocalHosts ClusterLocalHosts
@@ -647,6 +651,7 @@ func NewPushContext() *PushContext {
 		sidecarIndex:            newSidecarIndex(),
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewayIndex:            newGatewayIndex(),
+		SecretsByNameSpace:      map[string]map[string]config.Config{},
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
 	}
@@ -1164,6 +1169,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initSecrets(env); err != nil {
+		return err
+	}
+
 	if err := ps.initKubernetesGateways(env); err != nil {
 		return err
 	}
@@ -1219,12 +1228,14 @@ func (ps *PushContext) updateContext(
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, secretChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case kind.ServiceEntry:
 			servicesChanged = true
+		case kind.Secret:
+			secretChanged = true
 		case kind.DestinationRule:
 			destinationRulesChanged = true
 		case kind.VirtualService:
@@ -1263,6 +1274,12 @@ func (ps *PushContext) updateContext(
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+	}
+
+	if secretChanged {
+		if err := ps.initSecrets(env); err != nil {
+			return err
+		}
 	}
 
 	if servicesChanged || gatewayAPIChanged {
@@ -1413,6 +1430,22 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 
 	ps.initServiceAccounts(env, allServices)
 
+	return nil
+}
+
+// pre computes secrets per namespace
+func (ps *PushContext) initSecrets(env *Environment) error {
+	secretConfigs, err := env.List(gvk.Secret, NamespaceAll)
+	if err != nil {
+		return err
+	}
+	sortConfigByCreationTime(secretConfigs)
+	for _, secretConfig := range secretConfigs {
+		if _, exists := ps.SecretsByNameSpace[secretConfig.Namespace]; !exists {
+			ps.SecretsByNameSpace[secretConfig.Namespace] = map[string]config.Config{}
+		}
+		ps.SecretsByNameSpace[secretConfig.Namespace][secretConfig.Name] = secretConfig
+	}
 	return nil
 }
 
@@ -2061,6 +2094,15 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 func (ps *PushContext) NetworkManager() *NetworkManager {
 	return ps.networkMgr
+}
+
+func (ps *PushContext) GetSecret(name, namespace string) *v1.Secret {
+	if m, exists := ps.SecretsByNameSpace[namespace]; exists {
+		if config, exists := m[name]; exists {
+			return config.Spec.(*v1.Secret)
+		}
+	}
+	return nil
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

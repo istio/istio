@@ -771,6 +771,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
 		MustAdd(IstioTelemetryV1Alpha1Telemetries).
+		MustAdd(K8SCoreV1Secrets).
 		Build()
 
 	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
@@ -789,6 +790,7 @@ var (
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
 			MustAdd(IstioTelemetryV1Alpha1Telemetries).
+			MustAdd(K8SCoreV1Secrets).
 			MustAdd(K8SGatewayApiV1Alpha2Gatewayclasses).
 			MustAdd(K8SGatewayApiV1Alpha2Gateways).
 			MustAdd(K8SGatewayApiV1Alpha2Httproutes).

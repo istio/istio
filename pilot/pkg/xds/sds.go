@@ -18,6 +18,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"istio.io/istio/pilot/pkg/credentials/kube"
 	"strings"
 	"time"
 
@@ -91,7 +92,107 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 	return res
 }
 
+func getCaCert(ps *model.PushContext, name, namespace string) (cert []byte, err error) {
+	if secret := ps.GetSecret(name, namespace); secret != nil {
+		return kube.ExtractRoot(secret)
+	}
+	// Could not fetch cert, look for secret without -cacert suffix
+	strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
+	if secret := ps.GetSecret(strippedName, namespace); secret != nil {
+		return kube.ExtractRoot(secret)
+	}
+	return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
+}
+
+func getKeyAndCert(ps *model.PushContext, name, namespace string) (key []byte, cert []byte, err error) {
+	if secret := ps.GetSecret(name, namespace); secret != nil {
+		return kube.ExtractKeyAndCert(secret)
+	}
+	return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
+}
+
+func (s *SecretGen) generateFromPushContext(sr SecretResource, proxy *model.Proxy, ps *model.PushContext) *discovery.Resource {
+	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
+	if isCAOnlySecret {
+		caCert, err := getCaCert(ps, sr.Name, sr.Namespace)
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			return nil
+		}
+		if features.VerifySDSCertificate {
+			if err := validateCertificate(caCert); err != nil {
+				recordInvalidCertificate(sr.ResourceName, err)
+				return nil
+			}
+		}
+		res := toEnvoyCaSecret(sr.ResourceName, caCert)
+		return res
+	}
+
+	key, cert, err := getKeyAndCert(ps, sr.Name, sr.Namespace)
+	if err != nil {
+		pilotSDSCertificateErrors.Increment()
+		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		return nil
+	}
+	if features.VerifySDSCertificate {
+		if err := validateCertificate(cert); err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
+			return nil
+		}
+	}
+	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
+	return res
+
+}
+
+func (s *SecretGen) generateMCP(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
+		return nil, model.DefaultXdsLogDetails, nil
+	}
+	var updatedSecrets map[model.ConfigKey]struct{}
+	if !req.Full {
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+	}
+
+	resources := s.parseResources(w.ResourceNames, proxy)
+
+	results := model.Resources{}
+	cached, regenerated := 0, 0
+	for _, sr := range resources {
+		if updatedSecrets != nil {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+				// This is an incremental update, filter out secrets that are not updated.
+				continue
+			}
+		}
+
+		cachedItem, f := s.cache.Get(sr)
+		if f && !features.EnableUnsafeAssertions {
+			// If it is in the Cache, add it and continue
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+			results = append(results, cachedItem)
+			cached++
+			continue
+		}
+		regenerated++
+		res := s.generateFromPushContext(sr, proxy, req.Push)
+		if res != nil {
+			s.cache.Add(sr, req, res)
+			results = append(results, res)
+		}
+	}
+	return results, model.XdsLogDetails{
+		Incremental:    updatedSecrets != nil,
+		AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated),
+	}, nil
+}
+
 func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	if s.secrets == nil {
+		return s.generateMCP(proxy, w, req)
+	}
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil

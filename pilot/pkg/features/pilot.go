@@ -406,6 +406,12 @@ var (
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()
 
+	EnableSecretOverMCP = env.RegisterBoolVar(
+		"PILOT_ENABLE_SECRET_OVER_MCP",
+		true,
+		"If enabled, pilot will accept secret resouces over MCP",
+	).Get()
+
 	// TODO: Move this to proper API.
 	trustedGatewayCIDR = env.RegisterStringVar(
 		"TRUSTED_GATEWAY_CIDR",

@@ -182,7 +182,7 @@ func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byt
 		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 
-	return extractKeyAndCert(k8sSecret)
+	return ExtractKeyAndCert(k8sSecret)
 }
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
@@ -194,9 +194,9 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, 
 		if caCertErr != nil {
 			return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
 		}
-		return extractRoot(k8sSecret)
+		return ExtractRoot(k8sSecret)
 	}
-	return extractRoot(k8sSecret)
+	return ExtractRoot(k8sSecret)
 }
 
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
@@ -233,8 +233,8 @@ func hasValue(d map[string][]byte, keys ...string) bool {
 	return true
 }
 
-// extractKeyAndCert extracts server key, certificate
-func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
+// ExtractKeyAndCert extracts server key, certificate
+func ExtractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
 	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
 		return scrt.Data[GenericScrtKey], scrt.Data[GenericScrtCert], nil
 	}
@@ -265,8 +265,8 @@ func truncatedKeysMessage(data map[string][]byte) string {
 	return fmt.Sprintf("%s, and %d more...", strings.Join(keys[:3], ", "), len(keys)-3)
 }
 
-// extractRoot extracts the root certificate
-func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
+// ExtractRoot extracts the root certificate
+func ExtractRoot(scrt *v1.Secret) (cert []byte, err error) {
 	if hasValue(scrt.Data, GenericScrtCaCert) {
 		return scrt.Data[GenericScrtCaCert], nil
 	}
