@@ -850,11 +850,10 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
-	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enabledFailover := cluster.OutlierDetection != nil
+	// Failover should only be applied with outlier detection or SendUnhealthyEndpoints, or traffic will never failover.
+	odEnabled := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {
-		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enabledFailover)
+		loadbalancer.ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, odEnabled)
 	}
 }
 

@@ -28,6 +28,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
@@ -37,6 +38,12 @@ import (
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
+	sendUnhealthyEndpoints := features.SendUnhealthyEndpoints.Load()
+	testApplyLocalitySetting(t, sendUnhealthyEndpoints)
+	testApplyLocalitySetting(t, !sendUnhealthyEndpoints)
+}
+
+func testApplyLocalitySetting(t *testing.T, sendUnhealthyEndpoints bool) {
 	locality := &core.Locality{
 		Region:  "region1",
 		Zone:    "zone1",
@@ -82,7 +89,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	t.Run("Failover: all priorities", func(t *testing.T) {
 		g := NewWithT(t)
-		env := buildEnvForClustersWithFailover()
+		env := buildEnvForClustersWithFailover(sendUnhealthyEndpoints)
 		cluster := buildFakeCluster()
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -108,7 +115,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	t.Run("Failover: priorities with gaps", func(t *testing.T) {
 		g := NewWithT(t)
-		env := buildEnvForClustersWithFailover()
+		env := buildEnvForClustersWithFailover(sendUnhealthyEndpoints)
 		cluster := buildSmallCluster()
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -134,7 +141,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
 		g := NewWithT(t)
-		env := buildEnvForClustersWithFailover()
+		env := buildEnvForClustersWithFailover(sendUnhealthyEndpoints)
 		cluster := buildSmallClusterWithNilLocalities()
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -616,7 +623,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	return env
 }
 
-func buildEnvForClustersWithFailover() *model.Environment {
+func buildEnvForClustersWithFailover(sendUnhealthyEndpoints bool) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -651,6 +658,11 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.ConfigStore = configStore
 	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
+	var outlierDetection *networking.OutlierDetection
+	if !sendUnhealthyEndpoints {
+		outlierDetection = &networking.OutlierDetection{}
+	}
+
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
@@ -663,7 +675,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					OutlierDetection: &networking.OutlierDetection{},
+					OutlierDetection: outlierDetection,
 				},
 			},
 		},

@@ -175,8 +175,8 @@ func TestSAUpdate(t *testing.T) {
 	}
 }
 
-func TestEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+func newFakeDiscoveryServerForEDSTests(t *testing.T) *xds.FakeDiscoveryServer {
+	return xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
 		DiscoveryServerModifier: func(s *xds.DiscoveryServer) {
 			addUdsEndpoint(s)
@@ -193,18 +193,18 @@ func TestEds(t *testing.T) {
 				newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 		},
 	})
+}
+
+func TestEds(t *testing.T) {
+	s := newFakeDiscoveryServerForEDSTests(t)
 
 	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
-	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adscConn, t)
 	})
 	t.Run("edsz", func(t *testing.T) {
 		testEdsz(t, s, "test-1.default")
-	})
-	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
-		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
 	})
 	t.Run("UDSEndpoints", func(t *testing.T) {
 		testUdsEndpoints(adscConn, t)
@@ -229,6 +229,27 @@ func TestEds(t *testing.T) {
 			t.Error("No clusters in ADS response")
 		}
 	})
+}
+
+// We should test both cases - when features.SendUnhealthyEndpoints is enabled and disabled.
+// Different instances of the fake xDS server are required for each case to test properly.
+func dotestLocalityPrioritizedEndpoints(t *testing.T, sendUnhealthyEndpoints bool) {
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, sendUnhealthyEndpoints)
+
+	s := newFakeDiscoveryServerForEDSTests(t)
+
+	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
+	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
+
+	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
+		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
+	})
+}
+
+func TestEDSLocalityPrioritizedEndpoints(t *testing.T) {
+	sendUnhealthyEndpoints := features.SendUnhealthyEndpoints.Load()
+	dotestLocalityPrioritizedEndpoints(t, sendUnhealthyEndpoints)
+	dotestLocalityPrioritizedEndpoints(t, !sendUnhealthyEndpoints)
 }
 
 // newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with
@@ -777,9 +798,15 @@ func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *test
 	verifyLocalityPriorities(asdcLocality, endpoints1["outbound|80||locality.cluster.local"].GetEndpoints(), t)
 	verifyLocalityPriorities(asdc2Locality, endpoints2["outbound|80||locality.cluster.local"].GetEndpoints(), t)
 
-	// No outlier detection specified for this cluster, so we shouldn't apply priority.
-	verifyNoLocalityPriorities(endpoints1["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
-	verifyNoLocalityPriorities(endpoints2["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+	// No outlier detection specified for this cluster.
+	// Priority should only be applied if features.SendUnhealthyEndpoints is enabled.
+	if features.SendUnhealthyEndpoints.Load() {
+		verifyLocalityPriorities(asdcLocality, endpoints1["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+		verifyLocalityPriorities(asdc2Locality, endpoints2["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+	} else {
+		verifyNoLocalityPriorities(endpoints1["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+		verifyNoLocalityPriorities(endpoints2["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+	}
 }
 
 // Tests that Services with multiple ports sharing the same port number are properly sent endpoints.

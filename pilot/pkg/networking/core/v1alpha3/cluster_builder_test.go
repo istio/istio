@@ -28,6 +28,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -893,10 +894,23 @@ func TestApplyEdsConfig(t *testing.T) {
 }
 
 func TestBuildDefaultCluster(t *testing.T) {
+	sendUnhealthyEndpoints := features.SendUnhealthyEndpoints.Load()
+	testBuildDefaultCluster(t, sendUnhealthyEndpoints)
+	testBuildDefaultCluster(t, !sendUnhealthyEndpoints)
+}
+
+func testBuildDefaultCluster(t *testing.T, sendUnhealthyEndpoints bool) {
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, sendUnhealthyEndpoints)
+
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     8080,
 		Protocol: protocol.HTTP,
+	}
+
+	commonLbConfig := &cluster.Cluster_CommonLbConfig{}
+	if sendUnhealthyEndpoints {
+		commonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
 
 	cases := []struct {
@@ -918,7 +932,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				CommonLbConfig:       commonLbConfig,
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
@@ -1010,7 +1024,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				CommonLbConfig:       commonLbConfig,
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LbPolicy:             defaultLBAlgorithm(),
