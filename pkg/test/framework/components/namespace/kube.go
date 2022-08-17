@@ -239,6 +239,14 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		if err := c.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
 			return err
 		}
+		_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
+			"default",
+			types.JSONPatchType,
+			[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
+			metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
