@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 
@@ -475,17 +476,41 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 			endpointAddress = ingressListener.DefaultEndpoint
 		} else if len(ingressListener.DefaultEndpoint) > 0 {
 			// parse the ip, port. Validation guarantees presence of :
-			parts := strings.Split(ingressListener.DefaultEndpoint, ":")
-			if len(parts) < 2 {
+			hostIP, hostPort, hostErr := net.SplitHostPort(ingressListener.DefaultEndpoint)
+			if hostPort == "" || hostErr != nil {
 				continue
 			}
 			var err error
-			if port, err = strconv.Atoi(parts[1]); err != nil {
+			if port, err = strconv.Atoi(hostPort); err != nil {
 				continue
 			}
-			if parts[0] == model.PodIPAddressPrefix {
-				endpointAddress = cb.proxyIPAddresses[0]
-			} else if parts[0] == model.LocalhostAddressPrefix {
+			if hostIP == model.PodIPAddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() != nil {
+						endpointAddress = proxyIPaddr
+						break
+					}
+				}
+				// if there is no any IPv4 address in proxyIPAddresses
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostAddressPrefix
+				}
+			} else if hostIP == model.PodIPv6AddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() == nil {
+						if edAddr.To16() != nil {
+							endpointAddress = proxyIPaddr
+							break
+						}
+					}
+				}
+				// if there is no any IPv6 address in proxyIPAddresses
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostIPv6AddressPrefix
+				}
+			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}

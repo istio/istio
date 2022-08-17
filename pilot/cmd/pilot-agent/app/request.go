@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package app
 
 import (
 	"fmt"
@@ -76,7 +76,6 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(requestCmd)
 	requestCmd.PersistentFlags().Int32Var(&debugRequestPort, "debug-port", debugRequestPort,
 		"Set the port to make a local request to. The default points to the Envoy admin API.")
 }
