@@ -24,6 +24,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
@@ -34,15 +35,18 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name    string
-		service *model.Service
-		port    int
-		node    *model.Proxy
-		want    []string
+		name       string
+		service    *model.Service
+		port       int
+		node       *model.Proxy
+		wantLegacy []string
+		want       []string
 	}{
 		{
 			name: "same domain",
@@ -54,9 +58,13 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "local.campus.net",
 			},
-			want: []string{
+			wantLegacy: []string{
 				"foo.local.campus.net", "foo.local.campus.net:80",
 				"foo", "foo:80",
+			},
+			want: []string{
+				"foo.local.campus.net",
+				"foo",
 			},
 		},
 		{
@@ -69,13 +77,18 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "remote.campus.net",
 			},
-			want: []string{
+			wantLegacy: []string{
 				"foo.local.campus.net",
 				"foo.local.campus.net:80",
 				"foo.local",
 				"foo.local:80",
 				"foo.local.campus",
 				"foo.local.campus:80",
+			},
+			want: []string{
+				"foo.local.campus.net",
+				"foo.local",
+				"foo.local.campus",
 			},
 		},
 		{
@@ -88,7 +101,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			wantLegacy: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			want:       []string{"foo.local.campus.net"},
 		},
 		{
 			name: "k8s service with default domain",
@@ -100,7 +114,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "default.svc.cluster.local",
 			},
-			want: []string{
+			wantLegacy: []string{
 				"echo.default.svc.cluster.local",
 				"echo.default.svc.cluster.local:8123",
 				"echo",
@@ -109,6 +123,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default.svc:8123",
 				"echo.default",
 				"echo.default:8123",
+			},
+			want: []string{
+				"echo.default.svc.cluster.local",
+				"echo",
+				"echo.default.svc",
+				"echo.default",
 			},
 		},
 		{
@@ -121,9 +141,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "default.svc.cluster.local",
 			},
-			want: []string{
+			wantLegacy: []string{
 				"foo.default.svc.bar.baz",
 				"foo.default.svc.bar.baz:8123",
+			},
+			want: []string{
+				"foo.default.svc.bar.baz",
 			},
 		},
 		{
@@ -136,13 +159,18 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "mesh.svc.cluster.local",
 			},
-			want: []string{
+			wantLegacy: []string{
 				"echo.default.svc.cluster.local",
 				"echo.default.svc.cluster.local:8123",
 				"echo.default",
 				"echo.default:8123",
 				"echo.default.svc",
 				"echo.default.svc:8123",
+			},
+			want: []string{
+				"echo.default.svc.cluster.local",
+				"echo.default",
+				"echo.default.svc",
 			},
 		},
 		{
@@ -155,7 +183,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "foo.svc.custom.k8s.local",
 			},
-			want: []string{"google.local", "google.local:8123"},
+			wantLegacy: []string{"google.local", "google.local:8123"},
+			want:       []string{"google.local"},
 		},
 		{
 			name: "ipv4 domain",
@@ -167,7 +196,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"1.2.3.4", "1.2.3.4:8123"},
+			wantLegacy: []string{"1.2.3.4", "1.2.3.4:8123"},
+			want:       []string{"1.2.3.4"},
 		},
 		{
 			name: "ipv6 domain",
@@ -179,7 +209,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+			wantLegacy: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+			want:       []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]"},
 		},
 		{
 			name: "back subset of cluster domain in address",
@@ -191,7 +222,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.cluster.local",
 			},
-			want: []string{"aaa.example.local", "aaa.example.local:7777"},
+			wantLegacy: []string{"aaa.example.local", "aaa.example.local:7777"},
+			want:       []string{"aaa.example.local"},
 		},
 		{
 			name: "front subset of cluster domain in address",
@@ -203,7 +235,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.my.long.domain.suffix",
 			},
-			want: []string{"aaa.example.my", "aaa.example.my:7777"},
+			wantLegacy: []string{"aaa.example.my", "aaa.example.my:7777"},
+			want:       []string{"aaa.example.my"},
 		},
 		{
 			name: "large subset of cluster domain in address",
@@ -215,7 +248,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.my.long.domain.suffix",
 			},
-			want: []string{"aaa.example.my.long", "aaa.example.my.long:7777"},
+			wantLegacy: []string{"aaa.example.my.long", "aaa.example.my.long:7777"},
+			want:       []string{"aaa.example.my.long"},
 		},
 		{
 			name: "no overlap of cluster domain in address",
@@ -227,24 +261,69 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.cluster.local",
 			},
-			want: []string{"aaa.example.com", "aaa.example.com:7777"},
+			wantLegacy: []string{"aaa.example.com", "aaa.example.com:7777"},
+			want:       []string{"aaa.example.com"},
+		},
+		{
+			name: "wildcard",
+			service: &model.Service{
+				Hostname:     "headless.default.svc.cluster.local",
+				MeshExternal: true,
+				Resolution:   model.Passthrough,
+				Attributes:   model.ServiceAttributes{ServiceRegistry: provider.Kubernetes},
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+			},
+			wantLegacy: []string{
+				"headless.default.svc.cluster.local",
+				"headless.default.svc.cluster.local:7777",
+				"headless",
+				"headless:7777",
+				"headless.default.svc",
+				"headless.default.svc:7777",
+				"headless.default",
+				"headless.default:7777",
+				"*.headless.default.svc.cluster.local",
+				"*.headless.default.svc.cluster.local:7777",
+				"*.headless",
+				"*.headless:7777",
+				"*.headless.default.svc",
+				"*.headless.default.svc:7777",
+				"*.headless.default",
+				"*.headless.default:7777",
+			},
+			want: []string{
+				"headless.default.svc.cluster.local",
+				"headless",
+				"headless.default.svc",
+				"headless.default",
+				"*.headless.default.svc.cluster.local",
+				"*.headless",
+				"*.headless.default.svc",
+				"*.headless.default",
+			},
 		},
 	}
 
-	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
-		out, _ := generateVirtualHostDomains(service, port, node)
-		if !reflect.DeepEqual(out, want) {
-			return fmt.Errorf("unexpected virtual hosts:\ngot  %v\nwant %v", out, want)
-		}
-		return nil
+	testFn := func(t test.Failer, service *model.Service, port int, node *model.Proxy, want []string) {
+		out, _ := generateVirtualHostDomains(service, port, port, node)
+		assert.Equal(t, out, want)
 	}
 
+	test.SetBoolForTest(t, &features.SidecarIgnorePort, true)
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			if err := testFn(c.service, c.port, c.node, c.want); err != nil {
-				t.Error(err)
-			}
+			t.Run("legacy", func(t *testing.T) {
+				c.node.IstioVersion = model.ParseIstioVersion("1.14.0")
+				testFn(t, c.service, c.port, c.node, c.wantLegacy)
+			})
+			t.Run("modern", func(t *testing.T) {
+				c.node.IstioVersion = model.ParseIstioVersion("1.15.0")
+				testFn(t, c.service, c.port, c.node, c.want)
+			})
 		})
 	}
 }

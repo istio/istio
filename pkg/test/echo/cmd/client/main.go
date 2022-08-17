@@ -204,7 +204,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 			CertFile:           hboneClientCert,
 			KeyFile:            hboneClientKey,
 			CaCertFile:         hboneCaFile,
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: insecureSkipVerify,
 		}
 		for _, header := range hboneHeaders {
 			parts := strings.SplitN(header, ":", 2)
