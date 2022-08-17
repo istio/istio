@@ -45,6 +45,9 @@ type Settings struct {
 	// MetalLB.
 	LoadBalancerSupported bool
 
+	// Architecture indicates the architecture of the cluster under test
+	Architecture string
+
 	// MCSControllerEnabled indicates that the Kubernetes environment has a Multi-Cluster Services (MCS)
 	// controller up and running.
 	MCSControllerEnabled bool

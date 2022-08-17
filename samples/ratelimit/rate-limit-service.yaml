@@ -113,7 +113,7 @@ spec:
         app: ratelimit
     spec:
       containers:
-      - image: envoyproxy/ratelimit:b163a2d5 # 2021/11/04
+      - image: envoyproxy/ratelimit:9d8d70a8 # 2022/08/16
         imagePullPolicy: Always
         name: ratelimit
         command: ["/bin/ratelimit"]

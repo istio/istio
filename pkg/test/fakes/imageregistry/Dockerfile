@@ -1,3 +1,4 @@
 FROM scratch
-COPY ./main /registry
+ARG TARGETARCH
+COPY main-${TARGETARCH:-amd64}  /registry
 ENTRYPOINT ["/registry"]
