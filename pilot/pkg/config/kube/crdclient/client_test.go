@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.ExtendedClient) {
+func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
 		createCRD(t, fake, s.Resource())

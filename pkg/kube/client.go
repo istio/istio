@@ -151,8 +151,10 @@ type Client interface {
 	GetKubernetesVersion() (*kubeVersion.Info, error)
 }
 
-// ExtendedClient is an extended client with additional helpers/functionality for Istioctl and testing.
-type ExtendedClient interface {
+// CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
+// CLIClient is not appropriate for controllers, as it does a number of highly privileged or highly risky operations
+// such as `exec`, `port-forward`, etc.
+type CLIClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
@@ -214,14 +216,14 @@ type ExtendedClient interface {
 type PortManager func() (uint16, error)
 
 var (
-	_ Client         = &client{}
-	_ ExtendedClient = &client{}
+	_ Client    = &client{}
+	_ CLIClient = &client{}
 )
 
 const resyncInterval = 0
 
 // NewFakeClient creates a new, fake, client
-func NewFakeClient(objects ...runtime.Object) ExtendedClient {
+func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
@@ -297,7 +299,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	return c
 }
 
-func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedClient {
+func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
@@ -347,7 +349,7 @@ type client struct {
 	revision        string
 	restClient      *rest.RESTClient
 	discoveryClient discovery.CachedDiscoveryInterface
-	mapper          meta.RESTMapper
+	mapper          meta.ResettableRESTMapper
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
@@ -356,7 +358,7 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+func newClientInternal(clientFactory *clientFactory, revision string) (*client, error) {
 	var c client
 	var err error
 
@@ -378,7 +380,7 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	c.mapper, err = clientFactory.ToRESTMapper()
+	c.mapper, err = clientFactory.mapper.Get()
 	if err != nil {
 		return nil, err
 	}
@@ -429,19 +431,21 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 
 // NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
 // the cluster to access.
-func NewDefaultClient() (ExtendedClient, error) {
-	return NewExtendedClient(BuildClientCmd("", ""), "")
+func NewDefaultClient() (Client, error) {
+	return NewClient(BuildClientCmd("", ""))
 }
 
-// NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
+// NewCLIClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision)
+// This is appropriate for use in CLI libraries because it exposes functionality unsafe for in-cluster controllers,
+// and uses standard CLI (kubectl) caching.
+func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClient, error) {
+	return newClientInternal(newClientFactory(clientConfig, true), revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+	return newClientInternal(newClientFactory(clientConfig, false), "")
 }
 
 func (c *client) RESTConfig() *rest.Config {
@@ -1037,6 +1041,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
 			c.discoveryClient.Invalidate()
+			c.mapper.Reset()
 		}
 	}
 	return nil

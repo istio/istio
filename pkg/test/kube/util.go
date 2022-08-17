@@ -41,7 +41,7 @@ var (
 type PodFetchFunc func() ([]kubeApiCore.Pod, error)
 
 // NewPodFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
-func NewPodFetch(a istioKube.ExtendedClient, namespace string, selectors ...string) PodFetchFunc {
+func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
 	return func() ([]kubeApiCore.Pod, error) {
 		pods, err := a.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
@@ -52,7 +52,7 @@ func NewPodFetch(a istioKube.ExtendedClient, namespace string, selectors ...stri
 }
 
 // NewSinglePodFetch creates a new PodFetchFunction that fetches a single pod matching the given label selectors.
-func NewSinglePodFetch(a istioKube.ExtendedClient, namespace string, selectors ...string) PodFetchFunc {
+func NewSinglePodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
 	return func() ([]kubeApiCore.Pod, error) {
 		pods, err := a.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
@@ -73,7 +73,7 @@ func NewSinglePodFetch(a istioKube.ExtendedClient, namespace string, selectors .
 
 // NewPodMustFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
 // If no pods are found, an error is returned
-func NewPodMustFetch(a istioKube.ExtendedClient, namespace string, selectors ...string) PodFetchFunc {
+func NewPodMustFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
 	return func() ([]kubeApiCore.Pod, error) {
 		pods, err := a.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {

@@ -114,7 +114,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 }
 
 func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, error) {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 	if err != nil {
 		return nil, err
 	}
