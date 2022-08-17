@@ -866,6 +866,11 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 // SetWorkloadLabels will set the node.Labels.
 // It merges both node meta labels and workload labels and give preference to workload labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
+	// If this is VM proxy, do not override labels at all, because in istio test we use pod to simulate VM.
+	if node.IsVM() {
+		node.Labels = node.Metadata.Labels
+		return
+	}
 	labels := env.GetProxyWorkloadLabels(node)
 	if labels != nil {
 		node.Labels = make(map[string]string, len(labels)+len(node.Metadata.StaticLabels))
@@ -1139,7 +1144,7 @@ func IsPrivilegedPort(port uint32) bool {
 
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
-	return node.Labels[constants.TestVMLabel] != ""
+	return node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
 func (node *Proxy) IsProxylessGrpc() bool {

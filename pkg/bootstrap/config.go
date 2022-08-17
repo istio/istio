@@ -467,7 +467,6 @@ func parseEnvVar(varStr string) (string, string) {
 		return varStr, ""
 	}
 	return parts[0], parts[1]
-	return parts[0], parts[1]
 }
 
 func jsonStringToMap(jsonStr string) (m map[string]string) {
