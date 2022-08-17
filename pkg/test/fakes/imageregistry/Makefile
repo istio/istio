@@ -22,19 +22,20 @@ BIN_NAME := main
 
 # NOTE: TAG should be updated whenever changes are made in this directory
 # This should also be updated in dependent components
-TAG := 1.2
+TAG := 1.3
 
 all: build_and_push clean
 
-$(MD_PATH)/$(BIN_NAME): $(MD_PATH)/main.go
-	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_NAME) -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
+$(MD_PATH)/$(BIN_NAME)-amd64: $(MD_PATH)/main.go
+	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_NAME)-amd64 -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
 
-build: $(MD_PATH)/$(BIN_NAME)
+$(MD_PATH)/$(BIN_NAME)-arm64: $(MD_PATH)/main.go
+	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_NAME)-arm64 -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
 
-build_and_push:  $(MD_PATH)/$(BIN_NAME)
-	docker buildx build $(MD_PATH) -t $(IMG):$(TAG) --push
-	docker tag $(IMG):$(TAG) $(IMG):latest
-	docker push $(IMG):latest
+build: $(MD_PATH)/$(BIN_NAME)-amd64  $(MD_PATH)/$(BIN_NAME)-arm64
+
+build_and_push: build
+	docker buildx build --platform=linux/amd64,linux/arm64 $(MD_PATH) -t $(IMG):$(TAG) -t $(IMG):latest --push
 
 clean:
-	rm $(MD_PATH)/$(BIN_NAME)
+	rm $(MD_PATH)/$(BIN_NAME)-*

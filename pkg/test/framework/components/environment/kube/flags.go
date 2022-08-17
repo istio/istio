@@ -35,10 +35,16 @@ const (
 	defaultKubeConfig = "~/.kube/config"
 )
 
+const (
+	ArchAMD64 = "amd64"
+	ArchARM64 = "arm64"
+)
+
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
 		LoadBalancerSupported: true,
+		Architecture:          ArchAMD64,
 	}
 	// hold kubeconfigs from command line to split later
 	kubeConfigs string
@@ -265,6 +271,8 @@ func init() {
 		"Indicates whether or not clusters in the environment support external IPs for LoadBalaner services. Used "+
 			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD tests."+
 			"without MetalLB installed.")
+	flag.StringVar(&settingsFromCommandLine.Architecture, "istio.test.kube.architecture", settingsFromCommandLine.Architecture,
+		"Indicates the architecture (arm64 or amd64) of the cluster under test. This is used to customize tests that require per-arch specific settings")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<controlPlaneClusterIndex>, where the indexes refer to the order in which "+
