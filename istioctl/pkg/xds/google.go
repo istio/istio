@@ -76,7 +76,7 @@ type hubMembership struct {
 	WorkloadIdentityPool string
 }
 
-func getHubMembership(ctx context.Context, exClient kube.ExtendedClient) (*hubMembership, error) {
+func getHubMembership(ctx context.Context, exClient kube.CLIClient) (*hubMembership, error) {
 	client := exClient.Dynamic()
 	gvr := schema.GroupVersionResource{
 		Group:    "hub.gke.io",
