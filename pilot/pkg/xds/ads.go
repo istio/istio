@@ -871,8 +871,8 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 		}
 	}
 
-	debounceTime := time.Since(req.DebounceStart)
-	debounceTime.Record(debounceTime.Seconds())
+	t := time.Since(req.DebounceStart)
+	debounceTime.Record(t.Seconds())
 
 	req.Start = time.Now()
 	for _, p := range s.AllClients() {
