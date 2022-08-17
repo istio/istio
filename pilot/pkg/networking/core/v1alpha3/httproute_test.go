@@ -21,10 +21,10 @@ import (
 	"time"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"istio.io/istio/pilot/pkg/features"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
