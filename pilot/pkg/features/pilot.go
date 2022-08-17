@@ -531,7 +531,7 @@ var (
 
 	StripHostPort = env.RegisterBoolVar("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
 		"If enabled, Gateway will remove any port from host/authority header "+
-			"before any processing of request by HTTP filters or routing.").Get()
+			"before any processing of request by HTTP filters or routing. Deprecated: in Istio 1.15+ port is ignored in domain matching.").Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
@@ -640,6 +640,8 @@ var (
 
 	LocalClusterSecretWatcher = env.RegisterBoolVar("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
+
+	SidecarIgnorePort = env.RegisterBoolVar("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

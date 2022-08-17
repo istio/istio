@@ -413,7 +413,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -437,7 +437,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    buildGatewayVirtualHostDomains(hostname, port),
+				Domains:                    buildGatewayVirtualHostDomains(node, hostname, port),
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
@@ -471,6 +471,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
+	}
+	if GatewayIgnorePort(node) {
+		routeCfg.IgnorePortInHostMatching = true
 	}
 
 	return routeCfg
@@ -1012,9 +1015,9 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	return false
 }
 
-func buildGatewayVirtualHostDomains(hostname string, port int) []string {
+func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" {
+	if features.StripHostPort || hostname == "*" || GatewayIgnorePort(node) {
 		return domains
 	}
 
