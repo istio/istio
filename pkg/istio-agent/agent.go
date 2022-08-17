@@ -121,8 +121,8 @@ type Agent struct {
 	secretCache *cache.SecretManagerClient
 
 	// Used when proxying envoy xds via istio-agent is enabled.
-	xdsProxy      *XdsProxy
-	caFileWatcher filewatcher.FileWatcher
+	xdsProxy    *XdsProxy
+	fileWatcher filewatcher.FileWatcher
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
 	localDNSServer *dnsClient.LocalDNSServer
@@ -216,11 +216,11 @@ type AgentOptions struct {
 // health checking for VMs and DNS proxying).
 func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options, eopts envoy.ProxyConfig) *Agent {
 	return &Agent{
-		proxyConfig:   proxyConfig,
-		cfg:           agentOpts,
-		secOpts:       sopts,
-		envoyOpts:     eopts,
-		caFileWatcher: filewatcher.NewWatcher(),
+		proxyConfig: proxyConfig,
+		cfg:         agentOpts,
+		secOpts:     sopts,
+		envoyOpts:   eopts,
+		fileWatcher: filewatcher.NewWatcher(),
 	}
 }
 
@@ -461,7 +461,11 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
 	}
-	go a.caFileWatcherHandler(ctx, rootCAForXDS)
+	go a.startFileWatcher(ctx, rootCAForXDS, func() {
+		if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
+			log.Warnf("Failed to init xds proxy dial options")
+		}
+	})
 
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
@@ -570,19 +574,20 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 	return
 }
 
-func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
-	if err := a.caFileWatcher.Add(caFile); err != nil {
-		log.Warnf("Failed to add file watcher %s, caFile", caFile)
+func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler func()) {
+	if err := a.fileWatcher.Add(filePath); err != nil {
+		log.Warnf("Failed to add file watcher %s", filePath)
+		return
 	}
 
-	log.Debugf("Add CA file %s watcher", caFile)
+	log.Debugf("Add file %s watcher", filePath)
 	for {
 		select {
-		case gotEvent := <-a.caFileWatcher.Events(caFile):
-			log.Debugf("Receive file %s event %v", caFile, gotEvent)
-			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
-				log.Warnf("Failed to init xds proxy dial options")
-			}
+		case gotEvent := <-a.fileWatcher.Events(filePath):
+			log.Debugf("Receive file %s event %v", filePath, gotEvent)
+			handler()
+		case err := <-a.fileWatcher.Errors(filePath):
+			log.Warnf("Watch file %s error: %v", filePath, err)
 		case <-ctx.Done():
 			return
 		}
@@ -679,8 +684,8 @@ func (a *Agent) close() {
 	if a.secretCache != nil {
 		a.secretCache.Close()
 	}
-	if a.caFileWatcher != nil {
-		_ = a.caFileWatcher.Close()
+	if a.fileWatcher != nil {
+		_ = a.fileWatcher.Close()
 	}
 }
 
