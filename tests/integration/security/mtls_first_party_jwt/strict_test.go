@@ -39,19 +39,6 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 		Features("security.control-plane.k8s-certs.jwt").
 		Run(func(t framework.TestContext) {
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
-			allApps := reachability.AllAppInstances{
-				A:             A,
-				B:             B,
-				C:             C,
-				D:             D,
-				E:             E,
-				Multiversion:  Multiversion,
-				VM:            VM,
-				External:      External,
-				Naked:         Naked,
-				Headless:      Headless,
-				HeadlessNaked: HeadlessNaked,
-			}
 			testCases := []reachability.TestCase{
 				{
 					ConfigFile: "global-mtls-on-no-dr.yaml",
@@ -109,6 +96,6 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					},
 				},
 			}
-			reachability.Run(testCases, t, &allApps)
+			reachability.Run(testCases, t)
 		})
 }
