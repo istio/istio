@@ -427,7 +427,7 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
-	jwtStr, jwtPolicy, err := getJwtTypeOverlay(client, l)
+	jwtStr, err := getJwtTypeOverlay(client, l)
 	if err != nil {
 		if force {
 			l.LogAndPrint(err)
@@ -437,21 +437,8 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	} else {
 		overlays = append(overlays, jwtStr)
 	}
-	fsgroup := getFSGroupOverlay(client, jwtPolicy)
-	if fsgroup != "" {
-		overlays = append(overlays, fsgroup)
-	}
-	return makeTreeFromSetList(overlays)
-}
 
-func getFSGroupOverlay(config kube.Client, jwtPolicy util.JWTPolicy) string {
-	// Set ENABLE_LEGACY_FSGROUP_INJECTION to true only for Kubernetes 1.18 or older,
-	// together with third-party-jwt, as we need the fsGroup configuration for the projected
-	// service account volume mount, which is only used by third-party-jwt.
-	if kube.IsLessThanVersion(config, 19) && jwtPolicy == util.ThirdPartyJWT {
-		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
-	}
-	return ""
+	return makeTreeFromSetList(overlays)
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
@@ -487,17 +474,17 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	return tpath.AddSpecRoot(string(out))
 }
 
-func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, util.JWTPolicy, error) {
+func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
 	jwtPolicy, err := util.DetectSupportedJWTPolicy(client.Kube())
 	if err != nil {
-		return "", "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
 	if jwtPolicy == util.FirstPartyJWT {
 		// nolint: lll
 		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
 			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
 	}
-	return "values.global.jwtPolicy=" + string(jwtPolicy), jwtPolicy, nil
+	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
 // unmarshalAndValidateIOP unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
