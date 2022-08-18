@@ -61,11 +61,12 @@ var (
 
 	caFile string
 
-	hboneAddress    string
-	hboneHeaders    []string
-	hboneClientCert string
-	hboneClientKey  string
-	hboneCaFile     string
+	hboneAddress            string
+	hboneHeaders            []string
+	hboneClientCert         string
+	hboneClientKey          string
+	hboneCaFile             string
+	hboneInsecureSkipVerify bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -163,6 +164,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&hboneCaFile, "hbone-ca", "", "CA root cert file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientCert, "hbone-client-cert", "", "client certificate file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientKey, "hbone-client-key", "", "client certificate key file used for the HBONE request")
+	rootCmd.PersistentFlags().BoolVar(&hboneInsecureSkipVerify, "hbone-insecure-skip-verify", hboneInsecureSkipVerify, "skip TLS verification of HBONE request")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -204,7 +206,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 			CertFile:           hboneClientCert,
 			KeyFile:            hboneClientKey,
 			CaCertFile:         hboneCaFile,
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: hboneInsecureSkipVerify,
 		}
 		for _, header := range hboneHeaders {
 			parts := strings.SplitN(header, ":", 2)
