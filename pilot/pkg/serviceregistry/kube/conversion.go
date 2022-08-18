@@ -55,6 +55,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addr := constants.UnspecifiedIP
+	var extrAddrs []string
 	resolution := model.ClientSideLB
 	meshExternal := false
 
@@ -67,6 +68,14 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		resolution = model.Passthrough
 	} else if svc.Spec.ClusterIP != "" {
 		addr = svc.Spec.ClusterIP
+		if len(svc.Spec.ClusterIPs) > 0 {
+			for _, ip := range svc.Spec.ClusterIPs {
+				// exclude the svc.Spec.ClusterIP
+				if ip != addr {
+					extrAddrs = append(extrAddrs, ip)
+				}
+			}
+		}
 	}
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
@@ -96,16 +105,17 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
 		ClusterVIPs: model.AddressMap{
 			Addresses: map[cluster.ID][]string{
-				clusterID: {addr},
+				clusterID: append([]string{addr}, extrAddrs...),
 			},
 		},
-		Ports:           ports,
-		DefaultAddress:  addr,
-		ServiceAccounts: serviceaccounts,
-		MeshExternal:    meshExternal,
-		Resolution:      resolution,
-		CreationTime:    svc.CreationTimestamp.Time,
-		ResourceVersion: svc.ResourceVersion,
+		Ports:             ports,
+		DefaultAddress:    addr,
+		ExtraSvcAddresses: extrAddrs,
+		ServiceAccounts:   serviceaccounts,
+		MeshExternal:      meshExternal,
+		Resolution:        resolution,
+		CreationTime:      svc.CreationTimestamp.Time,
+		ResourceVersion:   svc.ResourceVersion,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,
