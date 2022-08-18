@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/cni/pkg/ambient"
+	pilotambient "istio.io/istio/pilot/pkg/ambient"
 )
 
 func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname string, podIPs []net.IPNet) (bool, error) {
@@ -51,15 +52,15 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, err
 	}
 
-	if ambient.HasLegacyLabel(pod.Labels) || ambient.HasLegacyLabel(ns.Labels) {
+	if pilotambient.HasLegacyLabel(pod.Labels) || pilotambient.HasLegacyLabel(ns.Labels) {
 		return false, fmt.Errorf("ambient: pod %s/%s or namespace has legacy labels", podNamespace, podName)
 	}
 
-	if ambient.HasSelectors(ns.Labels, ambientConfig.DisabledSelectors) {
+	if pilotambient.HasSelectors(ns.Labels, ambientConfig.DisabledSelectors) {
 		return false, fmt.Errorf("ambient: namespace %s/%s has disabled selectors", podNamespace, podName)
 	}
 
-	if ambient.ShouldPodBeInIpset(ns, pod, ambientConfig.Mode, true) {
+	if pilotambient.ShouldPodBeInIpset(ns, pod, ambientConfig.Mode, true) {
 		ambient.NodeName = pod.Spec.NodeName
 
 		ambient.HostIP, err = ambient.GetHostIP(client)

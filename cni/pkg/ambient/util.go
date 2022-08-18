@@ -78,14 +78,6 @@ func execute(cmd string, args ...string) error {
 	return nil
 }
 
-// @TODO Interim function for pep, to be replaced after design meeting
-func PodHasOptOut(pod *corev1.Pod) bool {
-	if val, ok := pod.Labels["ambient-type"]; ok {
-		return val == "pep" || val == "none"
-	}
-	return false
-}
-
 func (s *Server) matchesAmbientSelectors(lbl map[string]string) (bool, error) {
 	sel, err := metav1.LabelSelectorAsSelector(&ambientSelectors)
 	if err != nil {
@@ -111,40 +103,6 @@ func (s *Server) matchesDisabledSelectors(lbl map[string]string) (bool, error) {
 	return false, nil
 }
 
-func HasSelectors(lbls map[string]string, selectors []*metav1.LabelSelector) bool {
-	for _, selector := range selectors {
-		sel, err := metav1.LabelSelectorAsSelector(selector)
-		if err != nil {
-			log.Errorf("Failed to parse selector: %v", err)
-			return false
-		}
-
-		if sel.Matches(labels.Set(lbls)) {
-			return true
-		}
-	}
-	return false
-}
-
-// We do not support the istio.io/rev or istio-injection sidecar labels
-// If a pod or namespace has these labels, ambient mesh will not be applied
-// to that namespace
-func HasLegacyLabel(lbl map[string]string) bool {
-	for _, ls := range legacySelectors {
-		sel, err := metav1.LabelSelectorAsSelector(ls)
-		if err != nil {
-			log.Errorf("Failed to parse legacy selector: %v", err)
-			return false
-		}
-
-		if sel.Matches(labels.Set(lbl)) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func podOnMyNode(pod *corev1.Pod) bool {
 	return pod.Spec.NodeName == NodeName
 }
@@ -159,49 +117,6 @@ func (s *Server) isAmbientNamespaced() bool {
 
 func (s *Server) isAmbientOff() bool {
 	return s.meshMode == v1alpha1.MeshConfig_AmbientMeshConfig_OFF
-}
-
-func hasPodIP(pod *corev1.Pod) bool {
-	return pod.Status.PodIP != ""
-}
-
-func isRunning(pod *corev1.Pod) bool {
-	return pod.Status.Phase == corev1.PodRunning
-}
-
-func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode string, ignoreNotRunning bool) bool {
-	// Pod must:
-	// - Be running
-	// - Have an IP address
-	// - Ambient mesh not be off
-	// - Cannot have a legacy label (istio.io/rev or istio-injection=enabled)
-	// - If mesh is in namespace mode, must be in active namespace
-	if (ignoreNotRunning || (isRunning(pod) && hasPodIP(pod))) &&
-		meshMode != AmbientMeshOff.String() &&
-		!HasLegacyLabel(pod.GetLabels()) &&
-		!PodHasOptOut(pod) &&
-		IsNamespaceActive(namespace, meshMode) {
-		return true
-	}
-
-	return false
-}
-
-func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
-	// Must:
-	// - MeshConfig be in an "ON" mode
-	// - MeshConfig must be in a "DEFAULT" mode, plus:
-	//   - Namespace cannot have "legacy" labels (ie. istio.io/rev or istio-injection=enabled)
-	//   - Namespace must have label istio.io/dataplane-mode=ambient
-	if meshMode == AmbientMeshOn.String() ||
-		(meshMode == AmbientMeshNamespace.String() &&
-			namespace != nil &&
-			!HasLegacyLabel(namespace.GetLabels()) &&
-			namespace.GetLabels()["istio.io/dataplane-mode"] == "ambient") {
-		return true
-	}
-
-	return false
 }
 
 func getEnvFromPod(pod *corev1.Pod, envName string) string {

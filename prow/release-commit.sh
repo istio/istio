@@ -79,7 +79,7 @@ ${DEPENDENCIES:-$(cat <<EOD
   release-builder:
     git: https://github.com/istio/release-builder
     sha: ${BUILDER_SHA}
-architectures: [linux/amd64, linux/arm64]
+architectures: [linux/amd64]
 EOD
 )}
 dashboards:

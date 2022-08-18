@@ -56,28 +56,6 @@ var ambientSelectors metav1.LabelSelector = metav1.LabelSelector{
 	},
 }
 
-var legacySelectors = []*metav1.LabelSelector{
-	{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      "istio-injection",
-				Operator: metav1.LabelSelectorOpIn,
-				Values: []string{
-					"enabled",
-				},
-			},
-		},
-	},
-	{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      label.IoIstioRev.Name,
-				Operator: metav1.LabelSelectorOpExists,
-			},
-		},
-	},
-}
-
 type AmbientArgs struct {
 	SystemNamespace string
 	Revision        string
