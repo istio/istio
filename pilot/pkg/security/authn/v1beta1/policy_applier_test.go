@@ -704,7 +704,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			istiotest.SetBoolForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
+			istiotest.SetForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}

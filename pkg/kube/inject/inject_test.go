@@ -257,7 +257,7 @@ func TestInjection(t *testing.T) {
 			in:   "hello.yaml",
 			want: "hello-no-seccontext.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetBoolForTest(t, &features.EnableLegacyFSGroupInjection, false)
+				test.SetForTest(t, &features.EnableLegacyFSGroupInjection, false)
 				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
 			},
 		},
@@ -300,7 +300,7 @@ func TestInjection(t *testing.T) {
 			in:   "tcp-probes.yaml",
 			want: "tcp-probes-disabled.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetBoolForTest(t, &features.RewriteTCPProbes, false)
+				test.SetForTest(t, &features.RewriteTCPProbes, false)
 			},
 		},
 		{
