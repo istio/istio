@@ -16,7 +16,7 @@ cni:
 
   # CNI bin and conf dir override settings
   # defaults:
-  cniBinDir: /opt/cni/bin
+  cniBinDir: "" # Auto-detected based on version; defaults to /opt/cni/bin.
   cniConfDir: /etc/cni/net.d
   cniConfFileName: ""
 

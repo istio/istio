@@ -437,8 +437,38 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	} else {
 		overlays = append(overlays, jwtStr)
 	}
-
+	cni := getCNISettings(client)
+	if cni != "" {
+		overlays = append(overlays, cni)
+	}
 	return makeTreeFromSetList(overlays)
+}
+
+// getCNISettings gets auto-detected values based on the Kubernetes environment.
+// Note: there are other settings as well; however, these are detect inline in the helm chart.
+// This ensures helm users also get them.
+func getCNISettings(client kube.Client) string {
+	ver, err := client.GetKubernetesVersion()
+	if err != nil {
+		return ""
+	}
+	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
+	// GKE requires deployment in kube-system namespace.
+	if strings.Contains(ver.GitVersion, "-gke") {
+		return "components.cni.namespace=kube-system"
+	}
+	// TODO: OpenShift
+	return ""
+}
+
+func getFSGroupOverlay(config kube.Client, jwtPolicy util.JWTPolicy) string {
+	// Set ENABLE_LEGACY_FSGROUP_INJECTION to true only for Kubernetes 1.18 or older,
+	// together with third-party-jwt, as we need the fsGroup configuration for the projected
+	// service account volume mount, which is only used by third-party-jwt.
+	if kube.IsLessThanVersion(config, 19) && jwtPolicy == util.ThirdPartyJWT {
+		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
+	}
+	return ""
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
