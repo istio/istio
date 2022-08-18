@@ -365,6 +365,7 @@ func TestGolden(t *testing.T) {
 			realM := &bootstrap.Bootstrap{}
 			goldenM := &bootstrap.Bootstrap{}
 
+			// t.Logf("checking golden file %s", golden)
 			jgolden, err := yaml.YAMLToJSON(golden)
 			if err != nil {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
@@ -476,6 +477,12 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.suffixes = rbacEnvoyStatsMatcherInclusionSuffix
 	} else {
 		stats.suffixes += "," + rbacEnvoyStatsMatcherInclusionSuffix
+	}
+
+	if stats.regexps == "" {
+		stats.regexps = requiredEnvoyStatsMatcherInclusionRegexes
+	} else {
+		stats.regexps += "," + requiredEnvoyStatsMatcherInclusionRegexes
 	}
 
 	if err := gsm.Validate(); err != nil {
