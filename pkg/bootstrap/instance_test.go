@@ -365,7 +365,6 @@ func TestGolden(t *testing.T) {
 			realM := &bootstrap.Bootstrap{}
 			goldenM := &bootstrap.Bootstrap{}
 
-			// t.Logf("checking golden file %s", golden)
 			jgolden, err := yaml.YAMLToJSON(golden)
 			if err != nil {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
