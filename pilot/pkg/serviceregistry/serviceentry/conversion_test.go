@@ -478,13 +478,18 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
 	external bool, resolution model.Resolution, serviceAccounts ...string,
 ) *model.Service {
+	extrAddrs := ""
+	if address == constants.UnspecifiedIP {
+		extrAddrs = constants.UnspecifiedIPv6
+	}
 	svc := &model.Service{
-		CreationTime:    GlobalTime,
-		Hostname:        hostname,
-		DefaultAddress:  address,
-		MeshExternal:    external,
-		Resolution:      resolution,
-		ServiceAccounts: serviceAccounts,
+		CreationTime:      GlobalTime,
+		Hostname:          hostname,
+		DefaultAddress:    address,
+		ExtraSvcAddresses: []string{extrAddrs},
+		MeshExternal:      external,
+		Resolution:        resolution,
+		ServiceAccounts:   serviceAccounts,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.External,
 			Name:            string(hostname),
