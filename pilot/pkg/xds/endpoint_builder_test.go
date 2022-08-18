@@ -220,12 +220,11 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := EndpointBuilder{
 				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{
-						Labels: map[string]string{
-							"app": "foo",
-							"a":   "a",
-							"b":   "b",
-						},
+					Metadata: &model.NodeMetadata{},
+					Labels: map[string]string{
+						"app": "foo",
+						"a":   "a",
+						"b":   "b",
 					},
 				},
 				push: &model.PushContext{
