@@ -15,6 +15,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -161,38 +162,48 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 }
 
 // Generate generates the Envoy RBAC config from the model.
-func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
+func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action, noSniffing bool) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
+	permissionError := fmt.Errorf("permission: tcp without sniffing shouldn't have just http attributes in the policy")
 	for _, rl := range m.permissions {
-		permission, err := generatePermission(rl, forTCP, action)
-		if err != nil {
+		permission, err := generatePermission(rl, forTCP, action, noSniffing)
+
+		if err != nil && errors.Is(err, permissionError) {
 			return nil, err
 		}
-		permissions = append(permissions, permission)
+		if permission != nil {
+			permissions = append(permissions, permission)
+		}
 	}
-	if len(permissions) == 0 {
+	if len(permissions) == 0 && !(forTCP && action == rbacpb.RBAC_DENY && noSniffing) {
 		return nil, fmt.Errorf("must have at least 1 permission")
 	}
 
 	var principals []*rbacpb.Principal
+	principalError := fmt.Errorf("principal : tcp without sniffing shouldn't have just http attributes in the policy")
 	for _, rl := range m.principals {
-		principal, err := generatePrincipal(rl, forTCP, action)
-		if err != nil {
+		principal, err := generatePrincipal(rl, forTCP, action, noSniffing)
+		if err != nil && errors.Is(err, principalError) {
 			return nil, err
 		}
-		principals = append(principals, principal)
+		if principal != nil {
+			principals = append(principals, principal)
+		}
 	}
-	if len(principals) == 0 {
+	if len(principals) == 0 && !(forTCP && action == rbacpb.RBAC_DENY && noSniffing) {
 		return nil, fmt.Errorf("must have at least 1 principal")
 	}
 
+	if len(principals) == 0 && len(permissions) == 0 {
+		return nil, fmt.Errorf("can't apply this rule as there is all L7 attributes")
+	}
 	return &rbacpb.Policy{
 		Permissions: permissions,
 		Principals:  principals,
 	}, nil
 }
 
-func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Permission, error) {
+func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action, noSniffing bool) (*rbacpb.Permission, error) {
 	var and []*rbacpb.Permission
 	for _, r := range rl.rules {
 		ret, err := r.permission(forTCP, action)
@@ -201,13 +212,15 @@ func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*r
 		}
 		and = append(and, ret...)
 	}
-	if len(and) == 0 {
+	if action == rbacpb.RBAC_DENY && noSniffing && forTCP && len(and) == 0 {
+		return nil, fmt.Errorf("permission: tcp without sniffing shouldn't have just http attributes in the policy")
+	} else if len(and) == 0 {
 		and = append(and, permissionAny())
 	}
 	return permissionAnd(and), nil
 }
 
-func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error) {
+func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action, noSniffing bool) (*rbacpb.Principal, error) {
 	var and []*rbacpb.Principal
 	for _, r := range rl.rules {
 		ret, err := r.principal(forTCP, action)
@@ -216,7 +229,9 @@ func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rb
 		}
 		and = append(and, ret...)
 	}
-	if len(and) == 0 {
+	if action == rbacpb.RBAC_DENY && noSniffing && forTCP && len(and) == 0 {
+		return nil, fmt.Errorf("principal : tcp without sniffing shouldn't have just http attributes in the policy")
+	} else if len(and) == 0 {
 		and = append(and, principalAny())
 	}
 	return principalAnd(and), nil

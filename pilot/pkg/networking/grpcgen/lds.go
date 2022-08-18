@@ -257,7 +257,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 			if err != nil {
 				log.Warn("Invalid rule ", rule, err)
 			}
-			generated, _ := m.Generate(false, a)
+			generated, _ := m.Generate(false, a, false)
 			rules.Policies[name] = generated
 		}
 	}

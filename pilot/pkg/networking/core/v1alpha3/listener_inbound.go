@@ -163,11 +163,13 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+			fmt.Println("------lp2------", lp)
 			opts = getTLSFilterChainMatchOptions(lp)
 			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+			fmt.Println("------lp2------", lp)
 			opts = getFilterChainMatchOptions(mtls, lp)
 		}
 		// Build the actual chain
@@ -248,7 +250,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 		case istionetworking.ListenerProtocolTCP:
 			chains = append(chains, &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          lb.buildInboundNetworkFilters(cc),
+				Filters:          lb.buildInboundNetworkFilters(cc, opt.nosniffing),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
 			})
@@ -679,7 +681,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 }
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []*listener.Filter {
+func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig, noSniffing bool) []*listener.Filter {
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
@@ -697,8 +699,8 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
-	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+	filters = append(filters, lb.authzCustomBuilder.BuildTCP(false)...)
+	filters = append(filters, lb.authzBuilder.BuildTCP(noSniffing)...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
 

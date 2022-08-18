@@ -37,6 +37,9 @@ type FilterChainMatchOptions struct {
 	Protocol networking.ListenerProtocol
 	// Whether this chain should terminate TLS or not
 	TLS bool
+
+	//sniffing is enabled or not
+	nosniffing bool
 }
 
 // Set of filter chain match options used for various combinations.
@@ -107,16 +110,19 @@ var (
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 			Protocol:             networking.ListenerProtocolTCP,
 			TLS:                  true,
+			nosniffing:           true,
 		},
 		{
 			// Plain TLS
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			Protocol:          networking.ListenerProtocolTCP,
+			nosniffing:        true,
 		},
 		{
 			// Plaintext
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+			nosniffing:        true,
 		},
 	}
 
@@ -141,6 +147,7 @@ var (
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
 			TLS:               true,
+			nosniffing:        true,
 		},
 	}
 	inboundStrictHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
@@ -167,6 +174,7 @@ var (
 		{
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+			nosniffing:        true,
 		},
 	}
 	inboundPlainTextHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
@@ -181,10 +189,15 @@ var (
 
 // getTLSFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
 func getTLSFilterChainMatchOptions(protocol networking.ListenerProtocol) []FilterChainMatchOptions {
+	noSniffing := false
+	if protocol == networking.ListenerProtocolTCP {
+		noSniffing = true
+	}
 	return []FilterChainMatchOptions{{
 		Protocol:          protocol,
 		TransportProtocol: xdsfilters.TLSTransportProtocol,
 		TLS:               true,
+		nosniffing:        noSniffing,
 	}}
 }
 

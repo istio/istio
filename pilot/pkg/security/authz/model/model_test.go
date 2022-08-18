@@ -261,7 +261,7 @@ when:
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, _ := m.Generate(tc.forTCP, tc.action)
+			p, _ := m.Generate(tc.forTCP, tc.action, false)
 			var gotYaml string
 			if p != nil {
 				if gotYaml, err = protomarshal.ToYAML(p); err != nil {

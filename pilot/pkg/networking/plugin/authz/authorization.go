@@ -53,7 +53,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	return &Builder{builder: b}
 }
 
-func (b *Builder) BuildTCP() []*tcppb.Filter {
+func (b *Builder) BuildTCP(nosniffing bool) []*tcppb.Filter {
 	if b == nil || b.builder == nil {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (b *Builder) BuildTCP() []*tcppb.Filter {
 		return b.tcpFilters
 	}
 	b.tcpBuilt = true
-	b.tcpFilters = b.builder.BuildTCP()
+	b.tcpFilters = b.builder.BuildTCP(nosniffing)
 
 	return b.tcpFilters
 }

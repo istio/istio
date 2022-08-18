@@ -332,7 +332,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
-			got := g.BuildTCP()
+			got := g.BuildTCP(false)
 			verify(t, convertTCP(got), baseDir, tc.want, true /* forTCP */)
 		})
 	}

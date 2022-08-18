@@ -44,7 +44,7 @@ func FuzzBuildTCP(f *testing.F) {
 		node := fuzz.Struct[*model.Proxy](fg)
 		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
 		option := fuzz.Struct[Option](fg)
-		New(bundle, push, policies, option).BuildTCP()
+		New(bundle, push, policies, option).BuildTCP(false)
 	})
 }
 
