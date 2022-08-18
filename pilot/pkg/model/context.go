@@ -278,10 +278,6 @@ type Proxy struct {
 	// while NodeMetadata.Labels are set during bootstrap.
 	Labels map[string]string
 
-	// IstioMetaLabels contains the labels specified by ISTIO_METAJSON_LABELS and platform instance,
-	// so we can support pod labels update by plus the fundamental labels.
-	IstioMetaLabels map[string]string
-
 	// Metadata key-value pairs extending the Node identifier
 	Metadata *NodeMetadata
 
