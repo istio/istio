@@ -1089,6 +1089,9 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initServiceControllers(args); err != nil {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
+	if err := s.initManagementController(args); err != nil {
+		return fmt.Errorf("error initializing management controller: %v", err)
+	}
 	return nil
 }
 

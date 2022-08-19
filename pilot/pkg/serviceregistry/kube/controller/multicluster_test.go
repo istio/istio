@@ -24,7 +24,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
@@ -93,14 +92,12 @@ func Test_KubeSecretController(t *testing.T) {
 	s := server.New()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset.Kube(),
-		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, nil, "default", false, nil, s)
+		}, nil, "default", nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
@@ -140,17 +137,14 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 	stop := test.NewStop(t)
 	s := server.New()
-	certWatcher := keycertbundle.NewWatcher()
 	mc := NewMulticluster(
 		"pilot-abc-123",
-		clientset.Kube(),
-		testSecretNameSpace,
 		Options{
 			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, certWatcher, "default", false, nil, s)
+		}, nil, "default", nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)

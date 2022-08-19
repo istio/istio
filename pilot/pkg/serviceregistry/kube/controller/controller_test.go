@@ -28,9 +28,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -2579,5 +2581,23 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 func clearDiscoverabilityPolicy(ep *model.IstioEndpoint) {
 	if ep != nil {
 		ep.DiscoverabilityPolicy = nil
+	}
+}
+
+func createNamespace(t *testing.T, client kubernetes.Interface, ns string, labels map[string]string) {
+	t.Helper()
+	if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: labels},
+	}, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, labels map[string]string) {
+	t.Helper()
+	if _, err := client.CoreV1().Namespaces().Update(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: labels},
+	}, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
 	}
 }

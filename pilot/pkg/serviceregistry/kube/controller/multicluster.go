@@ -23,12 +23,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
@@ -39,12 +37,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/istio/pkg/webhooks"
-)
-
-const (
-	// Name of the webhook config in the config - no need to change it.
-	webhookName = "sidecar-injector.istio.io"
 )
 
 var _ multicluster.ClusterHandler = &Multicluster{}
@@ -62,8 +54,6 @@ type Multicluster struct {
 	// options to use when creating kube controllers
 	opts Options
 
-	// client for reading remote-secrets to initialize multicluster registries
-	client  kubernetes.Interface
 	s       server.Instance
 	closing bool
 
@@ -74,24 +64,15 @@ type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*kubeController
 	clusterLocal          model.ClusterLocalProvider
 
-	startNsController bool
-	caBundleWatcher   *keycertbundle.Watcher
-	revision          string
-
-	// secretNamespace where we get cluster-access secrets
-	secretNamespace string
+	revision string
 }
 
 // NewMulticluster initializes data structure to store multicluster information
 func NewMulticluster(
 	serverID string,
-	kc kubernetes.Interface,
-	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
-	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
-	startNsController bool,
 	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
 ) *Multicluster {
@@ -100,14 +81,10 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
-		startNsController:      startNsController,
-		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
 		XDSUpdater:             opts.XDSUpdater,
 		remoteKubeControllers:  remoteKubeController,
 		clusterLocal:           clusterLocal,
-		secretNamespace:        secretNamespace,
-		client:                 kc,
 		s:                      s,
 	}
 
@@ -246,50 +223,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
-
-	shouldLead := m.checkShouldLead(client, options.SystemNamespace)
-	log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
-
-	if m.startNsController && (shouldLead || configCluster) {
-		// Block server exit on graceful termination of the leader controller.
-		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
-			log.Infof("joining leader-election for %s in %s on cluster %s",
-				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
-			election := leaderelection.
-				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("starting namespace controller for cluster %s", cluster.ID)
-					nc := NewNamespaceController(client, m.caBundleWatcher)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					client.RunAndWait(clusterStopCh)
-					nc.Run(leaderStop)
-				})
-			election.Run(clusterStopCh)
-			return nil
-		})
-	}
-	// Set up injection webhook patching for remote clusters we are controlling.
-	// The config cluster has this patching set up elsewhere. We may eventually want to move it here.
-	// We can not use leader election for webhook patching because each revision needs to patch its own
-	// webhook.
-	if shouldLead && !configCluster && m.caBundleWatcher != nil {
-		// Patch injection webhook cert
-		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-		// operator or CI/CD
-		if features.InjectionWebhookConfigName != "" {
-			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
-			if err != nil {
-				log.Errorf("could not initialize webhook cert patcher: %v", err)
-			} else {
-				go patcher.Run(clusterStopCh)
-			}
-		}
-	}
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
 	if features.EnableMCSAutoExport {
