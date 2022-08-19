@@ -36,7 +36,7 @@ import (
 )
 
 func TestGatewayHostnames(t *testing.T) {
-	test.SetDurationForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
+	test.SetForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
 
 	gwHost := "test.gw.istio.io"
 	workingDNSServer := newFakeDNSServer(":15353", 1, sets.New(gwHost))

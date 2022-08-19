@@ -142,7 +142,7 @@ func configureBenchmark(t test.Failer) {
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
-	test.SetBoolForTest(t, &features.EnableXDSCaching, false)
+	test.SetForTest(t, &features.EnableXDSCaching, false)
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
@@ -607,7 +607,7 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 
 func BenchmarkCache(b *testing.B) {
 	// Ensure cache doesn't grow too large
-	test.SetIntForTest(b, &features.XDSCacheMaxSize, 1_000)
+	test.SetForTest(b, &features.XDSCacheMaxSize, 1_000)
 	res := &discovery.Resource{Name: "test"}
 	zeroTime := time.Time{}
 	b.Run("key", func(b *testing.B) {

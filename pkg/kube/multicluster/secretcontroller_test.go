@@ -102,7 +102,7 @@ func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	test.SetDurationForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
+	test.SetForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
 	clientset := kube.NewFakeClient()
 
 	var (
