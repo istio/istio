@@ -24,7 +24,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
-	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,7 +34,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
@@ -48,7 +46,12 @@ import (
 
 const (
 	MultiClusterSecretLabel = "istio/multiCluster"
-	maxRetries              = 15
+	// maxRetries is the number of times a multicluster secret will be retried before it is dropped out of the queue.
+	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
+	// sequence of delays between successive queuings of a service.
+	//
+	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
+	maxRetries = 15
 )
 
 func init() {
@@ -144,14 +147,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		informer:            secretsInformer,
 	}
 
-	// In order not to block the server startup when adding cluster error, set the base delay of rate limiter to 200ms here,
-	// becauce the execution cycle of server.waitForCacheSync is 100ms.
-	rateLimiter := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(200*time.Millisecond, 1000*time.Second),
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
-	)
 	controller.queue = controllers.NewQueue("multicluster secret",
-		controllers.WithRateLimiter(rateLimiter),
 		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
 
