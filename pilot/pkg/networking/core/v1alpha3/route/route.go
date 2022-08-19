@@ -1298,23 +1298,7 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 ) DestinationHashMap {
-	hashByDestination := DestinationHashMap{}
-	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
-		for _, destination := range httpRoute.Route {
-			hostName := destination.Destination.Host
-			var configNamespace string
-			if serviceRegistry[host.Name(hostName)] != nil {
-				configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
-			} else {
-				configNamespace = virtualService.Namespace
-			}
-			hash, _ := hashForHTTPDestination(push, node, destination, configNamespace)
-			if hash != nil {
-				hashByDestination[destination] = hash
-			}
-		}
-	}
-
+	hashByDestination, _ := hashForVirtualService(push, node, virtualService, serviceRegistry)
 	return hashByDestination
 }
 
