@@ -376,20 +376,20 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 
 		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
 		if err != nil {
-			logger.Errorf("%s cluster failed: %v", action, err)
+			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
 			remoteCluster.Stop()
-			logger.Errorf("%s cluster failed: %v", action, err)
+			logger.Errorf("%s cluster: initialize cluster failed: %v", action, err)
 			c.cs.Delete(secretKey, remoteCluster.ID)
 			err = fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, clusterID, secretKey, err)
 			errs = multierror.Append(errs, err)
 			continue
 		}
 		logger.Infof("finished callback for cluster and starting to sync")
+		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		go remoteCluster.Run()
 	}
 

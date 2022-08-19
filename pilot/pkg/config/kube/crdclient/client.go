@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
@@ -423,24 +422,14 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 // knownCRDs returns all CRDs present in the cluster, with timeout and retries.
 func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	var res *crd.CustomResourceDefinitionList
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = time.Second
-	b.MaxElapsedTime = 20 * time.Second
-	err := backoff.Retry(func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		var err error
-		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-		if err == nil {
-			return nil
-		}
-		scope.Errorf("failed to list CRDs: %v", err)
-		return err
-	}, b)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var err error
+	res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 	if err != nil {
+		scope.Errorf("failed to list CRDs: %v", err)
 		return nil, err
 	}
-
 	mp := map[string]struct{}{}
 	for _, r := range res.Items {
 		mp[r.Name] = struct{}{}
