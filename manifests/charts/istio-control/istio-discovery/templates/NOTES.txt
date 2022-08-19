@@ -18,4 +18,4 @@ Next steps:
 
 For further documentation see https://istio.io website
 
-Tell us how your install/upgrade experience went at https://forms.gle/pfjzaaRrd4sKYBPQ7
+Tell us how your install/upgrade experience went at https://forms.gle/SWHFBmwJspusK1hv6
