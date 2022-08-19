@@ -1284,7 +1284,7 @@ func hashForVirtualService(push *model.PushContext, node *model.Proxy, virtualSe
 			} else {
 				configNamespace = virtualService.Namespace
 			}
-			hash, dr := hashForHTTPDestination(push, node, destination, configNamespace)
+			hash, dr := GetHashForHTTPDestination(push, node, destination, configNamespace)
 			if hash != nil {
 				hashByDestination[destination] = hash
 				destinationRules = append(destinationRules, dr)
@@ -1302,8 +1302,8 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 	return hashByDestination
 }
 
-// hashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
-func hashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
+// GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
+func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
 	configNamespace string,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
