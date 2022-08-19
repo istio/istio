@@ -157,7 +157,7 @@ func TestInboundListenerConfig(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -168,7 +168,7 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -181,7 +181,7 @@ func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -192,7 +192,7 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -203,7 +203,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	// The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -214,7 +214,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
 }
 
 func TestOutboundListenerRoute(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, true)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
 
 	testOutboundListenerRoute(t,
 		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
@@ -675,7 +675,7 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, false)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, false)
 
 	// Add a service and verify it's config
 	services := []*model.Service{
@@ -1116,7 +1116,7 @@ func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *
 func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
-	test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, false)
+	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, false)
 
 	oldestService := getOldestService(services...)
 
@@ -1493,7 +1493,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	// enable mysql filter that is used here
-	test.SetBoolForTest(t, &features.EnableMysqlFilter, true)
+	test.SetForTest(t, &features.EnableMysqlFilter, true)
 
 	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 4 {
@@ -1575,7 +1575,7 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 	}
 
 	// enable mysql filter that is used here
-	test.SetBoolForTest(t, &features.EnableMysqlFilter, true)
+	test.SetForTest(t, &features.EnableMysqlFilter, true)
 
 	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 	if len(listeners) != 1 {
@@ -1611,7 +1611,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	}
 
 	// enable use remote address to true
-	test.SetBoolForTest(t, &features.UseRemoteAddress, true)
+	test.SetForTest(t, &features.UseRemoteAddress, true)
 
 	listeners := buildOutboundListeners(t, getProxy(), sidecarConfig, nil, services...)
 
@@ -2241,10 +2241,10 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	for _, tc := range customTagsTest {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.envPilotSampling != 0.0 {
-				test.SetFloatForTest(t, &features.TraceSampling, tc.envPilotSampling)
+				test.SetForTest(t, &features.TraceSampling, tc.envPilotSampling)
 			}
 
-			test.SetBoolForTest(t, &features.EnableIstioTags, !tc.disableIstioTags)
+			test.SetForTest(t, &features.EnableIstioTags, !tc.disableIstioTags)
 
 			m := mesh.DefaultMeshConfig()
 			m.ProxyHttpPort = 15007

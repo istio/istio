@@ -16,11 +16,19 @@ package test
 
 import (
 	"os"
-	"time"
 
 	"go.uber.org/atomic"
 	"golang.org/x/net/context"
 )
+
+// SetForTest sets a variable for the duration of a test, then resets it once the test is complete.
+func SetForTest[T any](t Failer, vv *T, v T) {
+	old := *vv
+	*vv = v
+	t.Cleanup(func() {
+		*vv = old
+	})
+}
 
 // SetEnvForTest sets an environment variable for the duration of a test, then resets it once the test is complete.
 func SetEnvForTest(t Failer, k, v string) {
@@ -35,57 +43,12 @@ func SetEnvForTest(t Failer, k, v string) {
 	})
 }
 
-// SetStringForTest sets a variable for the duration of a test, then resets it once the test is complete.
-func SetStringForTest(t Failer, vv *string, v string) {
-	old := *vv
-	*vv = v
-	t.Cleanup(func() {
-		*vv = old
-	})
-}
-
-// SetBoolForTest sets a variable for the duration of a test, then resets it once the test is complete.
-func SetBoolForTest(t Failer, vv *bool, v bool) {
-	old := *vv
-	*vv = v
-	t.Cleanup(func() {
-		*vv = old
-	})
-}
-
 // SetAtomicBoolForTest sets a variable for the duration of a test, then resets it once the test is complete atomically.
 func SetAtomicBoolForTest(t Failer, vv *atomic.Bool, v bool) {
 	old := vv.Load()
 	vv.Store(v)
 	t.Cleanup(func() {
 		vv.Store(old)
-	})
-}
-
-// SetIntForTest sets a variable for the duration of a test, then resets it once the test is complete.
-func SetIntForTest(t Failer, vv *int, v int) {
-	old := *vv
-	*vv = v
-	t.Cleanup(func() {
-		*vv = old
-	})
-}
-
-// SetFloatForTest sets a variable for the duration of a test, then resets it once the test is complete.
-func SetFloatForTest(t Failer, vv *float64, v float64) {
-	old := *vv
-	*vv = v
-	t.Cleanup(func() {
-		*vv = old
-	})
-}
-
-// SetDurationForTest sets a variable for the duration of a test, then resets it once the test is complete.
-func SetDurationForTest(t Failer, vv *time.Duration, v time.Duration) {
-	old := *vv
-	*vv = v
-	t.Cleanup(func() {
-		*vv = old
 	})
 }
 

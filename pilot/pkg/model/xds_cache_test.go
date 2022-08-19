@@ -50,7 +50,7 @@ func (e *entry) Cacheable() bool {
 }
 
 func TestAddTwoEntries(t *testing.T) {
-	test.SetIntForTest(t, &features.XDSCacheMaxSize, 2)
+	test.SetForTest(t, &features.XDSCacheMaxSize, 2)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
@@ -114,7 +114,7 @@ func TestAddTwoEntries(t *testing.T) {
 }
 
 func TestCleanIndexesOnAddExistant(t *testing.T) {
-	test.SetIntForTest(t, &features.XDSCacheMaxSize, 1)
+	test.SetForTest(t, &features.XDSCacheMaxSize, 1)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
@@ -162,7 +162,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 }
 
 func TestCleanIndexesOnEvict(t *testing.T) {
-	test.SetIntForTest(t, &features.XDSCacheMaxSize, 1)
+	test.SetForTest(t, &features.XDSCacheMaxSize, 1)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
@@ -224,7 +224,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 }
 
 func TestCleanIndexesOnCacheClear(t *testing.T) {
-	test.SetIntForTest(t, &features.XDSCacheMaxSize, 10)
+	test.SetForTest(t, &features.XDSCacheMaxSize, 10)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req1 := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
@@ -383,7 +383,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 }
 
 func TestCacheClearAll(t *testing.T) {
-	test.SetIntForTest(t, &features.XDSCacheMaxSize, 10)
+	test.SetForTest(t, &features.XDSCacheMaxSize, 10)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req1 := &PushRequest{Start: zeroTime.Add(time.Duration(1))}

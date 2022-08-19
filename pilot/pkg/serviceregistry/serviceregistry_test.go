@@ -100,7 +100,7 @@ func setupTest(t *testing.T) (
 // TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
 // external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
-	istiotest.SetBoolForTest(t, &features.WorkloadEntryHealthChecks, true)
+	istiotest.SetForTest(t, &features.WorkloadEntryHealthChecks, true)
 	port := &networking.Port{
 		Name:     "http",
 		Number:   80,
