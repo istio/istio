@@ -18,7 +18,6 @@
 package security
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -35,7 +34,6 @@ import (
 // TestJWTHTTPS tests the requestauth policy with https jwks server.
 func TestJWTHTTPS(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
-	fmt.Println("------here")
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {

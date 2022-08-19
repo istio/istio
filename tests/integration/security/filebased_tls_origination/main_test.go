@@ -114,7 +114,8 @@ values:
 }
 
 func setupApps(ctx resource.Context, appNs namespace.Getter,
-	serviceNs namespace.Getter, customCfg *[]echo.Config) error {
+	serviceNs namespace.Getter, customCfg *[]echo.Config,
+) error {
 	appNamespace := appNs.Get()
 	serviceNamespace := serviceNs.Get()
 	var customConfig []echo.Config
