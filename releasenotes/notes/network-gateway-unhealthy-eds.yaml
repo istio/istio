@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+releaseNotes:
+- |
+  **Fixed** an issue when Envoy could send traffic to unready endpoints on a remote network in
+  a multi-network configuration if PILOT_SEND_UNHEALTHY_ENDPOINTS is enabled and all endpoints
+  in a remote network are unready.

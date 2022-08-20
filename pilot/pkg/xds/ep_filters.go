@@ -17,6 +17,7 @@ package xds
 import (
 	"math"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -64,6 +65,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		// Create a map to keep track of the gateways used and their aggregate weights.
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
 
+		// Create a map to keep track of aggregate health of the gateways.
+		gatewayHealth := make(map[model.NetworkGateway]bool)
+
 		// Process all of the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
 			istioEndpoint := ep.istioEndpoints[i]
@@ -103,6 +107,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// A gateway is considered healthy only if it has any healthy endpoints reachable.
+			if istioEndpoint.HealthStatus == model.Healthy {
+				for _, gw := range gateways {
+					gatewayHealth[gw] = true
+				}
+			}
+
 			// Apply the weight for this endpoint to the network gateways.
 			splitWeightAmongGateways(weight, gateways, gatewayWeights)
 		}
@@ -123,9 +134,19 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			}
 			epAddr := util.BuildAddress(gw.Addr, gw.Port)
 
+			// Set the gateway endpoint's health status from the aggregate health of that gateway.
+			healthStatus := core.HealthStatus_UNHEALTHY
+			epHealthStatus := model.UnHealthy
+
+			if gatewayHealth[gw] {
+				healthStatus = core.HealthStatus_HEALTHY
+				epHealthStatus = model.Healthy
+			}
+
 			// Generate a fake IstioEndpoint to carry network and cluster information.
 			gwIstioEp := &model.IstioEndpoint{
-				Network: gw.Network,
+				HealthStatus: epHealthStatus,
+				Network:      gw.Network,
 				Locality: model.Locality{
 					ClusterID: gw.Cluster,
 				},
@@ -134,6 +155,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Generate the EDS endpoint for this gateway.
 			gwEp := &endpoint.LbEndpoint{
+				HealthStatus: healthStatus,
 				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 					Endpoint: &endpoint.Endpoint{
 						Address: epAddr,

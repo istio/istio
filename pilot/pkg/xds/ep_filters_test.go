@@ -19,11 +19,13 @@ import (
 	"sort"
 	"testing"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -36,7 +38,8 @@ import (
 type LbEpInfo struct {
 	address string
 	// nolint: structcheck
-	weight uint32
+	weight       uint32
+	healthStatus core.HealthStatus
 }
 
 type LocLbEpInfo struct {
@@ -443,7 +446,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	env.Env().InitNetworksManager(env.Discovery)
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-	runNetworkFilterTest(t, env, networkFiltered)
+	runNetworkFilterTest(t, env, networkFiltered, testShards)
 }
 
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
@@ -557,11 +560,93 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					} else {
 						tests = networkFiltered
 					}
-					runNetworkFilterTest(t, env, tests)
+					runNetworkFilterTest(t, env, tests, testShards)
 				})
 			}
 		})
 	}
+}
+
+// Test the calculation of aggregate health for gateway endpoints when the SendUnhealthyEndpoints
+// feature is enabled
+func TestEndpointsByNetworkFilter_WithUnhealthyEndpoints(t *testing.T) {
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, true)
+
+	env := environmentWithHealth(t)
+	env.Env().InitNetworksManager(env.Discovery)
+
+	// For each cluster make sure that connected network gateways have their endpoint health
+	// set appropriately based on the number of healthy endpoints reachable through them,
+	// and for directly reachable endpoints their health status is also set appropriately.
+	cases := []networkFilterCase{
+		{
+			name: "from_network1_cluster1",
+			conn: xdsConnection("network1", "cluster1"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						{address: "10.0.0.1", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "2.2.2.2", weight: 2, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "3.3.3.3", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.1", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.2", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+					},
+					weight: 6,
+				},
+			},
+		},
+		{
+			name: "from_network2_cluster2",
+			conn: xdsConnection("network2", "cluster2"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						{address: "1.1.1.1", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "20.0.0.1", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "20.0.0.2", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "3.3.3.3", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.1", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.2", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+					},
+					weight: 6,
+				},
+			},
+		},
+		{
+			name: "from_network3_cluster3",
+			conn: xdsConnection("network3", "cluster3"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						{address: "1.1.1.1", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "2.2.2.2", weight: 2, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "30.0.0.1", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.1", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.2", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+					},
+					weight: 6,
+				},
+			},
+		},
+		{
+			name: "from_network4_cluster4",
+			conn: xdsConnection("network4", "cluster4"),
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						{address: "1.1.1.1", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "2.2.2.2", weight: 2, healthStatus: core.HealthStatus_HEALTHY},
+						{address: "3.3.3.3", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.1", weight: 1, healthStatus: core.HealthStatus_UNHEALTHY},
+						{address: "40.0.0.2", weight: 1, healthStatus: core.HealthStatus_HEALTHY},
+					},
+					weight: 6,
+				},
+			},
+		},
+	}
+
+	runNetworkFilterTest(t, env, cases, testShardsWithHealth)
 }
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
@@ -595,7 +680,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	})
 
 	// Run the tests and ensure that the new gateway is never used.
-	runNetworkFilterTest(t, ds, networkFiltered)
+	runNetworkFilterTest(t, ds, networkFiltered, testShards)
 }
 
 type networkFilterCase struct {
@@ -606,7 +691,7 @@ type networkFilterCase struct {
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
+func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, testShards genShardsFunc) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.conn.proxy)
@@ -662,6 +747,17 @@ func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo
 						t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
 							addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
 					}
+
+					// And also compare the health status, in case we send unready endpoints.
+					if lbEp.HealthStatus != wantLbEp.healthStatus {
+						// Envoy interprets the UNKNOWN status as HEALTHY
+						if !(lbEp.HealthStatus == core.HealthStatus_HEALTHY &&
+							wantLbEp.healthStatus == core.HealthStatus_UNKNOWN) {
+							t.Errorf("Unexpected health status for endpoint %s: got %v, want %v",
+								addr, lbEp.HealthStatus, wantLbEp.healthStatus)
+						}
+					}
+
 					break
 				}
 			}
@@ -799,6 +895,44 @@ func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
 	return ds
 }
 
+// environment to test the calculation of aggregate health for gateway endpoints:
+//   - 1 gateway for network1
+//   - 1 gateway for network2
+//   - 1 gateway for network3
+//   - 0 gateways for network4 (directly reachable)
+func environmentWithHealth(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
+	ds := NewFakeDiscoveryServer(t, FakeOptions{
+		Configs: c,
+		Services: []*model.Service{{
+			Hostname:   "example.ns.svc.cluster.local",
+			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+		}},
+		Gateways: []model.NetworkGateway{
+			{
+				Network: "network1",
+				Cluster: "cluster1",
+				Addr:    "1.1.1.1",
+				Port:    80,
+			},
+			{
+				Network: "network2",
+				Cluster: "cluster2",
+				Addr:    "2.2.2.2",
+				Port:    80,
+			},
+			{
+				Network: "network3",
+				Cluster: "cluster3",
+				Addr:    "3.3.3.3",
+				Port:    80,
+			},
+		},
+	})
+	return ds
+}
+
+type genShardsFunc func() *model.EndpointShards
+
 // testShards creates endpoints to be handed to the filter:
 //   - 2 endpoints in network1
 //   - 1 endpoints in network2
@@ -833,7 +967,39 @@ func testShards() *model.EndpointShards {
 			{Network: "network4", Address: "40.0.0.1"},
 		},
 	}}
-	// apply common properties
+	applyCommonShardProperties(shards)
+	return shards
+}
+
+// testShardsWithHealth creates endpoints to test the calculation of aggregate health for gateway
+// endpoints when the SendUnhealthyEndpoints feature is enabled.
+//   - 1 endpoint in network1, healthy - this gateway should be healthy
+//   - 2 endpoints in network2, one healthy, one unhealthy - this gateway should be still healthy
+//   - 1 endpoint in network3, unhealthy - this gateway should be unhealthy
+//   - 2 endpoints in network4, one unhealthy, one healthy - this network is directly reachable,
+//     the endpoints in it should be present with their respective health statuses
+func testShardsWithHealth() *model.EndpointShards {
+	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
+		{Cluster: "cluster1"}: {
+			{Network: "network1", Address: "10.0.0.1", HealthStatus: model.Healthy},
+		},
+		{Cluster: "cluster2"}: {
+			{Network: "network2", Address: "20.0.0.1", HealthStatus: model.Healthy},
+			{Network: "network2", Address: "20.0.0.2", HealthStatus: model.UnHealthy},
+		},
+		{Cluster: "cluster3"}: {
+			{Network: "network3", Address: "30.0.0.1", HealthStatus: model.UnHealthy},
+		},
+		{Cluster: "cluster4"}: {
+			{Network: "network4", Address: "40.0.0.1", HealthStatus: model.UnHealthy},
+			{Network: "network4", Address: "40.0.0.2", HealthStatus: model.Healthy},
+		},
+	}}
+	applyCommonShardProperties(shards)
+	return shards
+}
+
+func applyCommonShardProperties(shards *model.EndpointShards) {
 	for sk, shard := range shards.Shards {
 		for i, ep := range shard {
 			ep.ServicePortName = "http"
@@ -846,7 +1012,6 @@ func testShards() *model.EndpointShards {
 			shards.Shards[sk][i] = ep
 		}
 	}
-	return shards
 }
 
 func getLbEndpointAddrs(ep *endpoint.LocalityLbEndpoints) []string {
