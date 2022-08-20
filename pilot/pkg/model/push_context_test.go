@@ -904,6 +904,19 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
+	_, _ = configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "default",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{Hosts: []string{"test1/*"}},
+			},
+		},
+	})
+
 	store := istioConfigStore{ConfigStore: configStore}
 
 	env.ConfigStore = &store
