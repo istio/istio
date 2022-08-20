@@ -334,22 +334,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(len(routes)).To(gomega.Equal(2))
 		g.Expect(routes[0].GetMatch().GetPrefix()).To(gomega.Equal("/foo"))
 		g.Expect(routes[0].StatPrefix).To(gomega.Equal("foo"))
-	})
-
-	t.Run("for virtual service without stat_prefix for a match on URI", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithoutStatPrefix,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		g.Expect(routes[0].GetMatch().GetPrefix()).To(gomega.Equal("/foo"))
-		g.Expect(routes[0].StatPrefix).To(gomega.Equal(""))
+		g.Expect(routes[1].GetMatch().GetPrefix()).To(gomega.Equal("/bar"))
+		g.Expect(routes[1].StatPrefix).To(gomega.Equal(""))
 	})
 
 	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
@@ -1915,26 +1904,14 @@ var virtualServiceWithStatPrefix = config.Config{
 					},
 				},
 			},
-		},
-	},
-}
-
-var virtualServiceWithoutStatPrefix = config.Config{
-	Meta: config.Meta{
-		GroupVersionKind: gvk.VirtualService,
-		Name:             "acme",
-	},
-	Spec: &networking.VirtualService{
-		Hosts: []string{},
-		Http: []*networking.HTTPRoute{
 			{
-				Name: "foo",
+				Name: "bar",
 				Match: []*networking.HTTPMatchRequest{
 					{
-						Name: "foo",
+						Name: "bar",
 						Uri: &networking.StringMatch{
 							MatchType: &networking.StringMatch_Prefix{
-								Prefix: "/foo",
+								Prefix: "/bar",
 							},
 						},
 					},
@@ -1942,7 +1919,7 @@ var virtualServiceWithoutStatPrefix = config.Config{
 				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
-							Host: "foo.example.org",
+							Host: "bar.example.org",
 							Port: &networking.PortSelector{
 								Number: 8484,
 							},
