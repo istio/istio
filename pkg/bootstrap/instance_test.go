@@ -478,6 +478,12 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.suffixes += "," + rbacEnvoyStatsMatcherInclusionSuffix
 	}
 
+	if stats.regexps == "" {
+		stats.regexps = requiredEnvoyStatsMatcherInclusionRegexes
+	} else {
+		stats.regexps += "," + requiredEnvoyStatsMatcherInclusionRegexes
+	}
+
 	if err := gsm.Validate(); err != nil {
 		t.Fatalf("Generated invalid matcher: %v", err)
 	}
