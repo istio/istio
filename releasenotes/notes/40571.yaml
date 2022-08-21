@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 40571
+
+releaseNotes:
+- |
+  **Added** fields `pilot.configMapLabels` `pilot.configMapAnnotations` `sidecarInjectorWebhook.configMapLabels` `sidecarInjectorWebhook.configMapAnnotations` to istiod helm chart.
