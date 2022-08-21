@@ -245,6 +245,6 @@ spec:
         configMap:
           name: istio-ca-root-cert
           defaultMode: 420
-        optional": true
+          optional: true
   {{- end }}
 ---
