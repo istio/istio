@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: networking
+area: traffic-management
 releaseNotes:
 - |
   **Fixed** an issue when Envoy could send traffic to unready endpoints on a remote network in
