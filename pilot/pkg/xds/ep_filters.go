@@ -66,7 +66,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
 
 		// Create a map to keep track of aggregate health of the gateways.
-		gatewayHealth := make(map[model.NetworkGateway]bool)
+		gatewayHealth := make(map[model.NetworkGateway]struct{})
 
 		// Process all of the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
@@ -110,7 +110,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// A gateway is considered healthy only if it has any healthy endpoints reachable.
 			if istioEndpoint.HealthStatus == model.Healthy {
 				for _, gw := range gateways {
-					gatewayHealth[gw] = true
+					gatewayHealth[gw] = struct{}{}
 				}
 			}
 
@@ -138,7 +138,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			healthStatus := core.HealthStatus_UNHEALTHY
 			epHealthStatus := model.UnHealthy
 
-			if gatewayHealth[gw] {
+			if _, healthy := gatewayHealth[gw]; healthy {
 				healthStatus = core.HealthStatus_HEALTHY
 				epHealthStatus = model.Healthy
 			}
