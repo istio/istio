@@ -79,6 +79,13 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
+  {{- if .Values.pilot.configMapLabels }}
+{{ toYaml .Values.pilot.configMapLabels | indent 4 }}
+  {{- end }}
+  {{- if .Values.pilot.configMapAnnotations }}
+  annotations:
+{{ toYaml .Values.pilot.configMapAnnotations | indent 4 }}
+  {{- end }}
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.

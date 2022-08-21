@@ -9,6 +9,13 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
+  {{- if .Values.sidecarInjectorWebhook.configMapLabels }}
+{{ toYaml .Values.sidecarInjectorWebhook.configMapLabels | indent 4 }}
+  {{- end }}
+  {{- if .Values.sidecarInjectorWebhook.configMapAnnotations }}
+  annotations:
+{{ toYaml .Values.sidecarInjectorWebhook.configMapAnnotations | indent 4 }}
+  {{- end }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
