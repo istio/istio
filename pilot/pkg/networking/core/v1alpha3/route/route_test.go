@@ -334,11 +334,13 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(2))
+		g.Expect(len(routes)).To(gomega.Equal(3))
 		g.Expect(routes[0].GetMatch().GetPrefix()).To(gomega.Equal("/foo"))
 		g.Expect(routes[0].StatPrefix).To(gomega.Equal("foo"))
-		g.Expect(routes[1].GetMatch().GetPrefix()).To(gomega.Equal("/bar"))
+		g.Expect(routes[1].GetMatch().GetPrefix()).To(gomega.Equal("/baz"))
 		g.Expect(routes[1].StatPrefix).To(gomega.Equal(""))
+		g.Expect(routes[2].GetMatch().GetPrefix()).To(gomega.Equal("/bar"))
+		g.Expect(routes[2].StatPrefix).To(gomega.Equal(""))
 	})
 
 	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
@@ -1890,6 +1892,14 @@ var virtualServiceWithStatPrefix = config.Config{
 							},
 						},
 						StatPrefix: "foo",
+					},
+					{
+						Name: "baz",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/baz",
+							},
+						},
 					},
 				},
 				Route: []*networking.HTTPRouteDestination{
