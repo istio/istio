@@ -1732,6 +1732,10 @@ spec:
           - name: istio-kubeconfig
             mountPath: /var/run/secrets/remote
             readOnly: true
+          - name: istio-csr-dns-cert
+            mountPath: /var/run/secrets/istiod/tls
+          - name: istio-csr-ca-configmap
+            mountPath: /var/run/secrets/istiod/ca
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
