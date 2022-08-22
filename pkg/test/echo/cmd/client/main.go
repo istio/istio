@@ -86,7 +86,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 			// Create a request from the flags.
 			request, err := getRequest(args[0])
 			if err != nil {
-				log.Fatala(err)
+				log.Fatal(err)
 				os.Exit(-1)
 			}
 
