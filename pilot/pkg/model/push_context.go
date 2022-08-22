@@ -1349,7 +1349,10 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
+		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace
+		oldPushContext.sidecarIndex.defaultSidecarMu.Lock()
+		ps.sidecarIndex = oldPushContext.sidecarIndex
+		oldPushContext.sidecarIndex.defaultSidecarMu.Unlock()
 	}
 
 	return nil
