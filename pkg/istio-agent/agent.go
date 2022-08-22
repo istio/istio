@@ -882,7 +882,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 
 		if tlsOpts.RootCert == "" {
 			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
-		} else if _, err := os.Stat(tlsOpts.RootCert); os.IsNotExist(err) {
+		} else if !fileExists(tlsOpts.RootCert) {
 			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, tlsOpts.RootCert)
 		} else {
 			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, tlsOpts.RootCert)
