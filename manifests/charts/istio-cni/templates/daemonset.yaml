@@ -1,6 +1,11 @@
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
+{{- $defaultBinDir :=
+    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
+      "/home/kubernetes/bin"
+      "/opt/cni/bin"
+}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -164,7 +169,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ default "/opt/cni/bin" .Values.cni.cniBinDir }}
+            path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}

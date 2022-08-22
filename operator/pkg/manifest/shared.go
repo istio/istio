@@ -437,8 +437,28 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	} else {
 		overlays = append(overlays, jwtStr)
 	}
-
+	cni := getCNISettings(client)
+	if cni != "" {
+		overlays = append(overlays, cni)
+	}
 	return makeTreeFromSetList(overlays)
+}
+
+// getCNISettings gets auto-detected values based on the Kubernetes environment.
+// Note: there are other settings as well; however, these are detected inline in the helm chart.
+// This ensures helm users also get them.
+func getCNISettings(client kube.Client) string {
+	ver, err := client.GetKubernetesVersion()
+	if err != nil {
+		return ""
+	}
+	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
+	// GKE requires deployment in kube-system namespace.
+	if strings.Contains(ver.GitVersion, "-gke") {
+		return "components.cni.namespace=kube-system"
+	}
+	// TODO: OpenShift
+	return ""
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
