@@ -109,7 +109,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	for _, virtualService := range virtualServices {
 		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService, serviceRegistry)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
-		wrappers := virtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
 		out = append(out, wrappers...)
 	}
 
@@ -124,7 +124,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				hash, destinationRule := hashForService(node, push, svc, port)
+				hash, destinationRule := getHashForService(node, push, svc, port)
 				if hash != nil {
 					if _, ok := hashByService[svc.Hostname]; !ok {
 						hashByService[svc.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
@@ -141,7 +141,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	// append default hosts for the service missing virtual Services
-	out = append(out, virtualHostsForService(serviceRegistry, hashByService, push.Mesh)...)
+	out = append(out, buildSidecarVirtualHostsForService(serviceRegistry, hashByService, push.Mesh)...)
 	return out
 }
 
@@ -195,10 +195,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 	return hosts, servicesInVirtualService
 }
 
-// virtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
+// buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
-func virtualHostsForVirtualService(
+func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
@@ -250,7 +250,7 @@ func virtualHostsForVirtualService(
 	return out
 }
 
-func virtualHostsForService(
+func buildSidecarVirtualHostsForService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
 	mesh *meshconfig.MeshConfig,
@@ -1243,7 +1243,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 	return nil
 }
 
-func hashForService(node *model.Proxy, push *model.PushContext,
+func getHashForService(node *model.Proxy, push *model.PushContext,
 	svc *model.Service, port *model.Port,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
