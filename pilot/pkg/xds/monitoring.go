@@ -118,6 +118,12 @@ var (
 	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
+	debounceTime = monitoring.NewDistribution(
+		"pilot_debounce_time",
+		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue.",
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+	)
+
 	pushContextInitTime = monitoring.NewDistribution(
 		"pilot_pushcontext_init_seconds",
 		"Total time in seconds Pilot takes to init pushContext.",
@@ -292,6 +298,7 @@ func init() {
 		xdsClients,
 		xdsResponseWriteTimeouts,
 		pushes,
+		debounceTime,
 		pushContextInitTime,
 		pushTime,
 		proxiesConvergeDelay,
