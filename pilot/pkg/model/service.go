@@ -78,10 +78,6 @@ type Service struct {
 	// Do not access directly. Use GetAddressForProxy
 	DefaultAddress string `json:"defaultAddress,omitempty"`
 
-	// ExtraDefaultAddresses specifies the extra service addresses of the load balancer.
-	// This field can be used by dual stack service to store other IP family addresses.
-	// Do not access directly. Use GetExtraSvcAddresses
-	ExtraSvcAddresses []string `json:"extraSvcAddresses,omitempty"`
 	// AutoAllocatedIPv4Address and AutoAllocatedIPv6Address specifies
 	// the automatically allocated IPv4/IPv6 address out of the reserved
 	// Class E subnet (240.240.0.0/16) or reserved Benchmarking IP range
@@ -778,19 +774,18 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	return s.DefaultAddress
 }
 
-// GetExtraSvcAddresses returns a Service's extra addresses to the cluster where the node resides.
+// GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
-func (s *Service) GetExtraSvcAddresses(node *Proxy) []string {
-	if len(s.ExtraSvcAddresses) == 0 && node.Metadata != nil {
+func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
+	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 1 {
-				s.ExtraSvcAddresses = addresses[1:]
-				return s.ExtraSvcAddresses
+				return addresses[1:]
 			}
 		}
 	}
-	return s.ExtraSvcAddresses
+	return nil
 }
 
 // getAllAddresses returns a Service's all addresses.

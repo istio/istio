@@ -215,18 +215,13 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 		lbls = ensureCanonicalServiceLabels(name, labels)
 	}
 	for _, ha := range hostAddresses {
-		extrAddrs := ""
-		if ha.address == constants.UnspecifiedIP {
-			extrAddrs = constants.UnspecifiedIPv6
-		}
 		out = append(out, &model.Service{
-			CreationTime:      ctime,
-			MeshExternal:      location == networking.ServiceEntry_MESH_EXTERNAL,
-			Hostname:          host.Name(ha.host),
-			DefaultAddress:    ha.address,
-			ExtraSvcAddresses: []string{extrAddrs},
-			Ports:             ports,
-			Resolution:        resolution,
+			CreationTime:   ctime,
+			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
+			Hostname:       host.Name(ha.host),
+			DefaultAddress: ha.address,
+			Ports:          ports,
+			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
 				ServiceRegistry: provider.External,
 				Name:            ha.host,
