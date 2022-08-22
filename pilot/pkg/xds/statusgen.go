@@ -134,8 +134,10 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			}
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
-					Id:       con.proxy.ID,
-					Metadata: con.proxy.Metadata.ToStruct(),
+					Id: con.proxy.ID,
+					Metadata: model.NodeMetadata{
+						ClusterID: con.proxy.Metadata.ClusterID,
+					}.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,
 			}
