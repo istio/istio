@@ -357,7 +357,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	switch options.EndpointMode {
 	case EndpointSliceOnly:
 		c.endpoints = newEndpointSliceController(c)
-	default:
+	default: // nolint: gocritic
 		log.Errorf("unknown endpoints mode: %v", options.EndpointMode)
 		fallthrough
 	case EndpointsOnly:
