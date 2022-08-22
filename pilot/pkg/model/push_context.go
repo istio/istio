@@ -1672,7 +1672,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 		destRules[i] = configs[i].DeepCopy()
 	}
 
-	ps.SetDestinationRules(destRules)
+	ps.setDestinationRules(destRules)
 	return nil
 }
 
@@ -1683,11 +1683,16 @@ func newConsolidatedDestRules() *consolidatedDestRules {
 	}
 }
 
-// SetDestinationRules is updates internal structures using a set of configs.
+// Testing Only. This allows tests to inject a config without having the mock.
+func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
+	ps.setDestinationRules(configs)
+}
+
+// setDestinationRules updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
-// This also allows tests to inject a config without having the mock.
-// This will not work properly for Sidecars, which will precompute their destination rules on init
-func (ps *PushContext) SetDestinationRules(configs []config.Config) {
+// This will not work properly for Sidecars, which will precompute their
+// destination rules on init.
+func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
