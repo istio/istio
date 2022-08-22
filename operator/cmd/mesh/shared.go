@@ -101,19 +101,20 @@ func kubeBuilderInstalled() bool {
 
 // confirm waits for a user to confirm with the supplied message.
 func confirm(msg string, writer io.Writer) bool {
-	_, _ = fmt.Fprintf(writer, "%s ", msg)
-
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		return false
+	for {
+		_, _ = fmt.Fprintf(writer, "%s ", msg)
+		var response string
+		_, err := fmt.Scanln(&response)
+		if err != nil {
+			return false
+		}
+		switch strings.ToUpper(response) {
+		case "Y", "YES":
+			return true
+		case "N", "NO":
+			return false
+		}
 	}
-	response = strings.ToUpper(response)
-	if response == "Y" || response == "YES" {
-		return true
-	}
-
-	return false
 }
 
 func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.CLIClient, client.Client, error) {
