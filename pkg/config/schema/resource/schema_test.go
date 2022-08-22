@@ -20,6 +20,9 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestValidate(t *testing.T) {
@@ -187,8 +190,6 @@ func TestCanonicalName(t *testing.T) {
 }
 
 func TestNewProtoInstance(t *testing.T) {
-	g := NewWithT(t)
-
 	s := Builder{
 		Kind:         "Empty",
 		Plural:       "Empties",
@@ -197,8 +198,8 @@ func TestNewProtoInstance(t *testing.T) {
 	}.MustBuild()
 
 	p, err := s.NewInstance()
-	g.Expect(err).To(BeNil())
-	g.Expect(p).To(Equal(&emptypb.Empty{}))
+	assert.NoError(t, err)
+	assert.Equal(t, p, config.Spec(&emptypb.Empty{}))
 }
 
 func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
