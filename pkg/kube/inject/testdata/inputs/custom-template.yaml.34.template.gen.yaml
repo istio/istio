@@ -1187,7 +1187,7 @@ templates:
             - --domain
             - $(POD_NAMESPACE).svc.cluster.local
             - --serviceCluster
-            - proxy.$(POD_NAMESPACE)
+            - {{.ServiceAccount}}-proxy.$(POD_NAMESPACE)
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
             - --trust-domain=cluster.local
@@ -1251,7 +1251,7 @@ templates:
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
             - name: ISTIO_META_WORKLOAD_NAME
-              value: proxy
+              value: {{.ServiceAccount}}-proxy
             - name: ISTIO_META_OWNER
               value: kubernetes://apis/apps/v1/namespaces/default/deployments/proxy
             - name: ISTIO_META_MESH_ID
