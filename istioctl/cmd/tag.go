@@ -441,13 +441,18 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 
 // confirm waits for a user to confirm with the supplied message.
 func confirm(msg string, w io.Writer) bool {
-	fmt.Fprintf(w, "%s ", msg)
-
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		return false
+	for {
+		fmt.Fprintf(w, "%s ", msg)
+		var response string
+		_, err := fmt.Scanln(&response)
+		if err != nil {
+			return false
+		}
+		switch strings.ToUpper(response) {
+		case "Y", "YES":
+			return true
+		case "N", "NO":
+			return false
+		}
 	}
-	response = strings.ToUpper(response)
-	return response == "Y" || response == "YES"
 }
