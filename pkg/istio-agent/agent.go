@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"os"
@@ -29,8 +28,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -40,7 +37,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
@@ -49,7 +45,6 @@ import (
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -321,12 +316,12 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 		retries:
 			for {
 				// handleStream hands on to request after exit, so create a fresh one instead.
-				request := &bootstrapDiscoveryRequest{
+				bsStream := &bootstrapDiscoveryClient{
 					node:        node,
 					envoyWaitCh: a.envoyWaitCh,
 					envoyUpdate: envoyProxy.UpdateConfig,
 				}
-				_ = a.xdsProxy.handleStream(request)
+				_ = a.xdsProxy.handleStream(bsStream)
 				select {
 				case <-a.envoyWaitCh:
 					break retries
@@ -351,56 +346,6 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	}
 	return nil
 }
-
-type bootstrapDiscoveryRequest struct {
-	node        *model.Node
-	envoyWaitCh chan error
-	envoyUpdate func(data []byte) error
-	sent        bool
-	received    bool
-}
-
-// Send refers to a request from the xDS proxy.
-func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) error {
-	if resp.TypeUrl == v3.BootstrapType && !b.received {
-		b.received = true
-		if len(resp.Resources) != 1 {
-			b.envoyWaitCh <- fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources))
-			return nil
-		}
-		var bs bootstrapv3.Bootstrap
-		if err := resp.Resources[0].UnmarshalTo(&bs); err != nil {
-			b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
-			return nil
-		}
-		by, err := protomarshal.MarshalIndent(&bs, "  ")
-		if err != nil {
-			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
-			return nil
-		}
-		if err := b.envoyUpdate(by); err != nil {
-			b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
-			return nil
-		}
-		close(b.envoyWaitCh)
-	}
-	return nil
-}
-
-// Recv Receive refers to a request to the xDS proxy.
-func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) {
-	if b.sent {
-		<-b.envoyWaitCh
-		return nil, io.EOF
-	}
-	b.sent = true
-	return &discovery.DiscoveryRequest{
-		TypeUrl: v3.BootstrapType,
-		Node:    bootstrap.ConvertNodeToXDSNode(b.node),
-	}, nil
-}
-
-func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
 
 // Run is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
