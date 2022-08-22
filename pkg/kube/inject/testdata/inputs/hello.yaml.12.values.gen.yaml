@@ -126,6 +126,8 @@
   "revision": "",
   "sidecarInjectorWebhook": {
     "alwaysInjectSelector": [],
+    "configMapAnnotations": {},
+    "configMapLabels": {},
     "defaultTemplates": [],
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},

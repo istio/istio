@@ -51,6 +51,10 @@ pilot:
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: false
+  # Additional labels to apply on mesh config map
+  configMapLabels: {}
+  # Additional annotations to apply on mesh config map
+  configMapAnnotations: {}
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
 sidecarInjectorWebhook:
@@ -103,6 +107,10 @@ sidecarInjectorWebhook:
   #
   # defaultTemplates: ["sidecar", "hello"]
   defaultTemplates: []
+  # Additional labels to apply on sidecarInjectorWebhook config map
+  configMapLabels: {}
+  # Additional annotations to apply on sidecarInjectorWebhook config map
+  configMapAnnotations: {}
 istiodRemote:
   # Sidecar injector mutating webhook configuration clientConfig.url value.
   # For example: https://$remotePilotAddress:15017/inject
