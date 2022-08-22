@@ -1,0 +1,14 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: DENY
+  rules:
+    - to:
+        - operation: # HTTP and TCP
+            methods: [ "GET" ]
+            ports: [ "9000" ]

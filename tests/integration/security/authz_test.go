@@ -1649,6 +1649,105 @@ func TestAuthz_CustomServer(t *testing.T) {
 		})
 }
 
+func TestAuthz_TCP_Pure_L7_Rule_Policy(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.mtls-local",
+			"security.authorization.grpc-protocol",
+			"security.authorization.tcp",
+			"security.authorization.negative-match").
+		Run(func(t framework.TestContext) {
+			allowed := apps.Ns1.A
+			denied := apps.Ns2.A
+
+			from := allowed.Append(denied)
+			fromMatch := match.AnyServiceName(from.NamespacedNames())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1AndNs2)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/tcp-L7-rule.yaml.tmpl")).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+
+					cases := []struct {
+						ports []string
+						path  string
+						allow allowValue
+					}{
+						{
+							ports: []string{ports.TCP},
+							allow: false,
+						},
+					}
+
+					for _, c := range cases {
+						newAuthzTest().
+							From(from).
+							To(to).
+							Allow(c.allow).
+							Path(c.path).
+							BuildAndRunForPorts(t, c.ports...)
+					}
+				})
+		})
+}
+
+func TestAuthz_TCP_L7_Mixed_Rule_Policy(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.mtls-local",
+			"security.authorization.grpc-protocol",
+			"security.authorization.tcp",
+			"security.authorization.negative-match").
+		Run(func(t framework.TestContext) {
+			allowed := apps.Ns1.A
+			denied := apps.Ns2.A
+
+			from := allowed.Append(denied)
+			fromMatch := match.AnyServiceName(from.NamespacedNames())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1AndNs2)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/tcp-mixed-rule.yaml.tmpl")).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+
+					cases := []struct {
+						ports []string
+						path  string
+						allow allowValue
+					}{
+						{
+							ports: []string{ports.TCP},
+							allow: true,
+						},
+					}
+
+					for _, c := range cases {
+						newAuthzTest().
+							From(from).
+							To(to).
+							Allow(c.allow).
+							Path(c.path).
+							BuildAndRunForPorts(t, c.ports...)
+					}
+				})
+		})
+}
 func newTrafficTest(t framework.TestContext, echos ...echo.Instances) *echotest.T {
 	var all []echo.Instance
 	for _, e := range echos {
