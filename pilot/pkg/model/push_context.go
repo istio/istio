@@ -1061,7 +1061,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		return out
 	}
 
-	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
+	// 5. service DestinationRules were merged in updateDestinationRules, return mesh/namespace rules if present
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
 		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
@@ -1672,7 +1672,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 		destRules[i] = configs[i].DeepCopy()
 	}
 
-	ps.SetDestinationRules(destRules)
+	ps.updateDestinationRules(destRules)
 	return nil
 }
 
