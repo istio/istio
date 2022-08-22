@@ -717,6 +717,12 @@ message PilotConfig {
   //
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
   google.protobuf.Struct seccompProfile = 38;
+
+  // Labels that are added to Pilot configMap.
+  google.protobuf.Struct configMapLabels = 39;
+
+  // Annotations that are added to Pilot configMap.
+  google.protobuf.Struct configMapAnnotations =440;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1059,6 +1065,12 @@ message SidecarInjectorConfig {
   // requests in Istiod, rather than at the webhook selection level.
   // This is option is intended for migration purposes only and will be removed in Istio 1.10.
   google.protobuf.BoolValue useLegacySelectors = 4 [deprecated=true];
+
+  // Labels that are added to sidecarInjectorConfig configMap.
+  google.protobuf.Struct configMapLabels = 25;
+  
+  // Annotations that are added to sidecarInjectorConfig configMap.
+  google.protobuf.Struct configMapAnnotations = 26;
 }
 
 // Configuration for each of the supported tracers.
