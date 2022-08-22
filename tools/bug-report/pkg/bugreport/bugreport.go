@@ -127,7 +127,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	client, err := kube.NewExtendedClient(clientConfig, "")
+	client, err := kube.NewCLIClient(clientConfig, "")
 	if err != nil {
 		return err
 	}
@@ -252,7 +252,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 }
 
 func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 	if err != nil {
 		return err.Error()
 	}
@@ -267,7 +267,7 @@ func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string)
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
 // proxy logs and info are saved in logs/stats/importance global maps.
 // Errors are reported through gErrors.
-func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
+func gatherInfo(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
 	// no timeout on mandatoryWg.
 	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
@@ -355,7 +355,7 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 // getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
 // Runs if a goroutine, with errors reported through gErrors.
 // TODO(stewartbutler): output the logs to a more robust/complete structure.
-func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
+func getProxyLogs(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
@@ -375,7 +375,7 @@ func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, re
 
 // getIstiodLogs fetches Istiod logs for the given namespace/pod and writes the output.
 // Runs if a goroutine, with errors reported through gErrors.
-func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
+func getIstiodLogs(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
@@ -390,7 +390,7 @@ func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, r
 }
 
 // getOperatorLogs fetches istio-operator logs for the given namespace/pod and writes the output.
-func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources,
+func getOperatorLogs(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
@@ -405,7 +405,7 @@ func getOperatorLogs(client kube.ExtendedClient, config *config.BugReportConfig,
 }
 
 // getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
-func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *config.BugReportConfig,
+func getLog(client kube.CLIClient, resources *cluster2.Resources, config *config.BugReportConfig,
 	namespace, pod, container string,
 ) (string, *processlog.Stats, int, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)

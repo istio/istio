@@ -149,6 +149,10 @@ spec:
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.GitVersion }}
+          - name: ENABLE_LEGACY_FSGROUP_INJECTION
+            value: "true"
+{{- end }}
 {{- if .Values.pilot.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"

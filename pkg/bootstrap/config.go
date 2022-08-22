@@ -60,6 +60,9 @@ const (
 
 	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + ",downstream_cx_active" // Needed for draining.
 
+	// required for metrics based on stat_prefix in virtual service.
+	requiredEnvoyStatsMatcherInclusionRegexes = "vhost.*.route.*"
+
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
@@ -251,7 +254,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
 			inclusionSuffixes, proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -485,6 +488,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
 				meta.Labels = m
+				meta.StaticLabels = m
 			}
 		case "POD_NAME":
 			meta.InstanceName = val
@@ -580,8 +584,9 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	// These are typically volume mounted by the downward API
 	lbls, err := readPodLabels()
 	if err == nil {
-		if meta.Labels == nil {
-			meta.Labels = map[string]string{}
+		meta.Labels = map[string]string{}
+		for k, v := range meta.StaticLabels {
+			meta.Labels[k] = v
 		}
 		for k, v := range lbls {
 			// ignore `pod-template-hash` label
@@ -639,39 +644,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
-}
-
-func GetNodeMetaDataLabels(platform platform.Environment) (map[string]string, error) {
-	meta := &model.BootstrapNodeMetadata{}
-
-	// extract ISTIO_METAJSON_LABELS
-	extractAttributesMetadata(os.Environ(), platform, meta)
-	// Add all instance labels with lower precedence than pod labels
-	extractInstanceLabels(platform, meta)
-
-	// Add all pod labels found from filesystem
-	// These are typically volume mounted by the downward API
-	lbls, err := readPodLabels()
-	if err == nil {
-		if meta.Labels == nil {
-			meta.Labels = map[string]string{}
-		}
-		for k, v := range lbls {
-			// ignore `pod-template-hash` label
-			if k == DefaultDeploymentUniqueLabelKey {
-				continue
-			}
-			meta.Labels[k] = v
-		}
-	} else {
-		if os.IsNotExist(err) {
-			log.Debugf("failed to read pod labels: %v", err)
-		} else {
-			log.Warnf("failed to read pod labels: %v", err)
-		}
-	}
-
-	return meta.Labels, nil
 }
 
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
@@ -737,11 +709,11 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 		return
 	}
 	instanceLabels := plat.Labels()
-	if meta.Labels == nil {
-		meta.Labels = map[string]string{}
+	if meta.StaticLabels == nil {
+		meta.StaticLabels = map[string]string{}
 	}
 	for k, v := range instanceLabels {
-		meta.Labels[k] = v
+		meta.StaticLabels[k] = v
 	}
 }
 

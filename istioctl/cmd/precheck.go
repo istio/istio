@@ -62,7 +62,7 @@ func preCheck() *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+			cli, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 			if err != nil {
 				return err
 			}
@@ -106,7 +106,7 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	return cmd
 }
 
-func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
+func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
 	m, err := checkServerVersion(cli)
@@ -145,7 +145,7 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	return msgs, nil
 }
 
-func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
+func checkInstallPermissions(cli kube.CLIClient) diag.Messages {
 	Resources := []struct {
 		namespace string
 		group     string
@@ -222,7 +222,7 @@ func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
 	return msgs
 }
 
-func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, name string) error {
+func checkCanCreateResources(c kube.CLIClient, namespace, group, version, name string) error {
 	s := &authorizationapi.SelfSubjectAccessReview{
 		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationapi.ResourceAttributes{
@@ -249,7 +249,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 	return nil
 }
 
-func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
+func checkServerVersion(cli kube.CLIClient) (diag.Messages, error) {
 	v, err := cli.GetKubernetesVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the Kubernetes version: %v", err)
@@ -266,7 +266,7 @@ func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 	return nil, nil
 }
 
-func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
+func checkDataPlane(cli kube.CLIClient, namespace string) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
 	m, err := checkListeners(cli, namespace)
@@ -280,7 +280,7 @@ func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 	return msgs, nil
 }
 
-func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
+func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error) {
 	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods
 		FieldSelector: "status.phase=Running",

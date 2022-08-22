@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	extendedClient kube.ExtendedClient
+	extendedClient kube.CLIClient
 	kubeClient     client.Client
 )
 
@@ -169,7 +169,7 @@ func TestOperatorInit(t *testing.T) {
 	}
 }
 
-func MockKubernetesClients(_, _ string, _ clog.Logger) (kube.ExtendedClient, client.Client, error) {
+func MockKubernetesClients(_, _ string, _ clog.Logger) (kube.CLIClient, client.Client, error) {
 	extendedClient = kube.MockClient{
 		Interface: fake.NewSimpleClientset(),
 	}

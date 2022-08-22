@@ -47,7 +47,6 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -447,16 +446,6 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				return
 			}
 
-			// override the first xds request node metadata labels
-			if req.Node != nil {
-				node, err := p.ia.generateNodeMetadata()
-				if err != nil {
-					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
-				} else if node.ID != "" {
-					req.Node = bootstrap.ConvertNodeToXDSNode(node)
-				}
-			}
-
 			// forward to istiod
 			con.sendRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
@@ -732,13 +721,13 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 			}
 			return &certificate, nil
 		},
-		RootCAs: rootCert,
+		RootCAs:    rootCert,
+		MinVersion: tls.VersionTLS12,
 	}
 
-	// strip the port from the address
-	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
-	config.ServerName = parts[0]
-
+	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err != nil {
+		config.ServerName = host
+	}
 	// For debugging on localhost (with port forward)
 	// This matches the logic for the CA; this code should eventually be shared
 	if strings.Contains(config.ServerName, "localhost") {
@@ -748,9 +737,6 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	if p.istiodSAN != "" {
 		config.ServerName = p.istiodSAN
 	}
-	// TODO: if istiodSAN starts with spiffe://, use custom validation.
-
-	config.MinVersion = tls.VersionTLS12
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
 }

@@ -150,8 +150,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      securityContext:
-        fsGroup: 1337
       volumes:
       - name: workload-socket
       - name: workload-certs

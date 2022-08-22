@@ -137,7 +137,7 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
 		// Bumping this up greatly decreases install time
@@ -147,10 +147,10 @@ func newKubeClientWithRevision(kubeconfig, configContext string, revision string
 	if err != nil {
 		return nil, err
 	}
-	return kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), revision)
+	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
 	return newKubeClientWithRevision(kubeconfig, configContext, "")
 }
 

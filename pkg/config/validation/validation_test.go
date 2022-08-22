@@ -2264,7 +2264,7 @@ func TestValidateHTTPDirectResponse(t *testing.T) {
 }
 
 func TestValidateDestinationWithInheritance(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
+	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
 	cases := []struct {
 		name  string
 		in    proto.Message

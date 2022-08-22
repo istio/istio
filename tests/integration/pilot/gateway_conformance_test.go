@@ -55,7 +55,7 @@ import (
 // The upstream build requires using `testing.T` types, which we cannot pass using our framework.
 // To workaround this, we set up the inputs it TestMain.
 type GatewayConformanceInputs struct {
-	Client  kube.ExtendedClient
+	Client  kube.CLIClient
 	Cleanup bool
 }
 
@@ -78,6 +78,16 @@ func TestGatewayConformance(t *testing.T) {
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
 			DeployGatewayAPICRD(ctx)
+
+			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
+			if ctx.Settings().Image.PullSecret != "" {
+				for _, ns := range conformanceNamespaces {
+					namespace.Claim(ctx, namespace.Config{
+						Prefix: ns,
+						Inject: false,
+					})
+				}
+			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{

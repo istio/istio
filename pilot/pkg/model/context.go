@@ -278,10 +278,6 @@ type Proxy struct {
 	// while NodeMetadata.Labels are set during bootstrap.
 	Labels map[string]string
 
-	// IstioMetaLabels contains the labels specified by ISTIO_METAJSON_LABELS and platform instance,
-	// so we can support pod labels update by plus the fundamental labels.
-	IstioMetaLabels map[string]string
-
 	// Metadata key-value pairs extending the Node identifier
 	Metadata *NodeMetadata
 
@@ -542,9 +538,13 @@ type NodeMetadata struct {
 	// Mostly used when istiod requests the upstream.
 	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node. Labels is a
-	// superset of IstioMetaLabels.
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	// It contains both StaticLabels and pod labels if any, it is a superset of StaticLabels.
+	// Note: it is not meant to be used during xds generation.
 	Labels map[string]string `json:"LABELS,omitempty"`
+
+	// StaticLabels specifies the set of labels from `ISTIO_METAJSON_LABELS`.
+	StaticLabels map[string]string `json:"STATIC_LABELS,omitempty"`
 
 	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
 	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
@@ -862,28 +862,26 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 // SetWorkloadLabels will set the node.Labels.
 // It merges both node meta labels and workload labels and give preference to workload labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {
+	// If this is VM proxy, do not override labels at all, because in istio test we use pod to simulate VM.
+	if node.IsVM() {
+		node.Labels = node.Metadata.Labels
+		return
+	}
 	labels := env.GetProxyWorkloadLabels(node)
-	// when IstioMetaLabels unset, calculate the IstioMetaLabels. It is only set once.
-	if node.IstioMetaLabels == nil {
-		IstioMetaLabels := make(map[string]string, len(node.Metadata.Labels))
-		for k, v := range node.Metadata.Labels {
-			IstioMetaLabels[k] = v
+	if labels != nil {
+		node.Labels = make(map[string]string, len(labels)+len(node.Metadata.StaticLabels))
+		// we can't just equate proxy workload labels to node meta labels as it may be customized by user
+		// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
+		// so, we fill the `ISTIO_METAJSON_LABELS` as well.
+		for k, v := range node.Metadata.StaticLabels {
+			node.Labels[k] = v
 		}
-		for k := range labels {
-			delete(IstioMetaLabels, k)
+		for k, v := range labels {
+			node.Labels[k] = v
 		}
-		node.IstioMetaLabels = IstioMetaLabels
-	}
-
-	node.Labels = make(map[string]string, len(labels)+len(node.IstioMetaLabels))
-	// we can't just equate proxy workload labels to node meta labels as it may be customized by user
-	// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
-	// so, we fill the `ISTIO_METAJSON_LABELS` as well.
-	for k, v := range node.IstioMetaLabels {
-		node.Labels[k] = v
-	}
-	for k, v := range labels {
-		node.Labels[k] = v
+	} else {
+		// If could not find pod labels, fallback to use the node metadata labels.
+		node.Labels = node.Metadata.Labels
 	}
 }
 
@@ -1142,7 +1140,7 @@ func IsPrivilegedPort(port uint32) bool {
 
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
-	return node.Labels[constants.TestVMLabel] != ""
+	return node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
 func (node *Proxy) IsProxylessGrpc() bool {
