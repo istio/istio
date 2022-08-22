@@ -793,7 +793,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
 			proxy.Labels = proxy.Metadata.Labels
 			proxy.SidecarScope = tt.sidecarScope
-			test.SetBoolForTest(t, &features.EnableTLSOnSidecarIngress, true)
+			test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
 			listeners := cg.Listeners(proxy)
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
@@ -817,7 +817,7 @@ spec:
 func TestHCMInternalAddressConfig(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{})
 	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
-	test.SetBoolForTest(t, &features.EnableHCMInternalNetworks, true)
+	test.SetForTest(t, &features.EnableHCMInternalNetworks, true)
 	push := cg.PushContext()
 	cases := []struct {
 		name           string

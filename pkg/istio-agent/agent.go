@@ -61,24 +61,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-// To debug:
-// curl -X POST localhost:15000/logging?config=trace - to see SendingDiscoveryRequest
-
-// Breakpoints in secretcache.go GenerateSecret..
-
-// Note that istiod currently can't validate the JWT token unless it runs on k8s
-// Main problem is the JWT validation check which hardcodes the k8s server address and token location.
-//
-// To test on a local machine, for debugging:
-//
-// kis exec $POD -- cat /run/secrets/istio-token/istio-token > var/run/secrets/tokens/istio-token
-// kis port-forward $POD 15010:15010 &
-//
-// You can also copy the K8S CA and a token to be used to connect to k8s - but will need removing the hardcoded addr
-// kis exec $POD -- cat /run/secrets/kubernetes.io/serviceaccount/{ca.crt,token} > var/run/secrets/kubernetes.io/serviceaccount/
-//
-// Or disable the jwt validation while debugging SDS problems.
-
 const (
 	// Location of K8S CA root.
 	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
