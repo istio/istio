@@ -18,11 +18,15 @@
 package pilot
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -33,26 +37,59 @@ func TestPiggyback(t *testing.T) {
 		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
-			out, _, err := t.Clusters()[0].PodExec(
-				apps.A[0].WorkloadsOrFail(t)[0].PodName(),
-				apps.A.Config().Namespace.Name(),
-				"istio-proxy",
-				"pilot-agent request --debug-port 15004 GET /debug/syncz")
-			if err != nil {
-				t.Fatalf("couldn't curl sidecar: %v", err)
+			// Add retry loop to handle case when the pod has disconnected from Istio temporarily
+			retry.UntilSuccessOrFail(t, func() error {
+				out, _, err := t.Clusters()[0].PodExec(
+					apps.A[0].WorkloadsOrFail(t)[0].PodName(),
+					apps.A.Config().Namespace.Name(),
+					"istio-proxy",
+					"pilot-agent request --debug-port 15004 GET /debug/syncz")
+				if err != nil {
+					return fmt.Errorf("couldn't curl sidecar: %v", err)
+				}
+				dr := xdsapi.DiscoveryResponse{}
+				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
+					return fmt.Errorf("unmarshal: %v", err)
+				}
+				if dr.TypeUrl != "istio.io/debug/syncz" {
+					return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
+				}
+				if len(dr.Resources) < 1 {
+					return fmt.Errorf("the output didn't unmarshal as expected (no resources): %s", out)
+				}
+				if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
+					return fmt.Errorf("resources[0] doesn't contain expected typeURL: %s", out)
+				}
+				return nil
+			})
+
+			expectSubstrings := func(have string, wants ...string) error {
+				for _, want := range wants {
+					if !strings.Contains(have, want) {
+						return fmt.Errorf("substring %q not found; have %q", want, have)
+					}
+				}
+				return nil
 			}
-			dr := xdsapi.DiscoveryResponse{}
-			if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
-				t.Fatal(err)
-			}
-			if dr.TypeUrl != "istio.io/debug/syncz" {
-				t.Fatalf("the output doesn't contain expected typeURL: %s", out)
-			}
-			if len(dr.Resources) < 1 {
-				t.Fatalf("the output didn't unmarshal as expected (no resources): %s", out)
-			}
-			if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
-				t.Fatalf("Resources[0] doesn't contain expected typeURL: %s", out)
-			}
+
+			// Test gRPC-based Tap Service using istioctl.
+			retry.UntilSuccessOrFail(t, func() error {
+				podName := apps.A[0].WorkloadsOrFail(t)[0].PodName()
+				nsName := apps.A.Config().Namespace.Name()
+				pf, err := t.Clusters()[0].NewPortForwarder(podName, nsName, "localhost", 0, 15004)
+				if err != nil {
+					return fmt.Errorf("failed to create the port forwarder: %v", err)
+				}
+				pf.Start()
+				defer pf.Close()
+
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+				args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
+				output, _ := istioCtl.InvokeOrFail(t, args)
+
+				// Just verify pod A is known to Pilot; implicitly this verifies that
+				// the printing code printed it.
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, nsName))
+			})
 		})
 }
