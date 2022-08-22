@@ -179,7 +179,11 @@ func (client mockPromAPI) TSDB(ctx context.Context) (promv1.TSDBResult, error) {
 	return promv1.TSDBResult{}, nil
 }
 
-func (client mockPromAPI) QueryRange(ctx context.Context, query string, r promv1.Range) (prometheus_model.Value, promv1.Warnings, error) {
+func (client mockPromAPI) QueryRange(
+		ctx context.Context,
+		query string,
+		r promv1.Range,
+) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
 		return prometheus_model.Vector{}, nil, nil
@@ -193,7 +197,7 @@ func (client mockPromAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus
 }
 
 func (client mockPromAPI) Series(ctx context.Context, matches []string,
-	startTime time.Time, endTime time.Time) ([]prometheus_model.LabelSet, promv1.Warnings, error) {
+		startTime time.Time, endTime time.Time) ([]prometheus_model.LabelSet, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 
