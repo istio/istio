@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -189,8 +190,6 @@ func TestCanonicalName(t *testing.T) {
 }
 
 func TestNewProtoInstance(t *testing.T) {
-	g := NewWithT(t)
-
 	s := Builder{
 		Kind:         "Empty",
 		Plural:       "Empties",
@@ -200,7 +199,7 @@ func TestNewProtoInstance(t *testing.T) {
 
 	p, err := s.NewInstance()
 	assert.NoError(t, err)
-	assert.Equal(t, p, &emptypb.Empty{})
+	assert.Equal(t, p, config.Spec(&emptypb.Empty{}))
 }
 
 func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
