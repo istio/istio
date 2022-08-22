@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestVirtualListenerBuilder(t *testing.T) {
@@ -515,9 +516,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 				virtualInboundListener:  lb.virtualInboundListener,
 			}
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Unexpected default listener, want \n%#v got \n%#v", tt.want, got)
-			}
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

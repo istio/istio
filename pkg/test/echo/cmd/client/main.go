@@ -87,7 +87,6 @@ where the network configuration doesn't support gRPC to the source pod.'
 			request, err := getRequest(args[0])
 			if err != nil {
 				log.Fatal(err)
-				os.Exit(-1)
 			}
 
 			// Create a forwarder.
