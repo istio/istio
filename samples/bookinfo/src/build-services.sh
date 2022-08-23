@@ -16,10 +16,22 @@
 
 set -o errexit
 
-if [ "$#" -ne 2 ]; then
-    echo "Incorrect parameters"
-    echo "Usage: build-services.sh <version> <prefix>"
+display_usage() {
+    echo
+    echo "USAGE: ./build-services.sh <version> <prefix> [-h|--help]"
+    echo "    -h|--help: Prints usage information"
+    echo "    version:   Version of the sample app images (Required)"
+    echo "    prefix:    Use the value as the prefix for image names (Required)"
     exit 1
+}
+
+if [ "$#" -ne 2 ]; then
+  if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    display_usage
+  else
+    echo "Incorrect parameters"
+    display_usage
+  fi
 fi
 
 VERSION=$1
