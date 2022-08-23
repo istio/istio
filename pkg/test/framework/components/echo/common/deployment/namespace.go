@@ -72,9 +72,10 @@ func (n EchoNamespace) build(b deployment.Builder, cfg Config) deployment.Builde
 		if config.Namespace == nil {
 			config.Namespace = n.Namespace
 		}
-		b = b.WithConfig(config)
+		if config.Namespace.Name() == n.Namespace.Name() {
+			b = b.WithConfig(config)
+		}
 	}
-
 	return b
 }
 
