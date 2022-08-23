@@ -305,38 +305,34 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	if a.cfg.EnableDynamicBootstrap {
 		a.dynamicBootstrapWaitCh = make(chan error, 1)
 		// Simulate an xDS request for a bootstrap
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
-
-			// wait indefinitely and keep retrying with jittered exponential backoff
-			b := backoff.NewExponentialBackOff()
-			b.MaxElapsedTime = 30 * time.Second
-			for {
-				// handleStream hands on to request after exit, so create a fresh one instead.
-				bsStream := &bootstrapDiscoveryStream{
-					node:        node,
-					errCh:       a.dynamicBootstrapWaitCh,
-					envoyUpdate: envoyProxy.UpdateConfig,
-				}
-				_ = a.xdsProxy.handleStream(bsStream)
-				delay := b.NextBackOff()
-				select {
-				case err, ok := <-a.dynamicBootstrapWaitCh:
-					if !ok {
-						log.Infof("successfully updated bootstrap config")
-						return
-					} else {
-						log.Warn(err)
-						return
-					}
-				case <-ctx.Done():
-					return
-				case <-time.After(delay):
-					log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
-				}
+		// wait indefinitely and keep retrying with jittered exponential backoff
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 30 * time.Second
+		for {
+			// handleStream hands on to request after exit, so create a fresh one instead.
+			bsStream := &bootstrapDiscoveryStream{
+				node:        node,
+				errCh:       a.dynamicBootstrapWaitCh,
+				envoyUpdate: envoyProxy.UpdateConfig,
 			}
-		}()
+			_ = a.xdsProxy.handleStream(bsStream)
+			delay := b.NextBackOff()
+			select {
+			case err, ok := <-a.dynamicBootstrapWaitCh:
+				if !ok {
+					log.Infof("successfully updated bootstrap config")
+					return nil
+				} else {
+					// received invalid config, could not happen in normal case.
+					log.Warn(err)
+					return err
+				}
+			case <-ctx.Done():
+				return nil
+			case <-time.After(delay):
+				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
+			}
+		}
 	}
 	return nil
 }
@@ -391,29 +387,12 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
+			return nil, fmt.Errorf("failed to initialize envoy agent: %v", err)
 		}
 
 		a.wg.Add(1)
 		go func() {
 			defer a.wg.Done()
-
-			if a.cfg.EnableDynamicBootstrap {
-				start := time.Now()
-				var err error
-				select {
-				case err = <-a.dynamicBootstrapWaitCh:
-				case <-ctx.Done():
-					// Early cancellation before envoy started.
-					return
-				}
-				if err != nil {
-					log.Errorf("failed to write updated envoy bootstrap: %v", err)
-					return
-				}
-				log.Infof("received server-side bootstrap in %v", time.Since(start))
-			}
-
 			// This is a blocking call for graceful termination.
 			a.envoyAgent.Run(ctx)
 		}()
