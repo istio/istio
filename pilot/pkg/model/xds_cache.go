@@ -30,11 +30,15 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+var enableStats = func() bool {
+	return features.EnableXDSCacheMetrics
+}
+
 func init() {
-	monitoring.MustRegister(xdsCacheReads)
-	monitoring.MustRegister(xdsCacheEvictions)
-	monitoring.MustRegister(xdsCacheSize)
-	monitoring.MustRegister(dependentConfigSize)
+	xdsCacheReads = monitoring.RegisterIf(xdsCacheReads, enableStats)
+	xdsCacheEvictions = monitoring.RegisterIf(xdsCacheEvictions, enableStats)
+	xdsCacheSize = monitoring.RegisterIf(xdsCacheSize, enableStats)
+	dependentConfigSize = monitoring.RegisterIf(dependentConfigSize, enableStats)
 }
 
 var (
@@ -67,21 +71,15 @@ var (
 )
 
 func hit() {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheHits.Increment()
-	}
+	xdsCacheHits.Increment()
 }
 
 func miss() {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheMisses.Increment()
-	}
+	xdsCacheMisses.Increment()
 }
 
 func size(cs int) {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheSize.Record(float64(cs))
-	}
+	xdsCacheSize.Record(float64(cs))
 }
 
 // XdsCacheEntry interface defines functions that should be implemented by
@@ -177,9 +175,6 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 }
 
 func (l *lruCache) recordDependentConfigSize() {
-	if !features.EnableXDSCacheMetrics {
-		return
-	}
 	dsize := 0
 	for _, dependents := range l.configIndex {
 		dsize += len(dependents)
@@ -189,12 +184,10 @@ func (l *lruCache) recordDependentConfigSize() {
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
 func (l *lruCache) onEvict(k any, v any) {
-	if features.EnableXDSCacheMetrics {
-		if l.evictedOnClear {
-			xdsCacheEvictsionsOnClear.Increment()
-		} else {
-			xdsCacheEvictsionsOnSize.Increment()
-		}
+	if l.evictedOnClear {
+		xdsCacheEvictsionsOnClear.Increment()
+	} else {
+		xdsCacheEvictsionsOnSize.Increment()
 	}
 
 	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
