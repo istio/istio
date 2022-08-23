@@ -302,8 +302,7 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	}
 }
 
-// Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
-// to avoid direct dependencies.
+// Push is called to push changes on config updates using ADS.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
@@ -359,7 +358,6 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
-// It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
