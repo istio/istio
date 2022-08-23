@@ -507,7 +507,7 @@ func (s *Server) initSDSServer() {
 	if s.kubeClient == nil && !features.EnableSecretOverMCP {
 		return
 	}
-	if !features.EnableXDSIdentityCheck && !features.EnableSecretOverMCP {
+	if !features.EnableXDSIdentityCheck {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		return

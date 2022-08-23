@@ -198,8 +198,8 @@ type PushContext struct {
 	// gatewayIndex is the index of gateways.
 	gatewayIndex gatewayIndex
 
-	// secrets for each namespace
-	SecretsByNameSpace map[string]map[string]config.Config
+	// secrets for each NamespacedName
+	SecretsByNameSpace map[NamespacedName]*config.Config
 
 	// clusterLocalHosts extracted from the MeshConfig
 	clusterLocalHosts ClusterLocalHosts
@@ -651,7 +651,7 @@ func NewPushContext() *PushContext {
 		sidecarIndex:            newSidecarIndex(),
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewayIndex:            newGatewayIndex(),
-		SecretsByNameSpace:      map[string]map[string]config.Config{},
+		SecretsByNameSpace:      map[NamespacedName]*config.Config{},
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
 	}
@@ -1280,6 +1280,8 @@ func (ps *PushContext) updateContext(
 		if err := ps.initSecrets(env); err != nil {
 			return err
 		}
+	} else {
+		ps.SecretsByNameSpace = oldPushContext.SecretsByNameSpace
 	}
 
 	if servicesChanged || gatewayAPIChanged {
@@ -1441,10 +1443,11 @@ func (ps *PushContext) initSecrets(env *Environment) error {
 	}
 	sortConfigByCreationTime(secretConfigs)
 	for _, secretConfig := range secretConfigs {
-		if _, exists := ps.SecretsByNameSpace[secretConfig.Namespace]; !exists {
-			ps.SecretsByNameSpace[secretConfig.Namespace] = map[string]config.Config{}
+		key := NamespacedName{
+			Name:      secretConfig.Name,
+			Namespace: secretConfig.Namespace,
 		}
-		ps.SecretsByNameSpace[secretConfig.Namespace][secretConfig.Name] = secretConfig
+		ps.SecretsByNameSpace[key] = &secretConfig
 	}
 	return nil
 }
@@ -2097,10 +2100,12 @@ func (ps *PushContext) NetworkManager() *NetworkManager {
 }
 
 func (ps *PushContext) GetSecret(name, namespace string) *v1.Secret {
-	if m, exists := ps.SecretsByNameSpace[namespace]; exists {
-		if config, exists := m[name]; exists {
-			return config.Spec.(*v1.Secret)
-		}
+	key := NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	if config, exists := ps.SecretsByNameSpace[key]; exists {
+		return config.Spec.(*v1.Secret)
 	}
 	return nil
 }
