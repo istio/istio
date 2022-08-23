@@ -355,6 +355,8 @@ spec:
           name: istio-token
         - mountPath: /var/lib/kubelet/pki # Must match due to symlinks...
           name: kubelet-creds
+        - name: config-volume
+          mountPath: /etc/istio/config
 {{- if not $iptablesRedirect }}
         securityContext:
           privileged: true
@@ -378,5 +380,9 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
 
 {{- end }}
