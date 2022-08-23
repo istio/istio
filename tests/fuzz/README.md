@@ -22,11 +22,13 @@ python infra/helper.py build_fuzzers istio ~/go/src/istio.io/istio
 ```
 
 Reproduce failure:
+
 ```bash
 python infra/helper.py reproduce istio FuzzX ~/Downloads/clusterfuzz-testcase-minimized-FuzzX-1234
 ```
 
 Run:
+
 ```bash
 python infra/helper.py run_fuzzer istio FuzzValidateMeshConfig
 ```
