@@ -241,8 +241,8 @@ func TestGCPMetadata(t *testing.T) {
 				}
 			}
 			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
-				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn,
-				tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
+				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn,
+				tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
 			e := NewGCP()
 			got := e.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
@@ -253,7 +253,7 @@ func TestGCPMetadata(t *testing.T) {
 					GCPMetadata = ""
 				}
 			}
-			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
 		})
 	}
 }
@@ -285,6 +285,7 @@ func TestGCPQuotaProject(t *testing.T) {
 			if got, want := val, v.wantProject; got != want {
 				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
 			}
+			gcpEnvOnce = sync.Once{}
 		})
 	}
 }
@@ -322,7 +323,7 @@ func TestMetadataCache(t *testing.T) {
 				GCPClusterURL: "https://container.googleapis.com/v1/projects/pid/locations/location/clusters/cluster",
 			},
 		}, {
-			"should  ignore",
+			"should ignore",
 			func() bool { return true },
 			func() (string, error) { return "newPid", nil },
 			func() (string, error) { return "newNpid", nil },
@@ -340,17 +341,22 @@ func TestMetadataCache(t *testing.T) {
 			},
 		},
 	}
-	gcpEnv := NewGCP()
+
+	var gcpEnvVar Environment
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
-				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn,
-				tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
-			got := gcpEnv.Metadata()
+				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn,
+				tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
+
+			if gcpEnvVar == nil {
+				gcpEnvVar = NewGCP()
+			}
+			got := gcpEnvVar.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
-			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
 		})
 	}
 }
