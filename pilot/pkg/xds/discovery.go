@@ -589,7 +589,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
-// shutdown shuts down DiscoveryServer components.
+// Shutdown shuts down DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
 	s.closeJwksResolver()
 	s.pushQueue.ShutDown()
