@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	v1 "k8s.io/api/core/v1"
 	"math"
 	"sort"
 	"strings"
@@ -24,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"

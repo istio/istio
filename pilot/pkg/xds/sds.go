@@ -18,7 +18,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"istio.io/istio/pilot/pkg/credentials/kube"
 	"strings"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -144,7 +144,6 @@ func (s *SecretGen) generateFromPushContext(sr SecretResource, proxy *model.Prox
 	}
 	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
 	return res
-
 }
 
 func (s *SecretGen) generateMCP(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
