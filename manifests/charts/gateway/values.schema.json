@@ -45,6 +45,14 @@
         }
       }
     },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "env": {
       "type": "object"
     },

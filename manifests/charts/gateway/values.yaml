@@ -70,6 +70,10 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
 
+# pod disruption budget which is used to ensure that the gateway are gradually upgraded or recovered
+podDisruptionBudget:
+  enabled: false
+
 # Pod environment variables
 env: {}
 
