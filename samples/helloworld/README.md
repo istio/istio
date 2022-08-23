@@ -40,6 +40,7 @@ arguments:
 
 Argument | Default | Description
 -------- | ------- | -----------
+`-h`,`--help` | | Prints usage information.
 `--version` | `v1` | Specifies the version that will be returned by the helloworld service.
 `--includeService` | `true` | If `true` the service will be included in the YAML.
 `--includeDeployment` | `true` | If `true` the deployment will be included in the YAML.
