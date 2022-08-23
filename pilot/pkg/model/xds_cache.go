@@ -34,35 +34,24 @@ var enableStats = func() bool {
 	return features.EnableXDSCacheMetrics
 }
 
-func init() {
-	xdsCacheReads = monitoring.RegisterIf(xdsCacheReads, enableStats)
-	xdsCacheEvictions = monitoring.RegisterIf(xdsCacheEvictions, enableStats)
-	xdsCacheSize = monitoring.RegisterIf(xdsCacheSize, enableStats)
-	dependentConfigSize = monitoring.RegisterIf(dependentConfigSize, enableStats)
-}
-
 var (
-	xdsCacheReads = monitoring.NewSum(
+	xdsCacheReads = monitoring.RegisterIf(monitoring.NewSum(
 		"xds_cache_reads",
 		"Total number of xds cache xdsCacheReads.",
-		monitoring.WithLabels(typeTag),
-	)
+		monitoring.WithLabels(typeTag)), enableStats)
 
-	xdsCacheEvictions = monitoring.NewSum(
+	xdsCacheEvictions = monitoring.RegisterIf(monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
-		monitoring.WithLabels(typeTag),
-	)
+		monitoring.WithLabels(typeTag)), enableStats)
 
-	xdsCacheSize = monitoring.NewGauge(
+	xdsCacheSize = monitoring.RegisterIf(monitoring.NewGauge(
 		"xds_cache_size",
-		"Current size of xds cache",
-	)
+		"Current size of xds cache"), enableStats)
 
-	dependentConfigSize = monitoring.NewGauge(
+	dependentConfigSize = monitoring.RegisterIf(monitoring.NewGauge(
 		"xds_cache_dependent_config_size",
-		"Current size of dependent configs",
-	)
+		"Current size of dependent configs"), enableStats)
 
 	xdsCacheHits              = xdsCacheReads.With(typeTag.Value("hit"))
 	xdsCacheMisses            = xdsCacheReads.With(typeTag.Value("miss"))
