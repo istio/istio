@@ -355,10 +355,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
-	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c)
 	case EndpointSliceOnly:
 		c.endpoints = newEndpointSliceController(c)
+	default: // nolint: gocritic
+		log.Errorf("unknown endpoints mode: %v", options.EndpointMode)
+		fallthrough
+	case EndpointsOnly:
+		c.endpoints = newEndpointsController(c)
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
