@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 40198
+releaseNotes:
+  - |
+    **Fixed** LocalityLoadBalancerSetting.failoverPriority not working properly if xds cache is enabled.

@@ -142,7 +142,7 @@ func configureBenchmark(t test.Failer) {
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
-	test.SetBoolForTest(t, &features.EnableXDSCaching, false)
+	test.SetForTest(t, &features.EnableXDSCaching, false)
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
@@ -358,6 +358,9 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
+		Labels: map[string]string{
+			"istio.io/benchmark": "true",
+		},
 		Metadata: &model.NodeMetadata{
 			Namespace: "default",
 			Labels: map[string]string{
@@ -604,7 +607,7 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 
 func BenchmarkCache(b *testing.B) {
 	// Ensure cache doesn't grow too large
-	test.SetIntForTest(b, &features.XDSCacheMaxSize, 1_000)
+	test.SetForTest(b, &features.XDSCacheMaxSize, 1_000)
 	res := &discovery.Resource{Name: "test"}
 	zeroTime := time.Time{}
 	b.Run("key", func(b *testing.B) {

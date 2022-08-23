@@ -35,22 +35,39 @@ spec:
     to:
     - operation:
           ports: ["80"]
-  # rule[5] `from`: TCP field, `to`: TCP field.
+   # rule[5] `from`: HTTP field, `to`: HTTP + TCP field.
+  - from:
+    - source:
+          requestPrincipals: ["id-1"]
+    to:
+    - operation:
+          ports: ["8080"]
+          methods: ["GET"]
+  # rule[6] `from`: HTTP field, `to`: HTTP + TCP field.
+  - from:
+    - source:
+          namespaces: ["ns-2"]
+          requestPrincipals: ["id-1"]
+    to:
+    - operation:
+          ports: ["8080"]
+          methods: ["GET"]
+  # rule[7] `from`: TCP field, `to`: TCP field.
   - from:
     - source:
         namespaces: ["ns-1"]
     to:
     - operation:
         ports: ["80"]
-  # rule[6] `from`: nil, `to`: nil, `when`: HTTP field.
+  # rule[8] `from`: nil, `to`: nil, `when`: HTTP field.
   - when:
     - key: "request.headers[:method]"
       values: ["GET"]
-  # rule[7] `from`: nil, `to`: nil, `when`: TCP field.
+  # rule[9] `from`: nil, `to`: nil, `when`: TCP field.
   - when:
     - key: "destination.port"
       values: ["80"]
-  # rule[8] `from`: all fields, `to`: all fields, `when`: all fields.
+  # rule[10] `from`: all fields, `to`: all fields, `when`: all fields.
   - from:
     - source:
         principals: ["principal", "*principal-suffix", "principal-prefix*", "*"]

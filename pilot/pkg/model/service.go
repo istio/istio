@@ -774,6 +774,20 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	return s.DefaultAddress
 }
 
+// GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
+// Especially for dual stack k8s service to get other IP family addresses.
+func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
+	if node.Metadata != nil {
+		if node.Metadata.ClusterID != "" {
+			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			if len(addresses) > 1 {
+				return addresses[1:]
+			}
+		}
+	}
+	return nil
+}
+
 // getAllAddresses returns a Service's all addresses.
 func (s *Service) getAllAddresses() []string {
 	var addresses []string

@@ -147,7 +147,7 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 	scopes.Framework.Infof("cleaning up resources")
 	// clean up Istio control plane
 	unInstallCmd := []string{
-		"x", "uninstall", "--purge", "--skip-confirmation",
+		"uninstall", "--purge", "--skip-confirmation",
 	}
 	out, _ := istioCtl.InvokeOrFail(t, unInstallCmd)
 	t.Logf("uninstall command output: %s", out)
@@ -175,7 +175,7 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 }
 
 // checkInstallStatus check the status of IstioOperator CR from the cluster
-func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
+func checkInstallStatus(cs istioKube.CLIClient, revision string) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",

@@ -118,7 +118,7 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 		// For built-in provider, fallback to Mesh Config for formatting options.
 		if fp.Name == defaultEnvoyAccessLogProvider {
-			al = fileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
+			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
 		} else {
 			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
 		}
@@ -204,11 +204,8 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	return al
 }
 
-func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
-	formatString := EnvoyTextLogFormat
-	if text != "" {
-		formatString = text
-	}
+func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+	formatString := fileAccessLogFormat(logFormatText)
 	needsFormatter := strings.Contains(formatString, requestWithoutQuery)
 	return &fileaccesslog.FileAccessLog_LogFormat{
 		LogFormat: &core.SubstitutionFormatString{
@@ -294,7 +291,20 @@ func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConf
 	}
 }
 
-func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+func fileAccessLogFormat(formatString string) string {
+	if formatString != "" {
+		// From the spec: "NOTE: Istio will insert a newline ('\n') on all formats (if missing)."
+		if !strings.HasSuffix(formatString, "\n") {
+			formatString += "\n"
+		}
+
+		return formatString
+	}
+
+	return EnvoyTextLogFormat
+}
+
+func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
@@ -302,10 +312,7 @@ func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	needsFormatter := false
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
-		formatString := EnvoyTextLogFormat
-		if mesh.AccessLogFormat != "" {
-			formatString = mesh.AccessLogFormat
-		}
+		formatString := fileAccessLogFormat(mesh.AccessLogFormat)
 		needsFormatter = strings.Contains(formatString, requestWithoutQuery)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{

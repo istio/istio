@@ -2264,7 +2264,7 @@ func TestValidateHTTPDirectResponse(t *testing.T) {
 }
 
 func TestValidateDestinationWithInheritance(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
+	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
 	cases := []struct {
 		name  string
 		in    proto.Message
@@ -3909,9 +3909,9 @@ func TestValidateLoadBalancer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := validateLoadBalancer(c.in); (got == nil) != c.valid {
+		if got := validateLoadBalancer(c.in); (got.Err == nil) != c.valid {
 			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got)
 		}
 	}
 }
@@ -7649,6 +7649,46 @@ func TestValidateTelemetry(t *testing.T) {
 						},
 					},
 				}},
+			},
+			"", "",
+		},
+		{
+			"multi-accessloggings",
+			&telemetry.Telemetry{
+				AccessLogging: []*telemetry.AccessLogging{
+					{
+						Providers: []*telemetry.ProviderRef{
+							{
+								Name: "envoy",
+							},
+						},
+					},
+					{
+						Providers: []*telemetry.ProviderRef{
+							{
+								Name: "otel",
+							},
+						},
+					},
+				},
+			},
+			"", "",
+		},
+		{
+			"multi-accesslogging-providers",
+			&telemetry.Telemetry{
+				AccessLogging: []*telemetry.AccessLogging{
+					{
+						Providers: []*telemetry.ProviderRef{
+							{
+								Name: "envoy",
+							},
+							{
+								Name: "otel",
+							},
+						},
+					},
+				},
 			},
 			"", "",
 		},

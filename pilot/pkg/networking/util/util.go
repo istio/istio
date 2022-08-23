@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"sort"
@@ -254,6 +255,18 @@ func LocalityToString(l *core.Locality) string {
 	}
 	resp += "/" + l.SubZone
 	return resp
+}
+
+// GetFailoverPriorityLabels returns a byte array which contains failover priorities of the proxy.
+func GetFailoverPriorityLabels(proxyLabels map[string]string, priorities []string) []byte {
+	var b bytes.Buffer
+	for _, key := range priorities {
+		b.WriteString(key)
+		b.WriteRune(':')
+		b.WriteString(proxyLabels[key])
+		b.WriteRune(' ')
+	}
+	return b.Bytes()
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)

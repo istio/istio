@@ -325,6 +325,9 @@
           "safe_regex": {"google_re2":{}, "regex":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
           },
           {
+          "safe_regex": {"google_re2":{}, "regex":"vhost\\.*\\.route\\.*"}
+          },
+          {
           "prefix": "component"
           }
         ]

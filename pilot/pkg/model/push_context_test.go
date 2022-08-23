@@ -212,6 +212,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches two envoyfilters",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -221,6 +222,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy in root namespace matches an envoyfilter",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "istio-system",
 			},
@@ -231,6 +233,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v2"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v2"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -240,6 +243,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches envoyfilter in root ns",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-n2",
 			},
@@ -249,6 +253,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy version matches no envoyfilters",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.3.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -565,6 +570,9 @@ func TestWasmPlugins(t *testing.T) {
 			name: "ingress",
 			node: &Proxy{
 				ConfigNamespace: "other",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
 				Metadata: &NodeMetadata{
 					Labels: map[string]string{
 						"istio": "ingressgateway",
@@ -581,6 +589,9 @@ func TestWasmPlugins(t *testing.T) {
 			name: "ingress-testns-1",
 			node: &Proxy{
 				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
 				Metadata: &NodeMetadata{
 					Labels: map[string]string{
 						"istio": "ingressgateway",
@@ -599,6 +610,9 @@ func TestWasmPlugins(t *testing.T) {
 			name: "testns-2",
 			node: &Proxy{
 				ConfigNamespace: "testns-2",
+				Labels: map[string]string{
+					"app": "productpage",
+				},
 				Metadata: &NodeMetadata{
 					Labels: map[string]string{
 						"app": "productpage",
@@ -890,6 +904,19 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
+	_, _ = configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "default",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{Hosts: []string{"test1/*"}},
+			},
+		},
+	})
+
 	store := istioConfigStore{ConfigStore: configStore}
 
 	env.ConfigStore = &store
@@ -1164,7 +1191,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 func TestSetDestinationRuleInheritance(t *testing.T) {
-	test.SetBoolForTest(t, &features.EnableDestinationRuleInheritance, true)
+	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
@@ -1415,7 +1442,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		},
 	}
 
-	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
+	ps.setDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1591,7 +1618,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 		},
 	}
 
-	ps.SetDestinationRules([]config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule})
+	ps.setDestinationRules([]config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule})
 
 	for _, tt := range testCases {
 		drList := ps.destinationRule(tt.proxyNs,
@@ -1654,7 +1681,7 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		{Namespace: "test", Name: "rule1"},
 		{Namespace: "test", Name: "rule2"},
 	}
-	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
 	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
 	public := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)]
 	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
@@ -1819,7 +1846,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	ps.SetDestinationRules([]config.Config{
+	ps.setDestinationRules([]config.Config{
 		destinationRuleNamespace1, destinationRuleNamespace2,
 		destinationRuleNamespace3, destinationRuleNamespace4Local,
 		destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
@@ -2368,6 +2395,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 		"envoy_http_als":       {},
 		"envoy_tcp_als":        {},
 		"envoy_otel_als":       {},
+		"opentelemetry":        {},
 	}
 
 	unexpectedProviders := make([]string, 0)

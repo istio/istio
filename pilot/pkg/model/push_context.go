@@ -1352,7 +1352,11 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
+		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace
+		oldPushContext.sidecarIndex.defaultSidecarMu.Lock()
+		defer oldPushContext.sidecarIndex.defaultSidecarMu.Unlock()
+
+		ps.sidecarIndex = oldPushContext.sidecarIndex
 	}
 
 	return nil
@@ -1672,7 +1676,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 		destRules[i] = configs[i].DeepCopy()
 	}
 
-	ps.SetDestinationRules(destRules)
+	ps.setDestinationRules(destRules)
 	return nil
 }
 
@@ -1683,11 +1687,16 @@ func newConsolidatedDestRules() *consolidatedDestRules {
 	}
 }
 
-// SetDestinationRules is updates internal structures using a set of configs.
+// Testing Only. This allows tests to inject a config without having the mock.
+func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
+	ps.setDestinationRules(configs)
+}
+
+// setDestinationRules updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
-// This also allows tests to inject a config without having the mock.
-// This will not work properly for Sidecars, which will precompute their destination rules on init
-func (ps *PushContext) SetDestinationRules(configs []config.Config) {
+// This will not work properly for Sidecars, which will precompute their
+// destination rules on init.
+func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
@@ -1838,7 +1847,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Metadata.Labels) {
+			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1847,7 +1856,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Metadata.Labels) {
+			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1954,7 +1963,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Metadata.Labels) {
+		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}
 	}
@@ -2046,7 +2055,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			if gatewaySelector.SubsetOf(proxy.Metadata.Labels) {
+			if gatewaySelector.SubsetOf(proxy.Labels) {
 				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 			}
 		}

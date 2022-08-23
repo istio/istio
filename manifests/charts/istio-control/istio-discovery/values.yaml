@@ -22,6 +22,9 @@ pilot:
       cpu: 500m
       memory: 2048Mi
 
+  # Set to `type: RuntimeDefault` to use the default profile if available.
+  seccompProfile: {}
+
   env: {}
 
   cpu:
@@ -42,7 +45,7 @@ pilot:
   jwksResolverExtraRootCA: ""
 
   # This is used to set the source of configuration for
-  # the associated address in configSource, if nothing is specificed
+  # the associated address in configSource, if nothing is specified
   # the default MCP is assumed.
   configSource:
     subscribedResources: []

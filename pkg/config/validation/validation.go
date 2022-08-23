@@ -1427,27 +1427,35 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return
 }
 
-func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error) {
+func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Validation) {
 	if settings == nil {
 		return
 	}
 
 	// simple load balancing is always valid
-
 	consistentHash := settings.GetConsistentHash()
 	if consistentHash != nil {
 		httpCookie := consistentHash.GetHttpCookie()
 		if httpCookie != nil {
 			if httpCookie.Name == "" {
-				errs = appendErrors(errs, fmt.Errorf("name required for HttpCookie"))
+				errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 			}
 			if httpCookie.Ttl == nil {
-				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
+				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
+		}
+		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
+			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
+			scope.Warnf(warn)
+			errs = appendValidation(errs, WrapWarning(errors.New(warn)))
+		}
+		// nolint: staticcheck
+		if consistentHash.MinimumRingSize != 0 && consistentHash.GetHashAlgorithm() != nil {
+			errs = appendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
 	}
 	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
-		errs = multierror.Append(errs, err)
+		errs = appendValidation(errs, err)
 	}
 	return
 }
@@ -3662,15 +3670,9 @@ var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 	})
 
 func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Validation) {
-	if len(logging) > 1 {
-		v = appendWarningf(v, "multiple accessLogging is not currently supported")
-	}
-	for idx, l := range logging {
+	for _, l := range logging {
 		if l == nil {
 			continue
-		}
-		if len(l.Providers) > 1 {
-			v = appendValidation(v, Warningf("accessLogging[%d]: multiple providers is not currently supported", idx))
 		}
 		if l.Filter != nil {
 			v = appendValidation(v, validateTelemetryFilter(l.Filter))

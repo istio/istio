@@ -23,7 +23,7 @@ import (
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
-	kube.ExtendedClient
+	kube.CLIClient
 
 	// Name of this cluster. Use for interacting with the cluster or validation against clusters.
 	// Use StableName instead of Name when creating subtests.

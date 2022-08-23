@@ -36,7 +36,7 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_, _, _ string) (kube.ExtendedClient, error) {
+func mockExecClientAuthNoPilot(_, _, _ string) (kube.CLIClient, error) {
 	return &kube.MockClient{}, nil
 }
 
@@ -81,7 +81,7 @@ func TestMetrics(t *testing.T) {
 	}
 }
 
-func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.ExtendedClient, error) {
+func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.CLIClient, error) {
 	return &kube.MockClient{
 		DiscoverablePods: map[string]map[string]*v1.PodList{
 			"istio-system": {
@@ -167,7 +167,7 @@ func (client mockPromAPI) Flags(ctx context.Context) (promv1.FlagsResult, error)
 	return nil, nil
 }
 
-func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time) (prometheus_model.Value, promv1.Warnings, error) {
+func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
 		return prometheus_model.Vector{}, nil, nil
@@ -179,7 +179,12 @@ func (client mockPromAPI) TSDB(ctx context.Context) (promv1.TSDBResult, error) {
 	return promv1.TSDBResult{}, nil
 }
 
-func (client mockPromAPI) QueryRange(ctx context.Context, query string, r promv1.Range) (prometheus_model.Value, promv1.Warnings, error) {
+func (client mockPromAPI) QueryRange(
+	ctx context.Context,
+	query string,
+	r promv1.Range,
+	opts ...promv1.Option,
+) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
 		return prometheus_model.Vector{}, nil, nil

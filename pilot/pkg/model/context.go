@@ -273,9 +273,10 @@ type Proxy struct {
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
 
-	// IstioMetaLabels contains the labels specified by ISTIO_METAJSON_LABELS and platform instance,
-	// so we can tell the difference between user specified labels and istio labels.
-	IstioMetaLabels map[string]string `json:"ISTIO_META_LABELS,omitempty"`
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	// Labels can be different from that in Metadata because of pod labels update after startup,
+	// while NodeMetadata.Labels are set during bootstrap.
+	Labels map[string]string
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata *NodeMetadata
@@ -537,9 +538,13 @@ type NodeMetadata struct {
 	// Mostly used when istiod requests the upstream.
 	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
 
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node. Labels is a
-	// superset of IstioMetaLabels.
+	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
+	// It contains both StaticLabels and pod labels if any, it is a superset of StaticLabels.
+	// Note: it is not meant to be used during xds generation.
 	Labels map[string]string `json:"LABELS,omitempty"`
+
+	// StaticLabels specifies the set of labels from `ISTIO_METAJSON_LABELS`.
+	StaticLabels map[string]string `json:"STATIC_LABELS,omitempty"`
 
 	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
 	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
@@ -816,7 +821,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
 	if node.Type == SidecarProxy {
-		node.SidecarScope = ps.getSidecarScope(node, node.Metadata.Labels)
+		node.SidecarScope = ps.getSidecarScope(node, node.Labels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)
@@ -854,32 +859,29 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
-// SetWorkloadLabels will set the node.Metadata.Labels.
+// SetWorkloadLabels will set the node.Labels.
 // It merges both node meta labels and workload labels and give preference to workload labels.
-// Note: must be called after `SetServiceInstances`.
-func (node *Proxy) SetWorkloadLabels(env *Environment, request *PushRequest) {
+func (node *Proxy) SetWorkloadLabels(env *Environment) {
+	// If this is VM proxy, do not override labels at all, because in istio test we use pod to simulate VM.
+	if node.IsVM() {
+		node.Labels = node.Metadata.Labels
+		return
+	}
 	labels := env.GetProxyWorkloadLabels(node)
-	// when IstioMetaLabels, calculate the IstioMetaLabels
-	if node.IstioMetaLabels == nil {
-		IstioMetaLabels := make(map[string]string, len(node.Metadata.Labels))
-		for k, v := range node.Metadata.Labels {
-			IstioMetaLabels[k] = v
+	if labels != nil {
+		node.Labels = make(map[string]string, len(labels)+len(node.Metadata.StaticLabels))
+		// we can't just equate proxy workload labels to node meta labels as it may be customized by user
+		// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
+		// so, we fill the `ISTIO_METAJSON_LABELS` as well.
+		for k, v := range node.Metadata.StaticLabels {
+			node.Labels[k] = v
 		}
-		for k := range labels {
-			delete(IstioMetaLabels, k)
+		for k, v := range labels {
+			node.Labels[k] = v
 		}
-		node.IstioMetaLabels = IstioMetaLabels
-	}
-
-	node.Metadata.Labels = make(map[string]string, len(labels)+len(node.IstioMetaLabels))
-	// we can't just equate proxy workload labels to node meta labels as it may be customized by user
-	// with `ISTIO_METAJSON_LABELS` env (pkg/bootstrap/config.go extractAttributesMetadata).
-	// so, we fill the `ISTIO_METAJSON_LABELS` as well.
-	for k, v := range node.IstioMetaLabels {
-		node.Metadata.Labels[k] = v
-	}
-	for k, v := range labels {
-		node.Metadata.Labels[k] = v
+	} else {
+		// If could not find pod labels, fallback to use the node metadata labels.
+		node.Labels = node.Metadata.Labels
 	}
 }
 
@@ -917,6 +919,19 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 		return &NodeMetadata{}, nil
 	}
 
+	boostrapNodeMeta, err := ParseBootstrapNodeMetadata(metadata)
+	if err != nil {
+		return nil, err
+	}
+	return &boostrapNodeMeta.NodeMetadata, nil
+}
+
+// ParseBootstrapNodeMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
+func ParseBootstrapNodeMetadata(metadata *structpb.Struct) (*BootstrapNodeMetadata, error) {
+	if metadata == nil {
+		return &BootstrapNodeMetadata{}, nil
+	}
+
 	b, err := protomarshal.MarshalProtoNames(metadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read node metadata %v: %v", metadata, err)
@@ -925,7 +940,7 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 	if err := json.Unmarshal(b, meta); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", string(b), err)
 	}
-	return &meta.NodeMetadata, nil
+	return meta, nil
 }
 
 // ParseServiceNodeWithMetadata parse the Envoy Node from the string generated by ServiceNode
@@ -1125,7 +1140,7 @@ func IsPrivilegedPort(port uint32) bool {
 
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
-	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+	return node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
 func (node *Proxy) IsProxylessGrpc() bool {

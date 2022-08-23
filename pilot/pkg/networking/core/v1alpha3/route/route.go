@@ -107,9 +107,9 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
-		hashByDestination, drs := hashForVirtualService(push, node, virtualService)
-		dependentDestinationRules = append(dependentDestinationRules, drs...)
-		wrappers := virtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
+		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
+		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
 		out = append(out, wrappers...)
 	}
 
@@ -190,10 +190,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 	return hosts, servicesInVirtualService
 }
 
-// virtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
+// buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
-func virtualHostsForVirtualService(
+func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
@@ -389,7 +389,7 @@ func translateRoute(
 		return nil
 	}
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, node.Metadata.Labels, gatewayNames, node.Metadata.Namespace) {
+	if !sourceMatchHTTP(match, node.Labels, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
@@ -403,6 +403,11 @@ func translateRoute(
 		Match:    translateRouteMatch(node, virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
+
+	if match != nil && match.StatPrefix != "" {
+		out.StatPrefix = match.StatPrefix
+	}
+
 	authority := ""
 	if in.Headers != nil {
 		operations := translateHeadersOperations(in.Headers)
@@ -1063,15 +1068,18 @@ func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *m
 	if vsTimeout != nil {
 		action.Timeout = vsTimeout
 	}
-	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{}
 	if node != nil && node.IsProxylessGrpc() {
 		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration.MaxStreamDuration = action.Timeout
+		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+			MaxStreamDuration: action.Timeout,
+		}
 	} else {
 		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
 		if action.Timeout.AsDuration().Nanoseconds() == 0 {
-			action.MaxStreamDuration.MaxStreamDuration = action.Timeout
-			action.MaxStreamDuration.GrpcTimeoutHeaderMax = action.Timeout
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration:    notimeout,
+				GrpcTimeoutHeaderMax: notimeout,
+			}
 		} else {
 			// If not configured at all, the grpc-timeout header is not used and
 			// gRPC requests time out like any other requests using timeout or its default.

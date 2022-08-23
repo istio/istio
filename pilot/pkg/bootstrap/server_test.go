@@ -117,8 +117,8 @@ func TestNewServerCertInit(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			test.SetStringForTest(t, &features.PilotCertProvider, c.certProvider)
-			test.SetBoolForTest(t, &features.EnableCAServer, c.enableCA)
+			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
+			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{

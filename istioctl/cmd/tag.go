@@ -266,7 +266,7 @@ revision tag before removing using the "istioctl tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &tag.GenerateOptions{
 		Tag:                  tagName,
 		Revision:             revision,

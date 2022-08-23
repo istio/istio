@@ -16,6 +16,10 @@ ifeq ($(TEST_ENV),kind)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 endif
 
+ifeq ($(shell uname -m),aarch64)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.architecture=arm64
+endif
+
 ifneq ($(ARTIFACTS),)
     _INTEGRATION_TEST_FLAGS += --istio.test.work_dir=$(ARTIFACTS)
 endif
