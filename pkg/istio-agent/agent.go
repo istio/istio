@@ -322,11 +322,10 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				if !ok {
 					log.Infof("successfully updated bootstrap config")
 					return nil
-				} else {
-					// received invalid config, could not happen in normal case.
-					log.Warn(err)
-					return err
 				}
+				// received invalid config, could not happen in normal case.
+				log.Warn(err)
+				return err
 			case <-ctx.Done():
 				return nil
 			case <-time.After(delay):
