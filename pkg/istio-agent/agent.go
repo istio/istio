@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"path"
@@ -91,8 +90,8 @@ type Agent struct {
 	secOpts   *security.Options
 	envoyOpts envoy.ProxyConfig
 
-	envoyAgent  *envoy.Agent
-	envoyWaitCh chan error
+	envoyAgent             *envoy.Agent
+	dynamicBootstrapWaitCh chan error
 
 	sdsServer   *sds.Server
 	secretCache *cache.SecretManagerClient
@@ -303,46 +302,41 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	}
 	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, a.cfg.MinimumDrainDuration, localHostAddr,
 		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort, a.cfg.ExitOnZeroActiveConnections)
-	a.envoyWaitCh = make(chan error, 1)
 	if a.cfg.EnableDynamicBootstrap {
+		a.dynamicBootstrapWaitCh = make(chan error, 1)
 		// Simulate an xDS request for a bootstrap
 		a.wg.Add(1)
 		go func() {
 			defer a.wg.Done()
 
 			// wait indefinitely and keep retrying with jittered exponential backoff
-			backoff := 500
-			max := 30000
-		retries:
+			b := backoff.NewExponentialBackOff()
+			b.MaxElapsedTime = 30 * time.Second
 			for {
 				// handleStream hands on to request after exit, so create a fresh one instead.
-				bsStream := &bootstrapDiscoveryClient{
+				bsStream := &bootstrapDiscoveryStream{
 					node:        node,
-					envoyWaitCh: a.envoyWaitCh,
+					errCh:       a.dynamicBootstrapWaitCh,
 					envoyUpdate: envoyProxy.UpdateConfig,
 				}
 				_ = a.xdsProxy.handleStream(bsStream)
+				delay := b.NextBackOff()
 				select {
-				case <-a.envoyWaitCh:
-					break retries
-				default:
-				}
-				delay := time.Duration(rand.Int()%backoff) * time.Millisecond
-				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
-				select {
+				case err, ok := <-a.dynamicBootstrapWaitCh:
+					if !ok {
+						log.Infof("successfully updated bootstrap config")
+						return
+					} else {
+						log.Warn(err)
+						return
+					}
 				case <-ctx.Done():
-					break retries
+					return
 				case <-time.After(delay):
-				}
-				if backoff < max/2 {
-					backoff *= 2
-				} else {
-					backoff = max
+					log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
 				}
 			}
 		}()
-	} else {
-		close(a.envoyWaitCh)
 	}
 	return nil
 }
@@ -408,7 +402,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 				start := time.Now()
 				var err error
 				select {
-				case err = <-a.envoyWaitCh:
+				case err = <-a.dynamicBootstrapWaitCh:
 				case <-ctx.Done():
 					// Early cancellation before envoy started.
 					return
