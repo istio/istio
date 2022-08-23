@@ -92,7 +92,7 @@ func doIstioMutualTest(
 ) {
 	var client echo.Instance
 	deployment.New(ctx).
-		With(&client, util.EchoConfig("client", ns, false, nil)).
+		With(&client, util.EchoConfig("client", false, nil)).
 		BuildOrFail(ctx)
 	ctx.ConfigIstio().File(ns.Name(), configPath).ApplyOrFail(ctx)
 
