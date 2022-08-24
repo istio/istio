@@ -36,7 +36,7 @@ type HTTPGetAction struct {
 	// Scheme to use for connecting to the host.
 	// Defaults to HTTP.
 	// +optional
-	Scheme URIScheme `json:"scheme,omitempty" protobuf:"bytes,4,opt,name=scheme,casttype=URIScheme"`
+	Scheme URIScheme `json:"scheme,omitempty" protobuf:"bytes,4,opt,name=scheme"`
 	// Custom headers to set in the request. HTTP allows repeated headers.
 	// +optional
 	HTTPHeaders []HTTPHeader `json:"httpHeaders,omitempty" protobuf:"bytes,5,rep,name=httpHeaders"`
