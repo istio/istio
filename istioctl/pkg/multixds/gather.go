@@ -122,7 +122,8 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 // `istioctl` can access the debug endpoint.
 // If `all` is true, `queryDebugSynczViaAgents` iterates all the pod having a proxy
 // except the pods of which status information is already queried.
-func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
+func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
+	centralOpts clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
 	xdsOpts := clioptions.CentralControlPlaneOptions{
 		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
 		CertDir: centralOpts.CertDir,
@@ -310,8 +311,10 @@ func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 		}, nil
 	}
 
-	var responses []*xdsapi.DiscoveryResponse
-	var err error
+	var (
+		responses []*xdsapi.DiscoveryResponse
+		err       error
+	)
 
 	if centralOpts.XdsViaAgents {
 		responses, err = queryDebugSynczViaAgents(all, dr, istioNamespace, kubeClient, centralOpts)
