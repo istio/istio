@@ -94,6 +94,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 	if err != nil {
 		return nil, err
 	}
+
 	for _, pod := range pods {
 		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, centralOpts.XdsPodPort)
 		if err != nil {
@@ -123,7 +124,8 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 // If `all` is true, `queryDebugSynczViaAgents` iterates all the pod having a proxy
 // except the pods of which status information is already queried.
 func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
-	centralOpts clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
+	centralOpts clioptions.CentralControlPlaneOptions,
+) ([]*xdsapi.DiscoveryResponse, error) {
 	xdsOpts := clioptions.CentralControlPlaneOptions{
 		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
 		CertDir: centralOpts.CertDir,
