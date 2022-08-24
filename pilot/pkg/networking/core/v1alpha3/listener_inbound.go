@@ -60,6 +60,9 @@ type inboundChainConfig struct {
 	// and telemetry.
 	bind string
 
+	// exBind is string slice and each element is similar with bind address and support multiple addresses for 'virtual' listener
+	exBind []string
+
 	// tlsSettings defines the *custom* TLS settings for the chain. mTLS settings are orthogonal; this
 	// only configures TLS overrides.
 	tlsSettings *networking.ServerTLSSettings
@@ -192,14 +195,26 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+	var actualWildcard, extrActualWildcard string
+	actualWildcard, extrActualWildcard = getDualStackActualWildcard(lb.node)
+	if actualWildcard == "" && extrActualWildcard == "" {
+		actualWildcard, _ = getActualWildcardAndLocalHost(lb.node)
+	}
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
 	// * Passthrough filter chains, matching all unmatched traffic. There are a few of these to handle all cases
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
 	allChains := buildInboundPassthroughChains(lb)
 	allChains = append(allChains, chains...)
-	return lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcard, ProxyInboundListenPort), false, allChains)
+	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcard, ProxyInboundListenPort), false, allChains)
+	// add extra addresses for the listener
+	if extrActualWildcard != "" {
+		extraAddress := &listener.AdditionalAddress{
+			Address: util.BuildAddress(extrActualWildcard, ProxyInboundListenPort),
+		}
+		l.AdditionalAddresses = append(l.AdditionalAddresses, extraAddress)
+	}
+	return l
 }
 
 // inboundCustomListener build a custom listener that actually binds to a port, rather than relying on redirection.
@@ -272,11 +287,23 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				Protocol:   i.ServicePort.Protocol,
 			}
 
+			var bindAddr, exBindAddrs string
+			bindAddr = WildcardAddress
+			// IPv6 only
+			if lb.node.IsIPv6() {
+				bindAddr = WildcardIPv6Address
+			}
+			// Dual Stack
+			if lb.node.SupportsIPv4() && lb.node.SupportsIPv6() {
+				exBindAddrs = WildcardIPv6Address
+			}
+
 			cc := inboundChainConfig{
 				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},
 				port:              port,
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
-				bind:              "0.0.0.0", // TODO ipv6
+				bind:              bindAddr,
+				exBind:            []string{exBindAddrs},
 				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
 			}
 			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
@@ -321,6 +348,15 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			if cc.bind == "" {
 				// If user didn't provide, pick one based on IP
 				cc.bind = getSidecarInboundBindIP(lb.node)
+				// if no global unicast address
+				if cc.bind == WildcardAddress || cc.bind == WildcardIPv6Address {
+					bindAddress, exBindAddresses := getDualStackActualWildcard(lb.node)
+					// if it's dual stack environment
+					if bindAddress != "" && exBindAddresses != "" {
+						cc.bind = bindAddress
+						cc.exBind = []string{exBindAddresses}
+					}
+				}
 			}
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
 			if old, f := chainsByPort[port.TargetPort]; f {

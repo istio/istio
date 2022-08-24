@@ -121,7 +121,11 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+	var actualWildcard, extrActualWildcard string
+	actualWildcard, extrActualWildcard = getDualStackActualWildcard(lb.node)
+	if actualWildcard == "" && extrActualWildcard == "" {
+		actualWildcard, _ = getActualWildcardAndLocalHost(lb.node)
+	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
@@ -131,6 +135,13 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
+	}
+	// add extra addresses for the listener
+	if extrActualWildcard != "" {
+		extraAddress := &listener.AdditionalAddress{
+			Address: util.BuildAddress(extrActualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		}
+		ipTablesListener.AdditionalAddresses = append(ipTablesListener.AdditionalAddresses, extraAddress)
 	}
 	class := model.OutboundListenerClass(lb.node.Type)
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener, class)
