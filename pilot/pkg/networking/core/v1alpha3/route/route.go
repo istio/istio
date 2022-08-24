@@ -123,7 +123,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				hash, destinationRule := getHashForService(node, push, svc, port)
+				hash, destinationRule := hashForService(node, push, svc, port)
 				if hash != nil {
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
@@ -1233,7 +1233,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 	return nil
 }
 
-func getHashForService(node *model.Proxy, push *model.PushContext, svc *model.Service,
+func hashForService(node *model.Proxy, push *model.PushContext, svc *model.Service,
 	port *model.Port,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
