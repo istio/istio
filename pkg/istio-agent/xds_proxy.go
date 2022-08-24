@@ -41,6 +41,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -408,7 +409,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) || isRateLimited(err) {
 				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
@@ -432,6 +433,15 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 			return nil
 		}
 	}
+}
+
+func isRateLimited(err error) bool {
+	if s, ok := status.FromError(err); ok {
+		if s.Code() == codes.ResourceExhausted {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
@@ -495,7 +505,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 			if err := sendUpstream(con.upstream, req); err != nil {
-				proxyLog.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
+				proxyLog.Debugf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}
