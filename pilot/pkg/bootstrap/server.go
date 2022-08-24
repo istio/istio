@@ -533,6 +533,8 @@ func (s *Server) initSDSServer() {
 			ecdsGen.(*xds.EcdsGenerator).SetCredController(creds)
 		}
 	} else {
+		// TODO: introduce another custom secect controller interface?
+		// to provide the Authorize method for secret resources.
 		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(nil, s.XDSServer.Cache, s.clusterID, s.environment.Mesh())
 	}
 }
