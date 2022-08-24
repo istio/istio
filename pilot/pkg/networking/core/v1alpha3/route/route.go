@@ -123,7 +123,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				hash, destinationRule := hashForService(node, push, svc, port)
+				hash, destinationRule := hashForService(push, node, svc, port)
 				if hash != nil {
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
@@ -1233,7 +1233,9 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 	return nil
 }
 
-func hashForService(node *model.Proxy, push *model.PushContext, svc *model.Service,
+func hashForService(push *model.PushContext,
+	node *model.Proxy,
+	svc *model.Service,
 	port *model.Port,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
@@ -1260,7 +1262,10 @@ func hashForService(node *model.Proxy, push *model.PushContext, svc *model.Servi
 	return consistentHash, mergedDR
 }
 
-func hashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) (DestinationHashMap, []*model.ConsolidatedDestRule) {
+func hashForVirtualService(push *model.PushContext,
+	node *model.Proxy,
+	virtualService config.Config,
+) (DestinationHashMap, []*model.ConsolidatedDestRule) {
 	hashByDestination := DestinationHashMap{}
 	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
