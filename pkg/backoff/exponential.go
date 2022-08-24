@@ -45,7 +45,6 @@ func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
 		fn(b)
 	}
 	b.Reset()
-	b.NextBackOff()
 	return b
 }
 
