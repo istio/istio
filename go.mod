@@ -78,7 +78,7 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.93.0
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc
-	google.golang.org/grpc v1.50.0-dev.0.20220818173707-97cb7b1653d7
+	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
