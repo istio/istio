@@ -908,7 +908,7 @@ func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*
 		opts.LabelSelector = fmt.Sprintf("%s,%s=%s", label.ServiceCanonicalName.Name, label.IoIstioRev.Name, c.revision)
 	}
 	// get pods from all the namespaces.
-	list, err := c.kube.CoreV1().Pods("").List(ctx, opts)
+	list, err := c.kube.CoreV1().Pods(metav1.NamespaceAll).List(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the pod list: %v", err)
 	}
