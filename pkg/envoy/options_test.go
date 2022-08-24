@@ -15,6 +15,7 @@
 package envoy_test
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -24,6 +25,14 @@ import (
 )
 
 var testConfigPath = absPath("testdata/bootstrap.json")
+
+func absPath(path string) string {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		panic(err)
+	}
+	return path
+}
 
 func TestNewOptions(t *testing.T) {
 	g := NewWithT(t)
