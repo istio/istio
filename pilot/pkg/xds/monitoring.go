@@ -143,7 +143,6 @@ var (
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
-	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
 		"Time in seconds, a proxy is in the push queue before being dequeued.",
@@ -156,7 +155,6 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
