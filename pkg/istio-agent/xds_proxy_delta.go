@@ -162,7 +162,7 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) || isRateLimited(err) {
 				proxyLog.Debugf("upstream terminated with status %v", err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
@@ -212,7 +212,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				}
 			}
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
-				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				proxyLog.Debugf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}
