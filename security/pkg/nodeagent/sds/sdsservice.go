@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
@@ -111,8 +111,9 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	// configured, in which case this will fail; if it becomes noisy we should disable the entire SDS
 	// server in these cases.
 	go func() {
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 0
+		b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
+			off.MaxElapsedTime = 0
+		})
 		for {
 			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
 			if err == nil {

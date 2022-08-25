@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -99,10 +99,11 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		defer nsContainer.Close()
 	}
 
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 100 * time.Millisecond
-	b.MaxInterval = 2 * time.Second
-	b.MaxElapsedTime = 10 * time.Second
+	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
+		off.InitialInterval = 100 * time.Millisecond
+		off.MaxInterval = 2 * time.Second
+		off.MaxElapsedTime = 10 * time.Second
+	})
 	backoffError := backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}

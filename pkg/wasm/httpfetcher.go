@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"istio.io/istio/pkg/backoff"
 )
 
 var (
@@ -72,9 +72,9 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		c = f.insecureClient
 	}
 	attempts := 0
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = f.initialBackoff
-	b.Reset()
+	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
+		off.InitialInterval = f.initialBackoff
+	})
 	var lastError error
 	for attempts < f.requestMaxRetry {
 		attempts++

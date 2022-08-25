@@ -18,7 +18,6 @@ package cache
 import (
 	"bytes"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,9 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -329,12 +328,10 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
 		b := backoff.NewExponentialBackOff()
-		for {
-			if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
-				break
-			}
-			time.Sleep(b.NextBackOff())
-		}
+		backoff.Retry(func() error {
+			err := sc.tryAddFileWatcher(file, resourceName)
+			return err
+		}, b)
 	}()
 }
 
@@ -414,13 +411,11 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
 	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = sc.configOptions.FileDebounceDuration
+	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
+		off.InitialInterval = sc.configOptions.FileDebounceDuration
+	})
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
-		if errors.Is(err, os.ErrNotExist) {
-			return backoff.Permanent(err)
-		}
 		return err
 	}
 	if err := backoff.Retry(secretValid, b); err != nil {

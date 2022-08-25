@@ -30,6 +30,8 @@ type BackOff interface {
 	// NextBackOff returns the duration to wait before retrying the operation,
 	// or backoff. Return MaxDuration when MaxElapsedTime elapsed.
 	NextBackOff() time.Duration
+	// Reset to initial state.
+	Reset()
 }
 
 // ExponentialBackOff is a wrapper of backoff.ExponentialBackOff to override its NextBackOff().
@@ -56,4 +58,8 @@ func (b *ExponentialBackOff) NextBackOff() time.Duration {
 		return MaxDuration
 	}
 	return duration
+}
+
+func (b *ExponentialBackOff) Reset() {
+	b.ExponentialBackOff.Reset()
 }
