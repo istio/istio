@@ -648,6 +648,8 @@ func (g *UProxyConfigGenerator) remoteOutboundCluster(
 				ResourceApiVersion:  core.ApiVersion_V3,
 			},
 		}
+	case cluster.Cluster_ORIGINAL_DST:
+		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 	return c
 }
