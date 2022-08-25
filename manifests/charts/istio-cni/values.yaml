@@ -1,6 +1,7 @@
 cni:
   hub: ""
   tag: ""
+  variant: ""
   image: install-cni
   pullPolicy: ""
 
@@ -83,6 +84,10 @@ global:
 
   # Default tag for Istio images.
   tag: latest
+
+  # Variant of the image to use.
+  # Currently supported are: [debug, distroless]
+  variant: ""
 
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent.

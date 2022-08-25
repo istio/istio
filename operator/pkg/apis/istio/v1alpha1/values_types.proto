@@ -50,6 +50,8 @@ message CNIConfig {
 
   google.protobuf.Value tag = 3;
 
+  string variant = 29;
+
   string image = 4;
 
   string pullPolicy = 5;
@@ -398,6 +400,8 @@ message GlobalConfig {
   // Specifies the tag for the Istio docker images.
   google.protobuf.Value tag = 31;
 
+  string variant = 67;
+
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
 
@@ -444,7 +448,7 @@ message GlobalConfig {
   string caName = 65;
 
   google.protobuf.BoolValue autoscalingv2API = 66;
-  // The next available key is 67
+  // The next available key is 68
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -712,6 +716,8 @@ message PilotConfig {
   string hub = 34;
 
   google.protobuf.Value tag = 35;
+
+  string variant = 39;
 
   // The Container seccompProfile
   //
