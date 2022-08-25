@@ -172,7 +172,8 @@ data:
             "address": ""
           }
         },
-        "useMCP": false
+        "useMCP": false,
+        "variant": ""
       },
       "revision": "",
       "sidecarInjectorWebhook": {
