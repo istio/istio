@@ -775,6 +775,10 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 				errs = appendErrors(errs,
 					fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
 			}
+			if v == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("empty value is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
 			if strings.Contains(k, "*") || strings.Contains(v, "*") {
 				errs = appendErrors(errs,
 					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
