@@ -4,11 +4,9 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    helm.sh/chart: grafana-6.31.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
     app.kubernetes.io/version: "9.0.1"
-    app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
 ---
@@ -19,11 +17,9 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.31.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
     app.kubernetes.io/version: "9.0.1"
-    app.kubernetes.io/managed-by: Helm
 data:
   allow-snippet-annotations: "false"
   grafana.ini: |
@@ -88,7 +84,6 @@ spec:
       port: 3000
       protocol: TCP
       targetPort: 3000
-
   selector:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
@@ -126,7 +121,6 @@ spec:
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     spec:
-      
       serviceAccountName: grafana
       automountServiceAccountToken: true
       securityContext:
@@ -208,7 +202,6 @@ spec:
           emptyDir: {}
 
 ---
-
 apiVersion: v1
 data:
   istio-performance-dashboard.json: |
@@ -222,7 +215,6 @@ metadata:
   namespace: istio-system
 
 ---
-
 apiVersion: v1
 data:
   istio-extension-dashboard.json: |
