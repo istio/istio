@@ -413,6 +413,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
 	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
 		off.InitialInterval = sc.configOptions.FileDebounceDuration
+		off.MaxElapsedTime = totalTimeout
 	})
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
