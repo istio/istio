@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -162,7 +163,7 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) || isRateLimited(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("upstream terminated with status %v", err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
@@ -212,7 +213,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				}
 			}
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
-				proxyLog.Debugf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				err = fmt.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}
