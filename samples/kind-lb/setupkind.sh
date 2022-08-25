@@ -45,11 +45,11 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       printHelp; exit 0;;
     -n|--cluster-name)
-      CLUSTERNAME="$2";shift;shift;;
+      CLUSTERNAME="$2"; shift 2;;
     -r|--k8s-release)
-      K8SRELEASE="--image=kindest/node:v$2";shift;shift;;
+      K8SRELEASE="--image=kindest/node:v$2"; shift 2;;
     -s|--ip-space)
-      IPSPACE="$2";shift;shift;;
+      IPSPACE="$2"; shift 2;;
     *) # unknown option
       echo "parameter $1 is not supported"; exit 1;;
   esac
