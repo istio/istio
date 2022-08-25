@@ -15,7 +15,6 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -164,37 +163,38 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 // Generate generates the Envoy RBAC config from the model.
 func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action, noSniffing bool) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
-	permissionError := fmt.Errorf("permission: tcp without sniffing shouldn't have just http attributes in the policy")
+	anyPermissionExist := false
 	for _, rl := range m.permissions {
-		permission, err := generatePermission(rl, forTCP, action, noSniffing)
-
-		if err != nil && errors.Is(err, permissionError) {
+		permission, err, permissionExist := generatePermission(rl, forTCP, action)
+		if err != nil {
 			return nil, err
 		}
-		if permission != nil {
-			permissions = append(permissions, permission)
+		if permissionExist {
+			anyPermissionExist = true
 		}
+		permissions = append(permissions, permission)
 	}
-	if len(permissions) == 0 && !(forTCP && action == rbacpb.RBAC_DENY && noSniffing) {
+	if len(permissions) == 0 {
 		return nil, fmt.Errorf("must have at least 1 permission")
 	}
 
 	var principals []*rbacpb.Principal
-	principalError := fmt.Errorf("principal : tcp without sniffing shouldn't have just http attributes in the policy")
+	anyPrincipalExist := false
 	for _, rl := range m.principals {
-		principal, err := generatePrincipal(rl, forTCP, action, noSniffing)
-		if err != nil && errors.Is(err, principalError) {
+		principal, err, principalExist := generatePrincipal(rl, forTCP, action)
+		if err != nil {
 			return nil, err
 		}
-		if principal != nil {
-			principals = append(principals, principal)
+		if principalExist {
+			anyPrincipalExist = true
 		}
+		principals = append(principals, principal)
 	}
-	if len(principals) == 0 && !(forTCP && action == rbacpb.RBAC_DENY && noSniffing) {
+	if len(principals) == 0 {
 		return nil, fmt.Errorf("must have at least 1 principal")
 	}
 
-	if len(principals) == 0 && len(permissions) == 0 {
+	if !anyPermissionExist && !anyPrincipalExist && forTCP && action == rbacpb.RBAC_DENY && noSniffing {
 		return nil, fmt.Errorf("can't apply this rule as there is all L7 attributes")
 	}
 	return &rbacpb.Policy{
@@ -203,38 +203,38 @@ func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action, noSniffing bool)
 	}, nil
 }
 
-func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action, noSniffing bool) (*rbacpb.Permission, error) {
+func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Permission, error, bool) {
 	var and []*rbacpb.Permission
+	permissionExist := true
 	for _, r := range rl.rules {
 		ret, err := r.permission(forTCP, action)
 		if err != nil {
-			return nil, err
+			return nil, err, false
 		}
 		and = append(and, ret...)
 	}
-	if action == rbacpb.RBAC_DENY && noSniffing && forTCP && len(and) == 0 {
-		return nil, fmt.Errorf("permission: tcp without sniffing shouldn't have just http attributes in the policy")
-	} else if len(and) == 0 {
+	if len(and) == 0 {
 		and = append(and, permissionAny())
+		permissionExist = false
 	}
-	return permissionAnd(and), nil
+	return permissionAnd(and), nil, permissionExist
 }
 
-func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action, noSniffing bool) (*rbacpb.Principal, error) {
+func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error, bool) {
 	var and []*rbacpb.Principal
+	principalExist := true
 	for _, r := range rl.rules {
 		ret, err := r.principal(forTCP, action)
 		if err != nil {
-			return nil, err
+			return nil, err, false
 		}
 		and = append(and, ret...)
 	}
-	if action == rbacpb.RBAC_DENY && noSniffing && forTCP && len(and) == 0 {
-		return nil, fmt.Errorf("principal : tcp without sniffing shouldn't have just http attributes in the policy")
-	} else if len(and) == 0 {
+	if len(and) == 0 {
 		and = append(and, principalAny())
+		principalExist = false
 	}
-	return principalAnd(and), nil
+	return principalAnd(and), nil, principalExist
 }
 
 func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {

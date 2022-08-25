@@ -122,7 +122,7 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 // BuildTCP returns the TCP filters built from the authorization policy.
 func (b Builder) BuildTCP(noSniffing bool) []*tcppb.Filter {
 	if b.option.IsCustomBuilder {
-		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true, false); configs != nil {
+		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true, noSniffing); configs != nil {
 			b.option.Logger.AppendDebugf("built %d TCP filters for CUSTOM action", len(configs.tcp))
 			return configs.tcp
 		}
@@ -130,7 +130,7 @@ func (b Builder) BuildTCP(noSniffing bool) []*tcppb.Filter {
 	}
 
 	var filters []*tcppb.Filter
-	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true, false); configs != nil {
+	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true, noSniffing); configs != nil {
 		b.option.Logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
@@ -138,7 +138,7 @@ func (b Builder) BuildTCP(noSniffing bool) []*tcppb.Filter {
 		b.option.Logger.AppendDebugf("built %d TCP filters for DENY action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
-	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true, false); configs != nil {
+	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true, noSniffing); configs != nil {
 		b.option.Logger.AppendDebugf("built %d TCP filters for ALLOW action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
