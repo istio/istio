@@ -20,6 +20,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -171,12 +172,12 @@ func extractDockerImage(img v1.Image) ([]byte, error) {
 		return nil, fmt.Errorf("could not fetch layers: %v", err)
 	}
 
-	// The image must be single-layered.
-	if len(layers) != 1 {
-		return nil, fmt.Errorf("number of layers must be 1 but got %d", len(layers))
+	// The image must have at least one layer.
+	if len(layers) == 0 {
+		return nil, errors.New("number of layers must be greater than zero")
 	}
 
-	layer := layers[0]
+	layer := layers[len(layers)-1]
 	mt, err := layer.MediaType()
 	if err != nil {
 		return nil, fmt.Errorf("could not get media type: %v", err)
