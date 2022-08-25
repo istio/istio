@@ -328,7 +328,7 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
 		b := backoff.NewExponentialBackOff()
-		backoff.Retry(func() error {
+		_ = backoff.Retry(func() error {
 			err := sc.tryAddFileWatcher(file, resourceName)
 			return err
 		}, b)
