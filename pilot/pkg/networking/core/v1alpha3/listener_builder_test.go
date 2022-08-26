@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 type LdsEnv struct {
@@ -426,12 +427,12 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 	gatewayProxy := cg.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "not-default"})
 	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
 	type fields struct {
-		gatewayListeners        []*listener.Listener
-		inboundListeners        []*listener.Listener
-		outboundListeners       []*listener.Listener
-		httpProxyListener       *listener.Listener
-		virtualOutboundListener *listener.Listener
-		virtualInboundListener  *listener.Listener
+		GatewayListeners        []*listener.Listener
+		InboundListeners        []*listener.Listener
+		OutboundListeners       []*listener.Listener
+		HTTPProxyListener       *listener.Listener
+		VirtualOutboundListener *listener.Listener
+		VirtualInboundListener  *listener.Listener
 	}
 	tests := []struct {
 		name   string
@@ -443,20 +444,20 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			name:  "patch add inbound and outbound listener",
 			proxy: sidecarProxy,
 			fields: fields{
-				outboundListeners: []*listener.Listener{
+				OutboundListeners: []*listener.Listener{
 					{
 						Name: "outbound-listener",
 					},
 				},
 			},
 			want: fields{
-				inboundListeners: []*listener.Listener{
+				InboundListeners: []*listener.Listener{
 					{
 						Name: "new-inbound-listener",
 					},
 				},
 
-				outboundListeners: []*listener.Listener{
+				OutboundListeners: []*listener.Listener{
 					{
 						Name: "outbound-listener",
 					},
@@ -470,7 +471,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			name:  "patch inbound and outbound listener",
 			proxy: sidecarProxy,
 			fields: fields{
-				outboundListeners: []*listener.Listener{
+				OutboundListeners: []*listener.Listener{
 					{
 						Name: "outbound-listener",
 					},
@@ -489,13 +490,13 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 				},
 			},
 			want: fields{
-				inboundListeners: []*listener.Listener{
+				InboundListeners: []*listener.Listener{
 					{
 						Name: "new-inbound-listener",
 					},
 				},
 
-				outboundListeners: []*listener.Listener{
+				OutboundListeners: []*listener.Listener{
 					{
 						Name: "outbound-listener",
 					},
@@ -509,14 +510,14 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			name:  "patch add gateway listener",
 			proxy: gatewayProxy,
 			fields: fields{
-				gatewayListeners: []*listener.Listener{
+				GatewayListeners: []*listener.Listener{
 					{
 						Name: "gateway-listener",
 					},
 				},
 			},
 			want: fields{
-				gatewayListeners: []*listener.Listener{
+				GatewayListeners: []*listener.Listener{
 					{
 						Name: "gateway-listener",
 					},
@@ -531,7 +532,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			name:  "patch gateway listener",
 			proxy: gatewayProxy,
 			fields: fields{
-				gatewayListeners: []*listener.Listener{
+				GatewayListeners: []*listener.Listener{
 					{
 						Name: "gateway-listener",
 					},
@@ -550,7 +551,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 				},
 			},
 			want: fields{
-				gatewayListeners: []*listener.Listener{
+				GatewayListeners: []*listener.Listener{
 					{
 						Name: "gateway-listener",
 					},
@@ -566,27 +567,25 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			lb := &ListenerBuilder{
 				node:                    tt.proxy,
 				push:                    cg.PushContext(),
-				gatewayListeners:        tt.fields.gatewayListeners,
-				inboundListeners:        tt.fields.inboundListeners,
-				outboundListeners:       tt.fields.outboundListeners,
-				httpProxyListener:       tt.fields.httpProxyListener,
-				virtualOutboundListener: tt.fields.virtualOutboundListener,
-				virtualInboundListener:  tt.fields.virtualInboundListener,
+				gatewayListeners:        tt.fields.GatewayListeners,
+				inboundListeners:        tt.fields.InboundListeners,
+				outboundListeners:       tt.fields.OutboundListeners,
+				httpProxyListener:       tt.fields.HTTPProxyListener,
+				virtualOutboundListener: tt.fields.VirtualOutboundListener,
+				virtualInboundListener:  tt.fields.VirtualInboundListener,
 			}
 
 			lb.patchListeners()
 			got := fields{
-				gatewayListeners:        lb.gatewayListeners,
-				inboundListeners:        lb.inboundListeners,
-				outboundListeners:       lb.outboundListeners,
-				httpProxyListener:       lb.httpProxyListener,
-				virtualOutboundListener: lb.virtualOutboundListener,
-				virtualInboundListener:  lb.virtualInboundListener,
+				GatewayListeners:        lb.gatewayListeners,
+				InboundListeners:        lb.inboundListeners,
+				OutboundListeners:       lb.outboundListeners,
+				HTTPProxyListener:       lb.httpProxyListener,
+				VirtualOutboundListener: lb.virtualOutboundListener,
+				VirtualInboundListener:  lb.virtualInboundListener,
 			}
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Unexpected default listener, want \n%#v got \n%#v", tt.want, got)
-			}
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }
