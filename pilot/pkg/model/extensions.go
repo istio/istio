@@ -27,9 +27,12 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	typeapi "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -46,6 +49,39 @@ const (
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 )
 
+var workloadMathRule = map[typeapi.WorkloadMode]func(class istionetworking.ListenerClass) bool{
+	typeapi.WorkloadMode_CLIENT: func(class istionetworking.ListenerClass) bool {
+		switch class {
+		case istionetworking.ListenerClassGateway, istionetworking.ListenerClassSidecarOutbound:
+			return true
+		case istionetworking.ListenerClassSidecarInbound:
+			return false
+		default:
+			// should not happen.
+			return false
+		}
+	},
+	typeapi.WorkloadMode_SERVER: func(class istionetworking.ListenerClass) bool {
+		switch class {
+		case istionetworking.ListenerClassGateway, istionetworking.ListenerClassSidecarOutbound:
+			return false
+		case istionetworking.ListenerClassSidecarInbound:
+			return true
+		default:
+			// should not happen.
+			return false
+		}
+	},
+	typeapi.WorkloadMode_CLIENT_AND_SERVER: func(class istionetworking.ListenerClass) bool {
+		// always match
+		return true
+	},
+	typeapi.WorkloadMode_UNDEFINED: func(class istionetworking.ListenerClass) bool {
+		// always match in default
+		return true
+	},
+}
+
 type WasmPluginWrapper struct {
 	*extensions.WasmPlugin
 
@@ -54,6 +90,49 @@ type WasmPluginWrapper struct {
 	ResourceName string
 
 	WasmExtensionConfig *envoyWasmFilterV3.Wasm
+}
+
+func (p *WasmPluginWrapper) ShouldApplyTo(proxyLabels map[string]string, li *WasmPluginListenerInfo) bool {
+	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
+	return workloadMatch && matchTrafficSelectors(p.Match, li)
+}
+
+type WasmPluginListenerInfo struct {
+	Port  Port
+	Class istionetworking.ListenerClass
+}
+
+func matchTrafficSelectors(ts []*extensions.WasmPlugin_TrafficSelector, li *WasmPluginListenerInfo) bool {
+	if li == nil || ts == nil {
+		return true
+	}
+
+	for _, match := range ts {
+		if matchMode(match.Mode, li.Class) && matchPorts(match.Ports, li.Port) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchMode(workloadMode typeapi.WorkloadMode, class istionetworking.ListenerClass) bool {
+	if result, ok := workloadMathRule[workloadMode]; ok {
+		return result(class)
+	}
+	return false
+}
+
+func matchPorts(portSelectors []*typeapi.PortSelector, port Port) bool {
+	if len(portSelectors) == 0 {
+		// If there is no specified port, match with all the ports.
+		return true
+	}
+	for _, ps := range portSelectors {
+		if ps.GetNumber() != 0 && ps.GetNumber() == uint32(port.Port) {
+			return true
+		}
+	}
+	return false
 }
 
 func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {

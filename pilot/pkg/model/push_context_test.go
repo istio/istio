@@ -39,6 +39,7 @@ import (
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -537,6 +538,12 @@ func TestWasmPlugins(t *testing.T) {
 						"app": "productpage",
 					},
 				},
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode:  selectorpb.WorkloadMode_SERVER,
+						Ports: []*selectorpb.PortSelector{{Number: 1235}},
+					},
+				},
 			},
 		},
 		"authz-high-prio-ingress": {
@@ -551,11 +558,13 @@ func TestWasmPlugins(t *testing.T) {
 	testCases := []struct {
 		name               string
 		node               *Proxy
+		listenerInfo       *WasmPluginListenerInfo
 		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
+			listenerInfo:       nil,
 			expectedExtensions: nil,
 		},
 		{
@@ -564,6 +573,7 @@ func TestWasmPlugins(t *testing.T) {
 				ConfigNamespace: "other",
 				Metadata:        &NodeMetadata{},
 			},
+			listenerInfo:       nil,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
 		},
 		{
@@ -579,6 +589,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
+			listenerInfo: nil,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
@@ -598,6 +609,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
+			listenerInfo: nil,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
@@ -619,6 +631,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
+			listenerInfo: nil,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -626,6 +639,34 @@ func TestWasmPlugins(t *testing.T) {
 				extensions.PluginPhase_AUTHZ: {
 					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
 					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
+				},
+			},
+		},
+		{
+			// Detailed tests regarding TrafficSelector are in extension_test.go
+			// Just test the integrity here.
+			name: "port-match",
+			node: &Proxy{
+				ConfigNamespace: "testns-2",
+				Labels: map[string]string{
+					"app": "productpage",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: istionetworking.ListenerClassSidecarInbound,
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+				},
+				extensions.PluginPhase_AUTHZ: {
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
 				},
 			},
 		},
@@ -648,7 +689,7 @@ func TestWasmPlugins(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPlugins(tc.node)
+			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
 				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}
