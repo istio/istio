@@ -37,11 +37,7 @@ if [[ ${TARGET_ARCH} ]]; then
     :
 elif [[ ${LOCAL_ARCH} == x86_64 ]]; then
     TARGET_ARCH=amd64
-elif [[ ${LOCAL_ARCH} == armv8* ]]; then
-    TARGET_ARCH=arm64
-elif [[ ${LOCAL_ARCH} == arm64* ]]; then
-    TARGET_ARCH=arm64
-elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
+elif [[ ${LOCAL_ARCH} == armv8* || ${LOCAL_ARCH} == arm64* || ${LOCAL_ARCH} == aarch64* ]]; then
     TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
     TARGET_ARCH=arm
