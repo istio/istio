@@ -495,7 +495,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 			if err := sendUpstream(con.upstream, req); err != nil {
-				proxyLog.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
+				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}

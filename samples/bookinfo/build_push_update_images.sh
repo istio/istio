@@ -18,11 +18,12 @@ set -o errexit
 
 display_usage() {
     echo
-    echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--prefix=value] [--scan-images]"
+    echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--prefix=value] [--scan-images] [--multiarch-images]"
     echo "	version: Version of the sample app images (Required)"
     echo "	-h|--help: Prints usage information"
     echo "	--prefix: Use the value as the prefix for image names. By default, 'istio' is used"
     echo -e "	--scan-images: Enable security vulnerability scans for docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
+    echo -e "   --multiarch-images : Enables building and pushing multiarch docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
     exit 1
 }
 
@@ -43,6 +44,7 @@ fi
 # Process the input arguments. By default, image scanning is disabled.
 PREFIX=istio
 ENABLE_IMAGE_SCAN=false
+ENABLE_MULTIARCH_IMAGES=false
 echo "$@"
 for i in "$@"
 do
@@ -51,6 +53,8 @@ do
 		   PREFIX="${i#--prefix=}" ;;
 		--scan-images )
 		   ENABLE_IMAGE_SCAN=true ;;
+		--multiarch-images )
+ 		   ENABLE_MULTIARCH_IMAGES=true ;;		
 		-h|--help )
 		   echo
 		   echo "Build the docker images for bookinfo sample apps, push them to docker hub and update the yaml files."
@@ -62,20 +66,24 @@ do
 done
 
 # Build docker images
-src/build-services.sh "${VERSION}" "${PREFIX}"
+ENABLE_MULTIARCH_IMAGES="${ENABLE_MULTIARCH_IMAGES}" src/build-services.sh "${VERSION}" "${PREFIX}"
 
-# Get all the new image names and tags
-for v in ${VERSION} "latest"
-do
-  IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
-  IMAGES+=" "
-done
+# Currently the `--load` argument does not work for multi arch images
+# Remove this once https://github.com/docker/buildx/issues/59 is addressed.
+if [[ "${ENABLE_MULTIARCH_IMAGES}" == "false" ]]; then
+  # Get all the new image names and tags
+  for v in ${VERSION} "latest"
+  do
+    IMAGES+=$(docker images -f reference="${PREFIX}/examples-bookinfo*:$v" --format "{{.Repository}}:$v")
+    IMAGES+=" "
+  done
 
-# Check that $IMAGES contains the images we've just built
-if [[ "${IMAGES}" =~ ^\ +$ ]] ; then
-  echo "Found no images matching prefix \"${PREFIX}/examples-bookinfo\"."
-  echo "Try running the script without specifying the image registry in --prefix (e.g. --prefix=/foo instead of --prefix=docker.io/foo)."
-  exit 1
+  # Check that $IMAGES contains the images we've just built
+  if [[ "${IMAGES}" =~ ^\ +$ ]] ; then
+    echo "Found no images matching prefix \"${PREFIX}/examples-bookinfo\"."
+    echo "Try running the script without specifying the image registry in --prefix (e.g. --prefix=/foo instead of --prefix=docker.io/foo)."
+    exit 1
+  fi
 fi
 
 #
@@ -87,7 +95,7 @@ function run_vulnerability_scanning() {
   mkdir -p "$RESULT_DIR"
   # skip-dir added to prevent timeout of review images
   set +e
-  trivy image --ignore-unfixed --no-progress --exit-code 2 --skip-dirs /opt/ibm/wlp --output "$RESULT_DIR/$1_$VERSION.failed" "$2"
+  trivy image --ignore-unfixed --no-progress --exit-code 2 --skip-dirs /opt/ol/wlp --output "$RESULT_DIR/$1_$VERSION.failed" "$2"
   test $? -ne 0 || mv "$RESULT_DIR/$1_$VERSION.failed" "$RESULT_DIR/$1_$VERSION.passed"
   set -e
 }
@@ -95,8 +103,11 @@ function run_vulnerability_scanning() {
 # Push images. Scan images if ENABLE_IMAGE_SCAN is true.
 for IMAGE in ${IMAGES};
 do
-  echo "Pushing: ${IMAGE}"
-  docker push "${IMAGE}";
+  # Multiarch images have already been pushed using buildx build	
+  if [[ "${ENABLE_MULTIARCH_IMAGES}" == "false" ]]; then	
+  	echo "Pushing: ${IMAGE}"
+  	docker push "${IMAGE}";
+  fi
 
   # $IMAGE has the following format: istio/examples-bookinfo*:"$v".
   # We want to get the sample app name from $IMAGE (the examples-bookinfo* portion)

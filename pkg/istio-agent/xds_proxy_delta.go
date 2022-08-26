@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -212,7 +213,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				}
 			}
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
-				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				err = fmt.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}

@@ -830,7 +830,8 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 	})
 }
 
-// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
+// AdsPushAll will send updates to all nodes, with a full push.
+// Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), &model.PushRequest{
 		Full:   true,
@@ -839,9 +840,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	})
 }
 
-// AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
-// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
-// to the model ConfigStorageCache and Controller.
+// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
 		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
