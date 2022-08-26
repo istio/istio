@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- 40601
+
+releaseNotes:
+- |
+  **Fixed** an issue where istiod starts up very slowly when 
+  connectivity to GCP metadata service is only partially broken.
