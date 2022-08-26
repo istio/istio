@@ -74,6 +74,7 @@ import (
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -898,6 +899,25 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	return &res, errs
 }
 
+func revisionOfPod(pod *v1.Pod) string {
+	if revision, ok := pod.GetLabels()[label.IoIstioRev.Name]; ok && len(revision) > 0 {
+		// For istiod or gateways.
+		return revision
+	}
+	// For pods injected.
+	statusAnno, ok := pod.GetAnnotations()[annotation.SidecarStatus.Name]
+	if !ok {
+		return ""
+	}
+	var status struct {
+		Revision string `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(statusAnno), &status); err != nil {
+		return ""
+	}
+	return status.Revision
+}
+
 func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error) {
 	opts := metav1.ListOptions{
 		LabelSelector: label.ServiceCanonicalName.Name,
@@ -905,13 +925,24 @@ func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*
 		Limit:         limit,
 		Continue:      token,
 	}
-	if c.revision != "" {
-		opts.LabelSelector = fmt.Sprintf("%s,%s=%s", label.ServiceCanonicalName.Name, label.IoIstioRev.Name, c.revision)
-	}
+
 	// get pods from all the namespaces.
 	list, err := c.kube.CoreV1().Pods(metav1.NamespaceAll).List(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the pod list: %v", err)
+	}
+
+	// If we have a istio.io/rev label for the injected pods,
+	// this loop may not be needed. Instead, we can use "LabelSelector"
+	// to get pods in a specific revision.
+	if c.revision != "" {
+		items := []v1.Pod{}
+		for _, p := range list.Items {
+			if revisionOfPod(&p) == c.revision {
+				items = append(items, p)
+			}
+		}
+		list.Items = items
 	}
 
 	return list, nil
