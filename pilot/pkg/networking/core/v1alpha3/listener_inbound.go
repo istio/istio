@@ -143,6 +143,22 @@ type ServiceInstancePort struct {
 	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
 
+func (sip *ServiceInstancePort) equals(other *ServiceInstancePort) bool {
+	if sip == nil && other == nil {
+		return true
+	}
+	if sip.Port != other.Port {
+		return false
+	}
+	if sip.TargetPort != other.TargetPort {
+		return false
+	}
+	if sip.Protocol != other.Protocol {
+		return false
+	}
+	return true
+}
+
 // buildInboundListeners creates inbound listeners.
 // Typically, this a single listener with many filter chains for each applicable Service; traffic is redirect with iptables.
 // However, explicit listeners can be used in NONE mode or with Sidecar.Ingress configuration.
@@ -287,7 +303,11 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			// The Service is *almost* not relevant, but some Telemetry is per-service.
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
 			if old, f := chainsByPort[port.TargetPort]; f {
-				reportInboundConflict(lb, old, cc)
+				if !port.equals(&old.port) {
+					// Report conflict if service Instance port is not equal - otherwise use the
+					// previous port.
+					reportInboundConflict(lb, old, cc)
+				}
 				continue
 			}
 			chainsByPort[port.TargetPort] = cc
