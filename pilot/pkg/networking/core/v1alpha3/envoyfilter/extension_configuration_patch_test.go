@@ -15,10 +15,10 @@
 package envoyfilter
 
 import (
-	"reflect"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"istio.io/istio/pkg/test/util/assert"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -101,9 +101,7 @@ func TestInsertedExtensionConfig(t *testing.T) {
 				t.Fatalf("number of extension config got %v want %v", len(gotConfigs), len(c.wantExtensionConfig))
 			}
 			for i, gc := range gotConfigs {
-				if !reflect.DeepEqual(gc, c.wantExtensionConfig[i]) {
-					t.Errorf("extension config %d got %v want %v", i, gc, c.wantExtensionConfig[i])
-				}
+				assert.Equal(t, gc, c.wantExtensionConfig[i])
 			}
 		})
 	}
