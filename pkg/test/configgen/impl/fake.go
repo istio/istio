@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha3
+package impl
 
 import (
 	"bytes"
@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -41,8 +42,13 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/configgen"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+func init() {
+	configgen.SetFactory(NewConfigGenTest)
+}
 
 type TestOptions struct {
 	// If provided, these configs will be used directly
@@ -101,15 +107,15 @@ type ConfigGenTest struct {
 	pushContextLock      *sync.RWMutex
 	store                model.ConfigStoreController
 	env                  *model.Environment
-	ConfigGen            *ConfigGeneratorImpl
-	MemRegistry          *memregistry.ServiceDiscovery
+	ConfigGen            *v1alpha3.ConfigGeneratorImpl
+	memRegistry          *memregistry.ServiceDiscovery
 	ServiceEntryRegistry *serviceentry.Controller
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
 }
 
-func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
+func NewConfigGenTest(t test.Failer, opts configgen.TestOptions) configgen.ConfigGenTest {
 	t.Helper()
 	configs := getConfigs(t, opts)
 	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
@@ -165,8 +171,8 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		env:                  env,
 		initialConfigs:       configs,
 		stop:                 test.NewStop(t),
-		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
-		MemRegistry:          msd,
+		ConfigGen:            v1alpha3.NewConfigGenerator(&model.DisabledCache{}),
+		memRegistry:          msd,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
 		pushContextLock:      opts.PushContextLock,
@@ -309,13 +315,17 @@ func (f *ConfigGenTest) Env() *model.Environment {
 	return f.env
 }
 
+func (f *ConfigGenTest) MemRegistry() *memregistry.ServiceDiscovery {
+	return f.memRegistry
+}
+
 func (f *ConfigGenTest) Store() model.ConfigStoreController {
 	return f.store
 }
 
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
-func getConfigs(t test.Failer, opts TestOptions) []config.Config {
+func getConfigs(t test.Failer, opts configgen.TestOptions) []config.Config {
 	for _, p := range opts.ConfigPointers {
 		if p != nil {
 			opts.Configs = append(opts.Configs, *p)

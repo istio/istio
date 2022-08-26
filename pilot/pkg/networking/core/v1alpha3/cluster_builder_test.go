@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/configgen"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -507,12 +508,12 @@ func TestApplyDestinationRule(t *testing.T) {
 					Spec: tt.destRule,
 				}
 			}
-			cg := NewConfigGenTest(t, TestOptions{
+			cg := configgen.New(t, configgen.TestOptions{
 				Instances:      instances,
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
+			cg.MemRegistry().WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
