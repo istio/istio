@@ -75,7 +75,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 	}
 	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
 		"labelSelector": labelSelector,
-		"fieldSelector": "status.phase=Running",
+		"fieldSelector": kube.RunningStatus,
 	})
 	if err != nil {
 		return nil, err

@@ -96,6 +96,7 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
+	RunningStatus       = "status.phase=Running"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -761,7 +762,7 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
 	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
 		"labelSelector": "app=istiod",
-		"fieldSelector": "status.phase=Running",
+		"fieldSelector": RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -856,7 +857,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
 		"labelSelector": "app=istiod",
-		"fieldSelector": "status.phase=Running",
+		"fieldSelector": RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -900,7 +901,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error) {
 	opts := metav1.ListOptions{
 		LabelSelector: label.ServiceCanonicalName.Name,
-		FieldSelector: "status.phase=Running",
+		FieldSelector: RunningStatus,
 		Limit:         limit,
 		Continue:      token,
 	}
