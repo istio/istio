@@ -1317,6 +1317,11 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 	var out []*model.ServiceInstance
 
 	for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(service)) {
+		// Check if service is visible. Service can be invisible if exportTo is set to '~' for example.
+		// We should consider service instances that are only visible to pod.
+		if proxy.LastPushContext != nil && !proxy.LastPushContext.IsServiceVisible(svc, pod.Namespace) {
+			continue
+		}
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)
