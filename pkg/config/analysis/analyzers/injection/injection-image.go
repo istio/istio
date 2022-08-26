@@ -69,7 +69,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	// when multiple injector configmaps exist, we may need to assess them respectively.
 	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
 		cmName := r.Metadata.FullName.Name.String()
-		if strings.HasPrefix("istio-sidecar-injector", cmName) {
+		if strings.HasPrefix(cmName, "istio-sidecar-injector") {
 			cm := r.Message.(*v1.ConfigMap)
 			proxyImageMap[cmName] = GetIstioProxyImage(cm)
 
