@@ -275,55 +275,8 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 // MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
 // matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*ConsolidatedDestRule) (host.Name, bool) {
+func MostSpecificHostMatch[V any](needle host.Name, m map[host.Name]V) (host.Name, bool) {
 	matches := []host.Name{}
-
-	// exact match first
-	if m != nil {
-		if _, ok := m[needle]; ok {
-			return needle, true
-		}
-	}
-
-	if needle.IsWildCarded() {
-		for h := range m {
-			// both needle and h are wildcards
-			if h.IsWildCarded() {
-				if len(needle) < len(h) {
-					continue
-				}
-				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
-					matches = append(matches, h)
-				}
-			}
-		}
-	} else {
-		for h := range m {
-			// only n is wildcard
-			if h.IsWildCarded() {
-				if strings.HasSuffix(string(needle), string(h[1:])) {
-					matches = append(matches, h)
-				}
-			}
-		}
-	}
-	if len(matches) > 1 {
-		// Sort the host names, find the most specific one.
-		sort.Sort(host.Names(matches))
-	}
-	if len(matches) > 0 {
-		// TODO: return closest match out of all non-exact matching hosts
-		return matches[0], true
-	}
-	return "", false
-}
-
-// MostSpecificHostMatch2 compares the map of the stack to the needle, and returns the longest element
-// matching the needle, or false if no element in the map matches the needle.
-// TODO: merge with MostSpecificHostMatch once go 1.18 is used
-func MostSpecificHostMatch2(needle host.Name, m map[host.Name]struct{}) (host.Name, bool) {
-	matches := []host.Name{}
-
 	// exact match first
 	if m != nil {
 		if _, ok := m[needle]; ok {
