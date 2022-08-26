@@ -65,6 +65,7 @@ func (c *TestClock) Now() time.Time {
 
 func TestMaxElapsedTime(t *testing.T) {
 	exp := NewExponentialBackOff(func(off *ExponentialBackOff) {
+		off.MaxElapsedTime = 1000 * time.Second
 		off.Clock = &TestClock{start: time.Time{}}
 	})
 	b := exp.(*ExponentialBackOff)

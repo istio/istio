@@ -35,12 +35,12 @@ type BackOff interface {
 }
 
 // ExponentialBackOff is a wrapper of backoff.ExponentialBackOff to override its NextBackOff().
-// By default, it will never stop.
 type ExponentialBackOff struct {
 	*backoff.ExponentialBackOff
 }
 
 // NewExponentialBackOff creates an istio wrapped ExponentialBackOff.
+// By default, it never stops.
 func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
 	b := ExponentialBackOff{}
 	b.ExponentialBackOff = backoff.NewExponentialBackOff()
