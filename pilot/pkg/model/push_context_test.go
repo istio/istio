@@ -859,6 +859,47 @@ func TestIsServiceVisible(t *testing.T) {
 			},
 			expect: false,
 		},
+		{
+			name:        "service visible to none",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.None: true,
+					},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:        "service has both public visibility and none visibility",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Public: true,
+						visibility.None:   true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service has both none visibility and private visibility",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Private: true,
+						visibility.None:    true,
+					},
+				},
+			},
+			expect: false,
+		},
 	}
 
 	for _, c := range cases {

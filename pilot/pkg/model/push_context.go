@@ -1135,9 +1135,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.Networks = env.MeshNetworks()
 	ps.LedgerVersion = env.Version()
 
-	// Must be initialized first
-	// as initServiceRegistry/VirtualServices/Destrules
-	// use the default export map
+	// Must be initialized first as initServiceRegistry/VirtualServices/Destrules
+	// use the default export map.
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
@@ -1392,9 +1391,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			}
 		} else {
-			// if service has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
-			// if service has exportTo *, make public and ignore all other exportTos
-			// if service has exportTo ., replace with current namespace
+			// if service has exportTo *, make it public and ignore all other exportTos.
+			// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
+			// if service has exportTo ., replace with current namespace.
 			if s.Attributes.ExportTo[visibility.Public] {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 				continue
