@@ -430,7 +430,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 		GatewayListeners        []*listener.Listener
 		InboundListeners        []*listener.Listener
 		OutboundListeners       []*listener.Listener
-		HttpProxyListener       *listener.Listener
+		HTTPProxyListener       *listener.Listener
 		VirtualOutboundListener *listener.Listener
 		VirtualInboundListener  *listener.Listener
 	}
@@ -570,7 +570,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 				gatewayListeners:        tt.fields.GatewayListeners,
 				inboundListeners:        tt.fields.InboundListeners,
 				outboundListeners:       tt.fields.OutboundListeners,
-				httpProxyListener:       tt.fields.HttpProxyListener,
+				httpProxyListener:       tt.fields.HTTPProxyListener,
 				virtualOutboundListener: tt.fields.VirtualOutboundListener,
 				virtualInboundListener:  tt.fields.VirtualInboundListener,
 			}
@@ -580,7 +580,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 				GatewayListeners:        lb.gatewayListeners,
 				InboundListeners:        lb.inboundListeners,
 				OutboundListeners:       lb.outboundListeners,
-				HttpProxyListener:       lb.httpProxyListener,
+				HTTPProxyListener:       lb.httpProxyListener,
 				VirtualOutboundListener: lb.virtualOutboundListener,
 				VirtualInboundListener:  lb.virtualInboundListener,
 			}
