@@ -35,6 +35,7 @@ type BackOff interface {
 }
 
 // ExponentialBackOff is a wrapper of backoff.ExponentialBackOff to override its NextBackOff().
+// By default, it will never stop.
 type ExponentialBackOff struct {
 	*backoff.ExponentialBackOff
 }
@@ -43,6 +44,7 @@ type ExponentialBackOff struct {
 func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
 	b := ExponentialBackOff{}
 	b.ExponentialBackOff = backoff.NewExponentialBackOff()
+	b.ExponentialBackOff.MaxElapsedTime = 0
 	for _, fn := range initFuncs {
 		fn(&b)
 	}

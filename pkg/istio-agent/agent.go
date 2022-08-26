@@ -454,10 +454,10 @@ func (a *Agent) initSdsServer() error {
 // TODO: Fix this method with unused return value
 // nolint: unparam
 func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
-	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
-		off.MaxElapsedTime = 0
-	})
-	err = backoff.RetryWithContext(context.TODO(), func() error {
+	b := backoff.NewExponentialBackOff()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = backoff.RetryWithContext(ctx, func() error {
 		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)
 		if err == nil {
 			return nil
