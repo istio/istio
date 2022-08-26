@@ -113,7 +113,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			log.Debugf("finished enqueueing all statuses")
 		case <-stop:
 			t.Stop()
-			break
+			return
 		}
 	}
 }
