@@ -31,6 +31,7 @@ import (
 const (
 	maxStreams    = 100000
 	maxRetryTimes = 5
+	maxRetryTime  = 10 * time.Second
 )
 
 // Server is the gPRC server that exposes SDS through UDS.

@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -104,7 +105,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		off.MaxInterval = 2 * time.Second
 		off.MaxElapsedTime = 10 * time.Second
 	})
-	backoffError := backoff.Retry(func() error {
+	backoffError := backoff.RetryWithContext(context.TODO(), func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}

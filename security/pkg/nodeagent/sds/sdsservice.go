@@ -111,33 +111,31 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	// configured, in which case this will fail; if it becomes noisy we should disable the entire SDS
 	// server in these cases.
 	go func() {
-		b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
-			off.MaxElapsedTime = 0
-		})
-		for {
+		b := backoff.NewExponentialBackOff()
+		// context for both timeout and channel, whichever stops first, the context will be done
+		ctx, cancel := context.WithTimeout(context.Background(), maxRetryTime)
+		go func() {
+			select {
+			case <-ret.stop:
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+		defer cancel()
+		_ = backoff.RetryWithContext(ctx, func() error {
 			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
-			if err == nil {
-				break
+			if err != nil {
+				sdsServiceLog.Warnf("failed to warm certificate: %v", err)
+				return err
 			}
-			sdsServiceLog.Warnf("failed to warm certificate: %v", err)
-			select {
-			case <-ret.stop:
-				return
-			case <-time.After(b.NextBackOff()):
+			_, err = st.GenerateSecret(security.RootCertReqResourceName)
+			if err != nil {
+				sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
+				return err
 			}
-		}
-		for {
-			_, err := st.GenerateSecret(security.RootCertReqResourceName)
-			if err == nil {
-				break
-			}
-			sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
-			select {
-			case <-ret.stop:
-				return
-			case <-time.After(b.NextBackOff()):
-			}
-		}
+
+			return nil
+		}, b)
 	}()
 
 	return ret
