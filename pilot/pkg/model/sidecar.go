@@ -357,7 +357,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 			for h, ports := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
+				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok && ps.IsServiceVisible(s, configNamespace) {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					var vss *Service
 					if matchPort {

@@ -923,6 +923,26 @@ var (
 		},
 	}
 
+	services23 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "bar.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "mynamespace",
+				ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -1033,6 +1053,26 @@ var (
 			},
 		},
 	}
+
+	virtualServices6 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar"},
+				Http: []*networking.HTTPRoute{
+					{
+						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
+						Route:  []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: "bar.svc.cluster.local"}}},
+					},
+				},
+			},
+		},
+	}
+
 	destinationRule1 = config.Config{
 		Meta: config.Meta{
 			Name:      "drRule1",
@@ -1634,6 +1674,19 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 				{
 					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+			nil,
+		},
+		{
+			"virtual-service-pick-public-config-namespace",
+			configs11,
+			services23,
+			virtualServices6,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
 					Ports:    port7443,
 				},
 			},
