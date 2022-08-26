@@ -6,7 +6,7 @@ spec:
     extensionProviders:
     - name: otel
       envoyOtelAls:
-        service: otel-collector.istio-system.svc.cluster.local
+        service: opentelemetry-collector.istio-system.svc.cluster.local
         port: 4317
   components:
     egressGateways:
