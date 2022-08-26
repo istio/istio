@@ -187,9 +187,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			if caSecret, scrtErr = client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{}); scrtErr != nil {
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return nil, fmt.Errorf("failed to create CA due to secret write error")
-			} else {
-				pkiCaLog.Infof("Secret created by another replica, reusing the same.")
 			}
+			pkiCaLog.Infof("Secret created by another replica, reusing the same.")
 		} else {
 			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 		}
