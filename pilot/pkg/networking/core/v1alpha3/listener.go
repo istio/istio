@@ -1066,6 +1066,7 @@ type httpListenerOpts struct {
 	http3Only bool
 
 	class istionetworking.ListenerClass
+	port  model.Port
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1349,6 +1350,7 @@ func (ml *MutableListener) build(builder *ListenerBuilder, opts buildListenerOpt
 			if len(opt.httpOpts.statPrefix) == 0 {
 				opt.httpOpts.statPrefix = strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
 			}
+			opt.httpOpts.port = *opts.port
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,

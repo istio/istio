@@ -24,7 +24,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -234,6 +236,265 @@ func TestToSecretName(t *testing.T) {
 			}
 			if sr.Namespace != tt.wantResourceNamespace {
 				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
+		})
+	}
+}
+
+func TestShouldApplyTo(t *testing.T) {
+	cases := []struct {
+		desc         string
+		wasmPlugin   *WasmPluginWrapper
+		proxyLabels  map[string]string
+		listenerInfo *WasmPluginListenerInfo
+		want         bool
+	}{
+		{
+			desc:        "match and selector are nil",
+			wasmPlugin:  &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{Selector: nil, Match: nil}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: true,
+		},
+		{
+			desc: "only the workload selector is given",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				Match: nil,
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: true,
+		},
+		{
+			desc: "mismatched selector",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: map[string]string{"e": "f"},
+				},
+				Match: nil,
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: false,
+		},
+		{
+			desc: "only workloadMode of the traffic selector is given",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode:  v1beta1.WorkloadMode_SERVER,
+						Ports: nil,
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: true,
+		},
+		{
+			desc: "workloadMode of the traffic selector and empty list of ports are given",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode:  v1beta1.WorkloadMode_SERVER,
+						Ports: []*v1beta1.PortSelector{},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: true,
+		},
+		{
+			desc: "workloadMode of the traffic selector and named port are given",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_SERVER,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Name{Name: "port1"}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: true,
+		},
+		{
+			desc: "workloadMode of the traffic selector and numbered port are given",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_SERVER,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Number{Number: 1234}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: true,
+		},
+		{
+			desc: "workloadMode of the traffic selector and mismatched ports are given",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_SERVER,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Name{Name: "port2"}},
+							{Port: &v1beta1.PortSelector_Number{Number: 1235}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: false,
+		},
+		{
+			desc: "traffic selector is matched, but workload selector is not matched",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: map[string]string{"e": "f"},
+				},
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_SERVER,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Number{Number: 1234}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarInbound,
+			},
+			want: false,
+		},
+		{
+			desc: "outbound traffic is matched with workloadMode CLIENT",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_CLIENT,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Number{Number: 1234}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassSidecarOutbound,
+			},
+			want: true,
+		},
+		{
+			desc: "any traffic is matched with workloadMode CLIENT_AND_SERVER",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_CLIENT_AND_SERVER,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Number{Number: 1234}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassUndefined,
+			},
+			want: true,
+		},
+		{
+			desc: "gateway is matched with workloadMode CLIENT",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_CLIENT,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Number{Number: 1234}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassGateway,
+			},
+			want: true,
+		},
+		{
+			desc: "gateway is matched with workloadMode SERVER",
+			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+				Selector: nil,
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode: v1beta1.WorkloadMode_SERVER,
+						Ports: []*v1beta1.PortSelector{
+							{Port: &v1beta1.PortSelector_Number{Number: 1234}},
+						},
+					},
+				},
+			}},
+			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			listenerInfo: &WasmPluginListenerInfo{
+				Port:  Port{Name: "port1", Port: 1234},
+				Class: networking.ListenerClassGateway,
+			},
+			want: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := tc.wasmPlugin.ShouldApplyTo(tc.proxyLabels, tc.listenerInfo)
+			if tc.want != got {
+				t.Errorf("ShouldApplyTo got %v want %v", got, tc.want)
 			}
 		})
 	}
