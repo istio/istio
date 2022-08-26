@@ -41,18 +41,18 @@ type ExponentialBackOff struct {
 
 // NewExponentialBackOff creates an istio wrapped ExponentialBackOff.
 func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
-	b := &ExponentialBackOff{}
+	b := ExponentialBackOff{}
 	b.ExponentialBackOff = backoff.NewExponentialBackOff()
 	for _, fn := range initFuncs {
-		fn(b)
+		fn(&b)
 	}
 	b.Reset()
-	return b
+	return &b
 }
 
 const MaxDuration = 1<<63 - 1
 
-func (b *ExponentialBackOff) NextBackOff() time.Duration {
+func (b ExponentialBackOff) NextBackOff() time.Duration {
 	duration := b.ExponentialBackOff.NextBackOff()
 	if duration == b.Stop {
 		return MaxDuration
@@ -60,6 +60,6 @@ func (b *ExponentialBackOff) NextBackOff() time.Duration {
 	return duration
 }
 
-func (b *ExponentialBackOff) Reset() {
+func (b ExponentialBackOff) Reset() {
 	b.ExponentialBackOff.Reset()
 }

@@ -14,26 +14,33 @@
 
 package backoff
 
-import "time"
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
-// Retry the operation until it does not return error or BackOff stops.
+// RetryWithContext tries the operation until it does not return error, BackOff stops,
+// or when the context expires, whichever happens first.
 // o is guaranteed to be run at least once.
-// Retry sleeps the goroutine for the duration returned by BackOff after a
+// RetryWithContext sleeps the goroutine for the duration returned by BackOff after a
 // failed operation returns.
-func Retry(operation func() error, b BackOff) error {
-	var err error
-	var next time.Duration
-
+func RetryWithContext(ctx context.Context, operation func() error, b BackOff) error {
 	for {
-		if err = operation(); err == nil {
+		err := operation()
+		if err == nil {
 			return nil
 		}
 
-		next = b.NextBackOff()
-		if next == MaxDuration {
-			return err
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%v with last error: %v", context.DeadlineExceeded, err)
+		default:
+			next := b.NextBackOff()
+			if next == MaxDuration {
+				return err
+			}
+			time.Sleep(next)
 		}
-
-		time.Sleep(next)
 	}
 }

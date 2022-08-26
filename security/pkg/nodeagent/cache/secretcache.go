@@ -17,6 +17,7 @@ package cache
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -322,13 +323,13 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
 		return
 	}
-	// Retry file watcher as some times it might fail to add and we will miss change
+	// RetryWithContext file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
 	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
 		b := backoff.NewExponentialBackOff()
-		_ = backoff.Retry(func() error {
+		_ = backoff.RetryWithContext(context.TODO(), func() error {
 			err := sc.tryAddFileWatcher(file, resourceName)
 			return err
 		}, b)
@@ -419,7 +420,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
 		return err
 	}
-	if err := backoff.Retry(secretValid, b); err != nil {
+	if err := backoff.RetryWithContext(context.TODO(), secretValid, b); err != nil {
 		return nil, err
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)

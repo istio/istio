@@ -457,7 +457,7 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
 		off.MaxElapsedTime = 0
 	})
-	err = backoff.Retry(func() error {
+	err = backoff.RetryWithContext(context.TODO(), func() error {
 		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)
 		if err == nil {
 			return nil
@@ -469,7 +469,7 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 		return nil, err
 	}
 	b.Reset()
-	err = backoff.Retry(func() error {
+	err = backoff.RetryWithContext(context.TODO(), func() error {
 		_, err := st.GenerateSecret(security.RootCertReqResourceName)
 		if err == nil {
 			return nil
