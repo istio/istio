@@ -640,9 +640,13 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:          EnvoyServerName,
 		HttpProtocolOptions: httpProtoOpts,
 		StripPortMode:       stripPortMode,
+	}
+	if len(features.IstiodServerHeader) > 0 {
+		httpConnManager.ServerName = features.IstiodServerHeader
+	} else {
+		httpConnManager.ServerHeaderTransformation = hcm.HttpConnectionManager_PASS_THROUGH
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}

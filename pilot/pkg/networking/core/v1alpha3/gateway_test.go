@@ -868,6 +868,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 		proxyConfig       *meshconfig.ProxyConfig
 		result            *filterChainOpts
 		transportProtocol istionetworking.TransportProtocol
+		emptyServerHeader bool
 	}{
 		{
 			name: "HTTP1.0 mode enabled",
@@ -896,7 +897,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName: EnvoyServerName,
+						ServerName: features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
@@ -990,9 +991,102 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:          EnvoyServerName,
+						ServerName:          features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+					},
+					class:    istionetworking.ListenerClassGateway,
+					protocol: protocol.HTTPS,
+				},
+			},
+		},
+		{
+			name: "Empty Server Header",
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org", "test.org"},
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			emptyServerHeader: true,
+			routeName:         "some-route",
+			proxyConfig:       nil,
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org", "test.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					CommonTlsContext: &auth.CommonTlsContext{
+						AlpnProtocols: util.ALPNHttp,
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &auth.CertificateValidationContext{},
+								ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					RequireClientCertificate: proto.BoolTrue,
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					connectionManager: &hcm.HttpConnectionManager{
+						XffNumTrustedHops:        0,
+						ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE_SET,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerHeaderTransformation: hcm.HttpConnectionManager_PASS_THROUGH,
+						HttpProtocolOptions:        &core.Http1ProtocolOptions{},
+						StripPortMode:              stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1082,7 +1176,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:          EnvoyServerName,
+						ServerName:          features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
@@ -1174,7 +1268,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:          EnvoyServerName,
+						ServerName:          features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
@@ -1213,7 +1307,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:          EnvoyServerName,
+						ServerName:          features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
@@ -1310,7 +1404,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:          EnvoyServerName,
+						ServerName:          features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
@@ -1408,7 +1502,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:          EnvoyServerName,
+						ServerName:          features.IstiodServerHeader,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
 					},
@@ -1488,7 +1582,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 							Uri:     true,
 							Dns:     true,
 						},
-						ServerName:           EnvoyServerName,
+						ServerName:           features.IstiodServerHeader,
 						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
 						Http3ProtocolOptions: &core.Http3ProtocolOptions{},
 						CodecType:            hcm.HttpConnectionManager_HTTP3,
@@ -1505,6 +1599,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.emptyServerHeader {
+				test.SetForTest(t, &features.IstiodServerHeader, "")
+			}
 			cgi := NewConfigGenerator(&pilot_model.DisabledCache{})
 			tc.node.MergedGateway = &pilot_model.MergedGateway{TLSServerInfo: map[*networking.Server]*pilot_model.TLSServerInfo{
 				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},

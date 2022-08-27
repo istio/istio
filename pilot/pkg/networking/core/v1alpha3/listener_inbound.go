@@ -643,11 +643,15 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 				Uri:     true,
 				Dns:     true,
 			},
-			ServerName: EnvoyServerName,
 		},
 		protocol:   cc.port.Protocol,
 		class:      istionetworking.ListenerClassSidecarInbound,
 		statPrefix: cc.StatPrefix(),
+	}
+	if len(features.IstiodServerHeader) > 0 {
+		httpOpts.connectionManager.ServerName = features.IstiodServerHeader
+	} else {
+		httpOpts.connectionManager.ServerHeaderTransformation = hcm.HttpConnectionManager_PASS_THROUGH
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {

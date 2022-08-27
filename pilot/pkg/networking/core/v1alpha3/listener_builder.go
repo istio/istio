@@ -317,6 +317,12 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		connectionManager.UseRemoteAddress = proto.BoolFalse
 	}
 
+	if len(features.IstiodServerHeader) > 0 {
+		httpOpts.connectionManager.ServerName = features.IstiodServerHeader
+	} else {
+		httpOpts.connectionManager.ServerHeaderTransformation = hcm.HttpConnectionManager_PASS_THROUGH
+	}
+
 	// Allow websocket upgrades
 	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}

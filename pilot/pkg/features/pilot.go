@@ -344,11 +344,15 @@ var (
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
 		"but larger numbers may impact CPU in high scale environments.").Get()
 
-	// IstiodServiceCustomHost allow user to bring a custom address or multiple custom addresses for istiod server
+	// IstiodServiceCustomHost allows user to bring a custom address or multiple custom addresses for istiod server
 	// for examples: 1. istiod.mycompany.com  2. istiod.mycompany.com,istiod-canary.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
 		"Custom host name of istiod that istiod signs the server cert. "+
 			"Multiple custom host names are supported, and multiple values are separated by commas.").Get()
+
+	// IstiodServerHeader allows users to specify/skip server header.
+	IstiodServerHeader = env.Register("ISTIOD_SERVER_HEADER", "istio-envoy",
+		"Server header value to be used. If it is empty, server header is not set and returned in the response headers").Get()
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()
