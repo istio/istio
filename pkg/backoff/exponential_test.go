@@ -68,7 +68,7 @@ func TestMaxElapsedTime(t *testing.T) {
 		off.MaxElapsedTime = 1000 * time.Second
 		off.Clock = &TestClock{start: time.Time{}}
 	})
-	b := exp.(*ExponentialBackOff)
+	b := exp.(ExponentialBackOff)
 	// override clock to simulate the max elapsed time has passed.
 	b.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
 	assertEquals(t, MaxDuration, exp.NextBackOff())
