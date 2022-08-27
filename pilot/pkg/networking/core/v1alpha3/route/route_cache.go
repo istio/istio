@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -96,7 +97,12 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 		}.HashCode())
 	}
 	for _, vs := range r.VirtualServices {
-		configs = append(configs, model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace}.HashCode())
+		if model.UseGatewaySemantics(vs) {
+			// add http/tcp/tls routes to dependent configs
+			configs = addInternalParents(configs, vs)
+		} else {
+			configs = append(configs, model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace}.HashCode())
+		}
 	}
 	// add delegate virtual services to dependent configs
 	// so that we can clear the rds cache when delegate virtual services are updated
@@ -176,6 +182,33 @@ func (r *Cache) Key() string {
 
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
+}
+
+func addInternalParents(dependences []model.ConfigHash, cfg config.Config) []model.ConfigHash {
+	if s, ok := cfg.Annotations[constants.InternalParentNames]; ok {
+		for _, p := range strings.Split(s, ",") {
+			kn := strings.Split(p, "/")
+			var k kind.Kind
+			switch kn[0] {
+			case kind.HTTPRoute.String():
+				k = kind.HTTPRoute
+			case kind.TCPRoute.String():
+				k = kind.TCPRoute
+			case kind.TLSRoute.String():
+				k = kind.TLSRoute
+			default:
+				// shouldn't happen
+				continue
+			}
+			namespacedName := strings.Split(kn[1], ".")
+			dependences = append(dependences, model.ConfigKey{
+				Kind:      k,
+				Name:      namespacedName[0],
+				Namespace: namespacedName[1],
+			}.HashCode())
+		}
+	}
+	return dependences
 }
 
 func hashToBytes(number model.ConfigHash) []byte {
