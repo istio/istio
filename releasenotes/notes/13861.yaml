@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 13861
+
+releaseNotes:
+- |
+  **Added** support for specifying server header via Istiod environment variable ISTIOD_SERVER_HEADER.
+  If set empty, server header will not be generated in response headers.
