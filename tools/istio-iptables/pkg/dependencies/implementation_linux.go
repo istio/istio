@@ -105,7 +105,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		off.MaxInterval = 2 * time.Second
 		off.MaxElapsedTime = 10 * time.Second
 	})
-	backoffError := backoff.RetryWithContext(context.TODO(), func() error {
+	backoffError := b.RetryWithContext(context.TODO(), func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
@@ -134,7 +134,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
 		return err
-	}, b)
+	})
 	if backoffError != nil {
 		return fmt.Errorf("timed out trying to acquire XTables lock: %v", err)
 	}

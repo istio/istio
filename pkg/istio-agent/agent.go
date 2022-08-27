@@ -454,29 +454,28 @@ func (a *Agent) initSdsServer() error {
 // TODO: Fix this method with unused return value
 // nolint: unparam
 func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
-	b := backoff.NewExponentialBackOff()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = backoff.RetryWithContext(ctx, func() error {
+	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
+		off.MaxElapsedTime = 10 * time.Second
+	})
+	err = b.RetryWithContext(context.TODO(), func() error {
 		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)
 		if err == nil {
 			return nil
 		}
 		log.Warnf("failed to get certificate: %v", err)
 		return err
-	}, b)
+	})
 	if err != nil {
 		return nil, err
 	}
-	b.Reset()
-	err = backoff.RetryWithContext(context.TODO(), func() error {
+	err = b.RetryWithContext(context.TODO(), func() error {
 		_, err := st.GenerateSecret(security.RootCertReqResourceName)
 		if err == nil {
 			return nil
 		}
 		log.Warnf("failed to get root certificate: %v", err)
 		return err
-	}, b)
+	})
 	return
 }
 

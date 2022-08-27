@@ -237,7 +237,6 @@ func waitForTokenData(client kube.CLIClient, secret *v1.Secret) (ca, token []byt
 	}
 
 	log.Infof("Waiting for data to be populated in %s", secret.Name)
-
 	err = backoff.Retry(
 		func() error {
 			secret, err = client.Kube().CoreV1().Secrets(secret.Namespace).Get(context.TODO(), secret.Name, metav1.GetOptions{})

@@ -329,10 +329,10 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
 		b := backoff.NewExponentialBackOff()
-		_ = backoff.RetryWithContext(context.TODO(), func() error {
+		_ = b.RetryWithContext(context.TODO(), func() error {
 			err := sc.tryAddFileWatcher(file, resourceName)
 			return err
-		}, b)
+		})
 	}()
 }
 
@@ -420,7 +420,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
 		return err
 	}
-	if err := backoff.RetryWithContext(context.TODO(), secretValid, b); err != nil {
+	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
 		return nil, err
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)

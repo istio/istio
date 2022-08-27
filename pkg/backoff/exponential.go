@@ -20,6 +20,8 @@
 package backoff
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -32,6 +34,9 @@ type BackOff interface {
 	NextBackOff() time.Duration
 	// Reset to initial state.
 	Reset()
+	// RetryWithContext tries the operation until it does not return error, BackOff stops,
+	// or when the context expires, whichever happens first.
+	RetryWithContext(ctx context.Context, operation func() error) error
 }
 
 // ExponentialBackOff is a wrapper of backoff.ExponentialBackOff to override its NextBackOff().
@@ -49,7 +54,7 @@ func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
 		fn(&b)
 	}
 	b.Reset()
-	return &b
+	return b
 }
 
 const MaxDuration = 1<<63 - 1
@@ -64,4 +69,29 @@ func (b ExponentialBackOff) NextBackOff() time.Duration {
 
 func (b ExponentialBackOff) Reset() {
 	b.ExponentialBackOff.Reset()
+}
+
+// RetryWithContext tries the operation until it does not return error, BackOff stops,
+// or when the context expires, whichever happens first.
+// o is guaranteed to be run at least once.
+// RetryWithContext sleeps the goroutine for the duration returned by BackOff after a
+// failed operation returns.
+func (b ExponentialBackOff) RetryWithContext(ctx context.Context, operation func() error) error {
+	b.Reset()
+	for {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+		next := b.NextBackOff()
+		if next == MaxDuration {
+			return fmt.Errorf("backoff timeouted with last error: %v", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%v with last error: %v", context.DeadlineExceeded, err)
+		case <-time.After(next):
+		}
+	}
 }

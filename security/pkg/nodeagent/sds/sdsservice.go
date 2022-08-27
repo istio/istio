@@ -111,9 +111,10 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	// configured, in which case this will fail; if it becomes noisy we should disable the entire SDS
 	// server in these cases.
 	go func() {
+		// TODO: do we need max timeout for retry, seems meaningless to retry forever if it never succeed
 		b := backoff.NewExponentialBackOff()
 		// context for both timeout and channel, whichever stops first, the context will be done
-		ctx, cancel := context.WithTimeout(context.Background(), maxRetryTime)
+		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
 			select {
 			case <-ret.stop:
@@ -122,7 +123,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 			}
 		}()
 		defer cancel()
-		_ = backoff.RetryWithContext(ctx, func() error {
+		_ = b.RetryWithContext(ctx, func() error {
 			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
 			if err != nil {
 				sdsServiceLog.Warnf("failed to warm certificate: %v", err)
@@ -135,7 +136,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 			}
 
 			return nil
-		}, b)
+		})
 	}()
 
 	return ret
