@@ -725,15 +725,15 @@ func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpo
 func BuildTunnelMetadata(address string, port, tunnelPort int) *core.Metadata {
 	return &core.Metadata{
 		FilterMetadata: map[string]*structpb.Struct{
-			"tunnel": BuildTunnelMetadataStruct(address, port, tunnelPort),
+			"tunnel": BuildTunnelMetadataStruct(address, address, port, tunnelPort),
 		},
 	}
 }
 
-func BuildTunnelMetadataStruct(address string, port, tunnelPort int) *structpb.Struct {
+func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort int) *structpb.Struct {
 	st, _ := structpb.NewStruct(map[string]interface{}{
 		// ORIGINAL_DST destination address to tunnel on (usually only differs from "destination" by port)
-		"address": net.JoinHostPort(address, strconv.Itoa(tunnelPort)),
+		"address": net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
 		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
 		// detunnel_ip/port are parts of "destination" split for easy use in %DYNAMIC_METADATA% (usually headers)

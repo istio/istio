@@ -199,6 +199,13 @@ func (c Config) NamespacedName() NamespacedName {
 	}
 }
 
+func (c Config) AccountName() string {
+	if c.ServiceAccount {
+		return c.Service
+	}
+	return "default"
+}
+
 // ServiceAccountName returns the service account name for this service.
 func (c Config) ServiceAccountName() string {
 	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service

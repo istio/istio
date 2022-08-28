@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/http/headers"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -766,6 +767,9 @@ spec:
 							"Location":   tc.location.String(),
 						})).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							if from.Config().Service == to.Config().Service {
+								t.Skip("https://github.com/solo-io/istio-sidecarless/issues/263")
+							}
 							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 							from.CallOrFail(t, echo.CallOptions{
 								Address: "111.111.222.222",
@@ -1022,4 +1026,34 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 
 func deployName(inst echo.Instance) string {
 	return inst.ServiceName() + "-" + inst.Config().Version
+}
+
+func TestMetadataServer(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		ver, _ := t.Clusters().Default().GetKubernetesVersion()
+		if !strings.Contains(ver.GitVersion, "-gke") {
+			t.Skip("requires GKE cluster")
+		}
+		svcs := apps.All
+		for _, src := range svcs {
+			src := src
+			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+				// curl -H "Metadata-Flavor: Google" 169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity
+				opts := echo.CallOptions{
+					Address: "169.254.169.254",
+					Port:    echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
+					HTTP: echo.HTTP{
+						// TODO: detect which platform?
+						Headers: headers.New().With("Metadata-Flavor", "Google").Build(),
+						Path:    "/computeMetadata/v1/instance/service-accounts/default/identity",
+					},
+					// Test that we see our own identity -- not the uproxy (istio-system/uproxy).
+					// TODO: if the test SA actually had workload identity enabled the result is probably different
+					Check: check.BodyContains(fmt.Sprintf(`Your Kubernetes service account (%s/%s)`, src.NamespaceName(), src.Config().AccountName())),
+				}
+				src.CallOrFail(t, opts)
+			})
+		}
+	})
 }

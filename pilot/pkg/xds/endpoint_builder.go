@@ -353,6 +353,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	address, port, tunnelPort := e.Address, e.EndpointPort, 15008
+	tunnelAddress := address
 
 	supportsTunnel := false
 	// Other side is a PEP. TODO: can this really happen?
@@ -370,7 +371,17 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 
 	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
 	if dir != model.TrafficDirectionInboundVIP && supportsTunnel {
-		ambientTunnelMeta := util.BuildTunnelMetadataStruct(address, int(port), tunnelPort)
+		// Support connecting to server side PEP, if the destination has one. This is for sidecars and ingress.
+		if dir == model.TrafficDirectionOutbound && !b.proxy.IsPEP() && !b.proxy.IsAmbient() {
+			workloads := b.push.SidecarlessIndex.PEPs.ByIdentity[e.ServiceAccount]
+			if len(workloads) > 0 {
+				// TODO: only ready
+				// TODO: load balance
+				tunnelAddress = workloads[0].Status.PodIP
+				tunnelPort = 15006
+			}
+		}
+		ambientTunnelMeta := util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier("tunnel", net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}

@@ -309,15 +309,15 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 		l.DefaultFilterChain = passthroughFilterChain()
 	}
 	// nolint: gocritic
-	//if features.SidecarlessCapture == model.VariantIptables {
-	//	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
-	//		Name: wellknown.OriginalSource,
-	//		ConfigType: &listener.ListenerFilter_TypedConfig{
-	//			TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
-	//				Mark: OriginalSrcMark,
-	//			}),
-	//		},
-	//	})
+	// if features.SidecarlessCapture == model.VariantIptables {
+	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
+		Name: wellknown.OriginalSource,
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
+				Mark: OriginalSrcMark,
+			}),
+		},
+	})
 	//}
 
 	l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{

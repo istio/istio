@@ -98,7 +98,7 @@ func (lb *ListenerBuilder) buildRemoteInbound() []*listener.Listener {
 	// 4. Our final CONNECT listener, originating the tunnel
 	wls, svcs := FindAssociatedResources(lb.node, lb.push)
 
-	listeners = append(listeners, lb.buildRemoteInboundTerminateConnect(svcs))
+	listeners = append(listeners, lb.buildRemoteInboundTerminateConnect(svcs, wls))
 
 	// VIP listeners
 	listeners = append(listeners, lb.buildRemoteInboundVIP(svcs)...)
@@ -113,7 +113,7 @@ func (lb *ListenerBuilder) buildRemoteInbound() []*listener.Listener {
 
 // Our top level terminating CONNECT listener, `inbound TERMINATE`. This has a route per destination and decapsulates the CONNECT,
 // forwarding to the VIP or Pod internal listener.
-func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name]*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name]*model.Service, wls []WorkloadAndServices) *listener.Listener {
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// CONNECT listener
 	vhost := &route.VirtualHost{
@@ -143,6 +143,42 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 			})
 		}
 	}
+
+	// it's possible for us to hit this listener and target a Pod directly; route through the inbound-pod internal listener
+	// TODO: this shouldn't match on port; we should accept traffic to any port.
+	for _, wlx := range wls {
+		wl := wlx.WorkloadInfo
+		// TODO: fake proxy is really bad. Should have these take in Workload or similar
+		instances := lb.Discovery.GetProxyServiceInstances(&model.Proxy{
+			Type:            model.SidecarProxy,
+			IPAddresses:     []string{wl.Status.PodIP},
+			ConfigNamespace: wl.Namespace,
+			Metadata: &model.NodeMetadata{
+				Namespace: wl.Namespace,
+				Labels:    wl.Labels,
+			},
+		})
+		// For each port, setup a route
+		for _, port := range getPorts(instances) {
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.Status.PodIP), port.Port)
+			vhost.Routes = append(vhost.Routes, &route.Route{
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+					Headers: []*route.HeaderMatcher{
+						istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", wl.Status.PodIP, port.Port)),
+					},
+				},
+				Action: &route.Route_Route{Route: &route.RouteAction{
+					UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+						UpgradeType:   "CONNECT",
+						ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+					}},
+					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				}},
+			})
+		}
+	}
+
 	httpOpts := &httpListenerOpts{
 		routeConfig: &route.RouteConfiguration{
 			Name:             "local_route",
