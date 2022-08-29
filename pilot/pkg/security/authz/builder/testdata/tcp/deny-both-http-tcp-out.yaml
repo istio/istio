@@ -4,33 +4,6 @@ typedConfig:
   rules:
     action: DENY
     policies:
-      ns[foo]-policy[httpbin-deny]-rule[0]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[1]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
-      ns[foo]-policy[httpbin-deny]-rule[2]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
       ns[foo]-policy[httpbin-deny]-rule[3]:
         permissions:
         - andRules:
@@ -102,15 +75,6 @@ typedConfig:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-1/.*
-      ns[foo]-policy[httpbin-deny]-rule[8]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
       ns[foo]-policy[httpbin-deny]-rule[9]:
         permissions:
         - andRules:

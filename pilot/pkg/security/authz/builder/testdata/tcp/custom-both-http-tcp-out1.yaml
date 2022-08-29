@@ -4,15 +4,6 @@ typedConfig:
   shadowRules:
     action: DENY
     policies:
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[0]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
       istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[1]:
         permissions:
         - andRules:
@@ -41,15 +32,6 @@ typedConfig:
                 - directRemoteIp:
                     addressPrefix: 1.2.3.4
                     prefixLen: 32
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[3]:
-        permissions:
-        - andRules:
-            rules:
-            - any: true
-        principals:
-        - andIds:
-            ids:
-            - any: true
       istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[4]:
         permissions:
         - andRules:

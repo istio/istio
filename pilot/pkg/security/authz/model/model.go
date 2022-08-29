@@ -163,10 +163,14 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 // Generate generates the Envoy RBAC config from the model.
 func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
+	anyPermissionExist := false
 	for _, rl := range m.permissions {
-		permission, err := generatePermission(rl, forTCP, action)
+		permission, err, permissionExist := generatePermission(rl, forTCP, action)
 		if err != nil {
 			return nil, err
+		}
+		if permissionExist {
+			anyPermissionExist = true
 		}
 		permissions = append(permissions, permission)
 	}
@@ -175,10 +179,14 @@ func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy,
 	}
 
 	var principals []*rbacpb.Principal
+	anyPrincipalExist := false
 	for _, rl := range m.principals {
-		principal, err := generatePrincipal(rl, forTCP, action)
+		principal, err, principalExist := generatePrincipal(rl, forTCP, action)
 		if err != nil {
 			return nil, err
+		}
+		if principalExist {
+			anyPrincipalExist = true
 		}
 		principals = append(principals, principal)
 	}
@@ -186,40 +194,47 @@ func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy,
 		return nil, fmt.Errorf("must have at least 1 principal")
 	}
 
+	if !anyPermissionExist && !anyPrincipalExist && forTCP && action == rbacpb.RBAC_DENY {
+		return nil, fmt.Errorf("can't apply this rule as there are all L7 attributes")
+	}
 	return &rbacpb.Policy{
 		Permissions: permissions,
 		Principals:  principals,
 	}, nil
 }
 
-func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Permission, error) {
+func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Permission, error, bool) {
 	var and []*rbacpb.Permission
+	permissionExist := true
 	for _, r := range rl.rules {
 		ret, err := r.permission(forTCP, action)
 		if err != nil {
-			return nil, err
+			return nil, err, false
 		}
 		and = append(and, ret...)
 	}
 	if len(and) == 0 {
 		and = append(and, permissionAny())
+		permissionExist = false
 	}
-	return permissionAnd(and), nil
+	return permissionAnd(and), nil, permissionExist
 }
 
-func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error) {
+func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error, bool) {
 	var and []*rbacpb.Principal
+	principalExist := true
 	for _, r := range rl.rules {
 		ret, err := r.principal(forTCP, action)
 		if err != nil {
-			return nil, err
+			return nil, err, false
 		}
 		and = append(and, ret...)
 	}
 	if len(and) == 0 {
 		and = append(and, principalAny())
+		principalExist = false
 	}
-	return principalAnd(and), nil
+	return principalAnd(and), nil, principalExist
 }
 
 func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {
