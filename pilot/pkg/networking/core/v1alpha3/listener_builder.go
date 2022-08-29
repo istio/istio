@@ -137,7 +137,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	// add extra addresses for the listener
-	if extrActualWildcard != "" {
+	if extrActualWildcard != "" && util.IsIstioVersionGE116(lb.node.IstioVersion) {
 		extraAddress := &listener.AdditionalAddress{
 			Address: util.BuildAddress(extrActualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
 		}

@@ -292,11 +292,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 ) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	var actualWildcard, actualExtraWildcard, actualLocalHostAddress, actualExtraLocalHostAddress string
-	actualWildcard, actualExtraWildcard = getDualStackActualWildcard(node)
-	actualLocalHostAddress, actualExtraLocalHostAddress = getDualStackLocalHost(node)
-	if actualWildcard == "" && actualExtraWildcard == "" && actualLocalHostAddress == "" && actualExtraLocalHostAddress == "" {
-		actualWildcard, actualLocalHostAddress = getActualWildcardAndLocalHost(node)
+	actualWildcardIPv4, actualWildcardIPv6 := getDualStackActualWildcard(node)
+	actualLocalHostAddrIPv4, actualExtraLocalHostAddrIPv6 := getDualStackLocalHost(node)
+	if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" && actualLocalHostAddrIPv4 == "" && actualExtraLocalHostAddrIPv6 == "" {
+		actualWildcardIPv4, actualLocalHostAddrIPv4 = getActualWildcardAndLocalHost(node)
 	}
 
 	var tcpListeners, httpListeners []*listener.Listener
@@ -380,27 +379,27 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			// we will bind to user specified IP (if any) or to the VIPs of services in
 			// this egress listener.
 			var bind string
-			var exBind []string
+			var extraBind []string
 			bind = egressListener.IstioListener.Bind
 			if bind == "" {
 				if bindToPort {
-					bind = actualLocalHostAddress
-					if actualExtraLocalHostAddress != "" {
-						exBind = append(exBind, actualExtraLocalHostAddress)
+					bind = actualLocalHostAddrIPv4
+					if actualExtraLocalHostAddrIPv6 != "" {
+						extraBind = append(extraBind, actualExtraLocalHostAddrIPv6)
 					}
 				} else {
-					bind = actualWildcard
-					if actualExtraWildcard != "" {
-						exBind = append(exBind, actualExtraWildcard)
+					bind = actualWildcardIPv4
+					if actualWildcardIPv6 != "" {
+						extraBind = append(extraBind, actualWildcardIPv6)
 					}
 				}
 			} else {
 				// if the bind is 0.0.0.0, ::, 127.0.0.1 or ::1, and it's a dual stack environment
-				if (bind == LocalhostAddress || bind == LocalhostIPv6Address) && actualExtraLocalHostAddress != "" {
-					exBind = append(exBind, actualExtraLocalHostAddress)
+				if (bind == LocalhostAddress || bind == LocalhostIPv6Address) && actualExtraLocalHostAddrIPv6 != "" {
+					extraBind = append(extraBind, actualExtraLocalHostAddrIPv6)
 				}
-				if (bind == WildcardAddress || bind == WildcardIPv6Address) && actualExtraWildcard != "" {
-					exBind = append(exBind, actualExtraWildcard)
+				if (bind == WildcardAddress || bind == WildcardIPv6Address) && actualWildcardIPv6 != "" {
+					extraBind = append(extraBind, actualWildcardIPv6)
 				}
 			}
 
@@ -409,7 +408,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				push:       push,
 				proxy:      node,
 				bind:       bind,
-				exBind:     exBind,
+				extraBind:  extraBind,
 				port:       listenPort,
 				bindToPort: bindToPort,
 			}
@@ -417,7 +416,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			for _, service := range services {
 				listenerOpts.service = service
 				// Set service specific attributes here.
-				lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+				lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
 			}
 		} else {
 			// This is a catch all egress listener with no port. This
@@ -445,14 +444,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			}
 
 			var bind string
-			var exBind []string
+			var extraBind []string
 			if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
 				bind = egressListener.IstioListener.Bind
 			}
 			if bindToPort && bind == "" {
-				bind = actualLocalHostAddress
-				if actualExtraLocalHostAddress != "" {
-					exBind = append(exBind, actualExtraLocalHostAddress)
+				bind = actualLocalHostAddrIPv4
+				if actualExtraLocalHostAddrIPv6 != "" {
+					extraBind = append(extraBind, actualExtraLocalHostAddrIPv6)
 				}
 			}
 
@@ -477,10 +476,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
-					// bind and exBind should be specified at the same time for dual stack env
+					// bind and extraBind should be specified at the same time for dual stack env
 					// and make sure that it's necessary to add the extra addresses, such as it's a dual stack env
-					if len(exBind) > 0 {
-						listenerOpts.exBind = append(listenerOpts.exBind, exBind...)
+					if len(extraBind) > 0 {
+						listenerOpts.extraBind = append(listenerOpts.extraBind, extraBind...)
 					}
 
 					// port depends on servicePort.
@@ -503,7 +502,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// selected or scaled down, so we skip these as well. This leaves us with
 							// only a plain ServiceEntry with resolution NONE. In this case, we will
 							// fallback to a wildcard listener.
-							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
 							continue
 						}
 						for _, instance := range instances {
@@ -520,11 +519,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 								continue
 							}
 							listenerOpts.bind = instance.Endpoint.Address
-							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
 						}
 					} else {
 						// Standard logic for headless and non headless services
-						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
+						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
 					}
 				}
 			}
@@ -565,10 +564,9 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	var listenAddress, listenExtrAddresses string
-	listenAddress, listenExtrAddresses = getDualStackLocalHost(node)
-	if listenAddress == "" && listenExtrAddresses == "" {
-		_, listenAddress = getActualWildcardAndLocalHost(node)
+	listenAddressIPv4, listenAddressesIPv6 := getDualStackLocalHost(node)
+	if listenAddressIPv4 == "" && listenAddressesIPv6 == "" {
+		_, listenAddressIPv4 = getActualWildcardAndLocalHost(node)
 	}
 
 	httpOpts := &core.Http1ProtocolOptions{
@@ -579,11 +577,11 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	opts := buildListenerOpts{
-		push:   push,
-		proxy:  node,
-		bind:   listenAddress,
-		exBind: []string{listenExtrAddresses},
-		port:   &model.Port{Port: int(httpProxyPort)},
+		push:      push,
+		proxy:     node,
+		bind:      listenAddressIPv4,
+		extraBind: []string{listenAddressesIPv6},
+		port:      &model.Port{Port: int(httpProxyPort)},
 		filterChainOpts: []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
 				rds:              model.RDSHttpProxy,
@@ -622,18 +620,18 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
-		dsIPv4ActualWildcard, dsIPv6ActualWildcard := getDualStackActualWildcard(listenerOpts.proxy)
+		actualWildcardIPv4, actualWildcardIPv6 := getDualStackActualWildcard(listenerOpts.proxy)
 		// if the env is not a dual stack
-		if dsIPv4ActualWildcard == "" && dsIPv6ActualWildcard == "" {
+		if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" {
 			listenerOpts.bind = actualWildcard
 		} else {
 			// should respect the ip policy order
-			if actualWildcard == dsIPv4ActualWildcard {
-				listenerOpts.bind = dsIPv4ActualWildcard
-				listenerOpts.exBind = append(listenerOpts.exBind, dsIPv6ActualWildcard)
+			if actualWildcard == actualWildcardIPv4 {
+				listenerOpts.bind = actualWildcardIPv4
+				listenerOpts.extraBind = append(listenerOpts.extraBind, actualWildcardIPv6)
 			} else {
-				listenerOpts.bind = dsIPv6ActualWildcard
-				listenerOpts.exBind = append(listenerOpts.exBind, dsIPv4ActualWildcard)
+				listenerOpts.bind = actualWildcardIPv6
+				listenerOpts.extraBind = append(listenerOpts.extraBind, actualWildcardIPv4)
 			}
 		}
 	}
@@ -750,18 +748,13 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 		if len(svcListenAddress) > 0 {
 			if !strings.Contains(svcListenAddress, "/") {
 				listenerOpts.bind = svcListenAddress
-				if len(svcExtraListenAddress) > 0 {
-					listenerOpts.exBind = svcExtraListenAddress
-				}
 			} else {
 				// Address is a CIDR. Fall back to 0.0.0.0 and
 				// filter chain match
 				destinationCIDR = svcListenAddress
 				listenerOpts.bind = actualWildcard
-				if len(svcExtraListenAddress) > 0 {
-					listenerOpts.exBind = svcExtraListenAddress
-				}
 			}
+			listenerOpts.extraBind = svcExtraListenAddress
 		}
 	}
 
@@ -1145,7 +1138,7 @@ type buildListenerOpts struct {
 	push              *model.PushContext
 	proxy             *model.Proxy
 	bind              string
-	exBind            []string
+	extraBind         []string
 	port              *model.Port
 	filterChainOpts   []*filterChainOpts
 	bindToPort        bool
@@ -1288,8 +1281,8 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			ConnectionBalanceConfig: connectionBalance,
 		}
 		// add extra addresses for the listener
-		if len(opts.exBind) > 0 {
-			for _, exbd := range opts.exBind {
+		if len(opts.extraBind) > 0 && util.IsIstioVersionGE116(opts.proxy.IstioVersion) {
+			for _, exbd := range opts.extraBind {
 				extraAddress := &listener.AdditionalAddress{
 					Address: util.BuildAddress(exbd, uint32(opts.port.Port)),
 				}
@@ -1323,8 +1316,8 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			EnableReusePort: proto.BoolTrue,
 		}
 		// add extra addresses for the listener
-		if len(opts.exBind) > 0 {
-			for _, exbd := range opts.exBind {
+		if len(opts.extraBind) > 0 && util.IsIstioVersionGE116(opts.proxy.IstioVersion) {
+			for _, exbd := range opts.extraBind {
 				extraAddress := &listener.AdditionalAddress{
 					Address: util.BuildNetworkAddress(exbd, uint32(opts.port.Port), istionetworking.TransportProtocolQUIC),
 				}

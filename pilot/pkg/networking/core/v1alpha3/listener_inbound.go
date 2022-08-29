@@ -60,8 +60,8 @@ type inboundChainConfig struct {
 	// and telemetry.
 	bind string
 
-	// exBind is string slice and each element is similar with bind address and support multiple addresses for 'virtual' listener
-	exBind []string
+	// extraBind is string slice and each element is similar with bind address and support multiple addresses for 'virtual' listener
+	extraBind []string
 
 	// tlsSettings defines the *custom* TLS settings for the chain. mTLS settings are orthogonal; this
 	// only configures TLS overrides.
@@ -195,10 +195,10 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	var actualWildcard, extrActualWildcard string
-	actualWildcard, extrActualWildcard = getDualStackActualWildcard(lb.node)
-	if actualWildcard == "" && extrActualWildcard == "" {
-		actualWildcard, _ = getActualWildcardAndLocalHost(lb.node)
+	var actualWildcardIPv4, actualWildcardIPv6 string
+	actualWildcardIPv4, actualWildcardIPv6 = getDualStackActualWildcard(lb.node)
+	if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" {
+		actualWildcardIPv4, _ = getActualWildcardAndLocalHost(lb.node)
 	}
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
@@ -206,11 +206,11 @@ func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
 	allChains := buildInboundPassthroughChains(lb)
 	allChains = append(allChains, chains...)
-	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcard, ProxyInboundListenPort), false, allChains)
+	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcardIPv4, ProxyInboundListenPort), false, allChains)
 	// add extra addresses for the listener
-	if extrActualWildcard != "" {
+	if actualWildcardIPv6 != "" && util.IsIstioVersionGE116(lb.node.IstioVersion) {
 		extraAddress := &listener.AdditionalAddress{
-			Address: util.BuildAddress(extrActualWildcard, ProxyInboundListenPort),
+			Address: util.BuildAddress(actualWildcardIPv6, ProxyInboundListenPort),
 		}
 		l.AdditionalAddresses = append(l.AdditionalAddresses, extraAddress)
 	}
@@ -287,7 +287,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				Protocol:   i.ServicePort.Protocol,
 			}
 
-			var bindAddr, exBindAddrs string
+			var bindAddr, extraBindAddrs string
 			bindAddr = WildcardAddress
 			// IPv6 only
 			if lb.node.IsIPv6() {
@@ -295,7 +295,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			}
 			// Dual Stack
 			if lb.node.SupportsIPv4() && lb.node.SupportsIPv6() {
-				exBindAddrs = WildcardIPv6Address
+				extraBindAddrs = WildcardIPv6Address
 			}
 
 			cc := inboundChainConfig{
@@ -303,7 +303,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				port:              port,
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
 				bind:              bindAddr,
-				exBind:            []string{exBindAddrs},
+				extraBind:         []string{extraBindAddrs},
 				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
 			}
 			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
@@ -350,11 +350,11 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				cc.bind = getSidecarInboundBindIP(lb.node)
 				// if no global unicast address
 				if cc.bind == WildcardAddress || cc.bind == WildcardIPv6Address {
-					bindAddress, exBindAddresses := getDualStackActualWildcard(lb.node)
+					bindAddress, extraBindAddresses := getDualStackActualWildcard(lb.node)
 					// if it's dual stack environment
-					if bindAddress != "" && exBindAddresses != "" {
+					if bindAddress != "" && extraBindAddresses != "" {
 						cc.bind = bindAddress
-						cc.exBind = []string{exBindAddresses}
+						cc.extraBind = []string{extraBindAddresses}
 					}
 				}
 			}
