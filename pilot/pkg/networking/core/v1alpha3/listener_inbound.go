@@ -178,7 +178,16 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 		if cc.bindToPort {
 			// If this config is for bindToPort, we want to actually create a real Listener.
-			listeners = append(listeners, lb.inboundCustomListener(cc, chains))
+			l := lb.inboundCustomListener(cc, chains)
+			if len(cc.extraBind) > 0 && util.IsIstioVersionGE116(lb.node.IstioVersion) {
+				for _, exbd := range cc.extraBind {
+					extraAddress := &listener.AdditionalAddress{
+						Address: util.BuildAddress(exbd, cc.port.TargetPort),
+					}
+					l.AdditionalAddresses = append(l.AdditionalAddresses, extraAddress)
+				}
+			}
+			listeners = append(listeners, l)
 		} else {
 			// Otherwise, just append the filter chain to the virtual inbound chains.
 			virtualInboundFilterChains = append(virtualInboundFilterChains, chains...)
