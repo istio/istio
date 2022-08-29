@@ -576,7 +576,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	if h.kubeClient != nil {
-		sa.AddRunningKubeSource(h.kubeClient)
+		sa.AddRunningKubeSource(h.kubeClient, true)
 	}
 
 	// Analyze webhooks

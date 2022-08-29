@@ -324,7 +324,7 @@ func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
 	if err != nil {
 		return err
 	}
-	sa.AddRunningKubeSourceWithRevision(k, revision)
+	sa.AddRunningKubeSourceWithRevision(k, revision, false)
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {
 		return err

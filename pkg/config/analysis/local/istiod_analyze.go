@@ -262,11 +262,11 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
-func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-	sa.AddRunningKubeSourceWithRevision(c, "default")
+func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client, ignoreSetWatchError bool) {
+	sa.AddRunningKubeSourceWithRevision(c, "default", ignoreSetWatchError)
 }
 
-func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, ignoreSetWatchError bool) {
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
 	store, err := crdclient.NewForSchemas(c, revision, "cluster.local", "analysis-controller", sa.kubeResources)
@@ -281,7 +281,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		// better to fail fast, and get a good idea for the failure.
 		scope.Analysis.Errorf("Failed to watch crd resource for analysis: %s", err)
 	})
-	if err != nil {
+	if err != nil && !ignoreSetWatchError {
 		scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
 		return
 	}

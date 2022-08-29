@@ -225,7 +225,7 @@ func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSource(k, false)
 
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)

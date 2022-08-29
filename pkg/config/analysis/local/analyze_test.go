@@ -157,7 +157,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
-	sa.AddRunningKubeSource(mk)
+	sa.AddRunningKubeSource(mk, false)
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))
@@ -187,7 +187,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", istioNamespace, nil, false, timeout)
 
-	sa.AddRunningKubeSource(mk)
+	sa.AddRunningKubeSource(mk, false)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
 	g.Expect(sa.stores).To(HaveLen(1))

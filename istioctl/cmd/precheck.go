@@ -132,7 +132,7 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	if err != nil {
 		return nil, err
 	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSource(k, false)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
 	if err != nil {

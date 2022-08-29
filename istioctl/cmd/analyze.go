@@ -188,7 +188,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				sa.AddRunningKubeSource(k)
+				sa.AddRunningKubeSource(k, false)
 			}
 
 			// If we explicitly specify mesh config, use it.
