@@ -103,6 +103,10 @@ func TestRetry(t *testing.T) {
 	wg.Wait()
 
 	// Test timeout context
+	ebf = NewExponentialBackOff(func(off *ExponentialBackOff) {
+		off.InitialInterval = 1 * time.Second
+		off.RandomizationFactor = 0
+	})
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
 	defer cancel()
 
@@ -112,5 +116,5 @@ func TestRetry(t *testing.T) {
 		return errors.New("fake error")
 	})
 	assert.Error(t, err)
-	assert.Equal(t, count, 2)
+	assert.Equal(t, count, 1)
 }
