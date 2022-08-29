@@ -1337,9 +1337,10 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				gwMap[ref] = map[k8s.SectionName]*parentInfo{}
 			}
 
+			allowed, _ := generateSupportedKinds(l)
 			pri := &parentInfo{
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
-				AllowedKinds:     generateSupportedKinds(l),
+				AllowedKinds:     allowed,
 				Hostnames:        server.Hosts,
 				OriginalHostname: emptyIfNil((*string)(l.Hostname)),
 			}
