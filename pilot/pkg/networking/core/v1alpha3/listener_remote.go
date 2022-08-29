@@ -751,6 +751,11 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 	}
 	ctx.AlpnProtocols = []string{"h2"}
 
+	ctx.TlsParams = &tls.TlsParameters{
+		// Ensure TLS 1.3 is used everywhere
+		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+	}
 	return ctx
 }
 

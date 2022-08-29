@@ -309,6 +309,13 @@ func (cb *ClusterBuilder) buildRemoteInboundConnect(proxy *model.Proxy, push *mo
 	ctx := &tls.CommonTlsContext{}
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
 
+	ctx.AlpnProtocols = []string{"h2"}
+
+	ctx.TlsParams = &tls.TlsParameters{
+		// Ensure TLS 1.3 is used everywhere
+		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+	}
 	return &cluster.Cluster{
 		Name:                          "inbound_CONNECT_originate",
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
