@@ -50,20 +50,14 @@ if [ "${TARGET_ARCH}" ]; then
 fi
 
 case "${LOCAL_ARCH}" in
-  x86_64)
+  x86_64|amd64)
     ISTIO_ARCH=amd64
     ;;
-  armv8*)
-    ISTIO_ARCH=arm64
-    ;;
-  aarch64*)
+  armv8*|aarch64*|arm64)
     ISTIO_ARCH=arm64
     ;;
   armv*)
     ISTIO_ARCH=armv7
-    ;;
-  amd64|arm64)
-    ISTIO_ARCH=${LOCAL_ARCH}
     ;;
   *)
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
