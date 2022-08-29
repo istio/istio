@@ -38,7 +38,7 @@ const (
 var (
 	MsgOutputFormatKeys = []string{LogFormat, JSONFormat, YAMLFormat}
 	MsgOutputFormats    = make(map[string]bool)
-	termEnvVar          = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
+	termEnvVar          = env.Register("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 )
 
 func init() {

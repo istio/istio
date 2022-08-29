@@ -50,7 +50,7 @@ func ControlPlane() *corev3.ControlPlane {
 
 func init() {
 	// The Pod Name (instance identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
-	podName := env.RegisterStringVar("POD_NAME", "", "").Get()
+	podName := env.Register("POD_NAME", "", "").Get()
 	byVersion, err := json.Marshal(IstioControlPlaneInstance{
 		Component: "istiod",
 		ID:        podName,

@@ -37,7 +37,7 @@ const (
 )
 
 // TODO(nmittler): Move this to application code. This shouldn't be declared in a library.
-var overrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP", "", "")
+var overrideVar = env.Register("ISTIO_BOOTSTRAP", "", "")
 
 // Instance of a configured Envoy bootstrap writer.
 type Instance interface {
