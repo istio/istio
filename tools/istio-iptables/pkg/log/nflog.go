@@ -27,7 +27,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var TraceLoggingEnabled = env.RegisterBoolVar(
+var TraceLoggingEnabled = env.Register(
 	"IPTABLES_TRACE_LOGGING",
 	false,
 	"When enable, all iptables actions will be logged. "+

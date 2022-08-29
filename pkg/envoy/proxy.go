@@ -160,7 +160,7 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	return startupArgs
 }
 
-var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+var istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
 func (e *envoy) Run(abort <-chan error) error {
 	// spin up a new Envoy process
