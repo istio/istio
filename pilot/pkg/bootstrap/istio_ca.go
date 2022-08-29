@@ -80,62 +80,62 @@ type caOptions struct {
 var (
 	// LocalCertDir replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
 	// requires a secret named "cacerts" with specific files inside.
-	LocalCertDir = env.RegisterStringVar("ROOT_CA_DIR", "./etc/cacerts",
+	LocalCertDir = env.Register("ROOT_CA_DIR", "./etc/cacerts",
 		"Location of a local or mounted CA root")
 
-	useRemoteCerts = env.RegisterBoolVar("USE_REMOTE_CERTS", false,
+	useRemoteCerts = env.Register("USE_REMOTE_CERTS", false,
 		"Whether to try to load CA certs from config Kubernetes cluster. Used for external Istiod.")
 
-	workloadCertTTL = env.RegisterDurationVar("DEFAULT_WORKLOAD_CERT_TTL",
+	workloadCertTTL = env.Register("DEFAULT_WORKLOAD_CERT_TTL",
 		cmd.DefaultWorkloadCertTTL,
 		"The default TTL of issued workload certificates. Applied when the client sets a "+
 			"non-positive TTL in the CSR.")
 
-	maxWorkloadCertTTL = env.RegisterDurationVar("MAX_WORKLOAD_CERT_TTL",
+	maxWorkloadCertTTL = env.Register("MAX_WORKLOAD_CERT_TTL",
 		cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates.")
 
-	SelfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
+	SelfSignedCACertTTL = env.Register("CITADEL_SELF_SIGNED_CA_CERT_TTL",
 		cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
 
-	selfSignedRootCertCheckInterval = env.RegisterDurationVar("CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL",
+	selfSignedRootCertCheckInterval = env.Register("CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL",
 		cmd.DefaultSelfSignedRootCertCheckInterval,
 		"The interval that self-signed CA checks its root certificate "+
 			"expiration time and rotates root certificate. Setting this interval "+
 			"to zero or a negative value disables automated root cert check and "+
 			"rotation. This interval is suggested to be larger than 10 minutes.")
 
-	selfSignedRootCertGracePeriodPercentile = env.RegisterIntVar("CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE",
+	selfSignedRootCertGracePeriodPercentile = env.Register("CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE",
 		cmd.DefaultRootCertGracePeriodPercentile,
 		"Grace period percentile for self-signed root cert.")
 
-	enableJitterForRootCertRotator = env.RegisterBoolVar("CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR",
+	enableJitterForRootCertRotator = env.Register("CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR",
 		true,
 		"If true, set up a jitter to start root cert rotator. "+
 			"Jitter selects a backoff time in seconds to start root cert rotator, "+
 			"and the back off time is below root cert check interval.")
 
-	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
+	k8sInCluster = env.Register("KUBERNETES_SERVICE_HOST", "",
 		"Kubernetes service host, set automatically when running in-cluster")
 
 	// This value can also be extracted from the mounted token
-	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",
+	trustedIssuer = env.Register("TOKEN_ISSUER", "",
 		"OIDC token issuer. If set, will be used to check the tokens.")
 
-	audience = env.RegisterStringVar("AUDIENCE", "",
+	audience = env.Register("AUDIENCE", "",
 		"Expected audience in the tokens. ")
 
-	caRSAKeySize = env.RegisterIntVar("CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE", 2048,
+	caRSAKeySize = env.Register("CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE", 2048,
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 
 	// TODO: Likely to be removed and added to mesh config
-	externalCaType = env.RegisterStringVar("EXTERNAL_CA", "",
+	externalCaType = env.Register("EXTERNAL_CA", "",
 		"External CA Integration Type. Permitted Values are ISTIOD_RA_KUBERNETES_API or "+
 			"ISTIOD_RA_ISTIO_API").Get()
 
 	// TODO: Likely to be removed and added to mesh config
-	k8sSigner = env.RegisterStringVar("K8S_SIGNER", "",
+	k8sSigner = env.Register("K8S_SIGNER", "",
 		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
 )
 

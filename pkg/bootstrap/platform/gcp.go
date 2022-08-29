@@ -48,10 +48,10 @@ const (
 )
 
 var (
-	GCPMetadata = env.RegisterStringVar("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
+	GCPMetadata = env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 
 	// GCPQuotaProjectVar holds the value of the `GCP_QUOTA_PROJECT` environment variable.
-	GCPQuotaProjectVar = env.RegisterStringVar("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
+	GCPQuotaProjectVar = env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
 )
 
 var (

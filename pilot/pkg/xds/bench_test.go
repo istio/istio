@@ -475,7 +475,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
-var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
+var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
 var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
 

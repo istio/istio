@@ -117,12 +117,12 @@ const (
 //
 // Use viper to resolve the value of the environment variable.
 var (
-	OwnerGroupsInclude = env.RegisterStringVar("ISTIO_OUTBOUND_OWNER_GROUPS", "*",
+	OwnerGroupsInclude = env.Register("ISTIO_OUTBOUND_OWNER_GROUPS", "*",
 		`Comma separated list of groups whose outgoing traffic is to be redirected to Envoy.
 A group can be specified either by name or by a numeric GID.
 The wildcard character "*" can be used to configure redirection of traffic from all groups.`)
 
-	OwnerGroupsExclude = env.RegisterStringVar("ISTIO_OUTBOUND_OWNER_GROUPS_EXCLUDE", "",
+	OwnerGroupsExclude = env.Register("ISTIO_OUTBOUND_OWNER_GROUPS_EXCLUDE", "",
 		`Comma separated list of groups whose outgoing traffic is to be excluded from redirection to Envoy.
 A group can be specified either by name or by a numeric GID.
 Only applies when traffic from all groups (i.e. "*") is being redirected to Envoy.`)
