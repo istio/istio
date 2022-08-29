@@ -132,9 +132,9 @@ status:
       status: "True"
       type: Ready
     - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
+      message: Invalid route kinds
+      reason: InvalidRouteKinds
+      status: "False"
       type: ResolvedRefs
     name: scope-route
     supportedKinds: []
