@@ -15,8 +15,13 @@
 package backoff
 
 import (
+	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestBackOff(t *testing.T) {
@@ -71,11 +76,41 @@ func TestMaxElapsedTime(t *testing.T) {
 	b := exp.(ExponentialBackOff)
 	// override clock to simulate the max elapsed time has passed.
 	b.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
-	assertEquals(t, MaxDuration, exp.NextBackOff())
+	assert.Equal(t, MaxDuration, exp.NextBackOff())
 }
 
-func assertEquals(t *testing.T, expected, value time.Duration) {
-	if expected != value {
-		t.Errorf("got: %d, expected: %d", value, expected)
-	}
+func TestRetry(t *testing.T) {
+	ebf := NewExponentialBackOff(func(off *ExponentialBackOff) {
+		off.InitialInterval = 1 * time.Microsecond
+		off.MaxElapsedTime = 5 * time.Microsecond
+	})
+
+	// Run a task that fails the first time and retries.
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	failed := false
+	err := ebf.RetryWithContext(context.TODO(), func() error {
+		defer wg.Done()
+		if failed {
+			return nil
+		}
+		failed = true
+		return errors.New("fake error")
+	})
+	assert.NoError(t, err)
+
+	// wait for the task to run twice.
+	wg.Wait()
+
+	// Test timeout context
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
+	defer cancel()
+
+	count := 0
+	err = ebf.RetryWithContext(ctx, func() error {
+		count++
+		return errors.New("fake error")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, count, 2)
 }

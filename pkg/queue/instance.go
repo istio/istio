@@ -27,11 +27,6 @@ import (
 // Task to be performed.
 type Task func() error
 
-type BackoffTask struct {
-	task    Task
-	backoff backoff.BackOff
-}
-
 // Instance of work tickets processed using a rate-limiting loop
 type Instance interface {
 	// Push a task.
