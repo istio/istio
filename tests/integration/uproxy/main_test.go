@@ -19,15 +19,14 @@ package uproxy
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -37,9 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
@@ -67,6 +64,8 @@ type EchoDeployments struct {
 	All               echo.Instances
 	Mesh              echo.Instances
 	MeshExternal      echo.Instances
+
+	RemotePEP ambient.PEP
 }
 
 var ControlPlaneValues = `
@@ -352,15 +351,9 @@ spec:
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	remoteErr := retry.UntilSuccess(func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), "istio.io/gateway-name=remote")); err != nil {
-			return fmt.Errorf("gateway is not ready: %v", err)
-		}
-		return nil
-	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
-	if remoteErr != nil {
+	apps.RemotePEP, err = ambient.NewPEP(t, apps.Namespace, apps.Remote.ServiceName())
+	if err != nil {
 		return err
 	}
-
 	return nil
 }

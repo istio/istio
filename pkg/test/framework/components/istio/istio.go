@@ -95,6 +95,10 @@ type Instance interface {
 	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error)
 	// CreateRemoteSecret on the cluster with the given options.
 	CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, opts ...string) (string, error)
+	// InternalDiscoveryAddressFor returns an internal (port-forwarded) address for an Istiod instance in the
+	// cluster.
+	InternalDiscoveryAddressFor(cluster cluster.Cluster) (string, error)
+
 	// Values returns the operator values for the installed control plane.
 	Values() (OperatorValues, error)
 	ValuesOrFail(test.Failer) OperatorValues

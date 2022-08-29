@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
@@ -1056,4 +1057,90 @@ func TestMetadataServer(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestDirect(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		t.NewSubTest("PEP").Run(func(t framework.TestContext) {
+			c := common.NewCaller()
+			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			hb := echo.HBONE{
+				Address:            apps.RemotePEP.Inbound(),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+			run := func(name string, options echo.CallOptions) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					_, err := c.CallEcho(nil, options)
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			const UnknownRoute = "round trip failed: 404 Not Found"
+			run("named destination", echo.CallOptions{
+				To:    apps.Remote,
+				Count: 1,
+				Port:  echo.Port{Name: ports.HTTP},
+				HBONE: hb,
+				// TODO(https://github.com/solo-io/istio-sidecarless/issues/269)
+				Check: check.ErrorContains(UnknownRoute),
+			})
+			run("VIP destination", echo.CallOptions{
+				To:      apps.Remote,
+				Count:   1,
+				Address: apps.Remote[0].Address(),
+				Port:    echo.Port{Name: ports.HTTP},
+				HBONE:   hb,
+				Check:   check.OK(),
+			})
+			run("VIP destination, unknown port", echo.CallOptions{
+				To:      apps.Remote,
+				Count:   1,
+				Address: apps.Remote[0].Address(),
+				Port:    echo.Port{ServicePort: 12345},
+				Scheme:  scheme.HTTP,
+				HBONE:   hb,
+				Check:   check.ErrorContains(UnknownRoute),
+			})
+			run("Pod IP destination", echo.CallOptions{
+				To:      apps.Remote,
+				Count:   1,
+				Address: apps.Remote[0].WorkloadsOrFail(t)[0].Address(),
+				Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTP).WorkloadPort},
+				Scheme:  scheme.HTTP,
+				HBONE:   hb,
+				Check:   check.OK(),
+			})
+			run("Unserved VIP destination", echo.CallOptions{
+				To:      apps.Captured,
+				Count:   1,
+				Address: apps.Captured[0].Address(),
+				Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTP).ServicePort},
+				Scheme:  scheme.HTTP,
+				HBONE:   hb,
+				Check:   check.ErrorContains(UnknownRoute),
+			})
+			run("Unserved pod destination", echo.CallOptions{
+				To:      apps.Captured,
+				Count:   1,
+				Address: apps.Captured[0].WorkloadsOrFail(t)[0].Address(),
+				Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTP).ServicePort},
+				Scheme:  scheme.HTTP,
+				HBONE:   hb,
+				Check:   check.ErrorContains(UnknownRoute),
+			})
+		})
+	})
+}
+
+type PEP struct {
+	Namespace      string
+	ServiceAccount string
 }

@@ -194,17 +194,7 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
-	baggageFilter := &hcm.HttpFilter{
-		Name: "istio.filters.http.baggage_handler",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: &any.Any{
-				// nolint: staticcheck
-				TypeUrl: "type.googleapis.com/" + "istio.telemetry.baggagehandler.v1.Config",
-			},
-		},
-	}
-
-	h.HttpFilters = append([]*hcm.HttpFilter{baggageFilter}, h.HttpFilters...)
+	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.BaggageFilter}, h.HttpFilters...)
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
 	}}
