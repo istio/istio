@@ -252,9 +252,6 @@ func (s *schemaImpl) StatusPackage() string {
 }
 
 func (s *schemaImpl) Validate() (err error) {
-	if !labels.IsDNS1123Label(s.Kind()) {
-		err = multierror.Append(err, fmt.Errorf("invalid kind: %s", s.Kind()))
-	}
 	if !labels.IsDNS1123Label(s.plural) {
 		err = multierror.Append(err, fmt.Errorf("invalid plural for kind %s: %s", s.Kind(), s.plural))
 	}
