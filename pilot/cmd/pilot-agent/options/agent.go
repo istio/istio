@@ -57,7 +57,6 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		GRPCBootstrapPath:           grpcBootstrapEnv,
 		DisableEnvoy:                disableEnvoyEnv,
 		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,
-		ProxyXDSDebugViaAgentPort:   proxyXDSDebugViaAgentPort,
 		DNSCapture:                  DNSCaptureByAgent.Get(),
 		DNSForwardParallel:          DNSForwardParallel.Get(),
 		DNSAddr:                     DNSCaptureAddr.Get(),

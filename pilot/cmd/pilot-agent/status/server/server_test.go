@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package server
 
 import (
 	"context"
@@ -42,6 +42,7 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
@@ -347,7 +348,7 @@ my_metric{app="bar"} 0
 				t.Fatal(err)
 			}
 			server := &Server{
-				prometheus: &PrometheusScrapeConfiguration{
+				prometheus: &status.PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
@@ -441,7 +442,7 @@ my_other_metric{} 0
 				t.Fatal(err)
 			}
 			server := &Server{
-				prometheus: &PrometheusScrapeConfiguration{
+				prometheus: &status.PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
@@ -514,7 +515,7 @@ func TestStatsError(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			server := &Server{
-				prometheus: &PrometheusScrapeConfiguration{
+				prometheus: &status.PrometheusScrapeConfiguration{
 					Port: strconv.Itoa(tt.app),
 				},
 				envoyStatsPort: tt.envoy,
@@ -575,7 +576,7 @@ my_other_metric{} 0
 		t.Fatal(err)
 	}
 	server := &Server{
-		prometheus: &PrometheusScrapeConfiguration{
+		prometheus: &status.PrometheusScrapeConfiguration{
 			Port: strings.Split(app.URL, ":")[2],
 		},
 		envoyStatsPort: envoyPort,

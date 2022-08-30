@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package server
 
 import (
 	"context"
@@ -40,6 +40,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"go.opencensus.io/stats/view"
 	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -48,13 +49,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/debugtap"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -63,38 +67,15 @@ const (
 	readyPath = "/healthz/ready"
 	// quitPath is to notify the pilot agent to quit.
 	quitPath = "/quitquitquit"
-	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
-	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
-	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"httpGet":{"path": "/hello", "port": 8080}}.
-	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
-	// This environment variable should never be set manually.
-	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 
 	localHostIPv4 = "127.0.0.1"
 	localHostIPv6 = "::1"
 )
 
 var (
-	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
-	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
-)
-
-var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
-
-var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
 
 	promRegistry *prometheus.Registry
-
-	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
-		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
-
-	LegacyLocalhostProbeDestination = env.Register("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
-		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
-
-	ProbeKeepaliveConnections = env.Register("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
-		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
-			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -128,12 +109,13 @@ type Options struct {
 	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
+	DebugTapClient      debugtap.Client
 }
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
 	ready                 []ready.Prober
-	prometheus            *PrometheusScrapeConfiguration
+	prometheus            *status.PrometheusScrapeConfiguration
 	mutex                 sync.RWMutex
 	appProbersDestination string
 	appKubeProbers        KubeAppProbers
@@ -164,17 +146,17 @@ func init() {
 // NewServer creates a new status server.
 func NewServer(config Options) (*Server, error) {
 	localhost := localHostIPv4
-	upstreamLocalAddress := UpstreamLocalAddressIPv4
+	upstreamLocalAddress := status.UpstreamLocalAddressIPv4
 	if config.IPv6 {
 		localhost = localHostIPv6
-		upstreamLocalAddress = UpstreamLocalAddressIPv6
+		upstreamLocalAddress = status.UpstreamLocalAddressIPv6
 	} else {
 		// if not ipv6-only, it can be ipv4-only or dual-stack
 		// let InstanceIP decide the localhost
 		netIP := net.ParseIP(config.PodIP)
 		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
 			localhost = localHostIPv6
-			upstreamLocalAddress = UpstreamLocalAddressIPv6
+			upstreamLocalAddress = status.UpstreamLocalAddressIPv6
 		}
 	}
 	probes := make([]ready.Prober, 0)
@@ -201,7 +183,7 @@ func NewServer(config Options) (*Server, error) {
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
 	}
-	if LegacyLocalhostProbeDestination.Get() {
+	if status.LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
 	}
 
@@ -210,10 +192,10 @@ func NewServer(config Options) (*Server, error) {
 	// If we need to do this in the future, we should use envoy to do routing or have another port to make this internal
 	// only. For now, its not needed for gateway, as we can just get Envoy stats directly, but if we
 	// want to expose istio-agent metrics we may want to revisit this.
-	if cfg, f := PrometheusScrapingConfig.Lookup(); config.NodeType == model.SidecarProxy && f {
-		var prom PrometheusScrapeConfiguration
+	if cfg, f := status.PrometheusScrapingConfig.Lookup(); config.NodeType == model.SidecarProxy && f {
+		var prom status.PrometheusScrapeConfiguration
 		if err := json.Unmarshal([]byte(cfg), &prom); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal %s: %v", PrometheusScrapingConfig.Name, err)
+			return nil, fmt.Errorf("failed to unmarshal %s: %v", status.PrometheusScrapingConfig.Name, err)
 		}
 		log.Infof("Prometheus scraping configuration: %v", prom)
 		if prom.Scrape != "false" {
@@ -255,7 +237,7 @@ func NewServer(config Options) (*Server, error) {
 				DialContext:     d.DialContext,
 				// https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L55
 				// Match Kubernetes logic. This also ensures idle timeouts do not trigger probe failures
-				DisableKeepAlives: !ProbeKeepaliveConnections,
+				DisableKeepAlives: !status.ProbeKeepaliveConnections,
 			})
 			if err != nil {
 				return nil, err
@@ -323,14 +305,6 @@ func validateAppKubeProber(path string, prober *Prober) error {
 	return nil
 }
 
-// FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
-// app probers.
-func FormatProberURL(container string) (string, string, string) {
-	return fmt.Sprintf("/app-health/%v/readyz", container),
-		fmt.Sprintf("/app-health/%v/livez", container),
-		fmt.Sprintf("/app-health/%v/startupz", container)
-}
-
 // Run opens a the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d", s.statusPort)
@@ -355,6 +329,24 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
+	var handler http.Handler = mux
+	if s.config.DebugTapClient != nil {
+		debugTapProxy := debugtap.NewProxy(s.config.DebugTapClient)
+
+		// Registers HTTP Handlers for Debug Tap
+		debugTapProxy.RegisterHttpHandler(mux)
+		grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+		debugTapProxy.RegisterGrpcHandler(grpcs)
+		mixedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+				grpcs.ServeHTTP(w, r)
+				return
+			}
+			mux.ServeHTTP(w, r)
+		})
+		handler = h2c.NewHandler(mixedHandler, &http2.Server{})
+	}
+
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
 		log.Errorf("Error listening on status port: %v", err.Error())
@@ -371,7 +363,7 @@ func (s *Server) Run(ctx context.Context) {
 	defer l.Close()
 
 	go func() {
-		if err := http.Serve(l, mux); err != nil {
+		if err := http.Serve(l, handler); err != nil {
 			log.Error(err)
 			select {
 			case <-ctx.Done():
@@ -471,12 +463,6 @@ func isRequestFromLocalhost(r *http.Request) bool {
 
 	userIP := net.ParseIP(ip)
 	return userIP.IsLoopback()
-}
-
-type PrometheusScrapeConfiguration struct {
-	Scrape string `json:"scrape"`
-	Path   string `json:"path"`
-	Port   string `json:"port"`
 }
 
 // handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,
@@ -872,7 +858,7 @@ var defaultTransport = http.DefaultTransport.(*http.Transport)
 // SetTransportDefaults mirrors Kubernetes probe settings
 // https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L52
 func setTransportDefaults(t *http.Transport) (*http.Transport, error) {
-	if !EnableHTTP2Probing {
+	if !status.EnableHTTP2Probing {
 		return t, nil
 	}
 	if t.TLSHandshakeTimeout == 0 {

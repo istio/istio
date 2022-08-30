@@ -16,14 +16,14 @@ package options
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/server"
 	"istio.io/istio/pilot/pkg/model"
 	istioagent "istio.io/istio/pkg/istio-agent"
 )
 
-func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
-	return &status.Options{
+func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *server.Options {
+	return &server.Options{
 		IPv6:           proxy.IsIPv6(),
 		PodIP:          InstanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),

@@ -27,7 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	statusserver "istio.io/istio/pilot/cmd/pilot-agent/status/server"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
@@ -155,13 +155,6 @@ func newProxyCommand() *cobra.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			// If a status port was provided, start handling status probes.
-			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
-					return err
-				}
-			}
-
 			go iptableslog.ReadNFLOGSocket(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -172,6 +165,14 @@ func newProxyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			// If a status port was provided, start handling status probes.
+			if proxyConfig.StatusPort > 0 {
+				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+					return err
+				}
+			}
+
 			wait()
 			return nil
 		},
@@ -212,7 +213,8 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.Context = ctx
-	statusServer, err := status.NewServer(*o)
+	o.DebugTapClient = agent.DebugTapClient()
+	statusServer, err := statusserver.NewServer(*o)
 	if err != nil {
 		return err
 	}

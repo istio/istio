@@ -41,11 +41,12 @@ func TestPiggyback(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// Add retry loop to handle case when the pod has disconnected from Istio temporarily
 			retry.UntilSuccessOrFail(t, func() error {
+
 				out, _, err := t.Clusters()[0].PodExec(
 					apps.A[0].WorkloadsOrFail(t)[0].PodName(),
 					apps.A.Config().Namespace.Name(),
 					"istio-proxy",
-					"pilot-agent request --debug-port 15004 GET /debug/syncz")
+					"pilot-agent request --debug-port 15020 GET /debug/syncz")
 				if err != nil {
 					return fmt.Errorf("couldn't curl sidecar: %v", err)
 				}
@@ -78,7 +79,7 @@ func TestPiggyback(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				podName := apps.A[0].WorkloadsOrFail(t)[0].PodName()
 				nsName := apps.A.Config().Namespace.Name()
-				pf, err := t.Clusters()[0].NewPortForwarder(podName, nsName, "localhost", 0, 15004)
+				pf, err := t.Clusters()[0].NewPortForwarder(podName, nsName, "localhost", 0, 15020)
 				if err != nil {
 					return fmt.Errorf("failed to create the port forwarder: %v", err)
 				}
