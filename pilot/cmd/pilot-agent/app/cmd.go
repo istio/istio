@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"os/user"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -307,6 +308,12 @@ func initProxy(args []string) (*model.Proxy, error) {
 }
 
 func logLimits() {
+	u, err := user.Current()
+	if err == nil {
+		log.Infof("running as uid=%v gid=%v", u.Uid, u.Gid)
+	} else {
+		log.Infof("failed getting uid: %v", err)
+	}
 	out, err := exec.Command("bash", "-c", "ulimit -n").Output()
 	outStr := strings.TrimSpace(string(out))
 	if err != nil {

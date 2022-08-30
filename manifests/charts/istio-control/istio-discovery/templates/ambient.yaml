@@ -77,6 +77,7 @@ spec:
 {{- if contains "/" .Values.uproxy.image }}
         image: "{{ .Values.uproxy.image }}"
 {{- else }}
+        {{/*  TODO(https://github.com/solo-io/istio-sidecarless/issues/281): use distroless, but we are depending on a variant of things not in the distroless image */}}
         image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
@@ -289,7 +290,7 @@ spec:
 {{- if contains "/" .Values.uproxy.image }}
         image: "{{ .Values.uproxy.image }}"
 {{- else }}
-        image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}"
+        image: "{{ .Values.uproxy.hub | default .Values.global.hub }}/{{ .Values.uproxy.image | default "proxyv2" }}:{{ .Values.uproxy.tag | default .Values.global.tag }}{{with (.Values.uproxy.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -384,5 +385,4 @@ spec:
         configMap:
           name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
-
 {{- end }}

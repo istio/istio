@@ -174,7 +174,8 @@ data:
             "address": ""
           }
         },
-        "useMCP": false
+        "useMCP": false,
+        "variant": ""
       },
       "revision": "",
       "sidecarInjectorWebhook": {
@@ -1356,26 +1357,6 @@ data:
             spec:
               terminationGracePeriodSeconds: 2
               serviceAccountName: {{.ServiceAccount}}
-              initContainers:
-              - name: istio-init
-                image: {{.Image}}
-                securityContext:
-                  privileged: true
-                  capabilities:
-                    add:
-                    - NET_ADMIN
-                    - NET_RAW
-                command:
-                  - sh
-                  - -c
-                  - |
-                    iptables -t nat -A OUTPUT -p tcp -m owner --uid-owner 1337 -s 127.0.0.6/32 -j REDIRECT --to-ports 15002
-                    iptables -t nat -A OUTPUT -p tcp -m owner --uid-owner 1337 -j REDIRECT --to-ports 15002
-                env:
-                - name: INSTANCE_IP
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: status.podIP
               containers:
               - args:
                 - proxy
@@ -1475,6 +1456,7 @@ data:
                 securityContext:
                   privileged: true
                   runAsGroup: 1337
+                  runAsUser: 0
                   capabilities:
                     add:
                     - NET_ADMIN
