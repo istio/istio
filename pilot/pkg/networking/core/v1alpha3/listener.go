@@ -404,9 +404,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				bindToPort: bindToPort,
 			}
 			if len(extraBind) > 0 {
-				for _, exbd := range extraBind {
-					listenerOpts.extraBind = append(listenerOpts.extraBind, exbd)
-				}
+				listenerOpts.extraBind = append(listenerOpts.extraBind, extraBind...)
 			}
 
 			for _, service := range services {
@@ -474,10 +472,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					if actualLocalHostAddrIPv6 != "" {
 						if bind == actualLocalHostAddrIPv4 {
 							listenerOpts.extraBind = []string{actualLocalHostAddrIPv6}
-						} else {
-							if len(sExtrAddresses) > 0 {
-								listenerOpts.extraBind = sExtrAddresses
-							}
+						} else if len(sExtrAddresses) > 0 {
+							listenerOpts.extraBind = sExtrAddresses
 						}
 					}
 
