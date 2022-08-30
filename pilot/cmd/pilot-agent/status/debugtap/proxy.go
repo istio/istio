@@ -43,20 +43,18 @@ func NewProxy(client Client) *Proxy {
 	return &Proxy{client: client}
 }
 
-func (p *Proxy) RegisterGrpcHandler(grpcs *grpc.Server) error {
+func (p *Proxy) RegisterGRPCHandler(grpcs *grpc.Server) {
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
-	return nil
 }
 
-func (p *Proxy) RegisterHttpHandler(httpMux *http.ServeMux) error {
-	handler := p.makeTapHttpHandler()
+func (p *Proxy) RegisterHTTPHandler(httpMux *http.ServeMux) {
+	handler := p.makeTapHTTPHandler()
 	httpMux.HandleFunc("/debug/", handler)
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
-	return nil
 }
 
-func (p *Proxy) makeTapHttpHandler() func(w http.ResponseWriter, req *http.Request) {
+func (p *Proxy) makeTapHTTPHandler() func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		qp, err := url.ParseQuery(req.URL.RawQuery)
 		if err != nil {

@@ -334,9 +334,9 @@ func (s *Server) Run(ctx context.Context) {
 		debugTapProxy := debugtap.NewProxy(s.config.DebugTapClient)
 
 		// Registers HTTP Handlers for Debug Tap
-		debugTapProxy.RegisterHttpHandler(mux)
+		debugTapProxy.RegisterHTTPHandler(mux)
 		grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
-		debugTapProxy.RegisterGrpcHandler(grpcs)
+		debugTapProxy.RegisterGRPCHandler(grpcs)
 		mixedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
 				grpcs.ServeHTTP(w, r)

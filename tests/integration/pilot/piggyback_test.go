@@ -41,7 +41,6 @@ func TestPiggyback(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// Add retry loop to handle case when the pod has disconnected from Istio temporarily
 			retry.UntilSuccessOrFail(t, func() error {
-
 				out, _, err := t.Clusters()[0].PodExec(
 					apps.A[0].WorkloadsOrFail(t)[0].PodName(),
 					apps.A.Config().Namespace.Name(),

@@ -113,7 +113,7 @@ type Agent struct {
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentOptions struct {
-	// ProxyXDSDebugViaAgent if true will serve in Status Port.
+	// ProxyXDSDebugViaAgent if true will serve on Status Port.
 	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
 	ProxyXDSDebugViaAgent bool
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
@@ -814,7 +814,6 @@ func (a *Agent) GRPCBootstrapPath() string {
 func (a *Agent) DebugTapClient() debugtap.Client {
 	if a.cfg.ProxyXDSDebugViaAgent {
 		return a.xdsProxy
-	} else {
-		return nil
 	}
+	return nil
 }
