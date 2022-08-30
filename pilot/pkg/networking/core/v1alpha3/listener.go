@@ -293,8 +293,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcardIPv4, actualWildcardIPv6 := getDualStackActualWildcard(node)
-	actualLocalHostAddrIPv4, actualExtraLocalHostAddrIPv6 := getDualStackLocalHost(node)
-	if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" && actualLocalHostAddrIPv4 == "" && actualExtraLocalHostAddrIPv6 == "" {
+	actualLocalHostAddrIPv4, actualLocalHostAddrIPv6 := getDualStackLocalHost(node)
+	if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" && actualLocalHostAddrIPv4 == "" && actualLocalHostAddrIPv6 == "" {
 		actualWildcardIPv4, actualLocalHostAddrIPv4 = getActualWildcardAndLocalHost(node)
 	}
 
@@ -384,22 +384,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			if bind == "" {
 				if bindToPort {
 					bind = actualLocalHostAddrIPv4
-					if actualExtraLocalHostAddrIPv6 != "" {
-						extraBind = append(extraBind, actualExtraLocalHostAddrIPv6)
+					if actualLocalHostAddrIPv6 != "" {
+						extraBind = append(extraBind, actualLocalHostAddrIPv6)
 					}
 				} else {
 					bind = actualWildcardIPv4
 					if actualWildcardIPv6 != "" {
 						extraBind = append(extraBind, actualWildcardIPv6)
 					}
-				}
-			} else {
-				// if the bind is 0.0.0.0, ::, 127.0.0.1 or ::1, and it's a dual stack environment
-				if (bind == LocalhostAddress || bind == LocalhostIPv6Address) && actualExtraLocalHostAddrIPv6 != "" {
-					extraBind = append(extraBind, actualExtraLocalHostAddrIPv6)
-				}
-				if (bind == WildcardAddress || bind == WildcardIPv6Address) && actualWildcardIPv6 != "" {
-					extraBind = append(extraBind, actualWildcardIPv6)
 				}
 			}
 
@@ -408,9 +400,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				push:       push,
 				proxy:      node,
 				bind:       bind,
-				extraBind:  extraBind,
 				port:       listenPort,
 				bindToPort: bindToPort,
+			}
+			if len(extraBind) > 0 {
+				for _, exbd := range extraBind {
+					listenerOpts.extraBind = append(listenerOpts.extraBind, exbd)
+				}
 			}
 
 			for _, service := range services {
@@ -444,15 +440,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			}
 
 			var bind string
-			var extraBind []string
 			if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
 				bind = egressListener.IstioListener.Bind
 			}
 			if bindToPort && bind == "" {
 				bind = actualLocalHostAddrIPv4
-				if actualExtraLocalHostAddrIPv6 != "" {
-					extraBind = append(extraBind, actualExtraLocalHostAddrIPv6)
-				}
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
@@ -464,6 +456,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 
 			for _, service := range services {
 				saddress := service.GetAddressForProxy(node)
+				sExtrAddresses := service.GetExtraAddressesForProxy(node)
 				for _, servicePort := range service.Ports {
 					// Skip ports we cannot bind to
 					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
@@ -478,8 +471,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					listenerOpts.bind = bind
 					// bind and extraBind should be specified at the same time for dual stack env
 					// and make sure that it's necessary to add the extra addresses, such as it's a dual stack env
-					if len(extraBind) > 0 {
-						listenerOpts.extraBind = append(listenerOpts.extraBind, extraBind...)
+					if actualLocalHostAddrIPv6 != "" {
+						if bind == actualLocalHostAddrIPv4 {
+							listenerOpts.extraBind = []string{actualLocalHostAddrIPv6}
+						} else {
+							if len(sExtrAddresses) > 0 {
+								listenerOpts.extraBind = sExtrAddresses
+							}
+						}
 					}
 
 					// port depends on servicePort.
@@ -577,11 +576,10 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	opts := buildListenerOpts{
-		push:      push,
-		proxy:     node,
-		bind:      listenAddressIPv4,
-		extraBind: []string{listenAddressesIPv6},
-		port:      &model.Port{Port: int(httpProxyPort)},
+		push:  push,
+		proxy: node,
+		bind:  listenAddressIPv4,
+		port:  &model.Port{Port: int(httpProxyPort)},
 		filterChainOpts: []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
 				rds:              model.RDSHttpProxy,
@@ -595,6 +593,10 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 		}},
 		bindToPort:      true,
 		skipUserFilters: true,
+	}
+
+	if listenAddressesIPv6 != "" {
+		opts.extraBind = []string{listenAddressesIPv6}
 	}
 	l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
@@ -628,10 +630,10 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 			// should respect the ip policy order
 			if actualWildcard == actualWildcardIPv4 {
 				listenerOpts.bind = actualWildcardIPv4
-				listenerOpts.extraBind = append(listenerOpts.extraBind, actualWildcardIPv6)
+				listenerOpts.extraBind = []string{actualWildcardIPv6}
 			} else {
 				listenerOpts.bind = actualWildcardIPv6
-				listenerOpts.extraBind = append(listenerOpts.extraBind, actualWildcardIPv4)
+				listenerOpts.extraBind = []string{actualWildcardIPv4}
 			}
 		}
 	}
@@ -1259,7 +1261,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		if !opts.bindToPort {
 			bindToPort = proto.BoolFalse
 		}
-
 		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
 		// not have this set per Envoy docs for redirected listeners
 		if opts.proxy.Metadata.OutboundListenerExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
