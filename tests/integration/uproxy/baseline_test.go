@@ -367,31 +367,123 @@ spec:
 	})
 }
 
-func TestAuthorization(t *testing.T) {
-	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		if dst.Config().IsUncaptured() {
-			// No destination means no RBAC to apply
-			return
-		}
-		if opt.Scheme != scheme.HTTP {
-			// TODO: add TCP
-			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/105")
-		}
-		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
-		}
-		if !dst.Config().IsRemote() {
-			// Currently, uProxy inbound is just passthrough, no policy applied
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/104")
-		}
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": dst.Config().Service,
-			"Source":      src.Config().Service,
-			"Namespace":   apps.Namespace.Name(),
-		}, `apiVersion: security.istio.io/v1beta1
+func TestAuthorizationL4(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: single-request
+spec:
+  host: '*.svc.cluster.local'
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if opt.Scheme != scheme.TCP {
+				return
+			}
+			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
+			// due to draining.
+			opt.NewConnectionPerRequest = true
+			if src.Config().IsUncaptured() {
+				// For this case, it is broken if the src and dst are on the same node.
+				// TODO: fix this and remove this skip
+				t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			}
+
+			overrideCheck := func(opt *echo.CallOptions) {
+				switch {
+				case src.Config().IsUncaptured() && dst.Config().IsRemote():
+					// For this case, it is broken if the src and dst are on the same node.
+					// Because client request is not captured to perform the hairpin
+					// TODO: fix this and remove this skip
+					opt.Check = check.OK()
+				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
+					// No destination means no RBAC to apply. Make sure we do not accidentally reject
+					opt.Check = check.OK()
+				}
+			}
+			t.NewSubTest("allow").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("not allow").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/something/sa/else"]
+`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				opt.Check = CheckDeny
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+		})
+	})
+}
+
+func TestAuthorizationL7(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: single-request
+spec:
+  host: '*.svc.cluster.local'
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
+			// due to draining.
+			opt.NewConnectionPerRequest = true
+			if src.Config().IsUncaptured() {
+				// For this case, it is broken if the src and dst are on the same node.
+				// TODO: fix this and remove this skip
+				t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			}
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Source":      src.Config().Service,
+				"Namespace":   apps.Namespace.Name(),
+			}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -419,47 +511,49 @@ spec:
         paths: ["/denied-identity"]
         methods: ["GET"]
 `).ApplyOrFail(t)
-		if src.Config().IsUncaptured() && dst.Config().IsRemote() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// Because client request is not captured to perform the hairpin
-			// TODO: fix this and remove this skip
-			opt.Check = check.OK()
-		}
-		t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
-			opt = opt.DeepCopy()
-			opt.HTTP.Path = "/deny"
-			opt.Check = CheckDeny
-
-			src.CallOrFail(t, opt)
-		})
-		t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
-			opt = opt.DeepCopy()
-			opt.HTTP.Path = "/allowed"
-			if supportsL7(opt, dst) {
-				opt.Check = check.OK()
-			} else {
-				// If we do not support HTTP, we fail closed on HTTP policies
-				opt.Check = CheckDeny
+			overrideCheck := func(opt *echo.CallOptions) {
+				switch {
+				case src.Config().IsUncaptured() && dst.Config().IsRemote():
+					// For this case, it is broken if the src and dst are on the same node.
+					// Because client request is not captured to perform the hairpin
+					// TODO: fix this and remove this skip
+					opt.Check = check.OK()
+				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
+					// No destination means no RBAC to apply. Make sure we do not accidentally reject
+					opt.Check = check.OK()
+				case !dst.Config().IsRemote() && !dst.Config().HasSidecar():
+					// Only remote can handle L7 policies
+					opt.Check = CheckDeny
+				}
 			}
-			src.CallOrFail(t, opt)
-		})
-		t.NewSubTest("identity deny").Run(func(t framework.TestContext) {
-			opt = opt.DeepCopy()
-			opt.HTTP.Path = "/denied-identity"
-			opt.Check = CheckDeny
-
-			src.CallOrFail(t, opt)
-		})
-		t.NewSubTest("identity allow").Run(func(t framework.TestContext) {
-			opt = opt.DeepCopy()
-			opt.HTTP.Path = "/allowed-identity"
-			if supportsL7(opt, dst) {
-				opt.Check = check.OK()
-			} else {
-				// If we do not support HTTP, we fail closed on HTTP policies
+			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/deny"
 				opt.Check = CheckDeny
-			}
-			src.CallOrFail(t, opt)
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/allowed"
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("identity deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/denied-identity"
+				opt.Check = CheckDeny
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("identity allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/allowed-identity"
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
 		})
 	})
 }
@@ -899,25 +993,29 @@ var CheckDeny = check.Or(
 
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		svcs := apps.All
-		for _, src := range svcs {
-			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
-				for _, dst := range svcs {
-					t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
-						for _, opt := range callOptions {
-							src, dst, opt := src, dst, opt
-							t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
-								opt = opt.DeepCopy()
-								opt.To = dst
-								opt.Check = check.OK()
-								f(t, src, dst, opt)
-							})
-						}
-					})
-				}
-			})
-		}
+		runTestContext(t, f)
 	})
+}
+
+func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	svcs := apps.All
+	for _, src := range svcs {
+		t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+			for _, dst := range svcs {
+				t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
+					for _, opt := range callOptions {
+						src, dst, opt := src, dst, opt
+						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
+							opt = opt.DeepCopy()
+							opt.To = dst
+							opt.Check = check.OK()
+							f(t, src, dst, opt)
+						})
+					}
+				})
+			}
+		})
+	}
 }
 
 func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions)) {

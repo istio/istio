@@ -127,7 +127,7 @@ func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, liste
 		model.TrafficDirectionInbound, port, nil, nil)
 	// no TLS
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = nil
+	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
 	return localCluster
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/annotation"
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -46,6 +47,7 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 type Option struct {
 	IsCustomBuilder bool
 	Logger          *AuthzLogger
+	SkippedIdentity string
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -205,7 +207,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 		if b.option.IsCustomBuilder {
 			providers = append(providers, policy.Spec.GetProvider().GetName())
 		}
-		for i, rule := range policy.Spec.Rules {
+		for i, rule := range b.mutateRules(policy.Spec.Rules, action) {
 			// The name will later be used by ext_authz filter to get the evaluation result from dynamic metadata.
 			name := policyName(policy.Namespace, policy.Name, i, b.option)
 			if rule == nil {
@@ -346,6 +348,40 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			},
 		}
 	}
+}
+
+func (b Builder) mutateRules(rules []*v1beta1.Rule, action rbacpb.RBAC_Action) []*v1beta1.Rule {
+	if b.option.SkippedIdentity == "" {
+		return rules
+	}
+	result := make([]*v1beta1.Rule, 0, len(rules))
+
+	switch action {
+	case rbacpb.RBAC_ALLOW:
+		// For ALLOW, it is pretty simple: just add a clause for the allowed identity
+		result = append(result, &v1beta1.Rule{
+			From: []*v1beta1.Rule_From{{Source: &v1beta1.Source{
+				Principals: []string{b.option.SkippedIdentity},
+			}}},
+		})
+	case rbacpb.RBAC_DENY:
+		// DENY is a bit more complex. We want to only apply the rule if we are NOT the allowed identity
+		// So we need to modify each rule
+		for _, r := range rules {
+			r := r.DeepCopy()
+			r.From = append(r.From, &v1beta1.Rule_From{Source: &v1beta1.Source{
+				Principals: []string{b.option.SkippedIdentity},
+			}})
+			for _, from := range r.From {
+				if from.Source == nil {
+					from.Source = &v1beta1.Source{}
+				}
+				from.Source.NotPrincipals = append(from.Source.NotPrincipals, b.option.SkippedIdentity)
+			}
+			result = append(result, r)
+		}
+	}
+	return result
 }
 
 func policyName(namespace, name string, rule int, option Option) string {

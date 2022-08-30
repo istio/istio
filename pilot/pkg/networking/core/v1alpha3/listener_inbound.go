@@ -77,6 +77,9 @@ type inboundChainConfig struct {
 	// or if it should just be a filter chain part of the 'virtual inbound' listener.
 	bindToPort bool
 
+	// hbone determines if this is coming from an HBONE request originally
+	hbone bool
+
 	// telemetryMetadata defines additional information about the chain for telemetry purposes.
 	telemetryMetadata telemetry.FilterChainMetadata
 }
@@ -179,31 +182,34 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		FilterChains: []*listener.FilterChain{
 			{
 				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForPort(15008).TCP),
-				Filters: []*listener.Filter{{
-					Name: "envoy.filters.network.http_connection_manager",
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
-							StatPrefix: "inbound-hbone",
-							RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-								RouteConfig: &route.RouteConfiguration{
-									Name:             "local_route",
-									VirtualHosts:     []*route.VirtualHost{vhost},
-									ValidateClusters: proto.BoolFalse,
+				Filters: []*listener.Filter{
+					xdsfilters.CaptureTLSFilter,
+					{
+						Name: "envoy.filters.network.http_connection_manager",
+						ConfigType: &listener.Filter_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+								StatPrefix: "inbound-hbone",
+								RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
+									RouteConfig: &route.RouteConfiguration{
+										Name:             "local_route",
+										VirtualHosts:     []*route.VirtualHost{vhost},
+										ValidateClusters: proto.BoolFalse,
+									},
 								},
-							},
-							HttpFilters: []*hcm.HttpFilter{{
-								Name:       "envoy.filters.http.router",
-								ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
-							}},
-							Http2ProtocolOptions: &core.Http2ProtocolOptions{
-								AllowConnect: true,
-							},
-							UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{{
-								UpgradeType: "CONNECT",
-							}},
-						}),
+								HttpFilters: []*hcm.HttpFilter{{
+									Name:       "envoy.filters.http.router",
+									ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
+								}},
+								Http2ProtocolOptions: &core.Http2ProtocolOptions{
+									AllowConnect: true,
+								},
+								UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{{
+									UpgradeType: "CONNECT",
+								}},
+							}),
+						},
 					},
-				}},
+				},
 			},
 		},
 	}
@@ -214,6 +220,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
 	for _, cc := range lb.buildInboundChainConfigs() {
+		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 		// Internal chain has no mTLS
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
@@ -376,6 +383,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
 				bind:              "0.0.0.0", // TODO ipv6
 				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
+				hbone:             lb.node.IsPEP(),
 			}
 			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
 				cc.telemetryMetadata.KubernetesServiceNamespace = i.Service.Attributes.Namespace
@@ -415,6 +423,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				clusterName: model.BuildInboundSubsetKey(int(port.TargetPort)),
 				bind:        i.Bind,
 				bindToPort:  bindtoPort,
+				hbone:       lb.node.IsPEP(),
 			}
 			if cc.bind == "" {
 				// If user didn't provide, pick one based on IP
@@ -696,6 +705,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 				},
 				clusterName: clusterName,
 				passthrough: true,
+				hbone:       lb.node.IsPEP(),
 			}
 			opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
 			filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)
@@ -774,12 +784,10 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 
-	if !lb.node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	}
-
-	if lb.node.IsPEP() {
+	if cc.hbone {
 		filters = append(filters, xdsfilters.RestoreTLSFilter)
+	} else {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
@@ -809,9 +817,13 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	var filters []*listener.Filter
-	if !lb.node.IsAmbient() {
+
+	if fcc.hbone {
+		filters = append(filters, xdsfilters.RestoreTLSFilter)
+	} else {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
+
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)

@@ -275,7 +275,8 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 					TargetPort: uint32(port.Port),
 					Protocol:   port.Protocol,
 				},
-				bind: "0.0.0.0",
+				bind:  "0.0.0.0",
+				hbone: true,
 			}
 			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
 			tcpName := name + "-tcp"
@@ -357,7 +358,8 @@ func (lb *ListenerBuilder) buildRemoteInboundPod(wls []WorkloadAndServices) []*l
 					TargetPort: uint32(port.Port),
 					Protocol:   port.Protocol,
 				},
-				bind: "0.0.0.0",
+				bind:  "0.0.0.0",
+				hbone: true,
 			}
 			name := cc.clusterName
 

@@ -37,20 +37,27 @@ type Builder struct {
 	// Lazy load
 	httpBuilt, tcpBuilt bool
 
-	httpFilters []*httppb.HttpFilter
-	tcpFilters  []*tcppb.Filter
-	builder     *builder.Builder
+	httpFilters     []*httppb.HttpFilter
+	tcpFilters      []*tcppb.Filter
+	builder         *builder.Builder
+	skippedIdentity string
 }
 
-func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
+// NewBuilderSkipIdentity allows a builder that will have rules mutated to always allow requests from some identity
+func NewBuilderSkipIdentity(actionType ActionType, push *model.PushContext, proxy *model.Proxy, skipped string) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 		Logger:          &builder.AuthzLogger{},
+		SkippedIdentity: skipped,
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
+}
+
+func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
+	return NewBuilderSkipIdentity(actionType, push, proxy, "")
 }
 
 func (b *Builder) BuildTCP() []*tcppb.Filter {

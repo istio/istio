@@ -86,6 +86,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/match"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -1115,6 +1116,66 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
+			dummy := &model.Proxy{
+				ConfigNamespace: workload.Namespace,
+				Metadata:        &model.NodeMetadata{Labels: workload.Labels},
+			}
+			var allowedIdentities string
+			_, hasPEP := push.SidecarlessIndex.PEPs.ByIdentity[workload.Identity()]
+			if hasPEP {
+				allowedIdentities = strings.TrimPrefix(workload.Identity(), "spiffe://")
+			}
+			authzBuilder := authz.NewBuilderSkipIdentity(authz.Local, push, dummy, allowedIdentities)
+			tcp := authzBuilder.BuildTCP()
+
+			var filters []*listener.Filter
+			filters = append(filters, tcp...)
+			filters = append(filters, &listener.Filter{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
+						AccessLog:  accessLogString("inbound hcm"),
+						CodecType:  0,
+						StatPrefix: "inbound_hcm",
+						RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
+							RouteConfig: &route.RouteConfiguration{
+								Name: "local_route",
+								VirtualHosts: []*route.VirtualHost{{
+									Name:    "local_service",
+									Domains: []string{"*"},
+									Routes: []*route.Route{{
+										Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
+											ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
+										}},
+										Action: &route.Route_Route{
+											Route: &route.RouteAction{
+												UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+													UpgradeType:   "CONNECT",
+													ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+												}},
+												ClusterSpecifier: &route.RouteAction_Cluster{
+													Cluster: "virtual_inbound",
+												},
+											},
+										},
+									}},
+								}},
+							},
+						},
+						// TODO rewrite destination port to original_dest port
+						HttpFilters: []*httpconn.HttpFilter{{
+							Name:       "envoy.filters.http.router",
+							ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
+						}},
+						Http2ProtocolOptions: &core.Http2ProtocolOptions{
+							AllowConnect: true,
+						},
+						UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
+							UpgradeType: "CONNECT",
+						}},
+					}),
+				},
+			})
 			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
 				Name:             "inbound_" + workload.Status.PodIP,
 				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
@@ -1124,53 +1185,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, true),
 					})},
 				},
-				Filters: []*listener.Filter{{
-					Name: "envoy.filters.network.http_connection_manager",
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
-							AccessLog:  accessLogString("inbound hcm"),
-							CodecType:  0,
-							StatPrefix: "inbound_hcm",
-							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
-								RouteConfig: &route.RouteConfiguration{
-									Name: "local_route",
-									VirtualHosts: []*route.VirtualHost{{
-										Name:    "local_service",
-										Domains: []string{"*"},
-										Routes: []*route.Route{{
-											Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
-												ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
-											}},
-											Action: &route.Route_Route{
-												Route: &route.RouteAction{
-													UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-														UpgradeType:   "CONNECT",
-														ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-													}},
-													ClusterSpecifier: &route.RouteAction_Cluster{
-														// TODO this cluster passes through arbitrary requests; including unauthenticated destinations.
-														Cluster: "virtual_inbound",
-													},
-												},
-											},
-										}},
-									}},
-								},
-							},
-							// TODO rewrite destination port to original_dest port
-							HttpFilters: []*httpconn.HttpFilter{{
-								Name:       "envoy.filters.http.router",
-								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
-							}},
-							Http2ProtocolOptions: &core.Http2ProtocolOptions{
-								AllowConnect: true,
-							},
-							UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
-								UpgradeType: "CONNECT",
-							}},
-						}),
-					},
-				}},
+				Filters: filters,
 			})
 		} else {
 			// Pod is already handling HBONE, and this is an HBONE request. Pass it through directly.
@@ -1246,21 +1261,28 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 		})
 		l.Transparent = wrappers.Bool(true)
 	}
-
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
-		// TODO apply RBAC, etc
+		dummy := &model.Proxy{
+			ConfigNamespace: workload.Namespace,
+			Metadata:        &model.NodeMetadata{Labels: workload.Labels},
+		}
+		authzBuilder := authz.NewBuilder(authz.Local, push, dummy)
+
+		var filters []*listener.Filter
+		filters = append(filters, authzBuilder.BuildTCP()...)
+		filters = append(filters, &listener.Filter{
+			Name: wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "virtual_inbound"},
+				}),
+			},
+		})
 		l.FilterChains = append(l.FilterChains, &listener.FilterChain{
 			Name:             "inbound_" + workload.Status.PodIP,
 			FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       util.BlackHoleCluster,
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "virtual_inbound"},
-					}),
-				},
-			}},
+			Filters:          filters,
 		})
 	}
 	// TODO cases where we passthrough
