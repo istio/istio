@@ -98,7 +98,7 @@ require (
 	k8s.io/kubectl v0.24.4
 	k8s.io/utils v0.0.0-20220812165043-ad590609e2e5
 	sigs.k8s.io/controller-runtime v0.12.3
-	sigs.k8s.io/gateway-api v0.5.1-0.20220815164014-854e2bfc5276
+	sigs.k8s.io/gateway-api v0.5.1-0.20220830123301-a7a465ababc8
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
