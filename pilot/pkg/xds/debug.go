@@ -103,6 +103,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
+	Labels       map[string]string   `json:"labels"`
 	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
@@ -140,9 +141,12 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+func (s *DiscoveryServer) InitDebug(
+	mux *http.ServeMux,
+	sctl *aggregate.Controller,
+	enableProfiling bool,
 	fetchWebhook func() map[string]string,
-) {
+) *http.ServeMux {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.XdsUpdater = s
@@ -156,10 +160,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 	internalMux := http.NewServeMux()
 	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
-	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
-	if ok {
-		debugGen.DebugMux = internalMux
-	}
+	return internalMux
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -475,6 +476,9 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	configs := make([]kubernetesConfig, 0)
+	if s.Env == nil || s.Env.ConfigStore == nil {
+		return
+	}
 	s.Env.ConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.ConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
@@ -498,10 +502,13 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, req *http.Request) {
 	schemas := make([]config.GroupVersionKind, 0)
-	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
-		schemas = append(schemas, schema.Resource().GroupVersionKind())
-		return false
-	})
+
+	if s.Env != nil && s.Env.ConfigStore != nil {
+		s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
+			schemas = append(schemas, schema.Resource().GroupVersionKind())
+			return false
+		})
+	}
 
 	writeJSON(w, schemas, req)
 }
@@ -577,6 +584,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			ConnectionID: c.conID,
 			ConnectedAt:  c.connectedAt,
 			PeerAddress:  c.peerAddr,
+			Labels:       c.proxy.Labels,
 			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
@@ -710,7 +718,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 
 	clusters, err := generate(v3.ClusterType)
 	if err != nil {
-		return nil, fmt.Errorf("cluster generate: %v", err)
+		return nil, err
 	}
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
 	for _, cs := range clusters {
@@ -886,9 +894,13 @@ type PushContextDebug struct {
 
 // pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
-	push := PushContextDebug{
-		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
-		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
+	push := PushContextDebug{}
+	if s.globalPushContext() == nil {
+		return
+	}
+	push.AuthorizationPolicies = s.globalPushContext().AuthzPolicies
+	if s.globalPushContext().NetworkManager() != nil {
+		push.NetworkGateways = s.globalPushContext().NetworkManager().GatewaysByNetwork()
 	}
 
 	writeJSON(w, push, req)
@@ -1092,6 +1104,9 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
+	if s.Env == nil || s.Env.NetworkManager == nil {
+		return
+	}
 	writeJSON(w, s.Env.NetworkManager.AllGateways(), req)
 }
 

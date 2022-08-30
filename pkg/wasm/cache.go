@@ -233,7 +233,7 @@ func (c *LocalFileCache) Get(
 	var b []byte         // Byte array of Wasm binary.
 	var dChecksum string // Hex-Encoded sha256 checksum of binary.
 	var binaryFetcher func() ([]byte, error)
-	insecure := c.allowAllInsecureRegistries || c.allowInsecure(u.Host)
+	insecure := c.allowInsecure(u.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

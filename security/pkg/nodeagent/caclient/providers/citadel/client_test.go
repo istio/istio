@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -393,62 +392,6 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 			}, retry.Timeout(2*time.Second), retry.Delay(time.Millisecond))
 			if err != nil {
 				t.Fatalf("test failed error is： %+v", err)
-			}
-		})
-	}
-}
-
-func TestCertExpired(t *testing.T) {
-	testCases := map[string]struct {
-		filepath string
-		expected bool
-	}{
-		"Expired Cert": {
-			filepath: "./testdata/expired-cert.pem",
-			expected: true,
-		},
-		"Not Expired Cert": {
-			filepath: "./testdata/notexpired-cert.pem",
-			expected: false,
-		},
-	}
-	for id, tc := range testCases {
-
-		var wg sync.WaitGroup
-		wg.Add(1)
-		s := grpc.NewServer()
-		defer func() {
-			s.Stop()
-			wg.Wait()
-		}()
-
-		lis, err := net.Listen("tcp", mockServerAddress)
-		if err != nil {
-			t.Fatalf("failed to listen: %v", err)
-		}
-
-		go func() {
-			defer wg.Done()
-			pb.RegisterIstioCertificateServiceServer(s, &mockTokenCAServer{Certs: []string{}})
-			if err := s.Serve(lis); err != nil {
-				t.Logf("failed to serve: %v", err)
-			}
-		}()
-
-		opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(validToken)}
-		cli, err := NewCitadelClient(opts, nil)
-		if err != nil {
-			t.Fatalf("failed to create ca client: %v", err)
-		}
-
-		t.Cleanup(cli.Close)
-		t.Run(id, func(t *testing.T) {
-			certExpired, err := cli.isCertExpired(tc.filepath)
-			if err != nil {
-				t.Fatalf("failed to check the cert, err is: %v", err)
-			}
-			if certExpired != tc.expected {
-				t.Errorf("isCertExpired: get %v, want %v", certExpired, tc.expected)
 			}
 		})
 	}

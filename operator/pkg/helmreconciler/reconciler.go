@@ -294,15 +294,6 @@ func (h *HelmReconciler) Delete() error {
 	return nil
 }
 
-// DeleteAll deletes all Istio resources in the cluster.
-func (h *HelmReconciler) DeleteAll() error {
-	manifestMap := name.ManifestMap{}
-	for _, c := range name.AllComponentNames {
-		manifestMap[c] = nil
-	}
-	return h.Prune(manifestMap, true)
-}
-
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
 	isop := &istioV1Alpha1.IstioOperator{}

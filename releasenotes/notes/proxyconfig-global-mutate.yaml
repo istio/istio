@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 40445
+releaseNotes:
+- |
+  **Fixed** an issue where `ProxyConfig` overrides could unexpectedly apply to other workloads.

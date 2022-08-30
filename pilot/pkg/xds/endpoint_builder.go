@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
@@ -47,14 +48,15 @@ var (
 
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
-	clusterName     string
-	network         network.ID
-	proxyView       model.ProxyView
-	clusterID       cluster.ID
-	locality        *core.Locality
-	destinationRule *model.ConsolidatedDestRule
-	service         *model.Service
-	clusterLocal    bool
+	clusterName            string
+	network                network.ID
+	proxyView              model.ProxyView
+	clusterID              cluster.ID
+	locality               *core.Locality
+	destinationRule        *model.ConsolidatedDestRule
+	service                *model.Service
+	clusterLocal           bool
+	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
 	subsetName string
@@ -91,6 +93,8 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		port:       port,
 	}
 
+	b.populateFailoverPriorityLabels()
+
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
@@ -119,6 +123,10 @@ func (b EndpointBuilder) Key() string {
 	hash.Write(Separator)
 	hash.Write([]byte(util.LocalityToString(b.locality)))
 	hash.Write(Separator)
+	if len(b.failoverPriorityLabels) > 0 {
+		hash.Write(b.failoverPriorityLabels)
+		hash.Write(Separator)
+	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
@@ -211,6 +219,17 @@ func (e *LocalityEndpoints) AssertInvarianceInTest() {
 	}
 }
 
+func (b *EndpointBuilder) populateFailoverPriorityLabels() {
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
+	if enableFailover {
+		lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+		if lbSetting != nil && lbSetting.Distribute == nil &&
+			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
+			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
+		}
+	}
+}
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *model.EndpointShards,
@@ -218,7 +237,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 ) []*LocalityEndpoints {
 	localityEpMap := make(map[string]*LocalityEndpoints)
 	// get the subset labels
-	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
+	subsetLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -244,7 +263,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				continue
 			}
 			// Port labels
-			if !epLabels.SubsetOf(ep.Labels) {
+			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
 

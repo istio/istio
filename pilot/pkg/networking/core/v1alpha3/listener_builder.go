@@ -96,7 +96,7 @@ func NewListenerBuilder(configgen *ConfigGeneratorImpl, node *model.Proxy, push 
 func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 	dummy := &model.Proxy{
 		ConfigNamespace: wl.Namespace,
-		Metadata:        &model.NodeMetadata{Labels: wl.Labels},
+		Labels:          wl.Labels,
 	}
 	return &ListenerBuilder{
 		node:                    lb.node,

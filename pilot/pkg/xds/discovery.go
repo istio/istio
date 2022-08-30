@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -303,8 +304,7 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	}
 }
 
-// Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
-// to avoid direct dependencies.
+// Push is called to push changes on config updates using ADS.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
@@ -360,7 +360,6 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
-// It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
@@ -391,9 +390,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 	free := true
 	freeCh := make(chan struct{}, 1)
 
-	push := func(req *model.PushRequest, debouncedEvents int) {
+	push := func(req *model.PushRequest, debouncedEvents int, startDebounce time.Time) {
 		pushFn(req)
 		updateSent.Add(int64(debouncedEvents))
+		debounceTime.Record(time.Since(startDebounce).Seconds())
 		freeCh <- struct{}{}
 	}
 
@@ -414,7 +414,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 						quietTime, eventDelay, req.Full)
 				}
 				free = false
-				go push(req, debouncedEvents)
+				go push(req, debouncedEvents, startDebounce)
 				req = nil
 				debouncedEvents = 0
 			}
@@ -564,7 +564,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string) {
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
 	ecdsGen := &EcdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
@@ -602,11 +602,11 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
-	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
+	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
-// shutdown shuts down DiscoveryServer components.
+// Shutdown shuts down DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
 	s.closeJwksResolver()
 	s.pushQueue.ShutDown()

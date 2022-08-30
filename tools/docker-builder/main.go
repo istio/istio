@@ -261,7 +261,9 @@ func RunMake(args Args, arch string, c ...string) error {
 	log.Infof("Running make for %v: %v", arch, strings.Join(shortArgs, " "))
 	env := StandardEnv(args)
 	env = append(env, archToGoFlags(arch)...)
-	cmd := exec.Command("make", c...)
+	makeArgs := []string{"--no-print-directory"}
+	makeArgs = append(makeArgs, c...)
+	cmd := exec.Command("make", makeArgs...)
 	log.Infof("env: %v", archToGoFlags(arch))
 	cmd.Env = env
 	cmd.Stderr = os.Stderr

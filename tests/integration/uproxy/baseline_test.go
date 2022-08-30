@@ -856,7 +856,7 @@ spec:
 							Name:      "uncaptured",
 							Namespace: apps.Namespace,
 						}))).
-						To(echotest.In(tc.to)).
+						ToMatch(match.AnyServiceName(tc.to.NamespacedNames())).
 						Config(cfg.WithParams(param.Params{
 							"Resolution": tc.resolution.String(),
 							"Location":   tc.location.String(),

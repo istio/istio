@@ -51,7 +51,7 @@ func NewBuilderSkipIdentity(actionType ActionType, push *model.PushContext, prox
 		Logger:          &builder.AuthzLogger{},
 		SkippedIdentity: skipped,
 	}
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
 }

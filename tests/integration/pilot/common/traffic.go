@@ -250,9 +250,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("autopassthrough", autoPassthroughCases, "ingress needed")
 	RunCase("loop", trafficLoopCases)
 	RunCase("tls-origination", tlsOriginationCases)
-	// TODO(https://github.com/solo-io/istio-sidecarless/issues/155)
-	// RunSkipAmbient("instanceip", instanceIPTests, "not supported")
-	_ = instanceIPTests
+	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
 	RunCase("services", serviceCases)
 	RunCase("host", hostCases)
 	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")

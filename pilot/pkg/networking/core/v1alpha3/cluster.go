@@ -462,8 +462,32 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 				continue
 			}
 			if hostIP == model.PodIPAddressPrefix {
-				endpointAddress = cb.proxyIPAddresses[0]
-			} else if hostIP == model.LocalhostAddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() != nil {
+						endpointAddress = proxyIPaddr
+						break
+					}
+				}
+				// if there is no any IPv4 address in proxyIPAddresses
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostAddressPrefix
+				}
+			} else if hostIP == model.PodIPv6AddressPrefix {
+				for _, proxyIPaddr := range cb.proxyIPAddresses {
+					edAddr := net.ParseIP(proxyIPaddr)
+					if edAddr.To4() == nil {
+						if edAddr.To16() != nil {
+							endpointAddress = proxyIPaddr
+							break
+						}
+					}
+				}
+				// if there is no any IPv6 address in proxyIPAddresses
+				if endpointAddress == "" {
+					endpointAddress = model.LocalhostIPv6AddressPrefix
+				}
+			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
 				endpointAddress = actualLocalHost
 			}
 		}
@@ -793,18 +817,42 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 		return
 	}
 
-	// TODO MinimumRingSize is an int, and zero could potentially be a valid value
-	// unable to distinguish between set and unset case currently GregHanson
-	// 1024 is the default value for envoy
-	minRingSize := &wrappers.UInt64Value{Value: 1024}
-	if consistentHash.MinimumRingSize != 0 {
-		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
-	}
-	c.LbPolicy = cluster.Cluster_RING_HASH
-	c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
-		RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
-			MinimumRingSize: minRingSize,
-		},
+	switch {
+	case consistentHash.GetMaglev() != nil:
+		c.LbPolicy = cluster.Cluster_MAGLEV
+		if consistentHash.GetMaglev().TableSize != 0 {
+			c.LbConfig = &cluster.Cluster_MaglevLbConfig_{
+				MaglevLbConfig: &cluster.Cluster_MaglevLbConfig{
+					TableSize: &wrappers.UInt64Value{Value: consistentHash.GetMaglev().TableSize},
+				},
+			}
+		}
+	case consistentHash.GetRingHash() != nil:
+		c.LbPolicy = cluster.Cluster_RING_HASH
+		if consistentHash.GetRingHash().MinimumRingSize != 0 {
+			c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
+				RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
+					MinimumRingSize: &wrappers.UInt64Value{Value: consistentHash.GetRingHash().MinimumRingSize},
+				},
+			}
+		}
+	default:
+		// Check the deprecated MinimumRingSize.
+		// TODO: MinimumRingSize is an int, and zero could potentially
+		// be a valid value unable to distinguish between set and unset
+		// case currently.
+		// 1024 is the default value for envoy.
+		minRingSize := &wrappers.UInt64Value{Value: 1024}
+
+		if consistentHash.MinimumRingSize != 0 { //nolint: staticcheck
+			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} //nolint: staticcheck
+		}
+		c.LbPolicy = cluster.Cluster_RING_HASH
+		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
+			RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
+				MinimumRingSize: minRingSize,
+			},
+		}
 	}
 }
 

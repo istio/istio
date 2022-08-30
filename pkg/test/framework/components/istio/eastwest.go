@@ -46,7 +46,7 @@ var (
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
-func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision string) error {
+func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision string, customSettings string) error {
 	// generate istio operator yaml
 	args := []string{
 		"--cluster", cluster.Name(),
@@ -69,10 +69,15 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 
 	// Install the gateway
 	s := i.ctx.Settings()
+	var inFileNames []string
+	inFileNames = append(inFileNames, iopFile)
+	if customSettings != "" {
+		inFileNames = append(inFileNames, customSettings)
+	}
 	if err := i.installer.Install(cluster, installArgs{
 		ComponentName: "eastwestgateway",
 		Revision:      revision,
-		Files:         []string{iopFile},
+		Files:         inFileNames,
 		Set: []string{
 			"hub=" + s.Image.Hub,
 			"tag=" + s.Image.Tag,

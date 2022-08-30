@@ -1,6 +1,11 @@
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
+{{- $defaultBinDir :=
+    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
+      "/home/kubernetes/bin"
+      "/opt/cni/bin"
+}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -76,6 +81,10 @@ spec:
             privileged: true
             capabilities:
               add: ["NET_ADMIN"]
+{{- if .Values.cni.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{- end }}
           command: ["install-cni"]
           args:
             {{- if .Values.global.logging.level }}
@@ -190,6 +199,10 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+{{- if .Values.cni.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{- end }}
           env:
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
@@ -202,7 +215,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ default "/opt/cni/bin" .Values.cni.cniBinDir }}
+            path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
         - name: cni-ambientconfig
           hostPath:
             path: /etc/ambient-config

@@ -214,7 +214,7 @@ var (
 	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
 )
 
-func createRemoteSecretFromTokenAndServer(client kube.ExtendedClient, tokenSecret *v1.Secret, clusterName, server, secName string) (*v1.Secret, error) {
+func createRemoteSecretFromTokenAndServer(client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, secName string) (*v1.Secret, error) {
 	caData, token, err := waitForTokenData(client, tokenSecret)
 	if err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func createRemoteSecretFromTokenAndServer(client kube.ExtendedClient, tokenSecre
 	return createRemoteServiceAccountSecret(kubeconfig, clusterName, secName)
 }
 
-func waitForTokenData(client kube.ExtendedClient, secret *v1.Secret) (ca, token []byte, err error) {
+func waitForTokenData(client kube.CLIClient, secret *v1.Secret) (ca, token []byte, err error) {
 	ca, token, err = tokenDataFromSecret(secret)
 	if err == nil {
 		return
@@ -265,7 +265,7 @@ func tokenDataFromSecret(tokenSecret *v1.Secret) (ca, token []byte, err error) {
 	return
 }
 
-func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions) (*v1.Secret, error) {
+func getServiceAccountSecret(client kube.CLIClient, opt RemoteSecretOptions) (*v1.Secret, error) {
 	// Create the service account if it doesn't exist.
 	serviceAccount, err := getOrCreateServiceAccount(client, opt)
 	if err != nil {
@@ -282,7 +282,7 @@ func getServiceAccountSecret(client kube.ExtendedClient, opt RemoteSecretOptions
 // See https://github.com/istio/istio/issues/38246
 func getOrCreateServiceAccountSecret(
 	serviceAccount *v1.ServiceAccount,
-	client kube.ExtendedClient,
+	client kube.CLIClient,
 	opt RemoteSecretOptions,
 ) (*v1.Secret, error) {
 	ctx := context.TODO()
@@ -342,7 +342,7 @@ func secretReferencesServiceAccount(serviceAccount *v1.ServiceAccount, secret *v
 
 func legacyGetServiceAccountSecret(
 	serviceAccount *v1.ServiceAccount,
-	client kube.ExtendedClient,
+	client kube.CLIClient,
 	opt RemoteSecretOptions,
 ) (*v1.Secret, error) {
 	if len(serviceAccount.Secrets) == 0 {
@@ -380,7 +380,7 @@ func legacyGetServiceAccountSecret(
 	return client.Kube().CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 }
 
-func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) (*v1.ServiceAccount, error) {
+func getOrCreateServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) (*v1.ServiceAccount, error) {
 	if sa, err := client.Kube().CoreV1().ServiceAccounts(opt.Namespace).Get(
 		context.TODO(), opt.ServiceAccountName, metav1.GetOptions{}); err == nil {
 		return sa, nil
@@ -408,7 +408,7 @@ func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptio
 	return sa, nil
 }
 
-func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) error {
+func createServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) error {
 	yaml, err := generateServiceAccountYAML(opt)
 	if err != nil {
 		return err
@@ -475,7 +475,7 @@ global:
 	return aggregateContent, nil
 }
 
-func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
+func applyYAML(client kube.CLIClient, yamlContent, ns string) error {
 	yamlFile, err := writeToTempFile(yamlContent)
 	if err != nil {
 		return fmt.Errorf("failed creating manifest file: %v", err)
@@ -688,7 +688,7 @@ func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
 
 type Warning error
 
-func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env Environment) (*v1.Secret, Warning, error) {
+func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient, env Environment) (*v1.Secret, Warning, error) {
 	// generate the clusterName if not specified
 	if opt.ClusterName == "" {
 		uid, err := clusterUID(client.Kube())

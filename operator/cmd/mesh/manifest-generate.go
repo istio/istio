@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -36,6 +37,15 @@ type ManifestGenerateArgs struct {
 	InFilenames []string
 	// OutFilename is the path to the generated output directory.
 	OutFilename string
+
+	// EnableClusterSpecific determines if the current Kubernetes cluster will be used to autodetect values.
+	// If false, generic defaults will be used. This is useful when generating once and then applying later.
+	EnableClusterSpecific bool
+	// KubeConfigPath is the path to kube config file.
+	KubeConfigPath string
+	// Context is the cluster context in the kube config
+	Context string
+
 	// Set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	Set []string
@@ -74,6 +84,11 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
 	_ = cmd.PersistentFlags().MarkHidden("filter")
+
+	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr+" Requires --cluster-specific.")
+	cmd.PersistentFlags().StringVar(&args.Context, "context", "", ContextFlagHelpStr+" Requires --cluster-specific.")
+	cmd.PersistentFlags().BoolVar(&args.EnableClusterSpecific, "cluster-specific", false,
+		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
 }
 
 func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -115,8 +130,17 @@ func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
+	var kubeClient kube.CLIClient
+	if mgArgs.EnableClusterSpecific {
+		kc, _, err := KubernetesClients(mgArgs.KubeConfigPath, mgArgs.Context, l)
+		if err != nil {
+			return err
+		}
+		kubeClient = kc
+	}
+
 	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
-		mgArgs.Force, mgArgs.Filter, nil, l)
+		mgArgs.Force, mgArgs.Filter, kubeClient, l)
 	if err != nil {
 		return err
 	}

@@ -127,7 +127,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		supportsIPv6:      proxy.SupportsIPv6(),
 		hbone:             proxy.EnableHBONE() || proxy.IsPEP(),
 		locality:          proxy.Locality,
-		proxyLabels:       proxy.Metadata.Labels,
+		proxyLabels:       proxy.Labels,
 		proxyView:         proxy.GetView(),
 		proxyIPAddresses:  proxy.IPAddresses,
 		configNamespace:   proxy.ConfigNamespace,

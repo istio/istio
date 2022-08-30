@@ -79,8 +79,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout is not specified, we disable it based on default value of flag.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with HTTP/3 discovery enabled", func(t *testing.T) {
@@ -145,8 +145,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
@@ -326,6 +326,23 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
 	})
 
+	t.Run("for virtual service with stat_prefix set for a match on URI", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithStatPrefix,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(3))
+		g.Expect(routes[0].GetMatch().GetPrefix()).To(gomega.Equal("/foo"))
+		g.Expect(routes[0].StatPrefix).To(gomega.Equal("foo"))
+		g.Expect(routes[1].GetMatch().GetPrefix()).To(gomega.Equal("/baz"))
+		g.Expect(routes[1].StatPrefix).To(gomega.Equal(""))
+		g.Expect(routes[2].GetMatch().GetPrefix()).To(gomega.Equal("/bar"))
+		g.Expect(routes[2].StatPrefix).To(gomega.Equal(""))
+	})
+
 	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
@@ -472,7 +489,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -520,7 +537,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -565,7 +582,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -608,7 +625,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -654,7 +671,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -689,7 +706,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		proxy := node(cg)
 		gatewayNames := map[string]bool{"some-gateway": true}
-		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain, serviceRegistry)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
 			hashByDestination, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
@@ -1838,6 +1855,75 @@ var virtualServiceMatchingOnSourceNamespace = config.Config{
 				Match: []*networking.HTTPMatchRequest{
 					{
 						SourceNamespace: "bar",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "bar.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithStatPrefix = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "foo",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "foo",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/foo",
+							},
+						},
+						StatPrefix: "foo",
+					},
+					{
+						Name: "baz",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/baz",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Name: "bar",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "bar",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/bar",
+							},
+						},
 					},
 				},
 				Route: []*networking.HTTPRouteDestination{

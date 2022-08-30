@@ -81,6 +81,12 @@ message CNIConfig {
   Resources resources = 17;
 
   google.protobuf.BoolValue privileged = 18;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 19;
+
 }
 
 

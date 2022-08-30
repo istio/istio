@@ -31,6 +31,8 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"go.uber.org/atomic"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -94,6 +96,7 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
 	proxyAddresses       []string
+	ia                   *Agent
 
 	httpTapServer      *http.Server
 	tapMutex           sync.RWMutex
@@ -153,6 +156,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
 		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
+		ia:                    ia,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
@@ -491,7 +495,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 			if err := sendUpstream(con.upstream, req); err != nil {
-				proxyLog.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
+				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}
@@ -701,6 +705,16 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 			var certificate tls.Certificate
 			key, cert := agent.GetKeyCertsForXDS()
 			if key != "" && cert != "" {
+				var isExpired bool
+				isExpired, err = util.IsCertExpired(cert)
+				if err != nil {
+					log.Warnf("cannot parse the cert chain, using token instead: %v", err)
+					return &certificate, nil
+				}
+				if isExpired {
+					log.Warnf("cert expired, using token instead")
+					return &certificate, nil
+				}
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(cert, key)
 				if err != nil {
@@ -709,13 +723,13 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 			}
 			return &certificate, nil
 		},
-		RootCAs: rootCert,
+		RootCAs:    rootCert,
+		MinVersion: tls.VersionTLS12,
 	}
 
-	// strip the port from the address
-	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
-	config.ServerName = parts[0]
-
+	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err != nil {
+		config.ServerName = host
+	}
 	// For debugging on localhost (with port forward)
 	// This matches the logic for the CA; this code should eventually be shared
 	if strings.Contains(config.ServerName, "localhost") {
@@ -725,9 +739,6 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	if p.istiodSAN != "" {
 		config.ServerName = p.istiodSAN
 	}
-	// TODO: if istiodSAN starts with spiffe://, use custom validation.
-
-	config.MinVersion = tls.VersionTLS12
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
@@ -861,14 +872,27 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 func (p *XdsProxy) initDebugInterface(port int) error {
 	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
 
+	tapGrpcHandler, err := NewTapGrpcHandler(p)
+	if err != nil {
+		log.Errorf("failed to start Tap XDS Proxy: %v", err)
+	}
+
 	httpMux := http.NewServeMux()
 	handler := p.makeTapHandler()
 	httpMux.HandleFunc("/debug/", handler)
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
 
+	mixedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+			tapGrpcHandler.ServeHTTP(w, r)
+			return
+		}
+		httpMux.ServeHTTP(w, r)
+	})
+
 	p.httpTapServer = &http.Server{
 		Addr:        fmt.Sprintf("localhost:%d", port),
-		Handler:     httpMux,
+		Handler:     h2c.NewHandler(mixedHandler, &http2.Server{}),
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
 	}

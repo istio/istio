@@ -36,7 +36,7 @@ const (
 
 // Params contains parameters for running a kubectl fetch command.
 type Params struct {
-	Client         kube.ExtendedClient
+	Client         kube.CLIClient
 	DryRun         bool
 	Verbose        bool
 	ClusterVersion string
@@ -48,7 +48,7 @@ type Params struct {
 	KubeContext    string
 }
 
-func (p *Params) SetClient(client kube.ExtendedClient) *Params {
+func (p *Params) SetClient(client kube.CLIClient) *Params {
 	out := *p
 	out.Client = client
 	return &out

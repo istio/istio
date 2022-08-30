@@ -3,7 +3,7 @@ typedConfig:
   '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
   rules:
     policies:
-      ns[foo]-policy[httpbin-deny]-rule[1]:
+      ns[foo]-policy[httpbin-deny]-rule[3]:
         permissions:
         - andRules:
             rules:

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** auto-detection of [GKE specific installation steps](https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings) when using CNI to `istioctl install` and `helm install`. 

@@ -704,7 +704,7 @@ data:
             - name: {{ . }}
             {{- end }}
           {{- end }}
-          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "true") "true" }}
+          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
           securityContext:
             fsGroup: 1337
           {{- end }}
@@ -934,7 +934,7 @@ data:
             - name: {{ . }}
             {{- end }}
           {{- end }}
-          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "true") "true" }}
+          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
           securityContext:
             fsGroup: 1337
           {{- end }}
@@ -1315,7 +1315,7 @@ data:
             - name: {{ . }}
             {{- end }}
           {{- end }}
-          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "true") "true" }}
+          {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
           securityContext:
             fsGroup: 1337
           {{- end }}

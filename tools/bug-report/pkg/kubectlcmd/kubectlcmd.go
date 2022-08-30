@@ -87,7 +87,7 @@ type Options struct {
 }
 
 // Logs returns the logs for the given namespace/pod/container.
-func Logs(client kube.ExtendedClient, namespace, pod, container string, previous, dryRun bool) (string, error) {
+func Logs(client kube.CLIClient, namespace, pod, container string, previous, dryRun bool) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
@@ -104,7 +104,7 @@ func Logs(client kube.ExtendedClient, namespace, pod, container string, previous
 }
 
 // EnvoyGet sends a GET request for the URL in the Envoy container in the given namespace/pod and returns the result.
-func EnvoyGet(client kube.ExtendedClient, namespace, pod, url string, dryRun bool) (string, error) {
+func EnvoyGet(client kube.CLIClient, namespace, pod, url string, dryRun bool) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.EnvoyDo(%s, %s, %s)", pod, namespace, url), nil
 	}
@@ -117,7 +117,7 @@ func EnvoyGet(client kube.ExtendedClient, namespace, pod, url string, dryRun boo
 }
 
 // Cat runs the cat command for the given path in the given namespace/pod/container.
-func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dryRun bool) (string, error) {
+func Cat(client kube.CLIClient, namespace, pod, container, path string, dryRun bool) (string, error) {
 	cmdStr := "cat " + path
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
@@ -139,7 +139,7 @@ func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dry
 }
 
 // Exec runs exec for the given command in the given namespace/pod/container.
-func Exec(client kube.ExtendedClient, namespace, pod, container, cmdStr string, dryRun bool) (string, error) {
+func Exec(client kube.CLIClient, namespace, pod, container, cmdStr string, dryRun bool) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}

@@ -76,7 +76,7 @@ func configureTracingFromSpec(
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg))
-		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy.Metadata)
+		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
@@ -112,7 +112,7 @@ func configureTracingFromSpec(
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
 	configureSampling(hcm.Tracing, spec.RandomSamplingPercentage)
-	configureCustomTags(hcm.Tracing, spec.CustomTags, proxyCfg, proxy.Metadata)
+	configureCustomTags(hcm.Tracing, spec.CustomTags, proxyCfg, proxy)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
@@ -388,11 +388,11 @@ func buildOptionalPolicyTags() []*tracing.CustomTag {
 	}
 }
 
-func buildServiceTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
+func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []*tracing.CustomTag {
 	var revision, service string
-	if metadata.Labels != nil {
-		revision = metadata.Labels["service.istio.io/canonical-revision"]
-		service = metadata.Labels["service.istio.io/canonical-name"]
+	if labels != nil {
+		revision = labels["service.istio.io/canonical-revision"]
+		service = labels["service.istio.io/canonical-name"]
 	}
 	if revision == "" {
 		revision = "latest"
@@ -471,7 +471,7 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 }
 
 func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
-	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, metadata *model.NodeMetadata,
+	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
 	var tags []*tracing.CustomTag
 
@@ -481,7 +481,7 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 	// THESE TAGS SHOULD BE ALWAYS ON.
 	if features.EnableIstioTags {
 		tags = append(tags, buildOptionalPolicyTags()...)
-		tags = append(tags, buildServiceTags(metadata)...)
+		tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
 	}
 
 	if len(providerTags) == 0 {

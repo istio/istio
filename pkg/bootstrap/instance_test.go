@@ -328,7 +328,7 @@ func TestGolden(t *testing.T) {
 			}
 			fn, err := New(Config{
 				Node: node,
-			}).CreateFileForEpoch(0)
+			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -476,6 +476,12 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.suffixes = rbacEnvoyStatsMatcherInclusionSuffix
 	} else {
 		stats.suffixes += "," + rbacEnvoyStatsMatcherInclusionSuffix
+	}
+
+	if stats.regexps == "" {
+		stats.regexps = requiredEnvoyStatsMatcherInclusionRegexes
+	} else {
+		stats.regexps += "," + requiredEnvoyStatsMatcherInclusionRegexes
 	}
 
 	if err := gsm.Validate(); err != nil {

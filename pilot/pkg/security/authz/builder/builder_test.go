@@ -259,7 +259,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(tc.version)
 			defer option.Logger.Report(proxy)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
@@ -327,7 +327,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
 			defer option.Logger.Report(proxy)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
@@ -455,6 +455,7 @@ func node(version *model.IstioVersion) *model.Proxy {
 	return &model.Proxy{
 		ID:              "test-node",
 		ConfigNamespace: "foo",
+		Labels:          httpbin,
 		Metadata: &model.NodeMetadata{
 			Labels: httpbin,
 		},

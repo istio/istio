@@ -478,6 +478,15 @@ func (pr *PushRequest) IsRequest() bool {
 	return len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest
 }
 
+func (pr *PushRequest) IsProxyUpdate() bool {
+	for _, r := range pr.Reason {
+		if r == ProxyUpdate {
+			return true
+		}
+	}
+	return false
+}
+
 func (pr *PushRequest) PushReason() string {
 	if pr.IsRequest() {
 		return " request"
@@ -1130,9 +1139,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.Networks = env.MeshNetworks()
 	ps.LedgerVersion = env.Version()
 
-	// Must be initialized first
-	// as initServiceRegistry/VirtualServices/Destrules
-	// use the default export map
+	// Must be initialized first as initServiceRegistry/VirtualServices/Destrules
+	// use the default export map.
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
@@ -1353,7 +1361,11 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
+		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace
+		oldPushContext.sidecarIndex.defaultSidecarMu.Lock()
+		defer oldPushContext.sidecarIndex.defaultSidecarMu.Unlock()
+
+		ps.sidecarIndex = oldPushContext.sidecarIndex
 	}
 
 	return nil
@@ -1389,9 +1401,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			}
 		} else {
-			// if service has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
-			// if service has exportTo *, make public and ignore all other exportTos
-			// if service has exportTo ., replace with current namespace
+			// if service has exportTo *, make it public and ignore all other exportTos.
+			// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
+			// if service has exportTo ., replace with current namespace.
 			if s.Attributes.ExportTo[visibility.Public] {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 				continue
@@ -1673,7 +1685,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 		destRules[i] = configs[i].DeepCopy()
 	}
 
-	ps.SetDestinationRules(destRules)
+	ps.setDestinationRules(destRules)
 	return nil
 }
 
@@ -1684,11 +1696,16 @@ func newConsolidatedDestRules() *consolidatedDestRules {
 	}
 }
 
-// SetDestinationRules is updates internal structures using a set of configs.
+// Testing Only. This allows tests to inject a config without having the mock.
+func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
+	ps.setDestinationRules(configs)
+}
+
+// setDestinationRules updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
-// This also allows tests to inject a config without having the mock.
-// This will not work properly for Sidecars, which will precompute their destination rules on init
-func (ps *PushContext) SetDestinationRules(configs []config.Config) {
+// This will not work properly for Sidecars, which will precompute their
+// destination rules on init.
+func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
@@ -1839,7 +1856,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Metadata.Labels) {
+			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1848,7 +1865,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Metadata.Labels) {
+			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1955,7 +1972,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Metadata.Labels) {
+		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}
 	}
@@ -2054,7 +2071,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
-			if gatewaySelector.SubsetOf(proxy.Metadata.Labels) {
+			if gatewaySelector.SubsetOf(proxy.Labels) {
 				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 			}
 		}

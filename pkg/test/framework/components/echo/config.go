@@ -171,16 +171,16 @@ type Config struct {
 }
 
 // Getter for a custom echo deployment
-type CustomGetter func() []Config
+type ConfigGetter func() []Config
 
 // Get is a utility method that helps in readability of call sites.
-func (g CustomGetter) Get() []Config {
+func (g ConfigGetter) Get() []Config {
 	return g()
 }
 
 // Future creates a Getter for a variable the custom echo deployment that will be set at sometime in the future.
 // This is helpful for configuring a setup chain for a test suite that operates on global variables.
-func CustomFuture(custom *[]Config) CustomGetter {
+func ConfigFuture(custom *[]Config) ConfigGetter {
 	return func() []Config {
 		return *custom
 	}

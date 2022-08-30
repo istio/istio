@@ -876,7 +876,7 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 }
 
 func TestEndpointMetadata(t *testing.T) {
-	test.SetBoolForTest(t, &features.EndpointTelemetryLabel, true)
+	test.SetForTest(t, &features.EndpointTelemetryLabel, true)
 	cases := []struct {
 		name         string
 		network      network.ID

@@ -279,7 +279,7 @@ func TestIsEligibleForHTTP3Upgrade(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetBoolForTest(t, &features.EnableQUICListeners, tc.enableQUICListeners)
+			test.SetForTest(t, &features.EnableQUICListeners, tc.enableQUICListeners)
 			actual := IsEligibleForHTTP3Upgrade(tc.server)
 			if actual != tc.expected {
 				t.Errorf("IsEligibleForHTTP3Upgrade(%s) => %t, want %t",

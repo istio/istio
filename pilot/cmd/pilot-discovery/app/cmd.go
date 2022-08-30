@@ -93,7 +93,7 @@ func newDiscoveryCommand() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 
-			// Create the stop channel for all of the servers.
+			// Create the stop channel for all the servers.
 			stop := make(chan struct{})
 
 			// Create the server for the discovery service.

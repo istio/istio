@@ -156,19 +156,6 @@ func FilterMatch(matcher match.Matcher) Filter {
 	}
 }
 
-// In filters down the active apps to ones that are in the given set.
-func In(want echo.Instances) Filter {
-	return func(have echo.Instances) echo.Instances {
-		var got echo.Instances
-		for _, instance := range have {
-			if want.Contains(instance) {
-				got = append(got, instance)
-			}
-		}
-		return got
-	}
-}
-
 // SameNetwork filters out destinations that are on a different network from the source.
 var SameNetwork CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to)

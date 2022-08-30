@@ -97,10 +97,11 @@ type iopInfo struct {
 }
 
 type iopFiles struct {
-	primaryIOP iopInfo
-	configIOP  iopInfo
-	remoteIOP  iopInfo
-	gatewayIOP iopInfo
+	primaryIOP  iopInfo
+	configIOP   iopInfo
+	remoteIOP   iopInfo
+	gatewayIOP  iopInfo
+	eastwestIOP iopInfo
 }
 
 // ID implements resource.Instance
@@ -360,7 +361,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 			if c.IsConfig() {
 				spec = i.configIOP.spec
 			}
-			if err := i.deployEastWestGateway(c, spec.Revision); err != nil {
+			if err := i.deployEastWestGateway(c, spec.Revision, i.eastwestIOP.file); err != nil {
 				return i, err
 			}
 
@@ -450,7 +451,7 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 			return nil
 		}
 
-		if err := i.deployEastWestGateway(c, i.primaryIOP.spec.Revision); err != nil {
+		if err := i.deployEastWestGateway(c, i.primaryIOP.spec.Revision, i.eastwestIOP.file); err != nil {
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
@@ -858,6 +859,14 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 			return iopFiles{}, err
 		}
 	}
+	if cfg.EastWestGatewayValues != "" {
+		i.eastwestIOP.file = filepath.Join(workDir, "eastwest.yaml")
+		_, err = initIOPFile(ctx, cfg, i.eastwestIOP.file, cfg.EastWestGatewayValues)
+		if err != nil {
+			return iopFiles{}, err
+		}
+	}
+
 	return
 }
 

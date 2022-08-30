@@ -400,10 +400,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
-	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c)
 	case EndpointSliceOnly:
 		c.endpoints = newEndpointSliceController(c)
+	default: // nolint: gocritic
+		log.Errorf("unknown endpoints mode: %v", options.EndpointMode)
+		fallthrough
+	case EndpointsOnly:
+		c.endpoints = newEndpointsController(c)
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
@@ -429,7 +432,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			})
 		}
 	})
-	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
+	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -567,7 +570,7 @@ func (c *Controller) Cleanup() error {
 func (c *Controller) onServiceEvent(curr any, event model.Event) error {
 	svc, err := extractService(curr)
 	if err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		return nil
 	}
 
@@ -1287,7 +1290,7 @@ func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
 func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	if len(proxy.Metadata.Labels) == 0 {
+	if len(proxy.Labels) == 0 {
 		return nil, nil
 	}
 
@@ -1299,7 +1302,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	dummyPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: proxy.ConfigNamespace,
-			Labels:    proxy.Metadata.Labels,
+			Labels:    proxy.Labels,
 		},
 	}
 
@@ -1432,7 +1435,21 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		return pod.Labels
+		if _, exist := pod.Labels[model.LocalityLabel]; exist {
+			return pod.Labels
+		}
+		locality := c.getPodLocality(pod)
+		if locality == "" {
+			return pod.Labels
+		}
+		out := make(map[string]string, len(pod.Labels)+1)
+		for k, v := range pod.Labels {
+			out[k] = v
+		}
+		// Add locality labels to support locality Load balancing for proxy without service instances.
+		// As this may contain node topology labels, which could not be got from aggregator controller
+		out[model.LocalityLabel] = locality
+		return out
 	}
 	return nil
 }

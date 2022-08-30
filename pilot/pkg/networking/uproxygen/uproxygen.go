@@ -1118,7 +1118,7 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
 			dummy := &model.Proxy{
 				ConfigNamespace: workload.Namespace,
-				Metadata:        &model.NodeMetadata{Labels: workload.Labels},
+				Labels:          workload.Labels,
 			}
 			var allowedIdentities string
 			_, hasPEP := push.SidecarlessIndex.PEPs.ByIdentity[workload.Identity()]
@@ -1264,7 +1264,7 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		dummy := &model.Proxy{
 			ConfigNamespace: workload.Namespace,
-			Metadata:        &model.NodeMetadata{Labels: workload.Labels},
+			Labels:          workload.Labels,
 		}
 		authzBuilder := authz.NewBuilder(authz.Local, push, dummy)
 
