@@ -17,25 +17,27 @@
 # This script runs can be used to emit (readable) compile tracing info when building go packages
 
 # Before and after usage, `go clean -cache` is suggested since go seems to cache the toolexec output
-# Usage: `go build -toolexec=$PWD/tools/go-compile-verbose ./... |& grep -v '^#'`
-# Usage (compile all tests only): `go test -exec=true -toolexec=$PWD/tools/go-compile-verbose ./... |& grep -v '^#'`
-
+# Cleanup: rm -f /tmp/golog
+# Usage (compile all tests only): `go test -exec=true -toolexec=$PWD/tools/go-compile-verbose ./...`
+# Usage (compile binary): `go build -toolexec=true -toolexec=$PWD/tools/go-compile-verbose ./...`
+# Results will be in /tmp/golog, as stdout gets cached and pollutes all later runs.
 START="$(date -u +%s.%N)"
 
 # Output a message, with a timestamp matching istio log format
 function log() {
   delta=$(date +%s.%N --date="$START seconds ago")
-  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t${delta}s\t$*" >&2
+  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t${delta}s\t$*" >&2 >> /tmp/golog
 }
 
 ROOT="$(go env GOROOT)"
 GPATH="$(go env GOPATH)"
 
-$@ |& tee -a /tmp/l
+$@
 ls="$(basename $1)"
 shift
 case "$ls" in
-  link) log "Finished ${ls} $(basename ${2})" ;;
+  link)
+    log "Finished ${ls} $(basename ${2})" ;;
   compile)
     f=${@: -1}
     pr="$(echo "/${f}" | sed "s#${GPATH}#GOPATH#g" | sed "s#${ROOT}#GOROOT#g")"
