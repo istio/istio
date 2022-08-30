@@ -57,12 +57,12 @@ func TestProxyNeedsPush(t *testing.T) {
 		kind.ServiceEntry: svcName, kind.VirtualService: vsName, kind.DestinationRule: drName, kind.Sidecar: scName,
 	}
 	for kind, name := range sidecarScopeKindNames {
-		sidecar.SidecarScope.AddConfigDependenciesForTesting(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName}.HashCode())
+		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName}.HashCode())
 	}
 	for kind, types := range configKindAffectedProxyTypes {
 		for _, nodeType := range types {
 			if nodeType == model.SidecarProxy {
-				sidecar.SidecarScope.AddConfigDependenciesForTesting(model.ConfigKey{
+				sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{
 					Kind:      kind,
 					Name:      generalName,
 					Namespace: nsName,

@@ -211,7 +211,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
-		out.addConfigDependencies(ConfigKey{
+		out.AddConfigDependencies(ConfigKey{
 			Kind:      kind.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
@@ -221,7 +221,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	for _, drList := range out.destinationRules {
 		for _, dr := range drList {
 			for _, namespacedName := range dr.from {
-				out.addConfigDependencies(ConfigKey{
+				out.AddConfigDependencies(ConfigKey{
 					Kind:      kind.DestinationRule,
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
@@ -234,10 +234,10 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		// add dependencies on delegate virtual services
 		delegates := ps.DelegateVirtualServices(el.virtualServices)
 		for _, delegate := range delegates {
-			out.addConfigDependencies(delegate)
+			out.AddConfigDependencies(delegate)
 		}
 		for _, vs := range el.virtualServices {
-			out.addConfigDependencies(ConfigKey{
+			out.AddConfigDependencies(ConfigKey{
 				Kind:      kind.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
@@ -270,7 +270,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Version:            ps.PushVersion,
 	}
 
-	out.addConfigDependencies(ConfigKey{
+	out.AddConfigDependencies(ConfigKey{
 		Kind:      kind.Sidecar,
 		Name:      sidecarConfig.Name,
 		Namespace: sidecarConfig.Namespace,
@@ -300,7 +300,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			return
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
-			out.addConfigDependencies(ConfigKey{
+			out.AddConfigDependencies(ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
@@ -339,7 +339,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// add dependencies on delegate virtual services
 		delegates := ps.DelegateVirtualServices(listener.virtualServices)
 		for _, delegate := range delegates {
-			out.addConfigDependencies(delegate)
+			out.AddConfigDependencies(delegate)
 		}
 
 		matchPort := needsPortMatch(listener)
@@ -349,7 +349,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
-			out.addConfigDependencies(ConfigKey{
+			out.AddConfigDependencies(ConfigKey{
 				Kind:      kind.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
@@ -417,7 +417,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			out.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
 				for _, key := range dr.from {
-					out.addConfigDependencies(ConfigKey{
+					out.AddConfigDependencies(ConfigKey{
 						Kind:      kind.DestinationRule,
 						Name:      key.Name,
 						Namespace: key.Namespace,
@@ -552,14 +552,7 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
-// Used only in tests.
-func (sc *SidecarScope) AddConfigDependenciesForTesting(dependencies ...ConfigHash) {
-	sc.addConfigDependencies(dependencies...)
-}
-
-// addConfigDependencies add extra config dependencies to this scope. This action should be done before the
-// SidecarScope being used to avoid concurrent read/write.
-func (sc *SidecarScope) addConfigDependencies(dependencies ...ConfigHash) {
+func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 	if sc == nil {
 		return
 	}
