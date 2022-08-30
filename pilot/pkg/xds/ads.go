@@ -51,7 +51,7 @@ var (
 // Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
 
-var knativeEnv = env.RegisterStringVar("K_REVISION", "",
+var knativeEnv = env.Register("K_REVISION", "",
 	"KNative revision, set if running in knative").Get()
 
 // DiscoveryStream is a server interface for XDS.

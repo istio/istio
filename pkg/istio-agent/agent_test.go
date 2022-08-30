@@ -654,7 +654,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig.ProxyBootstrapTemplatePath = filepath.Join(env.IstioSrc, "./tools/packaging/common/envoy_bootstrap.json")
 	resp.ProxyConfig.ConfigPath = d
 	resp.ProxyConfig.BinaryPath = filepath.Join(env.LocalOut, "envoy")
-	if path, exists := pkgenv.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
+	if path, exists := pkgenv.Register("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		resp.ProxyConfig.BinaryPath = path
 	}
 	resp.ProxyConfig.TerminationDrainDuration = nil           // no need to be graceful in a test

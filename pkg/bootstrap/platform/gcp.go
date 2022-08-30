@@ -48,10 +48,10 @@ const (
 )
 
 var (
-	GCPMetadata = env.RegisterStringVar("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
+	GCPMetadata = env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 
 	// GCPQuotaProjectVar holds the value of the `GCP_QUOTA_PROJECT` environment variable.
-	GCPQuotaProjectVar = env.RegisterStringVar("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
+	GCPQuotaProjectVar = env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
 )
 
 var (
@@ -123,11 +123,13 @@ type (
 
 type gcpEnv struct {
 	sync.Mutex
-	metadata           map[string]string
-	shouldFillMetadata bool
+	metadata map[string]string
 }
 
-var gcpEnvOnce sync.Once
+var (
+	fillMetadata bool
+	gcpEnvOnce   sync.Once
+)
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
 func IsGCP() bool {
@@ -149,14 +151,14 @@ func NewGCP() Environment {
 // location information.
 func (e *gcpEnv) Metadata() map[string]string {
 	gcpEnvOnce.Do(func() {
-		e.shouldFillMetadata = shouldFillMetadata()
+		fillMetadata = shouldFillMetadata()
 	})
 
 	md := map[string]string{}
 	if e == nil {
 		return md
 	}
-	if GCPMetadata == "" && !e.shouldFillMetadata {
+	if GCPMetadata == "" && !fillMetadata {
 		return md
 	}
 
@@ -180,7 +182,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPCluster] = envCN
 	}
 
-	if e.shouldFillMetadata {
+	if fillMetadata {
 		// suppliers is an array of functions that supply the metadata for missing properties
 		var suppliers []metadataSupplier
 		if _, found := md[GCPProject]; !found {
@@ -204,7 +206,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPQuotaProject] = GCPQuotaProjectVar
 	}
 	// Exit early now if not on GCE. This allows setting env var when not on GCE.
-	if !e.shouldFillMetadata {
+	if !fillMetadata {
 		e.metadata = md
 		return md
 	}
@@ -286,7 +288,7 @@ func zoneToRegion(z string) (string, error) {
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
-	if e.shouldFillMetadata {
+	if fillMetadata {
 		z, zerr := metadata.Zone()
 		if zerr != nil {
 			log.Warnf("Error fetching GCP zone: %v", zerr)

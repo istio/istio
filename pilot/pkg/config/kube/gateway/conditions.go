@@ -257,17 +257,25 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}
 		cond := gs.Listeners[index].Conditions
+		supported, valid := generateSupportedKinds(l)
+		if !valid {
+			conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
+				reason:  string(k8s.ListenerReasonInvalidRouteKinds),
+				status:  metav1.ConditionFalse,
+				message: "Invalid route kinds",
+			}
+		}
 		gs.Listeners[index] = k8s.ListenerStatus{
 			Name:           l.Name,
 			AttachedRoutes: 0, // this will be reported later
-			SupportedKinds: generateSupportedKinds(l),
+			SupportedKinds: supported,
 			Conditions:     setConditions(obj.Generation, cond, conditions),
 		}
 		return gs
 	})
 }
 
-func generateSupportedKinds(l k8s.Listener) []k8s.RouteGroupKind {
+func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	supported := []k8s.RouteGroupKind{}
 	switch l.Protocol {
 	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
@@ -288,13 +296,25 @@ func generateSupportedKinds(l k8s.Listener) []k8s.RouteGroupKind {
 		intersection := []k8s.RouteGroupKind{}
 		for _, s := range supported {
 			for _, kind := range l.AllowedRoutes.Kinds {
-				if s == kind {
+				if routeGroupKindEqual(s, kind) {
 					intersection = append(intersection, s)
 					break
 				}
 			}
 		}
-		return intersection
+		return intersection, len(intersection) == len(l.AllowedRoutes.Kinds)
 	}
-	return supported
+	return supported, true
+}
+
+// This and the following function really belongs in some gateway-api lib
+func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
+	return rgk1.Kind == rgk2.Kind && getGroup(rgk1) == getGroup(rgk2)
+}
+
+func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
+	if rgk.Group != nil {
+		return *rgk.Group
+	}
+	return "gateway.networking.k8s.io"
 }

@@ -8,7 +8,7 @@ set -e
 # This script can only produce desired results on Linux systems.
 ENVOS=$(uname 2>/dev/null || true)
 if [[ "${ENVOS}" != "Linux" ]]; then
-  echo "Your environment is not supported by this script."
+  echo "Your system is not supported by this script. Only Linux is supported"
   exit 1
 fi
 
