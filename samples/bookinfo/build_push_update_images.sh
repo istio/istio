@@ -59,12 +59,12 @@ do
 		-h|--help )
 		   echo
 		   echo "Build the docker images for bookinfo sample apps, push them to docker hub and update the yaml files."
-		   display_usage ;;
-		   exit 0
+		   display_usage
+		   exit 0 ;;
 		* )
 		   echo "Unknown argument: $i"
-		   display_usage ;;
-		   exit 1
+		   display_usage
+		   exit 1 ;;
 	esac
 done
 
