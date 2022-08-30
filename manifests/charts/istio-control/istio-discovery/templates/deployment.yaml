@@ -125,10 +125,6 @@ spec:
           - name: AMBIENT_AUTO_LABEL
             value: "true"
           {{- end }}
-          {{- if eq .Values.uproxyType "gke" }}
-          - name: SIDECARLESS_CAPTURE
-            value: "bpf"
-          {{- end }}
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
           - name: JWT_POLICY

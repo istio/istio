@@ -1,11 +1,6 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
-metadata:
-  namespace: istio-system
 spec:
-  unvalidatedValues:
-    uproxyType: kind
-
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
     ambientMesh:
@@ -13,6 +8,7 @@ spec:
     defaultConfig:
       proxyMetadata:
         ISTIO_META_ENABLE_HBONE: "true"
+    # Telemetry API is used with ambient instead of EnvoyFilters
     defaultProviders:
       metrics:
       - prometheus
@@ -23,13 +19,7 @@ spec:
   components:
     cni:
       enabled: true
-    # Istio Gateway feature
-    ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
+
   values:
     pilot:
       env:
@@ -41,11 +31,10 @@ spec:
     cni:
       logLevel: "debug"
       privileged: true
-    global:
       # TODO: For enhanced security, ambient defaults to distroless images
       # variant: distroless
-      operatorManageWebhooks: false
     telemetry:
+      # Telemetry handled with Telemetry API only
       enabled: false
       v2:
         enabled: false

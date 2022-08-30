@@ -37,7 +37,7 @@ tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --pus
 kubectl label namespace default istio.io/dataplane-mode=ambient --overwrite
 
 # Install Istio without gateway or webhook
-# profile can be "ambient" or "ambient-gke" or "ambient-aws"
+# profile should be "ambient"
 # Mesh config options are optional to improve debugging
 cat <<EOF | CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ -y -f -
 apiVersion: install.istio.io/v1alpha1
@@ -48,7 +48,7 @@ metadata:
 spec:
   hub: ${HUB}
   tag: ${TAG}
-  profile: ${PROFILE}
+  profile: ambient
   meshConfig:
     accessLogFile: /dev/stdout
     defaultHttpRetryPolicy:

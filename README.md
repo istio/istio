@@ -32,7 +32,6 @@ tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --pus
 ## Setup Ambient
 
 ```shell
-# profile can be "ambient" or "ambient-gke" or "ambient-aws"
 # Mesh config options are optional to improve debugging
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
   --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
