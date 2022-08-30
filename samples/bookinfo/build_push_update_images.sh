@@ -24,18 +24,19 @@ display_usage() {
     echo "	--prefix: Use the value as the prefix for image names. By default, 'istio' is used"
     echo -e "	--scan-images: Enable security vulnerability scans for docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
     echo -e "   --multiarch-images : Enables building and pushing multiarch docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
-    exit 1
 }
 
 # Print usage information for help
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
         display_usage
+        exit 0
 fi
 
 # Check if there is at least one input argument
 if [[ -z "$1" ]] ; then
 	echo "Missing version parameter"
         display_usage
+        exit 1
 else
 	VERSION="$1"
 	shift
@@ -58,10 +59,12 @@ do
 		-h|--help )
 		   echo
 		   echo "Build the docker images for bookinfo sample apps, push them to docker hub and update the yaml files."
-		   display_usage ;;
+		   display_usage
+		   exit 0 ;;
 		* )
 		   echo "Unknown argument: $i"
-		   display_usage ;;
+		   display_usage
+		   exit 1 ;;
 	esac
 done
 
