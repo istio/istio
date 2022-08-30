@@ -32,6 +32,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
@@ -109,6 +110,15 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 			// the following must not be set or the client will NACK
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
+		}
+		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
+		if len(extrAddresses) > 0 && util.IsIstioVersionGE116(node.IstioVersion) {
+			for _, exbd := range extrAddresses {
+				extraAddress := &listener.AdditionalAddress{
+					Address: util.BuildAddress(exbd, uint32(listenPort)),
+				}
+				ll.AdditionalAddresses = append(ll.AdditionalAddresses, extraAddress)
+			}
 		}
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
@@ -309,6 +319,15 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 							},
 						}),
 					},
+				}
+				extrAddresses := sv.GetExtraAddressesForProxy(node)
+				if len(extrAddresses) > 0 && util.IsIstioVersionGE116(node.IstioVersion) {
+					for _, exbd := range extrAddresses {
+						extraAddress := &listener.AdditionalAddress{
+							Address: util.BuildAddress(exbd, uint32(p.Port)),
+						}
+						ll.AdditionalAddresses = append(ll.AdditionalAddresses, extraAddress)
+					}
 				}
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,

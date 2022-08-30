@@ -181,6 +181,9 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			l := lb.inboundCustomListener(cc, chains)
 			if len(cc.extraBind) > 0 && util.IsIstioVersionGE116(lb.node.IstioVersion) {
 				for _, exbd := range cc.extraBind {
+					if exbd == "" {
+						continue
+					}
 					extraAddress := &listener.AdditionalAddress{
 						Address: util.BuildAddress(exbd, cc.port.TargetPort),
 					}

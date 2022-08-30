@@ -54,10 +54,15 @@ func TestVirtualListenerBuilder(t *testing.T) {
 }
 
 var (
-	testServices         = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+	testServices = []*model.Service{
+		buildService("test.com", wildcardIPv4, protocol.HTTP, tnow),
+		buildService("test.com", wildcardIPv6, protocol.HTTP, tnow),
+	}
 	testServicesWithQUIC = []*model.Service{
-		buildService("test.com", wildcardIP, protocol.HTTP, tnow),
-		buildService("quick.com", wildcardIP, protocol.UDP, tnow),
+		buildService("test.com", wildcardIPv4, protocol.HTTP, tnow),
+		buildService("test.com", wildcardIPv6, protocol.HTTP, tnow),
+		buildService("quick.com", wildcardIPv4, protocol.UDP, tnow),
+		buildService("quick.com", wildcardIPv6, protocol.UDP, tnow),
 	}
 )
 

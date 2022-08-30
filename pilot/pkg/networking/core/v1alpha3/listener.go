@@ -1283,6 +1283,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		// add extra addresses for the listener
 		if len(opts.extraBind) > 0 && util.IsIstioVersionGE116(opts.proxy.IstioVersion) {
 			for _, exbd := range opts.extraBind {
+				if exbd == "" {
+					continue
+				}
 				extraAddress := &listener.AdditionalAddress{
 					Address: util.BuildAddress(exbd, uint32(opts.port.Port)),
 				}
@@ -1318,6 +1321,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		// add extra addresses for the listener
 		if len(opts.extraBind) > 0 && util.IsIstioVersionGE116(opts.proxy.IstioVersion) {
 			for _, exbd := range opts.extraBind {
+				if exbd == "" {
+					continue
+				}
 				extraAddress := &listener.AdditionalAddress{
 					Address: util.BuildNetworkAddress(exbd, uint32(opts.port.Port), istionetworking.TransportProtocolQUIC),
 				}
