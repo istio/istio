@@ -17,7 +17,7 @@
 
 # Separate downloader for istioctl
 #
-# You can fetch the the istioctl file using:
+# You can fetch the istioctl file using:
 # curl -sL https://raw.githubusercontent.com/istio/istio/${BRANCH}/release/downloadIstioCtl.sh | sh -
 #
 # where ${BRANCH} is either your branch name (e.g. release-1.4) or master.
