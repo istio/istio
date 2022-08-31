@@ -16,7 +16,6 @@ package bugreport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -29,8 +28,6 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -470,29 +467,6 @@ func appendGlobalErr(err error) {
 	lock.Lock()
 	gErrors = util.AppendErr(gErrors, err)
 	lock.Unlock()
-}
-
-func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
-	if len(kubeConfig) == 0 {
-		return nil, errors.New("kubeconfig is empty")
-	}
-
-	rawConfig, err := clientcmd.Load(kubeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
-	}
-
-	if err := clientcmd.Validate(*rawConfig); err != nil {
-		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
-	}
-
-	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
-
-	clients, err := kube.NewClient(clientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube clients: %v", err)
-	}
-	return clients, nil
 }
 
 func configLogs(opt *log.Options) error {
