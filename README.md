@@ -1,153 +1,86 @@
-# Sidecarless Mesh
+# Ambient Mesh
 
-## Build
+This branch contains the experimental Ambient mesh functionality of Istio.
+See the [Introducing Ambient Mesh](TODO) and [Getting Started with Ambient](TODO) blogs for more information.
+
+## Getting Started
+
+### Supported Environments
+
+The following environments have been tested and are expected to work:
+
+* GKE (_without_ Calico or Dataplane V2)
+* EKS
+* `kind`
+
+The following environments are known to not work currently:
+
+* GKE with Calico CNI
+* GKE with Dataplane V2 CNI
+
+All other environments are unknown currently.
+
+If you don't have a cluster, a simple cluster can be deployed in `kind` for testing:
 
 ```shell
-./local-test-utils/kind-registry.sh
+kindConfig="
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ambient
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+"
+kind create cluster --config=- <<<"${kindConfig[@]}"
+```
 
-export ISTIO_ENVOY_BASE_URL=https://storage.googleapis.com/solo-istio-build/proxy
-HUB=gcr.io/xyz # consider localhost:5000
+### Installing
+
+Installing Istio with Ambient enabled is simple -- just pass `--set profile=ambient`.
+
+First you will need to download the Ambient-enabled build of `istioctl`:
+
+```shell
+$ TODO
+```
+
+Then you can install like normal:
+
+```shell
+$ istioctl install -y --set profile=ambient
+```
+
+Follow [Getting Started with Ambient](TODO) for more details on getting started.
+
+### Installing from source
+
+```shell
+HUB=my-hub # examples: localhost:5000, gcr.io/my-project
 TAG=ambient
-export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
-
-# If using git with ssh key, you can use this:
-# git config --global url."ssh://git@github.com/solo-io".insteadOf https://github.com/solo-io
-
-# Build Istiod and proxy (uproxy and remote proxy are the same image)
-tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push # consider --builder=crane
+# Build the images
+tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push
+go run istioctl/cmd/istioctl install  --set hub=$HUB --set tag=$TAG --set profile=ambient -y
 ```
 
-## Cluster Setup and Install
+## Limitations
 
-```shell
-./local-test-utils/reset-kind.sh
+Ambient mesh is considered experimental.
+As such, it is not suitable for deployment in production environments, and doesn't have the same performance, stability, compatibility, or security guidelines that Istio releases typically have.
 
-# Configure cluster to use the local registry
-./local-test-utils/kind-registry.sh
+In addition to these general caveats, there are a number of known issues in the current implementation.
+These all represent short term limitations, and are expected to be fixed in future releases before promotion beyond "Experimental".
 
-# Move images from your remote registry to the local one (if needed) - not needed if building and pushing images to localhost.
-./local-test-utils/refresh-istio-images.sh
-```
-
-## Setup Ambient
-
-```shell
-# Mesh config options are optional to improve debugging
-CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
-  --set values.global.imagePullPolicy=Always
-
-kubectl apply -f local-test-utils/samples/
-```
-
-## New Test with Ambient
-
-```shell
-# Label the default namespace to make it part of the mesh
-kubectl label namespace default istio.io/dataplane-mode=ambient
-
-kubectl exec -it deploy/sleep -- curl http://helloworld:5000/hello
-
-# In a separate shell, start an interactive session on the client pod
-k exec -it $(k get po -lapp=sleep -ojsonpath='{.items[0].metadata.name}') -- sh
-
-# (From the client pod) Send traffic
-curl helloworld:5000/hello
-```
-
-## Tests with Sidecar Continue to Work
-
-```shell
-# Label the foo namespace with istio injection
-kubectl create ns foo
-kubectl label namespace foo istio-injection=enabled
-
-# Deploy and test the sample with sidecars
-kubectl apply -f local-test-utils/samples/ -n foo
-kubectl exec -it deploy/sleep -n foo -- curl http://helloworld:5000/hello
-
-# Test ambient to sidecar and sidecar to ambient:
-kubectl exec -it deploy/sleep  -- curl  http://helloworld.foo:5000/hello
-kubectl exec -it deploy/sleep -n foo -- curl  http://helloworld.default:5000/hello
-```
-
-## Debugging
-
-Turning on debug logs
-
-```shell
-WORKER1=$(kubectl -n istio-system get pods --field-selector spec.nodeName==ambient-worker -lapp=uproxy -o custom-columns=:.metadata.name --no-headers)
-WORKER2=$(kubectl -n istio-system get pods --field-selector spec.nodeName==ambient-worker2 -lapp=uproxy -o custom-columns=:.metadata.name --no-headers)
-
-kubectl -n istio-system port-forward $WORKER1 15000:15000&
-kubectl -n istio-system port-forward $WORKER2 15001:15000&
-
-curl -XPOST "localhost:15000/logging?level=debug"
-curl -XPOST "localhost:15001/logging?level=debug"
-
-kubectl -n istio-system logs -lapp=uproxy -f
-# Or,
-kubectl -n istio-system logs $WORKER1 -f
-kubectl -n istio-system logs $WORKER2 -f
-
-curl "localhost:15000/config_dump"
-```
-
-## Run the tests
-
-Note: We have to use the custom image to allow installing `ipsets`.
-
-```shell
-INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
-  --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
-  test.integration.uproxy.kube
-```
-
-A workaround for private repo in-containers:
-
-```shell
-# add a replace directive for istio/api to ../api
-# clone/checkout ambient branch in api repo
-# run with CONDITIONAL_HOST_MOUNTS
-CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=$(cd ../api && pwd),destination=/api" \
-INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
-  --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
-  test.integration.uproxy.kube
-```
-
-Run integration tests locally on KinD cluster:
-
-```shell
-# spin up kind cluster using existing scripts
-./local-test-utils/reset-kind.sh
-
-# tell integration test framework which cluster to use
-export KIND_NAME=ambient
-
-# run integation tests
-# rely on HUB and TAG env vars being set and docker images built using steps above
-# use -v to get live output during test run
-# use -run to execute a specific test: i.e. -run "TestServices"
-# skip test cleanup in order to debug state with --istio.test.nocleanup
-go test -tags=integ ./tests/integration/uproxy/... --istio.test.ambient  --istio.test.ci -p 1
-```
-
-## EKS specific notes
-
-`kubectl version` against working setup:
-
-```shell
-Server Version: version.Info{Major:"1", Minor:"21+", GitVersion:"v1.21.12-eks-a64ea69", GitCommit:"d4336843ba36120e9ed1491fddff5f2fec33eb77", GitTreeState:"clean", BuildDate:"2022-05-12T18:29:27Z", GoVersion:"go1.16.15", Compiler:"gc", Platform:"linux/amd64"}
-```
-
-`kg nodes` against working setup (node version only):
-
-```shell
-v1.21.12-eks-5308cf7
-```
-
-newer versions appear to be slightly broken (same node works, cross node request to other envoy looks malformed), such as
-
-```shell
-v1.22.6-eks-7d68063
-```
+* While `AuthorizationPolicy` is generally supported, there are a number of cases where authorization checks are not as strict as expected or not applied at all.
+* There are known performance issues for most measurements, including data plane throughput/latency, data plane resource consumption, scalability of cluster sizes, control plane resource consumption, and configuration propogation latency.
+* There are known cases where pods may temporarily not be treated as part of the mesh throughput their lifecycle.
+* Use of `NetworkPolicy` is currently undefined behavior.
+* Reported telemetry data only shows `reporter=destination` metrics.
+* Access log configuration is not fully respected.
+* Services that are ambient-enabled are not accessible through `LoadBalancer` or `NodePort`s. However, you can deploy an ingressgateway (which is not ambient-enabled) to access services externally.
+* Excessive permissions are granted to various components.
+* Requests directly to pod IPs (rather than Services) do not work in some cases.
+* `EnvoyFilter`s are not supported.
+* Workloads not listening on `localhost` are not supported (see [here](https://istio.io/latest/blog/2021/upcoming-networking-changes/)).
+* Traffic from outside the mesh does not have inbound policy applied.
+* `STRICT` mTLS does not fully prevent plain text traffic.
