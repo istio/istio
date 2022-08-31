@@ -260,6 +260,10 @@ func (cl *Client) informerSynced() bool {
 	return true
 }
 
+func (cl *Client) HasStarted() bool {
+	return cl.client.HasStarted()
+}
+
 func (cl *Client) HasSynced() bool {
 	return cl.initialSync.Load()
 }

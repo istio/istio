@@ -17,6 +17,7 @@ package memory
 import (
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -31,6 +32,8 @@ type Controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
 	hasSynced   func() bool
+
+	started atomic.Bool
 }
 
 // NewController return an implementation of ConfigStoreController
@@ -64,6 +67,10 @@ func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
 	return nil
+}
+
+func (c *Controller) HasStarted() bool {
+	return c.started.Load()
 }
 
 // HasSynced return whether store has synced
