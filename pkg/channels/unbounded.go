@@ -37,20 +37,20 @@ import (
 // performance critical code paths, using Unbounded is strongly discouraged and
 // defining a new type specific implementation of this buffer is preferred. See
 // internal/transport/transport.go for an example of this.
-type Unbounded struct {
-	c       chan any
+type Unbounded[T any] struct {
+	c       chan T
 	mu      sync.Mutex
-	backlog []any
+	backlog []T
 }
 
 // NewUnbounded returns a new instance of Unbounded.
-func NewUnbounded() *Unbounded {
-	return &Unbounded{c: make(chan any, 1)}
+func NewUnbounded[T any]() *Unbounded[T] {
+	return &Unbounded[T]{c: make(chan T, 1)}
 }
 
 // Put adds t to the unbounded buffer.
 // Put will never block
-func (b *Unbounded) Put(t any) {
+func (b *Unbounded[T]) Put(t T) {
 	b.mu.Lock()
 	if len(b.backlog) == 0 {
 		select {
@@ -67,10 +67,10 @@ func (b *Unbounded) Put(t any) {
 // Load sends the earliest buffered data, if any, onto the read channel
 // returned by Get(). Users are expected to call this every time they read a
 // value from the read channel.
-func (b *Unbounded) Load() {
+func (b *Unbounded[T]) Load() {
 	b.mu.Lock()
 	if len(b.backlog) > 0 {
-		n := new(any)
+		n := new(T)
 		select {
 		case b.c <- b.backlog[0]:
 			b.backlog[0] = *n
@@ -86,6 +86,6 @@ func (b *Unbounded) Load() {
 //
 // Upon reading a value from this channel, users are expected to call Load() to
 // send the next buffered value onto the channel if there is any.
-func (b *Unbounded) Get() <-chan any {
+func (b *Unbounded[T]) Get() <-chan T {
 	return b.c
 }
