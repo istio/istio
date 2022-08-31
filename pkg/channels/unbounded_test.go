@@ -44,7 +44,7 @@ func init() {
 // TestSingleWriter starts one reader and one writer goroutine and makes sure
 // that the reader gets all the value added to the buffer by the writer.
 func TestSingleWriter(t *testing.T) {
-	ub := NewUnbounded()
+	ub := NewUnbounded[int]()
 	reads := []int{}
 
 	var wg sync.WaitGroup
@@ -54,7 +54,7 @@ func TestSingleWriter(t *testing.T) {
 		ch := ub.Get()
 		for i := 0; i < numWriters*numWrites; i++ {
 			r := <-ch
-			reads = append(reads, r.(int))
+			reads = append(reads, r)
 			ub.Load()
 		}
 	}()
@@ -78,7 +78,7 @@ func TestSingleWriter(t *testing.T) {
 // TestMultipleWriters starts multiple writers and one reader goroutine and
 // makes sure that the reader gets all the data written by all writers.
 func TestMultipleWriters(t *testing.T) {
-	ub := NewUnbounded()
+	ub := NewUnbounded[int]()
 	reads := []int{}
 
 	var wg sync.WaitGroup
@@ -88,7 +88,7 @@ func TestMultipleWriters(t *testing.T) {
 		ch := ub.Get()
 		for i := 0; i < numWriters*numWrites; i++ {
 			r := <-ch
-			reads = append(reads, r.(int))
+			reads = append(reads, r)
 			ub.Load()
 		}
 	}()
