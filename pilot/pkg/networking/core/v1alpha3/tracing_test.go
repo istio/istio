@@ -24,7 +24,6 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 )
@@ -521,7 +521,7 @@ func fakeZipkinProvider(expectClusterName, expectAuthority, expectProviderName s
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
-	fakeZipkinAny, _ := anypb.New(fakeZipkinProviderConfig)
+	fakeZipkinAny := protoconv.MessageToAny(fakeZipkinProviderConfig)
 	return &tracingcfg.Tracing_Http{
 		Name:       expectProviderName,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeZipkinAny},
@@ -539,7 +539,7 @@ func fakeSkywalkingProvider(expectClusterName, expectAuthority, expectProviderNa
 			},
 		},
 	}
-	fakeSkywalkingAny, _ := anypb.New(fakeSkywalkingProviderConfig)
+	fakeSkywalkingAny := protoconv.MessageToAny(fakeSkywalkingProviderConfig)
 	return &tracingcfg.Tracing_Http{
 		Name:       expectProviderName,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeSkywalkingAny},
