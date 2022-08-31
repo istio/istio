@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pkg/kube/controllers"
 )
 
@@ -120,7 +120,7 @@ func (s *Server) Reconciler(name types.NamespacedName) error {
 	}
 
 	if (s.isAmbientGlobal() || (s.isAmbientNamespaced() && matchAmbient)) && !matchDisabled {
-		if ambient.HasLegacyLabel(ns.GetLabels()) {
+		if ambientpod.HasLegacyLabel(ns.GetLabels()) {
 			log.Errorf(ErrLegacyLabel, name.Name)
 			// Don't put the namespace back in queue, if "they" fix the label, it'll be requeued
 			return nil
@@ -128,7 +128,7 @@ func (s *Server) Reconciler(name types.NamespacedName) error {
 		log.Infof("Namespace %s is enabled in ambient mesh", name.Name)
 
 		for _, pod := range pods {
-			if podOnMyNode(pod) && !ambient.PodHasOptOut(pod) {
+			if podOnMyNode(pod) && !ambientpod.PodHasOptOut(pod) {
 				log.Debugf("Adding pod to mesh: %s", pod.Name)
 				AddPodToMesh(pod, "")
 			} else {
@@ -225,7 +225,7 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 			}
 
 			// Catch pod with opt out applied
-			if ambient.PodHasOptOut(newPod) && !ambient.PodHasOptOut(oldPod) && podOnMyNode(newPod) {
+			if ambientpod.PodHasOptOut(newPod) && !ambientpod.PodHasOptOut(oldPod) && podOnMyNode(newPod) {
 				log.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
 				DelPodFromMesh(newPod)
 				return

@@ -23,6 +23,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube/controllers"
 )
@@ -79,7 +80,7 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 		return err
 	}
 
-	w := ambient.Workload{Pod: pod}
+	w := ambientpod.WorkloadFromPod(pod)
 	index, ok := wc.indexes[pod.Labels[ambient.LabelType]]
 	if ok && wc.validate(w) {
 		// known type, cache it
@@ -97,12 +98,8 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 }
 
 func (wc *workloadCache) validate(w ambient.Workload) bool {
-	if w.Pod == nil {
-		// should never happen
-		return false
-	}
 	// TODO also check readiness; also requirements may differ by ambient-type
-	return w.Pod.Status.PodIP != ""
+	return w.PodIP != ""
 }
 
 func (wc *workloadCache) removeFromAll(key types.NamespacedName) {
@@ -111,8 +108,8 @@ func (wc *workloadCache) removeFromAll(key types.NamespacedName) {
 	}
 }
 
-// Workloads returns a _copy_ of the indexes in the cache, and resolves relationships between the different types.
-// We copy to avoid building config from information that is only partially updated.
+// SidecarlessWorkloads returns a _copy_ of the indexes in the cache, and resolves relationships between the different
+// types. We copy to avoid building config from information that is only partially updated.
 func (wc *workloadCache) SidecarlessWorkloads() ambient.Indexes {
 	return ambient.Indexes{
 		Workloads: wc.indexes[ambient.TypeWorkload].Copy(),

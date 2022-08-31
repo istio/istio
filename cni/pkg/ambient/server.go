@@ -27,7 +27,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/cni/pkg/ambient/constants"
-	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -66,7 +66,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		environment:       e,
 		ctx:               ctx,
 		meshMode:          v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
-		disabledSelectors: ambient.LegacySelectors,
+		disabledSelectors: ambientpod.LegacySelectors,
 		uproxyRunning:     false,
 		kubeClient:        client,
 	}

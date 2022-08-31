@@ -19,8 +19,6 @@ import (
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
@@ -55,28 +53,18 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 
 	var workloads []*wmpb.WorkloadMetadataResource
 
-	for _, pod := range g.Workloads.SidecarlessWorkloads().Workloads.ByNode[proxyKubernetesNodeName] {
+	for _, wl := range g.Workloads.SidecarlessWorkloads().Workloads.ByNode[proxyKubernetesNodeName] {
 		// TODO: this is cheating. we need a way to get the owing workload name
 		// in a way that isn't a shortcut.
-		name, workloadType := workloadNameAndType(pod.Pod)
-		cs, cr := labels.CanonicalService(pod.Labels, name)
-
-		ips := []string{}
-		for _, pip := range pod.Status.PodIPs {
-			ips = append(ips, pip.IP)
-		}
-
-		containers := []string{}
-		for _, c := range pod.Spec.Containers {
-			containers = append(containers, c.Name)
-		}
+		name, workloadType := workloadNameAndType(wl)
+		cs, cr := labels.CanonicalService(wl.Labels, name)
 
 		workloads = append(workloads,
 			&wmpb.WorkloadMetadataResource{
-				IpAddresses:       ips,
-				InstanceName:      pod.Name,
-				NamespaceName:     pod.Namespace,
-				Containers:        containers,
+				IpAddresses:       wl.PodIPs,
+				InstanceName:      wl.Name,
+				NamespaceName:     wl.Namespace,
+				Containers:        wl.Containers,
 				WorkloadName:      name,
 				WorkloadType:      workloadType,
 				CanonicalName:     cs,
@@ -99,41 +87,28 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 }
 
 // total hack
-func workloadNameAndType(pod *v1.Pod) (string, wmpb.WorkloadMetadataResource_WorkloadType) {
-	if len(pod.GenerateName) == 0 {
-		return pod.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
+func workloadNameAndType(wl ambient.Workload) (string, wmpb.WorkloadMetadataResource_WorkloadType) {
+	if len(wl.GenerateName) == 0 {
+		return wl.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
 	}
 
 	// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-	var controllerRef metav1.OwnerReference
-	controllerFound := false
-	for _, ref := range pod.GetOwnerReferences() {
-		if *ref.Controller {
-			controllerRef = ref
-			controllerFound = true
-			break
-		}
-	}
-
-	if !controllerFound {
-		return pod.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
-	}
 
 	// heuristic for deployment detection
-	if controllerRef.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
-		name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
+	if wl.ControllerKind == "ReplicaSet" && strings.HasSuffix(wl.ControllerName, wl.Labels["pod-template-hash"]) {
+		name := strings.TrimSuffix(wl.ControllerName, "-"+wl.Labels["pod-template-hash"])
 		return name, wmpb.WorkloadMetadataResource_KUBERNETES_DEPLOYMENT
 	}
 
-	if controllerRef.Kind == "Job" {
+	if wl.ControllerKind == "Job" {
 		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, wmpb.WorkloadMetadataResource_KUBERNETES_JOB
+		return wl.ControllerName, wmpb.WorkloadMetadataResource_KUBERNETES_JOB
 	}
 
-	if controllerRef.Kind == "CronJob" {
+	if wl.ControllerKind == "CronJob" {
 		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, wmpb.WorkloadMetadataResource_KUBERNETES_CRONJOB
+		return wl.ControllerName, wmpb.WorkloadMetadataResource_KUBERNETES_CRONJOB
 	}
 
-	return pod.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
+	return wl.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
 }

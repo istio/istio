@@ -17,26 +17,40 @@ package ambient
 import (
 	"encoding/json"
 	"sync"
+	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/label"
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
 )
+
+type WorkloadMetadata struct {
+	Containers     []string
+	GenerateName   string
+	ControllerName string
+	ControllerKind string
+}
 
 // TODO shouldn't call this a workload. Maybe "node" encapsulates all of uproxy, pep, workload
 type Workload struct {
-	*corev1.Pod // TODO extract important things instead of embedding Pod
+	UID       string
+	Name      string
+	Namespace string
+	Labels    map[string]string
+
+	ServiceAccount string
+	NodeName       string
+	PodIP          string
+	PodIPs         []string
+
+	WorkloadMetadata
+
+	CreationTimestamp time.Time
 }
 
+// Identity generates SecureNamingSAN but for Workload instead of Pod
 func (w Workload) Identity() string {
-	// TODO duplicated to avoid import cycle
-	return spiffe.MustGenSpiffeURI(w.Pod.Namespace, w.Pod.Spec.ServiceAccountName)
+	return spiffe.MustGenSpiffeURI(w.Namespace, w.ServiceAccount)
 }
 
 type NodeType = string
@@ -133,13 +147,10 @@ func (wi *WorkloadIndex) All() []Workload {
 }
 
 func (wi *WorkloadIndex) Insert(workload Workload) {
-	if workload.Pod == nil {
-		return
-	}
 	wi.Lock()
 	defer wi.Unlock()
-	node, sa := workload.Spec.NodeName, workload.Identity()
-	ip := workload.Status.PodIP // TODO eventually support multi-IP
+	node, sa := workload.NodeName, workload.Identity()
+	ip := workload.PodIP // TODO eventually support multi-IP
 	namespacedName := types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}
 
 	// TODO if we start indexing by a mutable key, call Remove here
@@ -197,117 +208,4 @@ func (wi *WorkloadIndex) Remove(namespacedName types.NamespacedName) {
 
 func (wi *WorkloadIndex) Copy() *WorkloadIndex {
 	return wi.MergeInto(NewWorkloadIndex())
-}
-
-const (
-	AmbientMeshNamespace = v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT
-	AmbientMeshOff       = v1alpha1.MeshConfig_AmbientMeshConfig_OFF
-	AmbientMeshOn        = v1alpha1.MeshConfig_AmbientMeshConfig_ON
-)
-
-// @TODO Interim function for pep, to be replaced after design meeting
-func PodHasOptOut(pod *corev1.Pod) bool {
-	if val, ok := pod.Labels["ambient-type"]; ok {
-		return val == "pep" || val == "none"
-	}
-	return false
-}
-
-func HasSelectors(lbls map[string]string, selectors []*metav1.LabelSelector) bool {
-	for _, selector := range selectors {
-		sel, err := metav1.LabelSelectorAsSelector(selector)
-		if err != nil {
-			log.Errorf("Failed to parse selector: %v", err)
-			return false
-		}
-
-		if sel.Matches(labels.Set(lbls)) {
-			return true
-		}
-	}
-	return false
-}
-
-var LegacySelectors = []*metav1.LabelSelector{
-	{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      "istio-injection",
-				Operator: metav1.LabelSelectorOpIn,
-				Values: []string{
-					"enabled",
-				},
-			},
-		},
-	},
-	{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      label.IoIstioRev.Name,
-				Operator: metav1.LabelSelectorOpExists,
-			},
-		},
-	},
-}
-
-// We do not support the istio.io/rev or istio-injection sidecar labels
-// If a pod or namespace has these labels, ambient mesh will not be applied
-// to that namespace
-func HasLegacyLabel(lbl map[string]string) bool {
-	for _, ls := range LegacySelectors {
-		sel, err := metav1.LabelSelectorAsSelector(ls)
-		if err != nil {
-			log.Errorf("Failed to parse legacy selector: %v", err)
-			return false
-		}
-
-		if sel.Matches(labels.Set(lbl)) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func hasPodIP(pod *corev1.Pod) bool {
-	return pod.Status.PodIP != ""
-}
-
-func isRunning(pod *corev1.Pod) bool {
-	return pod.Status.Phase == corev1.PodRunning
-}
-
-func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode string, ignoreNotRunning bool) bool {
-	// Pod must:
-	// - Be running
-	// - Have an IP address
-	// - Ambient mesh not be off
-	// - Cannot have a legacy label (istio.io/rev or istio-injection=enabled)
-	// - If mesh is in namespace mode, must be in active namespace
-	if (ignoreNotRunning || (isRunning(pod) && hasPodIP(pod))) &&
-		meshMode != AmbientMeshOff.String() &&
-		!HasLegacyLabel(pod.GetLabels()) &&
-		!PodHasOptOut(pod) &&
-		IsNamespaceActive(namespace, meshMode) {
-		return true
-	}
-
-	return false
-}
-
-func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
-	// Must:
-	// - MeshConfig be in an "ON" mode
-	// - MeshConfig must be in a "DEFAULT" mode, plus:
-	//   - Namespace cannot have "legacy" labels (ie. istio.io/rev or istio-injection=enabled)
-	//   - Namespace must have label istio.io/dataplane-mode=ambient
-	if meshMode == AmbientMeshOn.String() ||
-		(meshMode == AmbientMeshNamespace.String() &&
-			namespace != nil &&
-			!HasLegacyLabel(namespace.GetLabels()) &&
-			namespace.GetLabels()["istio.io/dataplane-mode"] == "ambient") {
-		return true
-	}
-
-	return false
 }

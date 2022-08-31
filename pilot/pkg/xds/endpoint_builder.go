@@ -396,7 +396,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 			if len(workloads) > 0 {
 				// TODO: only ready
 				// TODO: load balance
-				tunnelAddress = workloads[0].Status.PodIP
+				tunnelAddress = workloads[0].PodIP
 				tunnelPort = 15006
 			}
 		}

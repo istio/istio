@@ -89,7 +89,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -213,12 +212,12 @@ func pickWorkload(workloads []ambient.Workload) *ambient.Workload {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if workloads[i].CreationTimestamp.Equal(&workloads[j].CreationTimestamp) {
+		if workloads[i].CreationTimestamp.Equal(workloads[j].CreationTimestamp) {
 			in := workloads[i].Name + "." + workloads[i].Namespace
 			jn := workloads[j].Name + "." + workloads[j].Namespace
 			return in < jn
 		}
-		return workloads[i].CreationTimestamp.Before(&workloads[j].CreationTimestamp)
+		return workloads[i].CreationTimestamp.Before(workloads[j].CreationTimestamp)
 	})
 	return &workloads[0]
 }
@@ -353,7 +352,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 	for _, sourceWl := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		sourceAndDestMatch := match.NewDestinationIP()
 		// TODO: handle host network better, which has a shared IP
-		sourceMatch.Map[sourceWl.Status.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
+		sourceMatch.Map[sourceWl.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
 
 		clientPeps := push.SidecarlessIndex.PEPs.ByIdentity[sourceWl.Identity()] // TODO need to use this instead of ServiceAccountName
 		clientPepChain := buildPepChain(sourceWl, clientPeps, "client")
@@ -429,7 +428,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 				// TODO2: this is still broken even with custom orig_dst. the listener sets the orig_src mark
 				// If we
 
-				name := sourceWl.Identity() + "_to_" + wl.Status.PodIP
+				name := sourceWl.Identity() + "_to_" + wl.PodIP
 				tunnel := &tcp.TcpProxy_TunnelingConfig{
 					Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 					HeadersToAdd: []*core.HeaderValueOption{
@@ -440,7 +439,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 				// Case 1: tunnel cross node
 				cluster := outboundPodTunnelClusterName(sourceWl.Identity())
 				// Case 2: same node tunnel (iptables)
-				if node := wl.Spec.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
+				if node := wl.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
 					cluster = outboundPodLocalTunnelClusterName(sourceWl.Identity())
 				}
 				// Case 3: direct
@@ -450,7 +449,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 				}
 				// Case 4: same node tunnel (bpf)
 				// Currently we don't get redirection from remote -> pod on same node
-				if node := wl.Spec.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
+				if node := wl.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
 					cluster = util.PassthroughCluster + "-tcp"
 					tunnel = nil
 				}
@@ -476,7 +475,7 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 			if !seen.InsertContains(chain.Name) {
 				l.FilterChains = append(l.FilterChains, chain)
 			}
-			sourceAndDestMatch.Map[wl.Status.PodIP] = match.ToChain(chain.Name)
+			sourceAndDestMatch.Map[wl.PodIP] = match.ToChain(chain.Name)
 		}
 	}
 
@@ -909,7 +908,7 @@ func buildPepLbEndpoints(pepIdentity, t string, push *model.PushContext) []*endp
 				Address: &core.Address{
 					Address: &core.Address_SocketAddress{
 						SocketAddress: &core.SocketAddress{
-							Address:       pep.Status.PodIP,
+							Address:       pep.PodIP,
 							PortSpecifier: &core.SocketAddress_PortValue{PortValue: port},
 						},
 					},
@@ -966,9 +965,9 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 	// TODO always use the below flow, always specify which workload
 	if workload != nil {
 		// present the workload cert if possible
-		workloadSecret := kube.SecureNamingSAN(workload.Pod)
+		workloadSecret := workload.Identity()
 		if workload.UID != "" {
-			workloadSecret += "~" + workload.Name + "~" + string(workload.UID)
+			workloadSecret += "~" + workload.Name + "~" + workload.UID
 		}
 		ctx.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			security.ConstructSdsSecretConfig(workloadSecret),
@@ -1177,8 +1176,8 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 				},
 			})
 			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
-				Name:             "inbound_" + workload.Status.PodIP,
-				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
+				Name:             "inbound_" + workload.PodIP,
+				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.PodIP)},
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
@@ -1190,8 +1189,8 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 		} else {
 			// Pod is already handling HBONE, and this is an HBONE request. Pass it through directly.
 			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
-				Name:             "inbound_" + workload.Status.PodIP,
-				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
+				Name:             "inbound_" + workload.PodIP,
+				FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.PodIP)},
 				Filters: []*listener.Filter{{
 					Name: wellknown.TCPProxy,
 					ConfigType: &listener.Filter_TypedConfig{
@@ -1280,8 +1279,8 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 			},
 		})
 		l.FilterChains = append(l.FilterChains, &listener.FilterChain{
-			Name:             "inbound_" + workload.Status.PodIP,
-			FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.Status.PodIP)},
+			Name:             "inbound_" + workload.PodIP,
+			FilterChainMatch: &listener.FilterChainMatch{PrefixRanges: matchIP(workload.PodIP)},
 			Filters:          filters,
 		})
 	}

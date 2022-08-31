@@ -32,7 +32,7 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -289,15 +289,7 @@ func (c *Controller) AmbientEnabled(pod *v1.Pod) bool {
 
 	ns, _ := c.nsLister.Get(pod.Namespace) // Nil namespace is valid, we may not care if mode is ON
 
-	if pod.Name == "frontend-749ff9dc4f-b8zpv" {
-		log.WithLabels(
-			"mode", ambientConfig.GetMode(),
-			"legacy pod", ambient.HasLegacyLabel(pod.GetLabels()),
-			"opt out", ambient.PodHasOptOut(pod),
-			"namespace active", ambient.IsNamespaceActive(ns, ambientConfig.GetMode().String()),
-		).Infof("enabled? %v", ambient.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true))
-	}
-	return ambient.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true)
+	return ambientpod.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true)
 }
 
 func (c *Controller) PodInformation() []*v1.Pod {

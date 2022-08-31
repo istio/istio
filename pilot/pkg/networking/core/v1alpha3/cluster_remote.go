@@ -80,14 +80,14 @@ func (configgen *ConfigGeneratorImpl) buildRemoteInboundClusters(cb *ClusterBuil
 }
 
 func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.Status.PodIP), port.Port)
-	address := wl.Status.PodIP
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
+	address := wl.PodIP
 	tunnelPort := 15008
 	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
 	// and add some detunnel metadata that had the original port.
 	tunnelOrigLis := "inbound_CONNECT_originate"
 	llb := util.BuildInternalEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, port.Port, tunnelPort))
-	if wl.Spec.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
+	if wl.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
 		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
 		// Instead, just go direct
 		llb = buildEndpoint(address, port.Port)
@@ -112,7 +112,7 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 	// Apply internal_upstream, since we need to pass our the pod dest address in the metadata
 	localCluster.cluster.TransportSocketMatches = nil
 	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
-	if wl.Spec.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
+	if wl.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
 		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
 		localCluster.cluster.TransportSocket = nil
 	}
@@ -287,7 +287,7 @@ func (cb *ClusterBuilder) buildRemoteInboundPod(wls []WorkloadAndServices, disco
 		wl := wlx.WorkloadInfo
 		instances := discovery.GetProxyServiceInstances(&model.Proxy{
 			Type:            model.SidecarProxy,
-			IPAddresses:     []string{wl.Status.PodIP},
+			IPAddresses:     []string{wl.PodIP},
 			ConfigNamespace: wl.Namespace,
 			Metadata: &model.NodeMetadata{
 				Namespace: wl.Namespace,

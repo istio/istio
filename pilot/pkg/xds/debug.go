@@ -1076,27 +1076,27 @@ func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
 		res.PEPs = append(res.PEPs, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
-			Address:   wl.Status.PodIP,
+			Address:   wl.PodIP,
 			Identity:  wl.Identity(),
-			Node:      wl.Spec.NodeName,
+			Node:      wl.NodeName,
 		})
 	}
 	for _, wl := range d.UProxies.All() {
 		res.UProxies = append(res.UProxies, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
-			Address:   wl.Status.PodIP,
+			Address:   wl.PodIP,
 			Identity:  wl.Identity(),
-			Node:      wl.Spec.NodeName,
+			Node:      wl.NodeName,
 		})
 	}
 	for _, wl := range d.Workloads.All() {
 		res.Workloads = append(res.Workloads, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
-			Address:   wl.Status.PodIP,
+			Address:   wl.PodIP,
 			Identity:  wl.Identity(),
-			Node:      wl.Spec.NodeName,
+			Node:      wl.NodeName,
 		})
 	}
 

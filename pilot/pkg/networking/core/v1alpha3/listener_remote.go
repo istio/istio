@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	security "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
@@ -151,7 +150,7 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 		// TODO: fake proxy is really bad. Should have these take in Workload or similar
 		instances := lb.Discovery.GetProxyServiceInstances(&model.Proxy{
 			Type:            model.SidecarProxy,
-			IPAddresses:     []string{wl.Status.PodIP},
+			IPAddresses:     []string{wl.PodIP},
 			ConfigNamespace: wl.Namespace,
 			Metadata: &model.NodeMetadata{
 				Namespace: wl.Namespace,
@@ -160,12 +159,12 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 		})
 		// For each port, setup a route
 		for _, port := range getPorts(instances) {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.Status.PodIP), port.Port)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
 			vhost.Routes = append(vhost.Routes, &route.Route{
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 					Headers: []*route.HeaderMatcher{
-						istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", wl.Status.PodIP, port.Port)),
+						istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", wl.PodIP, port.Port)),
 					},
 				},
 				Action: &route.Route_Route{Route: &route.RouteAction{
@@ -334,7 +333,7 @@ func (lb *ListenerBuilder) buildRemoteInboundPod(wls []WorkloadAndServices) []*l
 		// TODO: fake proxy is really bad. Should have these take in Workload or similar
 		instances := lb.Discovery.GetProxyServiceInstances(&model.Proxy{
 			Type:            model.SidecarProxy,
-			IPAddresses:     []string{wl.Status.PodIP},
+			IPAddresses:     []string{wl.PodIP},
 			ConfigNamespace: wl.Namespace,
 			Metadata: &model.NodeMetadata{
 				Namespace: wl.Namespace,
@@ -351,7 +350,7 @@ func (lb *ListenerBuilder) buildRemoteInboundPod(wls []WorkloadAndServices) []*l
 				continue
 			}
 			cc := inboundChainConfig{
-				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.Status.PodIP), port.Port),
+				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
 				port: ServiceInstancePort{
 					Name:       port.Name,
 					Port:       uint32(port.Port),
@@ -726,6 +725,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	)
 }
 
+// TODO remove dupe with uproxygen
 func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
@@ -733,9 +733,9 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 	// TODO always use the below flow, always specify which workload
 	if workload != nil {
 		// present the workload cert if possible
-		workloadSecret := kube.SecureNamingSAN(workload.Pod)
+		workloadSecret := workload.Identity()
 		if workload.UID != "" {
-			workloadSecret += "~" + workload.Name + "~" + string(workload.UID)
+			workloadSecret += "~" + workload.Name + "~" + workload.UID
 		}
 		ctx.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			security.ConstructSdsSecretConfig(workloadSecret),
