@@ -168,6 +168,9 @@ type BugReportConfig struct {
 	// IgnoredErrors are glob error patterns which are ignored when
 	// calculating the error heuristic for a log.
 	IgnoredErrors []string `json:"ignoredErrors,omitempty"`
+
+	// RequestsPerSecondLimit controls the RPS limit to the API server.
+	RequestsPerSecondLimit int `json:"requestsPerSecondLimit,omitempty"`
 }
 
 func (b *BugReportConfig) String() string {

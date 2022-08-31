@@ -28,6 +28,7 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -98,7 +99,8 @@ var (
 )
 
 func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
-	kubectlcmd.ReportRunningTasks()
+	runner := kubectlcmd.NewRunner(gConfig.RequestsPerSecondLimit)
+	runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
 		return err
 	}
@@ -109,7 +111,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	clusterCtxStr := ""
 	if config.Context == "" {
 		var err error
-		clusterCtxStr, err = content.GetClusterContext(config.KubeConfigPath)
+		clusterCtxStr, err = content.GetClusterContext(runner, config.KubeConfigPath)
 		if err != nil {
 			return err
 		}
@@ -120,15 +122,16 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
 	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
-	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
+	restConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context, gConfig.RequestsPerSecondLimit)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	client, err := kube.NewCLIClient(clientConfig, "")
+	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig), "")
 	if err != nil {
 		return err
 	}
 	common.LogAndPrintf("\nCluster endpoint: %s\n", client.RESTConfig().Host)
+	runner.SetClient(client)
 
 	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), commandTimeout)
 	curTime := time.Now()
@@ -154,7 +157,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 
 	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
-	gatherInfo(client, config, resources, paths)
+	gatherInfo(runner, config, resources, paths)
 	if len(gErrors) != 0 {
 		log.Error(gErrors.ToError())
 	}
@@ -264,7 +267,7 @@ func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string)
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
 // proxy logs and info are saved in logs/stats/importance global maps.
 // Errors are reported through gErrors.
-func gatherInfo(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
+func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
 	// no timeout on mandatoryWg.
 	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
@@ -273,7 +276,7 @@ func gatherInfo(client kube.CLIClient, config *config.BugReportConfig, resources
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
 	params := &content.Params{
-		Client:      client,
+		Runner:      runner,
 		DryRun:      config.DryRun,
 		KubeConfig:  config.KubeConfigPath,
 		KubeContext: config.Context,
@@ -303,14 +306,14 @@ func gatherInfo(client kube.CLIClient, config *config.BugReportConfig, resources
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
-			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
+			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
-			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
+			getIstiodLogs(runner, config, resources, namespace, pod, &mandatoryWg)
 
 		case common.IsOperatorContainer(params.ClusterVersion, container):
-			getOperatorLogs(client, config, resources, namespace, pod, &optionalWg)
+			getOperatorLogs(runner, config, resources, namespace, pod, &optionalWg)
 		}
 	}
 
@@ -352,14 +355,14 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 // getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
 // Runs if a goroutine, with errors reported through gErrors.
 // TODO(stewartbutler): output the logs to a more robust/complete structure.
-func getProxyLogs(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources,
+func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
-		clog, cstat, imp, err := getLog(client, resources, config, namespace, pod, container)
+		clog, cstat, imp, err := getLog(runner, resources, config, namespace, pod, container)
 		appendGlobalErr(err)
 		lock.Lock()
 		if err == nil {
@@ -372,14 +375,14 @@ func getProxyLogs(client kube.CLIClient, config *config.BugReportConfig, resourc
 
 // getIstiodLogs fetches Istiod logs for the given namespace/pod and writes the output.
 // Runs if a goroutine, with errors reported through gErrors.
-func getIstiodLogs(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources,
+func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
+		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
 		log.Infof("Done with logs %s", pod)
@@ -387,14 +390,14 @@ func getIstiodLogs(client kube.CLIClient, config *config.BugReportConfig, resour
 }
 
 // getOperatorLogs fetches istio-operator logs for the given namespace/pod and writes the output.
-func getOperatorLogs(client kube.CLIClient, config *config.BugReportConfig, resources *cluster2.Resources,
+func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.OperatorContainerName)
+		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog)
 		log.Infof("Done with logs %s", pod)
@@ -402,16 +405,16 @@ func getOperatorLogs(client kube.CLIClient, config *config.BugReportConfig, reso
 }
 
 // getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
-func getLog(client kube.CLIClient, resources *cluster2.Resources, config *config.BugReportConfig,
+func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
 	namespace, pod, container string,
 ) (string, *processlog.Stats, int, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
-	clog, err := kubectlcmd.Logs(client, namespace, pod, container, false, config.DryRun)
+	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
 	if err != nil {
 		return "", nil, 0, err
 	}
 	if resources.ContainerRestarts(namespace, pod, container) > 0 {
-		pclog, err := kubectlcmd.Logs(client, namespace, pod, container, true, config.DryRun)
+		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
 		if err != nil {
 			return "", nil, 0, err
 		}
