@@ -221,6 +221,10 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 				Reason:  string(v1alpha2.GatewayReasonReady),
 				Message: msg,
 			},
+			string(v1alpha2.GatewayConditionScheduled): {
+				Reason:  string(v1alpha2.GatewayReasonScheduled),
+				Message: msg,
+			},
 		})
 		if err != nil {
 			log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
