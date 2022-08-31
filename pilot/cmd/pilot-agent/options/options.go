@@ -88,6 +88,8 @@ var (
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
 	proxyXDSDebugViaAgent = env.Register("PROXY_XDS_DEBUG_VIA_AGENT", true,
 		"If set to true, the agent will listen on tap port and offer pilot's XDS istio.io/debug debug API there.").Get()
+	proxyXDSDebugViaAgentPort = env.Register("PROXY_XDS_DEBUG_VIA_AGENT_PORT", 15004,
+		"Agent debugging port.").Get()
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")

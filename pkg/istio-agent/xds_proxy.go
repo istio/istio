@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -28,6 +29,8 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"go.uber.org/atomic"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -39,6 +42,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/debugtap"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -92,6 +96,7 @@ type XdsProxy struct {
 	proxyAddresses       []string
 	ia                   *Agent
 
+	httpTapServer      *http.Server
 	tapMutex           sync.RWMutex
 	tapResponseChannel chan *discovery.DiscoveryResponse
 
@@ -151,10 +156,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
 		ia:                    ia,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
-	}
-
-	if ia.cfg.ProxyXDSDebugViaAgent {
-		proxy.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
 	}
 
 	if ia.localDNSServer != nil {
@@ -621,6 +622,9 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	p.wasmCache.Cleanup()
+	if p.httpTapServer != nil {
+		_ = p.httpTapServer.Close()
+	}
 	if p.downstreamGrpcServer != nil {
 		p.downstreamGrpcServer.Stop()
 	}
@@ -800,4 +804,52 @@ func (p *XdsProxy) DebugTapRequest(req *discovery.DiscoveryRequest, timeout time
 			return nil, nil
 		}
 	}
+}
+
+// initDebugInterface() listens on localhost:${PORT} for path /debug/...
+// forwards the paths to Istiod as xDS requests
+// waits for response from Istiod, sends it as JSON
+func (p *XdsProxy) initDebugInterface(port int) error {
+	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
+
+	if port <= 0 {
+		return nil
+	}
+
+	debugProxy := debugtap.NewProxy(p)
+
+	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	debugProxy.RegisterGRPCHandler(grpcs)
+	httpMux := http.NewServeMux()
+	debugProxy.RegisterHTTPHandler(httpMux)
+
+	mixedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+			grpcs.ServeHTTP(w, r)
+			return
+		}
+		httpMux.ServeHTTP(w, r)
+	})
+
+	p.httpTapServer = &http.Server{
+		Addr:        fmt.Sprintf("localhost:%d", port),
+		Handler:     h2c.NewHandler(mixedHandler, &http2.Server{}),
+		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
+		ReadTimeout: 30 * time.Second,
+	}
+
+	// create HTTP listener
+	listener, err := net.Listen("tcp", p.httpTapServer.Addr)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		log.Infof("starting Http service at %s", listener.Addr())
+		if err := p.httpTapServer.Serve(listener); err != nil {
+			log.Errorf("error serving tap http server: %v", err)
+		}
+	}()
+
+	return nil
 }

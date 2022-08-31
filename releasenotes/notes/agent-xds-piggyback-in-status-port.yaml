@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: [35833]
+releaseNotes:
+- |
+  **Added** The debugging interface, which was provided in HTTP endpoint localhost:15004/debug/<typeurl>, is
+  also served via Status Port (default: 15020).
+  By setting `meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_DEBUG_VIA_AGENT=false`,
+  the debugging interface is disabled for both the original port 15004 and the status port.
+  If setting `meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_DEBUG_VIA_AGENT_PORT=0`,
+  the debugging interface is only provided in the status port.
