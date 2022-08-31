@@ -4,4 +4,4 @@ area: telemetry
 
 releaseNotes:
   - |
-    **Added** support for OpenTelemetry provider for use with the Telemetry API.
+    **Added** support for use of the OpenTelemetry provider with the Telemetry API.
