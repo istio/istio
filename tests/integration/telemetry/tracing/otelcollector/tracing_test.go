@@ -75,7 +75,7 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 // into two distinct test suites.
 func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.tracing.api").
+		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 
