@@ -159,7 +159,7 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 		})
 		// For each port, setup a route
 		for _, port := range getPorts(instances) {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "internal", host.Name(wl.PodIP), port.Port)
 			vhost.Routes = append(vhost.Routes, &route.Route{
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},

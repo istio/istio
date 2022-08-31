@@ -119,6 +119,23 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 	return localCluster
 }
 
+// Cluster to forward to the inbound-pod listener. This is similar to the inbound-vip internal cluster, but has a single endpoint.
+// TODO: in the future maybe we could share the VIP cluster and just pre-select the IP.
+func (cb *ClusterBuilder) buildRemoteInboundInternalPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "internal", host.Name(wl.PodIP), port.Port)
+	destName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
+	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
+	// and add some detunnel metadata that had the original port.
+	llb := util.BuildInternalEndpoint(destName, nil)
+	clusterType := cluster.Cluster_STATIC
+	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
+		model.TrafficDirectionInbound, &port, nil, nil)
+	// Apply internal_upstream, since we need to pass our the pod dest address in the metadata
+	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
+	return localCluster
+}
+
 func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
 	clusterType := cluster.Cluster_STATIC
 	llb := util.BuildInternalEndpoint(listenerName, nil)
@@ -298,7 +315,9 @@ func (cb *ClusterBuilder) buildRemoteInboundPod(wls []WorkloadAndServices, disco
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			clusters = append(clusters, cb.buildRemoteInboundPodCluster(wl, port).build())
+			clusters = append(clusters,
+				cb.buildRemoteInboundPodCluster(wl, port).build(),
+				cb.buildRemoteInboundInternalPodCluster(wl, port).build())
 		}
 	}
 	return clusters

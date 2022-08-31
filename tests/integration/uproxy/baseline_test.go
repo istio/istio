@@ -454,6 +454,146 @@ spec:
 	})
 }
 
+func TestAuthorizationGateway(t *testing.T) {
+	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions)) {
+		svcs := apps.All
+		for _, dst := range svcs {
+			t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
+				dst := dst
+				opt := echo.CallOptions{
+					Port:    echo.Port{Name: "http"},
+					Scheme:  scheme.HTTP,
+					Count:   5,
+					Timeout: time.Second * 2,
+					Check:   check.OK(),
+					To:      dst,
+				}
+				f(t, istio.DefaultIngressOrFail(t, t), dst, opt)
+			})
+		}
+	}
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: single-request
+spec:
+  host: '*.svc.cluster.local'
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		runTest(t, func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions) {
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
+			// due to draining.
+			opt.NewConnectionPerRequest = true
+
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Source":      "istio-ingressgateway-service-account",
+				"Namespace":   apps.Namespace.Name(),
+			}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  rules:
+  - to:
+    - operation:
+        paths: ["/allowed"]
+        methods: ["GET"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
+    to:
+    - operation:
+        paths: ["/allowed-identity"]
+        methods: ["GET"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
+    to:
+    - operation:
+        paths: ["/denied-identity"]
+        methods: ["GET"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+			overrideCheck := func(opt *echo.CallOptions) {
+				switch {
+				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
+					// No destination means no RBAC to apply. Make sure we do not accidentally reject
+					opt.Check = check.OK()
+				case !dst.Config().IsRemote() && !dst.Config().HasSidecar():
+					// Only remote can handle L7 policies
+					opt.Check = CheckDeny
+				}
+			}
+			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/deny"
+				opt.Check = CheckDeny
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/allowed"
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("identity deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/denied-identity"
+				opt.Check = CheckDeny
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("identity allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/allowed-identity"
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+		})
+	})
+}
+
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
