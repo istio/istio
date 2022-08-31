@@ -264,9 +264,9 @@ type ProxyConnection struct {
 	conID              uint32
 	upstreamError      chan error
 	downstreamError    chan error
-	requestsChan       *channels.Unbounded
+	requestsChan       *channels.Unbounded[*discovery.DiscoveryRequest]
 	responsesChan      chan *discovery.DiscoveryResponse
-	deltaRequestsChan  *channels.Unbounded
+	deltaRequestsChan  *channels.Unbounded[*discovery.DeltaDiscoveryRequest]
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
@@ -328,7 +328,7 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		// the control plane requires substantial changes. Instead, we make the requests channel
 		// unbounded. This is the least likely to cause issues as the messages we store here are the
 		// smallest relative to other channels.
-		requestsChan: channels.NewUnbounded(),
+		requestsChan: channels.NewUnbounded[*discovery.DiscoveryRequest](),
 		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
 		responsesChan: make(chan *discovery.DiscoveryResponse, 1),
 		stopChan:      make(chan struct{}),
@@ -479,9 +479,8 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
-		case requ := <-con.requestsChan.Get():
+		case req := <-con.requestsChan.Get():
 			con.requestsChan.Load()
-			req := requ.(*discovery.DiscoveryRequest)
 			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
 				// only send healthcheck probe after LDS request has been sent
 				continue
