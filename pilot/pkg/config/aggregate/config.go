@@ -172,6 +172,16 @@ type storeCache struct {
 	caches []model.ConfigStoreController
 }
 
+func (cr *storeCache) HasStarted() bool {
+	for _, cache := range cr.caches {
+		if !cache.HasStarted() {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (cr *storeCache) HasSynced() bool {
 	for _, cache := range cr.caches {
 		if !cache.HasSynced() {
