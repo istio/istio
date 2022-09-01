@@ -553,15 +553,13 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 }
 
 func (c *client) startInformer(stop <-chan struct{}) {
-	if !c.HasStarted() {
-		c.started.Store(true)
-		c.kubeInformer.Start(stop)
-		c.dynamicInformer.Start(stop)
-		c.metadataInformer.Start(stop)
-		c.istioInformer.Start(stop)
-		c.gatewayapiInformer.Start(stop)
-		c.extInformer.Start(stop)
-	}
+	c.started.Store(true)
+	c.kubeInformer.Start(stop)
+	c.dynamicInformer.Start(stop)
+	c.metadataInformer.Start(stop)
+	c.istioInformer.Start(stop)
+	c.gatewayapiInformer.Start(stop)
+	c.extInformer.Start(stop)
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
