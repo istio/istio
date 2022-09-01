@@ -25,6 +25,7 @@ import (
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
+	operatorutil "istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/labels"
 	buildversion "istio.io/pkg/version"
@@ -130,7 +131,7 @@ func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
-	if err := createNamespace(kubeClient.Kube(), oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
+	if err := operatorutil.CreateNamespace(kubeClient.Kube(), oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -141,7 +142,7 @@ func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		namespaces = append(namespaces, istioNamespace)
 	}
 	for _, ns := range namespaces {
-		if err := createNamespace(kubeClient.Kube(), ns, "", opts.DryRun); err != nil {
+		if err := operatorutil.CreateNamespace(kubeClient.Kube(), ns, "", opts.DryRun); err != nil {
 			l.LogAndFatal(err)
 		}
 	}
