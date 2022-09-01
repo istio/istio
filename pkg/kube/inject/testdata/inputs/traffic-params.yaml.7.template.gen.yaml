@@ -1130,7 +1130,6 @@ templates:
       namespace: {{.Namespace}}
       labels:
         ambient-type: pep
-        asm-proxy: {{.ServiceAccount}}-proxy
         ambient-proxy:  {{.ServiceAccount}}-proxy
         gateway.istio.io/managed: "istio.io-mesh-controller"
         istio.io/gateway-name: "{{.GatewayName}}"
@@ -1152,7 +1151,6 @@ templates:
             prometheus.io/scrape: "true"
           labels:
             ambient-type: pep
-            asm-proxy: {{.ServiceAccount}}-proxy
             ambient-proxy: {{.ServiceAccount}}-proxy
             gateway.istio.io/managed: "istio.io-mesh-controller"
             istio.io/gateway-name: "{{.GatewayName}}"
@@ -1176,7 +1174,7 @@ templates:
             env:
             - name: ISTIO_META_GENERATOR
               value: "ambient-pep"
-            - name: ISTIO_META_SIDECARLESS_TYPE
+            - name: ISTIO_META_AMBIENT_TYPE
               value: "pep"
             - name: ISTIO_META_SERVICE_ACCOUNT
               valueFrom:

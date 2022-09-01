@@ -139,11 +139,11 @@ type metricsConfig struct {
 
 type telemetryFilterConfig struct {
 	metricsConfig
-	Provider        *meshconfig.MeshConfig_ExtensionProvider
-	Metrics         bool
-	AccessLogging   bool
-	LogsFilter      *tpb.AccessLogging_Filter
-	SidecarlessType ambient.NodeType
+	Provider      *meshconfig.MeshConfig_ExtensionProvider
+	Metrics       bool
+	AccessLogging bool
+	LogsFilter    *tpb.AccessLogging_Filter
+	AmbientType   ambient.NodeType
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
@@ -459,7 +459,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		telemetryKey: c.telemetryKey,
 		Class:        class,
 		Protocol:     protocol,
-		ProxyType:    proxy.Metadata.SidecarlessType,
+		ProxyType:    proxy.Metadata.AmbientType,
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -494,12 +494,12 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		_, metrics := tmm[k]
 
 		cfg := telemetryFilterConfig{
-			Provider:        p,
-			metricsConfig:   tmm[k],
-			AccessLogging:   logging,
-			Metrics:         metrics,
-			LogsFilter:      tml[p.Name],
-			SidecarlessType: proxy.Metadata.SidecarlessType,
+			Provider:      p,
+			metricsConfig: tmm[k],
+			AccessLogging: logging,
+			Metrics:       metrics,
+			LogsFilter:    tml[p.Name],
+			AmbientType:   proxy.Metadata.AmbientType,
 		}
 		m = append(m, cfg)
 	}
@@ -1045,7 +1045,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	if metricsCfg.SidecarlessType == ambient.TypePEP {
+	if metricsCfg.AmbientType == ambient.TypePEP {
 		cfg.MetadataMode = stats.PluginConfig_AMBIENT_PEP_METADATA_MODE
 	}
 	for _, override := range metricsCfg.MetricsForClass(class) {

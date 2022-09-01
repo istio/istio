@@ -77,7 +77,7 @@ type Aggregate struct {
 	clusters map[cluster.ID]*ambientController
 }
 
-func (a *Aggregate) SidecarlessWorkloads() ambient.Indexes {
+func (a *Aggregate) AmbientWorkloads() ambient.Indexes {
 	out := ambient.Indexes{
 		Workloads: ambient.NewWorkloadIndex(),
 		PEPs:      ambient.NewWorkloadIndex(),
@@ -92,7 +92,7 @@ func (a *Aggregate) SidecarlessWorkloads() ambient.Indexes {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	for _, c := range a.clusters {
-		ci := c.workloads.SidecarlessWorkloads()
+		ci := c.workloads.AmbientWorkloads()
 		ci.Workloads.MergeInto(out.Workloads)
 		ci.None.MergeInto(out.None)
 		ci.PEPs.MergeInto(out.PEPs)

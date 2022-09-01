@@ -148,26 +148,22 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
+			RemoteProxy:    true,
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						// TODO: remove or keep https://github.com/solo-io/istio-sidecarless/issues/168
-						"asm-type":   "workload",
-						"asm-remote": "true",
-						"app":        "remote",
-						"version":    "v1",
+						"app":     "remote",
+						"version": "v1",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"asm-type":   "workload",
-						"asm-remote": "true",
-						"app":        "remote",
-						"version":    "v2",
+						"app":     "remote",
+						"version": "v2",
 					},
 				},
 			},
@@ -180,8 +176,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		//	Subsets: []echo.SubsetConfig{{
 		//		Replicas: 2,
 		//		Labels: map[string]string{
-		//			"asm-type":   "workload",
-		//			"asm-remote": "true",
 		//		},
 		//	}},
 		//}).
@@ -195,7 +189,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"asm-type":     "workload",
 						"ambient-type": "workload",
 					},
 				},
@@ -203,7 +196,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"asm-type":     "workload",
 						"ambient-type": "workload",
 					},
 				},
@@ -219,7 +211,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"asm-type":     "none",
 						"ambient-type": "none",
 					},
 				},
@@ -227,13 +218,13 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"asm-type":     "none",
 						"ambient-type": "none",
 					},
 				},
 			},
 		})
 
+	// TODO: detect from UseRemote in echo.Config
 	if err := t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
@@ -263,9 +254,7 @@ spec:
 		//			Replicas: 1,
 		//			Version:  "v1",
 		//			Labels: map[string]string{
-		//				"asm-type":                "workload",
 		//				"ambient-type":            "workload",
-		//				"asm-remote":              "true",
 		//				"sidecar.istio.io/inject": "true",
 		//			},
 		//		},
@@ -273,9 +262,7 @@ spec:
 		//			Replicas: 1,
 		//			Version:  "v2",
 		//			Labels: map[string]string{
-		//				"asm-type":                "workload",
 		//				"ambient-type":            "workload",
-		//				"asm-remote":              "true",
 		//				"sidecar.istio.io/inject": "true",
 		//			},
 		//		},
@@ -290,7 +277,6 @@ spec:
 		//				Replicas: 1,
 		//				Version:  "v1",
 		//				Labels: map[string]string{
-		//					"asm-type":                "workload",
 		//					"ambient-type":            "workload",
 		//					"sidecar.istio.io/inject": "true",
 		//				},
@@ -299,7 +285,6 @@ spec:
 		//				Replicas: 1,
 		//				Version:  "v2",
 		//				Labels: map[string]string{
-		//					"asm-type":                "workload",
 		//					"ambient-type":            "workload",
 		//					"sidecar.istio.io/inject": "true",
 		//				},
@@ -316,7 +301,6 @@ spec:
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"asm-type":                "none",
 						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
@@ -325,7 +309,6 @@ spec:
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"asm-type":                "none",
 						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},

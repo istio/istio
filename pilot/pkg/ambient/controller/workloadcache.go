@@ -108,9 +108,9 @@ func (wc *workloadCache) removeFromAll(key types.NamespacedName) {
 	}
 }
 
-// SidecarlessWorkloads returns a _copy_ of the indexes in the cache, and resolves relationships between the different
+// AmbientWorkloads returns a _copy_ of the indexes in the cache, and resolves relationships between the different
 // types. We copy to avoid building config from information that is only partially updated.
-func (wc *workloadCache) SidecarlessWorkloads() ambient.Indexes {
+func (wc *workloadCache) AmbientWorkloads() ambient.Indexes {
 	return ambient.Indexes{
 		Workloads: wc.indexes[ambient.TypeWorkload].Copy(),
 		None:      wc.indexes[ambient.TypeNone].Copy(),

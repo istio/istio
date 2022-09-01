@@ -1,6 +1,3 @@
-//go:build !agent
-// +build !agent
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -154,7 +151,7 @@ func (g *UProxyConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.P
 		g.buildInboundCaptureListener(proxy, push),
 		g.buildInboundPlaintextCaptureListener(proxy, push),
 	)
-	for sa := range push.SidecarlessIndex.Workloads.ByIdentity {
+	for sa := range push.AmbientIndex.Workloads.ByIdentity {
 		out = append(out, outboundTunnelListener(outboundTunnelListenerName(sa), sa))
 	}
 
@@ -165,7 +162,7 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 	var out model.Resources
 	// TODO node local SAs only?
 	services := proxy.SidecarScope.Services()
-	workloads := push.SidecarlessIndex.Workloads
+	workloads := push.AmbientIndex.Workloads
 	for sa := range workloads.ByIdentity {
 		for _, svc := range services {
 			for _, port := range svc.Ports {
@@ -186,11 +183,9 @@ func (g *UProxyConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.Pu
 		c := outboundPodTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	if features.SidecarlessCapture == model.VariantIptables {
-		for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-			c := outboundPodLocalTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
-			out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
-		}
+	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+		c := outboundPodLocalTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
+		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 
 	out = append(out, buildPepClusters(proxy, push)...)
@@ -349,12 +344,12 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 
 	services := proxy.SidecarScope.Services()
 	seen := sets.New()
-	for _, sourceWl := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+	for _, sourceWl := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		sourceAndDestMatch := match.NewDestinationIP()
 		// TODO: handle host network better, which has a shared IP
 		sourceMatch.Map[sourceWl.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
 
-		clientPeps := push.SidecarlessIndex.PEPs.ByIdentity[sourceWl.Identity()] // TODO need to use this instead of ServiceAccountName
+		clientPeps := push.AmbientIndex.PEPs.ByIdentity[sourceWl.Identity()] // TODO need to use this instead of ServiceAccountName
 		clientPepChain := buildPepChain(sourceWl, clientPeps, "client")
 
 		for _, svc := range services {
@@ -396,13 +391,13 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 			}
 		}
 		// Add chain for each pod IP
-		wls := push.SidecarlessIndex.Workloads.All()
-		wls = append(wls, push.SidecarlessIndex.None.All()...)
+		wls := push.AmbientIndex.Workloads.All()
+		wls = append(wls, push.AmbientIndex.None.All()...)
 		for _, wl := range wls {
 			var chain *listener.FilterChain
 			// Need to decide if there is a server PEP. This is somewhat problematic because a Service may span PEP and non-PEP.
 			// If any workload behind the service has a PEP, we will use the PEP. In 99% of cases this is homogenous.
-			serverPepChain := buildPepChain(sourceWl, push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()], "server")
+			serverPepChain := buildPepChain(sourceWl, push.AmbientIndex.PEPs.ByIdentity[wl.Identity()], "server")
 			if serverPepChain != nil {
 				// Has server PEP, send traffic there
 				chain = serverPepChain
@@ -439,17 +434,11 @@ func (g *UProxyConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pro
 				// Case 1: tunnel cross node
 				cluster := outboundPodTunnelClusterName(sourceWl.Identity())
 				// Case 2: same node tunnel (iptables)
-				if node := wl.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
+				if node := wl.NodeName; node != "" && node == proxy.Metadata.NodeName {
 					cluster = outboundPodLocalTunnelClusterName(sourceWl.Identity())
 				}
 				// Case 3: direct
 				if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {
-					cluster = util.PassthroughCluster + "-tcp"
-					tunnel = nil
-				}
-				// Case 4: same node tunnel (bpf)
-				// Currently we don't get redirection from remote -> pod on same node
-				if node := wl.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
 					cluster = util.PassthroughCluster + "-tcp"
 					tunnel = nil
 				}
@@ -497,11 +486,11 @@ func (g *UProxyConfigGenerator) maybeBuildServerPepChain(push *model.PushContext
 		svc.Attributes.LabelSelectors == nil {
 		// there are a small number of workloads specified directly by the service, check those
 		shards, _ := g.EndpointIndex.ShardsForService(svc.Hostname.String(), svc.Attributes.Namespace)
-		serviceWorkloads = workloadsForShards(push.SidecarlessIndex, shards)
+		serviceWorkloads = workloadsForShards(push.AmbientIndex, shards)
 	} else {
 		// find PEPs based on label selectors for any workload
 		// TODO optimize this so we don't do full service selection for every service on every gen
-		for _, wl := range push.SidecarlessIndex.Workloads.All() {
+		for _, wl := range push.AmbientIndex.Workloads.All() {
 			if wl.Namespace != svc.Attributes.Namespace {
 				continue
 			}
@@ -515,7 +504,7 @@ func (g *UProxyConfigGenerator) maybeBuildServerPepChain(push *model.PushContext
 	// if any workload in the service has a PEP, all traffic to the service must go through it
 	// TODO what happens if workloads specify multiple SAs that have PEPs?
 	for _, wl := range serviceWorkloads {
-		if peps := push.SidecarlessIndex.PEPs.ByIdentity[wl.Identity()]; len(peps) > 0 {
+		if peps := push.AmbientIndex.PEPs.ByIdentity[wl.Identity()]; len(peps) > 0 {
 			return buildPepChain(sourceWl, peps, "server")
 		}
 	}
@@ -686,8 +675,8 @@ func parsePepClusterName(name string) (src, dst, t string, ok bool) {
 func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resources {
 	var clusters []*cluster.Cluster
 	// Client PEPs
-	for sa, peps := range push.SidecarlessIndex.PEPs.ByIdentity {
-		saWorkloads := push.SidecarlessIndex.Workloads.NodeLocalBySA(proxy.Metadata.NodeName)[sa]
+	for sa, peps := range push.AmbientIndex.PEPs.ByIdentity {
+		saWorkloads := push.AmbientIndex.Workloads.NodeLocalBySA(proxy.Metadata.NodeName)[sa]
 		if len(saWorkloads) == 0 || len(peps) == 0 {
 			// no peps or no workloads that use this client PEP on the node
 			continue
@@ -717,8 +706,8 @@ func buildPepClusters(proxy *model.Proxy, push *model.PushContext) model.Resourc
 			},
 		})
 	}
-	for pepSA, peps := range push.SidecarlessIndex.PEPs.ByIdentity {
-		for workloadSA, workloads := range push.SidecarlessIndex.Workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+	for pepSA, peps := range push.AmbientIndex.PEPs.ByIdentity {
+		for workloadSA, workloads := range push.AmbientIndex.Workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
 			if len(workloads) == 0 || len(peps) == 0 {
 				// no peps or no workloads that use this identity on the node
 				continue
@@ -851,7 +840,7 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(
 
 		capturePort := UproxyInboundCapturePort
 		// TODO passthrough for node-local upstreams without PEPs
-		if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantIptables {
+		if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName {
 			capturePort = UproxyInboundNodeLocalCapturePort
 		}
 		supportsTunnel := false
@@ -869,11 +858,7 @@ func (g *UProxyConfigGenerator) upstreamLbEndpointsFromShards(
 			capturePort = UproxyInboundCapturePort // TODO should this be if tunnel: h2 && !captured?
 			supportsTunnel = true
 		}
-		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
-		// Instead, just go direct
-		if node := istioEndpoint.NodeName; node != "" && node == proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
-			supportsTunnel = false
-		}
+
 		if supportsTunnel {
 			// TODO re-use some eds code; stable eds ordering, support multi-cluster cluster local rules, and multi-network stuff
 			tunnelLis := outboundTunnelListenerName(sa)
@@ -897,7 +882,7 @@ func buildPepLbEndpoints(pepIdentity, t string, push *model.PushContext) []*endp
 	if t == "server" {
 		port = UproxyInbound2CapturePort
 	}
-	peps := push.SidecarlessIndex.PEPs.ByIdentity[pepIdentity]
+	peps := push.AmbientIndex.PEPs.ByIdentity[pepIdentity]
 
 	lbEndpoints := &endpoint.LocalityLbEndpoints{
 		LbEndpoints: []*endpoint.LbEndpoint{},
@@ -1078,8 +1063,17 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 					TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
 				},
 			},
+			{
+				Name: wellknown.OriginalSource,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
+						Mark: OriginalSrcMark,
+					}),
+				},
+			},
 		},
-		AccessLog: accessLogString("capture inbound listener"),
+		Transparent: wrappers.Bool(true),
+		AccessLog:   accessLogString("capture inbound listener"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",
 			Level:       SolSocket,
@@ -1101,26 +1095,15 @@ func (g *UProxyConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, 
 			},
 		}},
 	}
-	if features.SidecarlessCapture == model.VariantIptables {
-		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
-			Name: wellknown.OriginalSource,
-			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
-					Mark: OriginalSrcMark,
-				}),
-			},
-		})
-		l.Transparent = wrappers.Bool(true)
-	}
 
-	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
 			dummy := &model.Proxy{
 				ConfigNamespace: workload.Namespace,
 				Labels:          workload.Labels,
 			}
 			var allowedIdentities string
-			_, hasPEP := push.SidecarlessIndex.PEPs.ByIdentity[workload.Identity()]
+			_, hasPEP := push.AmbientIndex.PEPs.ByIdentity[workload.Identity()]
 			if hasPEP {
 				allowedIdentities = strings.TrimPrefix(workload.Identity(), "spiffe://")
 			}
@@ -1221,12 +1204,22 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 	l := &listener.Listener{
 		Name:           "uproxy_inbound_plaintext",
 		UseOriginalDst: wrappers.Bool(true),
-		ListenerFilters: []*listener.ListenerFilter{{
-			Name: wellknown.OriginalDestination,
-			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
+		ListenerFilters: []*listener.ListenerFilter{
+			{
+				Name: wellknown.OriginalDestination,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
+				},
 			},
-		}},
+			{
+				Name: wellknown.OriginalSource,
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
+						Mark: OriginalSrcMark,
+					}),
+				},
+			},
+		},
 		AccessLog: accessLogString("capture inbound listener plaintext"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",
@@ -1248,19 +1241,10 @@ func (g *UProxyConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mode
 				},
 			},
 		}},
+		Transparent: wrappers.Bool(true),
 	}
-	if features.SidecarlessCapture == model.VariantIptables {
-		l.ListenerFilters = append(l.ListenerFilters, &listener.ListenerFilter{
-			Name: wellknown.OriginalSource,
-			ConfigType: &listener.ListenerFilter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
-					Mark: OriginalSrcMark,
-				}),
-			},
-		})
-		l.Transparent = wrappers.Bool(true)
-	}
-	for _, workload := range push.SidecarlessIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+
+	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		dummy := &model.Proxy{
 			ConfigNamespace: workload.Namespace,
 			Labels:          workload.Labels,

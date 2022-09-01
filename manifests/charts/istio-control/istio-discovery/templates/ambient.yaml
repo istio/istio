@@ -283,7 +283,7 @@ spec:
         env:
         - name: ISTIO_META_GENERATOR
           value: "uproxy-envoy"
-        - name: ISTIO_META_SIDECARLESS_TYPE
+        - name: ISTIO_META_AMBIENT_TYPE
           value: "uproxy"
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.global.multiCluster.clusterName | default "Kubernetes" }}

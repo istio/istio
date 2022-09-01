@@ -140,9 +140,6 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 		if pcs[i].GetImage() != nil {
 			merged.Image = pcs[i].GetImage().DeepCopy()
 		}
-		if pcs[i].GetImage() != nil {
-			merged.Image = pcs[i].GetImage()
-		}
 	}
 	return merged
 }

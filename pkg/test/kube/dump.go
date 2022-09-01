@@ -365,7 +365,6 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 			if crashed, terminateState := containerCrashed(pod, container.Name); crashed {
 				scopes.Framework.Errorf("FAIL: cluster/pod/container: %s/%s/%s/%s crashed with status: %+v. Logs: %v",
-					c.Name(), pod.Namespace,
 					c.Name(), pod.Namespace, pod.Name, container.Name, terminateState, prow.ArtifactsURL(fname))
 			}
 

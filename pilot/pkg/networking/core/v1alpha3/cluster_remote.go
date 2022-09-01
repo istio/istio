@@ -20,7 +20,6 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -31,7 +30,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/pilot/pkg/ambient"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -87,35 +85,13 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 	// and add some detunnel metadata that had the original port.
 	tunnelOrigLis := "inbound_CONNECT_originate"
 	llb := util.BuildInternalEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, port.Port, tunnelPort))
-	if wl.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
-		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
-		// Instead, just go direct
-		llb = buildEndpoint(address, port.Port)
-	}
 	clusterType := cluster.Cluster_STATIC
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
 		model.TrafficDirectionInbound, &port, nil, nil)
-	//opts := buildClusterOpts{
-	//	mesh:             cb.req.Push.Mesh,
-	//	mutable:          localCluster,
-	//	policy:           nil,
-	//	port:             &port,
-	//	serviceAccounts:  nil,
-	//	serviceInstances: cb.serviceInstances,
-	//	istioMtlsSni:     "",
-	//	clusterMode:      DefaultClusterMode,
-	//	direction:        model.TrafficDirectionInbound,
-	//}
-	// TODO get destination rule
-	//cb.applyTrafficPolicy(opts)
 
 	// Apply internal_upstream, since we need to pass our the pod dest address in the metadata
 	localCluster.cluster.TransportSocketMatches = nil
 	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
-	if wl.NodeName == cb.proxy.Metadata.NodeName && features.SidecarlessCapture == model.VariantBpf {
-		// TODO: On BPF mode, we currently do not get redirect for same node Remote -> Pod
-		localCluster.cluster.TransportSocket = nil
-	}
 	return localCluster
 }
 
@@ -383,23 +359,4 @@ func h2connectUpgrade() map[string]*anypb.Any {
 			}},
 		}),
 	}
-}
-
-func buildEndpoint(dest string, port int) []*endpoint.LocalityLbEndpoints {
-	lbEndpoints := []*endpoint.LbEndpoint{}
-	address := util.BuildAddress(dest, uint32(port))
-
-	lb := &endpoint.LbEndpoint{
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: address,
-			},
-		},
-	}
-
-	lbEndpoints = append(lbEndpoints, lb)
-	llb := []*endpoint.LocalityLbEndpoints{{
-		LbEndpoints: lbEndpoints,
-	}}
-	return llb
 }

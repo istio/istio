@@ -53,7 +53,7 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 
 	var workloads []*wmpb.WorkloadMetadataResource
 
-	for _, wl := range g.Workloads.SidecarlessWorkloads().Workloads.ByNode[proxyKubernetesNodeName] {
+	for _, wl := range g.Workloads.AmbientWorkloads().Workloads.ByNode[proxyKubernetesNodeName] {
 		// TODO: this is cheating. we need a way to get the owing workload name
 		// in a way that isn't a shortcut.
 		name, workloadType := workloadNameAndType(wl)

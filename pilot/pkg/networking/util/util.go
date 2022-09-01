@@ -474,6 +474,7 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	if features.EndpointTelemetryLabel {
 
 		// allow defaulting for ambient cases (assuming no injection)
+		// TODO: only apply this for ambient enabled.
 		canonicalName, canonicalRevision := kubelabels.CanonicalService(lbls, workloadname)
 
 		// don't bother sending the default value in config

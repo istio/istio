@@ -61,23 +61,16 @@ const (
 	// LabelType == "workload" -> intercept into uProxy
 	// TODO this could be an annotation – eventually move it into api repo
 	LabelType = "ambient-type"
-	// Needed for bpf code currently
-	LegacyLabelType = "asm-type"
 
 	TypeWorkload NodeType = "workload"
 	TypeNone     NodeType = "none"
 	TypeUProxy   NodeType = "uproxy"
 	TypePEP      NodeType = "pep"
-
-	// LabelProxy contains the name of the service account the proxy is a PEP for.
-	LabelProxy = "ambient-proxy"
-	// LabelPEP marks the Pod as needing a PEP (remote proxy/policy enforcement point)
-	LabelPEP = "ambient-pep"
 )
 
 // Cache holds Indexes of client workloads, peps and uproxies
 type Cache interface {
-	SidecarlessWorkloads() Indexes
+	AmbientWorkloads() Indexes
 }
 
 type Indexes struct {

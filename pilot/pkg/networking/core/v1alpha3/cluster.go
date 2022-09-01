@@ -166,7 +166,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		if proxy.Metadata.SidecarlessType == ambient.TypePEP {
+		if proxy.Metadata.AmbientType == ambient.TypePEP {
 			clusters = append(clusters, configgen.buildRemoteInboundClusters(cb, proxy, req.Push)...)
 		} else {
 			clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)

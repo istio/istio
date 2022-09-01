@@ -60,7 +60,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				// When we have multiple, this means we attached without sectionName - we only need one success to be valid.
 				exist.DeniedReason = nil
 			} else if exist.DeniedReason != nil {
-				// TODO this only handles message, not Reason
+				// TODO this only handles message, not reason
 				exist.DeniedReason.Message += "; " + incoming.DeniedReason.Message
 			}
 		}

@@ -392,7 +392,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	if dir != model.TrafficDirectionInboundVIP && supportsTunnel {
 		// Support connecting to server side PEP, if the destination has one. This is for sidecars and ingress.
 		if dir == model.TrafficDirectionOutbound && !b.proxy.IsPEP() && !b.proxy.IsAmbient() {
-			workloads := b.push.SidecarlessIndex.PEPs.ByIdentity[e.ServiceAccount]
+			workloads := b.push.AmbientIndex.PEPs.ByIdentity[e.ServiceAccount]
 			if len(workloads) > 0 {
 				// TODO: only ready
 				// TODO: load balance

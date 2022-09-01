@@ -58,7 +58,7 @@ type WorkloadAndServices struct {
 
 func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
-	for _, wl := range push.SidecarlessIndex.Workloads.ByIdentity[node.VerifiedIdentity.String()] {
+	for _, wl := range push.AmbientIndex.Workloads.ByIdentity[node.VerifiedIdentity.String()] {
 		if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {
 			continue
 		}

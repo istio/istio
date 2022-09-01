@@ -116,7 +116,7 @@ func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
-	if lb.node.Metadata.SidecarlessType == ambient.TypePEP {
+	if lb.node.Metadata.AmbientType == ambient.TypePEP {
 		lb.inboundListeners = lb.buildRemoteInbound()
 	} else {
 		lb.inboundListeners = lb.buildInboundListeners()

@@ -108,7 +108,7 @@ type Environment struct {
 	// TODO this can probably be part of the k8s controller's Pod indexing
 	// splitting it out just lets us modify things quicker in PoC state without
 	// upstream breaking us
-	AmbientWorkloads ambient.Cache
+	// AmbientWorkloads ambient.Cache
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -667,8 +667,8 @@ type NodeMetadata struct {
 	// The istiod address when running ASM Managed Control Plane.
 	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
 
-	// SidecarlessType can be one of ambient.NodeType TODO(stevenctl,ambient) make the type ambient.NodeType
-	SidecarlessType string `json:"SIDECARLESS_TYPE,omitempty"`
+	// AmbientType can be one of ambient.NodeType TODO(stevenctl,ambient) make the type ambient.NodeType
+	AmbientType string `json:"AMBIENT_TYPE,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
@@ -706,12 +706,12 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 
 // IsPEP returns true if the proxy is acting as a PEP in an ambient mesh.
 func (node *Proxy) IsPEP() bool {
-	return node.Metadata.SidecarlessType == ambient.TypePEP
+	return node.Metadata.AmbientType == ambient.TypePEP
 }
 
 // IsUproxy returns true if the proxy is acting as a uProxy (node proxy) in an ambient mesh.
 func (node *Proxy) IsUproxy() bool {
-	return node.Metadata.SidecarlessType == ambient.TypeUProxy
+	return node.Metadata.AmbientType == ambient.TypeUProxy
 }
 
 // IsUProxy returns true if the proxy is acting as either a uProxy (node proxy) or a PEP in an ambient mesh.
@@ -806,11 +806,6 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
-)
-
-const (
-	VariantIptables = "iptables"
-	VariantBpf      = "bpf"
 )
 
 var NodeTypes = [...]NodeType{SidecarProxy, Router}

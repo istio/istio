@@ -241,7 +241,7 @@ type PushContext struct {
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
 
-	SidecarlessIndex ambient.Indexes
+	AmbientIndex ambient.Indexes
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -1208,7 +1208,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
-	ps.initSidecarless(env)
+	ps.initAmbient(env)
 
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
@@ -1352,7 +1352,7 @@ func (ps *PushContext) updateContext(
 
 	// TODO(stevenctl,ambient) can we optimize this to only happen on "if changed"
 	// TODO(stevenctl,ambient) how will SidecarScope work with this stuff?
-	ps.initSidecarless(env)
+	ps.initAmbient(env)
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
@@ -2012,10 +2012,10 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) initSidecarless(env *Environment) {
+func (ps *PushContext) initAmbient(env *Environment) {
 	// only set for istiod, not agent
 	if env.Cache != nil {
-		ps.SidecarlessIndex = env.SidecarlessWorkloads()
+		ps.AmbientIndex = env.AmbientWorkloads()
 	}
 }
 

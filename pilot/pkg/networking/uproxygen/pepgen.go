@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !agent
-// +build !agent
-
 package uproxygen
 
 import (
@@ -97,7 +94,7 @@ func getActualWildcardAndLocalHost(node *model.Proxy) string {
 }
 
 func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
-	saWorkloads := push.SidecarlessIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
+	saWorkloads := push.AmbientIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
 	if len(saWorkloads) == 0 {
 		log.Warnf("no workloads for sa %s (proxy %s)", proxy.Metadata.ServiceAccount, proxy.ID)
 		return nil

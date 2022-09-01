@@ -168,6 +168,8 @@ type Config struct {
 
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
+
+	RemoteProxy bool
 }
 
 // Getter for a custom echo deployment
@@ -313,7 +315,7 @@ func (c Config) IsTProxy() bool {
 }
 
 func (c Config) IsRemote() bool {
-	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels["asm-remote"] == "true"
+	return c.RemoteProxy
 }
 
 func (c Config) HasSidecar() bool {

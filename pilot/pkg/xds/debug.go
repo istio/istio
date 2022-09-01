@@ -203,9 +203,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
-	s.addDebugHandler(mux, internalMux, "/debug/workloadz", "Debug support for workload instances", s.workloadz)
-
-	s.addDebugHandler(mux, internalMux, "/debug/sidecarlezz", "Debug support for sidecarless discovery", s.sidecarlezz)
+	s.addDebugHandler(mux, internalMux, "/debug/ambientz", "Debug support for ambient workloads", s.ambientz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
@@ -355,10 +353,6 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resources[resourceType] = append(resources[resourceType], resource.Name+"/"+key)
 	}
 	writeJSON(w, resources, req)
-}
-
-func (s *DiscoveryServer) sidecarlezz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.Env.SidecarlessWorkloads(), req)
 }
 
 type endpointzResponse struct {
@@ -729,7 +723,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admina
 		DynamicActiveClusters: dynamicActiveClusters,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cluster marshal: %v", err)
+		return nil, err
 	}
 
 	listeners, err := generate(v3.ListenerType)
@@ -1055,7 +1049,7 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, instances, req)
 }
 
-type workloadz struct {
+type ambientz struct {
 	Workloads []workloadSummary `json:"workloads"`
 	PEPs      []workloadSummary `json:"peps"`
 	UProxies  []workloadSummary `json:"uproxies"`
@@ -1069,9 +1063,9 @@ type workloadSummary struct {
 	Node      string
 }
 
-func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
-	d := s.globalPushContext().SidecarlessIndex
-	res := workloadz{}
+func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
+	d := s.globalPushContext().AmbientIndex
+	res := ambientz{}
 	for _, wl := range d.PEPs.All() {
 		res.PEPs = append(res.PEPs, workloadSummary{
 			Name:      wl.Name,

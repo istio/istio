@@ -45,17 +45,15 @@ func initAutolabel(opts *Options) {
 		controllers.WithMaxAttempts(5),
 	)
 
-	ignored := sets.New(append(strings.Split(features.SidecarlessAutolabelIgnore, ","), opts.SystemNamespace)...)
+	ignored := sets.New(append(strings.Split(features.AmbientAutolabelIgnore, ","), opts.SystemNamespace)...)
 	workloadHandler := controllers.FilteredObjectHandler(queue.AddObject, ambientLabelFilter(ignored))
 	opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(workloadHandler)
 	go queue.Run(opts.Stop)
 }
 
 var labelPatch = []byte(fmt.Sprintf(
-	`[{"op":"add","path":"/metadata/labels/%s","value":"%s" },{"op":"add","path":"/metadata/labels/%s","value":"%s" }]`,
+	`[{"op":"add","path":"/metadata/labels/%s","value":"%s" }]`,
 	ambient.LabelType,
-	ambient.TypeWorkload,
-	ambient.LegacyLabelType,
 	ambient.TypeWorkload,
 ))
 

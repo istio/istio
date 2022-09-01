@@ -25,7 +25,6 @@ import (
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -290,14 +289,6 @@ func (c *Controller) AmbientEnabled(pod *v1.Pod) bool {
 	ns, _ := c.nsLister.Get(pod.Namespace) // Nil namespace is valid, we may not care if mode is ON
 
 	return ambientpod.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true)
-}
-
-func (c *Controller) PodInformation() []*v1.Pod {
-	c.pods.Lock()
-	defer c.pods.Unlock()
-	// TODO cache/index by node
-	pods, _ := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(metav1.NamespaceAll).List(klabels.Everything())
-	return pods
 }
 
 // NewController creates a new Kubernetes controller

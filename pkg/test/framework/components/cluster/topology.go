@@ -34,9 +34,10 @@ func NewTopology(config Config, allClusters Map) Topology {
 		ClusterHTTPProxy:        config.HTTPProxy,
 		PrimaryClusterName:      config.PrimaryClusterName,
 		ConfigClusterName:       config.ConfigClusterName,
-		ClusterProxyKubectlOnly: config.ProxyKubectlOnly, AllClusters: allClusters,
-		Index:          len(allClusters),
-		ConfigMetadata: config.Meta,
+		ClusterProxyKubectlOnly: config.ProxyKubectlOnly,
+		AllClusters:             allClusters,
+		Index:                   len(allClusters),
+		ConfigMetadata:          config.Meta,
 	}
 }
 
