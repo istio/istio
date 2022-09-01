@@ -20,6 +20,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -69,7 +70,11 @@ type EndpointBuilder struct {
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
-	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	if dir == model.TrafficDirectionInboundVIP {
+		subsetName = strings.TrimPrefix(subsetName, "http/")
+		subsetName = strings.TrimPrefix(subsetName, "tcp/")
+	}
 	svc := push.ServiceForHostname(proxy, hostname)
 
 	var dr *model.ConsolidatedDestRule

@@ -241,7 +241,7 @@ func Host(expected string) echo.Checker {
 func Hostname(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Hostname != expected {
-			return fmt.Errorf("expected hostname %s, received %s", expected, r.Host)
+			return fmt.Errorf("expected hostname %s, received %s", expected, r.Hostname)
 		}
 		return nil
 	})

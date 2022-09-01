@@ -249,9 +249,10 @@ func TestServerRouting(t *testing.T) {
 			// TODO: fix this and remove this skip
 			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
 		}
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": dst.Config().Service,
-		}, `apiVersion: networking.istio.io/v1alpha3
+		t.NewSubTest("set header").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: route
@@ -267,10 +268,54 @@ spec:
     - destination:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
-		opt.Check = check.And(
-			check.OK(),
-			check.RequestHeader("Istio-Custom-Header", "user-defined-value"))
-		src.CallOrFail(t, opt)
+			opt.Check = check.And(
+				check.OK(),
+				check.RequestHeader("Istio-Custom-Header", "user-defined-value"))
+			src.CallOrFail(t, opt)
+		})
+		t.NewSubTest("subset").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  hosts:
+  - "{{.Destination}}"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+        subset: v1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: route
+  namespace:
+spec:
+  host: "{{.Destination}}"
+  subsets:
+  - labels:
+      version: v1
+    name: v1
+  - labels:
+      version: v2
+    name: v2
+`).ApplyOrFail(t)
+			var exp string
+			for _, w := range dst.WorkloadsOrFail(t) {
+				if strings.Contains(w.PodName(), "-v1") {
+					exp = w.PodName()
+				}
+			}
+			opt.Count = 10
+			opt.Check = check.And(
+				check.OK(),
+				check.Hostname(exp))
+			src.CallOrFail(t, opt)
+		})
 	})
 }
 

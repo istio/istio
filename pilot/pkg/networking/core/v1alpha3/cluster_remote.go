@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -159,20 +160,6 @@ func (cb *ClusterBuilder) buildRemoteInboundVIPCluster(svc *model.Service, port 
 	svcMetaList := im.Fields["services"].GetListValue()
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
-	//opts := buildClusterOpts{
-	//	mesh:             cb.req.Push.Mesh,
-	//	mutable:          localCluster,
-	//	policy:           nil,
-	//	port:             &port,
-	//	serviceAccounts:  nil,
-	//	serviceInstances: cb.serviceInstances,
-	//	istioMtlsSni:     "",
-	//	clusterMode:      DefaultClusterMode,
-	//	direction:        model.TrafficDirectionInbound,
-	//}
-	// TODO should we apply connection pool here or at pod level?
-	//cb.applyTrafficPolicy(opts)
-
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocket = &core.TransportSocket{
 		Name: "envoy.transport_sockets.internal_upstream",
@@ -267,6 +254,18 @@ func (cb *ClusterBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servic
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
 				clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "http").build())
+			}
+			cfg := cb.proxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, cb.proxy, svc.Hostname).GetRule()
+			if cfg != nil {
+				destinationRule := cfg.Spec.(*networking.DestinationRule)
+				for _, ss := range destinationRule.Subsets {
+					if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
+						clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "tcp/"+ss.Name).build())
+					}
+					if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
+						clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "http/"+ss.Name).build())
+					}
+				}
 			}
 		}
 	}

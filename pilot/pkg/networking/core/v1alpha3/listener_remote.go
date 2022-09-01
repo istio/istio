@@ -700,6 +700,9 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 // can be found. Called by translateRule to determine if
 func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	dir, subset, port := model.TrafficDirectionInboundVIP, "http", listenerPort
+	if destination.Subset != "" {
+		subset += "/" + destination.Subset
+	}
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
@@ -713,7 +716,8 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	}
 
 	// this PEP isn't responsible for this service so we use outbound; TODO quicker svc account check
-	if service != nil && (service.MeshExternal || !sets.New(service.ServiceAccounts...).Contains(lb.node.Metadata.ServiceAccount)) {
+	if service != nil && lb.node.VerifiedIdentity != nil && (service.MeshExternal ||
+		!sets.New(lb.push.ServiceAccounts[service.Hostname][port]...).Contains(lb.node.VerifiedIdentity.String())) {
 		dir, subset = model.TrafficDirectionOutbound, destination.Subset
 	}
 
