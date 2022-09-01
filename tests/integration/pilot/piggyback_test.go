@@ -86,7 +86,10 @@ func TestPiggyback(t *testing.T) {
 
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 				args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
-				output, _ := istioCtl.InvokeOrFail(t, args)
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
 
 				// Just verify pod A is known to Pilot; implicitly this verifies that
 				// the printing code printed it.
