@@ -19,6 +19,8 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
@@ -27,8 +29,6 @@ import (
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type JWTPolicy string
@@ -119,6 +119,8 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string, 
 			if err != nil {
 				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 			}
+
+			return nil
 		}
 
 		return fmt.Errorf("failed to check if namespace %v exists: %v", namespace, err)
