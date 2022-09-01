@@ -19,15 +19,14 @@ import (
 	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/sets"
 	_ "istio.io/istio/pkg/wasm" // include for registering wasm logging scope
-	"istio.io/pkg/log"
 )
 
 var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
@@ -96,11 +95,7 @@ func InsertedExtensionConfigurations(
 					envs[model.WasmSecretEnv] = ""
 				}
 			}
-			typedConfig, err := anypb.New(wasmExtensionConfig)
-			if err != nil {
-				log.Warnf("wasmplugin %s/%s failed to marshal to TypedExtensionConfig: %s", p.Namespace, p.Name, err)
-				continue
-			}
+			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
 			ec := &envoy_config_core_v3.TypedExtensionConfig{
 				Name:        p.ResourceName,
 				TypedConfig: typedConfig,
