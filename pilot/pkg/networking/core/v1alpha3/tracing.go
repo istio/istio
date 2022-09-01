@@ -146,7 +146,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					CollectorCluster: clusterName,
 					AccessTokenFile:  provider.Lightstep.AccessToken,
 				}
-				return protoconv.MessageToAny(lc), nil
+				return protoconv.MessageToAnyWithError(lc)
 			})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
@@ -158,7 +158,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				OutgoingTraceContext:   convert(provider.Opencensus.Context),
 			}
 
-			return protoconv.MessageToAny(oc), nil
+			return protoconv.MessageToAnyWithError(oc)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
@@ -175,7 +175,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					},
 				}
 
-				return protoconv.MessageToAny(s), nil
+				return protoconv.MessageToAnyWithError(s)
 			})
 
 		rfCtx = &xdsfilters.RouterFilterContext{
@@ -252,7 +252,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			if provider.Stackdriver.MaxNumberOfMessageEvents != nil {
 				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.MaxNumberOfMessageEvents.Value
 			}
-			return protoconv.MessageToAny(sd), nil
+			return protoconv.MessageToAnyWithError(sd)
 		})
 	}
 
@@ -270,14 +270,14 @@ func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
-	return protoconv.MessageToAny(zc), nil
+	return protoconv.MessageToAnyWithError(zc)
 }
 
 func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
 		CollectorCluster: cluster,
 	}
-	return protoconv.MessageToAny(dc), nil
+	return protoconv.MessageToAnyWithError(dc)
 }
 
 type typedConfigGenFn func() (*anypb.Any, error)

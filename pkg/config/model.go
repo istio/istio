@@ -129,7 +129,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if pb, ok := s.(protoreflect.ProtoMessage); ok {
-		return protoconv.MessageToAny(pb), nil
+		return protoconv.MessageToAnyWithError(pb)
 	}
 
 	// gogo protobuf
@@ -152,7 +152,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
 		return nil, err
 	}
-	return protoconv.MessageToAny(pbs), nil
+	return protoconv.MessageToAnyWithError(pbs)
 }
 
 func ToMap(s Spec) (map[string]any, error) {
