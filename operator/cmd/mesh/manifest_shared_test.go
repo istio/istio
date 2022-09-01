@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -239,8 +240,8 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
-		istioNamespace:    istioDefaultNamespace,
-		watchedNamespaces: istioDefaultNamespace,
+		istioNamespace:    constants.IstioSystemNamespace,
+		watchedNamespaces: constants.IstioSystemNamespace,
 		operatorNamespace: operatorDefaultNamespace,
 		// placeholders, since the fake API server does not actually pull images and create pods.
 		hub: "fake hub",
