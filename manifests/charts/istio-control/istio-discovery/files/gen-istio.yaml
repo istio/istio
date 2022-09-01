@@ -1760,6 +1760,16 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
+      # Optional: istio-csr dns pilot certs
+      - name: istio-csr-dns-cert
+        secret:
+          secretName: istiod-tls
+          optional: true
+      - name: istio-csr-ca-configmap
+        configMap:
+          name: istio-ca-root-cert
+          defaultMode: 420
+          optional: true
 ---
 # Source: istiod/templates/autoscale.yaml
 apiVersion: autoscaling/v2
