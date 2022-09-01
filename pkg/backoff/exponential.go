@@ -30,7 +30,7 @@ import (
 // BackOff is a backoff policy for retrying an operation.
 type BackOff interface {
 	// NextBackOff returns the duration to wait before retrying the operation,
-	// or backoff. Return MaxDuration when MaxElapsedTime elapsed.
+	// or backoff. Return MaxInterval when MaxElapsedTime elapsed.
 	NextBackOff() time.Duration
 	// Reset to initial state.
 	Reset()
@@ -57,12 +57,10 @@ func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
 	return b
 }
 
-const MaxDuration = 1<<63 - 1
-
 func (b ExponentialBackOff) NextBackOff() time.Duration {
 	duration := b.ExponentialBackOff.NextBackOff()
 	if duration == b.Stop {
-		return MaxDuration
+		return b.ExponentialBackOff.MaxInterval
 	}
 	return duration
 }
@@ -83,8 +81,8 @@ func (b ExponentialBackOff) RetryWithContext(ctx context.Context, operation func
 		if err == nil {
 			return nil
 		}
-		next := b.NextBackOff()
-		if next == MaxDuration {
+		next := b.ExponentialBackOff.NextBackOff()
+		if next == b.Stop {
 			return fmt.Errorf("backoff timeouted with last error: %v", err)
 		}
 

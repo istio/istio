@@ -69,14 +69,16 @@ func (c *TestClock) Now() time.Time {
 }
 
 func TestMaxElapsedTime(t *testing.T) {
+	maxInterval := 100 * time.Second
 	exp := NewExponentialBackOff(func(off *ExponentialBackOff) {
 		off.MaxElapsedTime = 1000 * time.Second
+		off.MaxInterval = maxInterval
 		off.Clock = &TestClock{start: time.Time{}}
 	})
 	b := exp.(ExponentialBackOff)
 	// override clock to simulate the max elapsed time has passed.
 	b.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
-	assert.Equal(t, MaxDuration, exp.NextBackOff())
+	assert.Equal(t, maxInterval, exp.NextBackOff())
 }
 
 func TestRetry(t *testing.T) {
