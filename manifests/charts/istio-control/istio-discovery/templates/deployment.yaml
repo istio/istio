@@ -234,10 +234,6 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
-  {{- if .Values.pilot.jwksResolverExtraRootCA }}
-      - name: extracacerts
-        configMap:
-          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       # Optional: istio-csr dns pilot certs
       - name: istio-csr-dns-cert
         secret:
@@ -248,5 +244,10 @@ spec:
           name: istio-ca-root-cert
           defaultMode: 420
           optional: true
+  {{- if .Values.pilot.jwksResolverExtraRootCA }}
+      - name: extracacerts
+        configMap:
+          name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
+
 ---
