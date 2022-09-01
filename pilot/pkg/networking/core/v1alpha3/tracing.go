@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -145,7 +146,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					CollectorCluster: clusterName,
 					AccessTokenFile:  provider.Lightstep.AccessToken,
 				}
-				return anypb.New(lc)
+				return protoconv.MessageToAnyWithError(lc)
 			})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
@@ -157,7 +158,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				OutgoingTraceContext:   convert(provider.Opencensus.Context),
 			}
 
-			return anypb.New(oc)
+			return protoconv.MessageToAnyWithError(oc)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
@@ -174,7 +175,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					},
 				}
 
-				return anypb.New(s)
+				return protoconv.MessageToAnyWithError(s)
 			})
 
 		rfCtx = &xdsfilters.RouterFilterContext{
@@ -251,7 +252,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			if provider.Stackdriver.MaxNumberOfMessageEvents != nil {
 				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.MaxNumberOfMessageEvents.Value
 			}
-			return anypb.New(sd)
+			return protoconv.MessageToAnyWithError(sd)
 		})
 	}
 
@@ -269,14 +270,14 @@ func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
-	return anypb.New(zc)
+	return protoconv.MessageToAnyWithError(zc)
 }
 
 func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
 		CollectorCluster: cluster,
 	}
-	return anypb.New(dc)
+	return protoconv.MessageToAnyWithError(dc)
 }
 
 type typedConfigGenFn func() (*anypb.Any, error)
