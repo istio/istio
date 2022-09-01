@@ -319,8 +319,8 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 		return nil, false
 	}
 	k := entry.Key()
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	val, ok := l.store.Get(k)
 	if !ok {
 		miss()
