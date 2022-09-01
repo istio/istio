@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -414,12 +415,9 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 	// Merge the two typed protos
 	merge.Merge(dstX, srcX)
-	var retVal *anypb.Any
 
 	// Convert the merged proto back to dst
-	if retVal, err = anypb.New(dstX); err != nil {
-		return nil, err
-	}
+	retVal := protoconv.MessageToAny(dstX)
 
 	return retVal, nil
 }
