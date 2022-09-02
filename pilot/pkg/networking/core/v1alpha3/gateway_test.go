@@ -1676,6 +1676,60 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceTopLevelPathMatchSpec := &networking.VirtualService{
+		Hosts:    []string{"example.org"},
+		Gateways: []string{"gateway-https"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{
+								Exact: "/top",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSubPagePathMatchSpec := &networking.VirtualService{
+		Hosts:    []string{"example.org"},
+		Gateways: []string{"gateway-https"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{
+								Exact: "/top/subpage",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualService := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
@@ -1691,6 +1745,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			Namespace:        "default",
 		},
 		Spec: virtualServiceHTTPSMatchSpec,
+	}
+	virtualServiceTop := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-top",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceTopLevelPathMatchSpec,
+	}
+	virtualServiceSubPage := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-subpage",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSubPagePathMatchSpec,
 	}
 	virtualServiceCopy := config.Config{
 		Meta: config.Meta{
@@ -1735,6 +1805,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		expectedVirtualHostsHostPortStrip map[string][]string
 		expectedHTTPRoutes                map[string]int
 		redirect                          bool
+		expectedOrderedMatches            []string
 	}{
 		{
 			name:            "404 when no services",
@@ -2030,6 +2101,24 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
 			redirect:           true,
 		},
+		{
+			name:            "routes are sorted as specified in gateway API",
+			virtualServices: []config.Config{virtualServiceTop, virtualServiceSubPage},
+			gateways:        []config.Config{httpsGatewayRedirect},
+			routeName:       "http.80",
+			expectedVirtualHostsLegacy: map[string][]string{
+				"example.org:80": {"example.org", "example.org:*"},
+			},
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			expectedHTTPRoutes:     map[string]int{"example.org:80": 2},
+			redirect:               true,
+			expectedOrderedMatches: []string{"/top/subpage", "/top"},
+		},
 	}
 
 	for _, value := range []bool{false, true} {
@@ -2050,9 +2139,17 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					}
 					vh := make(map[string][]string)
 					hr := make(map[string]int)
+					orderedMatches := []string{}
 					for _, h := range r.VirtualHosts {
 						vh[h.Name] = h.Domains
 						hr[h.Name] = len(h.Routes)
+
+						for _, route := range h.Routes {
+							if route.Match != nil {
+								orderedMatches = append(orderedMatches, route.Match.GetPath())
+							}
+						}
+
 						if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
 							t.Errorf("expected attempt count to be set in virtual host, but not found")
 						}
@@ -2076,6 +2173,11 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					}
 					if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
 						t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
+					}
+					if tt.expectedOrderedMatches != nil {
+						if !reflect.DeepEqual(tt.expectedOrderedMatches, orderedMatches) {
+							t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedOrderedMatches, orderedMatches)
+						}
 					}
 				})
 			}

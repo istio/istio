@@ -1367,7 +1367,40 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 			allroutes = append(allroutes, r)
 		}
 	}
+	sort.SliceStable(allroutes, func(i, j int) bool {
+		// https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1beta1.HTTPRouteRule
+		return matchLengthValue(allroutes[i]) > matchLengthValue(allroutes[j])
+
+	})
 	return append(allroutes, catchAllRoutes...)
+}
+
+/*
+Proxy or Load Balancer routing configuration generated from HTTPRoutes MUST prioritize rules based on the following criteria, continuing on ties. Precedence must be given to the Rule with the largest number of:
+
+Characters in a matching non-wildcard hostname.
+Characters in a matching hostname.
+Characters in a matching path.
+Header matches. TODO
+Query param matches. TODO
+*/
+func matchLengthValue(r *route.Route) int {
+	if isCatchAllRoute(r) {
+		return -1
+	}
+	switch ir := r.Match.PathSpecifier.(type) {
+	case *route.RouteMatch_Path:
+		return len(ir.Path)
+	case *route.RouteMatch_Prefix:
+		return len(ir.Prefix)
+	case *route.RouteMatch_PathSeparatedPrefix:
+		return len(ir.PathSeparatedPrefix)
+	case *route.RouteMatch_SafeRegex:
+		return len(ir.SafeRegex.GetRegex())
+	default:
+		fmt.Printf("%T %t", r.Match.PathSpecifier, r.Match.PathSpecifier)
+	}
+	return 0
 }
 
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
