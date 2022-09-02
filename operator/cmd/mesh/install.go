@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -420,7 +421,7 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 	if configuredNamespace := v1alpha12.Namespace(iop.Spec); configuredNamespace != "" {
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
-	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+	return iop.Spec.Profile, constants.IstioSystemNamespace, enabledComponents, nil
 }
 
 // validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.

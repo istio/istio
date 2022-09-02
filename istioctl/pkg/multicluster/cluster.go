@@ -22,10 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	defaultIstioNamespace = "istio-system"
-)
-
 // Use UUID of kube-system Namespace as unique identifier for cluster.
 // (see https://docs.google.com/document/d/1F__vEKeI41P7PPUCMM9PVPYY34pyrvQI5rbTJVnS5c4)
 func clusterUID(client kubernetes.Interface) (types.UID, error) {
@@ -35,7 +31,3 @@ func clusterUID(client kubernetes.Interface) (types.UID, error) {
 	}
 	return kubeSystem.UID, nil
 }
-
-const (
-	IstioEastWestGatewayServiceName = "istio-eastwestgateway"
-)
