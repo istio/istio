@@ -155,21 +155,21 @@ spec:
                 - sh
                 - -c
                 - |-
-                  iptables -t nat -F uproxy-PREROUTING
-                  iptables -t nat -F uproxy-POSTROUTING
-                  iptables -t mangle -F uproxy-PREROUTING
-                  iptables -t mangle -F uproxy-FOWARD
-                  iptables -t mangle -F uproxy-INPUT
-                  iptables -t nat -D PREROUTING -j uproxy-PREROUTING
-                  iptables -t nat -X uproxy-PREROUTING
-                  iptables -t nat -D POSTROUTING -j uproxy-POSTROUTING
-                  iptables -t nat -X uproxy-POSTROUTING
-                  iptables -t mangle -D PREROUTING -j uproxy-PREROUTING
-                  iptables -t mangle -X uproxy-PREROUTING
-                  iptables -t mangle -D FORWARD -j uproxy-FORWARD
-                  iptables -t mangle -X uproxy-FORWARD
-                  iptables -t mangle -D INPUT -j uproxy-INPUT
-                  iptables -t mangle -X uproxy-INPUT
+                  iptables -t nat -F ztunnel-PREROUTING
+                  iptables -t nat -F ztunnel-POSTROUTING
+                  iptables -t mangle -F ztunnel-PREROUTING
+                  iptables -t mangle -F ztunnel-FOWARD
+                  iptables -t mangle -F ztunnel-INPUT
+                  iptables -t nat -D PREROUTING -j ztunnel-PREROUTING
+                  iptables -t nat -X ztunnel-PREROUTING
+                  iptables -t nat -D POSTROUTING -j ztunnel-POSTROUTING
+                  iptables -t nat -X ztunnel-POSTROUTING
+                  iptables -t mangle -D PREROUTING -j ztunnel-PREROUTING
+                  iptables -t mangle -X ztunnel-PREROUTING
+                  iptables -t mangle -D FORWARD -j ztunnel-FORWARD
+                  iptables -t mangle -X ztunnel-FORWARD
+                  iptables -t mangle -D INPUT -j ztunnel-INPUT
+                  iptables -t mangle -X ztunnel-INPUT
 
                   ip route flush table 100
                   ip route flush table 101
@@ -183,7 +183,7 @@ spec:
                   ip link del name istioin
                   ip link del name istioout
 
-                  ipset destroy uproxy-pods-ips
+                  ipset destroy ztunnel-pods-ips
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}

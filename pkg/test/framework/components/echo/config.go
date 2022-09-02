@@ -169,7 +169,7 @@ type Config struct {
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
 
-	RemoteProxy bool
+	WaypointProxy bool
 }
 
 // Getter for a custom echo deployment
@@ -314,8 +314,8 @@ func (c Config) IsTProxy() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
 }
 
-func (c Config) IsRemote() bool {
-	return c.RemoteProxy
+func (c Config) HasWaypointProxy() bool {
+	return c.WaypointProxy
 }
 
 func (c Config) HasSidecar() bool {

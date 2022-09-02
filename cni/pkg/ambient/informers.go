@@ -82,10 +82,10 @@ func (s *Server) ReconcileNamespaces() {
 }
 
 func (s *Server) Reconciler(name types.NamespacedName) error {
-	// If uproxy is not running, we won't requeue the namespace as it will be requeued after uproxy comes online...
+	// If ztunnel is not running, we won't requeue the namespace as it will be requeued after ztunnel comes online...
 	// let's do this to cleanup the logs a bit and drop an info message
-	if !s.isUproxyRunning() {
-		log.Infof("Cannot reconcile namespace %s as uproxy is not running", name.Name)
+	if !s.isZTunnelRunning() {
+		log.Infof("Cannot reconcile namespace %s as ztunnel is not running", name.Name)
 		return nil
 	}
 
@@ -156,36 +156,36 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 		// we need to check to see if pod is running, if so, it's safe to
 		// assume it's existing and we've restarted.
 		//
-		// We also watch for uproxy to start, because that means we need to trigger
+		// We also watch for ztunnel to start, because that means we need to trigger
 		// a bunch of iptable and routing changes.
 		AddFunc: func(obj interface{}) {
 			// @TODO: maybe not using the full pod struct, likely related to
 			// https://github.com/solo-io/istio-sidecarless/issues/85
 			pod := obj.(*corev1.Pod)
 
-			if pod.GetLabels()["app"] == "uproxy" && podOnMyNode(pod) {
+			if pod.GetLabels()["app"] == "ztunnel" && podOnMyNode(pod) {
 				if pod.Status.Phase != corev1.PodRunning {
 					return
 				}
 
-				log.WithLabels("type", "add").Infof("uproxy is now running")
+				log.WithLabels("type", "add").Infof("ztunnel is now running")
 
 				veth, err := getDeviceWithDestinationOf(pod.Status.PodIP)
 				if err != nil {
-					log.Errorf("Failed to get device for uproxy ip: %v", err)
+					log.Errorf("Failed to get device for ztunnel ip: %v", err)
 					return
 				}
 
 				captureDNS := getEnvFromPod(pod, "ISTIO_META_DNS_CAPTURE") == "true"
 				err = s.CreateRulesOnNode(veth, pod.Status.PodIP, captureDNS)
 				if err != nil {
-					log.Errorf("Failed to configure node for uproxy: %v", err)
+					log.Errorf("Failed to configure node for ztunnel: %v", err)
 					return
 				}
 
-				s.setUproxyRunning(true)
+				s.setZTunnelRunning(true)
 				// Reconile namespaces, as it is possible for the original reconciliation to have failed, and a
-				// small pod to have started up before uproxy is running... so we need to go back and make sure we
+				// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 				// catch the existing pods
 				s.ReconcileNamespaces()
 			}
@@ -196,30 +196,30 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 			newPod := cur.(*corev1.Pod)
 			oldPod := old.(*corev1.Pod)
 
-			if newPod.GetLabels()["app"] == "uproxy" && podOnMyNode(newPod) {
-				// This will catch if uproxy begins running after us... otherwise it gets handled by AddFunc
+			if newPod.GetLabels()["app"] == "ztunnel" && podOnMyNode(newPod) {
+				// This will catch if ztunnel begins running after us... otherwise it gets handled by AddFunc
 				if newPod.Status.Phase != corev1.PodRunning || oldPod.Status.Phase == newPod.Status.Phase {
 					return
 				}
 
-				log.WithLabels("type", "update").Infof("uproxy is now running")
+				log.WithLabels("type", "update").Infof("ztunnel is now running")
 
 				veth, err := getDeviceWithDestinationOf(newPod.Status.PodIP)
 				if err != nil {
-					log.Errorf("Failed to get device for uproxy ip: %v", err)
+					log.Errorf("Failed to get device for ztunnel ip: %v", err)
 					return
 				}
 
 				captureDNS := getEnvFromPod(newPod, "ISTIO_META_DNS_CAPTURE") == "true"
 				err = s.CreateRulesOnNode(veth, newPod.Status.PodIP, captureDNS)
 				if err != nil {
-					log.Errorf("Failed to configure node for uproxy: %v", err)
+					log.Errorf("Failed to configure node for ztunnel: %v", err)
 					return
 				}
 
-				s.setUproxyRunning(true)
+				s.setZTunnelRunning(true)
 				// Reconile namespaces, as it is possible for the original reconciliation to have failed, and a
-				// small pod to have started up before uproxy is running... so we need to go back and make sure we
+				// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 				// catch the existing pods
 				s.ReconcileNamespaces()
 			}
@@ -236,10 +236,10 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 			// https://github.com/solo-io/istio-sidecarless/issues/85
 			pod := obj.(*corev1.Pod)
 
-			if pod.GetLabels()["app"] == "uproxy" && podOnMyNode(pod) {
-				log.WithLabels("type", "delete").Infof("uproxy is now stopped... cleaning up.")
+			if pod.GetLabels()["app"] == "ztunnel" && podOnMyNode(pod) {
+				log.WithLabels("type", "delete").Infof("ztunnel is now stopped... cleaning up.")
 				s.cleanup()
-				s.setUproxyRunning(false)
+				s.setZTunnelRunning(false)
 			} else if podOnMyNode(pod) && IsPodInIpset(pod) {
 				log.WithLabels("type", "delete").Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
 				DelPodFromMesh(pod)

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package uproxy
+package ambient
 
 import (
 	"context"
@@ -54,18 +54,17 @@ var (
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	Namespace         namespace.Instance
-	Remote            echo.Instances
-	AltRemote         echo.Instances
+	Waypoint          echo.Instances
 	Captured          echo.Instances
 	Uncaptured        echo.Instances
-	SidecarRemote     echo.Instances
+	SidecarWaypoint   echo.Instances
 	SidecarCaptured   echo.Instances
 	SidecarUncaptured echo.Instances
 	All               echo.Instances
 	Mesh              echo.Instances
 	MeshExternal      echo.Instances
 
-	RemotePEP ambient.PEP
+	WaypointProxy ambient.WaypointProxy
 }
 
 var ControlPlaneValues = `
@@ -98,17 +97,16 @@ func TestMain(m *testing.M) {
 }
 
 const (
-	Remote            = "remote"
-	AltRemote         = "alt-remote"
+	Waypoint          = "waypoint"
 	Captured          = "captured"
 	Uncaptured        = "uncaptured"
-	SidecarRemote     = "sidecar-remote"
+	SidecarWaypoint   = "sidecar-waypoint"
 	SidecarCaptured   = "sidecar-captured"
 	SidecarUncaptured = "sidecar-uncaptured"
 )
 
 var inMesh = match.Matcher(func(instance echo.Instance) bool {
-	names := []string{"remote", "captured", "sidecar"}
+	names := []string{"waypoint", "captured", "sidecar"}
 	for _, name := range names {
 		if strings.Contains(instance.Config().Service, name) {
 			return true
@@ -144,17 +142,17 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
-			Service:        Remote,
+			Service:        Waypoint,
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
-			RemoteProxy:    true,
+			WaypointProxy:  true,
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":     "remote",
+						"app":     "waypoint",
 						"version": "v1",
 					},
 				},
@@ -162,23 +160,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":     "remote",
+						"app":     "waypoint",
 						"version": "v2",
 					},
 				},
 			},
 		}).
-		//WithConfig(echo.Config{
-		//	Service:        AltRemote,
-		//	Namespace:      apps.Namespace,
-		//	Ports:          ports.All(),
-		//	ServiceAccount: true,
-		//	Subsets: []echo.SubsetConfig{{
-		//		Replicas: 2,
-		//		Labels: map[string]string{
-		//		},
-		//	}},
-		//}).
 		WithConfig(echo.Config{
 			Service:        Captured,
 			Namespace:      apps.Namespace,
@@ -224,13 +211,13 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			},
 		})
 
-	// TODO: detect from UseRemote in echo.Config
+	// TODO: detect from UseWaypointProxy in echo.Config
 	if err := t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
-  name: remote
+  name: waypoint
   annotations:
-    istio.io/service-account: remote
+    istio.io/service-account: waypoint
 spec:
   gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
 		return err
@@ -246,7 +233,7 @@ spec:
 	if whErr == nil {
 		// TODO(https://github.com/solo-io/istio-sidecarless/issues/154) support sidecars that are captured
 		//builder = builder.WithConfig(echo.Config{
-		//	Service:   SidecarRemote,
+		//	Service:   SidecarWaypoint,
 		//	Namespace: apps.Namespace,
 		//	Ports:     ports.All(),
 		//	Subsets: []echo.SubsetConfig{
@@ -325,16 +312,16 @@ spec:
 		scopes.Framework.Infof("built %v", b.Config().Service)
 	}
 	apps.All = echos
-	apps.Remote = match.ServiceName(echo.NamespacedName{Name: Remote, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Waypoint = match.ServiceName(echo.NamespacedName{Name: Waypoint, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarRemote = match.ServiceName(echo.NamespacedName{Name: SidecarRemote, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.SidecarWaypoint = match.ServiceName(echo.NamespacedName{Name: SidecarWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarUncaptured = match.ServiceName(echo.NamespacedName{Name: SidecarUncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarCaptured = match.ServiceName(echo.NamespacedName{Name: SidecarCaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	apps.RemotePEP, err = ambient.NewPEP(t, apps.Namespace, apps.Remote.ServiceName())
+	apps.WaypointProxy, err = ambient.NewWaypointProxy(t, apps.Namespace, apps.Waypoint.ServiceName())
 	if err != nil {
 		return err
 	}

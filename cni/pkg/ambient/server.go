@@ -44,13 +44,13 @@ type Server struct {
 	meshMode          v1alpha1.MeshConfig_AmbientMeshConfig_AmbientMeshMode
 	disabledSelectors []*metav1.LabelSelector
 	mu                sync.Mutex
-	uproxyRunning     bool
+	ztunnelRunning    bool
 }
 
 type AmbientConfigFile struct {
 	Mode              string                  `json:"mode"`
 	DisabledSelectors []*metav1.LabelSelector `json:"disabledSelectors"`
-	UproxyReady       bool                    `json:"uproxyReady"`
+	ZTunnelReady      bool                    `json:"ztunnelReady"`
 }
 
 func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
@@ -67,7 +67,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		ctx:               ctx,
 		meshMode:          v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
 		disabledSelectors: ambientpod.LegacySelectors,
-		uproxyRunning:     false,
+		ztunnelRunning:    false,
 		kubeClient:        client,
 	}
 
@@ -95,17 +95,17 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) setUproxyRunning(running bool) {
+func (s *Server) setZTunnelRunning(running bool) {
 	s.mu.Lock()
-	s.uproxyRunning = running
+	s.ztunnelRunning = running
 	s.mu.Unlock()
 	s.UpdateConfig()
 }
 
-func (s *Server) isUproxyRunning() bool {
+func (s *Server) isZTunnelRunning() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.uproxyRunning
+	return s.ztunnelRunning
 }
 
 // buildKubeClient creates the kube client
@@ -141,7 +141,7 @@ func (s *Server) UpdateConfig() {
 	cfg := &AmbientConfigFile{
 		Mode:              s.meshMode.String(),
 		DisabledSelectors: s.disabledSelectors,
-		UproxyReady:       s.isUproxyRunning(),
+		ZTunnelReady:      s.isZTunnelRunning(),
 	}
 
 	if err := cfg.write(); err != nil {
@@ -176,8 +176,8 @@ func ReadAmbientConfig() (*AmbientConfigFile, error) {
 
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return &AmbientConfigFile{
-			Mode:        "OFF",
-			UproxyReady: false,
+			Mode:         "OFF",
+			ZTunnelReady: false,
 		}, nil
 	}
 

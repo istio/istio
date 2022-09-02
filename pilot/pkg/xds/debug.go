@@ -1051,8 +1051,8 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 
 type ambientz struct {
 	Workloads []workloadSummary `json:"workloads"`
-	PEPs      []workloadSummary `json:"peps"`
-	UProxies  []workloadSummary `json:"uproxies"`
+	Waypoints []workloadSummary `json:"waypoints"`
+	ZTunnels  []workloadSummary `json:"ztunnels"`
 }
 
 type workloadSummary struct {
@@ -1066,8 +1066,8 @@ type workloadSummary struct {
 func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 	d := s.globalPushContext().AmbientIndex
 	res := ambientz{}
-	for _, wl := range d.PEPs.All() {
-		res.PEPs = append(res.PEPs, workloadSummary{
+	for _, wl := range d.Waypoints.All() {
+		res.Waypoints = append(res.Waypoints, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
 			Address:   wl.PodIP,
@@ -1075,8 +1075,8 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 			Node:      wl.NodeName,
 		})
 	}
-	for _, wl := range d.UProxies.All() {
-		res.UProxies = append(res.UProxies, workloadSummary{
+	for _, wl := range d.ZTunnels.All() {
+		res.ZTunnels = append(res.ZTunnels, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
 			Address:   wl.PodIP,

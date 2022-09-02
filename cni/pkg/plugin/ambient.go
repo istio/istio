@@ -30,8 +30,8 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, nil
 	}
 
-	if !ambientConfig.UproxyReady {
-		return false, fmt.Errorf("uproxy not ready")
+	if !ambientConfig.ZTunnelReady {
+		return false, fmt.Errorf("ztunnel not ready")
 	}
 
 	client, err := newKubeClient(conf)

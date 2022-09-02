@@ -64,15 +64,15 @@ func (k kubeComponent) Close() error {
 	return nil
 }
 
-// PEP for JWT tokens.
-type PEP interface {
+// WaypointProxy describes a waypoint proxy deployment
+type WaypointProxy interface {
 	Namespace() namespace.Instance
 	Inbound() string
 	Outbound() string
 }
 
-// NewPEP creates a new JWT PEP.
-func NewPEP(ctx resource.Context, ns namespace.Instance, sa string) (PEP, error) {
+// NewWaypointProxy creates a new WaypointProxy.
+func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (WaypointProxy, error) {
 	server := &kubeComponent{
 		ns: ns,
 		sa: sa,
@@ -80,7 +80,7 @@ func NewPEP(ctx resource.Context, ns namespace.Instance, sa string) (PEP, error)
 	server.id = ctx.TrackResource(server)
 	cls := ctx.Clusters().Kube().Default()
 	// Find the Prometheus pod and service, and start forwarding a local port.
-	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("ambient-proxy=%s-proxy", sa))
+	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("ambient-proxy=%s-waypoint-proxy", sa))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -107,10 +107,10 @@ func NewPEP(ctx resource.Context, ns namespace.Instance, sa string) (PEP, error)
 	return server, nil
 }
 
-// NewOrFail calls NewPEP and fails if an error occurs.
-func NewOrFail(t framework.TestContext, ns namespace.Instance, sa string) PEP {
+// NewWaypointProxyOrFail calls NewWaypointProxy and fails if an error occurs.
+func NewWaypointProxyOrFail(t framework.TestContext, ns namespace.Instance, sa string) WaypointProxy {
 	t.Helper()
-	s, err := NewPEP(t, ns, sa)
+	s, err := NewWaypointProxy(t, ns, sa)
 	if err != nil {
 		t.Fatal(err)
 	}

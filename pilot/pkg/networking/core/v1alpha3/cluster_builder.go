@@ -125,7 +125,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		passThroughBindIP: getPassthroughBindIP(proxy),
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
-		hbone:             proxy.EnableHBONE() || proxy.IsPEP(),
+		hbone:             proxy.EnableHBONE() || proxy.IsWaypointProxy(),
 		locality:          proxy.Locality,
 		proxyLabels:       proxy.Labels,
 		proxyView:         proxy.GetView(),

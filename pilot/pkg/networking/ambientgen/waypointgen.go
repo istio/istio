@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package uproxygen
+package ambientgen
 
 import (
 	"fmt"
@@ -39,10 +39,10 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var _ model.XdsResourceGenerator = &PEPGenerator{}
+var _ model.XdsResourceGenerator = &WaypointGenerator{}
 
 /*
-Listener pep_outbound, 0.0.0.0:15001:
+Listener waypoint_outbound, 0.0.0.0:15001:
 
 	Single Chain:
 	    -> Terminate CONNECT
@@ -60,11 +60,11 @@ Listener: all normal outbound listeners, but switched to internal listeners
 Clusters: all normal outbound clusters
 */
 
-type PEPGenerator struct {
+type WaypointGenerator struct {
 	ConfigGenerator core2.ConfigGenerator
 }
 
-func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (p *WaypointGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	var out model.Resources
 	switch w.TypeUrl {
 	case v3.ListenerType:
@@ -76,12 +76,12 @@ func (p *PEPGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 				Resource: protoconv.MessageToAny(c),
 			})
 		}
-		out = append(p.buildPEPListeners(proxy, req.Push), resources...)
+		out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
 		out = append(out, outboundTunnelListener("tunnel", proxy.Metadata.ServiceAccount))
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
-		remoteClusters := p.buildClusters(proxy, req.Push)
-		out = append(remoteClusters, sidecarClusters...)
+		waypointClusters := p.buildClusters(proxy, req.Push)
+		out = append(waypointClusters, sidecarClusters...)
 	}
 	return out, model.DefaultXdsLogDetails, nil
 }
@@ -93,7 +93,7 @@ func getActualWildcardAndLocalHost(node *model.Proxy) string {
 	return v1alpha3.WildcardIPv6Address //, v1alpha3.LocalhostIPv6Address
 }
 
-func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
+func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
 	saWorkloads := push.AmbientIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
 	if len(saWorkloads) == 0 {
 		log.Warnf("no workloads for sa %s (proxy %s)", proxy.Metadata.ServiceAccount, proxy.ID)
@@ -116,7 +116,7 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 					bind = service.GetAddressForProxy(proxy)
 				}
 
-				// This essentially mirrors the sidecar case for serviceEntries have no VIP.  In the PEP, we
+				// This essentially mirrors the sidecar case for serviceEntries have no VIP.  In the waypoint proxy, we
 				// don't know the ServiceEntry's VIP, so instead we search for a matching ServiceEntry host
 				// for any remaining unmatched outbund to *:<port>
 				authorityHost := service.GetAddressForProxy(proxy)
@@ -144,13 +144,13 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 		}
 	}
 	l := &listener.Listener{
-		Name:    "pep_outbound l",
-		Address: ipPortAddress("0.0.0.0", UproxyOutboundCapturePort),
+		Name:    "waypoint_outbound l",
+		Address: ipPortAddress("0.0.0.0", ZTunnelOutboundCapturePort),
 
-		AccessLog: accessLogString("pep_outbound"),
+		AccessLog: accessLogString("waypoint_outbound"),
 		FilterChains: []*listener.FilterChain{
 			{
-				Name: "pep_outbound fc",
+				Name: "waypoint_outbound fc",
 
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
@@ -162,7 +162,7 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &listener.Filter_TypedConfig{
 						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
-							AccessLog:  accessLogString("pep hcm"),
+							AccessLog:  accessLogString("waypoint hcm"),
 							StatPrefix: "outbound_hcm",
 							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
 								RouteConfig: &route.RouteConfiguration{
@@ -197,7 +197,7 @@ func (p *PEPGenerator) buildPEPListeners(proxy *model.Proxy, push *model.PushCon
 	return out
 }
 
-func (p *PEPGenerator) buildClusters(node *model.Proxy, push *model.PushContext) model.Resources {
+func (p *WaypointGenerator) buildClusters(node *model.Proxy, push *model.PushContext) model.Resources {
 	// TODO passthrough and blackhole
 	var clusters []*cluster.Cluster
 	wildcard := getActualWildcardAndLocalHost(node)

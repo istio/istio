@@ -25,8 +25,8 @@
 POD=$(kubectl get pod -l app=sleep -o jsonpath="{.items[0].metadata.name}")
 NOT_IN_MESH_POD=$(kubectl get pod -l app=sleep2 -o jsonpath="{.items[0].metadata.name}")
 NODE=$(kubectl get pod $POD -o jsonpath="{.spec.nodeName}")
-UPROXY_POD="$(kubectl get pods -n istio-system --field-selector spec.nodeName="$NODE" -lapp=uproxy -o custom-columns=:.metadata.name --no-headers)"
-UPROXY_POD2="$(kubectl get pods -n istio-system --field-selector spec.nodeName!="$NODE" -lapp=uproxy -o custom-columns=:.metadata.name --no-headers)"
+ZTUNNEL_POD="$(kubectl get pods -n istio-system --field-selector spec.nodeName="$NODE" -lapp=ztunnel -o custom-columns=:.metadata.name --no-headers)"
+ZTUNNEL_POD2="$(kubectl get pods -n istio-system --field-selector spec.nodeName!="$NODE" -lapp=ztunnel -o custom-columns=:.metadata.name --no-headers)"
 
 # add all the envoy metrics
 
@@ -34,10 +34,10 @@ UPROXY_POD2="$(kubectl get pods -n istio-system --field-selector spec.nodeName!=
 
 # reset counters
 function reset_counters() {
-    kubectl exec -it -n istio-system $UPROXY_POD -c istio-proxy -- iptables-nft -t mangle -Z PREROUTING 
-    kubectl exec -it -n istio-system $UPROXY_POD2 -c istio-proxy -- iptables-nft -t mangle -Z PREROUTING
-    kubectl exec -it -n istio-system $UPROXY_POD -c istio-proxy -- iptables-nft -t nat -Z PREROUTING 
-    kubectl exec -it -n istio-system $UPROXY_POD2 -c istio-proxy -- iptables-nft -t nat -Z PREROUTING
+    kubectl exec -it -n istio-system $ZTUNNEL_POD -c istio-proxy -- iptables-nft -t mangle -Z PREROUTING
+    kubectl exec -it -n istio-system $ZTUNNEL_POD2 -c istio-proxy -- iptables-nft -t mangle -Z PREROUTING
+    kubectl exec -it -n istio-system $ZTUNNEL_POD -c istio-proxy -- iptables-nft -t nat -Z PREROUTING
+    kubectl exec -it -n istio-system $ZTUNNEL_POD2 -c istio-proxy -- iptables-nft -t nat -Z PREROUTING
 }
 
 
@@ -46,10 +46,10 @@ function get_metrics() {
     local direction="$2"
 
     case $direction in
-    inuproxy)
+    inztunnel)
         kubectl exec -it -n istio-system $pod -c istio-proxy -- iptables-nft -t mangle -L PREROUTING -nv|grep pistioin | grep 15008 | awk '{print $1}'
         ;;
-    uproxyloop)
+    ztunnelloop)
         kubectl exec -it -n istio-system $pod -c istio-proxy -- iptables-nft -t nat -L OUTPUT -nv|grep REDIRECT | grep 15088 | awk '{print $1}'
         ;;
     in)
@@ -87,47 +87,47 @@ function do_curl(){
 
 # make a cross node request
 do_curl $POD helloworld-v1:5000/hello
-expect_not_zero $(get_metrics $UPROXY_POD out)
-expect_zero $(get_metrics $UPROXY_POD in)
-expect_not_zero $(get_metrics $UPROXY_POD2 inuproxy)
+expect_not_zero $(get_metrics ZTUNNEL_POD out)
+expect_zero $(get_metrics ZTUNNEL_POD in)
+expect_not_zero $(get_metrics ZTUNNEL_POD2 inztunnel)
 
 # same, but with pod ip:
 do_curl $POD $(kubectl get pod -l app=helloworld,version=v1 -o jsonpath="{.items[0].status.podIP}"):5000/hello
-expect_not_zero $(get_metrics $UPROXY_POD out)
-expect_zero $(get_metrics $UPROXY_POD in)
-expect_not_zero $(get_metrics $UPROXY_POD2 inuproxy)
+expect_not_zero $(get_metrics ZTUNNEL_POD out)
+expect_zero $(get_metrics ZTUNNEL_POD in)
+expect_not_zero $(get_metrics ZTUNNEL_POD2 inztunnel)
 
 
 # make same node request
 do_curl $POD helloworld-v2:5000/hello
 kubectl exec -it $POD -c sleep -- curl helloworld-v2:5000/hello
-expect_not_zero $(get_metrics $UPROXY_POD out)
-expect_zero $(get_metrics $UPROXY_POD2 inuproxy)
+expect_not_zero $(get_metrics ZTUNNEL_POD out)
+expect_zero $(get_metrics ZTUNNEL_POD2 inztunnel)
 
 
 # same, but with pod ip:
 do_curl $POD $(kubectl get pod -l app=helloworld,version=v2 -o jsonpath="{.items[0].status.podIP}"):5000/hello
-expect_not_zero $(get_metrics $UPROXY_POD out)
-expect_zero $(get_metrics $UPROXY_POD2 inuproxy)
-expect_not_zero $(get_metrics $UPROXY_POD uproxyloop)
+expect_not_zero $(get_metrics ZTUNNEL_POD out)
+expect_zero $(get_metrics ZTUNNEL_POD2 inztunnel)
+expect_not_zero $(get_metrics ZTUNNEL_POD ztunnelloop)
 
 
 # make cross node request
 do_curl $NOT_IN_MESH_POD helloworld-v1:5000/hello
 kubectl exec -it $NOT_IN_MESH_POD -c sleep -- curl helloworld-v1:5000/hello
-expect_zero $(get_metrics $UPROXY_POD out)
-expect_zero $(get_metrics $UPROXY_POD in)
-expect_not_zero $(get_metrics $UPROXY_POD2 in)
-expect_zero $(get_metrics $UPROXY_POD2 inuproxy)
+expect_zero $(get_metrics ZTUNNEL_POD out)
+expect_zero $(get_metrics ZTUNNEL_POD in)
+expect_not_zero $(get_metrics ZTUNNEL_POD2 in)
+expect_zero $(get_metrics ZTUNNEL_POD2 inztunnel)
 
 
 # make same node request
 do_curl $NOT_IN_MESH_POD helloworld-v2:5000/hello
-expect_zero $(get_metrics $UPROXY_POD out)
-expect_not_zero $(get_metrics $UPROXY_POD in)
-expect_zero $(get_metrics $UPROXY_POD2 inuproxy)
-expect_zero $(get_metrics $UPROXY_POD2 out)
-expect_zero $(get_metrics $UPROXY_POD2 in)
+expect_zero $(get_metrics ZTUNNEL_POD out)
+expect_not_zero $(get_metrics ZTUNNEL_POD in)
+expect_zero $(get_metrics ZTUNNEL_POD2 inztunnel)
+expect_zero $(get_metrics ZTUNNEL_POD2 out)
+expect_zero $(get_metrics ZTUNNEL_POD2 in)
 
 
 

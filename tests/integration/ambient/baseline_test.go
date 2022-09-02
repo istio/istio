@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package uproxy
+package ambient
 
 import (
 	"fmt"
@@ -106,14 +106,14 @@ var (
 )
 
 func supportsL7(opt echo.CallOptions, instances ...echo.Instance) bool {
-	hasRemote := false
+	hasWaypoint := false
 	hasSidecar := false
 	for _, i := range instances {
-		hasRemote = hasRemote || i.Config().IsRemote()
+		hasWaypoint = hasWaypoint || i.Config().HasWaypointProxy()
 		hasSidecar = hasSidecar || i.Config().HasSidecar()
 	}
 	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
-	return (hasRemote || hasSidecar) && isL7Scheme
+	return (hasWaypoint || hasSidecar) && isL7Scheme
 }
 
 func TestServices(t *testing.T) {
@@ -124,7 +124,7 @@ func TestServices(t *testing.T) {
 			opt.Check = tcpValidator
 		}
 
-		if src.Config().IsUncaptured() && dst.Config().IsRemote() {
+		if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// Because client request is not captured to perform the hairpin
 			// TODO: fix this and remove this skip
@@ -146,7 +146,7 @@ func TestPodIP(t *testing.T) {
 						for _, dstWl := range dst.WorkloadsOrFail(t) {
 							t.NewSubTestf("to %v %v", dst.Config().Service, dstWl.Address()).Run(func(t framework.TestContext) {
 								src, dst, srcWl, dstWl := src, dst, srcWl, dstWl
-								if src.Config().IsRemote() || dst.Config().IsRemote() {
+								if src.Config().HasWaypointProxy() || dst.Config().HasWaypointProxy() {
 									t.Skip("not supported yet")
 								}
 								for _, opt := range callOptions {
@@ -160,7 +160,7 @@ func TestPodIP(t *testing.T) {
 									if selfSend {
 										// Calls to ourself (by pod IP) are not captured
 										opt.Check = tcpValidator
-									} else if src.Config().IsUncaptured() && dst.Config().IsRemote() {
+									} else if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
 										// For this case, it is broken if the src and dst are on the same node.
 										// Because client request is not captured to perform the hairpin
 										// TODO: fix this and remove this skip
@@ -220,7 +220,7 @@ func TestServerSideLB(t *testing.T) {
 			return nil
 		}
 
-		shouldBalance := dst.Config().IsRemote() || src.Config().IsRemote()
+		shouldBalance := dst.Config().HasWaypointProxy() || src.Config().HasWaypointProxy()
 		// Istio client will not reuse connections for HTTP/1.1
 		opt.HTTP.HTTP2 = true
 		// Make sure we make multiple calls
@@ -237,11 +237,11 @@ func TestServerSideLB(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need at least one remote and HTTP
+		// Need at least one waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if !dst.Config().IsRemote() && !src.Config().IsRemote() {
+		if !dst.Config().HasWaypointProxy() && !src.Config().HasWaypointProxy() {
 			return
 		}
 		if src.Config().IsUncaptured() {
@@ -321,11 +321,11 @@ spec:
 
 func TestTrafficSplit(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need at least one remote and HTTP
+		// Need at least one waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if !dst.Config().IsRemote() && !src.Config().IsRemote() {
+		if !dst.Config().HasWaypointProxy() && !src.Config().HasWaypointProxy() {
 			return
 		}
 		if src.Config().IsUncaptured() {
@@ -440,7 +440,7 @@ spec:
 
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
-				case src.Config().IsUncaptured() && dst.Config().IsRemote():
+				case src.Config().IsUncaptured() && dst.Config().HasWaypointProxy():
 					// For this case, it is broken if the src and dst are on the same node.
 					// Because client request is not captured to perform the hairpin
 					// TODO: fix this and remove this skip
@@ -602,8 +602,8 @@ spec:
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
-				case !dst.Config().IsRemote() && !dst.Config().HasSidecar():
-					// Only remote can handle L7 policies
+				case !dst.Config().HasWaypointProxy() && !dst.Config().HasSidecar():
+					// Only waypoint proxy can handle L7 policies
 					opt.Check = CheckDeny
 				}
 			}
@@ -698,7 +698,7 @@ spec:
 `).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
-				case src.Config().IsUncaptured() && dst.Config().IsRemote():
+				case src.Config().IsUncaptured() && dst.Config().HasWaypointProxy():
 					// For this case, it is broken if the src and dst are on the same node.
 					// Because client request is not captured to perform the hairpin
 					// TODO: fix this and remove this skip
@@ -706,8 +706,8 @@ spec:
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
-				case !dst.Config().IsRemote() && !dst.Config().HasSidecar():
-					// Only remote can handle L7 policies
+				case !dst.Config().HasWaypointProxy() && !dst.Config().HasSidecar():
+					// Only waypoint proxy can handle L7 policies
 					opt.Check = CheckDeny
 				}
 			}
@@ -778,14 +778,14 @@ func TestMTLS(t *testing.T) {
 					Include:    Always,
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						if from.Config().HasProxyCapabilities() != opts.To.Config().HasProxyCapabilities() {
-							if from.Config().HasProxyCapabilities() && !from.Config().IsRemote() {
+							if from.Config().HasProxyCapabilities() && !from.Config().HasWaypointProxy() {
 								if from.Config().HasSidecar() && !opts.To.Config().HasProxyCapabilities() {
 									// Sidecar respects it ISTIO_MUTUAL, will only send mTLS
 									return false
 								}
 								return true
 							}
-							if !from.Config().HasProxyCapabilities() && opts.To.Config().IsRemote() {
+							if !from.Config().HasProxyCapabilities() && opts.To.Config().HasWaypointProxy() {
 								// TODO: support hairpin
 								return true
 							}
@@ -810,7 +810,7 @@ func TestMTLS(t *testing.T) {
 						return !opts.To.Config().IsNaked()
 					},
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
-						if (from.Config().IsRemote() || from.Config().HasSidecar()) && !opts.To.Config().HasProxyCapabilities() {
+						if (from.Config().HasWaypointProxy() || from.Config().HasSidecar()) && !opts.To.Config().HasProxyCapabilities() {
 							return false
 						}
 						return true
@@ -866,8 +866,8 @@ func TestMTLS(t *testing.T) {
 							// Sidecar respects it
 							return false
 						}
-						if from.Config().IsRemote() && !opts.To.Config().HasProxyCapabilities() {
-							// Remote respects it
+						if from.Config().HasWaypointProxy() && !opts.To.Config().HasProxyCapabilities() {
+							// Waypoint respects it
 							return false
 						}
 						return true
@@ -895,8 +895,8 @@ func TestMTLS(t *testing.T) {
 					},
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						// nolint: gosimple
-						if from.Config().IsRemote() {
-							if opts.To.Config().IsRemote() {
+						if from.Config().HasWaypointProxy() {
+							if opts.To.Config().HasWaypointProxy() {
 								return true
 							}
 							// TODO: https://github.com/solo-io/istio-sidecarless/issues/244
@@ -1228,13 +1228,13 @@ func TestL7Telemetry(t *testing.T) {
 		Features("observability.telemetry.stats.prometheus.ambient").
 		Run(func(tc framework.TestContext) {
 			// ensure that some traffic from each captured workload is
-			// sent to each remote PEP. This will likely have happened in
+			// sent to each waypoint proxy. This will likely have happened in
 			// the other tests (without the teardown), but we want to make
 			// sure that some traffic is seen. This test will not validate
 			// exact traffic counts, but rather focus on validating that
 			// the telemetry is being created and collected properly.
 			for _, src := range apps.Captured {
-				for _, dst := range apps.Remote {
+				for _, dst := range apps.Waypoint {
 					tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
 						localDst := dst
 						localSrc := src
@@ -1332,7 +1332,7 @@ func TestMetadataServer(t *testing.T) {
 						Headers: headers.New().With("Metadata-Flavor", "Google").Build(),
 						Path:    "/computeMetadata/v1/instance/service-accounts/default/identity",
 					},
-					// Test that we see our own identity -- not the uproxy (istio-system/uproxy).
+					// Test that we see our own identity -- not the ztunnel (istio-system/ztunnel).
 					// TODO: if the test SA actually had workload identity enabled the result is probably different
 					Check: check.BodyContains(fmt.Sprintf(`Your Kubernetes service account (%s/%s)`, src.NamespaceName(), src.Config().AccountName())),
 				}
@@ -1344,14 +1344,14 @@ func TestMetadataServer(t *testing.T) {
 
 func TestDirect(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		t.NewSubTest("PEP").Run(func(t framework.TestContext) {
+		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
 			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
 			hb := echo.HBONE{
-				Address:            apps.RemotePEP.Inbound(),
+				Address:            apps.WaypointProxy.Inbound(),
 				Headers:            nil,
 				Cert:               string(cert.ClientCert),
 				Key:                string(cert.Key),
@@ -1368,7 +1368,7 @@ func TestDirect(t *testing.T) {
 			}
 			const UnknownRoute = "round trip failed: 404 Not Found"
 			run("named destination", echo.CallOptions{
-				To:    apps.Remote,
+				To:    apps.Waypoint,
 				Count: 1,
 				Port:  echo.Port{Name: ports.HTTP},
 				HBONE: hb,
@@ -1376,26 +1376,26 @@ func TestDirect(t *testing.T) {
 				Check: check.ErrorContains(UnknownRoute),
 			})
 			run("VIP destination", echo.CallOptions{
-				To:      apps.Remote,
+				To:      apps.Waypoint,
 				Count:   1,
-				Address: apps.Remote[0].Address(),
+				Address: apps.Waypoint[0].Address(),
 				Port:    echo.Port{Name: ports.HTTP},
 				HBONE:   hb,
 				Check:   check.OK(),
 			})
 			run("VIP destination, unknown port", echo.CallOptions{
-				To:      apps.Remote,
+				To:      apps.Waypoint,
 				Count:   1,
-				Address: apps.Remote[0].Address(),
+				Address: apps.Waypoint[0].Address(),
 				Port:    echo.Port{ServicePort: 12345},
 				Scheme:  scheme.HTTP,
 				HBONE:   hb,
 				Check:   check.ErrorContains(UnknownRoute),
 			})
 			run("Pod IP destination", echo.CallOptions{
-				To:      apps.Remote,
+				To:      apps.Waypoint,
 				Count:   1,
-				Address: apps.Remote[0].WorkloadsOrFail(t)[0].Address(),
+				Address: apps.Waypoint[0].WorkloadsOrFail(t)[0].Address(),
 				Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTP).WorkloadPort},
 				Scheme:  scheme.HTTP,
 				HBONE:   hb,
@@ -1421,9 +1421,4 @@ func TestDirect(t *testing.T) {
 			})
 		})
 	})
-}
-
-type PEP struct {
-	Namespace      string
-	ServiceAccount string
 }

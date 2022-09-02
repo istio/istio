@@ -19,7 +19,7 @@ export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
 # If using git with ssh key, you can use this:
 # git config --global url."ssh://git@github.com/solo-io".insteadOf https://github.com/solo-io
 
-# Build Istiod and proxy (uproxy and remote proxy are the same image)
+# Build Istiod and proxy
 tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push # consider --builder=crane
 ```
 
@@ -82,8 +82,8 @@ kubectl exec -it deploy/sleep -n foo -- curl  http://helloworld.default:5000/hel
 Turning on debug logs
 
 ```shell
-WORKER1=$(kubectl -n istio-system get pods --field-selector spec.nodeName==ambient-worker -lapp=uproxy -o custom-columns=:.metadata.name --no-headers)
-WORKER2=$(kubectl -n istio-system get pods --field-selector spec.nodeName==ambient-worker2 -lapp=uproxy -o custom-columns=:.metadata.name --no-headers)
+WORKER1=$(kubectl -n istio-system get pods --field-selector spec.nodeName==ambient-worker -lapp=ztunnel -o custom-columns=:.metadata.name --no-headers)
+WORKER2=$(kubectl -n istio-system get pods --field-selector spec.nodeName==ambient-worker2 -lapp=ztunnel -o custom-columns=:.metadata.name --no-headers)
 
 kubectl -n istio-system port-forward $WORKER1 15000:15000&
 kubectl -n istio-system port-forward $WORKER2 15001:15000&
@@ -91,7 +91,7 @@ kubectl -n istio-system port-forward $WORKER2 15001:15000&
 curl -XPOST "localhost:15000/logging?level=debug"
 curl -XPOST "localhost:15001/logging?level=debug"
 
-kubectl -n istio-system logs -lapp=uproxy -f
+kubectl -n istio-system logs -lapp=ztunnel -f
 # Or,
 kubectl -n istio-system logs $WORKER1 -f
 kubectl -n istio-system logs $WORKER2 -f
@@ -106,7 +106,7 @@ Note: We have to use the custom image to allow installing `ipsets`.
 ```shell
 INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
   --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
-  test.integration.uproxy.kube
+  test.integration.ambient.kube
 ```
 
 A workaround for private repo in-containers:
@@ -118,7 +118,7 @@ A workaround for private repo in-containers:
 CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=$(cd ../api && pwd),destination=/api" \
 INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
   --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
-  test.integration.uproxy.kube
+  test.integration.ambient.kube
 ```
 
 Run integration tests locally on KinD cluster:
@@ -135,7 +135,7 @@ export KIND_NAME=ambient
 # use -v to get live output during test run
 # use -run to execute a specific test: i.e. -run "TestServices"
 # skip test cleanup in order to debug state with --istio.test.nocleanup
-go test -tags=integ ./tests/integration/uproxy/... --istio.test.ambient  --istio.test.ci -p 1
+go test -tags=integ ./tests/integration/ambient/... --istio.test.ambient  --istio.test.ci -p 1
 ```
 
 ## EKS specific notes

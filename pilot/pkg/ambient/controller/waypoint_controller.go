@@ -56,7 +56,7 @@ type Proxy struct {
 	IP   string `json:"ip,omitempty"`
 }
 
-type RemoteProxyController struct {
+type WaypointProxyController struct {
 	client          kubelib.Client
 	queue           controllers.Queue
 	deployments     listerappsv1.DeploymentLister
@@ -69,14 +69,14 @@ type RemoteProxyController struct {
 	injectConfig func() inject.WebhookConfig
 }
 
-var remoteLog = istiolog.RegisterScope("remote proxy", "", 0)
+var waypointLog = istiolog.RegisterScope("waypoint proxy", "", 0)
 
 func init() {
-	remoteLog.SetOutputLevel(istiolog.DebugLevel)
+	waypointLog.SetOutputLevel(istiolog.DebugLevel)
 }
 
-func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig) *RemoteProxyController {
-	rc := &RemoteProxyController{
+func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig) *WaypointProxyController {
+	rc := &WaypointProxyController{
 		client:       client,
 		cluster:      clusterID,
 		injectConfig: config,
@@ -85,13 +85,13 @@ func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, confi
 			t := true
 			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
 				Force:        &t,
-				FieldManager: "remote proxy controller",
+				FieldManager: "waypoint proxy controller",
 			}, subresources...)
 			return err
 		},
 	}
 
-	rc.queue = controllers.NewQueue("remote proxy",
+	rc.queue = controllers.NewQueue("waypoint proxy",
 		controllers.WithReconciler(rc.Reconcile),
 		controllers.WithMaxAttempts(5))
 
@@ -117,17 +117,17 @@ func NewRemoteProxyController(client kubelib.Client, clusterID cluster.ID, confi
 	return rc
 }
 
-func (rc *RemoteProxyController) Run(stop <-chan struct{}) {
+func (rc *WaypointProxyController) Run(stop <-chan struct{}) {
 	go rc.queue.Run(stop)
 	<-stop
 }
 
-func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
+func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 	if rc.injectConfig().Values.Struct().GetGlobal().GetHub() == "" {
 		// Mostly used to avoid issues with local runs
 		return fmt.Errorf("injection config invalid, skipping reconile")
 	}
-	log := remoteLog.WithLabels("gateway", name.String())
+	log := waypointLog.WithLabels("gateway", name.String())
 
 	gw, err := rc.gateways.Gateways(name.Namespace).Get(name.Name)
 	if err != nil || gw == nil {
@@ -175,12 +175,12 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 		log.Infof("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(haveProxies))
 	}
 	for _, k := range remove {
-		log.Infof("removing proxy %q", k+"-proxy")
-		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), k+"-proxy", metav1.DeleteOptions{}); err != nil {
+		log.Infof("removing waypoint proxy %q", k+"-waypoint-proxy")
+		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), k+"-waypoint-proxy", metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("pod remove: %v", err)
 		}
 
-		msg := fmt.Sprintf("Removed pep from %q namespace", gw.Namespace)
+		msg := fmt.Sprintf("Removed waypoint proxy from %q namespace", gw.Namespace)
 		if gatewaySA != "" {
 			msg += fmt.Sprintf(" for %q service account", gatewaySA)
 		}
@@ -195,7 +195,7 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 		}
 	}
 	for _, k := range add {
-		log.Infof("adding proxy %v", k+"-proxy")
+		log.Infof("adding waypoint proxy %v", k+"-waypoint-proxy")
 		input := MergedInput{
 			Namespace:      gw.Namespace,
 			GatewayName:    gw.Name,
@@ -212,7 +212,7 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 			return fmt.Errorf("pod create: %v", err)
 		}
 
-		msg := fmt.Sprintf("Deployed pep to %q namespace", gw.Namespace)
+		msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
 		if gatewaySA != "" {
 			msg += fmt.Sprintf(" for %q service account", gatewaySA)
 		}
@@ -233,7 +233,7 @@ func (rc *RemoteProxyController) Reconcile(name types.NamespacedName) error {
 	return nil
 }
 
-func (rc *RemoteProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions map[string]*istiogw.Condition) error {
+func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions map[string]*istiogw.Condition) error {
 	if gw == nil {
 		return nil
 	}
@@ -258,7 +258,7 @@ func (rc *RemoteProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions m
 }
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
-func (rc *RemoteProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
+func (rc *WaypointProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
 	j, err := config.ToJSON(obj)
 	if err != nil {
 		return err
@@ -273,33 +273,33 @@ func (rc *RemoteProxyController) ApplyObject(obj controllers.Object, subresource
 	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
-func (rc *RemoteProxyController) RenderDeploymentMerged(input MergedInput) (*appsv1.Deployment, error) {
+func (rc *WaypointProxyController) RenderDeploymentMerged(input MergedInput) (*appsv1.Deployment, error) {
 	cfg := rc.injectConfig()
 
 	// TODO watch for template changes, update the Deployment if it does
-	podTemplate := cfg.Templates["remote"]
+	podTemplate := cfg.Templates["waypoint"]
 	if podTemplate == nil {
-		return nil, fmt.Errorf("no remote template defined")
+		return nil, fmt.Errorf("no waypoint template defined")
 	}
 	input.Image = inject.ProxyImage(cfg.Values.Struct(), cfg.MeshConfig.GetDefaultConfig().GetImage(), nil)
-	remoteBytes, err := tmpl.Execute(podTemplate, input)
+	waypointBytes, err := tmpl.Execute(podTemplate, input)
 	if err != nil {
 		return nil, err
 	}
-	proxyPod, err := unmarshalDeploy([]byte(remoteBytes))
+	proxyPod, err := unmarshalDeploy([]byte(waypointBytes))
 	if err != nil {
-		return nil, fmt.Errorf("render: %v\n%v", err, remoteBytes)
+		return nil, fmt.Errorf("render: %v\n%v", err, waypointBytes)
 	}
 	return proxyPod, nil
 }
 
 // pruneGateway removes all proxies for the given Gateway
 // This is not super required since Kubernetes GC can do it as well
-func (rc *RemoteProxyController) pruneGateway(gw types.NamespacedName) error {
+func (rc *WaypointProxyController) pruneGateway(gw types.NamespacedName) error {
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
 	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)
 	for _, d := range proxyDeployments {
-		log.Infof("pruning proxy %v", d.Name)
+		log.Infof("pruning waypoint proxy %v", d.Name)
 		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), d.Name, metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("deployment remove: %v", err)
 		}

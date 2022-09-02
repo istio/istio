@@ -631,7 +631,7 @@ type NodeMetadata struct {
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
 	// EnableHBONE, if set, will enable generation of HBONE config.
-	// Note: this only impacts sidecars; uProxy and PEP unconditionally use HBONE.
+	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
@@ -704,19 +704,19 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 	return node == nil || identifier.IsSameOrEmpty(cluster.String(), node.Metadata.ClusterID.String())
 }
 
-// IsPEP returns true if the proxy is acting as a PEP in an ambient mesh.
-func (node *Proxy) IsPEP() bool {
-	return node.Metadata.AmbientType == ambient.TypePEP
+// IsWaypointProxy returns true if the proxy is acting as a waypoint proxy in an ambient mesh.
+func (node *Proxy) IsWaypointProxy() bool {
+	return node.Metadata.AmbientType == ambient.TypeWaypoint
 }
 
-// IsUproxy returns true if the proxy is acting as a uProxy (node proxy) in an ambient mesh.
-func (node *Proxy) IsUproxy() bool {
-	return node.Metadata.AmbientType == ambient.TypeUProxy
+// IsZTunnel returns true if the proxy is acting as a ztunnel in an ambient mesh.
+func (node *Proxy) IsZTunnel() bool {
+	return node.Metadata.AmbientType == ambient.TypeZTunnel
 }
 
-// IsUProxy returns true if the proxy is acting as either a uProxy (node proxy) or a PEP in an ambient mesh.
+// IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
 func (node *Proxy) IsAmbient() bool {
-	return node.IsPEP() || node.IsUproxy()
+	return node.IsWaypointProxy() || node.IsZTunnel()
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {

@@ -30,17 +30,17 @@ const (
 	InboundTun  = "istioin"
 	OutboundTun = "istioout"
 
-	InboundTunIP        = "192.168.126.1"
-	UproxyInboundTunIP  = "192.168.126.2"
-	OutboundTunIP       = "192.168.127.1"
-	UproxyOutboundTunIP = "192.168.127.2"
-	TunPrefix           = 30
+	InboundTunIP         = "192.168.126.1"
+	ZTunnelInboundTunIP  = "192.168.126.2"
+	OutboundTunIP        = "192.168.127.1"
+	ZTunnelOutboundTunIP = "192.168.127.2"
+	TunPrefix            = 30
 
-	ChainUproxyPrerouting  = "uproxy-PREROUTING"
-	ChainUproxyPostrouting = "uproxy-POSTROUTING"
-	ChainUproxyInput       = "uproxy-INPUT"
-	ChainUproxyOutput      = "uproxy-OUTPUT"
-	ChainUproxyForward     = "uproxy-FORWARD"
+	ChainZTunnelPrerouting  = "ztunnel-PREROUTING"
+	ChainZTunnelPostrouting = "ztunnel-POSTROUTING"
+	ChainZTunnelInput       = "ztunnel-INPUT"
+	ChainZTunnelOutput      = "ztunnel-OUTPUT"
+	ChainZTunnelForward     = "ztunnel-FORWARD"
 
 	ChainPrerouting  = "PREROUTING"
 	ChainPostrouting = "POSTROUTING"

@@ -31,12 +31,12 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/ambientgen"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/networking/uproxygen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -584,17 +584,17 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 
 	s.Generators["grpc/"+v3.ExtensionConfigurationType] = ecdsGen
 
-	s.Generators["uproxy-envoy"] = &uproxygen.UProxyConfigGenerator{EndpointIndex: s.Env.EndpointIndex}
-	s.Generators["uproxy-envoy/"+v3.ListenerType] = s.Generators["uproxy-envoy"]
-	s.Generators["uproxy-envoy/"+v3.ClusterType] = s.Generators["uproxy-envoy"]
-	s.Generators["uproxy-envoy/"+v3.EndpointType] = s.Generators["uproxy-envoy"]
-	s.Generators["uproxy-envoy/"+v3.ExtensionConfigurationType] = ecdsGen
+	s.Generators["ztunnel-envoy"] = &ambientgen.ZTunnelConfigGenerator{EndpointIndex: s.Env.EndpointIndex}
+	s.Generators["ztunnel-envoy/"+v3.ListenerType] = s.Generators["ztunnel-envoy"]
+	s.Generators["ztunnel-envoy/"+v3.ClusterType] = s.Generators["ztunnel-envoy"]
+	s.Generators["ztunnel-envoy/"+v3.EndpointType] = s.Generators["ztunnel-envoy"]
+	s.Generators["ztunnel-envoy/"+v3.ExtensionConfigurationType] = ecdsGen
 
-	pepGen := &uproxygen.PEPGenerator{
+	waypointGen := &ambientgen.WaypointGenerator{
 		ConfigGenerator: s.ConfigGenerator,
 	}
-	s.Generators["ambient-pep/"+v3.ListenerType] = pepGen
-	s.Generators["ambient-pep/"+v3.ClusterType] = pepGen
+	s.Generators["ambient-waypoint/"+v3.ListenerType] = waypointGen
+	s.Generators["ambient-waypoint/"+v3.ClusterType] = waypointGen
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen

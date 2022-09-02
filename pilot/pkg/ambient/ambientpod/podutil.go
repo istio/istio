@@ -87,10 +87,10 @@ func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode s
 	return false
 }
 
-// @TODO Interim function for pep, to be replaced after design meeting
+// @TODO Interim function for waypoint proxy, to be replaced after design meeting
 func PodHasOptOut(pod *corev1.Pod) bool {
 	if val, ok := pod.Labels["ambient-type"]; ok {
-		return val == "pep" || val == "none"
+		return val == "waypoint" || val == "none"
 	}
 	return false
 }

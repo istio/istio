@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{.ServiceAccount}}-proxy
+  name: {{.ServiceAccount}}-waypoint-proxy
   namespace: {{.Namespace}}
   labels:
-    ambient-type: pep
-    ambient-proxy:  {{.ServiceAccount}}-proxy
+    ambient-type: waypoint
+    ambient-proxy:  {{.ServiceAccount}}-waypoint-proxy
     gateway.istio.io/managed: "istio.io-mesh-controller"
     istio.io/gateway-name: "{{.GatewayName}}"
   ownerReferences:
@@ -16,8 +16,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      ambient-type: pep
-      ambient-proxy: {{.ServiceAccount}}-proxy
+      ambient-type: waypoint
+      ambient-proxy: {{.ServiceAccount}}-waypoint-proxy
   template:
     metadata:
       annotations:
@@ -25,8 +25,8 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
-        ambient-type: pep
-        ambient-proxy: {{.ServiceAccount}}-proxy
+        ambient-type: waypoint
+        ambient-proxy: {{.ServiceAccount}}-waypoint-proxy
         gateway.istio.io/managed: "istio.io-mesh-controller"
         istio.io/gateway-name: "{{.GatewayName}}"
         sidecar.istio.io/inject: "false"
@@ -40,7 +40,7 @@ spec:
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
         - --serviceCluster
-        - {{.ServiceAccount}}-proxy.$(POD_NAMESPACE)
+        - {{.ServiceAccount}}-waypoint-proxy.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
@@ -48,9 +48,9 @@ spec:
         - "2"
         env:
         - name: ISTIO_META_GENERATOR
-          value: "ambient-pep"
+          value: "ambient-waypoint"
         - name: ISTIO_META_AMBIENT_TYPE
-          value: "pep"
+          value: "waypoint"
         - name: ISTIO_META_SERVICE_ACCOUNT
           valueFrom:
             fieldRef:
@@ -104,7 +104,7 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
-          value: {{.ServiceAccount}}-proxy
+          value: {{.ServiceAccount}}-waypoint-proxy
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/proxy
         - name: ISTIO_META_MESH_ID

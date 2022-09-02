@@ -80,8 +80,8 @@ type Aggregate struct {
 func (a *Aggregate) AmbientWorkloads() ambient.Indexes {
 	out := ambient.Indexes{
 		Workloads: ambient.NewWorkloadIndex(),
-		PEPs:      ambient.NewWorkloadIndex(),
-		UProxies:  ambient.NewWorkloadIndex(),
+		Waypoints: ambient.NewWorkloadIndex(),
+		ZTunnels:  ambient.NewWorkloadIndex(),
 		None:      ambient.NewWorkloadIndex(),
 	}
 	if a == nil {
@@ -95,8 +95,8 @@ func (a *Aggregate) AmbientWorkloads() ambient.Indexes {
 		ci := c.workloads.AmbientWorkloads()
 		ci.Workloads.MergeInto(out.Workloads)
 		ci.None.MergeInto(out.None)
-		ci.PEPs.MergeInto(out.PEPs)
-		ci.UProxies.MergeInto(out.UProxies)
+		ci.Waypoints.MergeInto(out.Waypoints)
+		ci.ZTunnels.MergeInto(out.ZTunnels)
 	}
 	return out
 }
@@ -116,7 +116,7 @@ func (a *Aggregate) clusterAdded(cluster *multicluster.Cluster, stop <-chan stru
 	opts.Stop = stop
 	opts.ClusterID = cluster.ID
 
-	// don't modify remote clusters, just find their PEPs and Pods
+	// don't modify remote clusters, just find their waypoint proxies and Pods
 	opts.LocalCluster = a.localCluster == cluster.ID
 
 	a.clusters[cluster.ID] = initForCluster(&opts)
@@ -129,8 +129,8 @@ func initForCluster(opts *Options) *ambientController {
 		initAutolabel(opts)
 		go func() {
 			if crdclient.WaitForCRD(gvk.KubernetesGateway, opts.Stop) {
-				remoteProxy := NewRemoteProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
-				remoteProxy.Run(opts.Stop)
+				waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+				waypointController.Run(opts.Stop)
 			}
 		}()
 	}

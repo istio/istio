@@ -380,8 +380,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	tunnelAddress := address
 
 	supportsTunnel := false
-	// Other side is a PEP. TODO: can this really happen?
-	if al := e.Labels[ambient.LabelType]; al == ambient.TypePEP {
+	// Other side is a waypoint proxy. TODO: can this really happen?
+	if al := e.Labels[ambient.LabelType]; al == ambient.TypeWaypoint {
 		supportsTunnel = true
 	}
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
@@ -395,9 +395,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 
 	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
 	if dir != model.TrafficDirectionInboundVIP && supportsTunnel {
-		// Support connecting to server side PEP, if the destination has one. This is for sidecars and ingress.
-		if dir == model.TrafficDirectionOutbound && !b.proxy.IsPEP() && !b.proxy.IsAmbient() {
-			workloads := b.push.AmbientIndex.PEPs.ByIdentity[e.ServiceAccount]
+		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
+		if dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+			workloads := b.push.AmbientIndex.Waypoints.ByIdentity[e.ServiceAccount]
 			if len(workloads) > 0 {
 				// TODO: only ready
 				// TODO: load balance

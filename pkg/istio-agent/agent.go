@@ -182,7 +182,7 @@ type AgentOptions struct {
 	DisableEnvoy          bool
 	DownstreamGrpcOptions []grpc.ServerOption
 
-	UProxy bool
+	ZTunnel bool
 
 	IstiodSAN string
 

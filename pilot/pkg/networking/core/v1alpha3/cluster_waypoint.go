@@ -55,7 +55,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) buildRemoteInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	wls, svcs := FindAssociatedResources(proxy, push)
 
@@ -65,10 +65,10 @@ func (configgen *ConfigGeneratorImpl) buildRemoteInboundClusters(cb *ClusterBuil
 	// 3. `inbound-pod||podip|port`. Points to inbound_CONNECT_originate with tunnel metadata set to hit the pod
 	// 4. inbound_CONNECT_originate. original dst with TLS added
 
-	clusters = append(clusters, cb.buildRemoteInboundVIPInternal(svcs)...)
-	clusters = append(clusters, cb.buildRemoteInboundVIP(svcs)...)
-	clusters = append(clusters, cb.buildRemoteInboundPod(wls, configgen.Discovery)...)
-	clusters = append(clusters, cb.buildRemoteInboundConnect(proxy, push))
+	clusters = append(clusters, cb.buildWaypointInboundVIPInternal(svcs)...)
+	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
+	clusters = append(clusters, cb.buildWaypointInboundPod(wls, configgen.Discovery)...)
+	clusters = append(clusters, cb.buildWaypointInboundConnect(proxy, push))
 
 	for _, c := range clusters {
 		if c.TransportSocket != nil && c.TransportSocketMatches != nil {
@@ -78,7 +78,7 @@ func (configgen *ConfigGeneratorImpl) buildRemoteInboundClusters(cb *ClusterBuil
 	return clusters
 }
 
-func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
+func (cb *ClusterBuilder) buildWaypointInboundPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
 	address := wl.PodIP
 	tunnelPort := 15008
@@ -98,7 +98,7 @@ func (cb *ClusterBuilder) buildRemoteInboundPodCluster(wl ambient.Workload, port
 
 // Cluster to forward to the inbound-pod listener. This is similar to the inbound-vip internal cluster, but has a single endpoint.
 // TODO: in the future maybe we could share the VIP cluster and just pre-select the IP.
-func (cb *ClusterBuilder) buildRemoteInboundInternalPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
+func (cb *ClusterBuilder) buildWaypointInboundInternalPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "internal", host.Name(wl.PodIP), port.Port)
 	destName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
 	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
@@ -126,7 +126,7 @@ func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, liste
 }
 
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name (without internal subset)
-func (cb *ClusterBuilder) buildRemoteInboundVIPInternalCluster(svc *model.Service, port model.Port) *MutableCluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIPInternalCluster(svc *model.Service, port model.Port) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "internal", svc.Hostname, port.Port)
 	destinationName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
 
@@ -141,7 +141,7 @@ func (cb *ClusterBuilder) buildRemoteInboundVIPInternalCluster(svc *model.Servic
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildRemoteInboundVIPCluster(svc *model.Service, port model.Port, subset string) *MutableCluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, port model.Port, subset string) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	clusterType := cluster.Cluster_EDS
@@ -227,21 +227,21 @@ var BaggagePassthroughTransportSocket = &core.TransportSocket{
 }
 
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
-func (cb *ClusterBuilder) buildRemoteInboundVIPInternal(svcs map[host.Name]*model.Service) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIPInternal(svcs map[host.Name]*model.Service) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			clusters = append(clusters, cb.buildRemoteInboundVIPInternalCluster(svc, *port).build())
+			clusters = append(clusters, cb.buildWaypointInboundVIPInternalCluster(svc, *port).build())
 		}
 	}
 	return clusters
 }
 
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Service) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Service) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 
 	for _, svc := range svcs {
@@ -250,20 +250,20 @@ func (cb *ClusterBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servic
 				continue
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-				clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "tcp").build())
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "tcp").build())
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-				clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "http").build())
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "http").build())
 			}
 			cfg := cb.proxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, cb.proxy, svc.Hostname).GetRule()
 			if cfg != nil {
 				destinationRule := cfg.Spec.(*networking.DestinationRule)
 				for _, ss := range destinationRule.Subsets {
 					if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-						clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "tcp/"+ss.Name).build())
+						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "tcp/"+ss.Name).build())
 					}
 					if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-						clusters = append(clusters, cb.buildRemoteInboundVIPCluster(svc, *port, "http/"+ss.Name).build())
+						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "http/"+ss.Name).build())
 					}
 				}
 			}
@@ -273,7 +273,7 @@ func (cb *ClusterBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servic
 }
 
 // `inbound-pod||podip|port`. Points to inbound_CONNECT_originate with tunnel metadata set to hit the pod
-func (cb *ClusterBuilder) buildRemoteInboundPod(wls []WorkloadAndServices, discovery model.ServiceDiscovery) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundPod(wls []WorkloadAndServices, discovery model.ServiceDiscovery) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 	for _, wlx := range wls {
 		wl := wlx.WorkloadInfo
@@ -291,15 +291,15 @@ func (cb *ClusterBuilder) buildRemoteInboundPod(wls []WorkloadAndServices, disco
 				continue
 			}
 			clusters = append(clusters,
-				cb.buildRemoteInboundPodCluster(wl, port).build(),
-				cb.buildRemoteInboundInternalPodCluster(wl, port).build())
+				cb.buildWaypointInboundPodCluster(wl, port).build(),
+				cb.buildWaypointInboundInternalPodCluster(wl, port).build())
 		}
 	}
 	return clusters
 }
 
 // inbound_CONNECT_originate. original dst with TLS added
-func (cb *ClusterBuilder) buildRemoteInboundConnect(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	ctx := &tls.CommonTlsContext{}
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
 

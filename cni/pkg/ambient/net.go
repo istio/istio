@@ -156,7 +156,7 @@ func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
 		fmt.Sprintf("%d", constants.RouteTableInbound),
 		fmt.Sprintf("%s/32", ip),
 		"via",
-		constants.UproxyInboundTunIP,
+		constants.ZTunnelInboundTunIP,
 		"dev",
 		constants.InboundTun,
 		"src",
@@ -249,14 +249,14 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.
 // https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh
-func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool) error {
+func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool) error {
 	var err error
 
-	log.Debugf("CreateRulesOnNode: uproxyVeth=%s, uproxyIP=%s", uproxyVeth, uproxyIP)
+	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
 
 	// Check if chain exists, if it exists flush.. otherwise initialize
 	// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L28
-	err = execute(IptablesCmd, "-t", "mangle", "-C", "output", "-j", constants.ChainUproxyOutput)
+	err = execute(IptablesCmd, "-t", "mangle", "-C", "output", "-j", constants.ChainZTunnelOutput)
 	if err == nil {
 		log.Debugf("Chain %s already exists, flushing", constants.ChainOutput)
 		s.flushLists()
@@ -281,7 +281,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L88
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-i", constants.InboundTun,
 			"-j", "MARK",
 			"--set-mark", constants.SkipMark,
@@ -289,21 +289,21 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L89
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-i", constants.InboundTun,
 			"-j", "RETURN",
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L90
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-i", constants.OutboundTun,
 			"-j", "MARK",
 			"--set-mark", constants.SkipMark,
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L91
 		newIptableRule(constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-i", constants.OutboundTun,
 			"-j", "RETURN",
 		),
@@ -313,7 +313,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L95
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyForward,
+			constants.ChainZTunnelForward,
 			"-m", "mark",
 			"--mark", constants.ConnSkipMark,
 			"-j", "CONNMARK",
@@ -327,7 +327,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L99
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyInput,
+			constants.ChainZTunnelInput,
 			"-m", "mark",
 			"--mark", constants.ConnSkipMark,
 			"-j", "CONNMARK",
@@ -341,7 +341,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L103
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyForward,
+			constants.ChainZTunnelForward,
 			"-m", "mark",
 			"--mark", constants.ProxyMark,
 			"-j", "CONNMARK",
@@ -352,7 +352,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L104
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyInput,
+			constants.ChainZTunnelInput,
 			"-m", "mark",
 			"--mark", constants.ProxyMark,
 			"-j", "CONNMARK",
@@ -363,7 +363,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L106
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyOutput,
+			constants.ChainZTunnelOutput,
 			"--source", HostIP,
 			"-j", "MARK",
 			"--set-mark", constants.ConnSkipMask,
@@ -374,7 +374,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L122
 		newIptableRule(
 			constants.TableNat,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-m", "mark",
 			"--mark", constants.OutboundMark,
 			"-j", "ACCEPT",
@@ -382,7 +382,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L123
 		newIptableRule(
 			constants.TableNat,
-			constants.ChainUproxyPostrouting,
+			constants.ChainZTunnelPostrouting,
 			"-m", "mark",
 			"--mark", constants.OutboundMark,
 			"-j", "ACCEPT",
@@ -393,13 +393,13 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		appendRules = append(appendRules,
 			newIptableRule(
 				constants.TableNat,
-				constants.ChainUproxyPrerouting,
+				constants.ChainZTunnelPrerouting,
 				"-p", "udp",
 				"-m", "set",
 				"--match-set", Ipset.Name, "src",
 				"--dport", "53",
 				"-j", "DNAT",
-				"--to", fmt.Sprintf("%s:%d", uproxyIP, constants.DNSCapturePort),
+				"--to", fmt.Sprintf("%s:%d", ztunnelIP, constants.DNSCapturePort),
 			),
 		)
 	}
@@ -410,7 +410,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L126
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-p", "udp",
 			"-m", "udp",
 			"--dport", "6081",
@@ -422,7 +422,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L129-L130
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-m", "connmark",
 			"--mark", constants.ConnSkipMark,
 			"-j", "MARK",
@@ -430,18 +430,18 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		),
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-m", "mark",
 			"--mark", constants.SkipMark,
 			"-j", "RETURN",
 		),
 
-		// If we have the proxy mark in, set the return mark to make sure that original src packets go to uproxy
+		// If we have the proxy mark in, set the return mark to make sure that original src packets go to ztunnel
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L133-L134
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
-			"!", "-i", uproxyVeth,
+			constants.ChainZTunnelPrerouting,
+			"!", "-i", ztunnelVeth,
 			"-m", "connmark",
 			"--mark", constants.ProxyMark,
 			"-j", "MARK",
@@ -449,7 +449,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		),
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-m", "mark",
 			"--mark", constants.ProxyRetMark,
 			"-j", "RETURN",
@@ -461,27 +461,27 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L139-L140
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
-			"-i", uproxyVeth,
-			"!", "--source", uproxyIP,
+			constants.ChainZTunnelPrerouting,
+			"-i", ztunnelVeth,
+			"!", "--source", ztunnelIP,
 			"-j", "MARK",
 			"--set-mark", constants.ProxyMark,
 		),
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-m", "mark",
 			"--mark", constants.SkipMark,
 			"-j", "RETURN",
 		),
 
-		// Make sure anything that leaves uproxy is routed normally (xds, connections to other uproxies,
+		// Make sure anything that leaves ztunnel is routed normally (xds, connections to other ztunnels,
 		// connections to upstream pods...)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L143
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
-			"-i", uproxyVeth,
+			constants.ChainZTunnelPrerouting,
+			"-i", ztunnelVeth,
 			"-j", "MARK",
 			"--set-mark", constants.ConnSkipMark,
 		),
@@ -490,7 +490,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L146
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-p", "udp",
 			"-j", "MARK",
 			"--set-mark", constants.ConnSkipMark,
@@ -501,7 +501,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L149
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-m", "mark",
 			"--mark", constants.SkipMark,
 			"-j", "RETURN",
@@ -513,7 +513,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// detection).
 		newIptableRule(
 			constants.TableMangle,
-			constants.ChainUproxyPrerouting,
+			constants.ChainZTunnelPrerouting,
 			"-p", "tcp",
 			"-m", "set",
 			"--match-set", Ipset.Name, "src",
@@ -536,10 +536,10 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 	// @TODO: This likely needs to be cleaned up, there are a lot of martians in AWS
 	// that seem to necessitate this work.
 	procs := map[string]int{
-		"/proc/sys/net/ipv4/conf/default/rp_filter":               0,
-		"/proc/sys/net/ipv4/conf/all/rp_filter":                   0,
-		"/proc/sys/net/ipv4/conf/" + uproxyVeth + "/rp_filter":    0,
-		"/proc/sys/net/ipv4/conf/" + uproxyVeth + "/accept_local": 1,
+		"/proc/sys/net/ipv4/conf/default/rp_filter":                0,
+		"/proc/sys/net/ipv4/conf/all/rp_filter":                    0,
+		"/proc/sys/net/ipv4/conf/" + ztunnelVeth + "/rp_filter":    0,
+		"/proc/sys/net/ipv4/conf/" + ztunnelVeth + "/accept_local": 1,
 	}
 	for proc, val := range procs {
 		err = SetProc(proc, fmt.Sprint(val))
@@ -555,7 +555,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 			Name: constants.InboundTun,
 		},
 		ID:     1000,
-		Remote: net.ParseIP(uproxyIP),
+		Remote: net.ParseIP(ztunnelIP),
 	}
 	log.Debugf("Building inbound tunnel: %+v", inbnd)
 	err = netlink.LinkAdd(inbnd)
@@ -577,7 +577,7 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 			Name: constants.OutboundTun,
 		},
 		ID:     1001,
-		Remote: net.ParseIP(uproxyIP),
+		Remote: net.ParseIP(ztunnelIP),
 	}
 	log.Debugf("Building outbound tunnel: %+v", outbnd)
 	err = netlink.LinkAdd(outbnd)
@@ -635,36 +635,36 @@ func (s *Server) CreateRulesOnNode(uproxyVeth, uproxyIP string, captureDNS bool)
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L164
 		newExec("ip",
 			[]string{
-				"route", "add", "table", fmt.Sprint(constants.RouteTableOutbound), uproxyIP,
-				"dev", uproxyVeth, "scope", "link",
+				"route", "add", "table", fmt.Sprint(constants.RouteTableOutbound), ztunnelIP,
+				"dev", ztunnelVeth, "scope", "link",
 			},
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L166
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableOutbound), "0.0.0.0/0",
-				"via", constants.UproxyOutboundTunIP, "dev", constants.OutboundTun,
+				"via", constants.ZTunnelOutboundTunIP, "dev", constants.OutboundTun,
 			},
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L168
 		newExec("ip",
 			[]string{
-				"route", "add", "table", fmt.Sprint(constants.RouteTableProxy), uproxyIP,
-				"dev", uproxyVeth, "scope", "link",
+				"route", "add", "table", fmt.Sprint(constants.RouteTableProxy), ztunnelIP,
+				"dev", ztunnelVeth, "scope", "link",
 			},
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L169
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableProxy), "0.0.0.0/0",
-				"via", uproxyIP, "dev", uproxyVeth, "onlink",
+				"via", ztunnelIP, "dev", ztunnelVeth, "onlink",
 			},
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L171
 		newExec("ip",
 			[]string{
-				"route", "add", "table", fmt.Sprint(constants.RouteTableInbound), uproxyIP,
-				"dev", uproxyVeth, "scope", "link",
+				"route", "add", "table", fmt.Sprint(constants.RouteTableInbound), ztunnelIP,
+				"dev", ztunnelVeth, "scope", "link",
 			},
 		),
 		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L62-L77

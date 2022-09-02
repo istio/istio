@@ -1148,7 +1148,7 @@ message Values {
 
   PilotConfig pilot = 10;
 
-  google.protobuf.Value uproxy = 41;
+  google.protobuf.Value ztunnel = 41;
 
   // Controls whether telemetry is exported for Pilot.
   TelemetryConfig telemetry = 23;

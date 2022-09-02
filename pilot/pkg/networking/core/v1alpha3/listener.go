@@ -1270,7 +1270,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 	// TODO(ambient) probably shouldn't do this conversion here...
 	socketAddr := res.GetAddress().GetSocketAddress()
-	if socketAddr != nil && opts.proxy.IsPEP() {
+	if socketAddr != nil && opts.proxy.IsWaypointProxy() {
 		res.Address = nil
 		res.ListenerSpecifier = &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}}
 		res.ListenerFilters = append(res.ListenerFilters, util.InternalListenerSetAddressFilter())

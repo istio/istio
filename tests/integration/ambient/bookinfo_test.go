@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package uproxy
+package ambient
 
 import (
 	"fmt"
@@ -74,7 +74,7 @@ func TestBookinfo(t *testing.T) {
 			addr, ingrPort := ingressInst.HTTPAddress()
 			ingressURL := fmt.Sprintf("http://%v:%v", addr, ingrPort)
 
-			t.NewSubTest("no pep").Run(func(t framework.TestContext) {
+			t.NewSubTest("no waypoint").Run(func(t framework.TestContext) {
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -99,8 +99,8 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 
-			t.NewSubTest("pep routing").Run(func(t framework.TestContext) {
-				setupPeps(t, nsConfig)
+			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
+				setupWaypoints(t, nsConfig)
 
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
@@ -196,25 +196,25 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), routingV1)
 }
 
-func setupPeps(t framework.TestContext, nsConfig namespace.Instance) {
+func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 	if err := t.ConfigIstio().YAML(nsConfig.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
-  name: bookinfo-peps
+  name: bookinfo-waypoints
   annotations:
     istio.io/service-account: bookinfo-reviews
 spec:
   gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
-	pepErr := retry.UntilSuccess(func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=pep")); err != nil {
+	waypointError := retry.UntilSuccess(func() error {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")); err != nil {
 			return fmt.Errorf("gateway is not ready: %v", err)
 		}
 		return nil
 	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
-	if pepErr != nil {
-		t.Fatal(pepErr)
+	if waypointError != nil {
+		t.Fatal(waypointError)
 	}
 }
 

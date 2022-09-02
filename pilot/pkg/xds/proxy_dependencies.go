@@ -33,7 +33,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
-	if proxy.IsPEP() || proxy.IsUproxy() {
+	if proxy.IsWaypointProxy() || proxy.IsZTunnel() {
 		// Optimizations do not apply since scoping uses different mechanism
 		// TODO: implement ambient aware scoping
 		return true

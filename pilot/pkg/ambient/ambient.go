@@ -31,7 +31,7 @@ type WorkloadMetadata struct {
 	ControllerKind string
 }
 
-// TODO shouldn't call this a workload. Maybe "node" encapsulates all of uproxy, pep, workload
+// TODO shouldn't call this a workload. Maybe "node" encapsulates all of ztunnel, waypoints, workload
 type Workload struct {
 	UID       string
 	Name      string
@@ -58,17 +58,17 @@ type NodeType = string
 const (
 	LabelStatus = "istio.io/ambient-status"
 	TypeEnabled = "enabled"
-	// LabelType == "workload" -> intercept into uProxy
+	// LabelType == "workload" -> intercept into ztunnel
 	// TODO this could be an annotation – eventually move it into api repo
 	LabelType = "ambient-type"
 
 	TypeWorkload NodeType = "workload"
 	TypeNone     NodeType = "none"
-	TypeUProxy   NodeType = "uproxy"
-	TypePEP      NodeType = "pep"
+	TypeZTunnel  NodeType = "ztunnel"
+	TypeWaypoint NodeType = "waypoint"
 )
 
-// Cache holds Indexes of client workloads, peps and uproxies
+// Cache holds Indexes of client workloads, waypoint proxies, and ztunnels
 type Cache interface {
 	AmbientWorkloads() Indexes
 }
@@ -76,8 +76,8 @@ type Cache interface {
 type Indexes struct {
 	Workloads *WorkloadIndex `json:"workloads"`
 	None      *WorkloadIndex `json:"none"`
-	PEPs      *WorkloadIndex `json:"peps"`
-	UProxies  *WorkloadIndex `json:"uproxies"`
+	Waypoints *WorkloadIndex `json:"waypoints"`
+	ZTunnels  *WorkloadIndex `json:"ztunnels"`
 }
 
 type WorkloadIndex struct {

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package uproxygen_test
+package ambientgen_test
 
 import (
 	"context"
@@ -115,7 +115,7 @@ status:
     status: "True"
 `
 
-const testPEP = `
+const testWaypoint = `
 ---
 apiVersion: v1
 kind: Pod
@@ -124,7 +124,7 @@ metadata:
   namespace: ns1
   labels:
     app: default-proxy
-    ambient-type: pep
+    ambient-type: waypoint
 spec:
   nodeName: worker-1
   serviceAccountName: default
@@ -135,13 +135,13 @@ status:
     status: "True"
 `
 
-func TestUproxygen(t *testing.T) {
+func TestZTunnelgen(t *testing.T) {
 	t.Skip("scaffolding is useful; needs rewrite")
 	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjectString: testData,
 	})
 	ads := ds.ConnectADS().WithMetadata(model.NodeMetadata{
-		Generator: "uproxy-envoy",
+		Generator: "ztunnel-envoy",
 		NodeName:  "worker-1",
 	})
 
@@ -194,12 +194,12 @@ func TestUproxygen(t *testing.T) {
 	}
 }
 
-func TestUproxygenServerPep(t *testing.T) {
+func TestServerWaypoint(t *testing.T) {
 	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		KubernetesObjectString: testData + testPEP,
+		KubernetesObjectString: testData + testWaypoint,
 	})
 	ads := ds.ConnectADS().WithMetadata(model.NodeMetadata{
-		Generator: "uproxy-envoy",
+		Generator: "ztunnel-envoy",
 		NodeName:  "worker-1",
 	})
 	res := ads.WithType(v3.ListenerType).RequestResponseAck(t, &discoveryv3.DiscoveryRequest{})
@@ -213,9 +213,9 @@ func TestUproxygenServerPep(t *testing.T) {
 		listeners[l.Name] = l
 	}
 
-	outboundListener, ok := listeners["uproxy_outbound"]
+	outboundListener, ok := listeners["ztunnel_outbound"]
 	if !ok {
-		t.Fatal("did not find uproxy_outbound listener")
+		t.Fatal("did not find ztunnel_outbound listener")
 	}
 
 	srcIPMatch := outboundListener.GetFilterChainMatcher().GetOnNoMatch().GetMatcher().GetMatcherTree().GetExactMatchMap().GetMap()
@@ -231,7 +231,7 @@ func TestUproxygenServerPep(t *testing.T) {
 		t.Fatal("no port match on helloworld port")
 	}
 
-	wantChain := "spiffe://cluster.local/ns/ns1/sa/sleep_to_server_pep_spiffe://cluster.local/ns/ns1/sa/default"
+	wantChain := "spiffe://cluster.local/ns/ns1/sa/sleep_to_server_waypoint_proxy_spiffe://cluster.local/ns/ns1/sa/default"
 	if chain := portMatch["5000"].GetAction().GetName(); chain != wantChain {
 		t.Fatalf("expected chain %q but got %q", wantChain, chain)
 	}

@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 )
 
-func TestRemoteProxyController(t *testing.T) {
+func TestWaypointProxyController(t *testing.T) {
 	vc, err := inject.NewValuesConfig(`
 global:
   hub: test
@@ -47,13 +47,13 @@ global:
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmplPath := filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/remote.yaml")
+	tmplPath := filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")
 	tmplStr := file.AsStringOrFail(t, tmplPath)
-	tmpl, err := inject.ParseTemplates(map[string]string{"remote": tmplStr})
+	tmpl, err := inject.ParseTemplates(map[string]string{"waypoint": tmplStr})
 	if err != nil {
 		t.Fatal(err)
 	}
-	run := func(name string, f func(t *testing.T, cc *RemoteProxyController)) {
+	run := func(name string, f func(t *testing.T, cc *WaypointProxyController)) {
 		t.Run(name, func(t *testing.T) {
 			c := kube.NewFakeClient(
 				&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "sa-1", Namespace: "test"}},
@@ -61,7 +61,7 @@ global:
 				&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "sa-3", Namespace: "cross-namespace"}},
 			)
 
-			cc := NewRemoteProxyController(c, "test", func() inject.WebhookConfig {
+			cc := NewWaypointProxyController(c, "test", func() inject.WebhookConfig {
 				return inject.WebhookConfig{
 					Templates: tmpl,
 					Values:    vc,
@@ -77,19 +77,19 @@ global:
 		})
 	}
 
-	run("empty", func(t *testing.T, cc *RemoteProxyController) {
+	run("empty", func(t *testing.T, cc *WaypointProxyController) {
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 	})
 
-	run("full namespace gateway", func(t *testing.T, cc *RemoteProxyController) {
+	run("full namespace gateway", func(t *testing.T, cc *WaypointProxyController) {
 		_, err := cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
 			Create(context.Background(), makeGateway("gateway", ""), metav1.CreateOptions{})
 		assert.NoError(t, err)
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertCreated(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-waypoint-proxy", Namespace: "test"},
 		)
 
 		assert.NoError(t, cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
@@ -97,19 +97,19 @@ global:
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertDeleted(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-waypoint-proxy", Namespace: "test"},
 		)
 	})
 
-	run("single SA gateway", func(t *testing.T, cc *RemoteProxyController) {
+	run("single SA gateway", func(t *testing.T, cc *WaypointProxyController) {
 		_, err := cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
 			Create(context.Background(), makeGateway("gateway", "sa-1"), metav1.CreateOptions{})
 		assert.NoError(t, err)
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertCreated(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
 		)
 
 		assert.NoError(t, cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
@@ -117,7 +117,7 @@ global:
 		time.Sleep(time.Millisecond * 100)
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
 		assertDeleted(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-proxy", Namespace: "test"},
+			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
 		)
 	})
 }

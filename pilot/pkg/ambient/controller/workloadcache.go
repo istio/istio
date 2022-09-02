@@ -40,11 +40,11 @@ func initWorkloadCache(opts *Options) *workloadCache {
 	wc := &workloadCache{
 		xds:  opts.xds,
 		pods: opts.Client.Kube().CoreV1().Pods,
-		// 3 types of things here: uProxies, PEPs and Workloads.
+		// 3 types of things here: ztunnels, waypoint proxies, and Workloads.
 		// While we don't have to look up all of these by the same keys, the indexes should be pretty cheap.
 		indexes: map[ambient.NodeType]*ambient.WorkloadIndex{
-			ambient.TypeUProxy:   ambient.NewWorkloadIndex(),
-			ambient.TypePEP:      ambient.NewWorkloadIndex(),
+			ambient.TypeZTunnel:  ambient.NewWorkloadIndex(),
+			ambient.TypeWaypoint: ambient.NewWorkloadIndex(),
 			ambient.TypeWorkload: ambient.NewWorkloadIndex(),
 			ambient.TypeNone:     ambient.NewWorkloadIndex(),
 		},
@@ -114,7 +114,7 @@ func (wc *workloadCache) AmbientWorkloads() ambient.Indexes {
 	return ambient.Indexes{
 		Workloads: wc.indexes[ambient.TypeWorkload].Copy(),
 		None:      wc.indexes[ambient.TypeNone].Copy(),
-		PEPs:      wc.indexes[ambient.TypePEP].Copy(),
-		UProxies:  wc.indexes[ambient.TypeUProxy].Copy(),
+		Waypoints: wc.indexes[ambient.TypeWaypoint].Copy(),
+		ZTunnels:  wc.indexes[ambient.TypeZTunnel].Copy(),
 	}
 }

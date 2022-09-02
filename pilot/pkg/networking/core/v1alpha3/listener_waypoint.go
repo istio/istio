@@ -85,7 +85,7 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
 }
 
-func (lb *ListenerBuilder) buildRemoteInbound() []*listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	listeners := []*listener.Listener{}
 	// We create 4 listeners:
 	// 1. Our top level terminating CONNECT listener, `inbound TERMINATE`. This has a route per destination and decapsulates the CONNECT,
@@ -97,22 +97,22 @@ func (lb *ListenerBuilder) buildRemoteInbound() []*listener.Listener {
 	// 4. Our final CONNECT listener, originating the tunnel
 	wls, svcs := FindAssociatedResources(lb.node, lb.push)
 
-	listeners = append(listeners, lb.buildRemoteInboundTerminateConnect(svcs, wls))
+	listeners = append(listeners, lb.buildWaypointInboundTerminateConnect(svcs, wls))
 
 	// VIP listeners
-	listeners = append(listeners, lb.buildRemoteInboundVIP(svcs)...)
+	listeners = append(listeners, lb.buildWaypointInboundVIP(svcs)...)
 
 	// Pod listeners
-	listeners = append(listeners, lb.buildRemoteInboundPod(wls)...)
+	listeners = append(listeners, lb.buildWaypointInboundPod(wls)...)
 
-	listeners = append(listeners, lb.buildRemoteInboundOriginateConnect())
+	listeners = append(listeners, lb.buildWaypointInboundOriginateConnect())
 
 	return listeners
 }
 
 // Our top level terminating CONNECT listener, `inbound TERMINATE`. This has a route per destination and decapsulates the CONNECT,
 // forwarding to the VIP or Pod internal listener.
-func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name]*model.Service, wls []WorkloadAndServices) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Name]*model.Service, wls []WorkloadAndServices) *listener.Listener {
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// CONNECT listener
 	vhost := &route.VirtualHost{
@@ -226,7 +226,7 @@ func (lb *ListenerBuilder) buildRemoteInboundTerminateConnect(svcs map[host.Name
 	return l
 }
 
-func (lb *ListenerBuilder) buildRemoteInboundOriginateConnect() *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.Listener {
 	name := "inbound_CONNECT_originate"
 	l := &listener.Listener{
 		Name:              name,
@@ -259,7 +259,7 @@ func (lb *ListenerBuilder) buildRemoteInboundOriginateConnect() *listener.Listen
 
 // VIP listeners, `inbound||hostname|port`. This will apply service policies. For typical case (not redirecting to external service),
 // this will end up forwarding to a cluster for the same VIP, which will have endpoints for each Pod internal listener
-func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Service) []*listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Service) []*listener.Listener {
 	listeners := []*listener.Listener{}
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
@@ -286,7 +286,7 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
-				Filters: lb.buildRemoteInboundVIPHTTPFilters(svc, cc),
+				Filters: lb.buildWaypointInboundVIPHTTPFilters(svc, cc),
 				Name:    httpName,
 			}
 			l := &listener.Listener{
@@ -323,7 +323,7 @@ func (lb *ListenerBuilder) buildRemoteInboundVIP(svcs map[host.Name]*model.Servi
 
 // (many) Pod listener, `inbound||podip|port`. This is one per inbound pod. Will go through HCM if needed, in order to apply L7 policies (authz)
 // Note: we need both a pod listener and a VIP listener since we need to apply policies at different levels (routing vs authz).
-func (lb *ListenerBuilder) buildRemoteInboundPod(wls []WorkloadAndServices) []*listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInboundPod(wls []WorkloadAndServices) []*listener.Listener {
 	listeners := []*listener.Listener{}
 	for _, wlx := range wls {
 		// Follow same logic as today, but no mTLS ever
@@ -414,16 +414,16 @@ func getPorts(services []*model.ServiceInstance) []model.Port {
 	return pl
 }
 
-// buildRemoteInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.
+// buildWaypointInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildRemoteInboundVIPHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 	if !lb.node.IsAmbient() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildRemoteInboundHTTPRouteConfig(lb, svc, cc),
+		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
@@ -453,7 +453,7 @@ func (lb *ListenerBuilder) buildRemoteInboundVIPHTTPFilters(svc *model.Service, 
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
-	if lb.node.IsPEP() {
+	if lb.node.IsWaypointProxy() {
 		restoreTLSFilter := &listener.Filter{
 			Name: "restore_tls",
 			ConfigType: &listener.Filter_TypedConfig{
@@ -470,7 +470,7 @@ func (lb *ListenerBuilder) buildRemoteInboundVIPHTTPFilters(svc *model.Service, 
 	return filters
 }
 
-func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
+func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
 	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
@@ -480,10 +480,10 @@ func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, 
 	}
 	vs := vss[0]
 
-	// Typically we setup routes with the Host header match. However, for remote inbound we are actually using
+	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.remoteInboundRoute(vs, int(cc.port.Port))
+	routes, err := lb.waypointInboundRoute(vs, int(cc.port.Port))
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -501,7 +501,7 @@ func buildRemoteInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, 
 	}
 }
 
-func (lb *ListenerBuilder) remoteInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
+func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -715,7 +715,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	// this PEP isn't responsible for this service so we use outbound; TODO quicker svc account check
+	// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker svc account check
 	if service != nil && lb.node.VerifiedIdentity != nil && (service.MeshExternal ||
 		!sets.New(lb.push.ServiceAccounts[service.Hostname][port]...).Contains(lb.node.VerifiedIdentity.String())) {
 		dir, subset = model.TrafficDirectionOutbound, destination.Subset
@@ -729,7 +729,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	)
 }
 
-// TODO remove dupe with uproxygen
+// TODO remove dupe with ztunnelgen
 func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)

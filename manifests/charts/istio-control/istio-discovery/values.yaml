@@ -70,7 +70,7 @@ pilot:
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
 
-uproxy:
+ztunnel:
   hub: ""
   tag: ""
   variant: ""

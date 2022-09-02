@@ -383,7 +383,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
 				bind:              "0.0.0.0", // TODO ipv6
 				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
-				hbone:             lb.node.IsPEP(),
+				hbone:             lb.node.IsWaypointProxy(),
 			}
 			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
 				cc.telemetryMetadata.KubernetesServiceNamespace = i.Service.Attributes.Namespace
@@ -423,7 +423,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				clusterName: model.BuildInboundSubsetKey(int(port.TargetPort)),
 				bind:        i.Bind,
 				bindToPort:  bindtoPort,
-				hbone:       lb.node.IsPEP(),
+				hbone:       lb.node.IsWaypointProxy(),
 			}
 			if cc.bind == "" {
 				// If user didn't provide, pick one based on IP
@@ -705,7 +705,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 				},
 				clusterName: clusterName,
 				passthrough: true,
-				hbone:       lb.node.IsPEP(),
+				hbone:       lb.node.IsWaypointProxy(),
 			}
 			opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
 			filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)

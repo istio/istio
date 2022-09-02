@@ -23,7 +23,7 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking/uproxygen"
+	"istio.io/istio/pilot/pkg/networking/ambientgen"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -64,13 +64,13 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	isWorkloadMeta := false
 	for _, name := range w.ResourceNames {
-		if strings.EqualFold(name, uproxygen.WorkloadMetadataListenerFilterName) {
+		if strings.EqualFold(name, ambientgen.WorkloadMetadataListenerFilterName) {
 			isWorkloadMeta = true
 			break
 		}
 	}
 	if isWorkloadMeta {
-		wg := &uproxygen.WorkloadMetadataGenerator{Workloads: e.Server.Env}
+		wg := &ambientgen.WorkloadMetadataGenerator{Workloads: e.Server.Env}
 		return wg.Generate(proxy, w, req)
 	}
 

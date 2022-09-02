@@ -116,8 +116,8 @@ func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
-	if lb.node.Metadata.AmbientType == ambient.TypePEP {
-		lb.inboundListeners = lb.buildRemoteInbound()
+	if lb.node.Metadata.AmbientType == ambient.TypeWaypoint {
+		lb.inboundListeners = lb.buildWaypointInbound()
 	} else {
 		lb.inboundListeners = lb.buildInboundListeners()
 		if lb.node.EnableHBONE() {
@@ -144,7 +144,7 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
-	if lb.node.GetInterceptionMode() == model.InterceptionNone || lb.node.IsPEP() {
+	if lb.node.GetInterceptionMode() == model.InterceptionNone || lb.node.IsWaypointProxy() {
 		// virtual listener is not necessary since workload is not using IPtables for traffic interception
 		return lb
 	}
@@ -403,7 +403,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	}
 
-	// never enable MX for Ambient proxies (uProxies or PEPs)
+	// never enable MX for Ambient proxies
 	if features.MetadataExchange && !lb.node.IsAmbient() {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}

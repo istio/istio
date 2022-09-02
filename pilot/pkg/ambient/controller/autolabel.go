@@ -59,7 +59,7 @@ var labelPatch = []byte(fmt.Sprintf(
 
 func ambientLabelFilter(ignoredNamespaces sets.Set) func(o controllers.Object) bool {
 	return func(o controllers.Object) bool {
-		_, alreadyLabelled := o.GetLabels()[ambient.LabelType] // PEPs uProxies will already be labeled
+		_, alreadyLabelled := o.GetLabels()[ambient.LabelType] // Waypoints and ztunnels will already be labeled
 		ignored := inject.IgnoredNamespaces.Contains(o.GetNamespace()) || ignoredNamespaces.Contains(o.GetNamespace())
 		// TODO(https://github.com/solo-io/istio-sidecarless/issues/154) allow this
 		_, injected := o.GetLabels()[label.SecurityTlsMode.Name]

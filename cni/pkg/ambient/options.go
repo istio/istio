@@ -47,7 +47,7 @@ const (
 )
 
 var Ipset = &ipsetlib.IPSet{
-	Name: "uproxy-pods-ips",
+	Name: "ztunnel-pods-ips",
 }
 
 var ambientSelectors metav1.LabelSelector = metav1.LabelSelector{
