@@ -354,7 +354,12 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
-	wasm := lb.push.WasmPlugins(lb.node)
+	var wasm map[extensions.PluginPhase][]*model.WasmPluginWrapper
+	if features.ApplyWasmPluginsToOutbound || httpOpts.class != istionetworking.ListenerClassSidecarOutbound {
+		wasm = lb.push.WasmPlugins(lb.node)
+	} else {
+		wasm = make(map[extensions.PluginPhase][]*model.WasmPluginWrapper)
+	}
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)

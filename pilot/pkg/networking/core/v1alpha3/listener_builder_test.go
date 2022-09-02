@@ -29,14 +29,17 @@ import (
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
@@ -878,6 +881,98 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
 			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
 				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
+			}
+		})
+	}
+}
+
+func TestHCMWasmPlugin(t *testing.T) {
+	wasmPluginConfig := config.Config{
+		Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{Phase: extensions.PluginPhase_AUTHN},
+	}
+	cg := NewConfigGenTest(t, TestOptions{ConfigPointers: []*config.Config{&wasmPluginConfig}})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{
+		ConfigNamespace: "testns",
+		Labels: map[string]string{
+			"app": "productpage",
+		},
+		Metadata: &model.NodeMetadata{
+			Labels: map[string]string{
+				"app": "productpage",
+			},
+		},
+	})
+	push := cg.PushContext()
+	if err := push.InitContext(cg.env, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name                string
+		listenerClass       istionetworking.ListenerClass
+		outboundWasmFeature bool
+		expectedExtensions  bool
+	}{
+		{
+			name:                "Inbound listener & APPLY_WASM_PLUGINS_TO_OUTBOUND = true",
+			listenerClass:       istionetworking.ListenerClassSidecarInbound,
+			outboundWasmFeature: true,
+			expectedExtensions:  true,
+		},
+		{
+			name:                "Outbound listener & APPLY_WASM_PLUGINS_TO_OUTBOUND = true",
+			listenerClass:       istionetworking.ListenerClassSidecarOutbound,
+			outboundWasmFeature: true,
+			expectedExtensions:  true,
+		},
+		{
+			name:                "Gateway listener & APPLY_WASM_PLUGINS_TO_OUTBOUND = true",
+			listenerClass:       istionetworking.ListenerClassGateway,
+			outboundWasmFeature: true,
+			expectedExtensions:  true,
+		},
+		{
+			name:                "Inbound listener & APPLY_WASM_PLUGINS_TO_OUTBOUND = false",
+			listenerClass:       istionetworking.ListenerClassSidecarInbound,
+			outboundWasmFeature: false,
+			expectedExtensions:  true,
+		},
+		{
+			name:                "Outbound listener & APPLY_WASM_PLUGINS_TO_OUTBOUND = false",
+			listenerClass:       istionetworking.ListenerClassSidecarOutbound,
+			outboundWasmFeature: false,
+			expectedExtensions:  false,
+		},
+		{
+			name:                "Gateway listener & APPLY_WASM_PLUGINS_TO_OUTBOUND = false",
+			listenerClass:       istionetworking.ListenerClassGateway,
+			outboundWasmFeature: false,
+			expectedExtensions:  true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.ApplyWasmPluginsToOutbound, tt.outboundWasmFeature)
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               sidecarProxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{
+				class: tt.listenerClass,
+			})
+
+			gotExtensions := false
+			for _, filter := range httpConnManager.HttpFilters {
+				if filter.Name == fmt.Sprintf("%s.%s", constants.IstioSystemNamespace, wasmPluginConfig.Meta.Name) {
+					gotExtensions = true
+				}
+			}
+
+			if gotExtensions != tt.expectedExtensions {
+				t.Errorf("unexpected Wasm Plugin filter existence in HTTPConnectionManager, expected: %v, got %v", tt.expectedExtensions, gotExtensions)
 			}
 		})
 	}
