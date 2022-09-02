@@ -450,9 +450,13 @@ func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
 	}
 
 	if c.ranger != nil {
-		entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
+		ip := net.ParseIP(endpointIP)
+		if ip == nil {
+			return ""
+		}
+		entries, err := c.ranger.ContainingNetworks(ip)
 		if err != nil {
-			log.Error(err)
+			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
 			return ""
 		}
 		if len(entries) > 1 {
