@@ -840,12 +840,12 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 						Endpoints: []*meshconfig.Network_NetworkEndpoints{
 							{
 								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-									FromCidr: "192.168/16",
+									FromCidr: "192.168.0.0/16",
 								},
 							},
 							{
 								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-									FromCidr: "172.16/12",
+									FromCidr: "172.16.0.0/12",
 								},
 							},
 						},
@@ -855,11 +855,11 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
 				CidrRanges: []*core.CidrRange{
 					{
-						AddressPrefix: "192.168",
+						AddressPrefix: "192.168.0.0",
 						PrefixLen:     &wrappers.UInt32Value{Value: 16},
 					},
 					{
-						AddressPrefix: "172.16",
+						AddressPrefix: "172.16.0.0",
 						PrefixLen:     &wrappers.UInt32Value{Value: 12},
 					},
 				},
