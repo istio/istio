@@ -5,4 +5,9 @@ issue:
   - 40784
 releaseNotes:
   - |
-    **Added** contains matching to Authorization Policy HeaderMatcher
+    **Added** contains matching to Authorization Policy HeaderMatcher.
+  - |
+    **Improved** behavior where headers that were bracketed by two wildcards 
+    would match as suffix matches with the trailing wildcard being matched 
+    with the string in the header. New behavior will match the string between 
+    two wildcards as a contains match.
