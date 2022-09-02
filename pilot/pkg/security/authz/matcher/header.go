@@ -24,13 +24,20 @@ import (
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
-	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
+	// We must check "*" first to make sure we'll generate a non empty value in the contains/prefix/suffix case.
 	// Empty prefix/suffix value is invalid in HeaderMatcher.
 	if v == "*" {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
 				PresentMatch: true,
+			},
+		}
+	} else if strings.HasPrefix(v, "*") && strings.HasSuffix(v, "*") {
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_ContainsMatch{
+				ContainsMatch: v[1 : len(v)-1],
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {

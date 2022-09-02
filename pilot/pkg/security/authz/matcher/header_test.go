@@ -43,13 +43,35 @@ func TestHeaderMatcher(t *testing.T) {
 			},
 		},
 		{
-			Name: "suffix match",
+			Name: "contains match",
 			K:    ":path",
 			V:    "*/productpage*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_ContainsMatch{
+					ContainsMatch: "/productpage",
+				},
+			},
+		},
+		{
+			Name: "suffix match",
+			K:    ":path",
+			V:    "*/productpage",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-					SuffixMatch: "/productpage*",
+					SuffixMatch: "/productpage",
+				},
+			},
+		},
+		{
+			Name: "prefix match",
+			K:    ":path",
+			V:    "/productpage*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
+					PrefixMatch: "/productpage",
 				},
 			},
 		},
