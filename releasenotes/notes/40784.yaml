@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 40784
+releaseNotes:
+  - |
+    **Added** contains matching to Authorization Policy HeaderMatcher
