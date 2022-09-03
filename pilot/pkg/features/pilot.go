@@ -647,8 +647,9 @@ var (
 
 	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
 
-	ApplyWasmPluginsToOutbound = env.Register("APPLY_WASM_PLUGINS_TO_OUTBOUND", true, "If enabled, Wasm Plugins are applied to the outbound traffic of sidecars, too."+
-		"In other words, Wasm Plugins are applied to all the traffic directions.").Get()
+	ApplyWasmPluginsToOutbound = env.Register("APPLY_WASM_PLUGINS_TO_OUTBOUND", true,
+		"If enabled, Wasm Plugins are applied to the outbound traffic of sidecars, too."+
+			"In other words, Wasm Plugins are applied to all the traffic directions.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
