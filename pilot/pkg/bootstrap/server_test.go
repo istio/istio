@@ -27,6 +27,8 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
@@ -329,6 +332,71 @@ func TestNewServer(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMultiplex(t *testing.T) {
+	configDir := t.TempDir()
+
+	var secureGRPCPort int
+	var err error
+
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       "",
+			SecureGRPCAddr: fmt.Sprintf(":%d", secureGRPCPort),
+		}
+		p.RegistryOptions = RegistryOptions{
+			FileDir: configDir,
+		}
+
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+	t.Run("h1", func(t *testing.T) {
+		c := http.Client{}
+		defer c.CloseIdleConnections()
+		resp, err := c.Get("http://" + s.httpAddr + "/validate")
+		assert.NoError(t, err)
+		// Validate returns 400 on no body; if we got this the request works
+		assert.Equal(t, resp.StatusCode, 400)
+		resp.Body.Close()
+	})
+	t.Run("h2", func(t *testing.T) {
+		c := http.Client{
+			Transport: &http2.Transport{
+				// Golang doesn't have first class support for h2c, so we provide some workarounds
+				// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
+				// So http2.Transport doesn't complain the URL scheme isn't 'https'
+				AllowHTTP: true,
+				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
+				DialTLSContext: func(_ context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+					return net.Dial(network, addr)
+				},
+			},
+		}
+		defer c.CloseIdleConnections()
+
+		resp, err := c.Get("http://" + s.httpAddr + "/validate")
+		assert.NoError(t, err)
+		// Validate returns 400 on no body; if we got this the request works
+		assert.Equal(t, resp.StatusCode, 400)
+		resp.Body.Close()
+	})
 }
 
 func TestIstiodCipherSuites(t *testing.T) {
