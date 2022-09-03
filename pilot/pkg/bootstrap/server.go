@@ -228,9 +228,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.addReadinessProbe("discovery", func() (bool, error) {
 		return s.XDSServer.IsServerReady(), nil
 	})
-	if err := s.initServers(args); err != nil {
-		return nil, fmt.Errorf("error initializing servers: %v", err)
-	}
+	s.initServers(args)
 	if err := s.initIstiodAdminServer(args, whc); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
@@ -576,7 +574,7 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 // initServers initializes http and grpc servers
-func (s *Server) initServers(args *PilotArgs) error {
+func (s *Server) initServers(args *PilotArgs) {
 	s.initGrpcServer(args.KeepaliveOptions)
 	multiplexGRPC := false
 	if args.ServerOptions.GRPCAddr != "" {
@@ -615,7 +613,6 @@ func (s *Server) initServers(args *PilotArgs) error {
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
-	return nil
 }
 
 // initIstiodAdminServer initializes monitoring, debug and readiness end points.
