@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -99,10 +98,6 @@ func TestRevisionCommand(t *testing.T) {
 					echo.Config{Namespace: revResourceMap[rev].ns})
 			}
 			builder.BuildOrFail(t)
-
-			// Wait some time for things to settle down. This is very
-			// important for gateway pod related tests.
-			time.Sleep(30 * time.Second)
 
 			testCases := []struct {
 				name     string
