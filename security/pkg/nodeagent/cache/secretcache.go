@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -415,14 +416,20 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	o := backoff.DefaultOption()
 	o.InitialInterval = sc.configOptions.FileDebounceDuration
 	b := backoff.NewExponentialBackOff(o)
+	var permanentErr error
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
+		if errors.Is(err, os.ErrNotExist) {
+			permanentErr = err
+			return nil
+		}
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
-	defer cancel()
-	if err := b.RetryWithContext(ctx, secretValid); err != nil {
+	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
 		return nil, err
+	}
+	if permanentErr != nil {
+		return nil, permanentErr
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
