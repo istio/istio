@@ -18,16 +18,11 @@
 package pilot
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"text/template"
 
-	"github.com/Masterminds/sprig/v3"
-
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
@@ -210,7 +205,8 @@ func TestLocality(t *testing.T) {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					t.ConfigIstio().YAML(apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).
+					t.ConfigIstio().
+						Eval(apps.Namespace.Name(), tt.input, localityTemplate).
 						ApplyOrFail(t)
 					sendTrafficOrFail(t, apps.A[0], hostname, tt.expected)
 				})
@@ -264,16 +260,4 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 		Count: sendCount,
 		Check: checker,
 	})
-}
-
-func runTemplate(t test.Failer, tmpl string, input any) string {
-	tt, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmpl)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var buf bytes.Buffer
-	if err := tt.Execute(&buf, input); err != nil {
-		t.Fatal(err)
-	}
-	return buf.String()
 }

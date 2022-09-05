@@ -18,12 +18,10 @@
 package util
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -34,7 +32,6 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -443,45 +440,12 @@ spec:
           number: 80
 `
 
-const gwTemplate = `
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: {{.CredentialName}}
-spec:
-  selector:
-    istio: ingressgateway # use istio default ingress gateway
-  servers:
-  - port:
-      number: 443
-      name: https
-      protocol: HTTPS
-    tls:
-      mode: {{.Mode}}
-      credentialName: "{{.CredentialName}}"
-    hosts:
-    - "{{.Host}}"
-`
-
-func runTemplate(t test.Failer, tmpl string, params any) string {
-	tm, err := template.New("").Parse(tmpl)
-	if err != nil {
-		t.Fatalf("failed to render template: %v", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tm.Execute(&buf, params); err != nil {
-		t.Fatal(err)
-	}
-	return buf.String()
-}
-
 func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) {
-	var cfg []string
+	b := ctx.ConfigIstio().New()
 	for _, c := range config {
-		cfg = append(cfg, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
+		b.Eval(ns.Name(), c, vsTemplate)
 	}
-	ctx.ConfigIstio().YAML(ns.Name(), cfg...).ApplyOrFail(ctx)
+	b.ApplyOrFail(ctx)
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes secret that stores
