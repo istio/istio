@@ -84,14 +84,14 @@ func TestCustomizeMetrics(t *testing.T) {
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, cluster, httpDestinationQuery, promInst)
+					httpMetricVal, err = util.QueryPrometheus(t, cluster, httpDestinationQuery, promInst)
 					if err != nil {
 						util.PromDiff(t, promInst, cluster, httpDestinationQuery)
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, cluster, grpcDestinationQuery, promInst)
+				_, err = util.QueryPrometheus(t, cluster, grpcDestinationQuery, promInst)
 				if err != nil {
 					util.PromDiff(t, promInst, cluster, grpcDestinationQuery)
 					return err
@@ -102,8 +102,8 @@ func TestCustomizeMetrics(t *testing.T) {
 			if strings.Contains(httpMetricVal, removedTag) {
 				t.Errorf("failed to remove tag: %v", removedTag)
 			}
-			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
-			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
+			util.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
+			util.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
 		})
 }
 

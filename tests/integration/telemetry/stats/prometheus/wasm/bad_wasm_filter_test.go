@@ -52,7 +52,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
 				c := to.Config().Cluster
-				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+				if _, err := util.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 					util.PromDiff(t, common.GetPromInstance(), c, q)
 					return err
 				}
@@ -65,7 +65,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 				retry.UntilSuccessOrFail(t, func() error {
 					q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
 					c := to.Config().Cluster
-					if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+					if _, err := util.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
 						util.PromDiff(t, common.GetPromInstance(), c, q)
 						return err
 					}
