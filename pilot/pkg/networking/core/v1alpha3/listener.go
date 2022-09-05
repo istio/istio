@@ -378,9 +378,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			// If captureMode is not NONE, i.e., bindToPort is false, then
 			// we will bind to user specified IP (if any) or to the VIPs of services in
 			// this egress listener.
-			var bind string
 			var extraBind []string
-			bind = egressListener.IstioListener.Bind
+			bind := egressListener.IstioListener.Bind
 			if bind == "" {
 				if bindToPort {
 					bind = actualLocalHostAddrIPv4
