@@ -217,7 +217,7 @@ func TestStatsGatewayServerTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
-			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata/")
+			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/testdata/")
 			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
 			// routing is being setup from sidecar to external site, via egress gateway.
 			// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
