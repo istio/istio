@@ -75,7 +75,14 @@ func retrieveEndpointAddress(ep *endpoint.LbEndpoint) string {
 	if addr := addr.GetPipe(); addr != nil {
 		return addr.GetPath()
 	}
-	return ""
+	if internal := addr.GetEnvoyInternalAddress(); internal != nil {
+		switch an := internal.GetAddressNameSpecifier().(type) {
+		case *core.EnvoyInternalAddress_ServerListenerName:
+			// TODO: fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId) once go-control-plane updates
+			return fmt.Sprintf("envoy://%s", an.ServerListenerName)
+		}
+	}
+	return "unknown"
 }
 
 func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string) error {
