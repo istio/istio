@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/pkg/log"
 )
 
@@ -297,7 +298,7 @@ func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, e
 				if curToken != token {
 					fileModified <- true
 				}
-				time.Sleep(1 * time.Minute)
+				sleep.Context(ctx, 1 * time.Minute)
 			}
 		}
 	}()

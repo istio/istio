@@ -33,6 +33,7 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
+	"istio.io/istio/pkg/sleep"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -639,10 +640,8 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 		if delay > max {
 			delay = max
 		}
-		select {
-		case <-stop:
+		if !sleep.Until(stop, delay) {
 			return false
-		case <-time.After(delay):
 		}
 	}
 }
