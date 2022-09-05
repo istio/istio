@@ -47,7 +47,7 @@ func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// ParsePemEncodedCertificateChain constructs a slice of `x509.Certificate`
+// ParsePemEncodedCertificateChain constructs a slice of `x509.Certificate` and `rootCertBytes`
 // objects using the given a PEM-encoded certificate chain.
 func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []byte, error) {
 	var (
