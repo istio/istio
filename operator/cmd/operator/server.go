@@ -50,10 +50,13 @@ const (
 type serverArgs struct {
 	// force proceeds even if there are validation errors
 	force bool
+
+	maxConcurrentReconciles int
 }
 
 func addServerFlags(cmd *cobra.Command, args *serverArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, root.ForceFlagHelpStr)
+	cmd.PersistentFlags().IntVar(&args.maxConcurrentReconciles, "max-concurrent-reconciles", 1, root.MaxConcurrentReconcilesFlagHelpStr)
 }
 
 func serverCmd() *cobra.Command {
@@ -195,7 +198,7 @@ func run(sArgs *serverArgs) {
 	}
 
 	// Setup all Controllers
-	options := &istiocontrolplane.Options{Force: sArgs.force}
+	options := &istiocontrolplane.Options{Force: sArgs.force, MaxConcurrentReconciles: sArgs.maxConcurrentReconciles}
 	if err := controller.AddToManager(mgr, options); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}

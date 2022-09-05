@@ -77,6 +77,7 @@ var (
 
 type Options struct {
 	Force bool
+	MaxConcurrentReconciles int
 }
 
 const (
@@ -455,7 +456,7 @@ func Add(mgr manager.Manager, options *Options) error {
 func add(mgr manager.Manager, r *ReconcileIstioOperator) error {
 	scope.Info("Adding controller for IstioOperator.")
 	// Create a new controller
-	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: r.options.MaxConcurrentReconciles})
 	if err != nil {
 		return err
 	}
