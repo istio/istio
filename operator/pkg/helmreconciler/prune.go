@@ -173,6 +173,18 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		if err != nil {
 			return errStatus, err
 		}
+
+		crHash, err := h.getCRHash(c)
+		if err != nil {
+			return errStatus, err
+		}
+		scope.Infof("reset cache: %s for CR %s", c, crHash)
+		objCache := cache.GetCache(crHash)
+		if len(objCache.Cache) > 0 {
+			objCache.Mu.Lock()
+			objCache.Cache = map[string]*object.K8sObject{}
+		}
+
 		err = h.DeleteObjectsList(uslist, c)
 		if err != nil {
 			return errStatus, err
