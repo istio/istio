@@ -15,11 +15,11 @@
 // Package backoff is a wrapper of `github.com/cenkalti/backoff/v4`.
 // It is to prevent misuse of `github.com/cenkalti/backoff/v4`,
 // thus application could fall into dead loop.
-// The difference is in this package `NextBackOff` returns a MaxDuration rather than backoff.Stop(which is -1)
-// when MaxElapsedTime elapsed.
 package backoff
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -27,33 +27,82 @@ import (
 
 // BackOff is a backoff policy for retrying an operation.
 type BackOff interface {
-	// NextBackOff returns the duration to wait before retrying the operation,
-	// or backoff. Return MaxDuration when MaxElapsedTime elapsed.
+	// NextBackOff returns the duration to wait before retrying the next operation.
 	NextBackOff() time.Duration
+	// Reset to initial state.
+	Reset()
+	// RetryWithContext tries the operation until it does not return error,
+	// or when the context expires, whichever happens first.
+	RetryWithContext(ctx context.Context, operation func() error) error
+}
+
+type Option struct {
+	InitialInterval time.Duration
+	MaxInterval     time.Duration
 }
 
 // ExponentialBackOff is a wrapper of backoff.ExponentialBackOff to override its NextBackOff().
 type ExponentialBackOff struct {
-	*backoff.ExponentialBackOff
+	exponentialBackOff *backoff.ExponentialBackOff
+}
+
+// Default values for ExponentialBackOff.
+const (
+	defaultInitialInterval = 500 * time.Millisecond
+	defaultMaxInterval     = 60 * time.Second
+)
+
+func DefaultOption() Option {
+	return Option{
+		InitialInterval: defaultInitialInterval,
+		MaxInterval:     defaultMaxInterval,
+	}
 }
 
 // NewExponentialBackOff creates an istio wrapped ExponentialBackOff.
-func NewExponentialBackOff(initFuncs ...func(off *ExponentialBackOff)) BackOff {
-	b := &ExponentialBackOff{}
-	b.ExponentialBackOff = backoff.NewExponentialBackOff()
-	for _, fn := range initFuncs {
-		fn(b)
-	}
+// By default, it never stops.
+func NewExponentialBackOff(o Option) BackOff {
+	b := ExponentialBackOff{}
+	b.exponentialBackOff = backoff.NewExponentialBackOff()
+	b.exponentialBackOff.InitialInterval = o.InitialInterval
+	b.exponentialBackOff.MaxInterval = o.MaxInterval
 	b.Reset()
 	return b
 }
 
-const MaxDuration = 1<<63 - 1
-
-func (b *ExponentialBackOff) NextBackOff() time.Duration {
-	duration := b.ExponentialBackOff.NextBackOff()
-	if duration == b.Stop {
-		return MaxDuration
+func (b ExponentialBackOff) NextBackOff() time.Duration {
+	duration := b.exponentialBackOff.NextBackOff()
+	if duration == b.exponentialBackOff.Stop {
+		return b.exponentialBackOff.MaxInterval
 	}
 	return duration
+}
+
+func (b ExponentialBackOff) Reset() {
+	b.exponentialBackOff.Reset()
+}
+
+// RetryWithContext tries the operation until it does not return error,
+// or when the context expires, whichever happens first.
+// o is guaranteed to be run at least once.
+// RetryWithContext sleeps the goroutine for the duration returned by BackOff after a
+// failed operation returns.
+func (b ExponentialBackOff) RetryWithContext(ctx context.Context, operation func() error) error {
+	b.Reset()
+	for {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+		next := b.exponentialBackOff.NextBackOff()
+		if next == b.exponentialBackOff.Stop {
+			return fmt.Errorf("backoff timeouted with last error: %v", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%v with last error: %v", context.DeadlineExceeded, err)
+		case <-time.After(next):
+		}
+	}
 }
