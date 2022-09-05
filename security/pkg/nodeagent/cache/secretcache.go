@@ -328,7 +328,7 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
-		b := backoff.NewExponentialBackOff()
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 		_ = b.RetryWithContext(context.TODO(), func() error {
 			err := sc.tryAddFileWatcher(file, resourceName)
 			return err
@@ -412,10 +412,9 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
 	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
-	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
-		off.InitialInterval = sc.configOptions.FileDebounceDuration
-		off.MaxElapsedTime = totalTimeout
-	})
+	o := backoff.DefaultOption()
+	o.InitialInterval = sc.configOptions.FileDebounceDuration
+	b := backoff.NewExponentialBackOff(o)
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
 		return err

@@ -306,9 +306,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 		a.dynamicBootstrapWaitCh = make(chan error, 1)
 		// Simulate an xDS request for a bootstrap
 		// wait indefinitely and keep retrying with jittered exponential backoff
-		b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
-			off.MaxElapsedTime = 30 * time.Second
-		})
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 		for {
 			// handleStream hands on to request after exit, so create a fresh one instead.
 			bsStream := &bootstrapDiscoveryStream{
@@ -454,7 +452,7 @@ func (a *Agent) initSdsServer() error {
 // TODO: Fix this method with unused return value
 // nolint: unparam
 func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
-	b := backoff.NewExponentialBackOff()
+	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 	// This will loop forever until success
 	err = b.RetryWithContext(context.TODO(), func() error {
 		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)

@@ -99,12 +99,12 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		}
 		defer nsContainer.Close()
 	}
-
-	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
-		off.InitialInterval = 100 * time.Millisecond
-		off.MaxInterval = 2 * time.Second
-		off.MaxElapsedTime = 10 * time.Second
-	})
+	o := backoff.Option{
+		InitialInterval: 100 * time.Millisecond,
+		MaxInterval:     2 * time.Second,
+		MaxElapsedTime:  10 * time.Second,
+	}
+	b := backoff.NewExponentialBackOff(o)
 	backoffError := b.RetryWithContext(context.TODO(), func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}

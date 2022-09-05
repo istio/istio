@@ -72,9 +72,9 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		c = f.insecureClient
 	}
 	attempts := 0
-	b := backoff.NewExponentialBackOff(func(off *backoff.ExponentialBackOff) {
-		off.InitialInterval = f.initialBackoff
-	})
+	o := backoff.DefaultOption()
+	o.InitialInterval = f.initialBackoff
+	b := backoff.NewExponentialBackOff(o)
 	var lastError error
 	for attempts < f.requestMaxRetry {
 		attempts++

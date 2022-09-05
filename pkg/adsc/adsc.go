@@ -263,7 +263,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	}
 	// We want to recreate stream
 	if opts.BackoffPolicy == nil {
-		opts.BackoffPolicy = backoff.NewExponentialBackOff()
+		opts.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
 	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),

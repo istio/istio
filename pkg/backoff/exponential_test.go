@@ -17,6 +17,7 @@ package backoff
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -26,31 +27,30 @@ import (
 
 func TestBackOff(t *testing.T) {
 	var (
-		testInitialInterval     = 500 * time.Millisecond
-		testRandomizationFactor = 0.1
-		testMultiplier          = 2.0
-		testMaxInterval         = 5 * time.Second
-		testMaxElapsedTime      = 15 * time.Minute
+		testInitialInterval = 500 * time.Millisecond
+		testMaxInterval     = 5 * time.Second
+		testMaxElapsedTime  = 15 * time.Minute
 	)
 
-	exp := NewExponentialBackOff(func(off *ExponentialBackOff) {
-		off.InitialInterval = testInitialInterval
-		off.RandomizationFactor = testRandomizationFactor
-		off.Multiplier = testMultiplier
-		off.MaxInterval = testMaxInterval
-		off.MaxElapsedTime = testMaxElapsedTime
-	})
+	o := DefaultOption()
+	o.InitialInterval = testInitialInterval
+	o.MaxInterval = testMaxInterval
+	o.MaxElapsedTime = testMaxElapsedTime
+	exp := NewExponentialBackOff(o)
+	exp.(ExponentialBackOff).exponentialBackOff.Multiplier = 2
 
 	expectedResults := []time.Duration{500, 1000, 2000, 4000, 5000, 5000, 5000, 5000, 5000, 5000}
 	for i, d := range expectedResults {
 		expectedResults[i] = d * time.Millisecond
 	}
 
+	DefaultRandomizationFactor := 0.5
 	for _, expected := range expectedResults {
 		// Assert that the next backoff falls in the expected range.
-		minInterval := expected - time.Duration(testRandomizationFactor*float64(expected))
-		maxInterval := expected + time.Duration(testRandomizationFactor*float64(expected))
+		minInterval := expected - time.Duration(DefaultRandomizationFactor*float64(expected))
+		maxInterval := expected + time.Duration(DefaultRandomizationFactor*float64(expected))
 		actualInterval := exp.NextBackOff()
+		fmt.Println(" ", minInterval, actualInterval, maxInterval)
 		if !(minInterval <= actualInterval && actualInterval <= maxInterval) {
 			t.Error("error")
 		}
@@ -70,22 +70,22 @@ func (c *TestClock) Now() time.Time {
 
 func TestMaxElapsedTime(t *testing.T) {
 	maxInterval := 100 * time.Second
-	exp := NewExponentialBackOff(func(off *ExponentialBackOff) {
-		off.MaxElapsedTime = 1000 * time.Second
-		off.MaxInterval = maxInterval
-		off.Clock = &TestClock{start: time.Time{}}
-	})
-	b := exp.(ExponentialBackOff)
+	o := DefaultOption()
+	o.MaxInterval = maxInterval
+	o.MaxElapsedTime = 1000 * time.Second
+	exp := NewExponentialBackOff(o)
+	exp.(ExponentialBackOff).exponentialBackOff.Clock = &TestClock{start: time.Time{}}
+	exp.Reset()
 	// override clock to simulate the max elapsed time has passed.
-	b.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
+	exp.(ExponentialBackOff).exponentialBackOff.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
 	assert.Equal(t, maxInterval, exp.NextBackOff())
 }
 
 func TestRetry(t *testing.T) {
-	ebf := NewExponentialBackOff(func(off *ExponentialBackOff) {
-		off.InitialInterval = 1 * time.Microsecond
-		off.MaxElapsedTime = 5 * time.Microsecond
-	})
+	o := DefaultOption()
+	o.InitialInterval = 1 * time.Microsecond
+	o.MaxElapsedTime = 5 * time.Second
+	ebf := NewExponentialBackOff(o)
 
 	// Run a task that fails the first time and retries.
 	wg := sync.WaitGroup{}
@@ -104,11 +104,10 @@ func TestRetry(t *testing.T) {
 	// wait for the task to run twice.
 	wg.Wait()
 
+	o.InitialInterval = 1 * time.Second
+	o.MaxElapsedTime = 0
 	// Test timeout context
-	ebf = NewExponentialBackOff(func(off *ExponentialBackOff) {
-		off.InitialInterval = 1 * time.Second
-		off.RandomizationFactor = 0
-	})
+	ebf = NewExponentialBackOff(o)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
 	defer cancel()
 

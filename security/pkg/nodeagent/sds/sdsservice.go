@@ -112,7 +112,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	// server in these cases.
 	go func() {
 		// TODO: do we need max timeout for retry, seems meaningless to retry forever if it never succeed
-		b := backoff.NewExponentialBackOff()
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 		// context for both timeout and channel, whichever stops first, the context will be done
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
