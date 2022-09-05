@@ -102,10 +102,11 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	o := backoff.Option{
 		InitialInterval: 100 * time.Millisecond,
 		MaxInterval:     2 * time.Second,
-		MaxElapsedTime:  10 * time.Second,
 	}
 	b := backoff.NewExponentialBackOff(o)
-	backoffError := b.RetryWithContext(context.TODO(), func() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	backoffError := b.RetryWithContext(ctx, func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}

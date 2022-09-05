@@ -15,8 +15,6 @@
 // Package backoff is a wrapper of `github.com/cenkalti/backoff/v4`.
 // It is to prevent misuse of `github.com/cenkalti/backoff/v4`,
 // thus application could fall into dead loop.
-// The difference is in this package `NextBackOff` returns a MaxInterval rather than backoff.Stop(which is -1)
-// when MaxElapsedTime elapsed.
 package backoff
 
 import (
@@ -29,12 +27,11 @@ import (
 
 // BackOff is a backoff policy for retrying an operation.
 type BackOff interface {
-	// NextBackOff returns the duration to wait before retrying the operation,
-	// or backoff. Return MaxInterval when MaxElapsedTime elapsed.
+	// NextBackOff returns the duration to wait before retrying the next operation.
 	NextBackOff() time.Duration
 	// Reset to initial state.
 	Reset()
-	// RetryWithContext tries the operation until it does not return error, BackOff hits MaxElapsedTime,
+	// RetryWithContext tries the operation until it does not return error,
 	// or when the context expires, whichever happens first.
 	RetryWithContext(ctx context.Context, operation func() error) error
 }
@@ -42,9 +39,6 @@ type BackOff interface {
 type Option struct {
 	InitialInterval time.Duration
 	MaxInterval     time.Duration
-	// After MaxElapsedTime the ExponentialBackOff returns MaxInterval.
-	// It never stops if MaxElapsedTime == 0.
-	MaxElapsedTime time.Duration
 }
 
 // ExponentialBackOff is a wrapper of backoff.ExponentialBackOff to override its NextBackOff().
@@ -56,14 +50,12 @@ type ExponentialBackOff struct {
 const (
 	defaultInitialInterval = 500 * time.Millisecond
 	defaultMaxInterval     = 60 * time.Second
-	defaultMaxElapsedTime  = 0
 )
 
 func DefaultOption() Option {
 	return Option{
 		InitialInterval: defaultInitialInterval,
 		MaxInterval:     defaultMaxInterval,
-		MaxElapsedTime:  defaultMaxElapsedTime,
 	}
 }
 
@@ -74,7 +66,6 @@ func NewExponentialBackOff(o Option) BackOff {
 	b.exponentialBackOff = backoff.NewExponentialBackOff()
 	b.exponentialBackOff.InitialInterval = o.InitialInterval
 	b.exponentialBackOff.MaxInterval = o.MaxInterval
-	b.exponentialBackOff.MaxElapsedTime = o.MaxElapsedTime
 	b.Reset()
 	return b
 }
@@ -91,7 +82,7 @@ func (b ExponentialBackOff) Reset() {
 	b.exponentialBackOff.Reset()
 }
 
-// RetryWithContext tries the operation until it does not return error, BackOff hits MaxElapsedTime,
+// RetryWithContext tries the operation until it does not return error,
 // or when the context expires, whichever happens first.
 // o is guaranteed to be run at least once.
 // RetryWithContext sleeps the goroutine for the duration returned by BackOff after a

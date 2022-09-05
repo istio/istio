@@ -17,7 +17,6 @@ package backoff
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -29,13 +28,11 @@ func TestBackOff(t *testing.T) {
 	var (
 		testInitialInterval = 500 * time.Millisecond
 		testMaxInterval     = 5 * time.Second
-		testMaxElapsedTime  = 15 * time.Minute
 	)
 
 	o := DefaultOption()
 	o.InitialInterval = testInitialInterval
 	o.MaxInterval = testMaxInterval
-	o.MaxElapsedTime = testMaxElapsedTime
 	exp := NewExponentialBackOff(o)
 	exp.(ExponentialBackOff).exponentialBackOff.Multiplier = 2
 
@@ -50,7 +47,6 @@ func TestBackOff(t *testing.T) {
 		minInterval := expected - time.Duration(DefaultRandomizationFactor*float64(expected))
 		maxInterval := expected + time.Duration(DefaultRandomizationFactor*float64(expected))
 		actualInterval := exp.NextBackOff()
-		fmt.Println(" ", minInterval, actualInterval, maxInterval)
 		if !(minInterval <= actualInterval && actualInterval <= maxInterval) {
 			t.Error("error")
 		}
@@ -68,23 +64,9 @@ func (c *TestClock) Now() time.Time {
 	return t
 }
 
-func TestMaxElapsedTime(t *testing.T) {
-	maxInterval := 100 * time.Second
-	o := DefaultOption()
-	o.MaxInterval = maxInterval
-	o.MaxElapsedTime = 1000 * time.Second
-	exp := NewExponentialBackOff(o)
-	exp.(ExponentialBackOff).exponentialBackOff.Clock = &TestClock{start: time.Time{}}
-	exp.Reset()
-	// override clock to simulate the max elapsed time has passed.
-	exp.(ExponentialBackOff).exponentialBackOff.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
-	assert.Equal(t, maxInterval, exp.NextBackOff())
-}
-
 func TestRetry(t *testing.T) {
 	o := DefaultOption()
 	o.InitialInterval = 1 * time.Microsecond
-	o.MaxElapsedTime = 5 * time.Second
 	ebf := NewExponentialBackOff(o)
 
 	// Run a task that fails the first time and retries.
@@ -105,7 +87,6 @@ func TestRetry(t *testing.T) {
 	wg.Wait()
 
 	o.InitialInterval = 1 * time.Second
-	o.MaxElapsedTime = 0
 	// Test timeout context
 	ebf = NewExponentialBackOff(o)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
