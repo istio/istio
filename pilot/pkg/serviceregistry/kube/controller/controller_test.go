@@ -38,6 +38,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -2567,10 +2568,24 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 		"app": "prod-app",
 		"foo": "bar",
 	}
+	// set `K8SServiceSelectWorkloadEntries` to false temporarily
+	tmp := features.EnableK8SServiceSelectWorkloadEntries
+	features.EnableK8SServiceSelectWorkloadEntries = false
+	defer func() {
+		features.EnableK8SServiceSelectWorkloadEntries = tmp
+	}()
+	svc = updateService(controller, svc, t)
+	// don't update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is disabled
+	if ev := fx.Wait("eds cache"); ev != nil {
+		t.Fatal("Update eds cache unexpectedly")
+	}
+
+	features.EnableK8SServiceSelectWorkloadEntries = true
 	svc.Spec.Selector = map[string]string{
 		"app": "prod-app",
 	}
 	updateService(controller, svc, t)
+	// update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is enabled
 	if ev := fx.Wait("eds cache"); ev == nil {
 		t.Fatal("Timeout updating eds cache")
 	}

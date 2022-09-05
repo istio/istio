@@ -36,7 +36,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -1451,12 +1450,12 @@ func TestApplyListenerPatches(t *testing.T) {
 	faultFilterIn := &fault.HTTPFault{
 		UpstreamCluster: "foobar",
 	}
-	faultFilterInAny, _ := anypb.New(faultFilterIn)
+	faultFilterInAny := protoconv.MessageToAny(faultFilterIn)
 	faultFilterOut := &fault.HTTPFault{
 		UpstreamCluster: "scooby",
 		DownstreamNodes: []string{"foo"},
 	}
-	faultFilterOutAny, _ := anypb.New(faultFilterOut)
+	faultFilterOutAny := protoconv.MessageToAny(faultFilterOut)
 
 	gatewayIn := []*listener.Listener{
 		{

@@ -1,4 +1,4 @@
-*                                                                @costinm @linsun @howardjohn @nmittler @ericvn @hzxuzhonghu
+*                                                                @costinm @linsun @howardjohn @stevenctl @ericvn @hzxuzhonghu
 /.gitattributes                                                  @istio/wg-test-and-release-maintainers
 /.gitignore                                                      @istio/wg-test-and-release-maintainers
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
@@ -43,7 +43,7 @@ Makefile*                                                        @istio/wg-test-
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
 /releasenotes/                                                   @istio/wg-test-and-release-maintainers @istio/release-managers
-/samples/                                                        @istio/wg-docs-maintainers
+/samples/                                                        @istio/wg-docs-maintainers-english
 /samples/addons                                                  @istio/wg-policies-and-telemetry-maintainers @istio/wg-environments-maintainers
 /samples/multicluster                                            @istio/wg-networking-maintainers
 /security/                                                       @istio/wg-security-maintainers

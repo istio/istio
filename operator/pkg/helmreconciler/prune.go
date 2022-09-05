@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 )
@@ -134,7 +135,7 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
 	ns := v1alpha12.Namespace(iopSpec)
 	if ns == "" {
-		ns = name.IstioDefaultNamespace
+		ns = constants.IstioSystemNamespace
 	}
 	errStatus := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ERROR}
 	enabledComponents, err := translate.GetEnabledComponents(iopSpec)

@@ -549,8 +549,19 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
+	var clientWithTimeout kubernetes.Interface
+	clientWithTimeout = c.kube
+	restConfig := c.RESTConfig()
+	if restConfig != nil {
+		restConfig.Timeout = time.Second * 5
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err == nil {
+			clientWithTimeout = kubeClient
+		}
+	}
+
 	c.versionOnce.Do(func() {
-		v, err := c.kube.Discovery().ServerVersion()
+		v, err := clientWithTimeout.Discovery().ServerVersion()
 		if err == nil {
 			c.version = v
 		}
@@ -559,7 +570,7 @@ func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 		return c.version, nil
 	}
 	// Initial attempt failed, retry on each call to this function
-	v, err := c.kube.Discovery().ServerVersion()
+	v, err := clientWithTimeout.Discovery().ServerVersion()
 	if err != nil {
 		c.version = v
 	}

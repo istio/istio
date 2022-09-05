@@ -36,12 +36,23 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
+)
+
+const (
+	envoyDatadog       = "envoy.tracers.datadog"
+	envoyLightstep     = "envoy.tracers.lightstep"
+	envoyOpenCensus    = "envoy.tracers.opencensus"
+	envoyOpenTelemetry = "envoy.tracers.opentelemetry"
+	envoySkywalking    = "envoy.tracers.skywalking"
+	envoyZipkin        = "envoy.tracers.zipkin"
 )
 
 // this is used for testing. it should not be changed in regular code.
@@ -135,21 +146,49 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyZipkin, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyDatadog, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
-			func(hostname, clusterName string) (*anypb.Any, error) {
-				lc := &tracingcfg.LightstepConfig{
-					CollectorCluster: clusterName,
-					AccessTokenFile:  provider.Lightstep.AccessToken,
-				}
-				return anypb.New(lc)
-			})
+		// todo: read raw metadata and retrieve lightstep extensions (instead of relying on version)
+
+		// Envoy dropped support for Lightstep in v1.24+ (~istio 1.16+). So, we generate old-style configuration
+		// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
+		useOTel := util.IsIstioVersionGE116(model.ParseIstioVersion(meta.IstioVersion))
+		if useOTel {
+			tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
+				func(hostname, clusterName string) (*anypb.Any, error) {
+					dc := &tracingcfg.OpenTelemetryConfig{
+						GrpcService: &envoy_config_core_v3.GrpcService{
+							TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+									ClusterName: clusterName,
+									Authority:   hostname,
+								},
+							},
+							InitialMetadata: []*envoy_config_core_v3.HeaderValue{
+								{
+									Key:   "lightstep-access-token",
+									Value: provider.Lightstep.AccessToken,
+								},
+							},
+						},
+					}
+					return anypb.New(dc)
+				})
+		} else {
+			tracing, err = buildHCMTracing(pushCtx, envoyLightstep, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
+				func(hostname, clusterName string) (*anypb.Any, error) {
+					lc := &tracingcfg.LightstepConfig{
+						CollectorCluster: clusterName,
+						AccessTokenFile:  provider.Lightstep.AccessToken,
+					}
+					return protoconv.MessageToAnyWithError(lc)
+				})
+		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Opencensus.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Opencensus.MaxTagLength, func() (*anypb.Any, error) {
 			oc := &tracingcfg.OpenCensusConfig{
 				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.Service, provider.Opencensus.Port),
 				OcagentExporterEnabled: true,
@@ -157,11 +196,11 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				OutgoingTraceContext:   convert(provider.Opencensus.Context),
 			}
 
-			return anypb.New(oc)
+			return protoconv.MessageToAnyWithError(oc)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service,
+		tracing, err = buildHCMTracing(pushCtx, envoySkywalking, provider.Skywalking.Service,
 			provider.Skywalking.Port, 0, func(hostname, clusterName string) (*anypb.Any, error) {
 				s := &tracingcfg.SkyWalkingConfig{
 					GrpcService: &envoy_config_core_v3.GrpcService{
@@ -174,7 +213,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					},
 				}
 
-				return anypb.New(s)
+				return protoconv.MessageToAnyWithError(s)
 			})
 
 		rfCtx = &xdsfilters.RouterFilterContext{
@@ -182,7 +221,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
 			proj, ok := meta.PlatformMetadata[platform.GCPProject]
 			if !ok {
 				proj, ok = meta.PlatformMetadata[platform.GCPProjectNumber]
@@ -251,8 +290,12 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			if provider.Stackdriver.MaxNumberOfMessageEvents != nil {
 				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.MaxNumberOfMessageEvents.Value
 			}
-			return anypb.New(sd)
+			return protoconv.MessageToAnyWithError(sd)
 		})
+
+	case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
+		tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Opentelemetry.Service,
+			provider.Opentelemetry.Port, provider.Opentelemetry.MaxTagLength, otelConfigGen)
 	}
 
 	return tracing, rfCtx, err
@@ -269,12 +312,26 @@ func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
-	return anypb.New(zc)
+	return protoconv.MessageToAnyWithError(zc)
 }
 
 func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
 		CollectorCluster: cluster,
+	}
+	return protoconv.MessageToAnyWithError(dc)
+}
+
+func otelConfigGen(hostname, cluster string) (*anypb.Any, error) {
+	dc := &tracingcfg.OpenTelemetryConfig{
+		GrpcService: &envoy_config_core_v3.GrpcService{
+			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+					Authority:   hostname,
+				},
+			},
+		},
 	}
 	return anypb.New(dc)
 }

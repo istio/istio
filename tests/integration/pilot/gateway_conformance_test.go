@@ -68,7 +68,9 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"GatewaySecretMissingReferencedSecret": "https://github.com/istio/istio/issues/40714",
+}
 
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck
