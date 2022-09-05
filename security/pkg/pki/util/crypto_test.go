@@ -151,6 +151,10 @@ BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
 -----END CERTIFICATE-----`
 )
 
+var (
+	certChainValid = loadPEMFile("../testdata/cert-chain.pem")
+)
+
 func TestParsePemEncodedCertificate(t *testing.T) {
 	testCases := map[string]struct {
 		errMsg        string
@@ -185,6 +189,38 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 			}
 		} else if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
 			t.Errorf("%s: Unexpected public key algorithm: want %d but got %d", id, c.publicKeyAlgo, cert.PublicKeyAlgorithm)
+		}
+	}
+}
+
+func TestParsePemEncodedCertificateChain(t *testing.T) {
+	testCases := map[string]struct {
+		errMsg string
+		pem    string
+	}{
+		"Parse Certificate Chain": {
+			pem: certChainValid,
+		},
+		"Invalid PEM string": {
+			pem:    "Invalid PEM string",
+			errMsg: "invalid PEM encoded certificate",
+		},
+		"Invalid certificate string": {
+			pem:    keyRSA,
+			errMsg: "failed to parse X.509 certificate",
+		},
+	}
+
+	for id, c := range testCases {
+		_, rootCertByte, err := ParsePemEncodedCertificateChain([]byte(c.pem))
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf("%s: no error is returned", id)
+			} else if c.errMsg != err.Error() {
+				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
+			}
+		} else if len(rootCertByte) == 0 {
+			t.Errorf("%s: rootCertByte is nil", id)
 		}
 	}
 }

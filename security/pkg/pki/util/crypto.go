@@ -56,16 +56,19 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		rootCertBytes []byte
 	)
 	for {
+		rootCertBytes = certBytes
 		cb, certBytes = pem.Decode(certBytes)
 		if cb == nil {
-			break
+			return nil, nil, fmt.Errorf("invalid PEM encoded certificate")
 		}
 		cert, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to parse X.509 certificate")
 		}
 		certs = append(certs, cert)
-		rootCertBytes = certBytes
+		if len(certBytes) == 0 {
+			break
+		}
 	}
 	if len(certs) == 0 {
 		return nil, nil, fmt.Errorf("no PEM encoded X.509 certificates parsed")
