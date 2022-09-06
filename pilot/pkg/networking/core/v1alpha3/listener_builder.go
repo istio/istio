@@ -121,9 +121,8 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	var actualWildcard, extrActualWildcard string
-	actualWildcard, extrActualWildcard = getDualStackActualWildcard(lb.node)
-	if actualWildcard == "" && extrActualWildcard == "" {
+	actualWildcard, extrActualWildcard, _, _, isDualStack := getDualStackWildcardAndLocalHost(lb.node)
+	if !isDualStack {
 		actualWildcard, _ = getActualWildcardAndLocalHost(lb.node)
 	}
 
@@ -137,11 +136,9 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	// add extra addresses for the listener
-	if extrActualWildcard != "" && util.IsIstioVersionGE116(lb.node.IstioVersion) {
-		extraAddress := &listener.AdditionalAddress{
-			Address: util.BuildAddress(extrActualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
-		}
-		ipTablesListener.AdditionalAddresses = append(ipTablesListener.AdditionalAddresses, extraAddress)
+	err := util.BuildExtraAddresses([]string{extrActualWildcard}, uint32(lb.push.Mesh.ProxyListenPort), ipTablesListener, lb.node)
+	if err != nil {
+		log.Warnf("warning for adding extra addresses for listener [%s]", ipTablesListener.Name)
 	}
 	class := model.OutboundListenerClass(lb.node.Type)
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener, class)

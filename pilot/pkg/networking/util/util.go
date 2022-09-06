@@ -173,6 +173,23 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
+// BuildExtraAddresses can add extra addresses to additional addresses for a listener
+func BuildExtraAddresses(extrAddresses []string, listenPort uint32, ll *listener.Listener, node *model.Proxy) error {
+	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+		for _, exbd := range extrAddresses {
+			if exbd == "" {
+				continue
+			}
+			extraAddress := &listener.AdditionalAddress{
+				Address: BuildAddress(exbd, listenPort),
+			}
+			ll.AdditionalAddresses = append(ll.AdditionalAddresses, extraAddress)
+		}
+		return nil
+	}
+	return fmt.Errorf("error: No extra addresses need to be added to listener [%s]", ll.Name)
+}
+
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil

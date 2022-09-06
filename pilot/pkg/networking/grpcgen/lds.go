@@ -111,15 +111,13 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
 		}
+		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
-		if len(extrAddresses) > 0 && util.IsIstioVersionGE116(node.IstioVersion) {
-			for _, exbd := range extrAddresses {
-				extraAddress := &listener.AdditionalAddress{
-					Address: util.BuildAddress(exbd, uint32(listenPort)),
-				}
-				ll.AdditionalAddresses = append(ll.AdditionalAddresses, extraAddress)
-			}
+		extraErr := util.BuildExtraAddresses(extrAddresses, uint32(listenPort), ll, node)
+		if extraErr != nil {
+			log.Warnf("warning for adding extra addresses for listener [%s]", ll.Name)
 		}
+
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
 			Resource: protoconv.MessageToAny(ll),
@@ -321,15 +319,13 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						}),
 					},
 				}
+				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
-				if len(extrAddresses) > 0 && util.IsIstioVersionGE116(node.IstioVersion) {
-					for _, exbd := range extrAddresses {
-						extraAddress := &listener.AdditionalAddress{
-							Address: util.BuildAddress(exbd, uint32(p.Port)),
-						}
-						ll.AdditionalAddresses = append(ll.AdditionalAddresses, extraAddress)
-					}
+				err := util.BuildExtraAddresses(extrAddresses, uint32(p.Port), ll, node)
+				if err != nil {
+					log.Warnf("warning for adding extra addresses for listener [%s]", ll.Name)
 				}
+
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
 					Resource: protoconv.MessageToAny(ll),

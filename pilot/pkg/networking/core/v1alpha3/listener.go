@@ -292,9 +292,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 ) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	actualWildcardIPv4, actualWildcardIPv6 := getDualStackActualWildcard(node)
-	actualLocalHostAddrIPv4, actualLocalHostAddrIPv6 := getDualStackLocalHost(node)
-	if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" && actualLocalHostAddrIPv4 == "" && actualLocalHostAddrIPv6 == "" {
+	actualWildcardIPv4, actualWildcardIPv6, actualLocalHostAddrIPv4, actualLocalHostAddrIPv6, isDualStack := getDualStackWildcardAndLocalHost(node)
+	// if it's not dual stack environment
+	if !isDualStack {
 		actualWildcardIPv4, actualLocalHostAddrIPv4 = getActualWildcardAndLocalHost(node)
 	}
 
@@ -558,8 +558,9 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	listenAddressIPv4, listenAddressesIPv6 := getDualStackLocalHost(node)
-	if listenAddressIPv4 == "" && listenAddressesIPv6 == "" {
+	_, _, listenAddressIPv4, listenAddressesIPv6, isDualStack := getDualStackWildcardAndLocalHost(node)
+	// if it's not dual stack environment
+	if !isDualStack {
 		_, listenAddressIPv4 = getActualWildcardAndLocalHost(node)
 	}
 
@@ -617,9 +618,9 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
-		actualWildcardIPv4, actualWildcardIPv6 := getDualStackActualWildcard(listenerOpts.proxy)
-		// if the env is not a dual stack
-		if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" {
+		actualWildcardIPv4, actualWildcardIPv6, _, _, isDualStack := getDualStackWildcardAndLocalHost(listenerOpts.proxy)
+		// if it's not dual stack environment
+		if !isDualStack {
 			listenerOpts.bind = actualWildcard
 		} else {
 			// should respect the ip policy order
@@ -1277,16 +1278,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			ConnectionBalanceConfig: connectionBalance,
 		}
 		// add extra addresses for the listener
-		if len(opts.extraBind) > 0 && util.IsIstioVersionGE116(opts.proxy.IstioVersion) {
-			for _, exbd := range opts.extraBind {
-				if exbd == "" {
-					continue
-				}
-				extraAddress := &listener.AdditionalAddress{
-					Address: util.BuildAddress(exbd, uint32(opts.port.Port)),
-				}
-				res.AdditionalAddresses = append(res.AdditionalAddresses, extraAddress)
-			}
+		err := util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
+		if err != nil {
+			log.Warnf("warning for adding extra addresses for listener [%s]", res.Name)
 		}
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
@@ -1315,16 +1309,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			EnableReusePort: proto.BoolTrue,
 		}
 		// add extra addresses for the listener
-		if len(opts.extraBind) > 0 && util.IsIstioVersionGE116(opts.proxy.IstioVersion) {
-			for _, exbd := range opts.extraBind {
-				if exbd == "" {
-					continue
-				}
-				extraAddress := &listener.AdditionalAddress{
-					Address: util.BuildNetworkAddress(exbd, uint32(opts.port.Port), istionetworking.TransportProtocolQUIC),
-				}
-				res.AdditionalAddresses = append(res.AdditionalAddresses, extraAddress)
-			}
+		err := util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
+		if err != nil {
+			log.Warnf("warning for adding extra addresses for listener [%s]", res.Name)
 		}
 	}
 

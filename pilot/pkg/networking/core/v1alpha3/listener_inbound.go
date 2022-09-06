@@ -179,16 +179,10 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 		if cc.bindToPort {
 			// If this config is for bindToPort, we want to actually create a real Listener.
 			l := lb.inboundCustomListener(cc, chains)
-			if len(cc.extraBind) > 0 && util.IsIstioVersionGE116(lb.node.IstioVersion) {
-				for _, exbd := range cc.extraBind {
-					if exbd == "" {
-						continue
-					}
-					extraAddress := &listener.AdditionalAddress{
-						Address: util.BuildAddress(exbd, cc.port.TargetPort),
-					}
-					l.AdditionalAddresses = append(l.AdditionalAddresses, extraAddress)
-				}
+			// add extra addresses for the listener
+			err := util.BuildExtraAddresses(cc.extraBind, cc.port.TargetPort, l, lb.node)
+			if err != nil {
+				log.Warnf("warning for adding extra addresses for listener [%s]", l.Name)
 			}
 			listeners = append(listeners, l)
 		} else {
@@ -207,9 +201,9 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	var actualWildcardIPv4, actualWildcardIPv6 string
-	actualWildcardIPv4, actualWildcardIPv6 = getDualStackActualWildcard(lb.node)
-	if actualWildcardIPv4 == "" && actualWildcardIPv6 == "" {
+	actualWildcardIPv4, actualWildcardIPv6, _, _, isDualStack := getDualStackWildcardAndLocalHost(lb.node)
+	// if it's not dual stack environment
+	if !isDualStack {
 		actualWildcardIPv4, _ = getActualWildcardAndLocalHost(lb.node)
 	}
 
@@ -220,11 +214,9 @@ func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain
 	allChains = append(allChains, chains...)
 	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcardIPv4, ProxyInboundListenPort), false, allChains)
 	// add extra addresses for the listener
-	if actualWildcardIPv6 != "" && util.IsIstioVersionGE116(lb.node.IstioVersion) {
-		extraAddress := &listener.AdditionalAddress{
-			Address: util.BuildAddress(actualWildcardIPv6, ProxyInboundListenPort),
-		}
-		l.AdditionalAddresses = append(l.AdditionalAddresses, extraAddress)
+	err := util.BuildExtraAddresses([]string{actualWildcardIPv6}, ProxyInboundListenPort, l, lb.node)
+	if err != nil {
+		log.Warnf("warning for adding extra addresses for listener [%s]", l.Name)
 	}
 	return l
 }
@@ -362,9 +354,9 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				cc.bind = getSidecarInboundBindIP(lb.node)
 				// if no global unicast address
 				if cc.bind == WildcardAddress || cc.bind == WildcardIPv6Address {
-					bindAddress, extraBindAddresses := getDualStackActualWildcard(lb.node)
+					bindAddress, extraBindAddresses, _, _, isDualStack := getDualStackWildcardAndLocalHost(lb.node)
 					// if it's dual stack environment
-					if bindAddress != "" && extraBindAddresses != "" {
+					if isDualStack {
 						cc.bind = bindAddress
 						cc.extraBind = []string{extraBindAddresses}
 					}

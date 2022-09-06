@@ -36,20 +36,13 @@ const (
 	InboundPassthroughBindIpv6 = "::6"
 )
 
-// getDualStackActualWildcard will return corresponding Wildcard in both IPv4 and IPv6
-func getDualStackActualWildcard(node *model.Proxy) (string, string) {
+// getDualStackWildcardAndLocalHost will return corresponding Wildcard and LocalHost for both IPv4 and IPv6
+// depending on value of proxy's IPAddresses.
+func getDualStackWildcardAndLocalHost(node *model.Proxy) (string, string, string, string, bool) {
 	if node.SupportsIPv4() && node.SupportsIPv6() {
-		return WildcardAddress, WildcardIPv6Address
+		return WildcardAddress, WildcardIPv6Address, LocalhostAddress, LocalhostIPv6Address, true
 	}
-	return "", ""
-}
-
-// getDualStackLocalHost will return corresponding LocalHost in both IPv4 and IPv6
-func getDualStackLocalHost(node *model.Proxy) (string, string) {
-	if node.SupportsIPv4() && node.SupportsIPv6() {
-		return LocalhostAddress, LocalhostIPv6Address
-	}
-	return "", ""
+	return "", "", "", "", false
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
