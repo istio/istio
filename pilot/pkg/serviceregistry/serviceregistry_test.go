@@ -968,6 +968,81 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 }
 
+func TestSAN(t *testing.T) {
+
+	labels := map[string]string{"app": "test"}
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: "default",
+			Labels:    labels,
+		},
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+			Phase: v1.PodPending,
+		},
+	}
+	service := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: "default",
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}},
+			Selector:  labels,
+			ClusterIP: "9.9.9.9",
+		},
+	}
+	dr := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.DestinationRule,
+			Name:             "dr",
+			Namespace:        "default",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "example.default.svc.cluster.local",
+			TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "fake",
+				PrivateKey:        "fake",
+			}},
+		},
+	}
+	se := config.Config{
+		Meta: config.Meta{
+			Name:             "service-entry",
+			Namespace:        "test",
+			GroupVersionKind: gvk.ServiceEntry,
+			Domain:           "cluster.local",
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"example.default.svc.cluster.local"},
+			Ports: []*networking.Port{{
+				Number:   80,
+				Protocol: "HTTP",
+				Name:     "http",
+			}},
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: labels,
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
+		kc, _, store, kube, x := setupTest(t)
+		makeIstioObject(t, store, dr)
+		makeIstioObject(t, store, se)
+
+		makeService(t, kube, service)
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, service.Namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+
+	})
+}
+
 func setHealth(cfg config.Config, healthy bool) config.Config {
 	cfg = cfg.DeepCopy()
 	if cfg.Annotations == nil {
