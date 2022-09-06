@@ -142,6 +142,7 @@ func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRe
 	w.mutex.Lock()
 	c := w.client
 	if c == nil {
+		w.mutex.Unlock()
 		return nil, fmt.Errorf("failed forwarding echo for disconnected pod %s/%s",
 			w.pod.Namespace, w.pod.Name)
 	}
