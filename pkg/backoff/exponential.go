@@ -72,9 +72,6 @@ func NewExponentialBackOff(o Option) BackOff {
 
 func (b ExponentialBackOff) NextBackOff() time.Duration {
 	duration := b.exponentialBackOff.NextBackOff()
-	if duration == b.exponentialBackOff.Stop {
-		return b.exponentialBackOff.MaxInterval
-	}
 	return duration
 }
 
@@ -95,10 +92,6 @@ func (b ExponentialBackOff) RetryWithContext(ctx context.Context, operation func
 			return nil
 		}
 		next := b.exponentialBackOff.NextBackOff()
-		if next == b.exponentialBackOff.Stop {
-			return fmt.Errorf("backoff timeouted with last error: %v", err)
-		}
-
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("%v with last error: %v", context.DeadlineExceeded, err)
