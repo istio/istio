@@ -449,14 +449,14 @@ func Add(mgr manager.Manager, options *Options) error {
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
-	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), kubeClient: kubeClient, options: options})
+	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), kubeClient: kubeClient, options: options}, options)
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r *ReconcileIstioOperator) error {
+// add adds a new Controller to mgr with r as the reconcile.Reconciler along with options for additional configuration.
+func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error {
 	scope.Info("Adding controller for IstioOperator.")
 	// Create a new controller
-	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: r.options.MaxConcurrentReconciles})
+	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: options.MaxConcurrentReconciles})
 	if err != nil {
 		return err
 	}
