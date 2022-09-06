@@ -140,13 +140,12 @@ func (w *workload) Address() string {
 
 func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (echoClient.Responses, error) {
 	w.mutex.Lock()
+	defer w.mutex.Lock()
 	c := w.client
 	if c == nil {
-		w.mutex.Unlock()
 		return nil, fmt.Errorf("failed forwarding echo for disconnected pod %s/%s",
 			w.pod.Namespace, w.pod.Name)
 	}
-	w.mutex.Unlock()
 
 	return c.ForwardEcho(ctx, request)
 }
