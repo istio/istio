@@ -50,7 +50,7 @@ const (
 type serverArgs struct {
 	// force proceeds even if there are validation errors
 	force bool
-
+	// maxConcurrentReconciles defines the concurrency limit for operator to reconcile IstioOperatorSpec in parallel
 	maxConcurrentReconciles int
 }
 
