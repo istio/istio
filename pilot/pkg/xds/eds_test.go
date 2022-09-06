@@ -559,6 +559,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 				Address:         "10.10.1.1",
 				ServicePortName: "http",
 				EndpointPort:    8080,
+				ServiceAccount:  "sa",
 			},
 		})
 
@@ -675,27 +676,6 @@ func TestUpdateServiceAccount(t *testing.T) {
 				t.Errorf("expect UpdateServiceAccount %v, but got %v", tc.expect, ret)
 			}
 		})
-	}
-}
-
-func TestZeroEndpointShardSA(t *testing.T) {
-	cluster1Endppoints := []*model.IstioEndpoint{
-		{Address: "10.172.0.1", ServiceAccount: "sa1"},
-	}
-	s := new(xds.DiscoveryServer)
-	s.Cache = model.DisabledCache{}
-	s.Env = model.NewEnvironment()
-	originalEndpointsShard, _ := s.Env.EndpointIndex.GetOrCreateEndpointShard("test", "test")
-	originalEndpointsShard.Shards = map[model.ShardKey][]*model.IstioEndpoint{
-		c1Key: cluster1Endppoints,
-	}
-	originalEndpointsShard.ServiceAccounts = map[string]struct{}{
-		"sa1": {},
-	}
-	s.EDSCacheUpdate(c1Key, "test", "test", []*model.IstioEndpoint{})
-	modifiedShard, _ := s.Env.EndpointIndex.GetOrCreateEndpointShard("test", "test")
-	if len(modifiedShard.ServiceAccounts) != 0 {
-		t.Errorf("endpoint shard service accounts got %v want 0", len(modifiedShard.ServiceAccounts))
 	}
 }
 
@@ -1180,6 +1160,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 			Address:         address,
 			EndpointPort:    uint32(port),
 			ServicePortName: portName,
+			ServiceAccount:  "sa",
 		},
 		ServicePort: &model.Port{
 			Name:     portName,
