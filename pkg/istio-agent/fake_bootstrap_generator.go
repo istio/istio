@@ -15,20 +15,24 @@
 package istioagent
 
 import (
-	"time"
+	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 )
 
-// FakeBootstrapGenerator is an delayed Envoy bootstrap generator.
+// FakeBootstrapGenerator is an Envoy bootstrap generator which return error for the odd times request.
 type FakeBootstrapGenerator struct {
+	count int
 }
 
 var _ model.XdsResourceGenerator = &FakeBootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
 func (e *FakeBootstrapGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	time.Sleep(500 * time.Millisecond)
+	e.count++
+	if e.count%2 != 0 {
+		return nil, model.DefaultXdsLogDetails, fmt.Errorf("fail for odd times(%d) bootstrap request", e.count)
+	}
 	return (&xds.BootstrapGenerator{}).Generate(proxy, w, req)
 }
