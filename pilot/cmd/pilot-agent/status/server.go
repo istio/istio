@@ -543,6 +543,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("failed to scraping and writing envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
+		envoy.Close()
 	}
 
 	// App metrics must go last because if they are FmtOpenMetrics,
