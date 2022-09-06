@@ -9,7 +9,7 @@ exclude k8s.io/kubernetes v1.13.0
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 // TODO replace when merged with OSS project
-replace istio.io/api => github.com/solo-io/istio-api-sidecarless v0.0.0-20220902195509-4747eed6a05d
+replace istio.io/api => github.com/solo-io/istio-api-sidecarless v0.0.0-20220906181307-5bf54b7eff7f
 
 // TODO merge https://github.com/stevenctl/envoy/commit/ea6ba69dccffbbcda1c5cfe79240c1e700964803 or make it not required
 replace github.com/envoyproxy/go-control-plane => github.com/howardjohn/go-control-plane v0.0.0-20220811163222-d1a7df2b8440

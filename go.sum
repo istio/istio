@@ -1163,8 +1163,8 @@ github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1
 github.com/smartystreets/goconvey v1.6.4/go.mod h1:syvi0/a8iFYH4r/RixwvyeAJjdLS9QV7WQ/tjFTllLA=
 github.com/soheilhy/cmux v0.1.4/go.mod h1:IM3LyeVVIOuxMH7sFAkER9+bJ4dT7Ms6E4xg4kGIyLM=
 github.com/soheilhy/cmux v0.1.5/go.mod h1:T7TcVDs9LWfQgPlPsdngu6I6QIoyIFZDDC6sNE1GqG0=
-github.com/solo-io/istio-api-sidecarless v0.0.0-20220902195509-4747eed6a05d h1:i/zJk8ukPT7zuBQ5d21V93oyTLlixbOnXVHNvHL1aMw=
-github.com/solo-io/istio-api-sidecarless v0.0.0-20220902195509-4747eed6a05d/go.mod h1:hQkF0Q19MCmfOTre/Sg4KvrwwETq45oaFplnBm2p4j8=
+github.com/solo-io/istio-api-sidecarless v0.0.0-20220906181307-5bf54b7eff7f h1:PYAHDwnQatKrJJ2oI/0qamjz9mWoXV8A5/Cy2lJd3cY=
+github.com/solo-io/istio-api-sidecarless v0.0.0-20220906181307-5bf54b7eff7f/go.mod h1:hQkF0Q19MCmfOTre/Sg4KvrwwETq45oaFplnBm2p4j8=
 github.com/sonatard/noctx v0.0.1/go.mod h1:9D2D/EoULe8Yy2joDHJj7bv3sZoq9AaSb8B4lqBjiZI=
 github.com/sourcegraph/annotate v0.0.0-20160123013949-f4cad6c6324d/go.mod h1:UdhH50NIW0fCiwBSr0co2m7BnFLdv4fQTgdqdJTHFeE=
 github.com/sourcegraph/go-diff v0.6.1/go.mod h1:iBszgVvyxdc8SFZ7gm69go2KDdt3ag071iBaWPF6cjs=

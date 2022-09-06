@@ -1046,7 +1046,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
 	if metricsCfg.AmbientType == ambient.TypeWaypoint {
-		cfg.MetadataMode = stats.PluginConfig_AMBIENT_PEP_METADATA_MODE
+		cfg.MetadataMode = stats.PluginConfig_UPSTREAM_HOST_METADATA_MODE
 	}
 	for _, override := range metricsCfg.MetricsForClass(class) {
 		metricName, f := metricToPrometheusMetric[override.Name]
