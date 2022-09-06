@@ -3997,7 +3997,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		warning string
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
-
+		{name: "labels not defined in workload selector", in: &networking.EnvoyFilter{
+			WorkloadSelector: &networking.WorkloadSelector{},
+		}, error: "", warning: "Envoy filter: labels not defined in workload selector"},
 		{name: "invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

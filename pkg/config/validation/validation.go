@@ -798,6 +798,12 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return nil, err
 		}
 
+		// If workloadSelector is defined and labels are not set, it is most likely
+		// an user error. Marking it as a warning to keep it backwards compatible.
+		if rule.WorkloadSelector != nil && len(rule.WorkloadSelector.Labels) == 0 {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: labels not defined in workload selector"))) // nolint: stylecheck
+		}
+
 		for _, cp := range rule.ConfigPatches {
 			if cp == nil {
 				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
