@@ -580,10 +580,8 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
-		} else {
-			if validCiphers.InsertContains(cs) {
-				duplicateCiphers.Insert(cs)
-			}
+		} else if validCiphers.InsertContains(cs) {
+			duplicateCiphers.Insert(cs)
 		}
 	}
 
