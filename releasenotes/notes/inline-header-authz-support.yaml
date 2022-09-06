@@ -1,0 +1,83 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: security
+issue:
+  - 39680
+
+releaseNotes:
+- |
+  **Support** inline multi-values header format by using safe regex in AuthorizationPolicy.Condition header match.
+
+# upgradeNotes is a markdown listing of any changes that will affect the upgrade
+# process. This will appear in the release notes.
+upgradeNotes:
+  - title: Support Inline Multi-values Header Match in Authz
+    content:
+      While multiple-valued headers to matchers have been taken care of by [GHSA-2v25-cjjq-5f4w](https://github.com/envoyproxy/envoy/security/advisories/GHSA-2v25-cjjq-5f4w), Istio
+      does not support matching on this multiple-valued header.
+      Because of this lack of support, current semantics in AuthorizationPolicy is inconsistent and non-deterministic,
+      Here are some examples,
+      Given the following policy and request, it's denied.
+      ```
+      Policy: ALLOW x-foo: bar
+      Request: curl -H "x-foo: bar" -H "x-foo: not-bar"
+      ```
+      Result: Denied
+
+      However, if the policy changes to use prefix match, the same request will be allowed.
+      ```
+      Policy: ALLOW x-foo: bar*
+      Request: curl -H "x-foo: bar" -H "x-foo: not-bar"
+      ```
+      Result: Allowed
+
+      What's more, if the headers order is changed in the request, the same policy will deny it.
+      ```
+      Policy: ALLOW x-foo: bar*
+      Request: curl -H "x-foo: not-bar" -H "x-foo: bar"
+      ```
+      Result: Denied
+
+      To solve this inconsistency, this change supports matching on multiple-valued headers by using safe regex match to split the header values
+      concatenated by commas when matching.
+      Note that the match logic for per header value is not changed, it still supports exact match, prefix match, suffix match and present match
+      as usual.
+      For example, given an allow policy `{ key: x-foo, value: [a, b]}`, the request with header `{key: x-foo value: "a,b,c"}` will be allowed
+      after this change, while before this change, this is not allowed.
+
+
+# securityNotes is a markdown listing of any changes related to the security of
+# Istio.
+securityNotes:
+  While multiple-valued headers to matchers have been taken care of by [GHSA-2v25-cjjq-5f4w](https://github.com/envoyproxy/envoy/security/advisories/GHSA-2v25-cjjq-5f4w), Istio
+  does not support matching on this multiple-valued header.
+  Because of this lack of support, current semantics in AuthorizationPolicy is inconsistent and non-deterministic,
+  Here are some examples,
+  Given the following policy and request, it's denied.
+  ```
+  Policy: ALLOW x-foo: bar
+  Request: curl -H "x-foo: bar" -H "x-foo: not-bar"
+  ```
+  Result: Denied
+
+  However, if the policy changes to use prefix match, the same request will be allowed.
+  ```
+  Policy: ALLOW x-foo: bar*
+  Request: curl -H "x-foo: bar" -H "x-foo: not-bar"
+  ```
+  Result: Allowed
+
+  What's more, if the headers order is changed in the request, the same policy will deny it.
+  ```
+  Policy: ALLOW x-foo: bar*
+  Request: curl -H "x-foo: not-bar" -H "x-foo: bar"
+  ```
+  Result: Denied
+
+  To solve this inconsistency, this change supports matching on multiple-valued headers by using safe regex match to split the header values
+  concatenated by commas when matching.
+  Note that the match logic for per header value is not changed, it still supports exact match, prefix match, suffix match and present match
+  as usual.
+  For example, given an allow policy `{ key: x-foo, value: [a, b]}`, the request with header `{key: x-foo value: "a,b,c"}` will be allowed
+  after this change, while before this change, this is not allowed.

@@ -156,7 +156,7 @@ typedConfig:
                 - header:
                     name: X-abc
                     safeRegexMatch:
-                      googleRe2: { }
+                      googleRe2: {}
                       regex: ^abc1$|^abc1,.*|.*,abc1,.*|.*,abc1$
                 - header:
                     name: X-abc
