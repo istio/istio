@@ -298,7 +298,7 @@ func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, e
 				if curToken != token {
 					fileModified <- true
 				}
-				sleep.Context(ctx, 1 * time.Minute)
+				sleep.UntilContext(ctx, 1*time.Minute)
 			}
 		}
 	}()

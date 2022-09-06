@@ -19,9 +19,9 @@ import (
 	"time"
 )
 
-// Context sleeps for the given duration, or until the context is complete.
+// UntilContext sleeps for the given duration, or until the context is complete.
 // Returns true if the sleep completes the full duration
-func Context(ctx context.Context, d time.Duration) bool {
+func UntilContext(ctx context.Context, d time.Duration) bool {
 	return Until(ctx.Done(), d)
 }
 

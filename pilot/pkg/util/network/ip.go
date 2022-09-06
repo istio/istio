@@ -53,7 +53,7 @@ func GetPrivateIPs(ctx context.Context) ([]string, bool) {
 			if ok {
 				return addr, true
 			}
-			sleep.Context(ctx, waitInterval)
+			sleep.UntilContext(ctx, waitInterval)
 		}
 	}
 }

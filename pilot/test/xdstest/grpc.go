@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"istio.io/istio/pkg/sleep"
 
+	"istio.io/istio/pkg/sleep"
 	"istio.io/pkg/log"
 )
 
@@ -31,7 +31,7 @@ type slowClientStream struct {
 
 func (w *slowClientStream) RecvMsg(m any) error {
 	if w.recv > 0 {
-		sleep.Context(w.Context(), w.recv)
+		sleep.UntilContext(w.Context(), w.recv)
 		log.Infof("delayed recv for %v", w.recv)
 	}
 	return w.ClientStream.RecvMsg(m)
@@ -39,7 +39,7 @@ func (w *slowClientStream) RecvMsg(m any) error {
 
 func (w *slowClientStream) SendMsg(m any) error {
 	if w.send > 0 {
-		sleep.Context(w.Context(), w.send)
+		sleep.UntilContext(w.Context(), w.send)
 		log.Infof("delayed send for %v", w.send)
 	}
 	return w.ClientStream.SendMsg(m)
@@ -62,7 +62,7 @@ type slowServerStream struct {
 
 func (w *slowServerStream) RecvMsg(m any) error {
 	if w.recv > 0 {
-		sleep.Context(w.Context(), w.recv)
+		sleep.UntilContext(w.Context(), w.recv)
 		log.Infof("delayed recv for %v", w.recv)
 	}
 	return w.ServerStream.RecvMsg(m)
@@ -70,7 +70,7 @@ func (w *slowServerStream) RecvMsg(m any) error {
 
 func (w *slowServerStream) SendMsg(m any) error {
 	if w.send > 0 {
-		sleep.Context(w.Context(), w.send)
+		sleep.UntilContext(w.Context(), w.send)
 		log.Infof("delayed send for %v", w.send)
 	}
 	return w.ServerStream.SendMsg(m)
