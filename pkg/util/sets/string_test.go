@@ -209,3 +209,11 @@ func TestInsertAll(t *testing.T) {
 		})
 	}
 }
+
+func TestInsertContains(t *testing.T) {
+	s := New()
+	assert.Equal(t, s.InsertContains("k1"), false)
+	assert.Equal(t, s.InsertContains("k1"), true)
+	assert.Equal(t, s.InsertContains("k2"), false)
+	assert.Equal(t, s.InsertContains("k2"), true)
+}

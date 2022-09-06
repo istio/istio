@@ -153,11 +153,9 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		snames := sets.Set{}
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
-				if snames.Contains(s.Name) {
+				if snames.InsertContains(s.Name) {
 					log.Warnf("Server name %s is not unique in gateway %s and may create possible issues like stat prefix collision ",
 						s.Name, gatewayName)
-				} else {
-					snames.Insert(s.Name)
 				}
 			}
 			if s.Port == nil {

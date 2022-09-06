@@ -123,9 +123,8 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 		}
 		for _, cfg := range storeConfigs {
 			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
-			if !configMap.Contains(key) {
+			if !configMap.InsertContains(key) {
 				configs = append(configs, cfg)
-				configMap.Insert(key)
 			}
 		}
 	}
