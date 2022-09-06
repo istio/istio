@@ -76,7 +76,7 @@ var (
 )
 
 type Options struct {
-	Force bool
+	Force                   bool
 	MaxConcurrentReconciles int
 }
 
