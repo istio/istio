@@ -726,7 +726,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err != nil {
+	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err == nil {
 		config.ServerName = host
 	}
 	// For debugging on localhost (with port forward)
