@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** new istio operator `remote` profile and deprecated the `external` profile, which is equivalent.
+    **Added** a new istio operator `remote` profile and deprecated the equivalent `external` profile.
