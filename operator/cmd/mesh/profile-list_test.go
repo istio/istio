@@ -38,7 +38,7 @@ func TestProfileList(t *testing.T) {
 		t.Fatalf("failed to execute istioctl profile command: %v", err)
 	}
 	output := out.String()
-	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "external"}
+	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "external", "remote"}
 	for _, prof := range expectedProfiles {
 		g.Expect(output).To(gomega.ContainSubstring(prof))
 	}
@@ -58,7 +58,7 @@ func TestProfileListByurl(t *testing.T) {
 		t.Fatalf("failed to execute istioctl profile command: %v", err)
 	}
 	output := out.String()
-	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "external"}
+	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "external", "remote"}
 	for _, prof := range expectedProfiles {
 		g.Expect(output).To(gomega.ContainSubstring(prof))
 	}
