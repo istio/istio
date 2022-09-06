@@ -2010,6 +2010,13 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			namespace:     "a",
 		},
 		{
+			name:          "*/h* imports h* in namespace a",
+			listenerHosts: map[string][]host.Name{wildcardNamespace: {"h*"}},
+			services:      allServices,
+			expected:      []*Service{serviceA8000, serviceA9000},
+			namespace:     "a",
+		},
+		{
 			name:          "b/alt imports alt in a namespaces",
 			listenerHosts: map[string][]host.Name{"b": {"alt"}},
 			services:      allServices,

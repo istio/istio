@@ -15,6 +15,7 @@
 package host
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -82,8 +83,10 @@ func (n Name) SubsetOf(o Name) bool {
 		return strings.HasSuffix(string(n), string(o[1:]))
 	}
 
-	// both are non-wildcards, so do normal string comparison
-	return n == o
+	expr := strings.Replace(o.String(), "*", "(.*)", -1)
+	reg, _ := regexp.Compile(expr)
+
+	return reg.MatchString(n.String()) || n == o
 }
 
 func (n Name) IsWildCarded() bool {
