@@ -244,9 +244,6 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 							Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 							HeadersToAdd: []*core.HeaderValueOption{
 								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
-								// TODO the following are unused at this point
-								//{Header: &core.HeaderValue{Key: "x-original-ip", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_ip\"])%"}},
-								//{Header: &core.HeaderValue{Key: "x-original-port", Value: "%DYNAMIC_METADATA([\"tunnel\", \"detunnel_port\"])%"}},
 							},
 						},
 					}),

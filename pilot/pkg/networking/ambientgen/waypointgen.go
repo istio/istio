@@ -96,7 +96,7 @@ func getActualWildcardAndLocalHost(node *model.Proxy) string {
 func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
 	saWorkloads := push.AmbientIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
 	if len(saWorkloads) == 0 {
-		log.Warnf("no workloads for sa %s (proxy %s)", proxy.Metadata.ServiceAccount, proxy.ID)
+		log.Warnf("no workloads for sa %s (proxy %s)", proxy.VerifiedIdentity.String(), proxy.ID)
 		return nil
 	}
 	wildcard := getActualWildcardAndLocalHost(proxy)

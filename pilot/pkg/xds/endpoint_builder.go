@@ -57,6 +57,7 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
+	ambientType            string
 	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
@@ -90,6 +91,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
+		ambientType:     proxy.Metadata.AmbientType,
 
 		push:       push,
 		proxy:      proxy,
@@ -123,6 +125,8 @@ func (b EndpointBuilder) Key() string {
 	hash.Write([]byte(b.network))
 	hash.Write(Separator)
 	hash.Write([]byte(b.clusterID))
+	hash.Write(Separator)
+	hash.Write([]byte(b.ambientType))
 	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
 	hash.Write(Separator)

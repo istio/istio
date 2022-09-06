@@ -750,9 +750,6 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 		"address": net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
 		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
-		// detunnel_ip/port are parts of "destination" split for easy use in %DYNAMIC_METADATA% (usually headers)
-		"detunnel_ip":   address,
-		"detunnel_port": strconv.Itoa(port),
 	})
 	return st
 }

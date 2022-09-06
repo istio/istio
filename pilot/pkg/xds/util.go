@@ -39,6 +39,5 @@ func getSubSetLabels(dr *networkingapi.DestinationRule, subsetName string) label
 		}
 	}
 
-	log.Warnf("unknown subset: %v", subsetName)
 	return nil
 }
