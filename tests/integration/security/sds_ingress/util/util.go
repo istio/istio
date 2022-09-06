@@ -440,10 +440,31 @@ spec:
           number: 80
 `
 
+const gwTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: {{.CredentialName}}
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: {{.Mode}}
+      credentialName: "{{.CredentialName}}"
+    hosts:
+    - "{{.Host}}"
+`
+
 func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) {
 	b := ctx.ConfigIstio().New()
 	for _, c := range config {
 		b.Eval(ns.Name(), c, vsTemplate)
+		b.Eval(ns.Name(), c, gwTemplate)
 	}
 	b.ApplyOrFail(ctx)
 }
