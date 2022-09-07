@@ -1360,26 +1360,54 @@ func TestTelemetryAccessLog(t *testing.T) {
 			},
 		},
 		{
-			name: "default-envoy-provider",
+			name: "builtin-fallback",
 			ctx:  ctx,
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_JSON,
 				AccessLogFormat:   defaultFormatJSON,
-				ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
-					{
-						Name: "envoy",
-						Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-							EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-								Path: "/dev/stdout",
-							},
-						},
-					},
-				},
 			},
 			fp: defaultEnvoyProvider,
 			expected: &accesslog.AccessLog{
 				Name:       wellknown.FileAccessLog,
 				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+			},
+		},
+		{
+			name: "builtin-not-fallback",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_JSON,
+				AccessLogFormat:   defaultFormatJSON,
+			},
+			fp: &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
+								Text: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%",
+							},
+						},
+					},
+				},
+			},
+			expected: &accesslog.AccessLog{
+				Name: wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+					Path: DevStdout,
+					AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+						LogFormat: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &core.DataSource{
+									Specifier: &core.DataSource_InlineString{
+										InlineString: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
+									},
+								},
+							},
+						},
+					},
+				})},
 			},
 		},
 	} {

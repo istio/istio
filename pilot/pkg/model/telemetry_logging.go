@@ -58,7 +58,7 @@ const (
 
 	DevStdout = "/dev/stdout"
 
-	defaultEnvoyAccessLogProvider = "envoy"
+	builtinEnvoyAccessLogProvider = "envoy"
 )
 
 var (
@@ -116,8 +116,8 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-		// For built-in provider, fallback to Mesh Config for formatting options.
-		if fp.Name == defaultEnvoyAccessLogProvider {
+		// For built-in provider, fallback to MeshConfig for formatting options when LogFormat unset.
+		if fp.Name == builtinEnvoyAccessLogProvider && prov.EnvoyFileAccessLog.LogFormat == nil {
 			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
 		} else {
 			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
