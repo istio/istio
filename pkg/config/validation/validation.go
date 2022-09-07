@@ -807,8 +807,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 		// If workloadSelector is defined and labels are not set, it is most likely
 		// an user error. Marking it as a warning to keep it backwards compatible.
 		if warning != nil {
-			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace",
-				warning))) // nolint: stylecheck
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
 		}
 
 		for _, cp := range rule.ConfigPatches {
