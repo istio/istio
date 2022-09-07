@@ -181,14 +181,14 @@ func TestSAN(t *testing.T) {
 			name:    "Kubernetes service and EDS ServiceEntry ISTIO_MUTUAL",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seEDS},
-			// The ServiceEntry rule will "win" the PushContext.ServiceAccounts, and be used
-			sans: []string{"spiffe://cluster.local/ns/test/sa/se-endpoint"},
+			// The Service has precedence, so its cluster will be used
+			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
 		},
 		{
 			name:    "Kubernetes service and NONE ServiceEntry ISTIO_MUTUAL",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seNONE},
-			// Service properly sets SAN and its used
+			// The Service has precedence, so its cluster will be used
 			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
 		},
 		{

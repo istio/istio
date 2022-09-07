@@ -169,6 +169,12 @@ func newGatewayIndex() gatewayIndex {
 	}
 }
 
+type serviceAccountKey struct {
+	hostname  host.Name
+	namespace string
+	port      int
+}
+
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
@@ -186,8 +192,8 @@ type PushContext struct {
 	// ServiceIndex is the index of services by various fields.
 	ServiceIndex serviceIndex
 
-	// ServiceAccounts contains a map of hostname and port to service accounts.
-	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
+	// serviceAccounts contains a map of hostname and port to service accounts.
+	serviceAccounts map[serviceAccountKey][]string
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex virtualServiceIndex
@@ -649,7 +655,7 @@ func NewPushContext() *PushContext {
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
-		ServiceAccounts:         map[host.Name]map[int][]string{},
+		serviceAccounts:         map[serviceAccountKey][]string{},
 	}
 }
 
@@ -1256,7 +1262,7 @@ func (ps *PushContext) updateContext(
 	} else {
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
-		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+		ps.serviceAccounts = oldPushContext.serviceAccounts
 	}
 
 	if servicesChanged || gatewayAPIChanged {
@@ -1432,9 +1438,6 @@ func SortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		if ps.ServiceAccounts[svc.Hostname] == nil {
-			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
-		}
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -1446,7 +1449,12 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			s.RLock()
 			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
 			s.RUnlock()
-			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
+			key := serviceAccountKey{
+				hostname:  svc.Hostname,
+				namespace: svc.Attributes.Namespace,
+				port:      port.Port,
+			}
+			ps.serviceAccounts[key] = sa
 		}
 	}
 }
@@ -2157,4 +2165,12 @@ func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceNa
 	default:
 	}
 	return false
+}
+
+func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, port int) []string {
+	return ps.serviceAccounts[serviceAccountKey{
+		hostname:  hostname,
+		namespace: namespace,
+		port:      port,
+	}]
 }
