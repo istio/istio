@@ -5817,7 +5817,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true, true},
+		}, true, false},
 		{"workload selector without labels", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5825,7 +5825,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 			WorkloadSelector: &networking.WorkloadSelector{},
-		}, true, false},
+		}, true, true},
 		{"import local namespace with wildcard", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
