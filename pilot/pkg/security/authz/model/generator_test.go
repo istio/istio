@@ -27,7 +27,7 @@ import (
 
 func TestGenerator(t *testing.T) {
 	cases := []struct {
-		name   string
+		name   stringgit
 		g      generator
 		key    string
 		value  string
@@ -206,9 +206,10 @@ func TestGenerator(t *testing.T) {
 			key:   "request.headers[x-foo]",
 			value: "foo",
 			want: yamlPrincipal(t, `
-         header:
-          exactMatch: foo
-          name: x-foo`),
+        header:
+          name: x-foo
+          safeRegexMatch:
+            regex: ^foo$|^foo,.*|.*,foo,.*|.*,foo$`),
 		},
 		{
 			name:  "requestClaimGenerator",
