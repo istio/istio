@@ -1149,6 +1149,13 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
 	var resources []string
+
+	if strings.HasPrefix(msg.TypeUrl, v3.DebugType) {
+		// If the response is for istio.io/debug or istio.io/debug/*,
+		// skip to send ACK.
+		return
+	}
+
 	if msg.TypeUrl == v3.EndpointType {
 		for c := range a.edsClusters {
 			resources = append(resources, c)
