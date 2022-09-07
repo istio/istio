@@ -27,8 +27,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -41,7 +39,11 @@ import (
 	"istio.io/istio/tests/integration/pilot/forwardproxy"
 )
 
-const tunnelingDestinationRuleFile = "testdata/tunneling/destination-rule.tmpl.yaml"
+const (
+	forwardProxyConfigMapFile    = "testdata/forward-proxy/configmap.tmpl.yaml"
+	forwardProxyServiceFile      = "testdata/forward-proxy/service.tmpl.yaml"
+	tunnelingDestinationRuleFile = "testdata/tunneling/destination-rule.tmpl.yaml"
+)
 
 type tunnelingTestCase struct {
 	// configDir is a directory with Istio configuration files for a particular test case
@@ -207,8 +209,6 @@ func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIP, expect
 }
 
 func applyForwardProxyConfigMaps(ctx framework.TestContext, externalNs string) {
-	kubeClient := ctx.Clusters().Default().Kube()
-
 	bootstrapYaml, err := forwardproxy.GenerateForwardProxyBootstrapConfig(forwardProxyConfigurations)
 	if err != nil {
 		ctx.Fatalf("failed to generate bootstrap configuration for external-forward-proxy: %s", err)
@@ -220,60 +220,27 @@ func applyForwardProxyConfigMaps(ctx framework.TestContext, externalNs string) {
 		ctx.Fatalf("failed to generate private key and certificate: %s", err)
 	}
 
-	cfgMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "external-forward-proxy-config",
-		},
-		Data: map[string]string{
-			"envoy.yaml":                      bootstrapYaml,
-			"external-forward-proxy-key.pem":  key,
-			"external-forward-proxy-cert.pem": crt,
-		},
+	templateParams := map[string]any{
+		"envoyYaml": bootstrapYaml,
+		"keyPem":    key,
+		"certPem":   crt,
 	}
-	if _, err := kubeClient.CoreV1().ConfigMaps(externalNs).Create(context.TODO(), cfgMap, metav1.CreateOptions{}); err != nil {
-		ctx.Fatalf("failed to create config map external-forward-proxy-config: %s", err)
-		if kerrors.IsAlreadyExists(err) {
-			if _, err := kubeClient.CoreV1().ConfigMaps(externalNs).Update(context.TODO(), cfgMap, metav1.UpdateOptions{}); err != nil {
-				ctx.Fatalf("failed to update config map external-forward-proxy-config: %s", err)
-			}
-		} else {
-			ctx.Fatalf("failed to create config map external-forward-proxy-config: %s", err)
-		}
-	}
+	ctx.ConfigIstio().EvalFile(externalNs, templateParams, forwardProxyConfigMapFile).ApplyOrFail(ctx)
 }
 
 func applyForwardProxyService(ctx framework.TestContext, externalNs string) {
-	kubeClient := ctx.Clusters().Default().Kube()
-
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "external-forward-proxy",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{},
-			Selector: map[string]string{
-				"app": "external-forward-proxy",
-			},
-		},
-	}
+	var servicePorts []corev1.ServicePort
 	for i, cfg := range forwardProxyConfigurations {
-		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       fmt.Sprintf("%s-%d", selectPortName(cfg.HTTPVersion), i),
 			Port:       int32(cfg.Port),
 			TargetPort: intstr.FromInt(int(cfg.Port)),
-			Protocol:   corev1.ProtocolTCP,
 		})
 	}
-	if _, err := kubeClient.CoreV1().Services(externalNs).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
-		ctx.Fatalf("failed to create service external-forward-proxy: %s", err)
-		if kerrors.IsAlreadyExists(err) {
-			if _, err := kubeClient.CoreV1().Services(externalNs).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
-				ctx.Fatalf("failed to update service external-forward-proxy: %s", err)
-			}
-		} else {
-			ctx.Fatalf("failed to create service external-forward-proxy: %s", err)
-		}
+	templateParams := map[string]any{
+		"ports": servicePorts,
 	}
+	ctx.ConfigIstio().EvalFile(externalNs, templateParams, forwardProxyServiceFile).ApplyOrFail(ctx)
 }
 
 func listFilesInDirectory(ctx framework.TestContext, dir string) []string {
