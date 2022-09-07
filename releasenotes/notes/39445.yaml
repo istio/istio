@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/39445
+releaseNotes:
+  - |
+    **Add** annotations"traffic.istio.io/failoverService","traffic.istio.io/failoverServicePort" and "traffic.istio.io/failoverServiceOverProvisioningFactor"
+    in DestinationRule, if the failoverService configured and the upstream cluster is down, instead of responding 503 no healthy upstream, traffic
+    will be routed to the failover service.

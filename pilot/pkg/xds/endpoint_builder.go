@@ -17,6 +17,7 @@ package xds
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"math"
 	"sort"
 	"strconv"
 
@@ -230,9 +231,68 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *model.EndpointShards,
+	failoverShards *model.EndpointShards,
 	svcPort *model.Port,
+	failOverPort uint32,
 ) []*LocalityEndpoints {
 	localityEpMap := make(map[string]*LocalityEndpoints)
+	locEps := make([]*LocalityEndpoints, 0, len(localityEpMap))
+
+	if shards != nil {
+		b.genLocalityEpMap(shards, svcPort, localityEpMap, false, 0)
+		locs := make([]string, 0, len(localityEpMap))
+		for k := range localityEpMap {
+			locs = append(locs, k)
+		}
+		if len(locs) >= 2 {
+			sort.Strings(locs)
+		}
+		for _, k := range locs {
+			locLbEps := localityEpMap[k]
+			var weight uint32
+			for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
+				weight += ep.LoadBalancingWeight.GetValue()
+			}
+			locLbEps.llbEndpoints.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: weight,
+			}
+			locEps = append(locEps, locLbEps)
+		}
+	}
+
+	// failover case to populate failover endpoints
+	if failoverShards != nil {
+		localityEpMapFailover := make(map[string]*LocalityEndpoints)
+		b.genLocalityEpMap(failoverShards, svcPort, localityEpMapFailover, true, failOverPort)
+		locs := make([]string, 0, len(localityEpMapFailover))
+		for k := range localityEpMapFailover {
+			locs = append(locs, k)
+		}
+		if len(locs) >= 2 {
+			sort.Strings(locs)
+		}
+		for _, k := range locs {
+			locLbEps := localityEpMapFailover[k]
+			var weight uint32
+			for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
+				weight += ep.LoadBalancingWeight.GetValue()
+			}
+			locLbEps.llbEndpoints.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: weight,
+			}
+			locLbEps.llbEndpoints.Priority = 100 //failover cluster is P100, default is P0
+			locEps = append(locEps, locLbEps)
+		}
+
+		if len(locEps) == 0 {
+			b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
+		}
+	}
+
+	return locEps
+}
+
+func (b *EndpointBuilder) genLocalityEpMap(shards *model.EndpointShards, svcPort *model.Port, localityEpMap map[string]*LocalityEndpoints, isFailover bool, failOverPort uint32) {
 	// get the subset labels
 	subsetLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
@@ -252,11 +312,16 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			continue
 		}
 		for _, ep := range endpoints {
+			// for failover service, we can specify the endpoint port with annotation traffic.istio.io/failoverServicePort
+			if isFailover && failOverPort != 0 && (ep.EndpointPort != failOverPort) {
+				continue
+			}
 			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue
 			}
-			if svcPort.Name != ep.ServicePortName {
+			// for failover service, the service port name check is skipped
+			if !isFailover && svcPort.Name != ep.ServicePortName {
 				continue
 			}
 			// Port labels
@@ -295,43 +360,33 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 		}
 	}
 	shards.Unlock()
-
-	locEps := make([]*LocalityEndpoints, 0, len(localityEpMap))
-	locs := make([]string, 0, len(localityEpMap))
-	for k := range localityEpMap {
-		locs = append(locs, k)
-	}
-	if len(locs) >= 2 {
-		sort.Strings(locs)
-	}
-	for _, k := range locs {
-		locLbEps := localityEpMap[k]
-		var weight uint32
-		for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
-			weight += ep.LoadBalancingWeight.GetValue()
-		}
-		locLbEps.llbEndpoints.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: weight,
-		}
-		locEps = append(locEps, locLbEps)
-	}
-
-	if len(locEps) == 0 {
-		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
-	}
-
-	return locEps
 }
 
 // Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.
-func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoints) *endpoint.ClusterLoadAssignment {
+func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoints, isFailover bool,
+	overProvisioningFactor uint32) *endpoint.ClusterLoadAssignment {
 	llbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(llbOpts))
 	for _, l := range llbOpts {
 		llbEndpoints = append(llbEndpoints, &l.llbEndpoints)
 	}
-	return &endpoint.ClusterLoadAssignment{
-		ClusterName: b.clusterName,
-		Endpoints:   llbEndpoints,
+	if isFailover {
+		if overProvisioningFactor == 0 {
+			overProvisioningFactor = math.MaxUint32
+		}
+		return &endpoint.ClusterLoadAssignment{
+			ClusterName: b.clusterName,
+			Endpoints:   llbEndpoints,
+			Policy: &endpoint.ClusterLoadAssignment_Policy{
+				OverprovisioningFactor: &wrappers.UInt32Value{
+					Value: overProvisioningFactor,
+				},
+			},
+		}
+	} else {
+		return &endpoint.ClusterLoadAssignment{
+			ClusterName: b.clusterName,
+			Endpoints:   llbEndpoints,
+		}
 	}
 }
 

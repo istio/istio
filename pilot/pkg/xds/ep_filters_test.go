@@ -599,9 +599,10 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 }
 
 type networkFilterCase struct {
-	name string
-	conn *Connection
-	want []LocLbEpInfo
+	name     string
+	conn     *Connection
+	want     []LocLbEpInfo
+	failover bool
 }
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
@@ -611,15 +612,24 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.conn.proxy)
 			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
-			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			var testEndpoints []*LocalityEndpoints
+			if tt.failover {
+				testEndpoints = b.buildLocalityLbEndpointsFromShards(testShards(), testFailoverShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}, 8080)
+			} else {
+				testEndpoints = b.buildLocalityLbEndpointsFromShards(testShards(), nil, &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}, 0)
+			}
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
 			compareEndpoints(t, filtered, tt.want)
-
 			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
-			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			var testEndpoints2 []*LocalityEndpoints
+			if tt.failover {
+				testEndpoints2 = b2.buildLocalityLbEndpointsFromShards(testShards(), testFailoverShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}, 8080)
+			} else {
+				testEndpoints2 = b2.buildLocalityLbEndpointsFromShards(testShards(), nil, &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}, 0)
+			}
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			if !reflect.DeepEqual(filtered2, filtered) {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic")
@@ -713,7 +723,7 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.conn.proxy)
 			b := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
-			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), nil, &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}, 0)
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			filtered = b.EndpointsWithMTLSFilter(filtered)
 			for _, e := range testEndpoints {
@@ -722,7 +732,7 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 			compareEndpoints(t, filtered, tt.want)
 
 			b2 := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
-			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), nil, &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP}, 0)
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
 			if !reflect.DeepEqual(filtered2, filtered) {
@@ -855,4 +865,120 @@ func getLbEndpointAddrs(ep *endpoint.LocalityLbEndpoints) []string {
 		addrs = append(addrs, lbEp.GetEndpoint().Address.GetSocketAddress().Address)
 	}
 	return addrs
+}
+
+func testFailoverShards() *model.EndpointShards {
+	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
+		// network1 has one endpoint in each cluster
+		{Cluster: "cluster1a"}: {
+			{Network: "network1", Address: "10.1.0.1"},
+		},
+		{Cluster: "cluster1b"}: {
+			{Network: "network1", Address: "10.1.0.2"},
+		},
+
+		// network2 has an imbalance of endpoints between its clusters
+		{Cluster: "cluster2a"}: {
+			{Network: "network2", Address: "20.1.0.1"},
+		},
+		{Cluster: "cluster2b"}: {
+			{Network: "network2", Address: "20.1.0.2"},
+			{Network: "network2", Address: "20.1.0.3"},
+		},
+
+		// network3 has no endpoints.
+
+		// network4 has a single endpoint, but not gateway so it will always
+		// be considered directly reachable.
+		{Cluster: "cluster4"}: {
+			{Network: "network4", Address: "40.1.0.1"},
+		},
+	}}
+	// apply common properties
+	for sk, shard := range shards.Shards {
+		for i, ep := range shard {
+			ep.ServicePortName = "http-failover"
+			ep.Namespace = "ns"
+			ep.HostName = "homepage.example.org"
+			ep.EndpointPort = 8080
+			ep.TLSMode = "istio"
+			ep.Labels = map[string]string{"app": "homepage"}
+			ep.Locality.ClusterID = sk.Cluster
+			shards.Shards[sk][i] = ep
+		}
+	}
+	return shards
+}
+
+func TestEndpointsByNetworkFilter_WithConfig_WithFailover(t *testing.T) {
+	noCrossNetwork := []networkFilterCase{
+		{
+			name:     "from_network1",
+			conn:     xdsConnection("network1", "cluster1a"),
+			failover: true,
+			want: []LocLbEpInfo{
+				{
+					lbEps: []LbEpInfo{
+						// 2 local endpoints
+						{address: "10.0.0.1", weight: 6},
+						{address: "10.0.0.2", weight: 6},
+						{address: "2.2.2.2", weight: 6},
+						{address: "2.2.2.20", weight: 6},
+						{address: "2.2.2.21", weight: 6},
+						{address: "40.0.0.1", weight: 6},
+					},
+					weight: 36,
+				}, {
+					lbEps: []LbEpInfo{
+						// failover endpoints
+						{address: "10.1.0.1", weight: 6},
+						{address: "10.1.0.2", weight: 6},
+						{address: "2.2.2.2", weight: 6},
+						{address: "2.2.2.20", weight: 6},
+						{address: "2.2.2.21", weight: 6},
+						{address: "40.1.0.1", weight: 6},
+					},
+					weight: 36,
+				},
+			},
+		},
+	}
+
+	cases := map[string]map[string]struct {
+		Config  config.Config
+		Configs []config.Config
+		Tests   []networkFilterCase
+	}{
+		gvk.DestinationRule.String(): {
+			"failover-cluster-destination-level": {
+				Config: config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "failover-service-dr",
+						Namespace:        "ns",
+						Annotations:      map[string]string{"traffic.istio.io/failoverService": "homepage.example.org"},
+					},
+					Spec: &networking.DestinationRule{
+						Host: "example.ns.svc.cluster.local",
+					},
+				},
+				Tests: noCrossNetwork,
+			},
+		},
+	}
+
+	for configType, cases := range cases {
+		t.Run(configType, func(t *testing.T) {
+			for name, pa := range cases {
+				t.Run(name, func(t *testing.T) {
+					cfgs := pa.Configs
+					if pa.Config.Name != "" {
+						cfgs = append(cfgs, pa.Config)
+					}
+					env := environment(t, cfgs...)
+					runNetworkFilterTest(t, env, pa.Tests)
+				})
+			}
+		})
+	}
 }
