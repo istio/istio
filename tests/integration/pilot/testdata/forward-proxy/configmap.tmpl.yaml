@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: external-forward-proxy-config
+data:
+  envoy.yaml: |-
+{{ .envoyYaml | indent 4 }}
+  external-forward-proxy-key.pem: |-
+{{ .keyPem | indent 4 }}
+  external-forward-proxy-cert.pem: |-
+{{ .certPem | indent 4 }}
