@@ -142,7 +142,6 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
 	istioEndpoints []*model.IstioEndpoint,
 ) PushType {
-	log.Errorf("howardjohn: shard %v endpoints %v", shard, len(istioEndpoints))
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointIndex map - that will trigger
@@ -260,7 +259,6 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, ser
 		}
 	}
 
-	log.Errorf("howardjohn: update=%v service %v: %v -> %v", !oldServiceAccount.Equals(serviceAccounts), serviceName, oldServiceAccount.SortedList(), serviceAccounts.SortedList())
 	if !oldServiceAccount.Equals(serviceAccounts) {
 		shards.ServiceAccounts = serviceAccounts
 		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",

@@ -1447,7 +1447,6 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
 			s.RUnlock()
 			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
-			log.Errorf("howardjohn: compute %v:%v -> %v", svc.Hostname, port.Port, sa)
 		}
 	}
 }

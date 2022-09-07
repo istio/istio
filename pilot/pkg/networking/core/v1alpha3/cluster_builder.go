@@ -291,9 +291,7 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 
 // MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
 func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
-	log.Errorf("howardjohn: merge %+v %+v %+v", original, subsetPolicy, port)
 	if subsetPolicy == nil {
-		log.Errorf("howardjohn: no subset, get original %+v", original.GetTls())
 		return original
 	}
 
@@ -308,7 +306,6 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 		mergedPolicy.LoadBalancer = original.LoadBalancer
 		mergedPolicy.OutlierDetection = original.OutlierDetection
 		mergedPolicy.Tls = original.Tls
-		log.Errorf("howardjohn: original TLS %+v", original.Tls)
 	}
 
 	// Override with subset values.
@@ -333,7 +330,6 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 				mergedPolicy.ConnectionPool = p.ConnectionPool
 				mergedPolicy.OutlierDetection = p.OutlierDetection
 				mergedPolicy.LoadBalancer = p.LoadBalancer
-				log.Errorf("howardjohn: merge in port level %+v", mergedPolicy.Tls)
 				mergedPolicy.Tls = p.Tls
 				break
 			}
@@ -716,7 +712,6 @@ func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
 }
 
 func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
-	log.Errorf("howardjohn: policy: %+v", opts.policy)
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	if connectionPool == nil {
@@ -756,7 +751,6 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(tls *networking.ClientTLSSetting
 			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
 		}
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			log.Errorf("howardjohn: return suplied tls for %v: %+v", registry, tls)
 			return tls, userSupplied
 		}
 		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
@@ -800,7 +794,6 @@ const (
 
 // buildMutualTLS returns a `TLSSettings` for MUTUAL mode with proxy metadata certificates.
 func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
-	log.Errorf("howardjohn: build mutual from %v", serviceAccounts)
 	return &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
 		CaCertificates:    cb.metadataCerts.tlsClientRootCert,
@@ -1049,7 +1042,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
-		log.Errorf("howardjohn: mutual set %v: opts=%v, rule=%v, result=%v", opts.serviceRegistry, opts.serviceAccounts, orig, tls.SubjectAltNames)
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
@@ -1185,7 +1177,6 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 		} else {
 			cb.req.Push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxyID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
-			log.Errorf("howardjohn: duplicate %v", c.Name)
 		}
 	}
 	return out
