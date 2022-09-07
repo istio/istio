@@ -75,7 +75,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 	// some types to use custom generators - for example EDS.
 	g := con.proxy.XdsResourceGenerator
 	if g == nil {
-		if strings.HasPrefix(typeURL, "istio.io/debug/") {
+		if strings.HasPrefix(typeURL, TypeDebugPrefix) {
 			g = s.Generators["event"]
 		} else {
 			// TODO move this to just directly using the resource TypeUrl

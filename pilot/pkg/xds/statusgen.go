@@ -40,11 +40,13 @@ const (
 	// This includes all the info that envoy (client) provides.
 	TypeURLNACK = "istio.io/nack"
 
+	TypeDebugPrefix = v3.DebugType + "/"
+
 	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
-	TypeDebugSyncronization = "istio.io/debug/syncz"
+	TypeDebugSyncronization = v3.DebugType + "/syncz"
 
 	// TypeDebugConfigDump requests Envoy configuration for a proxy without creating one
-	TypeDebugConfigDump = "istio.io/debug/config_dump"
+	TypeDebugConfigDump = v3.DebugType + "/config_dump"
 
 	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
 )
