@@ -1005,6 +1005,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -1045,6 +1046,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		orig := tls.SubjectAltNames
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		log.Errorf("howardjohn: mutual set %v: opts=%v, rule=%v, result=%v", opts.serviceRegistry, opts.serviceAccounts, orig, tls.SubjectAltNames)

@@ -848,9 +848,7 @@ func TestMergeTrafficPolicy(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			policy := MergeTrafficPolicy(tt.original, tt.subset, tt.port)
-			if !reflect.DeepEqual(policy, tt.expected) {
-				t.Errorf("Unexpected merged TrafficPolicy. want %v, got %v", tt.expected, policy)
-			}
+			assert.Equal(t, policy, tt.expected)
 		})
 	}
 }

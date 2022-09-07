@@ -142,6 +142,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
 	istioEndpoints []*model.IstioEndpoint,
 ) PushType {
+	log.Errorf("howardjohn: shard %v endpoints %v", shard, len(istioEndpoints))
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointIndex map - that will trigger
