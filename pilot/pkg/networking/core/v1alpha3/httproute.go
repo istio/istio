@@ -391,7 +391,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
 		name := util.DomainName(hostname, vhwrapper.Port)
-		if duplicateVirtualHost(name, vhosts) {
+		if vhosts.InsertContains(name) {
 			// This means this virtual host has caused duplicate virtual host name.
 			var msg string
 			if svc == nil {
@@ -473,15 +473,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	return out, nil, routeCache
-}
-
-// duplicateVirtualHost checks whether the virtual host with the same name exists in the route.
-func duplicateVirtualHost(vhost string, vhosts sets.Set) bool {
-	if vhosts.Contains(vhost) {
-		return true
-	}
-	vhosts.Insert(vhost)
-	return false
 }
 
 // dedupeDomains removes the duplicate domains from the passed in domains.

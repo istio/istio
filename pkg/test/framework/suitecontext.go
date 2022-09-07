@@ -105,8 +105,7 @@ func (c *suiteContext) allocateContextID(prefix string) string {
 	candidate := prefix
 	discriminator := 0
 	for {
-		if !c.contextNames.Contains(candidate) {
-			c.contextNames.Insert(candidate)
+		if !c.contextNames.InsertContains(candidate) {
 			return candidate
 		}
 

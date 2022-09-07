@@ -1176,13 +1176,12 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 	have := sets.Set{}
 	out := make([]*discovery.Resource, 0, len(clusters))
 	for _, c := range clusters {
-		if !have.Contains(c.Name) {
+		if !have.InsertContains(c.Name) {
 			out = append(out, c)
 		} else {
 			cb.req.Push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxyID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
 		}
-		have.Insert(c.Name)
 	}
 	return out
 }
