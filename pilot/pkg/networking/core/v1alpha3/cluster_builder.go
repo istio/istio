@@ -725,7 +725,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
-				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.serviceRegistry)
+				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
 	}
@@ -738,7 +738,14 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 // buildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 // If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
 // creates and populates the config as if they are set as ISTIO_MUTUAL.
-func (cb *ClusterBuilder) buildAutoMtlsSettings(tls *networking.ClientTLSSettings, serviceAccounts []string, sni string, autoMTLSEnabled bool, meshExternal bool, serviceMTLSMode model.MutualTLSMode, registry provider.ID) (*networking.ClientTLSSettings, mtlsContextType) {
+func (cb *ClusterBuilder) buildAutoMtlsSettings(
+	tls *networking.ClientTLSSettings,
+	serviceAccounts []string,
+	sni string,
+	autoMTLSEnabled bool,
+	meshExternal bool,
+	serviceMTLSMode model.MutualTLSMode,
+) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
 		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
 			return tls, userSupplied
@@ -1037,7 +1044,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		cb.setAutoSniAndAutoSanValidation(c, tls)
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		orig := tls.SubjectAltNames
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
