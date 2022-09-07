@@ -2928,8 +2928,8 @@ istio.io/api v0.0.0-20220906212632-fa18ce1fc2da h1:7Guipik1xjlsNAYyCsi0arsgNh2wq
 istio.io/api v0.0.0-20220906212632-fa18ce1fc2da/go.mod h1:00myJeQGWma4Y5pboJ+MM4P2uqEWulKA1duC8kYN5Wo=
 istio.io/client-go v1.14.4-0.20220906213432-736be6f83263 h1:4HEex3Q+PHftOkp94/K74ikFmUSzKvSlLZ9Mtrvp1eI=
 istio.io/client-go v1.14.4-0.20220906213432-736be6f83263/go.mod h1:asShg/RoAW4pRK9zWmZGXgw6bt1YMRiCQZvBZoCW0Ic=
-istio.io/pkg v0.0.0-20220728185106-cbb9bd2a0124 h1:AdPmOgrlSJe9UROZgMiVQTNTfOIY7nM/cz2S6uYA3vA=
-istio.io/pkg v0.0.0-20220728185106-cbb9bd2a0124/go.mod h1:kcBYN5TiyGFM2bs4b7K81j+YeDZ4JrINP+brV9ehZe0=
+istio.io/pkg v0.0.0-20220906212832-f98e656e3df0 h1:OxnCRBQq2VIS/tqVIaNkTqSMGiI9TEsW28nBwmHdB5s=
+istio.io/pkg v0.0.0-20220906212832-f98e656e3df0/go.mod h1:kcBYN5TiyGFM2bs4b7K81j+YeDZ4JrINP+brV9ehZe0=
 k8s.io/api v0.0.0-20180904230853-4e7be11eab3f/go.mod h1:iuAfoD4hCxJ8Onx9kaTIt30j7jUFS00AXQi6QMi99vA=
 k8s.io/api v0.17.4/go.mod h1:5qxx6vjmwUVG2nHQTKGlLts8Tbok8PzHl4vHtVFuZCA=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
