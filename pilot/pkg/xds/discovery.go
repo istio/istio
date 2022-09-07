@@ -585,7 +585,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
-	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace, internalDebugMux)
+	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 

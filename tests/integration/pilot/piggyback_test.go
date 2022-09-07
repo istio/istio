@@ -24,6 +24,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
@@ -52,7 +53,7 @@ func TestPiggyback(t *testing.T) {
 				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
 					return fmt.Errorf("unmarshal: %v", err)
 				}
-				if dr.TypeUrl != "istio.io/debug/syncz" {
+				if dr.TypeUrl != xds.TypeDebugSyncronization {
 					return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
 				}
 				if len(dr.Resources) < 1 {

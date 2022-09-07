@@ -553,7 +553,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug") {
+				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
 					p.forwardToTap(resp)
 				} else {
 					forwardToEnvoy(con, resp)
