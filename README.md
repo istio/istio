@@ -1,7 +1,7 @@
 # Ambient Mesh
 
 This branch contains the experimental Ambient mesh functionality of Istio.
-See the [Introducing Ambient Mesh](TODO) and [Getting Started with Ambient](TODO) blogs for more information.
+See the [Introducing Ambient Mesh](https://istio.io/latest/blog/2022/introducing-ambient-mesh/) and [Getting Started with Ambient](https://istio.io/latest/blog/2022/get-started-ambient/) blogs for more information.
 
 ## Getting Started
 
@@ -51,7 +51,7 @@ Then you can install like normal:
 $ istioctl install -y --set profile=ambient
 ```
 
-Follow [Getting Started with Ambient](TODO) for more details on getting started.
+Follow [Getting Started with Ambient](https://istio.io/latest/blog/2022/get-started-ambient/) for more details on getting started.
 
 ### Installing from source
 
