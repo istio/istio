@@ -1151,6 +1151,16 @@ func (node *Proxy) FuzzValidate() bool {
 	if node.Metadata == nil {
 		return false
 	}
+	found := false
+	for _, t := range NodeTypes {
+		if node.Type == t {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false
+	}
 	return len(node.IPAddresses) != 0
 }
 
