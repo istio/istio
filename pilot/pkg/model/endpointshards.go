@@ -207,6 +207,7 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 			}
 		}
 	}
+	log.Errorf("howardjohn: delete %v -> %v", serviceName, epShards.ServiceAccounts.SortedList())
 	// Clear the cache here to avoid race in cache writes.
 	e.clearCacheForService(serviceName, namespace)
 	if !preserveKeys {

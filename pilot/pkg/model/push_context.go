@@ -1447,6 +1447,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
 			s.RUnlock()
 			ps.ServiceAccounts[svc.Hostname][port.Port] = sa
+			log.Errorf("howardjohn: compute %v:%v -> %v", svc.Hostname, port.Port, sa)
 		}
 	}
 }
@@ -1666,7 +1667,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	// Therefore, we make a copy
 	destRules := make([]config.Config, len(configs))
 	for i := range destRules {
-		destRules[i] = configs[i].DeepCopy()
+		destRules[i] = configs[i]
 	}
 
 	ps.setDestinationRules(destRules)

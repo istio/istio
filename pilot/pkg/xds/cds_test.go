@@ -18,7 +18,14 @@ import (
 	"testing"
 	"time"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"istio.io/istio/pkg/test/util/assert"
+	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
@@ -28,10 +35,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
-	v1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 func TestCDS(t *testing.T) {
@@ -40,9 +43,7 @@ func TestCDS(t *testing.T) {
 	ads.RequestResponseAck(t, nil)
 }
 
-
 func TestSAN(t *testing.T) {
-
 	labels := map[string]string{"app": "test"}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -57,7 +58,7 @@ func TestSAN(t *testing.T) {
 	}
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "service",
+			Name:      "example",
 			Namespace: "default",
 		},
 		Spec: v1.ServiceSpec{
@@ -81,6 +82,7 @@ func TestSAN(t *testing.T) {
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "fake",
 				PrivateKey:        "fake",
+				CaCertificates:    "fake",
 			}},
 		},
 	}
@@ -118,21 +120,30 @@ func TestSAN(t *testing.T) {
 		makePod(t, kubeClient.Kube(), pod)
 		createEndpoints(t, kubeClient.Kube(), service.Name, service.Namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		time.Sleep(time.Second * 2)
-		clusters := s.Clusters(s.SetupProxy(&model.Proxy{ConfigNamespace: "test"}))
-		cluster := xdstest.ExtractClusters(clusters)["outbound|80||example.default.svc.cluster.local"]
-		if cluster == nil {
-			t.Fatal("cluster not found")
+
+		assertSANs := func(t *testing.T, clusters []*cluster.Cluster, c string, sans ...string) {
+			cluster := xdstest.ExtractClusters(clusters)[c]
+			if cluster == nil {
+				t.Fatal("cluster not found")
+			}
+			cluster.GetTransportSocket().GetTypedConfig()
+			tl := xdstest.UnmarshalAny[tls.UpstreamTlsContext](t, cluster.GetTransportSocket().GetTypedConfig())
+			names := sets.New()
+			for _, n := range tl.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() {
+				names.Insert(n.String())
+			}
+			assert.Equal(t, names.SortedList(), sets.New(sans...).SortedList())
 		}
-		cluster.GetTransportSocket().GetTypedConfig()
-		tl := xdstest.UnmarshalAny[tls.UpstreamTlsContext](t, cluster.GetTransportSocket().GetTypedConfig())
-		names := sets.New()
-		for _, n := range tl.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() {
-			names.Insert(n.String())
+		{
+			clusters := s.Clusters(s.SetupProxy(&model.Proxy{ConfigNamespace: "test"}))
+			assertSANs(t, clusters, "outbound|80||example.default.svc.cluster.local")
 		}
-		t.Log(names)
+		{
+			clusters := s.Clusters(s.SetupProxy(&model.Proxy{ConfigNamespace: "test"}))
+			assertSANs(t, clusters, "outbound|80||example.default.svc.cluster.local", "spiffe://cluster.local/ns/default/sa/")
+		}
 	})
 }
-
 
 func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace string, ports []v1.EndpointPort, ips []string) {
 	eas := make([]v1.EndpointAddress, 0)
@@ -210,7 +221,6 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 		t.Fatal(err)
 	}
 }
-
 
 func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	t.Helper()

@@ -259,6 +259,7 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, ser
 		}
 	}
 
+	log.Errorf("howardjohn: update=%v service %v: %v -> %v", !oldServiceAccount.Equals(serviceAccounts), serviceName, oldServiceAccount.SortedList(), serviceAccounts.SortedList())
 	if !oldServiceAccount.Equals(serviceAccounts) {
 		shards.ServiceAccounts = serviceAccounts
 		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
