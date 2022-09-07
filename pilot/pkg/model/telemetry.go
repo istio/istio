@@ -388,12 +388,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Root: key.Root,
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Root: key.Root,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -403,12 +405,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Namespace: key.Namespace,
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Namespace: key.Namespace,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -422,12 +426,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if selector.SubsetOf(proxy.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, spec.GetTracing()...)
 			break
 		}
