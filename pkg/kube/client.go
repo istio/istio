@@ -87,6 +87,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -639,10 +640,8 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 		if delay > max {
 			delay = max
 		}
-		select {
-		case <-stop:
+		if !sleep.Until(stop, delay) {
 			return false
-		case <-time.After(delay):
 		}
 	}
 }
