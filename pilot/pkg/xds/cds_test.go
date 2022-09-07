@@ -131,7 +131,7 @@ func TestSAN(t *testing.T) {
 				Name:     "http",
 			}},
 			SubjectAltNames: []string{"se-top"},
-			Resolution: networking.ServiceEntry_STATIC,
+			Resolution:      networking.ServiceEntry_STATIC,
 			Endpoints: []*networking.WorkloadEntry{{
 				Address:        "1.1.1.1",
 				ServiceAccount: "se-endpoint",
@@ -195,7 +195,7 @@ func TestSAN(t *testing.T) {
 			name:    "NONE ServiceEntry ISTIO_MUTUAL",
 			configs: []config.Config{drIstioMTLS, seNONE},
 			// Totally broken; service level ServiceAccount are ignored.
-			sans: nil,
+			sans: []string{"custom"},
 		},
 	}
 	for _, tt := range cases {

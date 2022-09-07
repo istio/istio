@@ -1442,19 +1442,26 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			s, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
-			if !f {
-				continue
-			}
-			s.RLock()
-			sa := spiffe.ExpandWithTrustDomains(s.ServiceAccounts, ps.Mesh.TrustDomainAliases).SortedList()
-			s.RUnlock()
-			key := serviceAccountKey{
-				hostname:  svc.Hostname,
-				namespace: svc.Attributes.Namespace,
-				port:      port.Port,
-			}
-			ps.serviceAccounts[key] = sa
+			var accounts sets.Set
+			func() {
+				// First get endpoint level service accounts
+				shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
+				if f {
+					shard.RLock()
+					defer shard.RUnlock()
+					accounts = shard.ServiceAccounts
+				}
+				if len(svc.ServiceAccounts) > 0 {
+					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
+				}
+				sa := spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases).SortedList()
+				key := serviceAccountKey{
+					hostname:  svc.Hostname,
+					namespace: svc.Attributes.Namespace,
+					port:      port.Port,
+				}
+				ps.serviceAccounts[key] = sa
+			}()
 		}
 	}
 }
