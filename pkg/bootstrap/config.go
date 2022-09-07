@@ -759,8 +759,7 @@ func removeDuplicates(values []string) []string {
 	set := sets.New()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
-		if !set.Contains(v) {
-			set.Insert(v)
+		if !set.InsertContains(v) {
 			newValues = append(newValues, v)
 		}
 	}

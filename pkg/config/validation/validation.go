@@ -580,12 +580,8 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
-		} else {
-			if !validCiphers.Contains(cs) {
-				validCiphers.Insert(cs)
-			} else {
-				duplicateCiphers.Insert(cs)
-			}
+		} else if validCiphers.InsertContains(cs) {
+			duplicateCiphers.Insert(cs)
 		}
 	}
 
@@ -3842,10 +3838,9 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 			return fmt.Errorf("spec.vmConfig.env invalid")
 		}
 
-		if keys.Contains(env.Name) {
+		if keys.InsertContains(env.Name) {
 			return fmt.Errorf("duplicate env")
 		}
-		keys.Insert(env.Name)
 	}
 
 	return nil

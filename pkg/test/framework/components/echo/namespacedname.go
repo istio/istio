@@ -88,14 +88,9 @@ func (n NamespacedNames) NamesWithNamespacePrefix() []string {
 
 func (n NamespacedNames) uniqueSortedNames(getName func(NamespacedName) string) []string {
 	set := sets.NewWithLength(n.Len())
-	out := make([]string, 0, n.Len())
 	for _, nn := range n {
 		name := getName(nn)
-		if !set.Contains(name) {
-			set.Insert(name)
-			out = append(out, name)
-		}
+		set.Insert(name)
 	}
-	sort.Strings(out)
-	return out
+	return set.SortedList()
 }

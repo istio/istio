@@ -33,10 +33,9 @@ func ValidateListeners(t testing.TB, ls []*listener.Listener) {
 	t.Helper()
 	found := sets.New()
 	for _, l := range ls {
-		if found.Contains(l.Name) {
+		if found.InsertContains(l.Name) {
 			t.Errorf("duplicate listener name %v", l.Name)
 		}
-		found.Insert(l.Name)
 		ValidateListener(t, l)
 	}
 }
@@ -56,11 +55,10 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 func validateListenerFilters(t testing.TB, l *listener.Listener) {
 	found := sets.New()
 	for _, lf := range l.GetListenerFilters() {
-		if found.Contains(lf.GetName()) {
+		if found.InsertContains(lf.GetName()) {
 			// Technically legal in Envoy but should always be a bug when done in Istio based on our usage
 			t.Errorf("listener contains duplicate listener filter: %v", lf.GetName())
 		}
-		found.Insert(lf.GetName())
 	}
 }
 
@@ -220,10 +218,9 @@ func ValidateRoute(t testing.TB, r *route.Route) {
 func ValidateRouteConfigurations(t testing.TB, ls []*route.RouteConfiguration) {
 	found := sets.New()
 	for _, l := range ls {
-		if found.Contains(l.Name) {
+		if found.InsertContains(l.Name) {
 			t.Errorf("duplicate route config name %v", l.Name)
 		}
-		found.Insert(l.Name)
 		ValidateRouteConfiguration(t, l)
 	}
 }
@@ -242,15 +239,13 @@ func validateRouteConfigurationDomains(t testing.TB, l *route.RouteConfiguration
 	vhosts := sets.New()
 	domains := sets.New()
 	for _, vhost := range l.VirtualHosts {
-		if vhosts.Contains(vhost.Name) {
+		if vhosts.InsertContains(vhost.Name) {
 			t.Errorf("duplicate virtual host found %s", vhost.Name)
 		}
-		vhosts.Insert(vhost.Name)
 		for _, domain := range vhost.Domains {
-			if domains.Contains(domain) {
+			if domains.InsertContains(domain) {
 				t.Errorf("duplicate virtual host domain found %s", domain)
 			}
-			domains.Insert(domain)
 		}
 	}
 }

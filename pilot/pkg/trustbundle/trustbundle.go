@@ -141,8 +141,7 @@ func (tb *TrustBundle) mergeInternal() {
 
 	for _, configSource := range tb.sourceConfig {
 		for _, cert := range configSource.Certs {
-			if !certMap.Contains(cert) {
-				certMap.Insert(cert)
+			if !certMap.InsertContains(cert) {
 				mergeCerts = append(mergeCerts, cert)
 			}
 		}
