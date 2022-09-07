@@ -183,6 +183,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		if len(objCache.Cache) > 0 {
 			objCache.Mu.Lock()
 			objCache.Cache = map[string]*object.K8sObject{}
+			objCache.Mu.Unlock()
 		}
 
 		err = h.DeleteObjectsList(uslist, c)
