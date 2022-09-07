@@ -2,8 +2,8 @@
   {
     "_comment": "",
     "name": "PROXY_REPO_SHA",
-    "repoName": "proxy-sidecarless",
+    "repoName": "proxy",
     "file": "",
-    "lastStableSHA": "3e31d1373cf7c857b9456369e73b8d7c5d1ad7df"
+    "lastStableSHA": "b334008a42bad61b93983ea184a9ea1077591fa2"
   }
 ]

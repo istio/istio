@@ -11,13 +11,8 @@ The contents below is copied from the old readme for building/running/testing am
 ```shell
 ./local-test-utils/kind-registry.sh
 
-export ISTIO_ENVOY_BASE_URL=https://storage.googleapis.com/solo-istio-build/proxy
 HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
-export GOPRIVATE=github.com/solo-io/istio-api-sidecarless
-
-# If using git with ssh key, you can use this:
-# git config --global url."ssh://git@github.com/solo-io".insteadOf https://github.com/solo-io
 
 # Build Istiod and proxy
 tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push # consider --builder=crane

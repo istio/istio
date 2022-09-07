@@ -59,11 +59,11 @@ ${DEPENDENCIES:-$(cat <<EOD
   istio:
     localpath: ${ROOT}
   api:
-    git: https://github.com/solo-io/istio-api-sidecarless
-    sha: b76e722b2e0e # auto does not support replace
+    git: https://github.com/istio/api
+    auto: modules
   proxy:
-    git: https://github.com/solo-io/proxy-sidecarless
-    sha: 5caff0e989181903ff729e34e7b0aa406e937249 # auto does not support custom repo
+    git: https://github.com/istio/proxy
+    auto: deps
   pkg:
     git: https://github.com/istio/pkg
     auto: modules
@@ -79,7 +79,7 @@ ${DEPENDENCIES:-$(cat <<EOD
   release-builder:
     git: https://github.com/istio/release-builder
     sha: ${BUILDER_SHA}
-architectures: [linux/amd64]
+architectures: [linux/amd64, linux/arm64]
 EOD
 )}
 dashboards:

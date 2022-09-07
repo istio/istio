@@ -8,9 +8,6 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-// TODO replace when merged with OSS project
-replace istio.io/api => github.com/solo-io/istio-api-sidecarless v0.0.0-20220906181307-5bf54b7eff7f
-
 // TODO merge https://github.com/stevenctl/envoy/commit/ea6ba69dccffbbcda1c5cfe79240c1e700964803 or make it not required
 replace github.com/envoyproxy/go-control-plane => github.com/howardjohn/go-control-plane v0.0.0-20220811163222-d1a7df2b8440
 
@@ -90,7 +87,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.9.3
-	istio.io/api v0.0.0-20220826230418-763288e32b51
+	istio.io/api v0.0.0-20220906181307-5bf54b7eff7f
 	istio.io/client-go v1.12.0-alpha.5.0.20220826231118-973284fc8ad7
 	istio.io/pkg v0.0.0-20220824144007-74ab3b77fd18
 	k8s.io/api v0.24.4

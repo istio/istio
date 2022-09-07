@@ -192,8 +192,6 @@ LOCAL_GO_ARCH=${go_os_arch##*_}
 
 BUILD_WITH_CONTAINER=0
 
-GOPRIVATE="${GOPRIVATE},github.com/solo-io/istio-api-sidecarless"
-
 VARS=(
       CONTAINER_TARGET_OUT
       CONTAINER_TARGET_OUT_LINUX
@@ -217,7 +215,6 @@ VARS=(
       IMAGE_VERSION
       REPO_ROOT
       BUILD_WITH_CONTAINER
-      GOPRIVATE
 )
 
 # For non container build, we need to write env to file
