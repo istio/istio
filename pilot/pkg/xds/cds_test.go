@@ -130,10 +130,11 @@ func TestSAN(t *testing.T) {
 				Protocol: "HTTP",
 				Name:     "http",
 			}},
+			SubjectAltNames: []string{"se-top"},
 			Resolution: networking.ServiceEntry_STATIC,
 			Endpoints: []*networking.WorkloadEntry{{
 				Address:        "1.1.1.1",
-				ServiceAccount: "se",
+				ServiceAccount: "se-endpoint",
 			}},
 		},
 	}
@@ -181,7 +182,7 @@ func TestSAN(t *testing.T) {
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seEDS},
 			// The ServiceEntry rule will "win" the PushContext.ServiceAccounts, and be used
-			sans: []string{"spiffe://cluster.local/ns/test/sa/se"},
+			sans: []string{"spiffe://cluster.local/ns/test/sa/se-endpoint"},
 		},
 		{
 			name:    "Kubernetes service and NONE ServiceEntry ISTIO_MUTUAL",
@@ -189,6 +190,12 @@ func TestSAN(t *testing.T) {
 			configs: []config.Config{drIstioMTLS, seNONE},
 			// Service properly sets SAN and its used
 			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
+		},
+		{
+			name:    "NONE ServiceEntry ISTIO_MUTUAL",
+			configs: []config.Config{drIstioMTLS, seNONE},
+			// Totally broken; service level ServiceAccount are ignored.
+			sans: nil,
 		},
 	}
 	for _, tt := range cases {
