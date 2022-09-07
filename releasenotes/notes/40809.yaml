@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+releaseNotes:
+  - |
+    **Fixed** an issue when telemetry accesslogs is nil, will not fallback to use meshconfig.
