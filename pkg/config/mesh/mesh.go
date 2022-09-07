@@ -141,11 +141,6 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(meshConfig).(*meshconfig.MeshConfig)
-	if mc == nil {
-		mc = &meshconfig.MeshConfig{
-			DefaultConfig: DefaultProxyConfig(),
-		}
-	}
 	pc, err := applyProxyConfig(yaml, mc.DefaultConfig)
 	if err != nil {
 		return nil, err
