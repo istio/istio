@@ -820,10 +820,16 @@ func (a *Agent) GRPCBootstrapPath() string {
 	return a.cfg.GRPCBootstrapPath
 }
 
-// DebugTapClient provides the debug tap client to make a debug request to Istiod.
-func (a *Agent) DebugTapClient() debugtap.Client {
+// DebugTapClientFactory provides a factory function,
+// which generates the debug tap client to make a debug request to Istiod.
+func (a *Agent) DebugTapClientFactory() debugtap.ClientFactory {
 	if a.cfg.ProxyXDSDebugViaAgent {
-		return a.xdsProxy
+		return func() (debugtap.Client, error) {
+			if a.xdsProxy == nil {
+				return nil, fmt.Errorf("xds proxy is not yet initialized")
+			}
+			return a.xdsProxy, nil
+		}
 	}
 	return nil
 }

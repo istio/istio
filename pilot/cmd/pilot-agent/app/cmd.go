@@ -155,6 +155,13 @@ func newProxyCommand() *cobra.Command {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
+			// If a status port was provided, start handling status probes.
+			if proxyConfig.StatusPort > 0 {
+				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+					return err
+				}
+			}
+
 			go iptableslog.ReadNFLOGSocket(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -165,14 +172,6 @@ func newProxyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			// If a status port was provided, start handling status probes.
-			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
-					return err
-				}
-			}
-
 			wait()
 			return nil
 		},
@@ -213,7 +212,7 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.Context = ctx
-	o.DebugTapClient = agent.DebugTapClient()
+	o.DebugTapClientFactory = agent.DebugTapClientFactory()
 	statusServer, err := statusserver.NewServer(*o)
 	if err != nil {
 		return err

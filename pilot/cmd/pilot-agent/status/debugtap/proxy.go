@@ -35,12 +35,14 @@ type Client interface {
 	DebugTapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error)
 }
 
+type ClientFactory func() (Client, error)
+
 type Proxy struct {
-	client Client
+	clientFactory ClientFactory
 }
 
-func NewProxy(client Client) *Proxy {
-	return &Proxy{client: client}
+func NewProxy(clientFactory ClientFactory) *Proxy {
+	return &Proxy{clientFactory: clientFactory}
 }
 
 func (p *Proxy) RegisterGRPCHandler(grpcs *grpc.Server) {
@@ -48,10 +50,19 @@ func (p *Proxy) RegisterGRPCHandler(grpcs *grpc.Server) {
 	reflection.Register(grpcs)
 }
 
-func (p *Proxy) RegisterHTTPHandler(httpMux *http.ServeMux) {
+func (p *Proxy) RegisterHTTPHandler(httpMux *http.ServeMux, isAllowed func(req *http.Request) (string, bool)) {
 	handler := p.makeTapHTTPHandler()
-	httpMux.HandleFunc("/debug/", handler)
-	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
+	handlerWithWrapper := func(w http.ResponseWriter, req *http.Request) {
+		if isAllowed != nil {
+			if msg, ok := isAllowed(req); !ok {
+				http.Error(w, msg, http.StatusForbidden)
+				return
+			}
+		}
+		handler(w, req)
+	}
+	httpMux.HandleFunc("/debug/", handlerWithWrapper)
+	httpMux.HandleFunc("/debug", handlerWithWrapper) // For 1.10 Istiod which uses istio.io/debug
 }
 
 func (p *Proxy) makeTapHTTPHandler() func(w http.ResponseWriter, req *http.Request) {
@@ -71,7 +82,14 @@ func (p *Proxy) makeTapHTTPHandler() func(w http.ResponseWriter, req *http.Reque
 		if resourceName != "" {
 			dr.ResourceNames = []string{resourceName}
 		}
-		response, err := p.client.DebugTapRequest(&dr, 5*time.Second)
+		client, err := p.clientFactory()
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, "%v\n", err)
+			return
+		}
+
+		response, err := client.DebugTapRequest(&dr, 5*time.Second)
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, "%v\n", err)
@@ -120,14 +138,21 @@ func (p *Proxy) StreamAggregatedResources(downstream xds.DiscoveryStream) error 
 		return err
 	}
 	if strings.HasPrefix(req.TypeUrl, xds.TypeDebugPrefix) {
-		if resp, err := p.client.DebugTapRequest(req, timeout); err == nil {
-			err := downstream.Send(resp)
-			if err != nil {
-				log.Errorf("failed to send: %v", err)
-				return err
-			}
-		} else {
+		client, err := p.clientFactory()
+		if err != nil {
+			log.Errorf("failed to get a tap client: %v", err)
+			return err
+		}
+
+		resp, err := client.DebugTapRequest(req, timeout)
+		if err != nil {
 			log.Errorf("failed to call tap request: %v", err)
+			return err
+		}
+
+		err = downstream.Send(resp)
+		if err != nil {
+			log.Errorf("failed to send: %v", err)
 			return err
 		}
 	}

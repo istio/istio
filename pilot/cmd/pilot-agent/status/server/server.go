@@ -98,18 +98,18 @@ type Options struct {
 	// the prober.
 	PodIP string
 	// KubeAppProbers is a json with Kubernetes application prober config encoded.
-	KubeAppProbers      string
-	NodeType            model.NodeType
-	StatusPort          uint16
-	AdminPort           uint16
-	IPv6                bool
-	Probes              []ready.Prober
-	EnvoyPrometheusPort int
-	Context             context.Context
-	FetchDNS            func() *dnsProto.NameTable
-	NoEnvoy             bool
-	GRPCBootstrap       string
-	DebugTapClient      debugtap.Client
+	KubeAppProbers        string
+	NodeType              model.NodeType
+	StatusPort            uint16
+	AdminPort             uint16
+	IPv6                  bool
+	Probes                []ready.Prober
+	EnvoyPrometheusPort   int
+	Context               context.Context
+	FetchDNS              func() *dnsProto.NameTable
+	NoEnvoy               bool
+	GRPCBootstrap         string
+	DebugTapClientFactory debugtap.ClientFactory
 }
 
 // Server provides an endpoint for handling status probes.
@@ -330,15 +330,23 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
 	var handler http.Handler = mux
-	if s.config.DebugTapClient != nil {
-		debugTapProxy := debugtap.NewProxy(s.config.DebugTapClient)
-
+	if s.config.DebugTapClientFactory != nil {
+		debugTapProxy := debugtap.NewProxy(s.config.DebugTapClientFactory)
 		// Registers HTTP Handlers for Debug Tap
-		debugTapProxy.RegisterHTTPHandler(mux)
+		debugTapProxy.RegisterHTTPHandler(mux, func(r *http.Request) (string, bool) {
+			if !isRequestFromLocalhost(r) {
+				return "Only requests from localhost are allowed", false
+			}
+			return "ok", true
+		})
 		grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
 		debugTapProxy.RegisterGRPCHandler(grpcs)
 		mixedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+				if !isRequestFromLocalhost(r) {
+					http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+					return
+				}
 				grpcs.ServeHTTP(w, r)
 				return
 			}

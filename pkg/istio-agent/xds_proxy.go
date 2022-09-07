@@ -816,12 +816,14 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 		return nil
 	}
 
-	debugProxy := debugtap.NewProxy(p)
+	debugProxy := debugtap.NewProxy(func() (debugtap.Client, error) {
+		return p, nil
+	})
 
 	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
 	debugProxy.RegisterGRPCHandler(grpcs)
 	httpMux := http.NewServeMux()
-	debugProxy.RegisterHTTPHandler(httpMux)
+	debugProxy.RegisterHTTPHandler(httpMux, nil)
 
 	mixedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
