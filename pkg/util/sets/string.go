@@ -73,7 +73,7 @@ func (s Set) Merge(s2 Set) Set {
 
 // Copy this set.
 func (s Set) Copy() Set {
-	result := New()
+	result := NewWithLength(len(s))
 	for key := range s {
 		result.Insert(key)
 	}
