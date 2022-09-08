@@ -2495,6 +2495,10 @@ func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Instance {
 	panic("implement me")
 }
 
+func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service) []string {
+	return nil
+}
+
 func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
