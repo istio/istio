@@ -186,7 +186,7 @@ func validateMapKey(key string) error {
 
 // ValidCipherSuites contains a list of all ciphers supported in Gateway.server.tls.cipherSuites
 // Extracted from: `bssl ciphers -openssl-name ALL | rg -v PSK`
-var ValidCipherSuites = sets.New(
+var ValidCipherSuites = sets.New[string](
 	"ECDHE-ECDSA-AES128-GCM-SHA256",
 	"ECDHE-RSA-AES128-GCM-SHA256",
 	"ECDHE-ECDSA-AES256-GCM-SHA384",

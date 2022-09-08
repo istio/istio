@@ -60,13 +60,13 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 // newClusterFilter maps a non-subset cluster name to the list of actual cluster names (default or subset) actually
 // requested by the client. gRPC will usually request a group of clusters that are used in the same route; in some
 // cases this means subsets associated with the same default cluster aren't all expected in the same CDS response.
-func newClusterFilter(names []string) map[string]sets.Set {
-	filter := map[string]sets.Set{}
+func newClusterFilter(names []string) map[string]sets.Set[string] {
+	filter := map[string]sets.Set[string]{}
 	for _, name := range names {
 		dir, _, hn, p := model.ParseSubsetKey(name)
 		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
 		if _, ok := filter[defaultKey]; !ok {
-			filter[defaultKey] = sets.New()
+			filter[defaultKey] = sets.New[string]()
 		}
 		filter[defaultKey].Insert(name)
 	}
@@ -93,10 +93,10 @@ type clusterBuilder struct {
 	// may not be set
 	svc    *model.Service
 	port   *model.Port
-	filter sets.Set
+	filter sets.Set[string]
 }
 
-func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultClusterName string, filter sets.Set) (*clusterBuilder, error) {
+func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultClusterName string, filter sets.Set[string]) (*clusterBuilder, error) {
 	_, _, hostname, portNum := model.ParseSubsetKey(defaultClusterName)
 	if hostname == "" || portNum == 0 {
 		return nil, fmt.Errorf("failed parsing subset key: %s", defaultClusterName)

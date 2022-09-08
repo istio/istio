@@ -385,9 +385,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
-	vhosts := sets.Set{}
-	vhdomains := sets.Set{}
-	knownFQDN := sets.Set{}
+	vhosts := sets.Set[string]{}
+	vhdomains := sets.Set[string]{}
+	knownFQDN := sets.Set[string]{}
 
 	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
 		name := util.DomainName(hostname, vhwrapper.Port)
@@ -476,7 +476,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 }
 
 // dedupeDomains removes the duplicate domains from the passed in domains.
-func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string, knownFQDNs sets.Set) []string {
+func dedupeDomains(domains []string, vhdomains sets.Set[string], expandedHosts []string, knownFQDNs sets.Set[string]) []string {
 	temp := domains[:0]
 	for _, d := range domains {
 		if vhdomains.Contains(d) {

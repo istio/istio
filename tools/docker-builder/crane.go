@@ -48,7 +48,7 @@ import (
 func RunCrane(a Args) error {
 	g := errgroup.Group{}
 
-	variants := sets.New(a.Variants...)
+	variants := sets.New[string](a.Variants...)
 	// hasDoubleDefault checks if we defined both DefaultVariant and PrimaryVariant. If we did, these
 	// are the same exact docker build, just requesting different tags. As an optimization, and to ensure
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.
@@ -57,7 +57,7 @@ func RunCrane(a Args) error {
 	// First, construct our build plan. Doing this first allows us to figure out which base images we will need,
 	// so we can pull them in the background
 	builds := []builder.BuildSpec{}
-	bases := sets.New()
+	bases := sets.New[string]()
 	for _, v := range a.Variants {
 		for _, t := range a.Targets {
 			b := builder.BuildSpec{

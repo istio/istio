@@ -213,12 +213,12 @@ func TestSAN(t *testing.T) {
 				}
 				cluster.GetTransportSocket().GetTypedConfig()
 				tl := xdstest.UnmarshalAny[tls.UpstreamTlsContext](t, cluster.GetTransportSocket().GetTypedConfig())
-				names := sets.New()
+				names := sets.New[string]()
 				// nolint: staticcheck
 				for _, n := range tl.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() {
 					names.Insert(n.GetExact())
 				}
-				assert.Equal(t, names.SortedList(), sets.New(sans...).SortedList())
+				assert.Equal(t, names.SortedList(), sets.New[string](sans...).SortedList())
 			}
 			// Run multiple assertions to verify idempotency; previous versions had issues here.
 			for i := 0; i < 2; i++ {

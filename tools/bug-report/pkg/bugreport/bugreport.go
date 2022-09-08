@@ -212,7 +212,7 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 
 // getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
 func getIstioRevisions(resources *cluster2.Resources) []string {
-	revMap := sets.New()
+	revMap := sets.New[string]()
 	for _, podLabels := range resources.Labels {
 		for label, value := range podLabels {
 			if label == istioRevisionLabel {
@@ -227,7 +227,7 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 // slice of versions for proxies. Any errors are embedded in the revision strings.
 func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
-	proxyVersionsMap := make(map[string]sets.Set)
+	proxyVersionsMap := make(map[string]sets.Set[string])
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
 		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
@@ -238,7 +238,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 		}
 		for _, pi := range *proxyInfo {
 			if proxyVersionsMap[revision] == nil {
-				proxyVersionsMap[revision] = sets.New()
+				proxyVersionsMap[revision] = sets.New[string]()
 			}
 			proxyVersionsMap[revision].Insert(pi.IstioVersion)
 		}

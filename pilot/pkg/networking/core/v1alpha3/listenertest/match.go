@@ -80,7 +80,7 @@ const (
 
 func classifyFilterChain(have *listener.FilterChain) FilterChainType {
 	fcm := have.GetFilterChainMatch()
-	alpn := sets.New(fcm.GetApplicationProtocols()...)
+	alpn := sets.New[string](fcm.GetApplicationProtocols()...)
 	switch fcm.GetTransportProtocol() {
 	case xdsfilters.TLSTransportProtocol:
 		if alpn.Contains("istio-http/1.1") {
@@ -127,7 +127,7 @@ func VerifyListener(t test.Failer, l *listener.Listener, lt ListenerTest) {
 		if lt.TotalMatch {
 			assert.Equal(t, lt.Filters, haveFilters, l.Name+": listener filters should be equal")
 		} else {
-			if missing := sets.New(lt.Filters...).Difference(sets.New(haveFilters...)).SortedList(); len(missing) > 0 {
+			if missing := sets.New[string](lt.Filters...).Difference(sets.New[string](haveFilters...)).SortedList(); len(missing) > 0 {
 				t.Fatalf("%v: missing listener filters: %v", l.Name, missing)
 			}
 		}
@@ -203,10 +203,10 @@ func VerifyFilterChain(t test.Failer, have *listener.FilterChain, want FilterCha
 			assert.Equal(t, want.HTTPFilters, haveHTTP, context("http should be equal"))
 		}
 	} else {
-		if missing := sets.New(want.NetworkFilters...).Difference(sets.New(haveNetwork...)).SortedList(); len(missing) > 0 {
+		if missing := sets.New[string](want.NetworkFilters...).Difference(sets.New[string](haveNetwork...)).SortedList(); len(missing) > 0 {
 			t.Fatalf("%v/%v: missing network filters: %v, have %v", have.Name, haveType, missing, haveNetwork)
 		}
-		if missing := sets.New(want.HTTPFilters...).Difference(sets.New(haveHTTP...)).SortedList(); len(missing) > 0 {
+		if missing := sets.New[string](want.HTTPFilters...).Difference(sets.New[string](haveHTTP...)).SortedList(); len(missing) > 0 {
 			t.Fatalf("%v/%v: missing network filters: %v, have %v", have.Name, haveType, missing, haveHTTP)
 		}
 	}

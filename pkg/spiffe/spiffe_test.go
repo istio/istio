@@ -489,7 +489,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 		name         string
 		spiffeURI    []string
 		trustDomains []string
-		want         sets.Set
+		want         sets.Set[string]
 	}{
 		{
 			name:      "Basic",
@@ -560,7 +560,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ExpandWithTrustDomains(sets.New(tc.spiffeURI...), tc.trustDomains)
+			got := ExpandWithTrustDomains(sets.New[string](tc.spiffeURI...), tc.trustDomains)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("unexpected expanded results: %v", diff)
 			}

@@ -20,7 +20,7 @@ import (
 
 // MultiValueMap represents a map where each key might be associated with
 // multiple values.
-type MultiValueMap map[string]sets.Set
+type MultiValueMap map[string]sets.Set[string]
 
 // Insert adds given (key, value) pair into the map.
 func (m MultiValueMap) Insert(key, value string) MultiValueMap {
@@ -28,7 +28,7 @@ func (m MultiValueMap) Insert(key, value string) MultiValueMap {
 		values.Insert(value)
 		return m
 	}
-	m[key] = sets.New(value)
+	m[key] = sets.New[string](value)
 	return m
 }
 

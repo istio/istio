@@ -47,7 +47,7 @@ var (
 	logFetchLimitCh = make(chan struct{}, maxLogFetchConcurrency)
 
 	// runningTasks tracks the in-flight fetch operations for user feedback.
-	runningTasks   = sets.New()
+	runningTasks   = sets.New[string]()
 	runningTasksMu sync.RWMutex
 
 	// runningTasksTicker is the report interval for running tasks.

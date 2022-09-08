@@ -114,7 +114,7 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := sets.New()
+	configMap := sets.New[string]()
 
 	for _, store := range cr.stores[typ] {
 		storeConfigs, err := store.List(typ, namespace)

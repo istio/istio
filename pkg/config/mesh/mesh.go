@@ -242,7 +242,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		}
 	}
 
-	defaultConfig.TrustDomainAliases = sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
+	defaultConfig.TrustDomainAliases = sets.New[string](append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
 
 	if err := validation.ValidateMeshConfig(defaultConfig); err != nil {
 		return nil, err

@@ -211,7 +211,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway]struct{}) {
 	// filter the list of gateways to resolve
 	hostnameGateways := map[string][]NetworkGateway{}
-	names := sets.New()
+	names := sets.New[string]()
 	for gw := range gatewaySet {
 		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
 			continue
@@ -435,7 +435,7 @@ func newNetworkGatewayNameCacheWithClient(c *dnsClient) *networkGatewayNameCache
 }
 
 // Resolve takes a list of hostnames and returns a map of names to addresses
-func (n *networkGatewayNameCache) Resolve(names sets.Set) map[string][]string {
+func (n *networkGatewayNameCache) Resolve(names sets.Set[string]) map[string][]string {
 	n.Lock()
 	defer n.Unlock()
 
@@ -450,7 +450,7 @@ func (n *networkGatewayNameCache) Resolve(names sets.Set) map[string][]string {
 }
 
 // cleanupWatches cancels any scheduled re-resolve for names we no longer care about
-func (n *networkGatewayNameCache) cleanupWatches(names sets.Set) {
+func (n *networkGatewayNameCache) cleanupWatches(names sets.Set[string]) {
 	for name, entry := range n.cache {
 		if names.Contains(name) {
 			continue

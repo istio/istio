@@ -57,7 +57,7 @@ type suiteContext struct {
 	globalScope *scope
 
 	contextMu    sync.Mutex
-	contextNames sets.Set
+	contextNames sets.Set[string]
 
 	suiteLabels label.Set
 
@@ -82,7 +82,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		workDir:      workDir,
 		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
-		contextNames: sets.New(),
+		contextNames: sets.New[string](),
 		dumpCount:    atomic.NewUint64(0),
 	}
 

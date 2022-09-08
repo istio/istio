@@ -26,14 +26,14 @@ type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
 	remoteClusters map[string]map[cluster.ID]*Cluster
-	clusters       sets.Set
+	clusters       sets.Set[string]
 }
 
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
 	return &ClusterStore{
 		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
-		clusters:       sets.New(),
+		clusters:       sets.New[string](),
 	}
 }
 

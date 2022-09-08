@@ -199,18 +199,18 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	// Groups just bundles targets together to make them easier to work with
 	groups := map[string]Group{}
 
-	variants := sets.New(a.Variants...)
+	variants := sets.New[string](a.Variants...)
 	// hasDoubleDefault checks if we defined both DefaultVariant and PrimaryVariant. If we did, these
 	// are the same exact docker build, just requesting different tags. As an optimization, and to ensure
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.
 	hasDoubleDefault := variants.Contains(DefaultVariant) && variants.Contains(PrimaryVariant)
 
-	allGroups := sets.New()
+	allGroups := sets.New[string]()
 	// Tar files builds a mapping of tar file name (when used with --save) -> alias for that
 	// If the value is "", the tar file exists but has no aliases
 	tarFiles := map[string]string{}
 
-	allDestinations := sets.New()
+	allDestinations := sets.New[string]()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
 			// Just for Dockerfile, so do not worry about architecture

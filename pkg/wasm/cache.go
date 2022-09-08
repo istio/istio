@@ -107,7 +107,7 @@ type cacheEntry struct {
 	// Last time that this local Wasm module is referenced.
 	last time.Time
 	// set of URLs referencing this entry
-	referencingURLs sets.Set
+	referencingURLs sets.Set[string]
 }
 
 type cacheOptions struct {
@@ -357,7 +357,7 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	ce := cacheEntry{
 		modulePath:      f,
 		last:            time.Now(),
-		referencingURLs: sets.New(),
+		referencingURLs: sets.New[string](),
 	}
 	if needChecksumUpdate {
 		ce.referencingURLs.Insert(key.downloadURL)

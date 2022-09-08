@@ -30,7 +30,7 @@ func InsertedExtensionConfigurations(efw *model.EnvoyFilterWrapper, names []stri
 	if efw == nil {
 		return result
 	}
-	hasName := sets.New(names...)
+	hasName := sets.New[string](names...)
 	for _, p := range efw.Patches[networking.EnvoyFilter_EXTENSION_CONFIG] {
 		if p.Operation != networking.EnvoyFilter_Patch_ADD {
 			continue

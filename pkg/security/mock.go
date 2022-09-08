@@ -180,7 +180,7 @@ func checkCert(ctx context.Context, expected string) error {
 	if err != nil {
 		return fmt.Errorf("failed to extract IDs")
 	}
-	if !sets.New(ids...).Contains(expected) {
+	if !sets.New[string](ids...).Contains(expected) {
 		return fmt.Errorf("expected identity %q, got %v", expected, ids)
 	}
 

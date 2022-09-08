@@ -203,7 +203,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
 func filteredSidecarCipherSuites(suites []string) []string {
 	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New()
+	validCiphers := sets.New[string]()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
 			if !validCiphers.InsertContains(s) {

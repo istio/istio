@@ -676,7 +676,7 @@ func getPrometheusScrape(pod *corev1.Pod) bool {
 	return true
 }
 
-var prometheusAnnotations = sets.New(
+var prometheusAnnotations = sets.New[string](
 	prometheusPathAnnotation,
 	prometheusPortAnnotation,
 	prometheusScrapeAnnotation,

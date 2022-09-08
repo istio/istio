@@ -110,7 +110,7 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 }
 
 func TestFuzzers(t *testing.T) {
-	testedFuzzers := sets.New()
+	testedFuzzers := sets.New[string]()
 	cases := []struct {
 		name   string
 		fuzzer func([]byte) int
@@ -180,7 +180,7 @@ func TestFuzzers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		allFuzzers := sets.New(fuzzers...)
+		allFuzzers := sets.New[string](fuzzers...)
 		if !allFuzzers.Equals(testedFuzzers) {
 			t.Fatalf("Not all fuzzers are tested! Missing %v", allFuzzers.Difference(testedFuzzers))
 		}

@@ -574,9 +574,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		return
 	}
 
-	invalidCiphers := sets.New()
-	validCiphers := sets.New()
-	duplicateCiphers := sets.New()
+	invalidCiphers := sets.New[string]()
+	validCiphers := sets.New[string]()
+	duplicateCiphers := sets.New[string]()
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
@@ -702,7 +702,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithSelector bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
-		exportToSet := sets.New()
+		exportToSet := sets.New[string]()
 		for _, e := range exportTo {
 			key := e
 			if visibility.Instance(e) == visibility.Private {
@@ -3856,7 +3856,7 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 		return nil
 	}
 
-	keys := sets.New()
+	keys := sets.New[string]()
 	for _, env := range vm.Env {
 		if env == nil {
 			continue

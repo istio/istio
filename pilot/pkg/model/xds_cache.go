@@ -115,8 +115,8 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigHash]sets.Set{},
-		typesIndex:       map[kind.Kind]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set[string]{},
+		typesIndex:       map[kind.Kind]sets.Set[string]{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -127,8 +127,8 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigHash]sets.Set{},
-		typesIndex:       map[kind.Kind]sets.Set{},
+		configIndex:      map[ConfigHash]sets.Set[string]{},
+		typesIndex:       map[kind.Kind]sets.Set[string]{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -142,8 +142,8 @@ type lruCache struct {
 	// It is refreshed when Clear or ClearAll are called
 	token       CacheToken
 	mu          sync.RWMutex
-	configIndex map[ConfigHash]sets.Set
-	typesIndex  map[kind.Kind]sets.Set
+	configIndex map[ConfigHash]sets.Set[string]
+	typesIndex  map[kind.Kind]sets.Set[string]
 
 	// mark whether a key is evicted on Clear call, passively.
 	evictedOnClear bool
@@ -192,7 +192,7 @@ func (l *lruCache) onEvict(k any, v any) {
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		if l.configIndex[cfg] == nil {
-			l.configIndex[cfg] = sets.New()
+			l.configIndex[cfg] = sets.New[string]()
 		}
 		l.configIndex[cfg].Insert(k)
 	}
@@ -215,7 +215,7 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
 		if l.typesIndex[t] == nil {
-			l.typesIndex[t] = sets.New()
+			l.typesIndex[t] = sets.New[string]()
 		}
 		l.typesIndex[t].Insert(k)
 	}
@@ -366,8 +366,8 @@ func (l *lruCache) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store = newLru(l.onEvict)
-	l.configIndex = map[ConfigHash]sets.Set{}
-	l.typesIndex = map[kind.Kind]sets.Set{}
+	l.configIndex = map[ConfigHash]sets.Set[string]{}
+	l.typesIndex = map[kind.Kind]sets.Set[string]{}
 	size(l.store.Len())
 }
 

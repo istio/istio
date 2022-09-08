@@ -41,7 +41,7 @@ func TestUnion(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
 	elements2 := []string{"a", "b", "e"}
 	want := New("a", "b", "c", "d", "e")
-	for _, sets := range [][]Set{
+	for _, sets := range [][]Set[string]{
 		{New(elements...), New(elements2...)},
 		{New(elements2...), New(elements...)},
 	} {
@@ -96,17 +96,17 @@ func TestIntersection(t *testing.T) {
 
 func TestSupersetOf(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
-	s1 := New(elements...)
+	s1 := New[string](elements...)
 
 	elements2 := []string{"a", "b"}
-	s2 := New(elements2...)
+	s2 := New[string](elements2...)
 
 	if !s1.SupersetOf(s2) {
 		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
 	}
 
-	s3 := New()
-	if !New().SupersetOf(s3) {
+	s3 := New[string]()
+	if !New[string]().SupersetOf(s3) {
 		fmt.Printf("%q\n", s3.SortedList()[0])
 		t.Errorf("%v should be superset of empty set", s1.SortedList())
 	}
@@ -116,7 +116,7 @@ func TestEquals(t *testing.T) {
 	tests := []struct {
 		name   string
 		first  Set[string]
-		second Set
+		second Set[string]
 		want   bool
 	}{
 		{
@@ -155,7 +155,7 @@ func TestEquals(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	cases := []struct {
-		s1, s2   Set
+		s1, s2   Set[string]
 		expected []string
 	}{
 		{
@@ -184,9 +184,9 @@ func TestMerge(t *testing.T) {
 func TestInsertAll(t *testing.T) {
 	tests := []struct {
 		name  string
-		s     Set
+		s     Set[string]
 		items []string
-		want  Set
+		want  Set[string]
 	}{
 		{
 			name:  "insert new item",
@@ -211,7 +211,7 @@ func TestInsertAll(t *testing.T) {
 }
 
 func TestInsertContains(t *testing.T) {
-	s := New()
+	s := New[string]()
 	assert.Equal(t, s.InsertContains("k1"), false)
 	assert.Equal(t, s.InsertContains("k1"), true)
 	assert.Equal(t, s.InsertContains("k2"), false)

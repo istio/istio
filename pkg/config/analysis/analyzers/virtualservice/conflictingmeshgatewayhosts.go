@@ -124,7 +124,7 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 			if exportToAllNamespaces {
 				hostsNamespaceScope = append(hostsNamespaceScope, util.ExportToAllNamespaces)
 			} else {
-				nss := sets.New()
+				nss := sets.New[string]()
 				for _, et := range vs.ExportTo {
 					if et == util.ExportToNamespaceLocal {
 						nss.Insert(vsNamespace.String())

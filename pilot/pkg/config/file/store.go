@@ -176,7 +176,7 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result := sets.New()
+	result := sets.New[string]()
 	for n := range s.byFile {
 		result.Insert(n)
 	}

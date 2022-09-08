@@ -622,14 +622,14 @@ var (
 	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", false,
 		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
-	InsecureKubeConfigOptions = func() sets.Set {
+	InsecureKubeConfigOptions = func() sets.Set[string] {
 		v := env.Register(
 			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
 			"",
 			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
 				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
-		return sets.New(strings.Split(v, ",")...)
+		return sets.New[string](strings.Split(v, ",")...)
 	}()
 
 	VerifySDSCertificate = env.Register("VERIFY_SDS_CERTIFICATE", true,

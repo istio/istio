@@ -78,7 +78,7 @@ func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnarySe
 	return grpcOptions
 }
 
-var expectedGrpcFailureMessages = sets.New(
+var expectedGrpcFailureMessages = sets.New[string](
 	"client disconnected",
 	"error reading from server: EOF",
 	"transport is closing",

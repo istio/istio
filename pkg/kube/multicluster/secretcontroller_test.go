@@ -199,7 +199,7 @@ func TestSanitizeKubeConfig(t *testing.T) {
 	cases := []struct {
 		name      string
 		config    api.Config
-		allowlist sets.Set
+		allowlist sets.Set[string]
 		want      api.Config
 		wantErr   bool
 	}{
@@ -224,7 +224,7 @@ func TestSanitizeKubeConfig(t *testing.T) {
 		},
 		{
 			name:      "exec allowlist",
-			allowlist: sets.New("exec"),
+			allowlist: sets.New[string]("exec"),
 			config: api.Config{
 				AuthInfos: map[string]*api.AuthInfo{
 					"default": {

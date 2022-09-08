@@ -47,7 +47,7 @@ func NewIstioControlPlane(
 	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
-		Filter:      sets.New(filter...),
+		Filter:      sets.New[string](filter...),
 		Version:     ver,
 	}
 	for _, c := range name.AllCoreComponentNames {

@@ -360,8 +360,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		// Validate that endpoints are pushed.
 		lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
 		eh, euh := xdstest.ExtractHealthEndpoints(lbe)
-		gotHealthy := sets.New(eh...).SortedList()
-		gotUnhealthy := sets.New(euh...).SortedList()
+		gotHealthy := sets.New[string](eh...).SortedList()
+		gotUnhealthy := sets.New[string](euh...).SortedList()
 		if !reflect.DeepEqual(gotHealthy, healthy) {
 			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
 		}

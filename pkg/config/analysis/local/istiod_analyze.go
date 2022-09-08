@@ -393,7 +393,7 @@ type CollectionReporterFn func(collection.Name)
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
-	nsNames := sets.New()
+	nsNames := sets.New[string]()
 	for k := range namespaces {
 		nsNames.Insert(k.String())
 	}

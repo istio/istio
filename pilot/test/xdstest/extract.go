@@ -60,7 +60,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
 func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
-	resourceNames := sets.New()
+	resourceNames := sets.New[string]()
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:

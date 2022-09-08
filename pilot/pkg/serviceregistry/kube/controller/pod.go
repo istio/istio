@@ -44,7 +44,7 @@ type PodCache struct {
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
-	needResync         map[string]sets.Set
+	needResync         map[string]sets.Set[string]
 	queueEndpointEvent func(string)
 
 	c *Controller
@@ -56,7 +56,7 @@ func newPodCache(c *Controller, informer filter.FilteredSharedIndexInformer, que
 		c:                  c,
 		podsByIP:           make(map[string]string),
 		IPByPods:           make(map[string]string),
-		needResync:         make(map[string]sets.Set),
+		needResync:         make(map[string]sets.Set[string]),
 		queueEndpointEvent: queueEndpointEvent,
 	}
 
@@ -257,7 +257,7 @@ func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
 	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.New(key)
+		pc.needResync[ip] = sets.New[string](key)
 	} else {
 		pc.needResync[ip].Insert(key)
 	}

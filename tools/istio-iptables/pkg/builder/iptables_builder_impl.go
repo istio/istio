@@ -149,7 +149,7 @@ func (rb *IptablesBuilder) AppendRuleV6(command log.Command, chain string, table
 
 func (rb *IptablesBuilder) buildRules(command string, rules []*Rule) [][]string {
 	output := make([][]string, 0)
-	chainTableLookupSet := sets.New()
+	chainTableLookupSet := sets.New[string]()
 	for _, r := range rules {
 		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
 		// Create new chain if key: `chainTable` isn't present in map
@@ -198,7 +198,7 @@ func (rb *IptablesBuilder) buildRestore(rules []*Rule) string {
 		constants.MANGLE: {},
 	}
 
-	chainTableLookupMap := sets.New()
+	chainTableLookupMap := sets.New[string]()
 	for _, r := range rules {
 		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
 		// Create new chain if key: `chainTable` isn't present in map

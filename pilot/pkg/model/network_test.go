@@ -39,8 +39,8 @@ func TestGatewayHostnames(t *testing.T) {
 	test.SetForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
 
 	gwHost := "test.gw.istio.io"
-	workingDNSServer := newFakeDNSServer(":15353", 1, sets.New(gwHost))
-	failingDNSServer := newFakeDNSServer(":25353", 1, sets.NewWithLength(0))
+	workingDNSServer := newFakeDNSServer(":15353", 1, sets.New[string](gwHost))
+	failingDNSServer := newFakeDNSServer(":25353", 1, sets.NewWithLength[string](0))
 	model.NetworkGatewayTestDNSServers = []string{
 		// try resolving with the failing server first to make sure the next upstream is retried
 		failingDNSServer.Server.PacketConn.LocalAddr().String(),
@@ -110,7 +110,7 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
-func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
+func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set[string]) *fakeDNSServer {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	s := &fakeDNSServer{

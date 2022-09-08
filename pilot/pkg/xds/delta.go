@@ -293,8 +293,8 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		// we may end up overriding active cache entries with stale ones.
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
-			Subscribed:   sets.New(req.ResourceNamesSubscribe...),
-			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...),
+			Subscribed:   sets.New[string](req.ResourceNamesSubscribe...),
+			Unsubscribed: sets.New[string](req.ResourceNamesUnsubscribe...),
 		},
 	}
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
@@ -478,7 +478,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		resp.RemovedResources = deletedRes
 	} else if req.Full {
 		// similar to sotw
-		subscribed := sets.New(w.ResourceNames...)
+		subscribed := sets.New[string](w.ResourceNames...)
 		subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = subscribed.SortedList()
 	}
@@ -560,7 +560,7 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 }
 
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
-	res := sets.New(existing...)
+	res := sets.New[string](existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()

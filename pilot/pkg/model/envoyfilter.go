@@ -176,7 +176,7 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 	if efw == nil {
 		return nil
 	}
-	keys := sets.Set{}
+	keys := sets.Set[string]{}
 	for _, patches := range efw.Patches {
 		for _, patch := range patches {
 			keys.Insert(patch.Key())

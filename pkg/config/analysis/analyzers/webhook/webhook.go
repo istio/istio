@@ -73,7 +73,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	// First, extract and index all webhooks we found
 	webhooks := map[string][]v1.MutatingWebhook{}
 	resources := map[string]*resource.Instance{}
-	revisions := sets.New()
+	revisions := sets.New[string]()
 	context.ForEach(webhookCol, func(resource *resource.Instance) bool {
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
@@ -107,7 +107,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	// For each permutation, we check which webhooks it matches. It must match exactly 0 or 1!
 	for _, nl := range namespaceLabels {
 		for _, ol := range objectLabels {
-			matches := sets.New()
+			matches := sets.New[string]()
 			for name, whs := range webhooks {
 				for _, wh := range whs {
 					if selectorMatches(wh.NamespaceSelector, nl) && selectorMatches(wh.ObjectSelector, ol) {
@@ -117,7 +117,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			}
 			if len(matches) > 1 {
 				for match := range matches {
-					others := matches.Difference(sets.New(match))
+					others := matches.Difference(sets.New[string](match))
 					context.Report(webhookCol, msg.NewInvalidWebhook(resources[match],
 						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
 				}
@@ -156,7 +156,7 @@ func isIstioWebhook(wh *v1.MutatingWebhookConfiguration) bool {
 }
 
 func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
-	revs := sets.New()
+	revs := sets.New[string]()
 	if r, f := wh.Labels[label.IoIstioRev.Name]; f {
 		revs.Insert(r)
 	}

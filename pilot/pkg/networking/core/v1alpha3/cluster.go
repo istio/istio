@@ -49,7 +49,7 @@ import (
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
+var deltaConfigTypes = sets.New[string](kind.ServiceEntry.String())
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -96,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	var deletedClusters []string
 	var services []*model.Service
 	// holds clusters per service, keyed by hostname.
-	serviceClusters := make(map[string]sets.Set)
+	serviceClusters := make(map[string]sets.Set[string])
 	// holds service ports, keyed by hostname.
 	// inner map holds port and its cluster name.
 	servicePorts := make(map[string]map[int]string)
@@ -106,7 +106,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
 		_, _, svcHost, port := model.ParseSubsetKey(cluster)
 		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.New()
+			serviceClusters[string(svcHost)] = sets.New[string]()
 		}
 		serviceClusters[string(svcHost)].Insert(cluster)
 		if servicePorts[string(svcHost)] == nil {

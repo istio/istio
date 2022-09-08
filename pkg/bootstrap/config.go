@@ -753,7 +753,7 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 }
 
 func removeDuplicates(values []string) []string {
-	set := sets.New()
+	set := sets.New[string]()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
 		if !set.InsertContains(v) {

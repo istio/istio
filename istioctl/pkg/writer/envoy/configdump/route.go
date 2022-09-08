@@ -117,8 +117,8 @@ func describeRouteDomains(domains []string) string {
 }
 
 func unexpandDomains(domains []string) []string {
-	unique := sets.New(domains...)
-	shouldDelete := sets.New()
+	unique := sets.New[string](domains...)
+	shouldDelete := sets.New[string]()
 	for _, h := range domains {
 		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
 		if _, f := unique[stripFull]; f && stripFull != h {

@@ -434,8 +434,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// Envoy can send two DiscoveryRequests with same version and nonce.
 	// when it detects a new resource. We should respond if they change.
-	prev := sets.New(previousResources...)
-	cur := sets.New(request.ResourceNames...)
+	prev := sets.New[string](previousResources...)
+	cur := sets.New[string](request.ResourceNames...)
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
 
@@ -780,7 +780,7 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set) {
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set[string]) {
 	if s == nil {
 		return
 	}
@@ -985,10 +985,10 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 // watched resources for the proxy, ordered in accordance with known push order.
 // It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
+func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set[string]) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.New()
+	typeUrls := sets.New[string]()
 	for k := range conn.proxy.WatchedResources {
 		typeUrls.Insert(k)
 	}

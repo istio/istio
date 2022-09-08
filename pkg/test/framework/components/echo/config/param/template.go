@@ -24,7 +24,7 @@ import (
 // Template that has been parsed to search for template parameters.
 type Template struct {
 	*template.Template
-	params sets.Set
+	params sets.Set[string]
 }
 
 // Parse the given template to find the set of template parameters used.
@@ -36,7 +36,7 @@ func Parse(t *template.Template) *Template {
 }
 
 // Params returns the set of parameters that were found in this template.
-func (t Template) Params() sets.Set {
+func (t Template) Params() sets.Set[string] {
 	return t.params.Copy()
 }
 
@@ -53,8 +53,8 @@ func (t Template) ContainsWellKnown(p WellKnown) bool {
 
 // MissingParams checks the provided params against the parameters used in this Template.
 // Returns the set of template parameters not defined in params.
-func (t Template) MissingParams(params Params) sets.Set {
-	out := sets.New()
+func (t Template) MissingParams(params Params) sets.Set[string] {
+	out := sets.New[string]()
 	for needed := range t.params {
 		if !params.Contains(needed) {
 			out.Insert(needed)
@@ -63,8 +63,8 @@ func (t Template) MissingParams(params Params) sets.Set {
 	return out
 }
 
-func getParams(n parse.Node) sets.Set {
-	out := sets.New()
+func getParams(n parse.Node) sets.Set[string] {
+	out := sets.New[string]()
 	switch n.Type() {
 	case parse.NodeField:
 		// Only look at the first identifier. For example, if the action

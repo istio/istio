@@ -30,7 +30,7 @@ const (
 type Options struct {
 	PurgeInterval         time.Duration
 	ModuleExpiry          time.Duration
-	InsecureRegistries    sets.Set
+	InsecureRegistries    sets.Set[string]
 	HTTPRequestTimeout    time.Duration
 	HTTPRequestMaxRetries int
 }
@@ -39,7 +39,7 @@ func defaultOptions() Options {
 	return Options{
 		PurgeInterval:         DefaultPurgeInterval,
 		ModuleExpiry:          DefaultModuleExpiry,
-		InsecureRegistries:    sets.New(),
+		InsecureRegistries:    sets.New[string](),
 		HTTPRequestTimeout:    DefaultHTTPRequestTimeout,
 		HTTPRequestMaxRetries: DefaultHTTPRequestMaxRetries,
 	}
