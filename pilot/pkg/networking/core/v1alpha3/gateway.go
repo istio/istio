@@ -234,9 +234,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				})
 			} else {
+				routeName := mergedGateway.GatewayNameForServer[server]
+				if actualWildcard == WildcardIPv6Address && features.EnableDualStack {
+					routeName += constants.IPv6Suffix
+				}
 				// This is the case of TCP or PASSTHROUGH.
 				tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
-					server, mergedGateway.GatewayNameForServer[server])
+					server, routeName)
 				tcpFilterChainOpts = append(tcpFilterChainOpts, tcpChainOpts...)
 				for i := 0; i < len(tcpChainOpts); i++ {
 					newFilterChains = append(newFilterChains, istionetworking.FilterChain{
@@ -374,7 +378,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
-	unGenRouteMap := make(map[int]bool)
+	unGenRouteMap := make(map[string]map[string]bool)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
@@ -414,6 +418,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vskey += constants.IPv6Suffix
 				}
 			}
+			if _, exists = unGenRouteMap[gatewayName]; !exists {
+				unGenRouteMap[gatewayName] = make(map[string]bool)
+			}
+			unGenRouteMap[gatewayName][vskey] = false
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
 				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
@@ -421,13 +429,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh, vskey)
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
+					// No route configuation for gateway on related port and given virtual service
+					unGenRouteMap[gatewayName][vskey] = true
 					continue
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
-			}
-			// No route configuation for gateway on related port and given virtual service
-			if len(gatewayRoutes[gatewayName][vskey]) == 0 {
-				unGenRouteMap[port] = true
 			}
 
 			for _, hostname := range intersectingHosts {
@@ -479,15 +485,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			if len(unGenRouteMap) == 0 {
 				return nil
 			}
-			returnNil := false
-			for _, need := range unGenRouteMap {
-				if !need {
-					returnNil = true
-					break
+			for _, gw := range unGenRouteMap {
+				for _, unGenResult := range gw {
+					if !unGenResult {
+						return nil
+					}
 				}
-			}
-			if returnNil {
-				return nil
 			}
 		}
 		port := int(servers[0].Port.Number)
