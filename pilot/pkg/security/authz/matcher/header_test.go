@@ -179,8 +179,6 @@ func TestHostMatcherWithRegex(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := HostMatcherWithRegex(tc.K, tc.V)
 			// nolint: staticcheck
-			// Update to not use the deprecated fields later.
-			actual.GetStringMatch().GetSafeRegex()
 			if re := actual.GetStringMatch().GetSafeRegex().GetRegex(); re != "" {
 				_, err := regexp.Compile(re)
 				if err != nil {
