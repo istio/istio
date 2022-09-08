@@ -37,8 +37,12 @@ func TestHeaderMatcher(t *testing.T) {
 			V:    "/productpage",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-					ExactMatch: "/productpage",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_Exact{
+							Exact: "/productpage",
+						},
+					},
 				},
 			},
 		},

@@ -58,8 +58,12 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-			ExactMatch: v,
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+			StringMatch: &matcherpb.StringMatcher{
+				MatchPattern: &matcherpb.StringMatcher_Exact{
+					Exact: v,
+				},
+			},
 		},
 	}
 }
