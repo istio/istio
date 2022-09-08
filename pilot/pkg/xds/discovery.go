@@ -584,7 +584,10 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 
 	s.Generators["grpc/"+v3.ExtensionConfigurationType] = ecdsGen
 
-	s.Generators["ztunnel-envoy"] = &ambientgen.ZTunnelConfigGenerator{EndpointIndex: s.Env.EndpointIndex}
+	s.Generators["ztunnel-envoy"] = &ambientgen.ZTunnelConfigGenerator{
+		EndpointIndex: s.Env.EndpointIndex,
+		Discovery:     s.Env.ServiceDiscovery,
+	}
 	s.Generators["ztunnel-envoy/"+v3.ListenerType] = s.Generators["ztunnel-envoy"]
 	s.Generators["ztunnel-envoy/"+v3.ClusterType] = s.Generators["ztunnel-envoy"]
 	s.Generators["ztunnel-envoy/"+v3.EndpointType] = s.Generators["ztunnel-envoy"]

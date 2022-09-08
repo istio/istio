@@ -30,6 +30,7 @@ import (
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
@@ -184,6 +185,13 @@ var (
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.baggagehandler.v1.Config"),
 		},
 	}
+
+	MetadataToPeerNodeListenerFilter = &listener.ListenerFilter{
+		Name: "envoy.filters.listener.metadata_to_peer_node",
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config"),
+		},
+	}
 )
 
 func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
@@ -223,5 +231,36 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name:       MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpMxConfigProto)},
+	}
+}
+
+func BuildTCPStatsInboundFilter(configJSON string) *listener.Filter {
+	wasmConfig := &networkwasm.Wasm{
+		Config: &wasm.PluginConfig{
+			RootId: "stats_inbound",
+			Vm: &wasm.PluginConfig_VmConfig{
+				VmConfig: &wasm.VmConfig{
+					VmId:    "tcp_stats_inbound",
+					Runtime: "envoy.wasm.runtime.null",
+					Code: &core.AsyncDataSource{
+						Specifier: &core.AsyncDataSource_Local{
+							Local: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "envoy.wasm.stats",
+								},
+							},
+						},
+					},
+				},
+			},
+			Configuration: protoconv.MessageToAny(&wrapperspb.StringValue{Value: configJSON}),
+		},
+	}
+
+	return &listener.Filter{
+		Name: "istio.stats",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(wasmConfig),
+		},
 	}
 }

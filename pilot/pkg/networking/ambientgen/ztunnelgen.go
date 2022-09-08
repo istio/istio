@@ -39,11 +39,16 @@ Internal listener: outbound_tunnel_lis_<identity>
           transport: TLS
 
 Listener ztunnel_inbound:
-  Chain: inbound_<podip>
+  Chain: inbound_<podip>_<podport>
       transport: terminate TLS
       match: CONNECT
-      -> CDS: virtual_inbound (ORIG_DST)
+	  -> CDS: inbound_internal_clus_<podip>_<podport> (STATIC)
+	       address: inbound_internal_listener_<podip>
+	       transport: internal
   Chain: blackhole
+
+Internal listener: inbound_internal_listener_<podip>
+      -> CDS: inbound_virtual_clus_<podip>   (ORIG_DST)
 */
 
 package ambientgen
@@ -88,6 +93,7 @@ import (
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -102,6 +108,7 @@ var _ model.XdsResourceGenerator = &ZTunnelConfigGenerator{}
 type ZTunnelConfigGenerator struct {
 	EndpointIndex *model.EndpointIndex
 	Workloads     ambient.Cache
+	Discovery     model.ServiceDiscovery
 }
 
 func (g *ZTunnelConfigGenerator) Generate(
@@ -154,6 +161,9 @@ func (g *ZTunnelConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.
 	for sa := range push.AmbientIndex.Workloads.ByIdentity {
 		out = append(out, outboundTunnelListener(outboundTunnelListenerName(sa), sa))
 	}
+	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+		out = append(out, g.buildInternalInboundListener(workload))
+	}
 
 	return out
 }
@@ -195,6 +205,27 @@ func (g *ZTunnelConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.P
 		passthroughCluster(push),
 		tcpPassthroughCluster(push),
 		blackholeCluster(push))
+
+	for _, workload := range workloads.NodeLocal(proxy.Metadata.NodeName) {
+		seen := sets.New()
+		for _, si := range g.serviceInstances(workload) {
+			// Adding a cluster that routes the traffic to the internal listener. The original dst
+			// will be recreated and the baggage filter state will be available from the terminate.
+			// We have one per combination of address and port.
+			c := g.buildInternalInboundCluster(si.Endpoint)
+			if !seen.InsertContains(c.Name) {
+				out = append(out, c)
+			}
+
+			// Adding a cluster that routes traffic to original dst. We have one per workload with the
+			// telemetry metadata about the service and workload.
+			c = g.buildVirtualInboundClusterForWorkload(si.Endpoint, si.Service, string(proxy.Metadata.ClusterID))
+			if !seen.InsertContains(c.Name) {
+				out = append(out, c)
+			}
+		}
+	}
+
 	return out
 }
 
@@ -908,6 +939,10 @@ func outboundTunnelListenerName(sa string) string {
 	return "outbound_tunnel_lis_" + sa
 }
 
+func internalInboundListenerName(address string) string {
+	return "inbound_internal_listener_" + address
+}
+
 // outboundTunnelListener is built for each ServiceAccount from pods on the node.
 // This listener adds the original destination headers from the dynamic EDS metadata pass through.
 // We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
@@ -929,6 +964,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 							Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 							HeadersToAdd: []*core.HeaderValueOption{
 								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
+								{Header: &core.HeaderValue{Key: "baggage", Value: "%PER_REQUEST_STATE(ambient.source.workloadMetadataBaggage)%"}},
 							},
 						},
 					}),
@@ -1049,6 +1085,14 @@ func outboundPodLocalTunnelClusterName(sa string) string {
 	return "outbound_pod_local_tunnel_clus_" + sa
 }
 
+func inboundInternalClusterName(address string, port uint32) string {
+	return "inbound_internal_clus_" + address + "_" + strconv.Itoa(int(port))
+}
+
+func inboundVirtualClusterName(address string) string {
+	return "inbound_virtual_clus_" + address
+}
+
 // buildInboundCaptureListener creates a single listener with a FilterChain for each pod on the node.
 func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy, push *model.PushContext) *discovery.Resource {
 	// TODO L7 stuff (deny at l4 for l7 auth if there is a waypoint proxy for the dest workload)
@@ -1110,9 +1154,39 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 			authzBuilder := authz.NewBuilderSkipIdentity(authz.Local, push, dummy, allowedIdentities)
 			tcp := authzBuilder.BuildTCP()
 
+			seen := sets.New()
+			virtualHosts := []*route.VirtualHost{}
+			for _, instance := range g.serviceInstances(workload) {
+				virtualHost := &route.VirtualHost{
+					Name:    "local_service_" + workload.PodIP + "_" + strconv.Itoa(int(instance.Endpoint.EndpointPort)),
+					Domains: []string{fmt.Sprintf("%s:%d", workload.PodIP, instance.Endpoint.EndpointPort)},
+					Routes: []*route.Route{{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_ConnectMatcher_{
+								ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
+							},
+						},
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+									UpgradeType:   "CONNECT",
+									ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+								}},
+								ClusterSpecifier: &route.RouteAction_Cluster{
+									Cluster: inboundInternalClusterName(workload.PodIP, instance.Endpoint.EndpointPort),
+								},
+							},
+						},
+					}},
+				}
+				if !seen.InsertContains(virtualHost.Name) {
+					virtualHosts = append(virtualHosts, virtualHost)
+				}
+			}
+
 			var filters []*listener.Filter
 			filters = append(filters, tcp...)
-			filters = append(filters, &listener.Filter{
+			filters = append(filters, xdsfilters.CaptureTLSFilter, &listener.Filter{
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
@@ -1121,34 +1195,18 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 						StatPrefix: "inbound_hcm",
 						RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
 							RouteConfig: &route.RouteConfiguration{
-								Name: "local_route",
-								VirtualHosts: []*route.VirtualHost{{
-									Name:    "local_service",
-									Domains: []string{"*"},
-									Routes: []*route.Route{{
-										Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
-											ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
-										}},
-										Action: &route.Route_Route{
-											Route: &route.RouteAction{
-												UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-													UpgradeType:   "CONNECT",
-													ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-												}},
-												ClusterSpecifier: &route.RouteAction_Cluster{
-													Cluster: "virtual_inbound",
-												},
-											},
-										},
-									}},
-								}},
+								Name:         "local_route",
+								VirtualHosts: virtualHosts,
 							},
 						},
 						// TODO rewrite destination port to original_dest port
-						HttpFilters: []*httpconn.HttpFilter{{
-							Name:       "envoy.filters.http.router",
-							ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
-						}},
+						HttpFilters: []*httpconn.HttpFilter{
+							xdsfilters.BaggageFilter,
+							{
+								Name:       "envoy.filters.http.router",
+								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
+							},
+						},
 						Http2ProtocolOptions: &core.Http2ProtocolOptions{
 							AllowConnect: true,
 						},
@@ -1195,6 +1253,69 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 	return &discovery.Resource{
 		Name:     l.Name,
 		Resource: protoconv.MessageToAny(l),
+	}
+}
+
+func (g *ZTunnelConfigGenerator) buildInternalInboundListener(workload ambient.Workload) *discovery.Resource {
+	name := internalInboundListenerName(workload.PodIP)
+	l := &listener.Listener{
+		Name:             name,
+		StatPrefix:       name,
+		TrafficDirection: core.TrafficDirection_INBOUND,
+		UseOriginalDst:   wrappers.Bool(true),
+		ListenerFilters: []*listener.ListenerFilter{
+			util.InternalListenerSetAddressFilter(),
+			xdsfilters.MetadataToPeerNodeListenerFilter,
+		},
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{
+				xdsfilters.RestoreTLSFilter,
+				xdsfilters.BuildTCPStatsInboundFilter("{\"metadata_mode\":\"CLUSTER_METADATA_MODE\"}"),
+				{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+							StatPrefix: name,
+							AccessLog:  accessLogString(name),
+							ClusterSpecifier: &tcp.TcpProxy_Cluster{
+								Cluster: inboundVirtualClusterName(workload.PodIP),
+							},
+						}),
+					},
+				},
+			},
+		}},
+	}
+
+	return &discovery.Resource{
+		Name:     l.Name,
+		Resource: protoconv.MessageToAny(l),
+	}
+}
+
+func (g *ZTunnelConfigGenerator) buildInternalInboundCluster(wlEndpoint *model.IstioEndpoint) *discovery.Resource {
+	name := inboundInternalClusterName(wlEndpoint.Address, wlEndpoint.EndpointPort)
+	c := &cluster.Cluster{
+		Name:                 name,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints: []*endpoint.LocalityLbEndpoints{{
+				LbEndpoints: []*endpoint.LbEndpoint{{
+					HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+						Address: util.BuildInternalAddress(internalInboundListenerName(wlEndpoint.Address)),
+					}},
+				}},
+			}},
+		},
+		TransportSocket: util.InternalUpstreamTransportSocket(util.TunnelClusterMetadata),
+		Metadata:        util.BuildTunnelMetadata(wlEndpoint.Address, int(ZTunnelInboundCapturePort), int(wlEndpoint.EndpointPort)),
+	}
+
+	return &discovery.Resource{
+		Name:     c.Name,
+		Resource: protoconv.MessageToAny(c),
 	}
 }
 
@@ -1294,6 +1415,62 @@ func (g *ZTunnelConfigGenerator) buildVirtualInboundCluster() *discovery.Resourc
 	}
 }
 
+func (g *ZTunnelConfigGenerator) buildVirtualInboundClusterForWorkload(
+	endpoint *model.IstioEndpoint, service *model.Service, clusterID string,
+) *discovery.Resource {
+	c := &cluster.Cluster{
+		Name:                 inboundVirtualClusterName(endpoint.Address),
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{},
+		},
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				util.IstioMetadataKey: {
+					Fields: map[string]*structpb.Value{
+						"workload": {Kind: &structpb.Value_StringValue{
+							// Workload metadata format: "<name>;<namespace>;<canonical_name>;<version>;<cluster>"
+							StringValue: fmt.Sprintf("%s;%s;;;%s", endpoint.WorkloadName, endpoint.Namespace, clusterID),
+						}},
+						"services": {
+							Kind: &structpb.Value_ListValue{
+								ListValue: &structpb.ListValue{
+									Values: []*structpb.Value{{
+										Kind: &structpb.Value_StructValue{
+											StructValue: &structpb.Struct{
+												Fields: map[string]*structpb.Value{
+													// service fqdn
+													"host": {Kind: &structpb.Value_StringValue{
+														StringValue: string(service.Hostname),
+													}},
+													// short name of the service
+													"name": {Kind: &structpb.Value_StringValue{
+														StringValue: service.Attributes.Name,
+													}},
+													// namespace of the service
+													"namespace": {Kind: &structpb.Value_StringValue{
+														StringValue: service.Attributes.Namespace,
+													}},
+												},
+											},
+										},
+									}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		TransportSocket: v1alpha3.BaggagePassthroughTransportSocket,
+	}
+	return &discovery.Resource{
+		Name:     c.Name,
+		Resource: protoconv.MessageToAny(c),
+	}
+}
+
 // Like virtual_inbound, but always sets port to 15008. This is a huge hack to fix HBONE passhrough
 // to node-local endpoints. These would send to 15088, which then gets looped back to us then
 // forwarded. But we need the forwarding to go to 15008 the second iteration.
@@ -1313,6 +1490,22 @@ func (g *ZTunnelConfigGenerator) buildVirtualInboundClusterHBONE() *discovery.Re
 		Name:     c.Name,
 		Resource: protoconv.MessageToAny(c),
 	}
+}
+
+func (g *ZTunnelConfigGenerator) serviceInstances(workload ambient.Workload) []*model.ServiceInstance {
+	if g.Discovery == nil {
+		return []*model.ServiceInstance{}
+	}
+
+	return g.Discovery.GetProxyServiceInstances(&model.Proxy{
+		Type:            model.SidecarProxy,
+		IPAddresses:     []string{workload.PodIP},
+		ConfigNamespace: workload.Namespace,
+		Metadata: &model.NodeMetadata{
+			Namespace: workload.Namespace,
+			Labels:    workload.Labels,
+		},
+	})
 }
 
 func matchIP(addr string) []*core.CidrRange {

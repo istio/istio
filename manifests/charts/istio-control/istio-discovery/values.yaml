@@ -84,7 +84,11 @@ ztunnel:
       memory: 2048Mi
 
   env: {}
-  podAnnotations: {}
+  
+  podAnnotations:
+    prometheus.io/path: "/stats/prometheus"
+    prometheus.io/port: "15020"
+    prometheus.io/scrape: "true"
 
   # Additional labels to apply to the deployment.
   deploymentLabels: {}

@@ -244,6 +244,7 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 							Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 							HeadersToAdd: []*core.HeaderValueOption{
 								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
+								{Header: &core.HeaderValue{Key: "baggage", Value: "%PER_REQUEST_STATE(ambient.source.workloadMetadataBaggage)%"}},
 							},
 						},
 					}),
@@ -293,10 +294,7 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 				FilterChains:      []*listener.FilterChain{},
 				ListenerFilters: []*listener.ListenerFilter{
 					util.InternalListenerSetAddressFilter(),
-					{
-						Name:       "envoy.filters.listener.metadata_to_peer_node",
-						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config")},
-					},
+					xdsfilters.MetadataToPeerNodeListenerFilter,
 				},
 			}
 			if port.Protocol.IsUnsupported() {

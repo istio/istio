@@ -20,11 +20,8 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -161,15 +158,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
 	// no TLS, we are just going to internal address
-	localCluster.cluster.TransportSocket = &core.TransportSocket{
-		Name: "envoy.transport_sockets.internal_upstream",
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			TransportSocket: &core.TransportSocket{
-				Name:       "envoy.transport_sockets.raw_buffer",
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-			},
-		})},
-	}
+	// adding istio for the baggage metadata to be passthrough
+	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket(util.IstioHostMetadata)
 	localCluster.cluster.TransportSocketMatches = nil
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
@@ -183,48 +173,12 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
 			},
 		},
-		TransportSocket: &core.TransportSocket{
-			Name: "envoy.transport_sockets.internal_upstream",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-					{
-						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-						Name: "tunnel",
-					},
-					{
-						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
-							Host: &metadata.MetadataKind_Host{},
-						}},
-						Name: "istio",
-					},
-				},
-				TransportSocket: &core.TransportSocket{
-					Name:       "envoy.transport_sockets.raw_buffer",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-				},
-			})},
-		},
+		TransportSocket: util.InternalUpstreamTransportSocket(util.TunnelHostMetadata, util.IstioHostMetadata),
 	},
 	defaultTransportSocketMatch(),
 }
 
-var BaggagePassthroughTransportSocket = &core.TransportSocket{
-	Name: "envoy.transport_sockets.internal_upstream",
-	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
-					Cluster: &metadata.MetadataKind_Cluster{},
-				}},
-				Name: "istio",
-			},
-		},
-		TransportSocket: &core.TransportSocket{
-			Name:       "envoy.transport_sockets.raw_buffer",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-		},
-	})},
-}
+var BaggagePassthroughTransportSocket = util.InternalUpstreamTransportSocket(util.IstioClusterMetadata)
 
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
 func (cb *ClusterBuilder) buildWaypointInboundVIPInternal(svcs map[host.Name]*model.Service) []*cluster.Cluster {
