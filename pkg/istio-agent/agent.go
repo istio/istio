@@ -211,17 +211,6 @@ func (a *Agent) WaitForSigterm() bool {
 }
 
 func (a *Agent) generateNodeMetadata() (*model.Node, error) {
-	provCert, err := a.FindRootCAForXDS()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
-	}
-
-	if provCert == "" {
-		// Envoy only supports load from file. If we want to use system certs, use best guess
-		// To be more correct this could lookup all the "well known" paths but this is extremely \
-		// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
-		provCert = "/etc/ssl/certs/ca-certificates.crt"
-	}
 	var pilotSAN []string
 	if a.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
 		// Obtain Pilot SAN, using DNS.
@@ -246,7 +235,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		PilotSubjectAltName:         pilotSAN,
 		CredentialSocketExists:      credentialSocketExists,
 		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
-		ProvCert:                    provCert,
 		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
@@ -372,15 +360,17 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
 	}
-	rootCAForXDS, err := a.FindRootCAForXDS()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
-	}
-	go a.startFileWatcher(ctx, rootCAForXDS, func() {
-		if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
-			log.Warnf("Failed to init xds proxy dial options")
+	if a.proxyConfig.ControlPlaneAuthPolicy != mesh.AuthenticationPolicy_NONE {
+		rootCAForXDS, err := a.FindRootCAForXDS()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
 		}
-	})
+		go a.startFileWatcher(ctx, rootCAForXDS, func() {
+			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
+				log.Warnf("Failed to init xds proxy dial options")
+			}
+		})
+	}
 
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
