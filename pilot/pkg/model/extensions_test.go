@@ -241,7 +241,7 @@ func TestToSecretName(t *testing.T) {
 	}
 }
 
-func TestShouldApplyTo(t *testing.T) {
+func TestMatchListener(t *testing.T) {
 	cases := []struct {
 		desc         string
 		wasmPlugin   *WasmPluginWrapper
@@ -472,9 +472,9 @@ func TestShouldApplyTo(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := tc.wasmPlugin.ShouldApplyTo(tc.proxyLabels, tc.listenerInfo)
+			got := tc.wasmPlugin.MatchListener(tc.proxyLabels, tc.listenerInfo)
 			if tc.want != got {
-				t.Errorf("ShouldApplyTo got %v want %v", got, tc.want)
+				t.Errorf("MatchListener got %v want %v", got, tc.want)
 			}
 		})
 	}

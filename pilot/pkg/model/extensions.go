@@ -92,7 +92,7 @@ type WasmPluginWrapper struct {
 	WasmExtensionConfig *envoyWasmFilterV3.Wasm
 }
 
-func (p *WasmPluginWrapper) ShouldApplyTo(proxyLabels map[string]string, li *WasmPluginListenerInfo) bool {
+func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li *WasmPluginListenerInfo) bool {
 	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
 	return workloadMatch && matchTrafficSelectors(p.Match, li)
 }

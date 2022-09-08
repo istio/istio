@@ -1845,7 +1845,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info *WasmPluginL
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.ShouldApplyTo(proxy.Labels, info) {
+			if plugin.MatchListener(proxy.Labels, info) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1854,7 +1854,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info *WasmPluginL
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.ShouldApplyTo(proxy.Labels, info) {
+			if plugin.MatchListener(proxy.Labels, info) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
