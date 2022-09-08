@@ -82,8 +82,7 @@ core components, install artifacts, and sample programs. It includes:
     - [operator](operator/). This directory contains code for the
 [Istio Operator](https://istio.io/latest/docs/setup/install/operator/).
 
-    - [pilot](pilot/). This directory
-contains platform-specific code to populate the
+    - [pilot](pilot/). This directory contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/latest/docs/reference/config/networking/) into proxy specific configuration.
