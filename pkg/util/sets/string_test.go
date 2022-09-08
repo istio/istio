@@ -115,7 +115,7 @@ func TestSupersetOf(t *testing.T) {
 func TestEquals(t *testing.T) {
 	tests := []struct {
 		name   string
-		first  Set
+		first  Set[string]
 		second Set
 		want   bool
 	}{

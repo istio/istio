@@ -14,30 +14,33 @@
 
 package sets
 
-import "sort"
+import (
+	"golang.org/x/exp/constraints"
+	"golang.org/x/exp/slices"
+)
 
-type Set map[string]struct{}
+type Set[T constraints.Ordered] map[T]struct{}
 
 // NewWithLength returns an empty Set with the given capacity.
 // It's only a hint, not a limitation.
-func NewWithLength(l int) Set {
-	return make(Set, l)
+func NewWithLength[T constraints.Ordered](l int) Set[T] {
+	return make(Set[T], l)
 }
 
 // New creates a new Set with the given items.
-func New(items ...string) Set {
-	s := NewWithLength(len(items))
+func New[T constraints.Ordered](items ...T) Set[T] {
+	s := NewWithLength[T](len(items))
 	return s.InsertAll(items...)
 }
 
 // Insert a single item to this Set.
-func (s Set) Insert(item string) Set {
+func (s Set[T]) Insert(item T) Set[T] {
 	s[item] = struct{}{}
 	return s
 }
 
 // InsertAll adds the items to this Set.
-func (s Set) InsertAll(items ...string) Set {
+func (s Set[T]) InsertAll(items ...T) Set[T] {
 	for _, item := range items {
 		s[item] = struct{}{}
 	}
@@ -45,13 +48,13 @@ func (s Set) InsertAll(items ...string) Set {
 }
 
 // Delete removes an item from the set.
-func (s Set) Delete(item string) Set {
+func (s Set[T]) Delete(item T) Set[T] {
 	delete(s, item)
 	return s
 }
 
-// Delete removes items from the set.
-func (s Set) DeleteAll(items ...string) Set {
+// DeleteAll removes items from the set.
+func (s Set[T]) DeleteAll(items ...T) Set[T] {
 	for _, item := range items {
 		delete(s, item)
 	}
@@ -63,7 +66,7 @@ func (s Set) DeleteAll(items ...string) Set {
 // s = {a1, a2, a3}
 // s2 = {a3, a4, a5}
 // s.Merge(s2) = {a1, a2, a3, a4, a5}
-func (s Set) Merge(s2 Set) Set {
+func (s Set[T]) Merge(s2 Set[T]) Set[T] {
 	for item := range s2 {
 		s[item] = struct{}{}
 	}
@@ -72,8 +75,8 @@ func (s Set) Merge(s2 Set) Set {
 }
 
 // Copy this set.
-func (s Set) Copy() Set {
-	result := NewWithLength(len(s))
+func (s Set[T]) Copy() Set[T] {
+	result := New[T]()
 	for key := range s {
 		result.Insert(key)
 	}
@@ -85,7 +88,7 @@ func (s Set) Copy() Set {
 // s = {a1, a2, a3}
 // s2 = {a1, a2, a4, a5}
 // s.Union(s2) = s2.Union(s) = {a1, a2, a3, a4, a5}
-func (s Set) Union(s2 Set) Set {
+func (s Set[T]) Union(s2 Set[T]) Set[T] {
 	result := s.Copy()
 	for key := range s2 {
 		result.Insert(key)
@@ -99,8 +102,8 @@ func (s Set) Union(s2 Set) Set {
 // s2 = {a1, a2, a4, a5}
 // s.Difference(s2) = {a3}
 // s2.Difference(s) = {a4, a5}
-func (s Set) Difference(s2 Set) Set {
-	result := New()
+func (s Set[T]) Difference(s2 Set[T]) Set[T] {
+	result := New[T]()
 	for key := range s {
 		if !s2.Contains(key) {
 			result.Insert(key)
@@ -114,8 +117,8 @@ func (s Set) Difference(s2 Set) Set {
 // s = {a1, a2, a3}
 // s2 = {a1, a2, a4, a5}
 // s.Intersection(s2) = {a1, a2}
-func (s Set) Intersection(s2 Set) Set {
-	result := New()
+func (s Set[T]) Intersection(s2 Set[T]) Set[T] {
+	result := New[T]()
 	for key := range s {
 		if s2.Contains(key) {
 			result.Insert(key)
@@ -130,13 +133,13 @@ func (s Set) Intersection(s2 Set) Set {
 // s2 = {a1, a2, a3, a4, a5}
 // s.SupersetOf(s2) = false
 // s2.SupersetOf(s) = true
-func (s Set) SupersetOf(s2 Set) bool {
+func (s Set[T]) SupersetOf(s2 Set[T]) bool {
 	return s2.Difference(s).IsEmpty()
 }
 
 // UnsortedList returns the slice with contents in random order.
-func (s Set) UnsortedList() []string {
-	res := make([]string, 0, s.Len())
+func (s Set[T]) UnsortedList() []T {
+	res := make([]T, 0, s.Len())
 	for key := range s {
 		res = append(res, key)
 	}
@@ -144,9 +147,9 @@ func (s Set) UnsortedList() []string {
 }
 
 // SortedList returns the slice with contents sorted.
-func (s Set) SortedList() []string {
+func (s Set[T]) SortedList() []T {
 	res := s.UnsortedList()
-	sort.Strings(res)
+	slices.Sort(res)
 	return res
 }
 
@@ -156,7 +159,7 @@ func (s Set) SortedList() []string {
 //		if !set.InsertContains(item) {
 //			fmt.Println("Added item for the first time", item)
 //	  }
-func (s Set) InsertContains(item string) bool {
+func (s Set[T]) InsertContains(item T) bool {
 	if s.Contains(item) {
 		return true
 	}
@@ -165,13 +168,13 @@ func (s Set) InsertContains(item string) bool {
 }
 
 // Contains returns whether the given item is in the set.
-func (s Set) Contains(item string) bool {
+func (s Set[T]) Contains(item T) bool {
 	_, ok := s[item]
 	return ok
 }
 
 // Equals checks whether the given set is equal to the current set.
-func (s Set) Equals(other Set) bool {
+func (s Set[T]) Equals(other Set[T]) bool {
 	if s.Len() != other.Len() {
 		return false
 	}
@@ -186,11 +189,11 @@ func (s Set) Equals(other Set) bool {
 }
 
 // Len returns the number of elements in this Set.
-func (s Set) Len() int {
+func (s Set[T]) Len() int {
 	return len(s)
 }
 
 // IsEmpty indicates whether the set is the empty set.
-func (s Set) IsEmpty() bool {
+func (s Set[T]) IsEmpty() bool {
 	return len(s) == 0
 }
