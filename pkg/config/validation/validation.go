@@ -767,8 +767,10 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, 
 	return
 }
 
-func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error {
+func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) (Warning, error) {
 	var errs error
+	var warning Warning
+
 	if selector != nil {
 		for k, v := range selector.Labels {
 			if k == "" {
@@ -780,9 +782,12 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
 			}
 		}
+		if len(selector.Labels) == 0 {
+			warning = fmt.Errorf("workload selector specified without labels") // nolint: stylecheck
+		}
 	}
 
-	return errs
+	return warning, errs
 }
 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
@@ -794,8 +799,15 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return nil, fmt.Errorf("cannot cast to Envoy filter")
 		}
 
-		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+		warning, err := validateAlphaWorkloadSelector(rule.WorkloadSelector)
+		if err != nil {
 			return nil, err
+		}
+
+		// If workloadSelector is defined and labels are not set, it is most likely
+		// an user error. Marking it as a warning to keep it backwards compatible.
+		if warning != nil {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
 		}
 
 		for _, cp := range rule.ConfigPatches {
@@ -1090,8 +1102,16 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, fmt.Errorf("cannot cast to Sidecar")
 		}
 
-		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+		warning, err := validateAlphaWorkloadSelector(rule.WorkloadSelector)
+		if err != nil {
 			return nil, err
+		}
+
+		// If workloadSelector is defined and labels are not set, it is most likely
+		// an user error. Marking it as a warning to keep it backwards compatible.
+		if warning != nil {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("sidecar: %s, will be applied to all services in namespace",
+				warning))) // nolint: stylecheck
 		}
 
 		if len(rule.Egress) == 0 && len(rule.Ingress) == 0 && rule.OutboundTrafficPolicy == nil {
@@ -3203,11 +3223,19 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			return nil, fmt.Errorf("cannot cast to service entry")
 		}
 
-		if err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector); err != nil {
+		errs := Validation{}
+
+		warning, err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector)
+		if err != nil {
 			return nil, err
 		}
 
-		errs := Validation{}
+		// If workloadSelector is defined and labels are not set, it is most likely
+		// an user error. Marking it as a warning to keep it backwards compatible.
+		if warning != nil {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry: %s, will be applied to all services in namespace",
+				warning))) // nolint: stylecheck
+		}
 
 		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
 			errs = appendValidation(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))

@@ -3997,7 +3997,9 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		warning string
 	}{
 		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
-
+		{name: "labels not defined in workload selector", in: &networking.EnvoyFilter{
+			WorkloadSelector: &networking.WorkloadSelector{},
+		}, error: "", warning: "Envoy filter: workload selector specified without labels, will be applied to all services in namespace"},
 		{name: "invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4817,7 +4819,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "unix socket, multiple service ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
@@ -4853,6 +4854,19 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name: "workload selector without labels",
+			in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{},
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "selector and endpoints", in: &networking.ServiceEntry{
@@ -5804,6 +5818,14 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
+		{"workload selector without labels", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+			WorkloadSelector: &networking.WorkloadSelector{},
+		}, true, true},
 		{"import local namespace with wildcard", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
