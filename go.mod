@@ -32,7 +32,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/cel-go v0.11.2
-	github.com/google/go-cmp v0.5.7
+	github.com/google/go-cmp v0.5.8
 	github.com/google/go-containerregistry v0.8.0
 	github.com/google/gofuzz v1.2.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -47,7 +47,7 @@ require (
 	github.com/kr/pretty v0.3.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.23
-	github.com/lucas-clemente/quic-go v0.27.0
+	github.com/lucas-clemente/quic-go v0.29.0
 	github.com/mattn/go-isatty v0.0.14
 	github.com/miekg/dns v1.1.48
 	github.com/mitchellh/copystructure v1.2.0
@@ -70,10 +70,10 @@ require (
 	go.opentelemetry.io/proto/otlp v0.15.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
-	golang.org/x/net v0.0.0-20220412020605-290c469a71a5
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.74.0
@@ -152,6 +152,7 @@ require (
 	github.com/goccy/go-json v0.9.6 // indirect
 	github.com/golang-jwt/jwt/v4 v4.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/googleapis/gax-go/v2 v2.3.0 // indirect
@@ -179,7 +180,8 @@ require (
 	github.com/marten-seemann/qpack v0.2.1 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
@@ -227,10 +229,11 @@ require (
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
-	golang.org/x/mod v0.5.1 // indirect
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.9 // indirect
+	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect
