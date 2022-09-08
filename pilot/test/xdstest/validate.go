@@ -108,22 +108,22 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 	// other FCM sets it. Therefore, we should ensure we explicitly set the FCM on
 	// all match clauses if its set on any other match clause See
 	// https://github.com/envoyproxy/envoy/issues/12572 for details
-	destPorts := sets.NewIntSet()
+	destPorts := sets.New[uint32]()
 	for _, fc := range l.FilterChains {
 		if fc.GetFilterChainMatch().GetDestinationPort() != nil {
-			destPorts.Insert(int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()))
+			destPorts.Insert(fc.GetFilterChainMatch().GetDestinationPort().GetValue())
 		}
 	}
 	for p := range destPorts {
 		hasTLSInspector := false
 		for _, fc := range l.FilterChains {
-			if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() != "" {
+			if p == fc.GetFilterChainMatch().GetDestinationPort().GetValue() && fc.GetFilterChainMatch().GetTransportProtocol() != "" {
 				hasTLSInspector = true
 			}
 		}
 		if hasTLSInspector {
 			for _, fc := range l.FilterChains {
-				if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() == "" {
+				if p == fc.GetFilterChainMatch().GetDestinationPort().GetValue() && fc.GetFilterChainMatch().GetTransportProtocol() == "" {
 					// Note: matches [{transport=tls},{}] and [{transport=tls},{transport=buffer}]
 					// are equivalent, so technically this error is overly sensitive. However, for
 					// more complicated use cases its generally best to be explicit rather than
