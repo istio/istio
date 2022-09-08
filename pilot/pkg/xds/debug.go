@@ -888,12 +888,13 @@ type PushContextDebug struct {
 // pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
 	push := PushContextDebug{}
-	if s.globalPushContext() == nil {
+	pc := s.globalPushContext()
+	if pc == nil {
 		return
 	}
-	push.AuthorizationPolicies = s.globalPushContext().AuthzPolicies
-	if s.globalPushContext().NetworkManager() != nil {
-		push.NetworkGateways = s.globalPushContext().NetworkManager().GatewaysByNetwork()
+	push.AuthorizationPolicies = pc.AuthzPolicies
+	if pc.NetworkManager() != nil {
+		push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
 	}
 
 	writeJSON(w, push, req)
