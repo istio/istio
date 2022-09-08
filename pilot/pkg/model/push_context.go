@@ -706,16 +706,16 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.IntSet {
+func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
 
-	out := make(map[string]sets.IntSet)
+	out := make(map[string]sets.Set[int])
 
 	addDestination := func(host string, port *networking.PortSelector) {
 		if _, ok := out[host]; !ok {
-			out[host] = make(sets.IntSet)
+			out[host] = sets.New[int]()
 		}
 		if port != nil {
 			out[host].Insert(int(port.Number))
