@@ -119,12 +119,16 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			V:    "*.example.com",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+							SafeRegex: &matcherpb.RegexMatcher{
+								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								},
+								Regex: `(?i).*\.example\.com`,
+							},
 						},
-						Regex: `(?i).*\.example\.com`,
 					},
 				},
 			},
@@ -135,12 +139,16 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			V:    "example.*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+							SafeRegex: &matcherpb.RegexMatcher{
+								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								},
+								Regex: `(?i)example\..*`,
+							},
 						},
-						Regex: `(?i)example\..*`,
 					},
 				},
 			},
@@ -151,12 +159,16 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			V:    "example.com",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcherpb.RegexMatcher{
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+							SafeRegex: &matcherpb.RegexMatcher{
+								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								},
+								Regex: `(?i)example\.com`,
+							},
 						},
-						Regex: `(?i)example\.com`,
 					},
 				},
 			},
@@ -168,7 +180,8 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			actual := HostMatcherWithRegex(tc.K, tc.V)
 			// nolint: staticcheck
 			// Update to not use the deprecated fields later.
-			if re := actual.GetSafeRegexMatch().GetRegex(); re != "" {
+			actual.GetStringMatch().GetSafeRegex()
+			if re := actual.GetStringMatch().GetSafeRegex().GetRegex(); re != "" {
 				_, err := regexp.Compile(re)
 				if err != nil {
 					t.Errorf("failed to compile regex %s: %v", re, err)
