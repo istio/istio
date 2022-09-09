@@ -18,9 +18,7 @@
 package filebasedtlsorigination
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"net/http"
 	"testing"
 	"time"
@@ -113,12 +111,7 @@ func TestEgressGatewayTls(t *testing.T) {
 			for name, tc := range testCases {
 				t.NewSubTest(name).
 					Run(func(t framework.TestContext) {
-						bufDestinationRule := createDestinationRule(t, serviceNS, tc.destinationRuleMode, tc.fakeRootCert)
-
-						istioCfg := istio.DefaultConfigOrFail(t, t)
-						systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-
-						t.ConfigIstio().YAML(systemNamespace.Name(), bufDestinationRule.String()).ApplyOrFail(t)
+						createDestinationRule(t, serviceNS, tc.destinationRuleMode, tc.fakeRootCert)
 
 						opts := echo.CallOptions{
 							To:    externalService[0],
@@ -207,7 +200,7 @@ spec:
 
 func createDestinationRule(t framework.TestContext, serviceNamespace namespace.Instance,
 	destinationRuleMode string, fakeRootCert bool,
-) bytes.Buffer {
+) {
 	var destinationRuleToParse string
 	var rootCertPathToUse string
 	if destinationRuleMode == "MUTUAL" {
@@ -222,19 +215,13 @@ func createDestinationRule(t framework.TestContext, serviceNamespace namespace.I
 	} else {
 		rootCertPathToUse = "/etc/certs/custom/root-cert.pem"
 	}
-	tmpl, err := template.New("DestinationRule").Parse(destinationRuleToParse)
-	if err != nil {
-		t.Errorf("failed to create template: %v", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	args := map[string]string{
 		"AppNamespace": serviceNamespace.Name(),
 		"Mode":         destinationRuleMode, "RootCertPath": rootCertPathToUse,
-	}); err != nil {
-		t.Fatalf("failed to create template: %v", err)
 	}
-	return buf
+	t.ConfigIstio().Eval(systemNamespace.Name(), args, destinationRuleToParse).ApplyOrFail(t)
 }
 
 const (
@@ -313,35 +300,10 @@ spec:
 )
 
 func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
-	tmplGateway, err := template.New("Gateway").Parse(Gateway)
-	if err != nil {
-		t.Fatalf("failed to create template: %v", err)
-	}
-
-	var bufGateway bytes.Buffer
-	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
-		t.Fatalf("failed to create template: %v", err)
-	}
-	if err := ctx.ConfigIstio().YAML(appsNamespace.Name(), bufGateway.String()).Apply(); err != nil {
-		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
-	}
-
-	// Have to wait for DR to apply to all sidecars first!
-	time.Sleep(5 * time.Second)
-
-	tmplVS, err := template.New("Gateway").Parse(VirtualService)
-	if err != nil {
-		t.Fatalf("failed to create template: %v", err)
-	}
-
-	var bufVS bytes.Buffer
-
-	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
-		t.Fatalf("failed to create template: %v", err)
-	}
-	if err := ctx.ConfigIstio().YAML(appsNamespace.Name(), bufVS.String()).Apply(); err != nil {
-		t.Fatalf("failed to apply virtualservice: %v. template: %v", err, bufVS.String())
-	}
+	ctx.ConfigIstio().
+		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name()}, Gateway).
+		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name()}, VirtualService).
+		ApplyOrFail(t)
 }
 
 func clusterName(target echo.Instance, port echo.Port) string {

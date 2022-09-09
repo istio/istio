@@ -206,9 +206,8 @@ func filteredSidecarCipherSuites(suites []string) []string {
 	validCiphers := sets.New()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			if !validCiphers.Contains(s) {
+			if !validCiphers.InsertContains(s) {
 				ret = append(ret, s)
-				validCiphers = validCiphers.Insert(s)
 			} else if log.DebugEnabled() {
 				log.Debugf("ignoring duplicated cipherSuite: %q", s)
 			}

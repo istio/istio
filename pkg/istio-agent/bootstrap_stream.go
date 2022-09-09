@@ -41,7 +41,7 @@ func (b *bootstrapDiscoveryStream) Send(resp *discovery.DiscoveryResponse) error
 	if resp.TypeUrl == v3.BootstrapType && !b.received {
 		b.received = true
 		if len(resp.Resources) != 1 {
-			b.errCh <- fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources))
+			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources)))
 			return nil
 		}
 		var bs bootstrapv3.Bootstrap
@@ -58,11 +58,7 @@ func (b *bootstrapDiscoveryStream) Send(resp *discovery.DiscoveryResponse) error
 			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to update bootstrap from discovery: %v", err))
 			return nil
 		}
-		select {
-		case <-b.errCh:
-		default:
-			close(b.errCh)
-		}
+		close(b.errCh)
 	}
 	return nil
 }

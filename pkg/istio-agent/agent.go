@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
@@ -211,17 +211,6 @@ func (a *Agent) WaitForSigterm() bool {
 }
 
 func (a *Agent) generateNodeMetadata() (*model.Node, error) {
-	provCert, err := a.FindRootCAForXDS()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
-	}
-
-	if provCert == "" {
-		// Envoy only supports load from file. If we want to use system certs, use best guess
-		// To be more correct this could lookup all the "well known" paths but this is extremely \
-		// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
-		provCert = "/etc/ssl/certs/ca-certificates.crt"
-	}
 	var pilotSAN []string
 	if a.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
 		// Obtain Pilot SAN, using DNS.
@@ -246,7 +235,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		PilotSubjectAltName:         pilotSAN,
 		CredentialSocketExists:      credentialSocketExists,
 		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
-		ProvCert:                    provCert,
 		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
@@ -306,8 +294,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 		a.dynamicBootstrapWaitCh = make(chan error, 1)
 		// Simulate an xDS request for a bootstrap
 		// wait indefinitely and keep retrying with jittered exponential backoff
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 30 * time.Second
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 		for {
 			// handleStream hands on to request after exit, so create a fresh one instead.
 			bsStream := &bootstrapDiscoveryStream{
@@ -373,15 +360,17 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
 	}
-	rootCAForXDS, err := a.FindRootCAForXDS()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
-	}
-	go a.startFileWatcher(ctx, rootCAForXDS, func() {
-		if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
-			log.Warnf("Failed to init xds proxy dial options")
+	if a.proxyConfig.ControlPlaneAuthPolicy != mesh.AuthenticationPolicy_NONE {
+		rootCAForXDS, err := a.FindRootCAForXDS()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
 		}
-	})
+		go a.startFileWatcher(ctx, rootCAForXDS, func() {
+			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
+				log.Warnf("Failed to init xds proxy dial options")
+			}
+		})
+	}
 
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
@@ -450,26 +439,30 @@ func (a *Agent) initSdsServer() error {
 // It will not return until both workload cert and root cert are generated.
 //
 // TODO: evaluate replacing the STS server with a file data source, to simplify Envoy config
+// TODO: Fix this method with unused return value
+// nolint: unparam
 func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 0
-
-	for {
+	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+	// This will loop forever until success
+	err = b.RetryWithContext(context.TODO(), func() error {
 		sk, err = st.GenerateSecret(security.WorkloadKeyCertResourceName)
 		if err == nil {
-			break
+			return nil
 		}
 		log.Warnf("failed to get certificate: %v", err)
-		time.Sleep(b.NextBackOff())
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
-	for {
+	err = b.RetryWithContext(context.TODO(), func() error {
 		_, err := st.GenerateSecret(security.RootCertReqResourceName)
 		if err == nil {
-			break
+			return nil
 		}
 		log.Warnf("failed to get root certificate: %v", err)
-		time.Sleep(b.NextBackOff())
-	}
+		return err
+	})
 	return
 }
 

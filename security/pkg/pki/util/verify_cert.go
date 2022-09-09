@@ -18,7 +18,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"reflect"
@@ -168,30 +167,12 @@ func sortExtKeyUsage(extKeyUsage []x509.ExtKeyUsage) []int {
 
 // FindRootCertFromCertificateChainBytes find the root cert from cert chain
 func FindRootCertFromCertificateChainBytes(certBytes []byte) ([]byte, error) {
-	var block *pem.Block
-	cert := []byte{}
-	for {
-		block, certBytes = pem.Decode(certBytes)
-		if len(certBytes) == 0 {
-			break
-		}
-		if block == nil {
-			return nil, fmt.Errorf("error decoding certificate")
-		}
-		_, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing TLS certificate: %s", err.Error())
-		}
-		cert = certBytes
-	}
-	rootBlock, _ := pem.Decode(cert)
-	if rootBlock == nil {
-		return nil, nil
-	}
-	rootCert, err := x509.ParseCertificate(rootBlock.Bytes)
+	certChain, cert, err := ParsePemEncodedCertificateChain(certBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing root certificate: %s", err.Error())
 	}
+	rootCert := certChain[len(certChain)-1]
+
 	if !rootCert.IsCA {
 		return nil, fmt.Errorf("found root cert is not a ca type cert: %v", rootCert)
 	}
@@ -207,12 +188,7 @@ func IsCertExpired(filepath string) (bool, error) {
 	if err != nil {
 		return true, fmt.Errorf("failed to read the cert, error is %v", err)
 	}
-	var certDERBlock *pem.Block
-	certDERBlock, _ = pem.Decode(certPEMBlock)
-	if certDERBlock == nil {
-		return true, fmt.Errorf("failed to decode certificate")
-	}
-	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+	x509Cert, err := ParsePemEncodedCertificate(certPEMBlock)
 	if err != nil {
 		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
 	}

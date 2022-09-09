@@ -78,6 +78,17 @@ func TestAccessLogging(t *testing.T) {
 		Labels:          labels,
 		Metadata:        &NodeMetadata{Labels: labels},
 	}
+	prometheus := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
 	envoy := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -371,6 +382,43 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"empty",
 			nil,
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
+		},
+		{
+			"prometheus-mesh",
+			[]config.Config{newTelemetry("istio-system", prometheus)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
+		},
+		{
+			"prometheus-namespace",
+			[]config.Config{newTelemetry("default", prometheus)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
+		},
+		{
+			"prometheus-workload",
+			[]config.Config{newTelemetry("default", &tpb.Telemetry{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: labels,
+				},
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{
+							{
+								Name: "envoy",
+							},
+						},
+					},
+				},
+			})},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,

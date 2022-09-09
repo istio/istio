@@ -73,7 +73,7 @@ func (s Set) Merge(s2 Set) Set {
 
 // Copy this set.
 func (s Set) Copy() Set {
-	result := New()
+	result := NewWithLength(len(s))
 	for key := range s {
 		result.Insert(key)
 	}
@@ -148,6 +148,20 @@ func (s Set) SortedList() []string {
 	res := s.UnsortedList()
 	sort.Strings(res)
 	return res
+}
+
+// InsertContains inserts the item into the set and returns if it was already present.
+// Example:
+//
+//		if !set.InsertContains(item) {
+//			fmt.Println("Added item for the first time", item)
+//	  }
+func (s Set) InsertContains(item string) bool {
+	if s.Contains(item) {
+		return true
+	}
+	s[item] = struct{}{}
+	return false
 }
 
 // Contains returns whether the given item is in the set.

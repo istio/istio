@@ -48,6 +48,25 @@ spec:
               imagePullSecret:
                 description: Credentials to use for OCI image pulling.
                 type: string
+              match:
+                items:
+                  properties:
+                    mode:
+                      enum:
+                      - UNDEFINED
+                      - CLIENT
+                      - SERVER
+                      - CLIENT_AND_SERVER
+                      type: string
+                    ports:
+                      items:
+                        properties:
+                          number:
+                            type: integer
+                        type: object
+                      type: array
+                  type: object
+                type: array
               phase:
                 description: Determines where in the filter chain this `WasmPlugin`
                   is to be injected.

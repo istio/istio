@@ -133,9 +133,7 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 	for _, certChain := range resp.CaCerts {
 		certs := certChain.Certificates
 		rootCert := certs[len(certs)-1]
-		if !rootCertSet.Contains(rootCert) {
-			rootCertSet.Insert(rootCert)
-		}
+		rootCertSet.Insert(rootCert)
 	}
 
 	return rootCertSet.SortedList(), nil
