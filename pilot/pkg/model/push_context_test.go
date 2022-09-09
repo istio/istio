@@ -526,6 +526,12 @@ func TestWasmPlugins(t *testing.T) {
 						"app": "productpage",
 					},
 				},
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode:  selectorpb.WorkloadMode_SERVER,
+						Ports: []*selectorpb.PortSelector{{Number: 1234}},
+					},
+				},
 			},
 		},
 		"global-authz-med-prio-app": {
@@ -645,7 +651,11 @@ func TestWasmPlugins(t *testing.T) {
 		{
 			// Detailed tests regarding TrafficSelector are in extension_test.go
 			// Just test the integrity here.
-			name: "port-match",
+			// This testcase is identical with "testns-2", but `listenerInfo`` is specified.
+			// 1. `global-authn-high-prio-app` matched, because it has a port matching clause with "1234"
+			// 2. `authz-high-prio-ingress` matched, because it does not have any `match` clause
+			// 3. `global-authz-med-prio-app` not matched, because it has a port matching clause with "1235"
+			name: "testns-2-with-port-match",
 			node: &Proxy{
 				ConfigNamespace: "testns-2",
 				Labels: map[string]string{
