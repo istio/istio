@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/util/assert"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func TestNewSet(t *testing.T) {
@@ -216,4 +217,37 @@ func TestInsertContains(t *testing.T) {
 	assert.Equal(t, s.InsertContains("k1"), true)
 	assert.Equal(t, s.InsertContains("k2"), false)
 	assert.Equal(t, s.InsertContains("k2"), true)
+}
+
+func BenchmarkSet(b *testing.B) {
+	containsTest := New[string]()
+	for i := 0; i < 1000; i++ {
+		containsTest.Insert(fmt.Sprint(i))
+	}
+	sortOrder := []string{}
+	for i := 0; i < 1000; i++ {
+		sortOrder = append(sortOrder, fmt.Sprint(rand.Intn(1000)))
+	}
+	b.ResetTimer()
+	b.Run("insert", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			s := New[string]()
+			for i := 0; i < 1000; i++ {
+				s.Insert("item")
+			}
+		}
+	})
+	b.Run("contains", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			containsTest.Contains("100")
+		}
+	})
+	b.Run("sorted", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			b.StopTimer()
+			s := New(sortOrder...)
+			b.StartTimer()
+			s.SortedList()
+		}
+	})
 }
