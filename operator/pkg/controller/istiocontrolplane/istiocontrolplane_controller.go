@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
@@ -289,7 +290,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			// Check to see if istiod was already deleted, if so, we can move to delete finalizer
 			ns := iopv1alpha1.Namespace(iopMerged.Spec)
 			if ns == "" {
-				ns = name.IstioDefaultNamespace
+				ns = constants.IstioSystemNamespace
 			}
 			if _, proxyerr := proxy.GetProxyInfo("", "", iopMerged.Spec.Revision, ns); proxyerr != nil {
 				if !strings.Contains(proxyerr.Error(), "unable to find any Istiod instances") {
