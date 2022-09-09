@@ -282,10 +282,12 @@ func (rc *WaypointProxyController) RenderDeploymentMerged(input MergedInput) (*a
 		return nil, fmt.Errorf("no waypoint template defined")
 	}
 	input.Image = inject.ProxyImage(cfg.Values.Struct(), cfg.MeshConfig.GetDefaultConfig().GetImage(), nil)
+	input.ImagePullPolicy = cfg.Values.Struct().Global.GetImagePullPolicy()
 	waypointBytes, err := tmpl.Execute(podTemplate, input)
 	if err != nil {
 		return nil, err
 	}
+
 	proxyPod, err := unmarshalDeploy([]byte(waypointBytes))
 	if err != nil {
 		return nil, fmt.Errorf("render: %v\n%v", err, waypointBytes)
@@ -319,9 +321,10 @@ func unmarshalDeploy(dyaml []byte) (*appsv1.Deployment, error) {
 type MergedInput struct {
 	GatewayName string
 
-	Namespace      string
-	UID            string
-	ServiceAccount string
-	Cluster        string
-	Image          string
+	Namespace       string
+	UID             string
+	ServiceAccount  string
+	Cluster         string
+	Image           string
+	ImagePullPolicy string
 }
