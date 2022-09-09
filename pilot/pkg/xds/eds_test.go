@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -521,59 +522,87 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 
 // Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
 func TestEndpointFlipFlops(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
-
-	adscConn := s.Connect(nil, nil, watchAll)
-
-	// Validate that endpoints are pushed correctly.
-	testEndpoints("10.0.0.53", "outbound|8080||flipflop.com", adscConn, t)
-
-	// Clear the endpoint and validate it does not trigger a full push.
-	s.Discovery.MemRegistry.SetEndpoints("flipflop.com", "", []*model.IstioEndpoint{})
-
-	upd, _ := adscConn.Wait(5*time.Second, v3.EndpointType)
-
-	if contains(upd, "cds") {
-		t.Fatalf("Expecting only EDS update as part of a partial push. But received CDS also %v", upd)
+	cases := []struct {
+		name           string
+		newSa          string
+		expectFullPush bool
+	}{
+		{
+			name:           "same service account",
+			newSa:          "sa",
+			expectFullPush: false,
+		},
+		{
+			name:           "different service account",
+			newSa:          "new-sa",
+			expectFullPush: true,
+		},
 	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
 
-	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
-		t.Fatalf("Expecting EDS push as part of a partial push. But received %v", upd)
-	}
+			adscConn := s.Connect(nil, nil, watchAll)
 
-	lbe := adscConn.GetEndpoints()["outbound|8080||flipflop.com"]
-	if len(lbe.Endpoints) != 0 {
-		t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
-	}
+			// Validate that endpoints are pushed correctly.
+			testEndpoints("10.0.0.53", "outbound|8080||flipflop.com", adscConn, t)
 
-	// Validate that keys in service still exist in EndpointIndex - this prevents full push.
-	if _, ok := s.Discovery.Env.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
-		t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.Env.EndpointIndex.Shardz())
-	}
+			// Clear the endpoint and validate it does not trigger a full push.
+			s.Discovery.MemRegistry.SetEndpoints("flipflop.com", "", []*model.IstioEndpoint{})
 
-	// Set the endpoints again and validate it does not trigger full push.
-	s.Discovery.MemRegistry.SetEndpoints("flipflop.com", "",
-		[]*model.IstioEndpoint{
-			{
-				Address:         "10.10.1.1",
-				ServicePortName: "http",
-				EndpointPort:    8080,
-				ServiceAccount:  "sa",
-			},
+			upd, _ := adscConn.Wait(5*time.Second, v3.EndpointType)
+			assert.Equal(t, upd, []string{v3.EndpointType}, "expected partial push")
+
+			lbe := adscConn.GetEndpoints()["outbound|8080||flipflop.com"]
+			if len(lbe.Endpoints) != 0 {
+				t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
+			}
+
+			// Validate that keys in service still exist in EndpointIndex - this prevents full push.
+			if _, ok := s.Discovery.Env.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
+				t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.Env.EndpointIndex.Shardz())
+			}
+
+			// Set the endpoints again and validate it does not trigger full push.
+			s.Discovery.MemRegistry.SetEndpoints("flipflop.com", "",
+				[]*model.IstioEndpoint{
+					{
+						Address:         "10.10.1.1",
+						ServicePortName: "http",
+						EndpointPort:    8080,
+						ServiceAccount:  tt.newSa,
+					},
+				})
+
+			upd, _ = adscConn.Wait(5*time.Second, v3.EndpointType)
+
+			if tt.expectFullPush {
+				if !contains(upd, v3.ClusterType) {
+					t.Fatalf("expected a CDS push, got: %+v", upd)
+				}
+
+				if !contains(upd, v3.EndpointType) {
+					t.Fatalf("expected an EDS push, got: %+v", upd)
+				}
+			} else {
+				if contains(upd, v3.ClusterType) {
+					t.Fatalf("expected no CDS push, got: %+v", upd)
+				}
+
+				if !contains(upd, v3.EndpointType) {
+					t.Fatalf("expected an EDS push, got: %+v", upd)
+				}
+			}
+
+			testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
+			if shard, ok := s.Discovery.Env.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
+				t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.Env.EndpointIndex.Shardz())
+			} else {
+				assert.Equal(t, shard.ServiceAccounts.SortedList(), []string{tt.newSa})
+			}
 		})
-
-	upd, _ = adscConn.Wait(5*time.Second, v3.EndpointType)
-
-	if contains(upd, v3.ClusterType) {
-		t.Fatalf("expecting only EDS update as part of a partial push. But received CDS also %+v", upd)
 	}
-
-	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
-		t.Fatalf("expecting EDS push as part of a partial push. But did not receive %+v", upd)
-	}
-
-	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
 }
 
 // Validate that deleting a service clears entries from EndpointIndex.
