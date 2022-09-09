@@ -1030,10 +1030,6 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		return fmt.Errorf("delete.Complete: %v", err)
 	}
 
-	// opts.DeleteOptions.DynamicClient = c.dynamic
-	// opts.DeleteOptions.IOStreams = streams
-	// opts.DeleteOptions.FilenameOptions = flags.DeleteFlags.FileNameFlags.ToOptions()
-
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
 	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict, opts.FieldValidationVerifier)
