@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	istio.io/istio/tests/integration/telemetry/common
 )
 
 // TestStatsFilter verifies the stats filter could emit expected client and server side metrics.

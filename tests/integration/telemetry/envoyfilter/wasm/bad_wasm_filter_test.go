@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	istio.io/istio/tests/integration/telemetry/common
 )
 
 // TestBadWasmRemoteLoad tests that bad Wasm remote load configuration won't affect service.

@@ -20,7 +20,7 @@ package api
 import (
 	"testing"
 
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	istio.io/istio/tests/integration/telemetry/common
 )
 
 func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer

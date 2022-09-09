@@ -43,7 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	istio.io/istio/tests/integration/telemetry/common
 )
 
 func TestAccessLogs(t *testing.T) {
