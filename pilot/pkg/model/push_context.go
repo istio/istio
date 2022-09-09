@@ -356,9 +356,9 @@ type PushRequest struct {
 // ResourceDelta records the difference in requested resources by an XDS client
 type ResourceDelta struct {
 	// Subscribed indicates the client requested these additional resources
-	Subscribed sets.Set[string]
+	Subscribed sets.String
 	// Unsubscribed indicates the client no longer requires these resources
-	Unsubscribed sets.Set[string]
+	Unsubscribed sets.String
 }
 
 func (rd ResourceDelta) IsEmpty() bool {
@@ -802,7 +802,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func getHostsFromMeshConfig(ps *PushContext) sets.Set[string] {
+func getHostsFromMeshConfig(ps *PushContext) sets.String {
 	hostsFromMeshConfig := sets.New[string]()
 
 	for _, prov := range ps.Mesh.ExtensionProviders {
@@ -1442,7 +1442,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			var accounts sets.Set[string]
+			var accounts sets.String
 			func() {
 				// First get endpoint level service accounts
 				shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)

@@ -30,7 +30,7 @@ const (
 type Options struct {
 	PurgeInterval         time.Duration
 	ModuleExpiry          time.Duration
-	InsecureRegistries    sets.Set[string]
+	InsecureRegistries    sets.String
 	HTTPRequestTimeout    time.Duration
 	HTTPRequestMaxRetries int
 }

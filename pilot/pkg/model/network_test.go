@@ -110,7 +110,7 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
-func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set[string]) *fakeDNSServer {
+func newFakeDNSServer(addr string, ttl uint32, hosts sets.String) *fakeDNSServer {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	s := &fakeDNSServer{

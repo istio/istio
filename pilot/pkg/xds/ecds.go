@@ -149,7 +149,7 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
 	watched := sets.New[string](resourceNames...)
 	wasmPlugins := push.WasmPlugins(proxy)
-	referencedSecrets := sets.Set[string]{}
+	referencedSecrets := sets.String{}
 	for _, wps := range wasmPlugins {
 		for _, wp := range wps {
 			if watched.Contains(wp.ResourceName) && wp.ImagePullSecret != "" {

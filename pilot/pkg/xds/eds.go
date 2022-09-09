@@ -250,7 +250,7 @@ func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 // Note: it is not concurrent safe.
 func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, serviceName string) bool {
 	oldServiceAccount := shards.ServiceAccounts
-	serviceAccounts := sets.Set[string]{}
+	serviceAccounts := sets.String{}
 	for _, epShards := range shards.Shards {
 		for _, ep := range epShards {
 			if ep.ServiceAccount != "" {

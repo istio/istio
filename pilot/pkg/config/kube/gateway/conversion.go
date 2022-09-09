@@ -101,7 +101,7 @@ type OutputResources struct {
 	AllowedReferences AllowedReferences
 	// ReferencedNamespaceKeys stores the label key of all namespace selections. This allows us to quickly
 	// determine if a namespace update could have impacted any Gateways. See namespaceEvent.
-	ReferencedNamespaceKeys sets.Set[string]
+	ReferencedNamespaceKeys sets.String
 }
 
 // Reference stores a reference to a namespaced GVK, as used by ReferencePolicy
@@ -156,7 +156,7 @@ func convertResources(r KubernetesResources) OutputResources {
 
 type Grants struct {
 	AllowAll     bool
-	AllowedNames sets.Set[string]
+	AllowedNames sets.String
 }
 
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
@@ -1261,7 +1261,7 @@ func referencesToInternalNames(parents []routeParentReference) []string {
 	return ret
 }
 
-func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.SectionName]*parentInfo, sets.Set[string]) {
+func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.SectionName]*parentInfo, sets.String) {
 	// result stores our generated Istio Gateways
 	result := []config.Config{}
 	// gwMap stores an index to access parentInfo (which corresponds to a Kubernetes Gateway)

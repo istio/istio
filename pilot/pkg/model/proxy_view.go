@@ -56,7 +56,7 @@ func newProxyView(node *Proxy) ProxyView {
 }
 
 type proxyViewImpl struct {
-	visible  sets.Set[string]
+	visible  sets.String
 	getValue func(ep *IstioEndpoint) string
 }
 

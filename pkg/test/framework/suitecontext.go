@@ -57,7 +57,7 @@ type suiteContext struct {
 	globalScope *scope
 
 	contextMu    sync.Mutex
-	contextNames sets.Set[string]
+	contextNames sets.String
 
 	suiteLabels label.Set
 

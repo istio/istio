@@ -510,7 +510,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
-	removedFilters := sets.Set[string]{}
+	removedFilters := sets.String{}
 	for _, httpFilter := range httpconn.HttpFilters {
 		if patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter) {
 			removedFilters.Insert(httpFilter.Name)

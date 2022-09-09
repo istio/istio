@@ -53,7 +53,7 @@ type Options struct {
 	// Namespace is the namespace for this component.
 	Namespace string
 	// Filter is the filenames to render
-	Filter sets.Set[string]
+	Filter sets.String
 	// Version is the Kubernetes version information.
 	Version *version.Info
 }

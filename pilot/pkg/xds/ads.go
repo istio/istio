@@ -780,7 +780,7 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set[string]) {
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
 	if s == nil {
 		return
 	}
@@ -985,7 +985,7 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 // watched resources for the proxy, ordered in accordance with known push order.
 // It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set[string]) {
+func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
 	typeUrls := sets.New[string]()

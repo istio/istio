@@ -113,7 +113,7 @@ type builder struct {
 	// namesapces
 	namespaces map[string]namespace.Instance
 	// the set of injection templates for each cluster
-	templates map[string]sets.Set[string]
+	templates map[string]sets.String
 	// errs contains a multierror for failed validation during With calls
 	errs error
 }
@@ -203,7 +203,7 @@ func (b builder) Build() (out echo.Instances, err error) {
 }
 
 // injectionTemplates lists the set of templates for each Kube cluster
-func (b builder) injectionTemplates() (map[string]sets.Set[string], error) {
+func (b builder) injectionTemplates() (map[string]sets.String, error) {
 	ns := "istio-system"
 	i, err := istio.Get(b.ctx)
 	if err != nil {
@@ -212,7 +212,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set[string], error) {
 		ns = i.Settings().SystemNamespace
 	}
 
-	out := map[string]sets.Set[string]{}
+	out := map[string]sets.String{}
 	for _, c := range b.ctx.Clusters().Kube() {
 		out[c.Name()] = sets.New[string]()
 		// TODO find a place to read revision(s) and avoid listing

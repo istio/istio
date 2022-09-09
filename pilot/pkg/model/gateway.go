@@ -94,7 +94,7 @@ type MergedGateway struct {
 	// reside in the same namespace and trust boundary.
 	// Note: Secrets that are not referenced by any Gateway, but are in the same namespace as the pod, are explicitly *not*
 	// included. This ensures we don't give permission to unexpected secrets, such as the citadel root key/cert.
-	VerifiedCertificateReferences sets.Set[string]
+	VerifiedCertificateReferences sets.String
 }
 
 var (
@@ -150,7 +150,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
-		snames := sets.Set[string]{}
+		snames := sets.String{}
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -394,7 +394,7 @@ func GetSNIHostsForServer(server *networking.Server) []string {
 		return nil
 	}
 	// sanitize the server hosts as it could contain hosts of form ns/host
-	sniHosts := sets.Set[string]{}
+	sniHosts := sets.String{}
 	for _, h := range server.Hosts {
 		if strings.Contains(h, "/") {
 			parts := strings.Split(h, "/")

@@ -1175,7 +1175,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
-	have := sets.Set[string]{}
+	have := sets.String{}
 	out := make([]*discovery.Resource, 0, len(clusters))
 	for _, c := range clusters {
 		if !have.InsertContains(c.Name) {

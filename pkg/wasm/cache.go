@@ -107,7 +107,7 @@ type cacheEntry struct {
 	// Last time that this local Wasm module is referenced.
 	last time.Time
 	// set of URLs referencing this entry
-	referencingURLs sets.Set[string]
+	referencingURLs sets.String
 }
 
 type cacheOptions struct {

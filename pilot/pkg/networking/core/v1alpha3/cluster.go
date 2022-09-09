@@ -96,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	var deletedClusters []string
 	var services []*model.Service
 	// holds clusters per service, keyed by hostname.
-	serviceClusters := make(map[string]sets.Set[string])
+	serviceClusters := make(map[string]sets.String)
 	// holds service ports, keyed by hostname.
 	// inner map holds port and its cluster name.
 	servicePorts := make(map[string]map[int]string)

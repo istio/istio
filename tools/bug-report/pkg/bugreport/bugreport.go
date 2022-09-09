@@ -227,7 +227,7 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 // slice of versions for proxies. Any errors are embedded in the revision strings.
 func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
-	proxyVersionsMap := make(map[string]sets.Set[string])
+	proxyVersionsMap := make(map[string]sets.String)
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
 		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)

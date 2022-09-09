@@ -135,7 +135,7 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
 //
 //	{"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
-func ExpandWithTrustDomains(spiffeIdentities sets.Set[string], trustDomainAliases []string) sets.Set[string] {
+func ExpandWithTrustDomains(spiffeIdentities sets.String, trustDomainAliases []string) sets.String {
 	out := sets.New[string]()
 	for id := range spiffeIdentities {
 		out.Insert(id)

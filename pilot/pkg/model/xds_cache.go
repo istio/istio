@@ -115,8 +115,8 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigHash]sets.Set[string]{},
-		typesIndex:       map[kind.Kind]sets.Set[string]{},
+		configIndex:      map[ConfigHash]sets.String{},
+		typesIndex:       map[kind.Kind]sets.String{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -127,8 +127,8 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigHash]sets.Set[string]{},
-		typesIndex:       map[kind.Kind]sets.Set[string]{},
+		configIndex:      map[ConfigHash]sets.String{},
+		typesIndex:       map[kind.Kind]sets.String{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -142,8 +142,8 @@ type lruCache struct {
 	// It is refreshed when Clear or ClearAll are called
 	token       CacheToken
 	mu          sync.RWMutex
-	configIndex map[ConfigHash]sets.Set[string]
-	typesIndex  map[kind.Kind]sets.Set[string]
+	configIndex map[ConfigHash]sets.String
+	typesIndex  map[kind.Kind]sets.String
 
 	// mark whether a key is evicted on Clear call, passively.
 	evictedOnClear bool
@@ -366,8 +366,8 @@ func (l *lruCache) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store = newLru(l.onEvict)
-	l.configIndex = map[ConfigHash]sets.Set[string]{}
-	l.typesIndex = map[kind.Kind]sets.Set[string]{}
+	l.configIndex = map[ConfigHash]sets.String{}
+	l.typesIndex = map[kind.Kind]sets.String{}
 	size(l.store.Len())
 }
 

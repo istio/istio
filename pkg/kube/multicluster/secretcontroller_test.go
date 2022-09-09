@@ -199,7 +199,7 @@ func TestSanitizeKubeConfig(t *testing.T) {
 	cases := []struct {
 		name      string
 		config    api.Config
-		allowlist sets.Set[string]
+		allowlist sets.String
 		want      api.Config
 		wantErr   bool
 	}{

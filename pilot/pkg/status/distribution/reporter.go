@@ -53,7 +53,7 @@ type Reporter struct {
 	status map[string]string
 	// map from nonce to connection ids for which it is current
 	// using map[string]struct to approximate a hashset
-	reverseStatus          map[string]sets.Set[string]
+	reverseStatus          map[string]sets.String
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
 	cm                     *corev1.ConfigMap
@@ -81,7 +81,7 @@ func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	}
 	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
-	r.reverseStatus = make(map[string]sets.Set[string])
+	r.reverseStatus = make(map[string]sets.String)
 	r.inProgressResources = make(map[string]*inProgressEntry)
 	go r.readFromEventQueue(stop)
 }

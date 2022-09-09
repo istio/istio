@@ -326,8 +326,8 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 type listenerNames map[string]listenerName
 
 type listenerName struct {
-	RequestedNames sets.Set[string]
-	Ports          sets.Set[string]
+	RequestedNames sets.String
+	Ports          sets.String
 }
 
 func (ln *listenerName) includesPort(port string) bool {

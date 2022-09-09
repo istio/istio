@@ -261,7 +261,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 // sanitizeKubeConfig sanitizes a kubeconfig file to strip out insecure settings which may leak
 // confidential materials.
 // See https://github.com/kubernetes/kubectl/issues/697
-func sanitizeKubeConfig(config api.Config, allowlist sets.Set[string]) error {
+func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 	for k, auths := range config.AuthInfos {
 		if ap := auths.AuthProvider; ap != nil {
 			// We currently are importing 5 authenticators: gcp, azure, exec, and openstack

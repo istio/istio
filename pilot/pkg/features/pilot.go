@@ -622,7 +622,7 @@ var (
 	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", false,
 		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
-	InsecureKubeConfigOptions = func() sets.Set[string] {
+	InsecureKubeConfigOptions = func() sets.String {
 		v := env.Register(
 			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
 			"",

@@ -26,7 +26,7 @@ type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
 	remoteClusters map[string]map[cluster.ID]*Cluster
-	clusters       sets.Set[string]
+	clusters       sets.String
 }
 
 // newClustersStore initializes data struct to store clusters information
