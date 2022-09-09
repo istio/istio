@@ -1257,7 +1257,7 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
+					StatPrefix:       "virtual_inbound_plaintext",
 					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "virtual_inbound"},
 				}),
 			},
