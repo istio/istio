@@ -68,7 +68,7 @@ func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
 	return nil
 }
 
-func cleanupCertFSFles(t TLSFSLoadPaths) error {
+func cleanupCertFileSystemFiles(t TLSFSLoadPaths) error {
 	if err := os.Remove(t.testTLSCertFilePath); err != nil {
 		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSCertFilePath)
 	}
@@ -200,7 +200,7 @@ func TestNewServerCertInit(t *testing.T) {
 					t.Fatal(err.Error())
 				}
 
-				defer cleanupCertFSFles(c.FSCertsPaths)
+				defer cleanupCertFileSystemFiles(c.FSCertsPaths)
 			}
 
 			args := NewPilotArgs(func(p *PilotArgs) {
