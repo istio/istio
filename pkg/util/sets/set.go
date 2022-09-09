@@ -21,6 +21,8 @@ import (
 
 type Set[T constraints.Ordered] map[T]struct{}
 
+type String = Set[string]
+
 // NewWithLength returns an empty Set with the given capacity.
 // It's only a hint, not a limitation.
 func NewWithLength[T constraints.Ordered](l int) Set[T] {

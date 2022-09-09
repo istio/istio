@@ -229,9 +229,10 @@ func BenchmarkSet(b *testing.B) {
 		sortOrder = append(sortOrder, fmt.Sprint(rand.Intn(1000)))
 	}
 	b.ResetTimer()
+	var s Set[string] // ensure no inlining
 	b.Run("insert", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
-			s := New[string]()
+			s = New[string]()
 			for i := 0; i < 1000; i++ {
 				s.Insert("item")
 			}
