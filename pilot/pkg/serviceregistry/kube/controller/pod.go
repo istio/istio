@@ -257,7 +257,7 @@ func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
 	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.New[string](key)
+		pc.needResync[ip] = sets.New(key)
 	} else {
 		pc.needResync[ip].Insert(key)
 	}

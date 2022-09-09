@@ -306,7 +306,7 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 func (c *Controller) namespaceEvent(oldObj any, newObj any) {
 	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
 	// since we have special logic to always allow this on namespace.
-	touchedNamespaceLabels := sets.New[string](NamespaceNameLabel)
+	touchedNamespaceLabels := sets.New(NamespaceNameLabel)
 	touchedNamespaceLabels.InsertAll(getLabelKeys(oldObj)...)
 	touchedNamespaceLabels.InsertAll(getLabelKeys(newObj)...)
 

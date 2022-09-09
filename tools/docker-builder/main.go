@@ -107,11 +107,11 @@ func ValidateArgs(a Args) error {
 		return fmt.Errorf("--push and --save are mutually exclusive")
 	}
 	_, inCI := os.LookupEnv("CI")
-	if a.Push && len(privilegedHubs.Intersection(sets.New[string](a.Hubs...))) > 0 && !inCI {
+	if a.Push && len(privilegedHubs.Intersection(sets.New(a.Hubs...))) > 0 && !inCI {
 		// Safety check against developer error. If they have a legitimate use case, they can set CI var
 		return fmt.Errorf("pushing to official registry only supported in CI")
 	}
-	if !sets.New[string](DockerBuilder, CraneBuilder).Contains(a.Builder) {
+	if !sets.New(DockerBuilder, CraneBuilder).Contains(a.Builder) {
 		return fmt.Errorf("unknown builder %v", a.Builder)
 	}
 
@@ -183,7 +183,7 @@ func ReadPlan(a Args) (Args, error) {
 		}
 
 		// Check targets are valid
-		tgt := sets.New[string](a.Targets...)
+		tgt := sets.New(a.Targets...)
 		known := sets.New[string]()
 		for _, img := range plan.Images {
 			known.Insert(img.Name)
@@ -223,7 +223,7 @@ func VerboseCommand(name string, arg ...string) *exec.Cmd {
 
 func StandardEnv(args Args) []string {
 	env := os.Environ()
-	if len(sets.New[string](args.Targets...).Delete("proxyv2")) <= 1 {
+	if len(sets.New(args.Targets...).Delete("proxyv2")) <= 1 {
 		// If we are building multiple, it is faster to build all binaries in a single invocation
 		// Otherwise, build just the single item. proxyv2 is special since it is always built separately with tag=agent.
 		// Ideally we would just always build the targets we need but our Makefile is not that smart

@@ -97,10 +97,10 @@ func TestIntersection(t *testing.T) {
 
 func TestSupersetOf(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
-	s1 := New[string](elements...)
+	s1 := New(elements...)
 
 	elements2 := []string{"a", "b"}
-	s2 := New[string](elements2...)
+	s2 := New(elements2...)
 
 	if !s1.SupersetOf(s2) {
 		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())

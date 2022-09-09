@@ -548,7 +548,7 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 			providerNames = names.UnsortedList()
 		}
 	}
-	inScopeProviders := sets.New[string](providerNames...)
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, l := range logs {
@@ -651,7 +651,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 		}
 	}
 	// Record the names of all providers we should configure. Anything else we will ignore
-	inScopeProviders := sets.New[string](providerNames...)
+	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
 	disabledAllMetricsProviders := sets.New[string]()

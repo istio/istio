@@ -214,7 +214,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 			if !strings.HasSuffix(hostname, ".") {
 				hostname += "."
 			}
-			altHosts = sets.New[string](hostname)
+			altHosts = sets.New(hostname)
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {

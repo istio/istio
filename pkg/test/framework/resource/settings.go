@@ -175,11 +175,11 @@ func (s Settings) Skip(class string) bool {
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.String {
-	return sets.New[string](s.SkipWorkloadClasses...)
+	return sets.New(s.SkipWorkloadClasses...)
 }
 
 func (s *Settings) OnlyWorkloadClassesAsSet() sets.String {
-	return sets.New[string](s.OnlyWorkloadClasses...)
+	return sets.New(s.OnlyWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.

@@ -41,7 +41,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		WASMOptions: wasm.Options{
-			InsecureRegistries:    sets.New[string](strings.Split(wasmInsecureRegistries, ",")...),
+			InsecureRegistries:    sets.New(strings.Split(wasmInsecureRegistries, ",")...),
 			ModuleExpiry:          wasmModuleExpiry,
 			PurgeInterval:         wasmPurgeInterval,
 			HTTPRequestTimeout:    wasmHTTPRequestTimeout,

@@ -434,8 +434,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	// Envoy can send two DiscoveryRequests with same version and nonce.
 	// when it detects a new resource. We should respond if they change.
-	prev := sets.New[string](previousResources...)
-	cur := sets.New[string](request.ResourceNames...)
+	prev := sets.New(previousResources...)
+	cur := sets.New(request.ResourceNames...)
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
 

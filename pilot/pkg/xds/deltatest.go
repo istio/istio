@@ -65,7 +65,7 @@ func (s *DiscoveryServer) compareDiff(
 		curByName[v.Name] = v
 	}
 
-	watched := sets.New[string](w.ResourceNames...)
+	watched := sets.New(w.ResourceNames...)
 
 	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
 	wantDeleted := sets.New[string]()
@@ -143,7 +143,7 @@ func (s *DiscoveryServer) compareDiff(
 }
 
 func applyDelta(message model.Resources, resp *discovery.DeltaDiscoveryResponse) model.Resources {
-	deleted := sets.New[string](resp.RemovedResources...)
+	deleted := sets.New(resp.RemovedResources...)
 	byName := map[string]*discovery.Resource{}
 	for _, v := range resp.Resources {
 		byName[v.Name] = v

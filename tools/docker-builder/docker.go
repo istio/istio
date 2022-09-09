@@ -199,7 +199,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	// Groups just bundles targets together to make them easier to work with
 	groups := map[string]Group{}
 
-	variants := sets.New[string](a.Variants...)
+	variants := sets.New(a.Variants...)
 	// hasDoubleDefault checks if we defined both DefaultVariant and PrimaryVariant. If we did, these
 	// are the same exact docker build, just requesting different tags. As an optimization, and to ensure
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.

@@ -537,7 +537,10 @@ func TestWasmCache(t *testing.T) {
 		{
 			name: "purge OCI image on expiry",
 			initialCachedModules: map[moduleKey]cacheEntry{
-				{name: urlAsResourceName(ociURLWithTag) + "-purged", checksum: dockerImageDigest}: {modulePath: ociWasmFile, referencingURLs: sets.New[string](ociURLWithTag)},
+				{name: urlAsResourceName(ociURLWithTag) + "-purged", checksum: dockerImageDigest}: {
+					modulePath:      ociWasmFile,
+					referencingURLs: sets.New(ociURLWithTag),
+				},
 			},
 			initialCachedChecksums: map[string]*checksumEntry{
 				ociURLWithTag: {
@@ -854,7 +857,7 @@ func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 func TestAllInsecureServer(t *testing.T) {
 	tmpDir := t.TempDir()
 	options := defaultOptions()
-	options.InsecureRegistries = sets.New[string]("*")
+	options.InsecureRegistries = sets.New("*")
 	cache := NewLocalFileCache(tmpDir, options)
 	defer close(cache.stopChan)
 

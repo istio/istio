@@ -196,7 +196,7 @@ func loadAllowlist(path string) *allowlist {
 func (s *suiteAnalyzer) validate() error {
 	var err *multierror.Error
 	for name, validator := range sutieValidators {
-		if sets.New[string](analyzerAllowlist.Suites[name]...).Contains(s.testID) {
+		if sets.New(analyzerAllowlist.Suites[name]...).Contains(s.testID) {
 			continue
 		}
 		if vErr := validator(s); vErr != nil {
