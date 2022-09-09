@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -65,7 +66,7 @@ import (
 const (
 	finalizer = "istio-finalizer.install.istio.io"
 	// finalizerMaxRetries defines the maximum number of attempts to remove the finalizer.
-	finalizerMaxRetries = 1
+	finalizerMaxRetries = 5
 	// IgnoreReconcileAnnotation is annotation of IstioOperator CR so it would be ignored during Reconcile loop.
 	IgnoreReconcileAnnotation = "install.istio.io/ignoreReconcile"
 )
@@ -216,7 +217,7 @@ type ReconcileIstioOperator struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
-	scope.Info("Reconciling IstioOperator")
+	scope.Infof("Reconciling IstioOperator")
 
 	ns, iopName := request.Namespace, request.Name
 	reqNamespacedName := types.NamespacedName{
@@ -285,8 +286,19 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, err
 		}
 		if err := reconciler.Delete(); err != nil {
-			scope.Errorf("Failed to delete resources with helm reconciler: %s.", err)
-			return reconcile.Result{}, err
+			// Check to see if istiod was already deleted, if so, we can move to delete finalizer
+			ns := iopv1alpha1.Namespace(iopMerged.Spec)
+			if ns == "" {
+				ns = name.IstioDefaultNamespace
+			}
+			if _, proxyerr := proxy.GetProxyInfo("", "", iopMerged.Spec.Revision, ns); proxyerr != nil {
+				if !strings.Contains(proxyerr.Error(), "unable to find any Istiod instances") {
+					scope.Errorf("Failed to delete resources with helm reconciler: %s.", err)
+					return reconcile.Result{}, err
+				} else {
+					scope.Infof("Control Plane appears already deleted, moving to delete finalizer.")
+				}
+			}
 		}
 
 		finalizers.Delete(finalizer)
