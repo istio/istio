@@ -98,7 +98,7 @@ func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li *Was
 }
 
 type WasmPluginListenerInfo struct {
-	Port  Port
+	Port  int
 	Class istionetworking.ListenerClass
 }
 
@@ -122,13 +122,13 @@ func matchMode(workloadMode typeapi.WorkloadMode, class istionetworking.Listener
 	return false
 }
 
-func matchPorts(portSelectors []*typeapi.PortSelector, port Port) bool {
+func matchPorts(portSelectors []*typeapi.PortSelector, port int) bool {
 	if len(portSelectors) == 0 {
 		// If there is no specified port, match with all the ports.
 		return true
 	}
 	for _, ps := range portSelectors {
-		if ps.GetNumber() != 0 && ps.GetNumber() == uint32(port.Port) {
+		if ps.GetNumber() != 0 && ps.GetNumber() == uint32(port) {
 			return true
 		}
 	}

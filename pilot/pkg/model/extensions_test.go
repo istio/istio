@@ -254,7 +254,7 @@ func TestMatchListener(t *testing.T) {
 			wasmPlugin:  &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{Selector: nil, Match: nil}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: true,
@@ -269,7 +269,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: true,
@@ -284,7 +284,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: false,
@@ -299,7 +299,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: true,
@@ -317,7 +317,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: true,
@@ -335,7 +335,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: true,
@@ -353,7 +353,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: true,
@@ -371,7 +371,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: false,
@@ -391,7 +391,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
 			want: false,
@@ -409,7 +409,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassSidecarOutbound,
 			},
 			want: true,
@@ -427,7 +427,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassUndefined,
 			},
 			want: true,
@@ -445,7 +445,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassGateway,
 			},
 			want: true,
@@ -463,7 +463,7 @@ func TestMatchListener(t *testing.T) {
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: networking.ListenerClassGateway,
 			},
 			want: false,

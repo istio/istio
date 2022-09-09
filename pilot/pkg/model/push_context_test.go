@@ -658,7 +658,7 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: &WasmPluginListenerInfo{
-				Port:  Port{Name: "port1", Port: 1234},
+				Port:  1234,
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{

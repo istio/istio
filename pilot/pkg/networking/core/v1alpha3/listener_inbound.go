@@ -645,13 +645,9 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 			},
 			ServerName: EnvoyServerName,
 		},
-		protocol: cc.port.Protocol,
-		class:    istionetworking.ListenerClassSidecarInbound,
-		port: model.Port{
-			Port:     int(cc.port.TargetPort),
-			Name:     cc.port.Name,
-			Protocol: cc.port.Protocol,
-		},
+		protocol:   cc.port.Protocol,
+		class:      istionetworking.ListenerClassSidecarInbound,
+		port:       int(cc.port.TargetPort),
 		statPrefix: cc.StatPrefix(),
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
