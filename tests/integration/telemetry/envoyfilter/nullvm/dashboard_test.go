@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	istio.io/istio/tests/integration/telemetry/common
+	"istio.io/istio/tests/integration/telemetry/common"
 	"istio.io/pkg/log"
 )
 

@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-	istio.io/istio/tests/integration/telemetry/common
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 var (

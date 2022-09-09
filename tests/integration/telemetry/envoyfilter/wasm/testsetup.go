@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/resource"
-	istio.io/istio/tests/integration/telemetry/common
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 var registry registryredirector.Instance

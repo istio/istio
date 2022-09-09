@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/util/retry"
-	istio.io/istio/tests/integration/telemetry/common
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 const (

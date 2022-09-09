@@ -20,7 +20,7 @@ package nullvm
 import (
 	"testing"
 
-	istio.io/istio/tests/integration/telemetry/common
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 func TestTcpMetric(t *testing.T) {
