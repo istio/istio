@@ -105,6 +105,9 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+          {{- with .Values.pilot.args -}}
+          {{ toYaml . | nindent 10 }}
+          {{- end }}
           ports:
           - containerPort: 8080
             protocol: TCP
@@ -204,6 +207,9 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+          {{- with .Values.pilot.volumeMounts -}}
+          {{ toYaml . | nindent 10 }}
+          {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -228,6 +234,9 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
+      {{- with .Values.pilot.volumes -}}
+      {{ toYaml . | nindent 6 }}
+      {{- end }}
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
