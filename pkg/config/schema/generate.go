@@ -26,3 +26,5 @@ package schema
 
 //go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/collections/collections.gen.go"
 //go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/collections/collections.agent.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/gvk/resources.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/kind/resources.gen.go"
