@@ -1432,7 +1432,7 @@ data:
                 - name: ISTIO_META_MESH_ID
                   value: cluster.local
                 image: {{.Image}}
-                imagePullPolicy: Always
+                {{with .ImagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
                 name: istio-proxy
                 resources:
                   limits:
