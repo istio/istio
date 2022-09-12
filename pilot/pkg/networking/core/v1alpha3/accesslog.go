@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"sort"
 	"strings"
 	"sync"
 
@@ -566,7 +567,14 @@ func convertStructToAttributeKeyValues(labels map[string]*pbtypes.Value) []*otlp
 		return nil
 	}
 	attrList := make([]*otlpcommon.KeyValue, 0, len(labels))
-	for key, value := range labels {
+	// Sort keys to ensure stable XDS generation
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := labels[key]
 		kv := &otlpcommon.KeyValue{
 			Key:   key,
 			Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: value.GetStringValue()}},
