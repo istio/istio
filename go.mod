@@ -10,7 +10,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 require (
 	cloud.google.com/go/compute v1.9.0
-	cloud.google.com/go/security v1.4.1
+	cloud.google.com/go/security v1.5.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20220903154154-e8044f6e4c72
 	github.com/Masterminds/sprig/v3 v3.2.2
@@ -20,7 +20,7 @@ require (
 	github.com/cncf/xds/go v0.0.0-20220520190051-1e77728a1eaa
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.1.1
-	github.com/coreos/go-oidc/v3 v3.3.0
+	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v20.10.18+incompatible
 	github.com/envoyproxy/go-control-plane v0.10.3-0.20220908185826-2b9739221838
@@ -70,23 +70,23 @@ require (
 	go.opentelemetry.io/proto/otlp v0.19.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
-	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956
+	golang.org/x/sys v0.0.0-20220909162455-aba9fc2a8ff2
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.95.0
-	google.golang.org/genproto v0.0.0-20220908141613-51c1cc9bc6d0
+	google.golang.org/genproto v0.0.0-20220909194730-69f6226f97e5
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.9.4
-	istio.io/api v0.0.0-20220909135623-8174a8cb54be
+	istio.io/api v0.0.0-20220912132053-71fdbd6f17e8
 	istio.io/client-go v1.12.0-alpha.5.0.20220907231137-ad718817214e
-	istio.io/pkg v0.0.0-20220909135922-e6af1a39eeec
+	istio.io/pkg v0.0.0-20220912132454-a8115803196f
 	k8s.io/api v0.25.0
 	k8s.io/apiextensions-apiserver v0.25.0
 	k8s.io/apimachinery v0.25.0
@@ -233,7 +233,7 @@ require (
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
 	go.uber.org/zap v1.22.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
-	golang.org/x/exp v0.0.0-20220909145303-c79614ebc70f
+	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
