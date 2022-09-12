@@ -22,6 +22,7 @@ spec:
               - name: workload-socket
                 csi:
                   driver: "csi.spiffe.io"
+                  readOnly: true
   components:
     ingressGateways:
       - name: istio-ingressgateway
@@ -39,6 +40,7 @@ spec:
                     name: workload-socket
                     csi:
                       driver: "csi.spiffe.io"
+                      readOnly: true
                 - path: spec.template.spec.containers.[name:istio-proxy].volumeMounts.[name:workload-socket]
                   value:
                     name: workload-socket

@@ -526,7 +526,7 @@ spec:
             periodSeconds: 5
         # This is the container which runs the SPIFFE CSI driver.
         - name: spiffe-csi-driver
-          image: ghcr.io/spiffe/spiffe-csi-driver:0.1.0
+          image: ghcr.io/spiffe/spiffe-csi-driver:0.2.0
           imagePullPolicy: IfNotPresent
           args: [
               "-node-id", "CSI_NODE",
