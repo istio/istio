@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 40702
+
+releaseNotes:
+- |
+  **Fixed** reconciliation of deleted IstioOperators getting stuck in a loop

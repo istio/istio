@@ -98,6 +98,10 @@ const (
 	fieldManager        = "istio-kube-client"
 )
 
+var (
+	ErrNoIstiodInstances = errors.New("unable to find any Istiod instances")
+)
+
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
 // clients using a shared config. It is expected that all of Istiod can share the same set of clients and
 // informers. Sharing informers is especially important for load on the API server/Istiod itself.
@@ -764,7 +768,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return nil, err
 	}
 	if len(istiods) == 0 {
-		return nil, errors.New("unable to find any Istiod instances")
+		return nil, ErrNoIstiodInstances
 	}
 
 	result := map[string][]byte{}

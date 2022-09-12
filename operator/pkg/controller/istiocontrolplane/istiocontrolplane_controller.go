@@ -55,8 +55,10 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -65,7 +67,7 @@ import (
 const (
 	finalizer = "istio-finalizer.install.istio.io"
 	// finalizerMaxRetries defines the maximum number of attempts to remove the finalizer.
-	finalizerMaxRetries = 1
+	finalizerMaxRetries = 5
 	// IgnoreReconcileAnnotation is annotation of IstioOperator CR so it would be ignored during Reconcile loop.
 	IgnoreReconcileAnnotation = "install.istio.io/ignoreReconcile"
 )
@@ -285,8 +287,19 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, err
 		}
 		if err := reconciler.Delete(); err != nil {
-			scope.Errorf("Failed to delete resources with helm reconciler: %s.", err)
-			return reconcile.Result{}, err
+			// Check to see if istiod was already deleted, if so, we can move to delete finalizer
+			ns := iopv1alpha1.Namespace(iopMerged.Spec)
+			if ns == "" {
+				ns = constants.IstioSystemNamespace
+			}
+			if _, proxyerr := proxy.GetProxyInfo("", "", iopMerged.Spec.Revision, ns); proxyerr != nil {
+				if !strings.Contains(proxyerr.Error(), kube.ErrNoIstiodInstances.Error()) {
+					scope.Errorf("Failed to delete resources with helm reconciler: %s.", err)
+					return reconcile.Result{}, err
+				}
+
+				scope.Infof("Control Plane appears already deleted, moving to delete finalizer.")
+			}
 		}
 
 		finalizers.Delete(finalizer)
