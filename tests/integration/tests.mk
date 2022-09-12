@@ -36,7 +36,14 @@ _INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
 ifneq ($(JOB_TYPE),postsubmit)
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-postsubmit"
 endif
+
+support_ipv6 =
 ifeq ($(IP_FAMILY),ipv6)
+	support_ipv6 = yes
+else ifeq ($(IP_FAMILY),dual)
+	support_ipv6 = yes
+endif
+ifdef support_ipv6
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-ipv4"
 	# Fundamentally, VMs should support IPv6. However, our test framework uses a contrived setup to test VMs
 	# such that they run in the cluster. In particular, they configure DNS to a public DNS server.
