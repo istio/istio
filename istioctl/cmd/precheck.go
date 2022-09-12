@@ -25,15 +25,18 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
+	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -280,11 +283,34 @@ func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 	return msgs, nil
 }
 
+var networkingChanges, _ = goversion.NewSemver("1.10.0")
+
+func fromLegacyNetworkingVersion(pod v1.Pod) bool {
+	for _, c := range pod.Spec.Containers {
+		if c.Name != "istio-proxy" {
+			continue
+		}
+		_, tag, _ := strings.Cut(c.Image, ":")
+		ver, err := pkgversion.TagToVersionString(tag)
+		if err != nil {
+			return true // If we aren't sure, default to doing more checks than needed
+		}
+		sv, err := goversion.NewSemver(ver)
+		if err != nil {
+			return true // If we aren't sure, default to doing more checks than needed
+		}
+		return sv.LessThan(networkingChanges)
+	}
+	return false
+}
+
+// CheckListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
 func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
 	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods
 		FieldSelector: "status.phase=Running",
-		// Find all injected pods
+		// Find all injected pods. We don't care about non-injected pods, because the new behavior
+		// mirrors Kubernetes; this is only a breaking change for existing Istio users.
 		LabelSelector: "security.istio.io/tlsMode=istio",
 	})
 	if err != nil {
@@ -297,6 +323,11 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 	sem := semaphore.NewWeighted(25)
 	for _, pod := range pods.Items {
 		pod := pod
+		if !fromLegacyNetworkingVersion(pod) {
+			// Skip check. This pod is already on a version where the change has been made; if they were going
+			// to break they would already be broken.
+			continue
+		}
 		g.Go(func() error {
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
