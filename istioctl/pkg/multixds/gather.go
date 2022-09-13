@@ -42,6 +42,8 @@ import (
 const (
 	// Service account to create tokens in
 	tokenServiceAccount = "default"
+	// Get the pods with limit = 500.
+	kubeClientGetPodLimit = 500
 )
 
 type ControlPlaneNotFoundError struct {
@@ -167,14 +169,20 @@ func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamesp
 	responses := []*xdsapi.DiscoveryResponse{}
 	if all {
 		token := ""
+		touchedPods := 0
+
+	GetProxyLoop:
 		for {
-			// Get the pods with limit = 500.
-			list, err := kubeClient.GetProxyPods(context.TODO(), 500, token)
+			list, err := kubeClient.GetProxyPods(context.TODO(), int64(kubeClientGetPodLimit), token)
 			if err != nil {
 				return nil, err
 			}
 			// Iterate all the pod.
 			for _, pod := range list.Items {
+				touchedPods++
+				if centralOpts.XdsViaAgentsLimit != 0 && touchedPods > centralOpts.XdsViaAgentsLimit {
+					break GetProxyLoop
+				}
 				if visited[pod.Name+"."+pod.Namespace] {
 					// If we alredy have information about the pod, skip it.
 					continue

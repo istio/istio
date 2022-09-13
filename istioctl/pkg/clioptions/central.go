@@ -58,6 +58,11 @@ type CentralControlPlaneOptions struct {
 	// XdsViaAgents accesses Istiod via the tap service of each agent.
 	// This is only used in `proxy-status` command.
 	XdsViaAgents bool
+
+	// XdsViaAgentsLimit is the maximum number of pods being visited by istioctl,
+	// when `XdsViaAgents` is true. This is only used in `proxy-status` command.
+	// 0 means that there is no limit.
+	XdsViaAgentsLimit int
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
