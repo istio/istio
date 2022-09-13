@@ -199,14 +199,6 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 	epShards := e.shardsBySvc[serviceName][namespace]
 	epShards.Lock()
 	delete(epShards.Shards, shard)
-	epShards.ServiceAccounts = sets.Set{}
-	for _, shard := range epShards.Shards {
-		for _, ep := range shard {
-			if ep.ServiceAccount != "" {
-				epShards.ServiceAccounts.Insert(ep.ServiceAccount)
-			}
-		}
-	}
 	// Clear the cache here to avoid race in cache writes.
 	e.clearCacheForService(serviceName, namespace)
 	if !preserveKeys {

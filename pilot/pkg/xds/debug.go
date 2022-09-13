@@ -879,10 +879,10 @@ type PushContextDebug struct {
 
 // pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
-	push := PushContextDebug{
-		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
-		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
-	}
+	push := PushContextDebug{}
+	pc := s.globalPushContext()
+	push.AuthorizationPolicies = pc.AuthzPolicies
+	push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
 
 	writeJSON(w, push, req)
 }

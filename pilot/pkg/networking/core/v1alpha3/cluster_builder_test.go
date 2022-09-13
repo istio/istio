@@ -848,9 +848,7 @@ func TestMergeTrafficPolicy(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			policy := MergeTrafficPolicy(tt.original, tt.subset, tt.port)
-			if !reflect.DeepEqual(policy, tt.expected) {
-				t.Errorf("Unexpected merged TrafficPolicy. want %v, got %v", tt.expected, policy)
-			}
+			assert.Equal(t, policy, tt.expected)
 		})
 	}
 }
@@ -3126,8 +3124,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := NewClusterBuilder(tt.proxy, nil, nil)
-			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni,
-				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
