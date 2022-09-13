@@ -151,6 +151,8 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
 ) {
 	routesRemoved := false
+	// different virtualHosts may share same routes pointer
+	virtualHost.Routes = cloneVhostRoutes(virtualHost.Routes)
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
 		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap)
@@ -249,9 +251,6 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) &&
 			routeMatch(virtualHost.Routes[routeIndex], rp) {
-
-			// different virtualHosts may share same routes pointer
-			virtualHost.Routes = cloneVhostRoutes(virtualHost.Routes)
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true
