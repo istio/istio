@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -23,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as
@@ -38,6 +40,8 @@ type Monitor struct {
 	// generally set to a file watch, but used in tests as well
 	updateCh chan struct{}
 }
+
+var log = istiolog.RegisterScope("monitor", "file configuration monitor", 0)
 
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
@@ -56,11 +60,15 @@ const watchDebounceDelay = 50 * time.Millisecond
 
 // Trigger notifications when a file is mutated
 func fileTrigger(path string, ch chan struct{}, stop <-chan struct{}) error {
-	watcher, err := fsnotify.NewWatcher()
+	if path == "" {
+		return nil
+	}
+	fs, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
-	if err = watcher.Add(path); err != nil {
+	watcher := recursiveWatcher{fs}
+	if err = watcher.watchRecursive(path); err != nil {
 		return err
 	}
 	go func() {
@@ -71,7 +79,18 @@ func fileTrigger(path string, ch chan struct{}, stop <-chan struct{}) error {
 			case <-debounceC:
 				debounceC = nil
 				ch <- struct{}{}
-			case <-watcher.Events:
+			case e := <-watcher.Events:
+				s, err := os.Stat(e.Name)
+				if err == nil && s != nil && s.IsDir() {
+					// If it's a directory, add a watch for it so we see nested files.
+					if e.Op&fsnotify.Create != 0 {
+						log.Debugf("add watch for %v: %v", s.Name(), watcher.watchRecursive(e.Name))
+					}
+				}
+				// Can't stat a deleted directory, so attempt to remove it. If it fails it is not a problem
+				if e.Op&fsnotify.Remove != 0 {
+					_ = watcher.Remove(e.Name)
+				}
 				if debounceC == nil {
 					debounceC = time.After(watchDebounceDelay)
 				}
@@ -85,6 +104,30 @@ func fileTrigger(path string, ch chan struct{}, stop <-chan struct{}) error {
 		}
 	}()
 	return nil
+}
+
+// recursiveWatcher wraps a fsnotify wrapper to add a best-effort recursive directory watching in user
+// space. See https://github.com/fsnotify/fsnotify/issues/18. The implementation is inherently racy,
+// as files added to a directory immediately after creation may not trigger events; as such it is only useful
+// when an event causes a full reconciliation, rather than acting on an individual event
+type recursiveWatcher struct {
+	*fsnotify.Watcher
+}
+
+// watchRecursive adds all directories under the given one to the watch list.
+func (m recursiveWatcher) watchRecursive(path string) error {
+	err := filepath.Walk(path, func(walkPath string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if fi.IsDir() {
+			if err = m.Watcher.Add(walkPath); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 // Start starts a new Monitor. Immediately checks the Monitor getSnapshotFunc

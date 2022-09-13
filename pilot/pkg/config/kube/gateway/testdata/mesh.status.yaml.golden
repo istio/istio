@@ -9,9 +9,9 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Handled by Istio controller
-    reason: Handled
+    reason: Accepted
     status: "True"
-    type: Admitted
+    type: Accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -40,48 +40,28 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: NoConflicts
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: Attached
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: Ready
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
     name: default
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: echo
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
-      status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
-    parentRef:
-      kind: Mesh
-      name: istio
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -95,23 +75,58 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: RouteAdmitted
+      reason: Accepted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: RouteAdmitted
+      reason: Accepted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: echo
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      kind: Mesh
+      name: istio
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -125,10 +140,15 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: mesh requires hostname to be set
-      reason: InvalidParentReference
+      reason: NoMatchingListenerHostname
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio
@@ -145,10 +165,15 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: mesh requires hostname to be set
-      reason: InvalidParentReference
+      reason: NoMatchingListenerHostname
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 35663
+releaseNotes:
+- |
+  **Improved** Istiod JWTRule: Failed JWKS requests are now logged with truncation to 100 characters

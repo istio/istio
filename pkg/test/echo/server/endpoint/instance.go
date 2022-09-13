@@ -40,6 +40,7 @@ type Config struct {
 	Port          *common.Port
 	ListenerIP    string
 	IstioVersion  string
+	DisableALPN   bool
 }
 
 // Instance of an endpoint that serves the Echo application on a single port/protocol.
@@ -53,6 +54,8 @@ type Instance interface {
 func New(cfg Config) (Instance, error) {
 	if cfg.Port != nil {
 		switch cfg.Port.Protocol {
+		case protocol.HBONE:
+			return newHBONE(cfg), nil
 		case protocol.HTTP, protocol.HTTPS:
 			return newHTTP(cfg), nil
 		case protocol.HTTP2, protocol.GRPC:

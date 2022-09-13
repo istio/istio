@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 39598
+releaseNotes:
+- |
+  **Added** The ability in Istio agent to send parallel DNS queries to all nameservers. This feature is disabled by default and can be enabled by setting env var `DNS_FORWARD_PARALLEL=true` of istio-agent .

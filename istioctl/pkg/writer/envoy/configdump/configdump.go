@@ -22,11 +22,11 @@ import (
 	"text/tabwriter"
 
 	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/jsonpb"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
@@ -57,8 +57,7 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 	if err != nil {
 		return err
 	}
-	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	out, err := jsonm.MarshalToString(bootstrapDump)
+	out, err := protomarshal.ToJSONWithIndent(bootstrapDump, "    ")
 	if err != nil {
 		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
@@ -82,8 +81,7 @@ func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
 	if err != nil {
 		return fmt.Errorf("sidecar doesn't support secrets: %v", err)
 	}
-	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	out, err := jsonm.MarshalToString(secretDump)
+	out, err := protomarshal.ToJSONWithIndent(secretDump, "    ")
 	if err != nil {
 		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
 	}

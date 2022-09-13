@@ -16,7 +16,14 @@
 #
 ################################################################################
 
-set -e
+set -ex
+
+# To support image builders which cannot do RUN, do the run commands at startup.
+# This exploits the fact the images remove the installer once its installed.
+# This is a horrible idea for production images, but these are just for tests.
+[[ -f /tmp/istio-sidecar-centos-7.rpm ]] && rpm -vi /tmp/istio-sidecar-centos-7.rpm && rm /tmp/istio-sidecar-centos-7.rpm
+[[ -f /tmp/istio-sidecar.rpm ]] && rpm -vi /tmp/istio-sidecar.rpm && rm /tmp/istio-sidecar.rpm
+[[ -f /tmp/istio-sidecar.deb ]] && dpkg -i /tmp/istio-sidecar.deb && rm /tmp/istio-sidecar.deb
 
 # IF ECHO_ARGS is unset, make it an empty string.
 ECHO_ARGS=${ECHO_ARGS:-}

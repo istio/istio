@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 const (
@@ -46,28 +47,33 @@ func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// ParsePemEncodedCertificateChain constructs a slice of `x509.Certificate`
+// ParsePemEncodedCertificateChain constructs a slice of `x509.Certificate` and `rootCertBytes`
 // objects using the given a PEM-encoded certificate chain.
-func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, error) {
+func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []byte, error) {
 	var (
-		certs []*x509.Certificate
-		cb    *pem.Block
+		certs         []*x509.Certificate
+		cb            *pem.Block
+		rootCertBytes []byte
 	)
 	for {
+		rootCertBytes = certBytes
 		cb, certBytes = pem.Decode(certBytes)
 		if cb == nil {
-			break
+			return nil, nil, fmt.Errorf("invalid PEM encoded certificate")
 		}
 		cert, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse X.509 certificate")
+			return nil, nil, fmt.Errorf("failed to parse X.509 certificate")
 		}
 		certs = append(certs, cert)
+		if len(certBytes) == 0 {
+			break
+		}
 	}
 	if len(certs) == 0 {
-		return nil, fmt.Errorf("no PEM encoded X.509 certificates parsed")
+		return nil, nil, fmt.Errorf("no PEM encoded X.509 certificates parsed")
 	}
-	return certs, nil
+	return certs, rootCertBytes, nil
 }
 
 // ParsePemEncodedCSR constructs a `x509.CertificateRequest` object using the
@@ -133,4 +139,24 @@ func IsSupportedECPrivateKey(privKey *crypto.PrivateKey) bool {
 	default:
 		return false
 	}
+}
+
+// PemCertBytestoString: takes an array of PEM certs in bytes and returns a string array in the same order with
+// trailing newline characters removed
+func PemCertBytestoString(caCerts []byte) []string {
+	certs := []string{}
+	var cert string
+	pemBlock := caCerts
+	for block, rest := pem.Decode(pemBlock); block != nil && len(block.Bytes) != 0; block, rest = pem.Decode(pemBlock) {
+		if len(rest) == 0 {
+			cert = strings.TrimPrefix(strings.TrimSuffix(string(pemBlock), "\n"), "\n")
+			certs = append(certs, cert)
+			break
+		}
+		cert = string(pemBlock[0 : len(pemBlock)-len(rest)])
+		cert = strings.TrimPrefix(strings.TrimSuffix(cert, "\n"), "\n")
+		certs = append(certs, cert)
+		pemBlock = rest
+	}
+	return certs
 }

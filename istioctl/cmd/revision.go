@@ -540,7 +540,7 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*Rev
 	return tw.Flush()
 }
 
-func getAllIstioOperatorCRs(client kube.ExtendedClient) ([]*iopv1alpha1.IstioOperator, error) {
+func getAllIstioOperatorCRs(client kube.CLIClient) ([]*iopv1alpha1.IstioOperator, error) {
 	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
 		List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
@@ -654,7 +654,7 @@ func annotateWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisi
 	return nil
 }
 
-func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
+func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.CLIClient) error {
 	ingressPods, err := getPodsForComponent(client, "IngressGateways")
 	if err != nil {
 		return fmt.Errorf("error while fetching ingress gateway pods: %v", err)
@@ -668,7 +668,7 @@ func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.Ex
 	return nil
 }
 
-func annotateWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
+func annotateWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.CLIClient) error {
 	controlPlanePods, err := getPodsForComponent(client, "Pilot")
 	if err != nil {
 		return fmt.Errorf("error while fetching control plane pods: %v", err)
@@ -690,7 +690,8 @@ func annotateWithIOPCustomization(revDesc *RevisionDescription, manifestsPath st
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration) *RevisionDescription {
+	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration,
+) *RevisionDescription {
 	revDescription := &RevisionDescription{
 		IstioOperatorCRs: []*IstioOperatorCRInfo{},
 		Webhooks:         []*MutatingWebhookConfigInfo{},
@@ -715,7 +716,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	return revDescription
 }
 
-func printJSON(w io.Writer, res interface{}) error {
+func printJSON(w io.Writer, res any) error {
 	out, err := json.MarshalIndent(res, "", "\t")
 	if err != nil {
 		return fmt.Errorf("error while marshaling to JSON: %v", err)
@@ -979,7 +980,7 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 	return enabledComponents
 }
 
-func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod, error) {
+func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, error) {
 	return getPodsWithSelector(client, istioNamespace, &meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),
@@ -988,12 +989,12 @@ func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod
 	})
 }
 
-func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
+func getPodsWithSelector(client kube.CLIClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
 	labelSelector, err := meta_v1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return []v1.Pod{}, err
 	}
-	podList, err := client.CoreV1().Pods(ns).List(context.TODO(),
+	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
 		meta_v1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return []v1.Pod{}, err
@@ -1027,11 +1028,11 @@ func getDiffs(installed *iopv1alpha1.IstioOperator, manifestsPath, profile strin
 }
 
 // TODO(su225): Improve this and write tests for it.
-func diffWalk(path, separator string, installed interface{}, base interface{}) ([]iopDiff, error) {
+func diffWalk(path, separator string, installed any, base any) ([]iopDiff, error) {
 	switch v := installed.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := base.(map[string]interface{})
+		typedOrig, ok := base.(map[string]any)
 		if ok {
 			for key, vv := range v {
 				childwalk, err := diffWalk(fmt.Sprintf("%s%s%s", path, separator, pathComponent(key)), ".", vv, typedOrig[key])
@@ -1042,12 +1043,12 @@ func diffWalk(path, separator string, installed interface{}, base interface{}) (
 			}
 		}
 		return accum, nil
-	case []interface{}:
+	case []any:
 		accum := make([]iopDiff, 0)
-		typedOrig, ok := base.([]interface{})
+		typedOrig, ok := base.([]any)
 		if ok {
 			for idx, vv := range v {
-				var baseMap interface{} = nil
+				var baseMap any
 				if idx < len(typedOrig) {
 					baseMap = typedOrig[idx]
 				}

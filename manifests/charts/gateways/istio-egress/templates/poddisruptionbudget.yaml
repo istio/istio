@@ -1,6 +1,10 @@
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 {{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- if (semverCompare ">=1.21-0" .Capabilities.KubeVersion.GitVersion) }}
+apiVersion: policy/v1
+{{- else }}
 apiVersion: policy/v1beta1
+{{- end }}
 kind: PodDisruptionBudget
 metadata:
   name: {{ $gateway.name }}

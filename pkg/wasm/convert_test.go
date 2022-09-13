@@ -16,25 +16,37 @@ package wasm
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/golang/protobuf/ptypes/any"
+	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/istio/pilot/pkg/networking/util"
+	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/xds"
 )
 
-type mockCache struct{}
+type mockCache struct {
+	wantSecret []byte
+	wantPolicy extensions.PullPolicy
+}
 
-func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration) (string, error) {
+func (c *mockCache) Get(
+	downloadURL, checksum, resourceName, resourceVersion string,
+	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
+) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -43,6 +55,12 @@ func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration) (st
 	var err error
 	if errMsg != "" {
 		err = errors.New(errMsg)
+	}
+	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, pullSecret) {
+		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(pullSecret), c.wantSecret)
+	}
+	if c.wantPolicy != pullPolicy {
+		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, pullPolicy, c.wantPolicy)
 	}
 
 	return module, err
@@ -138,19 +156,30 @@ func TestWasmConvert(t *testing.T) {
 			},
 			wantNack: true,
 		},
+		{
+			name: "secret",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-secret"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-success-local-file"],
+			},
+			wantNack: false,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			gotOutput := make([]*any.Any, 0, len(c.input))
+			resources := make([]*anypb.Any, 0, len(c.input))
 			for _, i := range c.input {
-				gotOutput = append(gotOutput, util.MessageToAny(i))
+				resources = append(resources, protoconv.MessageToAny(i))
 			}
-			gotNack := MaybeConvertWasmExtensionConfig(gotOutput, &mockCache{})
-			if len(gotOutput) != len(c.wantOutput) {
-				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(gotOutput), len(c.wantOutput))
+			mc := &mockCache{}
+			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
+			if len(resources) != len(c.wantOutput) {
+				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(resources), len(c.wantOutput))
 			}
-			for i, output := range gotOutput {
+			for i, output := range resources {
 				ec := &core.TypedExtensionConfig{}
 				if err := output.UnmarshalTo(ec); err != nil {
 					t.Errorf("wasm config conversion output %v failed to unmarshal", output)
@@ -161,7 +190,7 @@ func TestWasmConvert(t *testing.T) {
 				}
 			}
 			if gotNack != c.wantNack {
-				t.Errorf("wasm config conversion send nack got %v wamt %v", gotNack, c.wantNack)
+				t.Errorf("wasm config conversion send nack got %v want %v", gotNack, c.wantNack)
 			}
 		})
 	}
@@ -171,9 +200,9 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	ws, _ := conversion.MessageToStruct(wasm)
 	return &core.TypedExtensionConfig{
 		Name: name,
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&udpa.TypedStruct{
-				TypeUrl: wasmHTTPFilterType,
+				TypeUrl: xds.WasmHTTPFilterType,
 				Value:   ws,
 			},
 		),
@@ -183,21 +212,21 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: util.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(wasm),
 	}
 }
 
 var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 	"empty": {
 		Name: "empty",
-		TypedConfig: util.MessageToAny(
+		TypedConfig: protoconv.MessageToAny(
 			&structpb.Struct{},
 		),
 	},
 	"no-wasm": {
 		Name: "no-wasm",
-		TypedConfig: util.MessageToAny(
-			&udpa.TypedStruct{TypeUrl: apiTypePrefix + "sometype"},
+		TypedConfig: protoconv.MessageToAny(
+			&udpa.TypedStruct{TypeUrl: resource.APITypePrefix + "sometype"},
 		),
 	},
 	"no-remote-load": buildTypedStructExtensionConfig("no-remote-load", &wasm.Wasm{
@@ -286,6 +315,26 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 				},
 			},
 			FailOpen: true,
+		},
+	}),
+	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+						Remote: &core.RemoteDataSource{
+							HttpUri: &core.HttpUri{
+								Uri: "http://test?module=test.wasm",
+							},
+						},
+					}},
+					EnvironmentVariables: &v3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							model.WasmSecretEnv: "secret",
+						},
+					},
+				},
+			},
 		},
 	}),
 }

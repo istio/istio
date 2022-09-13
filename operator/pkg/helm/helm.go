@@ -24,6 +24,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/manifests"
@@ -62,9 +63,9 @@ type TemplateRenderer interface {
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) TemplateRenderer {
+func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string, version *version.Info) TemplateRenderer {
 	dir := strings.Join([]string{ChartsSubdirName, helmSubdir}, "/")
-	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace)
+	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace, version)
 }
 
 // ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
@@ -89,17 +90,25 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 }
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc) (string, error) {
+func renderChart(namespace, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) (string, error) {
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Namespace: namespace,
 	}
-	valuesMap := map[string]interface{}{}
+	valuesMap := map[string]any{}
 	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
 		return "", fmt.Errorf("failed to unmarshal values: %v", err)
 	}
 
-	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, nil)
+	caps := *chartutil.DefaultCapabilities
+	if version != nil {
+		caps.KubeVersion = chartutil.KubeVersion{
+			Version: version.GitVersion,
+			Major:   version.Major,
+			Minor:   version.Minor,
+		}
+	}
+	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, &caps)
 	if err != nil {
 		return "", err
 	}
@@ -120,7 +129,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		return "", err
 	}
 	if chrt.Metadata.Name == "base" {
-		base, _ := valuesMap["base"].(map[string]interface{})
+		base, _ := valuesMap["base"].(map[string]any)
 		if enableIstioConfigCRDs, ok := base["enableIstioConfigCRDs"].(bool); ok && !enableIstioConfigCRDs {
 			crdFiles = []chart.CRD{}
 		}

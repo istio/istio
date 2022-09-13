@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 35676
+releaseNotes:
+- |
+  **Fixed** an issue causing hostnames overlapping the cluster domain (such as `example.local`) to generate invalid routes.

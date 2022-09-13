@@ -30,7 +30,7 @@ func TestLabels(t *testing.T) {
 		{filter: "", labels: NewSet(Postsubmit), expected: true},
 		{filter: "", labels: NewSet(Postsubmit, CustomSetup), expected: true},
 		{filter: "$requires.kube", labels: NewSet(Postsubmit, CustomSetup), err: true},
-		{filter: "zoo", labels: NewSet(Postsubmit, CustomSetup), err: true},
+		{filter: "zoo", labels: NewSet(Postsubmit, CustomSetup), expected: true},
 		{filter: "postsubmit", labels: NewSet(Postsubmit), expected: true},
 		{filter: "postsubmit", labels: NewSet(CustomSetup), expected: false},
 		{filter: "postsubmit", labels: NewSet(CustomSetup, Postsubmit), expected: true},

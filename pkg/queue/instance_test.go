@@ -20,8 +20,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"go.uber.org/atomic"
 )
+
+func BenchmarkQueue(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		q := NewQueue(1 * time.Microsecond)
+		s := make(chan struct{})
+		go q.Run(s)
+		wg := sync.WaitGroup{}
+		wg.Add(1000)
+		for i := 0; i < 1000; i++ {
+			q.Push(func() error {
+				wg.Done()
+				return nil
+			})
+		}
+		wg.Wait()
+		close(s)
+	}
+}
 
 func TestOrdering(t *testing.T) {
 	numValues := 1000
@@ -89,33 +107,6 @@ func TestRetry(t *testing.T) {
 	wg.Wait()
 }
 
-func TestRetryWithBackoff(t *testing.T) {
-	ebf := backoff.NewExponentialBackOff()
-	ebf.InitialInterval = 1 * time.Microsecond
-	ebf.MaxInterval = 5 * time.Microsecond
-	q := NewBackOffQueue(ebf)
-	stop := make(chan struct{})
-	defer close(stop)
-
-	// Push a task that fails the first time and retries.
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	failed := false
-	q.Push(func() error {
-		defer wg.Done()
-		if failed {
-			return nil
-		}
-		failed = true
-		return errors.New("fake error")
-	})
-
-	go q.Run(stop)
-
-	// wait for the task to run twice.
-	wg.Wait()
-}
-
 func TestResourceFree(t *testing.T) {
 	q := NewQueue(1 * time.Microsecond)
 	stop := make(chan struct{})
@@ -141,4 +132,36 @@ func TestResourceFree(t *testing.T) {
 	case <-signal:
 		t.Log("queue return.")
 	}
+}
+
+func TestClosed(t *testing.T) {
+	t.Run("immediate close", func(t *testing.T) {
+		stop := make(chan struct{})
+		q := NewQueue(0)
+		go q.Run(stop)
+		close(stop)
+		if err := WaitForClose(q, 10*time.Second); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Run("no tasks after close", func(t *testing.T) {
+		stop := make(chan struct{})
+		q := NewQueue(0)
+		taskComplete := atomic.NewBool(false)
+		q.Push(func() error {
+			close(stop)
+			return nil
+		})
+		go q.Run(stop)
+		if err := WaitForClose(q, 10*time.Second); err != nil {
+			t.Error()
+		}
+		q.Push(func() error {
+			taskComplete.Store(true)
+			return nil
+		})
+		if taskComplete.Load() {
+			t.Error("task ran on closed queue")
+		}
+	})
 }

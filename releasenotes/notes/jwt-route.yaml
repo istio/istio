@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Added** support for JWT claim based routing on ingress gateways.

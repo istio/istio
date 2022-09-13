@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix 
+area: istioctl
+issue:
+  - 34896
+
+releaseNotes:
+- |
+  **Fixed** `istioctl operator` subcommands now support remote URLs specified in the `--manifests` argument.

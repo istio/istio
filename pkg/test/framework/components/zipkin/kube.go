@@ -161,18 +161,18 @@ func installZipkin(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAML(ns, yaml)
+	return ctx.ConfigKube().YAML(ns, yaml).Apply()
 }
 
 func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAML(ns, yaml)
+	err := ctx.ConfigIstio().YAML(ns, yaml).Apply()
 	if err != nil {
 		return err
 	}
 	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err = ctx.Config().ApplyYAML(ns, yaml)
+	err = ctx.ConfigIstio().YAML(ns, yaml).Apply()
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	isIP := net.ParseIP(cfgIn.IngressAddr).String() != "<nil>"
 	ingressDomain := cfgIn.IngressAddr
 	if isIP {
-		ingressDomain = fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr)
+		ingressDomain = fmt.Sprintf("%s.sslip.io", strings.ReplaceAll(cfgIn.IngressAddr, ":", "-"))
 	}
 
 	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)
@@ -261,18 +261,20 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string)
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	c.forwarder.Close()
+	if c.forwarder != nil {
+		c.forwarder.Close()
+	}
 	return nil
 }
 
 func extractTraces(resp []byte) ([]Trace, error) {
-	var traceObjs []interface{}
+	var traceObjs []any
 	if err := json.Unmarshal(resp, &traceObjs); err != nil {
 		return []Trace{}, err
 	}
 	var ret []Trace
 	for _, t := range traceObjs {
-		spanObjs, ok := t.([]interface{})
+		spanObjs, ok := t.([]any)
 		if !ok || len(spanObjs) == 0 {
 			scopes.Framework.Debugf("cannot parse or cannot find spans in trace object %+v", t)
 			continue
@@ -301,9 +303,9 @@ func extractTraces(resp []byte) ([]Trace, error) {
 	return []Trace{}, errors.New("cannot find any traces")
 }
 
-func buildSpan(obj interface{}) Span {
+func buildSpan(obj any) Span {
 	var s Span
-	spanSpec := obj.(map[string]interface{})
+	spanSpec := obj.(map[string]any)
 	if spanID, ok := spanSpec["id"]; ok {
 		s.SpanID = spanID.(string)
 	}
@@ -311,7 +313,7 @@ func buildSpan(obj interface{}) Span {
 		s.ParentSpanID = parentSpanID.(string)
 	}
 	if endpointObj, ok := spanSpec["localEndpoint"]; ok {
-		if em, ok := endpointObj.(map[string]interface{}); ok {
+		if em, ok := endpointObj.(map[string]any); ok {
 			s.ServiceName = em["serviceName"].(string)
 		}
 	}

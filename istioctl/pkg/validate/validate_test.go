@@ -23,9 +23,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ghodss/yaml"
-	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -223,7 +224,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 15`
+        weight: -15`
 	invalidVirtualServiceV1Beta1 = `
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
@@ -607,7 +608,7 @@ $`),
 	\* DestinationRule//reviews-cb-policy: outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead
 
 Error: 1 error occurred:
-	\* VirtualService//invalid-virtual-service: total destination weight 90 != 100`),
+	\* VirtualService//invalid-virtual-service: weight -15 < 0`),
 			wantError: true,
 		},
 	}
@@ -639,14 +640,14 @@ Error: 1 error occurred:
 }
 
 func TestGetTemplateLabels(t *testing.T) {
-	assert := assert.New(t)
 	un := fromYAML(validDeployment)
 
 	labels, err := GetTemplateLabels(un)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.NotEmpty(t, labels)
-	assert.Contains(labels, "app")
-	assert.Contains(labels, "version")
+	assert.Equal(t, labels, map[string]string{
+		"app":     "helloworld",
+		"version": "v1",
+	})
 }

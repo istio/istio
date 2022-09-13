@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-deny
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: DENY
+  rules:
+    - from:
+      - source:
+          notNamespaces: [ "{{ .Allowed.NamespaceName }}" ]

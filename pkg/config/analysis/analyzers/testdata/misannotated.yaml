@@ -1,0 +1,119 @@
+# K8s object with unknown Istio annotations
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  labels:
+    app: httpbin
+  annotations:
+    # no such Istio annotation
+    networking.istio.io/exportThree: bar
+    # Valid Istio annotation
+    networking.istio.io/exportTo: baz
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 80
+  selector:
+    app: httpbin
+---
+# K8s object with invalid Istio annotations
+apiVersion: v1
+kind: Pod
+metadata:
+  name: invalid-annotations
+  annotations:
+    # Validation checks this is an int - this should be invalid
+    readiness.status.sidecar.istio.io/initialDelaySeconds: bar
+    # Validation checks this is an int - this should be valid
+    readiness.status.sidecar.istio.io/periodSeconds: "10"
+spec:
+  containers:
+    - name: "foo"
+      command: ['curl']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: details
+  labels:
+    app: details
+  annotations:
+    # Annotation that Istio doesn't know about, but isn't an Istio annotation, thus ignored
+    kubernetes.io/psp: my-privileged-psp
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9080
+  selector:
+    app: details
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: gateway
+  annotations:
+    # Not valid, should be kubernetes.io/ingress.class, the only non-istio.io annotation we document
+    istio.io/ingress.class: "istio"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /productpage
+        backend:
+          serviceName: productpage
+          servicePort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: grafana-test
+  labels:
+    app: grafana-test
+    istio: grafana
+  annotations:
+    # valid here
+    proxy.istio.io/config: "{}"
+    # analyzer ignores, not ours
+    helm.sh/hook: test-success
+    # invalid here
+    kubernetes.io/ingress.class: "istio"
+spec:
+  containers:
+    - name: "grafana-test"
+      command: ['curl']
+      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+  restartPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortio-deploy
+  annotations:
+     # This annotation belongs on the spec/template so it can be applied to a pod, not here
+     sidecar.istio.io/statsInclusionPrefixes: cluster.outbound
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fortio
+  template:
+    metadata:
+      annotations:
+        # sidecar.istio.io/statsInclusionPrefixes should be here
+      labels:
+        app: fortio
+    spec:
+      containers:
+      - name: fortio
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  annotations:
+    # Annotation does not belong to Namespace
+    kubernetes.io/ingress.class: "foo"
+spec: {}

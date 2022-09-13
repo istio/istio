@@ -20,10 +20,13 @@ package nullvm
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/features"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
-func TestTcpMetric(t *testing.T) { // nolint:interfacer
-	common.TestStatsTCPFilter(t, features.Feature("observability.telemetry.stats.prometheus.tcp"))
+func TestTcpMetric(t *testing.T) {
+	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
+}
+
+func TestGatewayTCP(t *testing.T) {
+	common.TestStatsGatewayServerTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

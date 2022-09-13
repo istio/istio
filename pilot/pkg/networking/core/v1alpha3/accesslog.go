@@ -15,48 +15,29 @@
 package v1alpha3
 
 import (
-	"strings"
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	telemetry "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
+	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 const (
-	// EnvoyTextLogFormat format for envoy text based access logs for Istio 1.9 onwards.
-	// This includes the additional new operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that tells
-	// the reason why Envoy rejects a request.
-	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
-		"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
-		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
-		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
-		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
-		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
-		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
-
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
 
-	httpEnvoyAccessLogFriendlyName     = "http_envoy_accesslog"
-	tcpEnvoyAccessLogFriendlyName      = "tcp_envoy_accesslog"
+	celFilter                          = "envoy.access_loggers.extension_filters.cel"
 	listenerEnvoyAccessLogFriendlyName = "listener_envoy_accesslog"
-
-	tcpEnvoyALSName = "envoy.tcp_grpc_access_log"
 
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
@@ -64,38 +45,6 @@ const (
 )
 
 var (
-	// EnvoyJSONLogFormatIstio map of values for envoy json based access logs for Istio 1.9 onwards.
-	// This includes the additional log operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that tells
-	// the reason why Envoy rejects a request.
-	EnvoyJSONLogFormatIstio = &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"response_code_details":             {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
-			"connection_termination_details":    {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
-			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
-		},
-	}
-
 	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
@@ -122,62 +71,83 @@ type AccessLogBuilder struct {
 
 func newAccessLogBuilder() *AccessLogBuilder {
 	return &AccessLogBuilder{
-		tcpGrpcAccessLog:         buildTCPGrpcAccessLog(false),
-		httpGrpcAccessLog:        buildHTTPGrpcAccessLog(),
-		tcpGrpcListenerAccessLog: buildTCPGrpcAccessLog(true),
+		tcpGrpcAccessLog:         tcpGrpcAccessLog(false),
+		httpGrpcAccessLog:        httpGrpcAccessLog(),
+		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
 	}
 }
 
-func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *tcp.TcpProxy) {
-	if mesh.AccessLogFile != "" {
-		config.AccessLog = append(config.AccessLog, b.buildFileAccessLog(mesh))
+func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
+	mesh := push.Mesh
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
+
+	if cfgs == nil {
+		// No Telemetry API configured, fall back to legacy mesh config setting
+		if mesh.AccessLogFile != "" {
+			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
+		}
+
+		if mesh.EnableEnvoyAccessLogService {
+			// Setting it to TCP as the low level one.
+			tcp.AccessLog = append(tcp.AccessLog, b.tcpGrpcAccessLog)
+		}
+		return
 	}
 
-	if mesh.EnableEnvoyAccessLogService {
-		config.AccessLog = append(config.AccessLog, b.tcpGrpcAccessLog)
+	if al := buildAccessLogFromTelemetry(cfgs, false); len(al) != 0 {
+		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
 }
 
-func buildAccessLogFromTelemetry(mesh *meshconfig.MeshConfig, spec *telemetry.Telemetry, forListener bool) *accesslog.AccessLog {
-	// TODO support multiple
-	accessLogConfig := spec.AccessLogging[0]
-	if accessLogConfig.GetDisabled().GetValue() {
+func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
+	als := make([]*accesslog.AccessLog, 0, len(cfgs))
+	for _, c := range cfgs {
+		filters := make([]*accesslog.AccessLogFilter, 0, 2)
+		if forListener {
+			filters = append(filters, addAccessLogFilter())
+		}
+
+		if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
+			filters = append(filters, telFilter)
+		}
+
+		al := &accesslog.AccessLog{
+			Name:       c.AccessLog.Name,
+			ConfigType: c.AccessLog.ConfigType,
+			Filter:     buildAccessLogFilter(filters...),
+		}
+
+		als = append(als, al)
+	}
+	return als
+}
+
+func buildAccessLogFilterFromTelemetry(spec model.LoggingConfig) *accesslog.AccessLogFilter {
+	if spec.Filter == nil {
 		return nil
 	}
 
-	// provider config
-	var providerName string
-	if len(mesh.GetDefaultProviders().GetAccessLogging()) > 0 {
-		providerName = mesh.GetDefaultProviders().GetAccessLogging()[0]
-	}
-	if len(accessLogConfig.Providers) > 0 {
-		// only one provider is currently supported, safe to take first
-		providerName = accessLogConfig.Providers[0].Name
+	fl := &cel.ExpressionFilter{
+		Expression: spec.Filter.Expression,
 	}
 
-	for _, p := range mesh.ExtensionProviders {
-		if strings.EqualFold(p.Name, providerName) {
-			switch prov := p.Provider.(type) {
-			case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-				al := buildFileAccessLogHelper(prov.EnvoyFileAccessLog.Path, mesh)
-				if forListener {
-					al.Filter = addAccessLogFilter()
-				}
-				return al
-			default:
-				log.Debugf("unsupported access log provider %v: %T", providerName, prov)
-			}
-			break
-		}
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+			ExtensionFilter: &accesslog.ExtensionFilter{
+				Name:       celFilter,
+				ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
+			},
+		},
 	}
-	return nil
 }
 
-func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionManager *hcm.HttpConnectionManager) {
-	mesh := opts.push.Mesh
-	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy)
+func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *model.Proxy,
+	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
+) {
+	mesh := push.Mesh
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if len(spec.GetAccessLogging()) == 0 {
+	if cfgs == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
@@ -189,19 +159,22 @@ func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionMa
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(mesh, spec, false); al != nil {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, al)
+	if al := buildAccessLogFromTelemetry(cfgs, false); len(al) != 0 {
+		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 }
 
-func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *model.Proxy, listener *listener.Listener) {
+func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *model.Proxy,
+	listener *listener.Listener, class networking.ListenerClass,
+) {
 	mesh := push.Mesh
-	spec := push.Telemetry.EffectiveTelemetry(proxy)
 	if mesh.DisableEnvoyListenerLog {
 		return
 	}
 
-	if len(spec.GetAccessLogging()) == 0 {
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
+
+	if cfgs == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
@@ -211,64 +184,13 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 			// Setting it to TCP as the low level one.
 			listener.AccessLog = append(listener.AccessLog, b.tcpGrpcListenerAccessLog)
 		}
+
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(mesh, spec, true); al != nil {
-		listener.AccessLog = append(listener.AccessLog, al)
+	if al := buildAccessLogFromTelemetry(cfgs, true); len(al) != 0 {
+		listener.AccessLog = append(listener.AccessLog, al...)
 	}
-}
-
-func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	// We need to build access log. This is needed either on first access or when mesh config changes.
-	fl := &fileaccesslog.FileAccessLog{
-		Path: path,
-	}
-
-	switch mesh.AccessLogEncoding {
-	case meshconfig.MeshConfig_TEXT:
-		formatString := EnvoyTextLogFormat
-		if mesh.AccessLogFormat != "" {
-			formatString = mesh.AccessLogFormat
-		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: formatString,
-						},
-					},
-				},
-			},
-		}
-	case meshconfig.MeshConfig_JSON:
-		jsonLogStruct := EnvoyJSONLogFormatIstio
-		if len(mesh.AccessLogFormat) > 0 {
-			parsedJSONLogStruct := structpb.Struct{}
-			if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
-				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
-			} else {
-				jsonLogStruct = &parsedJSONLogStruct
-			}
-		}
-		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: jsonLogStruct,
-				},
-			},
-		}
-	default:
-		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
-	}
-
-	al := &accesslog.AccessLog{
-		Name:       wellknown.FileAccessLog,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-	}
-
-	return al
 }
 
 func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
@@ -277,7 +199,7 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
+	al := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -294,13 +216,31 @@ func addAccessLogFilter() *accesslog.AccessLogFilter {
 	}
 }
 
+func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogFilter {
+	if len(f) == 0 {
+		return nil
+	}
+
+	if len(f) == 1 {
+		return f[0]
+	}
+
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_AndFilter{
+			AndFilter: &accesslog.AndFilter{
+				Filters: f,
+			},
+		},
+	}
+}
+
 func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	if cal := b.cachedListenerFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
+	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = addAccessLogFilter()
@@ -324,8 +264,8 @@ func (b *AccessLogBuilder) cachedListenerFileAccessLog() *accesslog.AccessLog {
 	return b.listenerFileAccessLog
 }
 
-func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
-	accessLogFriendlyName := tcpEnvoyAccessLogFriendlyName
+func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
+	accessLogFriendlyName := model.TCPEnvoyAccessLogFriendlyName
 	if isListener {
 		accessLogFriendlyName = listenerEnvoyAccessLogFriendlyName
 	}
@@ -349,16 +289,16 @@ func buildTCPGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 		filter = addAccessLogFilter()
 	}
 	return &accesslog.AccessLog{
-		Name:       tcpEnvoyALSName,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+		Name:       model.TCPEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 		Filter:     filter,
 	}
 }
 
-func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
+func httpGrpcAccessLog() *accesslog.AccessLog {
 	fl := &grpcaccesslog.HttpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: httpEnvoyAccessLogFriendlyName,
+			LogName: model.HTTPEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
@@ -373,7 +313,7 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 
 	return &accesslog.AccessLog{
 		Name:       wellknown.HTTPGRPCAccessLog,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 	}
 }
 

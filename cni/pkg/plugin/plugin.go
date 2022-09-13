@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/types/current"
+	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/api/annotation"
@@ -71,13 +71,14 @@ type Config struct {
 	// chained.
 	// If you need to modify the result before returning it, you will need
 	// to actually convert it to a concrete versioned struct.
-	RawPrevResult *map[string]interface{} `json:"prevResult"`
-	PrevResult    *current.Result         `json:"-"`
+	RawPrevResult *map[string]any `json:"prevResult"`
+	PrevResult    *cniv1.Result   `json:"-"`
 
 	// Add plugin-specific flags here
-	LogLevel      string     `json:"log_level"`
-	LogUDSAddress string     `json:"log_uds_address"`
-	Kubernetes    Kubernetes `json:"kubernetes"`
+	LogLevel        string     `json:"log_level"`
+	LogUDSAddress   string     `json:"log_uds_address"`
+	Kubernetes      Kubernetes `json:"kubernetes"`
+	HostNSEnterExec bool       `json:"hostNSEnterExec"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -85,9 +86,9 @@ type Config struct {
 type K8sArgs struct {
 	types.CommonArgs
 	IP                         net.IP
-	K8S_POD_NAME               types.UnmarshallableString // nolint: golint, stylecheck
-	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: golint, stylecheck
-	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: golint, stylecheck
+	K8S_POD_NAME               types.UnmarshallableString // nolint: revive, stylecheck
+	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: revive, stylecheck
+	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: revive, stylecheck
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -109,7 +110,7 @@ func parseConfig(stdin []byte) (*Config, error) {
 			return nil, fmt.Errorf("could not parse prevResult: %v", err)
 		}
 		conf.RawPrevResult = nil
-		conf.PrevResult, err = current.NewResultFromResult(res)
+		conf.PrevResult, err = cniv1.NewResultFromResult(res)
 		if err != nil {
 			return nil, fmt.Errorf("could not convert result to current version: %v", err)
 		}
@@ -176,7 +177,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	log.FindScope("default").SetOutputLevel(getLogLevel(conf.LogLevel))
 
-	var loggedPrevResult interface{}
+	var loggedPrevResult any
 	if conf.PrevResult == nil {
 		loggedPrevResult = "none"
 	} else {
@@ -271,6 +272,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 							log.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
 								interceptRuleMgrType)
 						} else {
+							redirect.hostNSEnterExec = conf.HostNSEnterExec
 							rulesMgr := interceptMgrCtor()
 							if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
 								return err
@@ -288,10 +290,10 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		log.Debugf("Not a kubernetes pod")
 	}
 
-	var result *current.Result
+	var result *cniv1.Result
 	if conf.PrevResult == nil {
-		result = &current.Result{
-			CNIVersion: current.ImplementedSpecVersion,
+		result = &cniv1.Result{
+			CNIVersion: cniv1.ImplementedSpecVersion,
 		}
 	} else {
 		// Pass through the result for the next plugin

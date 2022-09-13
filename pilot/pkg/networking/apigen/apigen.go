@@ -18,13 +18,11 @@ import (
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogotypes "github.com/gogo/protobuf/types"
-	golangany "github.com/golang/protobuf/ptypes/any"
 
-	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -42,10 +40,10 @@ import (
 // TODO: we can also add a special marker in the header)
 type APIGenerator struct {
 	// ConfigStore interface for listing istio api resources.
-	store model.IstioConfigStore `json:"-"`
+	store model.ConfigStore
 }
 
-func NewGenerator(store model.IstioConfigStore) *APIGenerator {
+func NewGenerator(store model.ConfigStore) *APIGenerator {
 	return &APIGenerator{
 		store: store,
 	}
@@ -62,8 +60,7 @@ func NewGenerator(store model.IstioConfigStore) *APIGenerator {
 // This provides similar functionality with MCP and :8080/debug/configz.
 //
 // Names are based on the current resource naming in istiod stores.
-func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	resp := model.Resources{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -87,16 +84,9 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		Kind:    kind[2],
 	}
 	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
-		meshAny, err := gogotypes.MarshalAny(push.Mesh)
-		if err == nil {
-			a := &golangany.Any{
-				TypeUrl: meshAny.TypeUrl,
-				Value:   meshAny.Value,
-			}
-			resp = append(resp, &discovery.Resource{
-				Resource: a,
-			})
-		}
+		resp = append(resp, &discovery.Resource{
+			Resource: protoconv.MessageToAny(req.Push.Mesh),
+		})
 		return resp, model.DefaultXdsLogDetails, nil
 	}
 
@@ -114,24 +104,15 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		// Right now model.Config is not a proto - until we change it, mcp.Resource.
 		// This also helps migrating MCP users.
 
-		b, err := configToResource(&c)
+		b, err := config.PilotConfigToResource(&c)
 		if err != nil {
 			log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 			continue
 		}
-		bany, err := gogotypes.MarshalAny(b)
-		if err == nil {
-			a := &golangany.Any{
-				TypeUrl: bany.TypeUrl,
-				Value:   bany.Value,
-			}
-			resp = append(resp, &discovery.Resource{
-				Name:     c.Namespace + "/" + c.Name,
-				Resource: a,
-			})
-		} else {
-			log.Warn("Any ", err)
-		}
+		resp = append(resp, &discovery.Resource{
+			Name:     c.Namespace + "/" + c.Name,
+			Resource: protoconv.MessageToAny(b),
+		})
 	}
 
 	// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
@@ -139,60 +120,24 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	if w.TypeUrl == gvk.ServiceEntry.String() {
 		// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 		// EDS is pass-through.
-		svcs := push.Services(proxy)
+		svcs := proxy.SidecarScope.Services()
 		for _, s := range svcs {
 			// Ignore services that are result of conversion from ServiceEntry.
 			if s.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
 			c := serviceentry.ServiceToServiceEntry(s, proxy)
-			b, err := configToResource(c)
+			b, err := config.PilotConfigToResource(c)
 			if err != nil {
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue
 			}
-			bany, err := gogotypes.MarshalAny(b)
-			if err == nil {
-				a := &golangany.Any{
-					TypeUrl: bany.TypeUrl,
-					Value:   bany.Value,
-				}
-				resp = append(resp, &discovery.Resource{
-					Name:     c.Namespace + "/" + c.Name,
-					Resource: a,
-				})
-			} else {
-				log.Warn("Any ", err)
-			}
+			resp = append(resp, &discovery.Resource{
+				Name:     c.Namespace + "/" + c.Name,
+				Resource: protoconv.MessageToAny(b),
+			})
 		}
 	}
 
 	return resp, model.DefaultXdsLogDetails, nil
-}
-
-// Convert from model.Config, which has no associated proto, to MCP Resource proto.
-// TODO: define a proto matching Config - to avoid useless superficial conversions.
-func configToResource(c *config.Config) (*mcp.Resource, error) {
-	r := &mcp.Resource{}
-
-	// MCP, K8S and Istio configs use gogo configs
-	// On the wire it's the same as golang proto.
-	a, err := config.ToProtoGogo(c.Spec)
-	if err != nil {
-		return nil, err
-	}
-	r.Body = a
-	ts, err := gogotypes.TimestampProto(c.CreationTimestamp)
-	if err != nil {
-		return nil, err
-	}
-	r.Metadata = &mcp.Metadata{
-		Name:        c.Namespace + "/" + c.Name,
-		CreateTime:  ts,
-		Version:     c.ResourceVersion,
-		Labels:      c.Labels,
-		Annotations: c.Annotations,
-	}
-
-	return r, nil
 }

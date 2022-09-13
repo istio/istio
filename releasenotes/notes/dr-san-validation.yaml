@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 40801
+releaseNotes:
+- |
+  **Fixed** an issue with where a `DestinationRule` applying to multiple services could incorrectly apply an unexpected `subjectAltNames` field.
+- |
+  **Fixed** a behavioral change in 1.15.0 causing the `ServiceEntry` `SubjectAltName` field to be ignored 

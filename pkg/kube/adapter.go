@@ -15,7 +15,8 @@
 package kube
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -41,7 +42,7 @@ type AdmissionReview struct {
 	// TypeMeta describes an individual object in an API response or request
 	// with strings representing the type of the object and its API schema version.
 	// Structures that are versioned or persisted should inline TypeMeta.
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta
 
 	// Request describes the attributes for the admission request.
 	Request *AdmissionRequest `json:"request,omitempty"`
@@ -52,7 +53,6 @@ type AdmissionReview struct {
 
 // AdmissionRequest describes the admission.Attributes for the admission request.
 type AdmissionRequest struct {
-
 	// UID is an identifier for the individual request/response. It allows us to distinguish instances of requests which are
 	// otherwise identical (parallel requests, requests when earlier requests did not modify etc)
 	// The UID is meant to track the round trip (request/response) between the KAS and the WebHook, not the user request.
@@ -127,7 +127,6 @@ type AdmissionRequest struct {
 
 // AdmissionResponse describes an admission response.
 type AdmissionResponse struct {
-
 	// UID is an identifier for the individual request/response.
 	// This should be copied over from the corresponding AdmissionRequest.
 	UID types.UID `json:"uid"`
@@ -227,7 +226,7 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 		}
 
 	default:
-		return nil, errors.Errorf("unsupported type :%v", object.GetObjectKind())
+		return nil, fmt.Errorf("unsupported type :%v", object.GetObjectKind())
 	}
 
 	return &AdmissionReview{

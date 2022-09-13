@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: zipkin
-          image: openzipkin/zipkin-slim:2.23.0
+          image: openzipkin/zipkin-slim:2.23.14
           env:
             - name: STORAGE_METHOD
               value: "mem"

@@ -20,11 +20,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
-	"github.com/cenkalti/backoff"
-
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -54,7 +51,7 @@ var exittypeToString = map[XTablesExittype]string{
 }
 
 // XTablesCmds is the set of all the xtables-related commands currently supported.
-var XTablesCmds = sets.NewSet(
+var XTablesCmds = sets.New(
 	constants.IPTABLES,
 	constants.IP6TABLES,
 	constants.IPTABLESRESTORE,
@@ -66,95 +63,8 @@ var XTablesCmds = sets.NewSet(
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
 	NetworkNamespace string
+	HostNSEnterExec  bool
 	CNIMode          bool
-}
-
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
-	if r.CNIMode {
-		originalCmd := cmd
-		cmd = constants.NSENTER
-		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
-	}
-	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
-	externalCommand := exec.Command(cmd, args...)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	externalCommand.Stdout = stdout
-	externalCommand.Stderr = stderr
-
-	err := externalCommand.Run()
-
-	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
-	}
-
-	if !ignoreErrors && len(stderr.Bytes()) != 0 {
-		log.Errorf("Command error output: \n%v", stderr.String())
-	}
-
-	return err
-}
-
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
-	if r.CNIMode {
-		originalCmd := cmd
-		cmd = constants.NSENTER
-		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
-	}
-	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
-
-	var stdout, stderr *bytes.Buffer
-
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 100 * time.Millisecond
-	b.MaxInterval = 2 * time.Second
-	b.MaxElapsedTime = 10 * time.Second
-	var err error
-	backoffError := backoff.Retry(func() error {
-		externalCommand := exec.Command(cmd, args...)
-		stdout = &bytes.Buffer{}
-		stderr = &bytes.Buffer{}
-		externalCommand.Stdout = stdout
-		externalCommand.Stderr = stderr
-		err = externalCommand.Run()
-		exitCode, ok := exitCode(err)
-		if !ok {
-			// cannot get exit code. consider this as non-retriable.
-			return nil
-		}
-
-		if !isXTablesLockError(stderr, exitCode) {
-			// Command succeeded, or failed not because of xtables lock.
-			return nil
-		}
-
-		// If command failed because xtables was locked, try the command again.
-		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
-		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
-		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
-		return err
-	}, b)
-	if backoffError != nil {
-		return fmt.Errorf("timed out trying to acquire XTables lock: %v", err)
-	}
-
-	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
-	}
-
-	// TODO Check naming and redirection logic
-	if (err != nil || len(stderr.String()) != 0) && !ignoreErrors {
-		stderrStr := stderr.String()
-
-		// Transform to xtables-specific error messages with more useful and actionable hints.
-		if err != nil {
-			stderrStr = transformToXTablesErrorMessage(stderrStr, err)
-		}
-
-		log.Errorf("Command error output: %v", stderrStr)
-	}
-
-	return err
 }
 
 // transformToXTablesErrorMessage returns an updated error message with explicit xtables error hints, if applicable.

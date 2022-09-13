@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 35750
+  - 36166
+  - 36521
+
+releaseNotes:
+  - |
+    **Fixed** an issue where enabling tracing with telemetry API will cause malformed host header being used at the trace report request.

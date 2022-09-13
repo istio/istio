@@ -19,56 +19,49 @@ package cert
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"os"
 	"path"
-	"strings"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/tests/integration/security/util/dir"
-	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
-// DumpCertFromSidecar gets the certificate output from openssl s-client command.
-func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, kubeconfig, connectTarget string) (string, error) {
-	retry := util.Retrier{
-		BaseDelay: 10 * time.Second,
-		Retries:   3,
-		MaxDelay:  30 * time.Second,
+// DumpCertFromSidecar gets the certificates served by the destination.
+func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port string) []string {
+	result := from.CallOrFail(t, echo.CallOptions{
+		To:    to,
+		Count: 1,
+		Port: echo.Port{
+			Name: port,
+		},
+		Scheme: scheme.TLS,
+		TLS: echo.TLS{
+			Alpn: []string{"istio"},
+		},
+	})
+	if result.Responses.Len() != 1 {
+		t.Fatalf("dump cert failed, no responses")
 	}
-
-	fromPod, err := dir.GetPodName(ns, fromSelector, kubeconfig)
-	if err != nil {
-		return "", fmt.Errorf("err getting the pod from pod name: %v", err)
-	}
-
-	var out string
-	retryFn := func(_ context.Context, i int) error {
-		execCmd := fmt.Sprintf(
-			"kubectl exec %s -c %s -n %s --kubeconfig %s -- openssl s_client -showcerts -alpn istio -connect %s",
-			fromPod, fromContainer, ns.Name(), kubeconfig, connectTarget)
-		out, err = shell.Execute(false, execCmd)
-		if !strings.Contains(out, "-----BEGIN CERTIFICATE-----") {
-			return fmt.Errorf("the output doesn't contain certificate: %v", out)
+	var certs []string
+	for _, rr := range result.Responses[0].Body() {
+		var s string
+		if err := json.Unmarshal([]byte(rr), &s); err != nil {
+			t.Fatalf("failed to unmarshal: %v", err)
 		}
-		return nil
+		certs = append(certs, s)
 	}
-
-	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
-		return "", fmt.Errorf("get cert retry failed with err: %v", err)
-	}
-	return out, nil
+	return certs
 }
 
 // CreateCASecret creates a k8s secret "cacerts" to store the CA key and cert.
@@ -93,7 +86,7 @@ func CreateCASecret(ctx resource.Context) error {
 		return err
 	}
 
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.AllClusters() {
 		secret := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -107,9 +100,9 @@ func CreateCASecret(ctx resource.Context) error {
 			},
 		}
 
-		if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
-				if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+				if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			} else {
@@ -122,7 +115,7 @@ func CreateCASecret(ctx resource.Context) error {
 		// resources from a previous integration test, but sometimes
 		// the resources from a previous integration test are not deleted.
 		configMapName := "istio-ca-root-cert"
-		err = cluster.CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+		err = cluster.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
 			metav1.DeleteOptions{})
 		if err == nil {
 			log.Infof("configmap %v is deleted", configMapName)
@@ -169,7 +162,6 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 		return err
 	}
 
-	kubeAccessor := ctx.Clusters().Default()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -182,16 +174,16 @@ func CreateCustomEgressSecret(ctx resource.Context) error {
 			"fake-root-cert.pem": fakeRootCert,
 		},
 	}
-
-	_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			_, err = kubeAccessor.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	for _, cluster := range ctx.Clusters() {
+		_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				_, err = cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{})
+				return err
+			}
 			return err
 		}
-		return err
 	}
-
 	return nil
 }
 
@@ -201,4 +193,12 @@ func ReadCustomCertFromFile(f string) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func LoadCert(filename string) (string, error) {
+	data, err := ReadSampleCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

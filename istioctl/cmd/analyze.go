@@ -29,17 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 )
@@ -66,8 +63,8 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers     bool
 	useKube           bool
-	failureThreshold  = formatting.MessageThreshold{diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold   = formatting.MessageThreshold{diag.Info}  // messages at least this level will be included in the output
+	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
 	colorize          bool
 	msgOutputFormat   string
 	meshCfgFile       string
@@ -76,6 +73,7 @@ var (
 	suppress          []string
 	analysisTimeout   time.Duration
 	recursive         bool
+	ignoreUnknown     bool
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -132,11 +130,11 @@ func Analyze() *cobra.Command {
 
 			// check whether selected namespace exists.
 			if namespace != "" && useKube {
-				client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+				client, err := kube.NewClient(kube.BuildClientCmd(kubeconfig, configContext))
 				if err != nil {
 					return err
 				}
-				_, err = client.CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
+				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
 					return nil
@@ -148,11 +146,12 @@ func Analyze() *cobra.Command {
 				selectedNamespace = ""
 			}
 
-			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
+				resource.Namespace(selectedNamespace),
+				resource.Namespace(istioNamespace), nil, true)
 
 			// Check for suppressions and add them to our SourceAnalyzer
-			suppressions := make([]snapshotter.AnalysisSuppression, 0, len(suppress))
+			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
 			for _, s := range suppress {
 				parts := strings.Split(s, "=")
 				if len(parts) != 2 {
@@ -171,7 +170,7 @@ func Analyze() *cobra.Command {
 				if !codeIsValid {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will not have any effect.\n", parts[0])
 				}
-				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+				suppressions = append(suppressions, local.AnalysisSuppression{
 					Code:         parts[0],
 					ResourceName: parts[1],
 				})
@@ -185,7 +184,10 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				k := cfgKube.NewInterfaces(restConfig)
+				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+				if err != nil {
+					return err
+				}
 				sa.AddRunningKubeSource(k)
 			}
 
@@ -278,7 +280,7 @@ func Analyze() *cobra.Command {
 			var returnError error
 			if msgOutputFormat == formatting.LogFormat {
 				returnError = errorIfMessagesExceedThreshold(result.Messages)
-				if returnError == nil && parseErrors > 0 {
+				if returnError == nil && parseErrors > 0 && !ignoreUnknown {
 					returnError = FileParseError{}
 				}
 			}
@@ -312,6 +314,8 @@ func Analyze() *cobra.Command {
 		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
+	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
+		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	return analysisCmd
 }
 
@@ -372,7 +376,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursve option
+		// If we encounter a directory, recurse only if the --recursive option
 		// was provided and the directory is not the same as dir.
 		if info.IsDir() {
 			if !recursive && dir != path {

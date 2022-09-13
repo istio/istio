@@ -40,7 +40,7 @@ type EndpointBuilder struct {
 	namespace      string
 
 	// Values used to build dns name tables per pod.
-	// The the hostname of the Pod, by default equals to pod name.
+	// The hostname of the Pod, by default equals to pod name.
 	hostname string
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	subDomain string
@@ -92,13 +92,13 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 			Label:     locality,
 			ClusterID: c.Cluster(),
 		},
-		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
+		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Labels),
 	}
 	var networkID network.ID
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Metadata.Labels, c.Cluster(), locality, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, networkID)
 	return out
 }
 
@@ -106,7 +106,8 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointAddress string,
 	endpointPort int32,
 	svcPortName string,
-	discoverabilityPolicy model.EndpointDiscoverabilityPolicy) *model.IstioEndpoint {
+	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
+) *model.IstioEndpoint {
 	if b == nil {
 		return nil
 	}

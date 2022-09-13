@@ -20,7 +20,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
+
+var scope = log.RegisterScope("retry", "logs for retries", 0)
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
@@ -36,14 +39,17 @@ const (
 var defaultConfig = config{
 	timeout:  DefaultTimeout,
 	delay:    DefaultDelay,
+	delayMax: DefaultDelay * 16,
 	converge: DefaultConverge,
 }
 
 type config struct {
-	error    string
-	timeout  time.Duration
-	delay    time.Duration
-	converge int
+	error       string
+	timeout     time.Duration
+	delay       time.Duration
+	delayMax    time.Duration
+	converge    int
+	maxAttempts int
 }
 
 // Option for a retry operation.
@@ -60,6 +66,15 @@ func Timeout(timeout time.Duration) Option {
 func Delay(delay time.Duration) Option {
 	return func(cfg *config) {
 		cfg.delay = delay
+		cfg.delayMax = delay
+	}
+}
+
+func BackoffDelay(delay time.Duration) Option {
+	return func(cfg *config) {
+		cfg.delay = delay
+		// Currently, hardcode to 16 backoffs. We can make it configurable if needed
+		cfg.delayMax = delay * 16
 	}
 }
 
@@ -79,12 +94,19 @@ func Message(errorMessage string) Option {
 	}
 }
 
+// MaxAttempts allows defining a maximum number of attempts. If unset, only timeout is considered.
+func MaxAttempts(attempts int) Option {
+	return func(cfg *config) {
+		cfg.maxAttempts = attempts
+	}
+}
+
 // RetriableFunc a function that can be retried.
-type RetriableFunc func() (result interface{}, completed bool, err error)
+type RetriableFunc func() (result any, completed bool, err error)
 
 // UntilSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
 func UntilSuccess(fn func() error, options ...Option) error {
-	_, e := Do(func() (interface{}, bool, error) {
+	_, e := UntilComplete(func() (any, bool, error) {
 		err := fn()
 		if err != nil {
 			return nil, false, err
@@ -137,8 +159,9 @@ func getErrorMessage(options []Option) error {
 	return errors.New(cfg.error)
 }
 
-// Do retries the given function, until there is a timeout, or until the function indicates that it has completed.
-func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
+// UntilComplete retries the given function, until there is a timeout, or until the function indicates that it has completed.
+// Once complete, the returned value and error are returned.
+func UntilComplete(fn RetriableFunc, options ...Option) (any, error) {
 	cfg := defaultConfig
 	for _, option := range options {
 		option(&cfg)
@@ -148,7 +171,11 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 	attempts := 0
 	var lasterr error
 	to := time.After(cfg.timeout)
+	delay := cfg.delay
 	for {
+		if cfg.maxAttempts > 0 && attempts >= cfg.maxAttempts {
+			return nil, fmt.Errorf("hit max attempts %d attempts (last error: %v)", attempts, lasterr)
+		}
 		select {
 		case <-to:
 			return nil, fmt.Errorf("timeout while waiting after %d attempts (last error: %v)", attempts, lasterr)
@@ -169,10 +196,10 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 
 			// Skip delay if we have a success
 			continue
-		} else {
-			successes = 0
 		}
+		successes = 0
 		if err != nil {
+			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err
 		}
 
@@ -183,8 +210,11 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 				convergeStr = fmt.Sprintf(", %d/%d successes", successes, cfg.converge)
 			}
 			return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
-		case <-time.After(cfg.delay):
+		case <-time.After(delay):
+			delay *= 2
+			if delay > cfg.delayMax {
+				delay = cfg.delayMax
+			}
 		}
-
 	}
 }

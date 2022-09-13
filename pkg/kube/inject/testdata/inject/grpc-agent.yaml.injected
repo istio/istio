@@ -19,17 +19,19 @@ spec:
         prometheus.io/scrape: "true"
         proxy.istio.io/overrides: '{"containers":[{"name":"traffic","image":"fake.docker.io/google-samples/traffic-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
-        sidecar.istio.io/status: '{"initContainers":null,"containers":["traffic","istio-proxy"],"volumes":["istio-xds","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":null,"containers":["istio-proxy","traffic"],"volumes":["workload-socket","workload-certs","istio-xds","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: grpc
+        service.istio.io/canonical-name: grpc
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - env:
-        - name: GRPC_XDS_BOOTSTRAP
-          value: /var/lib/istio/data/grpc-bootstrap.json
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
           value: "true"
+        - name: GRPC_XDS_BOOTSTRAP
+          value: /etc/istio/proxy/grpc-bootstrap.json
         image: fake.docker.io/google-samples/traffic-go-gke:1.0
         name: traffic
         readinessProbe:
@@ -41,15 +43,17 @@ spec:
           name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-xds
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
       - args:
         - proxy
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
+        - --proxyLogLevel=warning
+        - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
         env:
-        - name: GRPC_XDS_BOOTSTRAP
-          value: /var/lib/istio/data/grpc-bootstrap.json
         - name: ISTIO_META_GENERATOR
           value: grpc
         - name: OUTPUT_CERTS
@@ -91,8 +95,6 @@ spec:
           value: traffic
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: ISTIO_META_INTERCEPTION_MODE
-          value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
           value: grpc
         - name: ISTIO_META_OWNER
@@ -106,7 +108,18 @@ spec:
         - name: DISABLE_ENVOY
           value: "true"
         image: gcr.io/istio-testing/proxyv2:latest
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - pilot-agent
+              - wait
+              - --url=http://localhost:15020/healthz/ready
         name: istio-proxy
+        ports:
+        - containerPort: 15020
+          name: mesh-metrics
+          protocol: TCP
         readinessProbe:
           failureThreshold: 30
           httpGet:
@@ -123,6 +136,10 @@ spec:
             cpu: 100m
             memory: 128Mi
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -134,6 +151,8 @@ spec:
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       volumes:
+      - name: workload-socket
+      - name: workload-certs
       - emptyDir:
           medium: Memory
         name: istio-xds

@@ -19,13 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
@@ -38,7 +36,7 @@ const (
 
 // Params contains parameters for running a kubectl fetch command.
 type Params struct {
-	Client         kube.ExtendedClient
+	Client         kube.CLIClient
 	DryRun         bool
 	Verbose        bool
 	ClusterVersion string
@@ -46,9 +44,11 @@ type Params struct {
 	IstioNamespace string
 	Pod            string
 	Container      string
+	KubeConfig     string
+	KubeContext    string
 }
 
-func (p *Params) SetClient(client kube.ExtendedClient) *Params {
+func (p *Params) SetClient(client kube.CLIClient) *Params {
 	out := *p
 	out.Client = client
 	return &out
@@ -104,7 +104,7 @@ func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := kubectlcmd.RunCmd("get --all-namespaces "+
 		"all,namespaces,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events,"+
 		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
-		"-o yaml", "", p.DryRun)
+		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("k8s-resources", out, err)
 }
 
@@ -114,7 +114,7 @@ func GetSecrets(p *Params) (map[string]string, error) {
 	if p.Verbose {
 		cmdStr += " -o yaml"
 	}
-	out, err := kubectlcmd.RunCmd(cmdStr, "", p.DryRun)
+	out, err := kubectlcmd.RunCmd(cmdStr, "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("secrets", out, err)
 }
 
@@ -124,19 +124,20 @@ func GetCRs(p *Params) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	out, err := kubectlcmd.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", p.DryRun)
+	out, err := kubectlcmd.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("crs", out, err)
 }
 
 // GetClusterInfo returns the cluster info.
 func GetClusterInfo(p *Params) (map[string]string, error) {
-	out, err := kubectlcmd.RunCmd("config current-context", "", p.DryRun)
+	out, err := kubectlcmd.RunCmd("config current-context", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	if err != nil {
 		return nil, err
 	}
 	ret := make(map[string]string)
-	ret["cluster-context"] = out
-	out, err = kubectlcmd.RunCmd("version", "", p.DryRun)
+	// Add the endpoint to the context
+	ret["cluster-context"] = out + p.Client.RESTConfig().Host + "\n"
+	out, err = kubectlcmd.RunCmd("version", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	if err != nil {
 		return nil, err
 	}
@@ -146,12 +147,12 @@ func GetClusterInfo(p *Params) (map[string]string, error) {
 
 // GetClusterContext returns the cluster context.
 func GetClusterContext(kubeConfig string) (string, error) {
-	return kubectlcmd.RunCmd(fmt.Sprintf("--kubeconfig=%s config current-context", kubeConfig), "", false)
+	return kubectlcmd.RunCmd("config current-context", "", kubeConfig, "", false)
 }
 
 // GetNodeInfo returns node information.
 func GetNodeInfo(p *Params) (map[string]string, error) {
-	out, err := kubectlcmd.RunCmd("describe nodes", "", p.DryRun)
+	out, err := kubectlcmd.RunCmd("describe nodes", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("nodes", out, err)
 }
 
@@ -160,13 +161,13 @@ func GetDescribePods(p *Params) (map[string]string, error) {
 	if p.IstioNamespace == "" {
 		return nil, fmt.Errorf("getDescribePods requires the Istio namespace")
 	}
-	out, err := kubectlcmd.RunCmd("describe pods", p.IstioNamespace, p.DryRun)
+	out, err := kubectlcmd.RunCmd("describe pods", p.IstioNamespace, p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("describe-pods", out, err)
 }
 
 // GetEvents returns events for all namespaces.
-func GetEvents(params *Params) (map[string]string, error) {
-	out, err := kubectlcmd.RunCmd("get events --all-namespaces -o wide", "", params.DryRun)
+func GetEvents(p *Params) (map[string]string, error) {
+	out, err := kubectlcmd.RunCmd("get events --all-namespaces -o wide", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("events", out, err)
 }
 
@@ -216,12 +217,14 @@ func GetNetstat(p *Params) (map[string]string, error) {
 }
 
 // GetAnalyze returns the output of istioctl analyze.
-func GetAnalyze(p *Params) (map[string]string, error) {
+func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	out := make(map[string]string)
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-		resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, 5*time.Minute)
+	sa := local.NewSourceAnalyzer(analyzers.AllCombined(), resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, timeout)
 
-	k := cfgKube.NewInterfaces(p.Client.RESTConfig())
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Client.RESTConfig()))
+	if err != nil {
+		return nil, err
+	}
 	sa.AddRunningKubeSource(k)
 
 	cancel := make(chan struct{})
@@ -310,8 +313,8 @@ func getCoredumpList(p *Params) ([]string, error) {
 	return cds, nil
 }
 
-func getCRDList(params *Params) ([]string, error) {
-	crdStr, err := kubectlcmd.RunCmd("get customresourcedefinitions --no-headers", "", params.DryRun)
+func getCRDList(p *Params) ([]string, error) {
+	crdStr, err := kubectlcmd.RunCmd("get customresourcedefinitions --no-headers", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	if err != nil {
 		return nil, err
 	}

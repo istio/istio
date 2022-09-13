@@ -17,6 +17,9 @@ package cache
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,13 +27,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
 
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -44,9 +48,6 @@ var (
 )
 
 const (
-	// The size of a private key for a leaf certificate.
-	keySize = 2048
-
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -64,17 +65,17 @@ const (
 // it serves.
 //
 // SecretManagerClient supports two modes of retrieving certificate (potentially at the same time):
-// * File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
-//   requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
-//   certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
-//   names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
-// * On demand CSRs. This is used only for the `default` certificate. When this resource is
-//   requested, a CSR will be sent to the configured caClient.
+//   - File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
+//     requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
+//     certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
+//     names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
+//   - On demand CSRs. This is used only for the `default` certificate. When this resource is
+//     requested, a CSR will be sent to the configured caClient.
 //
 // Callers are expected to only call GenerateSecret when a new certificate is required. Generally,
 // this should be done a single time at startup, then repeatedly when the certificate is near
 // expiration. To help users handle certificate expiration, any certificates created by the caClient
-// will be monitored; when they are near expiration the notifyCallback function is triggered,
+// will be monitored; when they are near expiration the secretHandler function is triggered,
 // prompting the client to call GenerateSecret again, if they still care about the certificate. For
 // files, this callback is instead triggered on any change to the file (triggering on expiration
 // would not be helpful, as all we can do is re-read the same file).
@@ -85,7 +86,7 @@ type SecretManagerClient struct {
 	configOptions *security.Options
 
 	// callback function to invoke when detecting secret change.
-	notifyCallback func(resourceName string)
+	secretHandler func(resourceName string)
 
 	// Cache of workload certificate and root certificate. File based certs are never cached, as
 	// lookup is cheap.
@@ -163,7 +164,6 @@ type FileCert struct {
 }
 
 // NewSecretManagerClient creates a new SecretManagerClient.
-// Only ever used for secretcache_test.go? Everywhere else it is made directly
 func NewSecretManagerClient(caClient security.Client, options *security.Options) (*SecretManagerClient, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -175,9 +175,9 @@ func NewSecretManagerClient(caClient security.Client, options *security.Options)
 		caClient:      caClient,
 		configOptions: options,
 		existingCertificateFile: security.SdsCertificateConfig{
-			CertificatePath:   security.DefaultCertChainFilePath,
-			PrivateKeyPath:    security.DefaultKeyFilePath,
-			CaCertificatePath: security.DefaultRootCertFilePath,
+			CertificatePath:   options.CertChainFilePath,
+			PrivateKeyPath:    options.KeyFilePath,
+			CaCertificatePath: options.RootCertFilePath,
 		},
 		certWatcher: watcher,
 		fileCerts:   make(map[FileCert]struct{}),
@@ -198,17 +198,17 @@ func (sc *SecretManagerClient) Close() {
 	close(sc.stop)
 }
 
-func (sc *SecretManagerClient) SetUpdateCallback(f func(resourceName string)) {
+func (sc *SecretManagerClient) RegisterSecretHandler(h func(resourceName string)) {
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
-	sc.notifyCallback = f
+	sc.secretHandler = h
 }
 
-func (sc *SecretManagerClient) CallUpdateCallback(resourceName string) {
+func (sc *SecretManagerClient) OnSecretUpdate(resourceName string) {
 	sc.certMutex.RLock()
 	defer sc.certMutex.RUnlock()
-	if sc.notifyCallback != nil {
-		sc.notifyCallback(resourceName)
+	if sc.secretHandler != nil {
+		sc.secretHandler(resourceName)
 	}
 }
 
@@ -219,7 +219,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 
 	if c := sc.cache.GetWorkload(); c != nil {
 		if resourceName == security.RootCertReqResourceName {
-			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
+			rootCertBundle = sc.mergeTrustAnchorBytes(c.RootCert)
 			ns = &security.SecretItem{
 				ResourceName: resourceName,
 				RootCert:     rootCertBundle,
@@ -304,7 +304,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	sc.registerSecret(*ns)
 
 	if resourceName == security.RootCertReqResourceName {
-		ns.RootCert = sc.mergeConfigTrustBundle(ns.RootCert)
+		ns.RootCert = sc.mergeTrustAnchorBytes(ns.RootCert)
 	} else {
 		// If periodic cert refresh resulted in discovery of a new root, trigger a ROOTCA request to refresh trust anchor
 		oldRoot := sc.cache.GetRoot()
@@ -312,7 +312,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 			cacheLog.Info("Root cert has changed, start rotating root cert")
 			// We store the oldRoot only for comparison and not for serving
 			sc.cache.SetRoot(ns.RootCert)
-			sc.CallUpdateCallback(security.RootCertReqResourceName)
+			sc.OnSecretUpdate(security.RootCertReqResourceName)
 		}
 	}
 
@@ -324,18 +324,16 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
 		return
 	}
-	// Retry file watcher as some times it might fail to add and we will miss change
+	// RetryWithContext file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
 	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
-		b := backoff.NewExponentialBackOff()
-		for {
-			if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
-				break
-			}
-			time.Sleep(b.NextBackOff())
-		}
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		_ = b.RetryWithContext(context.TODO(), func() error {
+			err := sc.tryAddFileWatcher(file, resourceName)
+			return err
+		})
 	}()
 }
 
@@ -344,7 +342,11 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
-	file = filepath.Clean(file)
+	file, err := filepath.Abs(file)
+	if err != nil {
+		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches: %v", resourceName, file, err)
+		return err
+	}
 	key := FileCert{
 		ResourceName: resourceName,
 		Filename:     file,
@@ -358,7 +360,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for file, retrying watches [%s] %v", resourceName, file, err)
+		cacheLog.Errorf("%v: error adding watcher for file %v, retrying watches: %v", resourceName, file, err)
 		numFileWatcherFailures.Increment()
 		return err
 	}
@@ -410,9 +412,25 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
-	// To handle that case, we wait for some time here.
-	timer := time.After(sc.configOptions.FileDebounceDuration)
-	<-timer
+	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
+	o := backoff.DefaultOption()
+	o.InitialInterval = sc.configOptions.FileDebounceDuration
+	b := backoff.NewExponentialBackOff(o)
+	var permanentErr error
+	secretValid := func() error {
+		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
+		if errors.Is(err, os.ErrNotExist) {
+			permanentErr = err
+			return nil
+		}
+		return err
+	}
+	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
+		return nil, err
+	}
+	if permanentErr != nil {
+		return nil, permanentErr
+	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
 
@@ -486,7 +504,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		sdsFromFile = true
 		if sitem, err = sc.generateRootCertFromExistingFile(cf.CaCertificatePath, resourceName, true); err == nil {
 			// If retrieving workload trustBundle, then merge other configured trustAnchors in ProxyConfig
-			sitem.RootCert = sc.mergeConfigTrustBundle(sitem.RootCert)
+			sitem.RootCert = sc.mergeTrustAnchorBytes(sitem.RootCert)
 			sc.addFileWatcher(cf.CaCertificatePath, resourceName)
 		}
 	// Default workload certificate.
@@ -541,7 +559,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 }
 
 func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
-	var trustBundlePEM []string = []string{}
+	trustBundlePEM := []string{}
 	var rootCertPEM []byte
 
 	if sc.caClient == nil {
@@ -559,7 +577,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
 	options := pkiutil.CertOptions{
 		Host:       csrHostName.String(),
-		RSAKeySize: keySize,
+		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
 	}
@@ -627,6 +645,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	delay := sc.rotateTime(item)
+	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, item.ResourceName)
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {
@@ -640,7 +659,7 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 		// Clear the cache so the next call generates a fresh certificate
 		sc.cache.SetWorkload(nil)
 
-		sc.CallUpdateCallback(item.ResourceName)
+		sc.OnSecretUpdate(item.ResourceName)
 		return nil
 	}, delay)
 }
@@ -668,7 +687,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
 			for k := range resources {
 				if k.Filename == event.Name {
-					sc.CallUpdateCallback(k.ResourceName)
+					sc.OnSecretUpdate(k.ResourceName)
 				}
 			}
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
@@ -721,29 +740,41 @@ func concatCerts(certsPEM []string) []byte {
 	return certChain.Bytes()
 }
 
-func (sc *SecretManagerClient) getConfigTrustBundle() []byte {
-	sc.configTrustBundleMutex.RLock()
-	defer sc.configTrustBundleMutex.RUnlock()
-	return sc.configTrustBundle
-}
-
-func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
-	sc.configTrustBundleMutex.Lock()
-	defer sc.configTrustBundleMutex.Unlock()
-	sc.configTrustBundle = trustBundle
-}
-
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
-	existingBundle := sc.getConfigTrustBundle()
-	if bytes.Equal(existingBundle, trustBundle) {
+	sc.configTrustBundleMutex.Lock()
+
+	if bytes.Equal(sc.configTrustBundle, trustBundle) {
+		sc.configTrustBundleMutex.Unlock()
 		return nil
 	}
-	sc.setConfigTrustBundle(trustBundle)
-	sc.CallUpdateCallback(security.RootCertReqResourceName)
+	sc.configTrustBundle = trustBundle
+	sc.configTrustBundleMutex.Unlock()
+	sc.OnSecretUpdate(security.RootCertReqResourceName)
 	return nil
 }
 
-func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
-	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
+// mergeTrustAnchorBytes: Merge cert bytes with the cached TrustAnchors.
+func (sc *SecretManagerClient) mergeTrustAnchorBytes(caCerts []byte) []byte {
+	return sc.mergeConfigTrustBundle(pkiutil.PemCertBytestoString(caCerts))
+}
+
+// mergeConfigTrustBundle: merge rootCerts trustAnchors provided in args with proxyConfig trustAnchors
+// ensure dedup and sorting before returning trustAnchors
+func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte {
+	sc.configTrustBundleMutex.RLock()
+	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
+	sc.configTrustBundleMutex.RUnlock()
+	anchors := sets.New()
+	for _, cert := range existingCerts {
+		anchors.Insert(cert)
+	}
+	for _, cert := range rootCerts {
+		anchors.Insert(cert)
+	}
+	anchorBytes := []byte{}
+	for _, cert := range anchors.SortedList() {
+		anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))
+	}
+	return anchorBytes
 }

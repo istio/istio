@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -221,6 +222,7 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			bpr := brokenPodReconciler{
 				client: fake.NewSimpleClientset(),
@@ -235,8 +237,8 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 
 // Test the ListBrokenPods function
 // TODO:(stewartbutler) Add some simple field selector filter test logic to the client-go
-//  fake client. The fake client does NOT support filtering by field selector,
-//  so we need to add that ourselves to complete the test.
+// fake client. The fake client does NOT support filtering by field selector,
+// so we need to add that ourselves to complete the test.
 func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	type fields struct {
 		client kubernetes.Interface
@@ -617,4 +619,42 @@ func checkStats(wantCount float64, wantTags []tag.Tag, exp *testExporter) error 
 		}
 	}
 	return nil
+}
+
+func TestAddToWorkerQueue(t *testing.T) {
+	tests := []struct {
+		name           string
+		pod            v1.Pod
+		repairConfig   *config.RepairConfig
+		expectQueueLen int
+	}{
+		{
+			name:           "broken pod",
+			pod:            brokenPodWaiting,
+			expectQueueLen: 1,
+		},
+		{
+			name:           "normal pod",
+			pod:            workingPod,
+			expectQueueLen: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Controller{
+				workQueue: workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(0, 0)),
+				reconciler: brokenPodReconciler{
+					cfg: &config.RepairConfig{
+						SidecarAnnotation: "sidecar.istio.io/status",
+						InitContainerName: constants.ValidationContainerName,
+						InitExitCode:      126,
+					},
+				},
+			}
+			c.mayAddToWorkQueue(&tt.pod)
+			if tt.expectQueueLen != c.workQueue.Len() {
+				t.Errorf("work queue length got %v want %v", c.workQueue.Len(), tt.expectQueueLen)
+			}
+		})
+	}
 }

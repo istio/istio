@@ -20,11 +20,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -40,11 +40,13 @@ const (
 	// This includes all the info that envoy (client) provides.
 	TypeURLNACK = "istio.io/nack"
 
+	TypeDebugPrefix = v3.DebugType + "/"
+
 	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
-	TypeDebugSyncronization = "istio.io/debug/syncz"
+	TypeDebugSyncronization = v3.DebugType + "/syncz"
 
 	// TypeDebugConfigDump requests Envoy configuration for a proxy without creating one
-	TypeDebugConfigDump = "istio.io/debug/config_dump"
+	TypeDebugConfigDump = v3.DebugType + "/config_dump"
 
 	// TODO: TypeURLReady - readiness events for endpoints, agent can propagate
 )
@@ -67,8 +69,7 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - connection status
 // - NACKs
 // We can also expose ACKS.
-func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {
@@ -76,7 +77,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 		for _, v := range sg.Server.Clients() {
 			res = append(res, &discovery.Resource{
 				Name:     v.node.Id,
-				Resource: util.MessageToAny(v.node),
+				Resource: protoconv.MessageToAny(v.node),
 			})
 		}
 	case TypeDebugSyncronization:
@@ -113,6 +114,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 		v3.RouteType,
 		v3.EndpointType,
 		v3.ClusterType,
+		v3.ExtensionConfigurationType,
 	}
 
 	for _, con := range sg.Server.Clients() {
@@ -135,12 +137,15 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
 					Id: con.proxy.ID,
+					Metadata: model.NodeMetadata{
+						ClusterID: con.proxy.Metadata.ClusterID,
+					}.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,
 			}
 			res = append(res, &discovery.Resource{
 				Name:     clientConfig.Node.Id,
-				Resource: util.MessageToAny(clientConfig),
+				Resource: protoconv.MessageToAny(clientConfig),
 			})
 		}
 		con.proxy.RUnlock()
@@ -167,7 +172,7 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
-	dump, err := sg.Server.configDump(conn)
+	dump, err := sg.Server.configDump(conn, false)
 	if err != nil {
 		return nil, err
 	}
@@ -202,9 +207,9 @@ func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
 		return
 	}
 
-	resources := make([]*any.Any, 0, len(data))
+	resources := make([]*anypb.Any, 0, len(data))
 	for _, v := range data {
-		resources = append(resources, util.MessageToAny(v))
+		resources = append(resources, protoconv.MessageToAny(v))
 	}
 	dr := &discovery.DiscoveryResponse{
 		TypeUrl:   typeURL,

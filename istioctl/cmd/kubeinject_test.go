@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,6 +47,29 @@ func TestKubeInject(t *testing.T) {
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.injected",
+		},
+		{ // case 4 with only iop files
+			args: strings.Split(
+				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
+					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml",
+				" "),
+			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
+		},
+		{ // case 5 with only iop files
+			args: strings.Split(
+				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
+					" --injectConfigFile testdata/inject-config-inline-iop.yaml -f testdata/deployment/hello.yaml",
+				" "),
+			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
+		},
+		{ // case 6 with iops and values override
+			args: strings.Split(
+				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
+					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml"+
+					" -f testdata/deployment/hello.yaml"+
+					" --valuesFile testdata/inject-values.yaml",
+				" "),
+			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
 		},
 	}
 

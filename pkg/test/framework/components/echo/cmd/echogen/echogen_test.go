@@ -45,5 +45,5 @@ func TestGenerate(t *testing.T) {
 	})
 	out := bytes.NewBuffer([]byte{})
 	generate(testCfg, "", false, out)
-	util.CompareContent(out.Bytes(), goldenFile, t)
+	util.CompareContent(t, out.Bytes(), goldenFile)
 }

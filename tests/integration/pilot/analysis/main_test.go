@@ -31,13 +31,13 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireLocalControlPlane().
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   pilot:
     env:
       PILOT_ENABLE_STATUS: true
+      PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING: true
   global:
     istiod:
       enableAnalysis: true

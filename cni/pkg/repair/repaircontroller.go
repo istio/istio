@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package repair
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -25,6 +26,8 @@ import (
 	client "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"istio.io/istio/pkg/kube"
 )
 
 type Controller struct {
@@ -62,26 +65,39 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 					fieldSelectors = append(fieldSelectors, fs)
 				}
 			}
+			// filter out pod events from different nodes
+			fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName=%v", reconciler.cfg.NodeName))
 			options.LabelSelector = strings.Join(labelSelectors, ",")
 			options.FieldSelector = strings.Join(fieldSelectors, ",")
 		},
 	)
 
 	_, c.podController = cache.NewInformer(podListWatch, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
-			c.workQueue.AddRateLimited(newObj)
+		AddFunc: func(newObj any) {
+			c.mayAddToWorkQueue(newObj)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.workQueue.AddRateLimited(newObj)
+		UpdateFunc: func(_, newObj any) {
+			c.mayAddToWorkQueue(newObj)
 		},
 	})
 
 	return c, nil
 }
 
+func (rc *Controller) mayAddToWorkQueue(obj any) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		repairLog.Error("Cannot convert object to pod. Skip adding it to the repair working queue.")
+		return
+	}
+	if rc.reconciler.detectPod(*pod) {
+		rc.workQueue.AddRateLimited(obj)
+	}
+}
+
 func (rc *Controller) Run(stopCh <-chan struct{}) {
 	go rc.podController.Run(stopCh)
-	if !cache.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
 		repairLog.Error("timed out waiting for pod caches to sync")
 		return
 	}

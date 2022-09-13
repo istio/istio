@@ -23,12 +23,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/types"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
@@ -41,7 +46,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -77,7 +85,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push0,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
+					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
@@ -86,7 +94,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t1,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
@@ -95,8 +103,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
+					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
@@ -105,7 +113,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
-				Kind: config.GroupVersionKind{Kind: "cfg2"},
+				Kind: kind.Kind(2),
 			}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
 		},
@@ -145,6 +153,7 @@ func TestEnvoyFilters(t *testing.T) {
 	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
 		{
+			Name:             "ef1",
 			workloadSelector: map[string]string{"app": "v1"},
 			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
 				networking.EnvoyFilter_LISTENER: {
@@ -160,6 +169,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 		},
 		{
+			Name:             "ef2",
 			workloadSelector: map[string]string{"app": "v1"},
 			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
 				networking.EnvoyFilter_CLUSTER: {
@@ -186,6 +196,13 @@ func TestEnvoyFilters(t *testing.T) {
 		},
 	}
 
+	if !push.HasEnvoyFilters("ef1", "test-ns") {
+		t.Errorf("Check presence of EnvoyFilter ef1 at test-ns got false, want true")
+	}
+	if push.HasEnvoyFilters("ef3", "test-ns") {
+		t.Errorf("Check presence of EnvoyFilter ef3 at test-ns got true, want false")
+	}
+
 	cases := []struct {
 		name                    string
 		proxy                   *Proxy
@@ -195,6 +212,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches two envoyfilters",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -204,6 +222,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy in root namespace matches an envoyfilter",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "istio-system",
 			},
@@ -214,6 +233,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v2"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v2"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -223,6 +243,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy matches envoyfilter in root ns",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-n2",
 			},
@@ -232,6 +253,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			name: "proxy version matches no envoyfilters",
 			proxy: &Proxy{
+				Labels:          map[string]string{"app": "v1"},
 				Metadata:        &NodeMetadata{IstioVersion: "1.3.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
@@ -389,10 +411,24 @@ func TestEnvoyFilterOrder(t *testing.T) {
 				},
 			},
 		},
+		{
+			Meta: config.Meta{Name: "super-high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	expectedns := []string{
-		"testns/high-priority", "testns/default-priority", "testns/a-medium-priority",
+		"testns/super-high-priority", "testns/high-priority", "testns/default-priority", "testns/a-medium-priority",
 		"testns/b-medium-priority", "testns/b-low-priority", "testns/a-low-priority",
 	}
 
@@ -401,9 +437,9 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	for _, cfg := range envoyFilters {
 		_, _ = store.Create(cfg)
 	}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -427,12 +463,205 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 }
 
-func TestServiceIndex(t *testing.T) {
-	g := NewWithT(t)
+func TestWasmPlugins(t *testing.T) {
 	env := &Environment{}
 	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
-	env.IstioConfigStore = &store
+	wasmPlugins := map[string]config.Config{
+		"invalid-type": {
+			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &networking.DestinationRule{},
+		},
+		"invalid-url": {
+			Meta: config.Meta{Name: "invalid-url", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int64Value{Value: 5},
+				Url:      "notavalid%%Url;",
+			},
+		},
+		"authn-low-prio-all": {
+			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int64Value{Value: 10},
+				Url:      "file:///etc/istio/filters/authn.wasm",
+				PluginConfig: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"test": {
+							Kind: &structpb.Value_StringValue{StringValue: "test"},
+						},
+					},
+				},
+				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+			},
+		},
+		"global-authn-low-prio-ingress": {
+			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int64Value{Value: 5},
+				Selector: &selectorpb.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+		},
+		"authn-med-prio-all": {
+			Meta: config.Meta{Name: "authn-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int64Value{Value: 50},
+			},
+		},
+		"global-authn-high-prio-app": {
+			Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int64Value{Value: 1000},
+				Selector: &selectorpb.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+		},
+		"global-authz-med-prio-app": {
+			Meta: config.Meta{Name: "global-authz-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHZ,
+				Priority: &wrappers.Int64Value{Value: 50},
+				Selector: &selectorpb.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+		},
+		"authz-high-prio-ingress": {
+			Meta: config.Meta{Name: "authz-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHZ,
+				Priority: &wrappers.Int64Value{Value: 1000},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name               string
+		node               *Proxy
+		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
+	}{
+		{
+			name:               "nil proxy",
+			node:               nil,
+			expectedExtensions: nil,
+		},
+		{
+			name: "nomatch",
+			node: &Proxy{
+				ConfigNamespace: "other",
+				Metadata:        &NodeMetadata{},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
+		},
+		{
+			name: "ingress",
+			node: &Proxy{
+				ConfigNamespace: "other",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+				},
+			},
+		},
+		{
+			name: "ingress-testns-1",
+			node: &Proxy{
+				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+				},
+			},
+		},
+		{
+			name: "testns-2",
+			node: &Proxy{
+				ConfigNamespace: "testns-2",
+				Labels: map[string]string{
+					"app": "productpage",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+				},
+				extensions.PluginPhase_AUTHZ: {
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
+				},
+			},
+		},
+	}
+
+	for _, config := range wasmPlugins {
+		store.Create(config)
+	}
+	env.ConfigStore = &store
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Init()
+
+	// Init a new push context
+	pc := NewPushContext()
+	pc.Mesh = m
+	if err := pc.initWasmPlugins(env); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := pc.WasmPlugins(tc.node)
+			if !reflect.DeepEqual(tc.expectedExtensions, result) {
+				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
+			}
+		})
+	}
+}
+
+func TestServiceIndex(t *testing.T) {
+	g := NewWithT(t)
+	env := NewEnvironment()
+	store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+	env.ConfigStore = &store
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -484,7 +713,7 @@ func TestServiceIndex(t *testing.T) {
 		}},
 	}
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -630,6 +859,47 @@ func TestIsServiceVisible(t *testing.T) {
 			},
 			expect: false,
 		},
+		{
+			name:        "service visible to none",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.None: true,
+					},
+				},
+			},
+			expect: false,
+		},
+		{
+			name:        "service has both public visibility and none visibility",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Public: true,
+						visibility.None:   true,
+					},
+				},
+			},
+			expect: true,
+		},
+		{
+			name:        "service has both none visibility and private visibility",
+			pushContext: &PushContext{},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+					ExportTo: map[visibility.Instance]bool{
+						visibility.Private: true,
+						visibility.None:    true,
+					},
+				},
+			},
+			expect: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -652,7 +922,7 @@ func serviceNames(svcs []*Service) []string {
 }
 
 func TestInitPushContext(t *testing.T) {
-	env := &Environment{}
+	env := NewEnvironment()
 	configStore := NewFakeStore()
 	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
@@ -675,9 +945,22 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
+	_, _ = configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "default",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{Hosts: []string{"test1/*"}},
+			},
+		},
+	})
+
 	store := istioConfigStore{ConfigStore: configStore}
 
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -705,7 +988,7 @@ func TestInitPushContext(t *testing.T) {
 		}},
 	}
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -719,7 +1002,7 @@ func TestInitPushContext(t *testing.T) {
 	newPush := NewPushContext()
 	if err := newPush.InitContext(env, old, &PushRequest{
 		ConfigsUpdated: map[ConfigKey]struct{}{
-			{Kind: gvk.Secret}: {},
+			{Kind: kind.Secret}: {},
 		},
 	}); err != nil {
 		t.Fatal(err)
@@ -730,11 +1013,12 @@ func TestInitPushContext(t *testing.T) {
 	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
-			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}),
+			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
+		protocmp.Transform(),
 	)
 	if diff != "" {
 		t.Fatalf("Push context had a diff after update: %v", diff)
@@ -790,44 +1074,44 @@ func TestSidecarScope(t *testing.T) {
 
 	store := istioConfigStore{ConfigStore: configStore}
 
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	if err := ps.initSidecarScopes(env); err != nil {
 		t.Fatalf("init sidecar scope failed: %v", err)
 	}
 	cases := []struct {
-		proxy      *Proxy
-		collection labels.Collection
-		sidecar    string
-		describe   string
+		proxy    *Proxy
+		labels   labels.Instance
+		sidecar  string
+		describe string
 	}{
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
-			collection: labels.Collection{map[string]string{"app": "foo"}},
-			sidecar:    "default/foo",
-			describe:   "match local sidecar",
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
+			labels:   labels.Instance{"app": "foo"},
+			sidecar:  "default/foo",
+			describe: "match local sidecar",
 		},
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
-			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "default/global",
-			describe:   "no match local sidecar",
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
+			labels:   labels.Instance{"app": "bar"},
+			sidecar:  "default/global",
+			describe: "no match local sidecar",
 		},
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
-			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "nosidecar/global",
-			describe:   "no sidecar",
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
+			labels:   labels.Instance{"app": "bar"},
+			sidecar:  "nosidecar/global",
+			describe: "no sidecar",
 		},
 		{
-			proxy:      &Proxy{Type: Router, ConfigNamespace: "istio-system"},
-			collection: labels.Collection{map[string]string{"app": "istio-gateway"}},
-			sidecar:    "istio-system/default-sidecar",
-			describe:   "gateway sidecar scope",
+			proxy:    &Proxy{Type: Router, ConfigNamespace: "istio-system"},
+			labels:   labels.Instance{"app": "istio-gateway"},
+			sidecar:  "istio-system/default-sidecar",
+			describe: "gateway sidecar scope",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.describe, func(t *testing.T) {
-			scope := ps.getSidecarScope(c.proxy, c.collection)
+			scope := ps.getSidecarScope(c.proxy, c.labels)
 			if c.sidecar != scopeToSidecar(scope) {
 				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
 			}
@@ -857,7 +1141,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	if err := ps.initAuthnPolicies(env); err != nil {
 		t.Fatalf("init authn policies failed: %v", err)
 	}
@@ -948,11 +1232,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 func TestSetDestinationRuleInheritance(t *testing.T) {
-	features.EnableDestinationRuleInheritance = true
-	defer func() {
-		features.EnableDestinationRuleInheritance = false
-	}()
-
+	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
@@ -965,7 +1245,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			TrafficPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
@@ -986,8 +1266,8 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
-					Interval:                 &types.Duration{Seconds: 22},
+					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
+					Interval:                 &durationpb.Duration{Seconds: 22},
 				},
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -1010,11 +1290,11 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,
@@ -1039,14 +1319,36 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			},
 		},
 	}
-
+	workloadSpecificDrNamespace2 := config.Config{
+		Meta: config.Meta{
+			Name:      "drRule2",
+			Namespace: "test2",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			WorkloadSelector: &selectorpb.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
+				},
+			},
+		},
+	}
 	testCases := []struct {
-		name            string
-		proxyNs         string
-		serviceNs       string
-		serviceHostname string
-		expectedConfig  string
-		expectedPolicy  *networking.TrafficPolicy
+		name               string
+		proxyNs            string
+		serviceNs          string
+		serviceHostname    string
+		expectedConfig     string
+		expectedSourceRule []types.NamespacedName
+		expectedPolicy     *networking.TrafficPolicy
 	}{
 		{
 			name:            "merge mesh+namespace+service DR",
@@ -1054,20 +1356,25 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test",
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule",
+			expectedSourceRule: []types.NamespacedName{
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
+				{Namespace: "test", Name: "svcRule"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 						MaxConnections: 111,
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors:    &types.UInt32Value{Value: 3},
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
-					Interval:                 &types.Duration{Seconds: 22},
+					Consecutive_5XxErrors:    &wrappers.UInt32Value{Value: 3},
+					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
+					Interval:                 &durationpb.Duration{Seconds: 22},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,
@@ -1080,12 +1387,48 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test2",
 			serviceHostname: testhost,
 			expectedConfig:  "svcRule2",
+			expectedSourceRule: []types.NamespacedName{
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test2", Name: "svcRule2"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					ClientCertificate: "/etc/certs/myclientcert.pem",
+					PrivateKey:        "/etc/certs/client_private_key.pem",
+					CaCertificates:    "/etc/certs/rootcacerts.pem",
+				},
+			},
+		},
+		{
+			name:            "merge mesh+workloadselector DR",
+			proxyNs:         "test2",
+			serviceNs:       "test2",
+			serviceHostname: testhost,
+			expectedConfig:  "drRule2",
+			expectedSourceRule: []types.NamespacedName{
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test2", Name: "drRule2"},
+				{Namespace: "test2", Name: "svcRule2"},
+			},
+			expectedPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
+						MaxConnections: 111,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1101,19 +1444,23 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			serviceNs:       "test",
 			serviceHostname: "unknown.host",
 			expectedConfig:  "nsRule",
+			expectedSourceRule: []types.NamespacedName{
+				{Namespace: "istio-system", Name: "meshRule"},
+				{Namespace: "test", Name: "nsRule"},
+			},
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
 						MaxRetries: 2,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
-					Interval:                 &types.Duration{Seconds: 22},
+					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
+					Interval:                 &durationpb.Duration{Seconds: 22},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1124,31 +1471,211 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			},
 		},
 		{
-			name:            "unknwn namespace+host returns mesh",
+			name:            "unknown namespace+host returns mesh",
 			proxyNs:         "unknown",
 			serviceNs:       "unknown",
 			serviceHostname: "unknown.host",
 			expectedConfig:  "meshRule",
-			expectedPolicy:  meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
+			expectedSourceRule: []types.NamespacedName{
+				{Namespace: "istio-system", Name: "meshRule"},
+			},
+			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
 		},
 	}
 
-	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
+	ps.setDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
 
 	for _, tt := range testCases {
-		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+		t.Run(tt.name, func(t *testing.T) {
+			mergedConfigList := ps.destinationRule(tt.proxyNs,
+				&Service{
+					Hostname: host.Name(tt.serviceHostname),
+					Attributes: ServiceAttributes{
+						Namespace: tt.serviceNs,
+					},
+				})
+			expectedConfigPresent := false
+			for _, mergedConfig := range mergedConfigList {
+				if mergedConfig.rule.Name == tt.expectedConfig {
+					expectedConfigPresent = true
+					mergedPolicy := mergedConfig.rule.Spec.(*networking.DestinationRule).TrafficPolicy
+					assert.Equal(t, mergedPolicy, tt.expectedPolicy)
+					assert.Equal(t, mergedConfig.from, tt.expectedSourceRule)
+				}
+			}
+			if !expectedConfigPresent {
+				t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v but missing", tt.name, tt.expectedConfig)
+			}
+		})
+	}
+}
+
+func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
+	ps := NewPushContext()
+	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	testhost := "httpbin.org"
+	app1DestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "nsRule1",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"test2", "."},
+			WorkloadSelector: &selectorpb.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
+						MaxConnections: 111,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					ClientCertificate: "/etc/certs/myclientcert.pem",
+					PrivateKey:        "/etc/certs/client_private_key.pem",
+					CaCertificates:    "/etc/certs/rootcacerts.pem",
+				},
+			},
+		},
+	}
+	app2DestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "nsRule2",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"test2", "."},
+			WorkloadSelector: &selectorpb.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app2"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+	}
+	app3DestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "nsRule3",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"test2", "."},
+			WorkloadSelector: &selectorpb.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app2"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+	}
+	namespaceDestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:      "nsRule4",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{".", "test2"},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+	}
+	testCases := []struct {
+		name            string
+		proxyNs         string
+		serviceNs       string
+		serviceHostname string
+		expectedDrCount int
+		expectedDrName  []string
+	}{
+		{
+			name:            "return list of DRs for specific host",
+			proxyNs:         "test",
+			serviceNs:       "test",
+			serviceHostname: testhost,
+			expectedDrCount: 3,
+			expectedDrName:  []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+		},
+		{
+			name:            "workload specific DR should not be exported",
+			proxyNs:         "test2",
+			serviceNs:       "test",
+			serviceHostname: testhost,
+			expectedDrCount: 1,
+			expectedDrName:  []string{namespaceDestinationRule.Meta.Name},
+		},
+		{
+			name:            "rules with same workloadselector should be merged",
+			proxyNs:         "test",
+			serviceNs:       "test",
+			serviceHostname: testhost,
+			expectedDrCount: 3,
+			expectedDrName:  []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+		},
+	}
+
+	ps.setDestinationRules([]config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule})
+
+	for _, tt := range testCases {
+		drList := ps.destinationRule(tt.proxyNs,
 			&Service{
 				Hostname: host.Name(tt.serviceHostname),
 				Attributes: ServiceAttributes{
 					Namespace: tt.serviceNs,
 				},
 			})
-		if mergedConfig.Name != tt.expectedConfig {
-			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
+		if len(drList) != tt.expectedDrCount {
+			t.Errorf("case %s failed, %d destinationRules for host %v got %v", tt.name, tt.expectedDrCount, tt.serviceHostname, drList)
 		}
-		mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
-		if !reflect.DeepEqual(mergedPolicy, tt.expectedPolicy) {
-			t.Fatalf("case %s failed, want %+v, got %+v", tt.name, tt.expectedPolicy, mergedPolicy)
+		for i, dr := range drList {
+			if dr.rule.Name != tt.expectedDrName[i] {
+				t.Errorf("case %s failed, destinationRuleName expected %v got %v", tt.name, tt.expectedDrName[i], dr.rule.Name)
+			}
 		}
 	}
 }
@@ -1191,13 +1718,20 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 			},
 		},
 	}
-	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	subsetsLocal := ps.destinationRuleIndex.namespaceLocal["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
-	subsetsExport := ps.destinationRuleIndex.exportedByNamespace["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	expectedDestRules := []types.NamespacedName{
+		{Namespace: "test", Name: "rule1"},
+		{Namespace: "test", Name: "rule2"},
+	}
+	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
+	public := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)]
+	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
+	subsetsExport := public[0].rule.Spec.(*networking.DestinationRule).Subsets
+	assert.Equal(t, private[0].from, expectedDestRules)
+	assert.Equal(t, public[0].from, expectedDestRules)
 	if len(subsetsLocal) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
-
 	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
 	}
@@ -1260,6 +1794,24 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 				},
 				{
 					Name: "subset6",
+				},
+			},
+		},
+	}
+	destinationRuleNamespace4Local := config.Config{
+		Meta: config.Meta{
+			Name:      "rule4-local",
+			Namespace: "test4",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"test4"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset15",
+				},
+				{
+					Name: "subset16",
 				},
 			},
 		},
@@ -1335,9 +1887,10 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	ps.SetDestinationRules([]config.Config{
+	ps.setDestinationRules([]config.Config{
 		destinationRuleNamespace1, destinationRuleNamespace2,
-		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
+		destinationRuleNamespace3, destinationRuleNamespace4Local,
+		destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
 		destinationRuleRootNamespaceLocalWithWildcardHost1, destinationRuleRootNamespaceLocalWithWildcardHost2,
 	})
 	cases := []struct {
@@ -1369,6 +1922,12 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			serviceNs:   "test1",
 			host:        testhost,
 			wantSubsets: []string{"subset5", "subset6"},
+		},
+		{
+			proxyNs:     "test5",
+			serviceNs:   "test4",
+			host:        testhost,
+			wantSubsets: []string{"subset7", "subset8"},
 		},
 		{
 			proxyNs:     "ns1",
@@ -1415,17 +1974,17 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+			destRuleConfig := ps.destinationRule(tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
 						Namespace: tt.serviceNs,
 					},
-				})
+				})[0]
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
-			destRule := destRuleConfig.Spec.(*networking.DestinationRule)
+			destRule := destRuleConfig.rule.Spec.(*networking.DestinationRule)
 			var gotSubsets []string
 			for _, ss := range destRule.Subsets {
 				gotSubsets = append(gotSubsets, ss.Name)
@@ -1520,7 +2079,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
@@ -1574,7 +2133,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.gateway), func(t *testing.T) {
-			rules := ps.VirtualServicesForGateway(&Proxy{ConfigNamespace: tt.proxyNs}, tt.gateway)
+			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
 			gotHosts := make([]string, 0)
 			for _, r := range rules {
 				vs := r.Spec.(*networking.VirtualService)
@@ -1658,14 +2217,14 @@ func TestInitVirtualService(t *testing.T) {
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
-	env.IstioConfigStore = &store
+	env.ConfigStore = &store
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
 
 	t.Run("resolve shortname", func(t *testing.T) {
-		rules := ps.VirtualServicesForGateway(&Proxy{ConfigNamespace: "ns1"}, gatewayName)
+		rules := ps.VirtualServicesForGateway("ns1", gatewayName)
 		if len(rules) != 1 {
 			t.Fatalf("wanted 1 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
 		}
@@ -1754,7 +2313,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		services := ps.Services(&Proxy{ConfigNamespace: tt.proxyNs})
+		services := ps.servicesExportedToNamespace(tt.proxyNs)
 		gotHosts := make([]string, 0)
 		for _, r := range services {
 			gotHosts = append(gotHosts, string(r.Hostname))
@@ -1765,25 +2324,166 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
+func TestGetHostsFromMeshConfig(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+		RootNamespace: "istio-system",
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "otel",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "otel.foo.svc.cluster.local",
+						Port:    9811,
+					},
+				},
+			},
+		},
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
+			AccessLogging: []string{"otel"},
+		},
+	})}
+	ps.Mesh = env.Mesh()
+	configStore := NewFakeStore()
+	gatewayName := "ns1/gateway"
+
+	vs1 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs1",
+			Namespace:        "ns1",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name:      "vs2",
+						Namespace: "ns2",
+					},
+				},
+			},
+		},
+	}
+	vs2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs2",
+			Namespace:        "ns2",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{gatewayName},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "test",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range []config.Config{vs1, vs2} {
+		if _, err := configStore.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.ConfigStore = &store
+	ps.initTelemetry(env)
+	ps.initDefaultExportMaps()
+	if err := ps.initVirtualServices(env); err != nil {
+		t.Fatalf("init virtual services failed: %v", err)
+	}
+	got := getHostsFromMeshConfig(ps)
+	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, got.SortedList())
+}
+
+// TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
+// Once some one add a new `Provider` in api, we should update `wellknownProviders` and
+// implements of `getHostsFromMeshConfig`
+func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
+	wellknownProviders := map[string]struct{}{
+		"envoy_ext_authz_http": {},
+		"envoy_ext_authz_grpc": {},
+		"zipkin":               {},
+		"lightstep":            {},
+		"datadog":              {},
+		"opencensus":           {},
+		"skywalking":           {},
+		"envoy_http_als":       {},
+		"envoy_tcp_als":        {},
+		"envoy_otel_als":       {},
+		"opentelemetry":        {},
+	}
+
+	unexpectedProviders := make([]string, 0)
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	of := md.Oneofs().Get(0)
+	for i := 0; i < of.Fields().Len(); i++ {
+		o := of.Fields().Get(i)
+		if o.Message().Fields().ByName("service") != nil {
+			n := string(o.Name())
+			if _, ok := wellknownProviders[n]; ok {
+				delete(wellknownProviders, n)
+			} else {
+				unexpectedProviders = append(unexpectedProviders, n)
+			}
+		}
+	}
+
+	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
+		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig")
+		t.Fail()
+	}
+}
+
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
 type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance
+
+	NetworkGatewaysHandler
 }
 
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
-func (l *localServiceDiscovery) Services() ([]*Service, error) {
-	return l.services, nil
+func (l *localServiceDiscovery) Services() []*Service {
+	return l.services
 }
 
 func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Collection) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Instance) []*ServiceInstance {
 	return l.serviceInstances
 }
 
@@ -1791,15 +2491,15 @@ func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInsta
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Collection {
+func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Instance {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []string {
+func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service) []string {
 	return nil
 }
 
-func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
+func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }

@@ -95,14 +95,14 @@ func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 type fakeEnvironment struct {
 	KubeEnvironment
 
-	client                  kube.ExtendedClient
+	client                  kube.CLIClient
 	injectClientCreateError error
 	kubeconfig              string
 	wOut                    bytes.Buffer
 	wErr                    bytes.Buffer
 }
 
-func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.Object) *fakeEnvironment {
+func newFakeEnvironmentOrDie(t *testing.T, minor string, config *api.Config, objs ...runtime.Object) *fakeEnvironment {
 	t.Helper()
 
 	var wOut, wErr bytes.Buffer
@@ -114,7 +114,7 @@ func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.O
 			stderr:     &wErr,
 			kubeconfig: "unused",
 		},
-		client:     kube.NewFakeClient(objs...),
+		client:     kube.NewFakeClientWithVersion(minor, objs...),
 		kubeconfig: "unused",
 		wOut:       wOut,
 		wErr:       wErr,
@@ -123,7 +123,7 @@ func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.O
 	return f
 }
 
-func (f *fakeEnvironment) CreateClient(_ string) (kube.ExtendedClient, error) {
+func (f *fakeEnvironment) CreateClient(_ string) (kube.CLIClient, error) {
 	if f.injectClientCreateError != nil {
 		return nil, f.injectClientCreateError
 	}

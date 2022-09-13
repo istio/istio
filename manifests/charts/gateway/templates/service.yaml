@@ -10,7 +10,7 @@ metadata:
     topology.istio.io/network: "{{.}}"
     {{- end }}
   annotations:
-    {{- .Values.annotations | toYaml | nindent 4 }}
+    {{- merge (deepCopy .Values.service.annotations) .Values.annotations | toYaml | nindent 4 }}
 spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
@@ -39,6 +39,11 @@ spec:
     targetPort: 15017
 {{- else }}
 {{ .Values.service.ports | toYaml | indent 4 }}
+{{- end }}
+{{- if .Values.service.externalIPs }}
+  externalIPs: {{- range .Values.service.externalIPs }}
+    - {{.}}
+  {{- end }}
 {{- end }}
   selector:
     {{- include "gateway.selectorLabels" . | nindent 4 }}

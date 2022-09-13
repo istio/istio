@@ -35,10 +35,16 @@ const (
 	defaultKubeConfig = "~/.kube/config"
 )
 
+const (
+	ArchAMD64 = "amd64"
+	ArchARM64 = "arm64"
+)
+
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
 		LoadBalancerSupported: true,
+		Architecture:          ArchAMD64,
 	}
 	// hold kubeconfigs from command line to split later
 	kubeConfigs string
@@ -60,9 +66,6 @@ func NewSettingsFromCommandLine() (*Settings, error) {
 	}
 
 	s := settingsFromCommandLine.clone()
-	if s.minikube {
-		return nil, fmt.Errorf("istio.test.kube.minikube is deprecated; set --istio.test.kube.loadbalancer=false instead")
-	}
 
 	// Process the kube clusterConfigs.
 	var err error
@@ -98,7 +101,7 @@ func getKubeConfigsFromEnvironment() ([]string, error) {
 		updatedValue := strings.ReplaceAll(value, ",", string(filepath.ListSeparator))
 		_ = os.Setenv(env.KUBECONFIG.Name(), updatedValue)
 		scopes.Framework.Warnf("KUBECONFIG contains commas: %s.\nReplacing with %s: %s", value,
-			filepath.ListSeparator, updatedValue)
+			string(filepath.ListSeparator), updatedValue)
 		value = updatedValue
 	}
 	out, err := parseKubeConfigs(value, string(filepath.ListSeparator))
@@ -106,7 +109,7 @@ func getKubeConfigsFromEnvironment() ([]string, error) {
 		return nil, err
 	}
 	if len(out) == 0 {
-		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaultiing to ~/.kube/config.")
+		scopes.Framework.Info("Environment variable KUBECONFIG unspecified, defaulting to ~/.kube/config.")
 		normalizedDefaultKubeConfig, err := file.NormalizePath(defaultKubeConfig)
 		if err != nil {
 			return nil, fmt.Errorf("error normalizing default kube config file %s: %v",
@@ -244,7 +247,7 @@ func (c *configsVal) Set(s string) error {
 	return nil
 }
 
-func (c *configsVal) SetConfig(m interface{}) error {
+func (c *configsVal) SetConfig(m any) error {
 	bytes, err := yaml.Marshal(m)
 	if err != nil {
 		return err
@@ -264,12 +267,12 @@ var _ config.Value = &configsVal{}
 func init() {
 	flag.StringVar(&kubeConfigs, "istio.test.kube.config", "",
 		"A comma-separated list of paths to kube config files for cluster environments.")
-	flag.BoolVar(&settingsFromCommandLine.minikube, "istio.test.kube.minikube", settingsFromCommandLine.minikube,
-		"Deprecated. See istio.test.kube.loadbalancer. Setting this flag will fail tests.")
 	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupported, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupported,
 		"Indicates whether or not clusters in the environment support external IPs for LoadBalaner services. Used "+
-			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD/minikube tests."+
+			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD tests."+
 			"without MetalLB installed.")
+	flag.StringVar(&settingsFromCommandLine.Architecture, "istio.test.kube.architecture", settingsFromCommandLine.Architecture,
+		"Indicates the architecture (arm64 or amd64) of the cluster under test. This is used to customize tests that require per-arch specific settings")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<controlPlaneClusterIndex>, where the indexes refer to the order in which "+
@@ -288,4 +291,10 @@ func init() {
 		" network, and config cluster topology. The JSON document should be an array of objects that contain the keys \"control_plane_index\","+
 		" \"network_id\" and \"config_index\" with all integer values. If control_plane_index is omitted, the index of the array item is used."+
 		"If network_id is omitted, 0 will be used. If config_index is omitted, control_plane_index will be used.")
+	flag.BoolVar(&settingsFromCommandLine.MCSControllerEnabled, "istio.test.kube.mcs.controllerEnabled", settingsFromCommandLine.MCSControllerEnabled,
+		"Indicates whether the Kubernetes environment has a Multi-Cluster Services (MCS) controller running.")
+	flag.StringVar(&settingsFromCommandLine.MCSAPIGroup, "istio.test.kube.mcs.apiGroup", "multicluster.x-k8s.io",
+		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.")
+	flag.StringVar(&settingsFromCommandLine.MCSAPIVersion, "istio.test.kube.mcs.apiVersion", "v1alpha1",
+		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.")
 }

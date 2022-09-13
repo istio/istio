@@ -1,0 +1,38 @@
+# The following virtual service should cause the error IST0149 because it uses JWT claim based routing but there is
+# no request authentication applied on the gateway.
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: foo
+spec:
+  hosts:
+    - "foo.com"
+  gateways:
+    - foo-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /
+          headers:
+            "@request.auth.claims.foo":
+              exact: foo
+      route:
+        - destination:
+            host: istiod.istio-system.svc.cluster.local
+            port:
+              number: 15010
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: foo-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "foo.com"

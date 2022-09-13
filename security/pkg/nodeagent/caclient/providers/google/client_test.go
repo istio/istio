@@ -16,7 +16,6 @@ package caclient
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 
@@ -28,10 +27,7 @@ const mockServerAddress = "localhost:0"
 var fakeCert = []string{"foo", "bar"}
 
 func TestGoogleCAClient(t *testing.T) {
-	os.Setenv("GKE_CLUSTER_URL", "https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1")
-	defer func() {
-		os.Unsetenv("GKE_CLUSTER_URL")
-	}()
+	t.Setenv("GKE_CLUSTER_URL", "https://container.googleapis.com/v1/projects/testproj/locations/us-central1-c/clusters/cluster1")
 
 	testCases := map[string]struct {
 		service      mock.CAService

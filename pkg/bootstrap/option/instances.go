@@ -17,7 +17,7 @@ package option
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
@@ -47,7 +47,7 @@ func PilotSubjectAltName(value []string) Instance {
 	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
-func ConnectTimeout(value *types.Duration) Instance {
+func ConnectTimeout(value *durationpb.Duration) Instance {
 	return newDurationOption("connect_timeout", value)
 }
 
@@ -80,12 +80,20 @@ func SubZone(value string) Instance {
 	return newOptionOrSkipIfZero("sub_zone", value)
 }
 
-func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) Instance {
+func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]any) Instance {
 	return newOptionOrSkipIfZero("meta_json_str", meta).withConvert(nodeMetadataConverter(meta, rawMeta))
+}
+
+func RuntimeFlags(flags map[string]string) Instance {
+	return newOptionOrSkipIfZero("runtime_flags", flags).withConvert(jsonConverter(flags))
 }
 
 func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
+}
+
+func XDSRootCert(value string) Instance {
+	return newOption("xds_root_cert", value)
 }
 
 func Localhost(value LocalhostValue) Instance {
@@ -224,12 +232,16 @@ func GCPProjectID(value string) Instance {
 	return newOption("gcp_project_id", value)
 }
 
-func STSEnabled(value bool) Instance {
-	return newOption("sts", value)
+func GCPProjectNumber(value string) Instance {
+	return newOption("gcp_project_number", value)
 }
 
-func ProvCert(value string) Instance {
-	return newOption("provisioned_cert", value)
+func Metadata(meta *model.BootstrapNodeMetadata) Instance {
+	return newOption("metadata", meta)
+}
+
+func STSEnabled(value bool) Instance {
+	return newOption("sts", value)
 }
 
 func DiscoveryHost(value string) Instance {

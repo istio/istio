@@ -25,16 +25,16 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // nolint: interfacer
-func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *types.Struct, strict bool) (proto.Message, error) {
+func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *structpb.Struct, strict bool) (proto.Message, error) {
 	if value == nil {
 		// for remove ops
 		return nil, nil
@@ -62,26 +62,29 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	case networking.EnvoyFilter_BOOTSTRAP:
 		obj = &bootstrapv3.Bootstrap{}
 	default:
-		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
+		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: stylecheck
 	}
 
-	if err := GogoStructToMessage(value, obj, strict); err != nil {
-		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: golint,stylecheck
+	if err := StructToMessage(value, obj, strict); err != nil {
+		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: stylecheck
 	}
 	return obj, nil
 }
 
-func GogoStructToMessage(pbst *types.Struct, out proto.Message, strict bool) error {
+func StructToMessage(pbst *structpb.Struct, out proto.Message, strict bool) error {
 	if pbst == nil {
 		return errors.New("nil struct")
 	}
 
 	buf := &bytes.Buffer{}
-	if err := (&gogojsonpb.Marshaler{OrigName: true}).Marshal(buf, pbst); err != nil {
+	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, pbst); err != nil {
 		return err
 	}
 
 	// If strict is not set, ignore unknown fields as they may be sending versions of
 	// the proto we are not internally using
-	return (&jsonpb.Unmarshaler{AllowUnknownFields: !strict}).Unmarshal(buf, out)
+	if strict {
+		return protomarshal.Unmarshal(buf.Bytes(), out)
+	}
+	return protomarshal.UnmarshalAllowUnknown(buf.Bytes(), out)
 }

@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
 )
 
 var supportedExtensions = map[string]bool{

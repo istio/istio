@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 36390
+
+releaseNotes:
+- |
+  **Improved** istio-agent health probe rewrite to not re-use connections, mirring Kubernetes' probing behavior.
+
+upgradeNotes:
+- title: Health Probes will no longer re-use connections
+  content: |
+    Health probes using the istio-agent [health probe rewrite](https://istio.io/latest/docs/ops/configuration/mesh/app-health-check/) will
+    now no longer re-use connections for the probe. This behavior was changed to match probing behavior of Kubernetes',
+    and may also improve probe reliability for applications using short idle timeouts.
+
+    As a result, your application may see more connections (but the same number of HTTP requests) from probes.
+    For most applications, this will not be noticeably different.
+
+    If you need to revert to the old behavior, the `ENABLE_PROBE_KEEPALIVE_CONNECTION=true` environment variable in the proxy may be set.

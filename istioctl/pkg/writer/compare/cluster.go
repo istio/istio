@@ -18,25 +18,33 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/pmezard/go-difflib/difflib"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // ClusterDiff prints a diff between Istiod and Envoy clusters to the passed writer
 func (c *Comparator) ClusterDiff() error {
-	jsonm := &jsonpb.Marshaler{Indent: "   "}
 	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
 	envoyClusterDump, err := c.envoy.GetDynamicClusterDump(true)
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(envoyBytes, envoyClusterDump); err != nil {
-		return err
+	} else {
+		envoy, err := protomarshal.ToJSONWithIndent(envoyClusterDump, "    ")
+		if err != nil {
+			return err
+		}
+		envoyBytes.WriteString(envoy)
 	}
 	istiodClusterDump, err := c.istiod.GetDynamicClusterDump(true)
 	if err != nil {
 		istiodBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(istiodBytes, istiodClusterDump); err != nil {
-		return err
+	} else {
+		istiod, err := protomarshal.ToJSONWithIndent(istiodClusterDump, "    ")
+		if err != nil {
+			return err
+		}
+		istiodBytes.WriteString(istiod)
 	}
 	diff := difflib.UnifiedDiff{
 		FromFile: "Istiod Clusters",

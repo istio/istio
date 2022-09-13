@@ -16,6 +16,7 @@ package grpcgen
 
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -52,15 +53,14 @@ func subsetClusterKey(subset, hostname string, port int) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, subset, host.Name(hostname), port)
 }
 
-func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
-	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildListeners(proxy, req.Push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildClusters(proxy, req.Push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildHTTPRoutes(proxy, req.Push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	}
 
 	return nil, model.DefaultXdsLogDetails, nil
@@ -69,6 +69,10 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 // buildCommonTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
 // (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
 func buildCommonTLSContext(sans []string) *tls.CommonTlsContext {
+	var sanMatch []*matcher.StringMatcher
+	if len(sans) > 0 {
+		sanMatch = util.StringToExactMatch(sans)
+	}
 	return &tls.CommonTlsContext{
 		TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
 			InstanceName:    "default",
@@ -81,7 +85,7 @@ func buildCommonTLSContext(sans []string) *tls.CommonTlsContext {
 					CertificateName: "ROOTCA",
 				},
 				DefaultValidationContext: &tls.CertificateValidationContext{
-					MatchSubjectAltNames: util.StringToExactMatch(sans),
+					MatchSubjectAltNames: sanMatch,
 				},
 			},
 		},

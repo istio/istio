@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 // BuildHTTPRoutes supports per-VIP routes, as used by GRPC.
@@ -32,7 +32,7 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 		if rc := buildHTTPRoute(node, push, routeName); rc != nil {
 			resp = append(resp, &discovery.Resource{
 				Name:     routeName,
-				Resource: util.MessageToAny(rc),
+				Resource: protoconv.MessageToAny(rc),
 			})
 		}
 	}

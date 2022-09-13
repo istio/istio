@@ -13,14 +13,14 @@ tools/vagrant/.vagrant/
 .vscode/
 # Bazel
 /bazel-*
+# vi swap files
+.*.swp
 # vi backups
 *.bak
+# common backups
+*~
 # python artifacts
 *.pyc
-# Vm setup generated files
-cluster.env
-sidecar.env
-kubedns
 # pilot
 pilot/pkg/kube/config
 pilot/pkg/proxy/envoy/envoy
@@ -55,6 +55,8 @@ etc/
 var/
 # Go compiled tests
 *.test
+# Profiles
+*.prof
 # MacOS extended attributes
 ._*
 # MacOS Desktop Services Store

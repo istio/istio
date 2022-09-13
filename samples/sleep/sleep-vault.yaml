@@ -52,6 +52,6 @@ spec:
       containers:
       - name: sleep
         image: curlimages/curl
-        command: ["/bin/sleep", "3650d"]
+        command: ["/bin/sleep", "infinity"]
         imagePullPolicy: IfNotPresent
 ---

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+   - |
+     **Added** the ability to perform automatic SAN validation based on the downstream HTTP host/authority header
+     when `ENABLE_AUTO_SNI` and `VERIFY_CERTIFICATE_AT_CLIENT` feature flags are enabled.
+docs:
+   - https://docs.google.com/document/d/1pTUl-Ng3nXAWJb7UGJtalftznpxQEfID/
+   - https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#config-core-v3-upstreamhttpprotocoloptions

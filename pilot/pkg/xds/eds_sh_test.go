@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -61,7 +61,7 @@ func (r expectedResults) getAddrs() []string {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -79,6 +79,8 @@ func TestSplitHorizonEds(t *testing.T) {
 	// Push contexts needs to be updated
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
+
+	fmt.Println("gateways", s.Env().NetworkManager.AllGateways())
 
 	tests := []struct {
 		network   string
@@ -144,21 +146,21 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 3 local endpoints.
-					"10.3.0.1": 1,
-					"10.3.0.2": 1,
-					"10.3.0.3": 1,
+					"10.3.0.1": 2,
+					"10.3.0.2": 2,
+					"10.3.0.3": 2,
 
 					// 1 endpoint on network 1, accessed via gateway.
-					"159.122.219.1": 1,
+					"159.122.219.1": 2,
 
 					// 2 endpoint on network 2, accessed via gateway.
-					"159.122.219.2": 2,
+					"159.122.219.2": 4,
 
 					// no gateway defined for network 4 - treat as directly reachable.
-					"10.4.0.1": 1,
-					"10.4.0.2": 1,
-					"10.4.0.3": 1,
-					"10.4.0.4": 1,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 				},
 			},
 		},
@@ -257,8 +259,8 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []string, numOfEndpoints int) {
 	clusterID := cluster.ID(fmt.Sprintf("cluster%d", networkNum))
 	networkID := network.ID(fmt.Sprintf("network%d", networkNum))
-	memRegistry := memory.NewServiceDiscovery(nil)
-	memRegistry.EDSUpdater = server.Discovery
+	memRegistry := memory.NewServiceDiscovery()
+	memRegistry.XdsUpdater = server.Discovery
 
 	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
 		ClusterID:        clusterID,
@@ -270,11 +272,6 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
-			if server.Env().Networks() == nil {
-				server.Env().NetworksWatcher = mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
-					Networks: map[string]*meshconfig.Network{},
-				})
-			}
 			gw := &meshconfig.Network_IstioNetworkGateway{
 				Gw: &meshconfig.Network_IstioNetworkGateway_Address{
 					Address: gatewayIP,
@@ -297,7 +294,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
-	memRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
+	memRegistry.AddService(&model.Service{
 		Hostname:       "service5.default.svc.cluster.local",
 		DefaultAddress: "10.10.0.1",
 		Ports: []*model.Port{
@@ -328,14 +325,17 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
-	meshNetworks := *server.Env().Networks()
+	meshNetworks := server.Env().NetworksWatcher.Networks()
+	// copy old networks if they exist
 	c := map[string]*meshconfig.Network{}
-	for k, v := range meshNetworks.Networks {
-		c[k] = v
+	if meshNetworks != nil {
+		for k, v := range meshNetworks.Networks {
+			c[k] = v
+		}
 	}
+	// add the new one
 	c[string(id)] = network
-	meshNetworks.Networks = c
-	server.Env().SetNetworks(&meshNetworks)
+	server.Env().NetworksWatcher.SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {

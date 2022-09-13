@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":null,"imagePullSecrets":null,"revision":"default"}'
+      creationTimestamp: null
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      - image: docker.io/istio/proxy_debug:unittest
+        name: istio-proxy
+        resources: {}
+      initContainers:
+      - image: docker.io/istio/proxy_init:unittest-testiop
+        name: istio-init
+        resources: {}
+status: {}
+---

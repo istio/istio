@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,24 +25,30 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
-	"github.com/golang/protobuf/jsonpb"
+	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/analysis/msg"
+	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func preCheck() *cobra.Command {
@@ -60,7 +65,7 @@ func preCheck() *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+			cli, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 			if err != nil {
 				return err
 			}
@@ -104,7 +109,7 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	return cmd
 }
 
-func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
+func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
 	m, err := checkServerVersion(cli)
@@ -117,10 +122,33 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 
 	// TODO: add more checks
 
+	sa := local.NewSourceAnalyzer(analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
+		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+	// Set up the kube client
+	config := kube.BuildClientCmd(kubeconfig, configContext)
+	restConfig, err := config.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	if err != nil {
+		return nil, err
+	}
+	sa.AddRunningKubeSource(k)
+	cancel := make(chan struct{})
+	result, err := sa.Analyze(cancel)
+	if err != nil {
+		return nil, err
+	}
+	if result.Messages != nil {
+		msgs = append(msgs, result.Messages...)
+	}
+
 	return msgs, nil
 }
 
-func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
+func checkInstallPermissions(cli kube.CLIClient) diag.Messages {
 	Resources := []struct {
 		namespace string
 		group     string
@@ -184,7 +212,7 @@ func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
 		{
 			group:   "admissionregistration.k8s.io",
 			version: "v1",
-			name:    "f",
+			name:    "ValidatingWebhookConfiguration",
 		},
 	}
 	msgs := diag.Messages{}
@@ -197,7 +225,7 @@ func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
 	return msgs
 }
 
-func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, name string) error {
+func checkCanCreateResources(c kube.CLIClient, namespace, group, version, name string) error {
 	s := &authorizationapi.SelfSubjectAccessReview{
 		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationapi.ResourceAttributes{
@@ -210,7 +238,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 		},
 	}
 
-	response, err := c.AuthorizationV1().SelfSubjectAccessReviews().Create(context.Background(), s, metav1.CreateOptions{})
+	response, err := c.Kube().AuthorizationV1().SelfSubjectAccessReviews().Create(context.Background(), s, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -224,7 +252,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 	return nil
 }
 
-func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
+func checkServerVersion(cli kube.CLIClient) (diag.Messages, error) {
 	v, err := cli.GetKubernetesVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the Kubernetes version: %v", err)
@@ -241,7 +269,7 @@ func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 	return nil, nil
 }
 
-func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
+func checkDataPlane(cli kube.CLIClient, namespace string) (diag.Messages, error) {
 	msgs := diag.Messages{}
 
 	m, err := checkListeners(cli, namespace)
@@ -255,11 +283,34 @@ func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 	return msgs, nil
 }
 
-func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
-	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+var networkingChanges, _ = goversion.NewSemver("1.10.0")
+
+func fromLegacyNetworkingVersion(pod v1.Pod) bool {
+	for _, c := range pod.Spec.Containers {
+		if c.Name != "istio-proxy" {
+			continue
+		}
+		_, tag, _ := strings.Cut(c.Image, ":")
+		ver, err := pkgversion.TagToVersionString(tag)
+		if err != nil {
+			return true // If we aren't sure, default to doing more checks than needed
+		}
+		sv, err := goversion.NewSemver(ver)
+		if err != nil {
+			return true // If we aren't sure, default to doing more checks than needed
+		}
+		return sv.LessThan(networkingChanges)
+	}
+	return false
+}
+
+// CheckListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
+func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error) {
+	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods
 		FieldSelector: "status.phase=Running",
-		// Find all injected pods
+		// Find all injected pods. We don't care about non-injected pods, because the new behavior
+		// mirrors Kubernetes; this is only a breaking change for existing Istio users.
 		LabelSelector: "security.istio.io/tlsMode=istio",
 	})
 	if err != nil {
@@ -272,6 +323,11 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 	sem := semaphore.NewWeighted(25)
 	for _, pod := range pods.Items {
 		pod := pod
+		if !fromLegacyNetworkingVersion(pod) {
+			// Skip check. This pod is already on a version where the change has been made; if they were going
+			// to break they would already be broken.
+			continue
+		}
 		g.Go(func() error {
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
@@ -308,7 +364,6 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 					continue
 				}
 				ip := net.ParseIP(bind)
-				ip.IsGlobalUnicast()
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]
@@ -325,7 +380,7 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 				}
 			}
 
-			origin := &rt.Origin{
+			origin := &kube3.Origin{
 				Collection: collections.K8SCoreV1Pods.Name(),
 				Kind:       collections.K8SCoreV1Pods.Resource().Kind(),
 				FullName: resource.FullName{
@@ -374,7 +429,7 @@ func getColumn(line string, col int) string {
 func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
 	ports := map[int]bindStatus{}
 	cd := &adminapi.ConfigDump{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(configdump), cd); err != nil {
+	if err := protomarshal.Unmarshal(configdump, cd); err != nil {
 		return nil, err
 	}
 	for _, cdump := range cd.Configs {

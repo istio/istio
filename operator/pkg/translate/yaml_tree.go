@@ -25,11 +25,11 @@ import (
 // translations of source-path:dest-path in pkg/tpath format. It returns an output tree with paths from the input
 // tree, translated and overlaid on the output tree.
 func YAMLTree(inTreeStr, outTreeStr string, translations map[string]string) (string, error) {
-	inTree := make(map[string]interface{})
+	inTree := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(inTreeStr), &inTree); err != nil {
 		return "", err
 	}
-	outTree := make(map[string]interface{})
+	outTree := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(outTreeStr), &outTree); err != nil {
 		return "", err
 	}

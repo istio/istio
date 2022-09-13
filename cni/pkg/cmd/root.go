@@ -16,10 +16,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
@@ -30,6 +31,7 @@ import (
 	udsLog "istio.io/istio/cni/pkg/log"
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
+	"istio.io/istio/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
@@ -44,18 +46,22 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "install-cni",
-	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
+	Use:          "install-cni",
+	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
+	SilenceUsage: true,
+	PreRunE: func(c *cobra.Command, args []string) error {
 		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
 		}
-		ctx := cmd.Context()
+		return nil
+	},
+	RunE: func(c *cobra.Command, args []string) (err error) {
+		cmd.PrintFlags(c.Flags())
+		ctx := c.Context()
 
 		// Start controlz server
 		_, _ = ctrlz.Run(ctrlzOptions, nil)
 
-		// TODO(bianpengyuan) add log scope for install & repair.
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
 			return
@@ -81,14 +87,17 @@ var rootCmd = &cobra.Command{
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				log.Infof("Installer exits with %v", err)
 				// Error was caused by interrupt/termination signal
 				err = nil
+			} else {
+				log.Errorf("Installer exits with %v", err)
 			}
 		}
 
 		if cleanErr := installer.Cleanup(); cleanErr != nil {
 			if err != nil {
-				err = errors.Wrap(err, cleanErr.Error())
+				err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
 			} else {
 				err = cleanErr
 			}
@@ -105,6 +114,7 @@ func GetCommand() *cobra.Command {
 
 func init() {
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	logOptions.AttachCobraFlags(rootCmd)
 	ctrlzOptions.AttachCobraFlags(rootCmd)
@@ -120,6 +130,7 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerBooleanParameter(constants.CNIEnableInstall, true, "Whether to install CNI configuration and binary files")
 	registerBooleanParameter(constants.CNIEnableReinstall, true, "Whether to reinstall CNI configuration and binary files")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
@@ -167,7 +178,7 @@ func registerStringParameter(name, value, usage string) {
 	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
 	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
 	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterStringVar(envName, value, usage)
+	env.Register(envName, value, usage)
 	bindViper(name)
 }
 
@@ -176,7 +187,7 @@ func registerStringArrayParameter(name string, value []string, usage string) {
 	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
 	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
 	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterStringVar(envName, strings.Join(value, ","), usage)
+	env.Register(envName, strings.Join(value, ","), usage)
 	bindViper(name)
 }
 
@@ -185,7 +196,7 @@ func registerIntegerParameter(name string, value int, usage string) {
 	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
 	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
 	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterIntVar(envName, value, usage)
+	env.Register(envName, value, usage)
 	bindViper(name)
 }
 
@@ -194,7 +205,7 @@ func registerBooleanParameter(name string, value bool, usage string) {
 	rootCmd.Flags().Bool(name, value, usage)
 	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
 	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterBoolVar(envName, value, usage)
+	env.Register(envName, value, usage)
 	bindViper(name)
 }
 
@@ -214,6 +225,7 @@ func constructConfig() (*config.Config, error) {
 
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
+		CNIEnableInstall:     viper.GetBool(constants.CNIEnableInstall),
 		CNIEnableReinstall:   viper.GetBool(constants.CNIEnableReinstall),
 
 		LogLevel:           viper.GetString(constants.LogLevel),

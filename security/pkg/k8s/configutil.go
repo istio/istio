@@ -23,15 +23,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
 // client: the k8s client interface.
-// namespace: the namespace of the configmap.
-// value: the value of the data to insert.
-// configName: the name of the configmap.
-// dataName: the name of the data in the configmap.
-func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.ConfigMapLister, meta metav1.ObjectMeta, data map[string]string) error {
+// lister: the configmap lister.
+// meta: the metadata of configmap.
+// caBundle: ca cert data bytes.
+func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.ConfigMapLister, meta metav1.ObjectMeta, caBundle []byte) error {
 	configmap, err := lister.ConfigMaps(meta.Namespace).Get(meta.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("error when getting configmap %v: %v", meta.Name, err)
@@ -40,19 +41,21 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.Confi
 		// Create a new ConfigMap.
 		configmap = &v1.ConfigMap{
 			ObjectMeta: meta,
-			Data:       data,
+			Data: map[string]string{
+				constants.CACertNamespaceConfigMapDataName: string(caBundle),
+			},
 		}
 		if _, err = client.ConfigMaps(meta.Namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
 			// Namespace may be deleted between now... and our previous check. Just skip this, we cannot create into deleted ns
 			// And don't retry a create if the namespace is terminating
-			if errors.IsNotFound(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
+			if errors.IsAlreadyExists(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
 				return nil
 			}
 			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)
 		}
 	} else {
 		// Otherwise, update the config map if changes are required
-		err := UpdateDataInConfigMap(client, configmap, data)
+		err := updateDataInConfigMap(client, configmap, caBundle)
 		if err != nil {
 			return err
 		}
@@ -76,11 +79,14 @@ func insertData(cm *v1.ConfigMap, data map[string]string) bool {
 	return needsUpdate
 }
 
-func UpdateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, data map[string]string) error {
+func updateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, caBundle []byte) error {
 	if cm == nil {
 		return fmt.Errorf("cannot update nil configmap")
 	}
 	newCm := cm.DeepCopy()
+	data := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
 	if needsUpdate := insertData(newCm, data); !needsUpdate {
 		return nil
 	}

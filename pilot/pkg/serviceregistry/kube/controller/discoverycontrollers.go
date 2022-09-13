@@ -19,7 +19,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -49,7 +48,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 ) {
 	otype := "Namespaces"
 	c.nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
@@ -59,7 +58,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 				})
 			}
 		},
-		UpdateFunc: func(old, new interface{}) {
+		UpdateFunc: func(old, new any) {
 			incrementEvent(otype, "update")
 			oldNs := old.(*v1.Namespace)
 			newNs := new.(*v1.Namespace)
@@ -80,7 +79,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 				c.queue.Push(handleFunc)
 			}
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			incrementEvent(otype, "delete")
 			ns, ok := obj.(*v1.Namespace)
 			if !ok {
@@ -167,7 +166,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
 		}
 	case EndpointSliceOnly:
-		endpointSlices, err := v1beta1.NewEndpointSliceLister(c.endpoints.getInformer().GetIndexer()).EndpointSlices(ns).List(labels.Everything())
+		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
 		if err != nil {
 			log.Errorf("error listing endpoint slices: %v", err)
 			return
@@ -219,7 +218,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
 		}
 	case EndpointSliceOnly:
-		endpointSlices, err := kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Lister().EndpointSlices(ns).List(labels.Everything())
+		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
 		if err != nil {
 			log.Errorf("error listing endpoint slices: %v", err)
 			return

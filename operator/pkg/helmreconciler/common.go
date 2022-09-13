@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,6 +45,8 @@ const (
 	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
+	// istioOperatorInstallPrefix indicates the name of resource istiooperators.install.istio.io for Istio operator installation.
+	istioOperatorsInstallPrefix = "installed-state"
 )
 
 var (
@@ -61,7 +63,7 @@ func init() {
 
 // ComponentTree represents a tree of component dependencies.
 type (
-	ComponentTree          map[name.ComponentName]interface{}
+	ComponentTree          map[name.ComponentName]any
 	componentNameToListMap map[name.ComponentName][]name.ComponentName
 )
 
@@ -159,12 +161,12 @@ func createPortMap(current *unstructured.Unstructured) map[string]uint32 {
 func saveNodePorts(current, overlay *unstructured.Unstructured) {
 	portMap := createPortMap(current)
 	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
-	portList, ok := ports.([]interface{})
+	portList, ok := ports.([]any)
 	if !ok {
 		return
 	}
 	for _, port := range portList {
-		m, ok := port.(map[string]interface{})
+		m, ok := port.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -191,4 +193,13 @@ func saveClusterIP(current, overlay *unstructured.Unstructured) error {
 		}
 	}
 	return nil
+}
+
+// getIstioOperatorCRName get the Istio operator crd name based on specified revision
+func getIstioOperatorCRName(revision string) string {
+	name := istioOperatorsInstallPrefix
+	if revision == "" || revision == "default" {
+		return name
+	}
+	return name + "-" + revision
 }

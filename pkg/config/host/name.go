@@ -26,13 +26,14 @@ type Name string
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
 // to determine if h is covered by o or o is covered by h.
 // e.g.:
-//  Name("foo.com").Matches("foo.com")   = true
-//  Name("foo.com").Matches("bar.com")   = false
-//  Name("*.com").Matches("foo.com")     = true
-//  Name("bar.com").Matches("*.com")     = true
-//  Name("*.foo.com").Matches("foo.com") = false
-//  Name("*").Matches("foo.com")         = true
-//  Name("*").Matches("*.com")           = true
+//
+//	Name("foo.com").Matches("foo.com")   = true
+//	Name("foo.com").Matches("bar.com")   = false
+//	Name("*.com").Matches("foo.com")     = true
+//	Name("bar.com").Matches("*.com")     = true
+//	Name("*.foo.com").Matches("foo.com") = false
+//	Name("*").Matches("foo.com")         = true
+//	Name("*").Matches("*.com")           = true
 func (n Name) Matches(o Name) bool {
 	hWildcard := n.IsWildCarded()
 	oWildcard := o.IsWildCarded()

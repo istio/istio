@@ -20,6 +20,7 @@ package vm
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -32,14 +33,16 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
+	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
 )
 
 const (
@@ -55,7 +58,6 @@ const (
 var (
 	istioInst istio.Instance
 	ns        namespace.Instance
-	gceInst   gcemetadata.Instance
 	sdInst    stackdriver.Instance
 	server    echo.Instance
 	client    echo.Instance
@@ -70,7 +72,7 @@ var (
 	wantTrace      *cloudtrace.Trace
 )
 
-var clientBuilder, serverBuilder echo.Builder
+var clientBuilder, serverBuilder deployment.Builder
 
 var (
 	proxyConfigAnnotation = echo.Annotation{
@@ -113,11 +115,29 @@ spec:
 // - tests/integration/pilot/vm
 // - tests/integration/telemetry/stackdriver
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
-		RequireLocalControlPlane().
+		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"
+		// in the sense that we cannot access the metadata server
+		Label(label.IPv4).
+		SkipIf("test requires VMs", func(ctx resource.Context) bool {
+			return ctx.Settings().Skip(echo.VM)
+		}).
+		RequireMultiPrimary().
+		Setup(func(ctx resource.Context) error {
+			var err error
+			// Unlike other tests, we use GCE metadata server unconditionally for VMs because they would not have
+			// stable labels otherwise, unlike pods.
+			if sdtest.GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
+				return err
+			}
+			return nil
+		}).
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+meshConfig:
+`
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
 			cfg.Values["global.meshID"] = "proj-test-mesh"
@@ -125,6 +145,11 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
+
+			// conditionally use a fake metadata server for testing off of GCP
+			if sdtest.GCEInst != nil {
+				cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, sdtest.FakeGCEMetadataServerValues, sdtest.GCEInst.Address()}, "")
+			}
 		})).
 		Setup(testSetup).
 		Run()
@@ -139,28 +164,17 @@ func testSetup(ctx resource.Context) error {
 	}); err != nil {
 		return err
 	}
-
-	if gceInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
-		return err
-	}
+	sdtest.EchoNsInst = ns
 
 	if sdInst, err = stackdriver.New(ctx, stackdriver.Config{}); err != nil {
 		return err
 	}
+	sdtest.SDInst = sdInst
 
-	templateBytes, err := os.ReadFile(stackdriverBootstrapOverride)
-	if err != nil {
-		return err
-	}
-	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
+	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]any{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err = ctx.Config().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
+	}, stackdriverBootstrapOverride).Apply(); err != nil {
 		return err
 	}
 
@@ -172,11 +186,13 @@ func testSetup(ctx resource.Context) error {
 		"ISTIO_META_MESH_ID":                                     "proj-test-mesh",
 		"ISTIO_META_WORKLOAD_NAME":                               "vm-server-v1",
 		"ISTIO_METAJSON_LABELS":                                  vmLabelsJSON,
-		"GCE_METADATA_HOST":                                      gceInst.Address(),
 		"CANONICAL_SERVICE":                                      "vm-server",
 		"CANONICAL_REVISION":                                     "v1",
 		// we must supply a bootstrap override to get the test endpoint uri into the tracing configuration
-		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio/custom-bootstrap/custom_bootstrap.json",
+		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio-custom-bootstrap/custom_bootstrap.json",
+	}
+	if sdtest.GCEInst != nil {
+		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.Address()
 	}
 
 	trustDomain := telemetry.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)
@@ -200,13 +216,13 @@ func testSetup(ctx resource.Context) error {
 			Name:     "http",
 			Protocol: protocol.HTTP,
 			// Due to a bug in WorkloadEntry, service port must equal target port for now
-			InstancePort: 8090,
+			WorkloadPort: 8090,
 			ServicePort:  8090,
 		},
 	}
 
 	// builder to build the instances iteratively
-	clientBuilder = echoboot.NewBuilder(ctx).
+	clientBuilder = deployment.New(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: ns,
@@ -218,7 +234,7 @@ func testSetup(ctx resource.Context) error {
 			},
 		})
 
-	serverBuilder = echoboot.NewBuilder(ctx).
+	serverBuilder = deployment.New(ctx).
 		With(&server, echo.Config{
 			Service:       "server",
 			Namespace:     ns,
@@ -242,7 +258,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err != nil {
 		return
 	}
-	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
+	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})
@@ -258,7 +274,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err != nil {
 		return
 	}
-	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
+	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})
@@ -274,7 +290,7 @@ func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err er
 	if err != nil {
 		return
 	}
-	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]interface{}{
+	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})
@@ -293,7 +309,7 @@ func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {
 	if err != nil {
 		return nil, err
 	}
-	traceStr, err := tmpl.Evaluate(string(traceTmpl), map[string]interface{}{
+	traceStr, err := tmpl.Evaluate(string(traceTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
 	})

@@ -41,6 +41,7 @@ spec:
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:
+    defaultRevision: ""
     global:
       istioNamespace: istio-system
       istiod:

@@ -28,7 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -37,13 +36,12 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	pstruct "google.golang.org/protobuf/types/known/structpb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -52,9 +50,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -71,6 +72,9 @@ type Config struct {
 
 	// Workload defaults to 'test'
 	Workload string
+
+	// Revision for this control plane instance. We will only read configs that match this revision.
+	Revision string
 
 	// Meta includes additional metadata for the node
 	Meta *pstruct.Struct
@@ -192,7 +196,7 @@ type ADSC struct {
 	Mesh *v1alpha1.MeshConfig
 
 	// Retrieved configurations can be stored using the common istio model interface.
-	Store model.IstioConfigStore
+	Store model.ConfigStore
 
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *memory.ServiceDiscovery
@@ -226,7 +230,7 @@ type jsonMarshalProtoWithName struct {
 }
 
 func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
-	strSer, serr := ConvertGolangProtoToJSONByGolangJSONPB(p.Message)
+	strSer, serr := protomarshal.ToJSONWithIndent(p.Message, "  ")
 	if serr != nil {
 		adscLog.Warnf("Error for marshaling [%s]: %v", p.Name, serr)
 		return []byte(""), serr
@@ -236,17 +240,6 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 }
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
-
-// ConvertGolangProtoToJSONByGolangJSONPB help to implement the conversion from Proto message to string
-// Note: this conversion is just for golang protobuf by golang jsonpb
-func ConvertGolangProtoToJSONByGolangJSONPB(obj proto.Message) (string, error) {
-	jsonm := &jsonpb.Marshaler{Indent: "  "}
-	strResponse, err := jsonm.MarshalToString(obj)
-	if err != nil {
-		return "", err
-	}
-	return strResponse, nil
-}
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -270,7 +263,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	}
 	// We want to recreate stream
 	if opts.BackoffPolicy == nil {
-		opts.BackoffPolicy = backoff.NewExponentialBackOff()
+		opts.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
 	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
@@ -299,8 +292,8 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	adsc.Metadata = opts.Meta
 	adsc.Locality = opts.Locality
 
-	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
-		opts.Workload, opts.Namespace, opts.Namespace)
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", opts.NodeType, opts.IP,
+		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultClusterLocalDomain)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err
@@ -331,7 +324,7 @@ func (a *ADSC) Dial() error {
 
 	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
 		// Only disable transport security if the user didn't supply custom dial options
-		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
+		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)
@@ -478,6 +471,7 @@ func (a *ADSC) reconnect() {
 	if err == nil {
 		a.cfg.BackoffPolicy.Reset()
 	} else {
+		// TODO: fix reconnect
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
 }
@@ -525,7 +519,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := ConvertGolangProtoToJSONByGolangJSONPB(m)
+				strResponse, err := protomarshal.ToJSONWithIndent(m, "  ")
 				if err != nil {
 					continue
 				}
@@ -603,7 +597,7 @@ func (a *ADSC) handleRecv() {
 	}
 }
 
-func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
+func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
 		return &config.Config{}, nil
 	}
@@ -614,6 +608,11 @@ func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 			Annotations:     m.Metadata.Annotations,
 		},
 	}
+
+	if !config.ObjectInRevision(c, a.cfg.Revision) { // In case upstream does not support rev in node meta.
+		return nil, nil
+	}
+
 	if c.Meta.Annotations == nil {
 		c.Meta.Annotations = make(map[string]string)
 	}
@@ -624,16 +623,9 @@ func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
 	var err error
-	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
-	if err != nil {
-		return nil, err
-	}
+	c.CreationTimestamp = m.Metadata.CreateTime.AsTime()
 
-	pb, err := types.EmptyAny(m.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = types.UnmarshalAny(m.Body, pb)
+	pb, err := m.Body.UnmarshalNew()
 	if err != nil {
 		return nil, err
 	}
@@ -691,7 +683,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			adscLog.Infof(ConvertGolangProtoToJSONByGolangJSONPB(l))
+			adscLog.Infof(protomarshal.ToJSONWithIndent(l, "  "))
 		}
 	}
 
@@ -719,7 +711,7 @@ func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// guarrante the persistence order for each element in tcpListeners
+	// guarantee the persistence order for each element in tcpListeners
 	var sortTCPListeners []string
 	for key := range a.tcpListeners {
 		sortTCPListeners = append(sortTCPListeners, key)
@@ -739,7 +731,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in httpListeners
+	// guarantee the persistence order for each element in httpListeners
 	var sortHTTPListeners []string
 	for key := range a.httpListeners {
 		sortHTTPListeners = append(sortHTTPListeners, key)
@@ -759,7 +751,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in routes
+	// guarantee the persistence order for each element in routes
 	var sortRoutes []string
 	for key := range a.routes {
 		sortRoutes = append(sortRoutes, key)
@@ -779,7 +771,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in edsClusters
+	// guarantee the persistence order for each element in edsClusters
 	var sortEdsClusters []string
 	for key := range a.edsClusters {
 		sortEdsClusters = append(sortEdsClusters, key)
@@ -799,7 +791,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in clusters
+	// guarantee the persistence order for each element in clusters
 	var sortClusters []string
 	for key := range a.clusters {
 		sortClusters = append(sortClusters, key)
@@ -819,7 +811,7 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 
-	// guarrante the persistence order for each element in eds
+	// guarantee the persistence order for each element in eds
 	var sortEds []string
 	for key := range a.eds {
 		sortEds = append(sortEds, key)
@@ -909,7 +901,7 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	}
 	req.ResponseNonce = time.Now().String()
 	if adscLog.DebugEnabled() {
-		strReq, _ := ConvertGolangProtoToJSONByGolangJSONPB(req)
+		strReq, _ := protomarshal.ToJSONWithIndent(req, "  ")
 		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
@@ -1098,14 +1090,6 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
-func XdsInitialRequests() []*discovery.DiscoveryRequest {
-	return []*discovery.DiscoveryRequest{
-		{
-			TypeUrl: v3.ClusterType,
-		},
-	}
-}
-
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
@@ -1166,6 +1150,13 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
 	var resources []string
+
+	if strings.HasPrefix(msg.TypeUrl, v3.DebugType) {
+		// If the response is for istio.io/debug or istio.io/debug/*,
+		// skip to send ACK.
+		return
+	}
+
 	if msg.TypeUrl == v3.EndpointType {
 		for c := range a.edsClusters {
 			resources = append(resources, c)
@@ -1228,7 +1219,7 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	return a.eds
 }
 
-func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
+func (a *ADSC) handleMCP(gvk []string, resources []*anypb.Any) {
 	if len(gvk) != 3 {
 		return // Not MCP
 	}
@@ -1247,17 +1238,17 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
 		m := &mcp.Resource{}
-		err := types.UnmarshalAny(&types.Any{
-			TypeUrl: rsc.TypeUrl,
-			Value:   rsc.Value,
-		}, m)
+		err := rsc.UnmarshalTo(m)
 		if err != nil {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue
 		}
-		newCfg, err := mcpToPilot(m)
+		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
 			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			continue
+		}
+		if newCfg == nil {
 			continue
 		}
 		received[newCfg.Namespace+"/"+newCfg.Name] = newCfg

@@ -35,6 +35,15 @@ To view support configuration options and documentation, run:
 helm show values istio/gateway
 ```
 
+### `image: auto` Information
+
+The image used by the chart, `auto`, may be unintuitive.
+This exists because the pod spec will be automatically populated at runtime, using the same mechanism as [Sidecar Injection](istio.io/latest/docs/setup/additional-setup/sidecar-injection).
+This allows the same configurations and lifecycle to apply to gateways as sidecars.
+
+Note: this does mean that the namespace the gateway is deployed in must not have the `istio-injection=disabled` label.
+See [Controlling the injection policy](https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#controlling-the-injection-policy) for more info.
+
 ### Examples
 
 #### Egress Gateway
@@ -62,6 +71,18 @@ following the guidance below.
 If you are able to, a clean installation is simpler. However, this often requires an external IP migration which can be challenging.
 
 WARNING: when installing over an existing deployment, the two deployments will be merged together by Helm, which may lead to unexpected results.
+
+#### Legacy Gateway Helm charts
+
+Istio historically offered two different charts - `manifests/charts/gateways/istio-ingress` and `manifests/charts/gateways/istio-egress`.
+These are replaced by this chart.
+While not required, it is recommended all new users use this chart, and existing users migrate when possible.
+
+This chart has the following benefits and differences:
+* Designed with Helm best practices in mind (standardized values options, values schema, values are not all nested under `gateways.istio-ingressgateway.*`, release name and namespace taken into account, etc).
+* Utilizes Gateway injection, simplifying upgrades, allowing gateways to run in any namespace, and avoiding repeating config for sidecars and gateways.
+* Published to official Istio Helm repository.
+* Single chart for all gateways (Ingress, Egress, East West).
 
 #### General concerns
 
@@ -100,7 +121,12 @@ It could be upgraded with
 helm upgrade istio-ingress manifests/charts/gateway -n istio-system --set name=istio-ingressgateway --set labels.app=istio-ingressgateway --set labels.istio=ingressgateway
 ```
 
-Note the name and labels are overridden to match the names of the existing installation
+Note the name and labels are overridden to match the names of the existing installation.
+
+Warning: the helm charts here default to using port 80 and 443, while the old charts used 8080 and 8443.
+If you have AuthorizationPolicies that reference port these ports, you should update them during this process,
+or customize the ports to match the old defaults.
+See the [security advisory](https://istio.io/latest/news/security/istio-security-2021-002/) for more information.
 
 #### Other migrations
 

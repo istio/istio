@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/35405
+
+releaseNotes:
+- |
+  **Improved** Analyzers reports output to match the naming scheme expected by the API, i.e `<ns>/<name>` instead of `<name>.<ns>`.

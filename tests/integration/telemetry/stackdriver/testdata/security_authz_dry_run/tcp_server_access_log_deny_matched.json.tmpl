@@ -1,0 +1,32 @@
+{
+    "text_payload": "clt-{{ .ClusterName }} --> srv",
+    "labels": {
+        "destination_app": "srv",
+        "destination_canonical_revision": "v1",
+        "destination_canonical_service": "srv",
+        "destination_namespace": "{{ .EchoNamespace }}",
+        "destination_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
+        "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_service_name": "srv",
+        "destination_version": "v1",
+        "destination_workload": "srv-v1",
+        "destination_port": "9000",
+        "mesh_uid": "proj-test-mesh",
+        "response_flag": "-",
+        "service_authentication_policy": "MUTUAL_TLS",
+        "source_app": "clt-{{ .ClusterName }}",
+        "source_canonical_revision": "v1",
+        "source_canonical_service": "clt-{{ .ClusterName }}",
+        "source_namespace": "{{ .EchoNamespace }}",
+        "source_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
+        "source_version": "v1",
+        "source_workload": "clt-{{ .ClusterName }}-v1",
+        "protocol": "tcp",
+        "log_sampled": "false",
+        "requested_server_name": "outbound_.9090_._.srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "upstream_cluster": "inbound|9000||",
+        "dry_run_result": "AuthzDenied",
+        "dry_run_policy_name": "{{ .EchoNamespace }}.dry-run-deny",
+        "dry_run_policy_rule": "2"
+    }
+}

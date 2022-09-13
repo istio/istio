@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestCidrRange(t *testing.T) {

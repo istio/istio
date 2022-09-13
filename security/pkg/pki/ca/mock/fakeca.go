@@ -38,15 +38,20 @@ func (ca *FakeCA) Sign(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
 }
 
 // SignWithCertChain returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert and the cert chain.
-func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
+func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts ca.CertOpts) ([]string, error) {
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}
 	cert := ca.SignedCert
+	respCertChain := []string{string(cert)}
 	if ca.KeyCertBundle != nil {
-		cert = append(cert, ca.KeyCertBundle.GetCertChainPem()...)
+		respCertChain = append(respCertChain, string(ca.KeyCertBundle.GetCertChainPem()))
 	}
-	return cert, nil
+	_, _, _, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
+	if len(rootCertBytes) != 0 {
+		respCertChain = append(respCertChain, string(rootCertBytes))
+	}
+	return respCertChain, nil
 }
 
 // GetCAKeyCertBundle returns KeyCertBundle if KeyCertBundle is not nil, otherwise, it returns an empty

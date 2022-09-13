@@ -20,11 +20,17 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/duration"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
+	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
+	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -73,7 +79,6 @@ func TestIsCatchAllMatch(t *testing.T) {
 		{
 			name: "uri regex with headers",
 			match: &networking.HTTPMatchRequest{
-
 				Name: "regex with headers",
 				Headers: map[string]*networking.StringMatch{
 					"Authentication": {
@@ -140,6 +145,18 @@ func TestIsCatchAllRoute(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "catch all prefix >= 1.14",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_PathSeparatedPrefix{
+						PathSeparatedPrefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name: "catch all regex",
 			route: &route.Route{
 				Name: "catch-all",
@@ -153,6 +170,26 @@ func TestIsCatchAllRoute(t *testing.T) {
 				},
 			},
 			want: true,
+		},
+		{
+			name: "catch all prefix with headers",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
+					Headers: []*route.HeaderMatcher{
+						{
+							Name: "Authentication",
+							HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+								ExactMatch: "test",
+							},
+						},
+					},
+				},
+			},
+			want: false,
 		},
 		{
 			name: "uri regex with headers",
@@ -169,11 +206,14 @@ func TestIsCatchAllRoute(t *testing.T) {
 					Headers: []*route.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &matcher.RegexMatcher{
-									// nolint: staticcheck
-									EngineType: &matcher.RegexMatcher_GoogleRe2{},
-									Regex:      "*",
+							HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+								StringMatch: &matcher.StringMatcher{
+									MatchPattern: &matcher.StringMatcher_SafeRegex{
+										SafeRegex: &matcher.RegexMatcher{
+											EngineType: util.RegexEngine,
+											Regex:      "*",
+										},
+									},
 								},
 							},
 						},
@@ -294,7 +334,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
-						EngineType: regexEngine,
+						EngineType: util.RegexEngine,
 						Regex:      "regex",
 					},
 				},
@@ -324,7 +364,7 @@ func TestMirrorPercent(t *testing.T) {
 			name: "zero mirror percent",
 			route: &networking.HTTPRoute{
 				Mirror:        &networking.Destination{},
-				MirrorPercent: &types.UInt32Value{Value: 0.0},
+				MirrorPercent: &wrappers.UInt32Value{Value: 0.0},
 			},
 			want: nil,
 		},
@@ -344,7 +384,7 @@ func TestMirrorPercent(t *testing.T) {
 			name: "mirror with actual percent",
 			route: &networking.HTTPRoute{
 				Mirror:        &networking.Destination{},
-				MirrorPercent: &types.UInt32Value{Value: 50},
+				MirrorPercent: &wrappers.UInt32Value{Value: 50},
 			},
 			want: &core.RuntimeFractionalPercent{
 				DefaultValue: &xdstype.FractionalPercent{
@@ -378,7 +418,7 @@ func TestMirrorPercent(t *testing.T) {
 			name: "mirrorpercentage takes precedence when both are given",
 			route: &networking.HTTPRoute{
 				Mirror:           &networking.Destination{},
-				MirrorPercent:    &types.UInt32Value{Value: 40},
+				MirrorPercent:    &wrappers.UInt32Value{Value: 40},
 				MirrorPercentage: &networking.Percent{Value: 50.0},
 			},
 			want: &core.RuntimeFractionalPercent{
@@ -403,7 +443,7 @@ func TestMirrorPercent(t *testing.T) {
 func TestSourceMatchHTTP(t *testing.T) {
 	type args struct {
 		match          *networking.HTTPMatchRequest
-		proxyLabels    labels.Collection
+		proxyLabels    labels.Instance
 		gatewayNames   map[string]bool
 		proxyNamespace string
 	}
@@ -455,6 +495,181 @@ func TestSourceMatchHTTP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := sourceMatchHTTP(tt.args.match, tt.args.proxyLabels, tt.args.gatewayNames, tt.args.proxyNamespace); got != tt.want {
 				t.Errorf("sourceMatchHTTP() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTranslateMetadataMatch(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *networking.StringMatch
+		want *matcher.MetadataMatcher
+	}{
+		{
+			name: "@request.auth.claims",
+		},
+		{
+			name: "@request.auth.claims-",
+		},
+		{
+			name: "request.auth.claims.",
+		},
+		{
+			name: "@request.auth.claims-",
+		},
+		{
+			name: "@request.auth.claims-abc",
+		},
+		{
+			name: "x-some-other-header",
+		},
+		{
+			name: "@request.auth.claims.key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims.key1.KEY2",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "KEY2"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims.key1-key2",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1-key2"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims.prefix",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"prefix"}, authzmatcher.StringMatcher("prefix*")),
+		},
+		{
+			name: "@request.auth.claims.regex",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: ".+?\\..+?\\..+?"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := translateMetadataMatch(tc.name, tc.in)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("Unexpected metadata matcher want %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestTranslateFault(t *testing.T) {
+	cases := []struct {
+		name  string
+		fault *networking.HTTPFaultInjection
+		want  *xdshttpfault.HTTPFault
+	}{
+		{
+			name: "http delay",
+			fault: &networking.HTTPFaultInjection{
+				Delay: &networking.HTTPFaultInjection_Delay{
+					HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+						FixedDelay: &duration.Duration{
+							Seconds: int64(3),
+						},
+					},
+					Percentage: &networking.Percent{
+						Value: float64(50),
+					},
+				},
+			},
+			want: &xdshttpfault.HTTPFault{
+				Delay: &xdsfault.FaultDelay{
+					Percentage: &xdstype.FractionalPercent{
+						Numerator:   uint32(50 * 10000),
+						Denominator: xdstype.FractionalPercent_MILLION,
+					},
+					FaultDelaySecifier: &xdsfault.FaultDelay_FixedDelay{
+						FixedDelay: &duration.Duration{
+							Seconds: int64(3),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "grpc abort",
+			fault: &networking.HTTPFaultInjection{
+				Abort: &networking.HTTPFaultInjection_Abort{
+					ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+						GrpcStatus: "DEADLINE_EXCEEDED",
+					},
+					Percentage: &networking.Percent{
+						Value: float64(50),
+					},
+				},
+			},
+			want: &xdshttpfault.HTTPFault{
+				Abort: &xdshttpfault.FaultAbort{
+					Percentage: &xdstype.FractionalPercent{
+						Numerator:   uint32(50 * 10000),
+						Denominator: xdstype.FractionalPercent_MILLION,
+					},
+					ErrorType: &xdshttpfault.FaultAbort_GrpcStatus{
+						GrpcStatus: uint32(4),
+					},
+				},
+			},
+		},
+		{
+			name: "both delay and abort",
+			fault: &networking.HTTPFaultInjection{
+				Delay: &networking.HTTPFaultInjection_Delay{
+					HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
+						FixedDelay: &duration.Duration{
+							Seconds: int64(3),
+						},
+					},
+					Percentage: &networking.Percent{
+						Value: float64(50),
+					},
+				},
+				Abort: &networking.HTTPFaultInjection_Abort{
+					ErrorType: &networking.HTTPFaultInjection_Abort_GrpcStatus{
+						GrpcStatus: "DEADLINE_EXCEEDED",
+					},
+					Percentage: &networking.Percent{
+						Value: float64(50),
+					},
+				},
+			},
+			want: &xdshttpfault.HTTPFault{
+				Delay: &xdsfault.FaultDelay{
+					Percentage: &xdstype.FractionalPercent{
+						Numerator:   uint32(50 * 10000),
+						Denominator: xdstype.FractionalPercent_MILLION,
+					},
+					FaultDelaySecifier: &xdsfault.FaultDelay_FixedDelay{
+						FixedDelay: &duration.Duration{
+							Seconds: int64(3),
+						},
+					},
+				},
+				Abort: &xdshttpfault.FaultAbort{
+					Percentage: &xdstype.FractionalPercent{
+						Numerator:   uint32(50 * 10000),
+						Denominator: xdstype.FractionalPercent_MILLION,
+					},
+					ErrorType: &xdshttpfault.FaultAbort_GrpcStatus{
+						GrpcStatus: uint32(4),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tf := translateFault(tt.fault)
+			if !reflect.DeepEqual(tf, tt.want) {
+				t.Errorf("Unexpected translate fault want %v, got %v", tt.want, tf)
 			}
 		})
 	}

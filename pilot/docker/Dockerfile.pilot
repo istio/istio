@@ -1,18 +1,18 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
-ARG BASE_DISTRIBUTION=default
+ARG BASE_DISTRIBUTION=debug
 
 # Version is the base image version from the TLD Makefile
 ARG BASE_VERSION=latest
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
-FROM gcr.io/istio-release/base:${BASE_VERSION} as default
+# The following section is used as base image if BASE_DISTRIBUTION=debug
+FROM gcr.io/istio-release/base:${BASE_VERSION} as debug
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
 
-# This will build the final image based on either default or distroless from above
+# This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION}
+FROM ${BASE_DISTRIBUTION:-debug}
 
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/pilot-discovery /usr/local/bin/pilot-discovery

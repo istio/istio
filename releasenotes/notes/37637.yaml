@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/pull/37637
+releaseNotes:
+  - |
+    **Fixed** an issue where `traffic.sidecar.istio.io/includeOutboundPorts` annotation does not take effect when using CNI.

@@ -18,25 +18,33 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/pmezard/go-difflib/difflib"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // ListenerDiff prints a diff between Istiod and Envoy listeners to the passed writer
 func (c *Comparator) ListenerDiff() error {
-	jsonm := &jsonpb.Marshaler{Indent: "   "}
 	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
 	envoyListenerDump, err := c.envoy.GetDynamicListenerDump(true)
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(envoyBytes, envoyListenerDump); err != nil {
-		return err
+	} else {
+		envoy, err := protomarshal.ToJSONWithIndent(envoyListenerDump, "    ")
+		if err != nil {
+			return err
+		}
+		envoyBytes.WriteString(envoy)
 	}
 	istiodListenerDump, err := c.istiod.GetDynamicListenerDump(true)
 	if err != nil {
 		istiodBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(istiodBytes, istiodListenerDump); err != nil {
-		return err
+	} else {
+		istiod, err := protomarshal.ToJSONWithIndent(istiodListenerDump, "    ")
+		if err != nil {
+			return err
+		}
+		istiodBytes.WriteString(istiod)
 	}
 	diff := difflib.UnifiedDiff{
 		FromFile: "Istiod Listeners",

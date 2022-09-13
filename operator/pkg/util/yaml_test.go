@@ -18,23 +18,19 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 func TestToYAML(t *testing.T) {
 	tests := []struct {
 		desc        string
-		inVals      interface{}
+		inVals      any
 		expectedOut string
 	}{
 		{
 			desc: "valid-yaml",
-			inVals: map[string]interface{}{
+			inVals: map[string]any{
 				"foo": "bar",
-				"yo": map[string]interface{}{
+				"yo": map[string]any{
 					"istio": "bar",
 				},
 			},
@@ -45,7 +41,7 @@ yo:
 		},
 		{
 			desc: "alphabetical",
-			inVals: map[string]interface{}{
+			inVals: map[string]any{
 				"foo": "yaml",
 				"abc": "f",
 			},
@@ -68,52 +64,24 @@ foo: yaml
 	}
 }
 
-func TestToYAMLWithJSONPB(t *testing.T) {
-	tests := []struct {
-		desc        string
-		in          proto.Message
-		expectedOut string
-	}{
-		{
-			desc: "valid-istio-op-with-missing-fields",
-			in: &v1alpha1.IstioOperator{
-				ApiVersion: "v1",
-				Kind:       "operator",
-			},
-			expectedOut: `apiVersion: v1
-kind: operator
-metadata:
-  creationTimestamp: null
-`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if got := ToYAMLWithJSONPB(tt.in); got != tt.expectedOut {
-				t.Errorf("%s: expected %v got %v", tt.desc, tt.expectedOut, got)
-			}
-		})
-	}
-}
-
 func TestOverlayTrees(t *testing.T) {
 	tests := []struct {
 		desc            string
-		inBase          map[string]interface{}
-		inOverlays      map[string]interface{}
-		expectedOverlay map[string]interface{}
+		inBase          map[string]any
+		inOverlays      map[string]any
+		expectedOverlay map[string]any
 		expectedErr     error
 	}{
 		{
 			desc: "overlay-valid",
-			inBase: map[string]interface{}{
+			inBase: map[string]any{
 				"foo": "bar",
 				"baz": "naz",
 			},
-			inOverlays: map[string]interface{}{
+			inOverlays: map[string]any{
 				"foo": "laz",
 			},
-			expectedOverlay: map[string]interface{}{
+			expectedOverlay: map[string]any{
 				"baz": "naz",
 				"foo": "laz",
 			},
@@ -121,14 +89,14 @@ func TestOverlayTrees(t *testing.T) {
 		},
 		{
 			desc: "overlay-key-does-not-exist",
-			inBase: map[string]interface{}{
+			inBase: map[string]any{
 				"foo": "bar",
 				"baz": "naz",
 			},
-			inOverlays: map[string]interface{}{
+			inOverlays: map[string]any{
 				"i-dont-exist": "i-really-dont-exist",
 			},
-			expectedOverlay: map[string]interface{}{
+			expectedOverlay: map[string]any{
 				"baz":          "naz",
 				"foo":          "bar",
 				"i-dont-exist": "i-really-dont-exist",
@@ -137,23 +105,14 @@ func TestOverlayTrees(t *testing.T) {
 		},
 		{
 			desc: "remove-key-val",
-			inBase: map[string]interface{}{
+			inBase: map[string]any{
 				"foo": "bar",
 			},
-			inOverlays: map[string]interface{}{
+			inOverlays: map[string]any{
 				"foo": nil,
 			},
-			expectedOverlay: map[string]interface{}{},
+			expectedOverlay: map[string]any{},
 			expectedErr:     nil,
-		},
-		{
-			desc: "expected-err",
-			inBase: map[string]interface{}{
-				"foo": nil,
-			},
-			inOverlays:      nil,
-			expectedOverlay: nil,
-			expectedErr:     errors.New("json merge error (Invalid JSON Patch) for base object"),
 		},
 	}
 	for _, tt := range tests {
@@ -246,6 +205,60 @@ notgoo: nottar
 			diff1:  `Ij#**#f#`,
 			diff2:  `fm*##)n`,
 			expect: "error unmarshaling JSON: while decoding JSON: json: cannot unmarshal string into Go value of type map[string]interface {}",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := YAMLDiff(tt.diff1, tt.diff2); got != tt.expect {
+				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
+			}
+		})
+	}
+}
+
+func TestMultipleYAMLDiff(t *testing.T) {
+	tests := []struct {
+		desc   string
+		diff1  string
+		diff2  string
+		expect string
+	}{
+		{
+			desc: "1-line-diff",
+			diff1: `hola: yo
+foo: bar
+goo: tar
+---
+hola: yo1
+foo: bar1
+goo: tar1
+`,
+			diff2: `hola: yo
+foo: bar
+notgoo: nottar
+`,
+			expect: ` foo: bar
+-goo: tar
+ hola: yo
++notgoo: nottar
+ 
+-foo: bar1
+-goo: tar1
+-hola: yo1
++{}
+ `,
+		},
+		{
+			desc: "no-diff",
+			diff1: `foo: bar
+---
+foo: bar1
+`,
+			diff2: `foo: bar
+---
+foo: bar1
+`,
+			expect: ``,
 		},
 	}
 	for _, tt := range tests {

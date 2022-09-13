@@ -36,5 +36,5 @@ func (n Name) String() string {
 
 // IsValidName returns true if the given collection is a valid name.
 func IsValidName(name string) bool {
-	return validNameRegex.Match([]byte(name))
+	return validNameRegex.MatchString(name)
 }

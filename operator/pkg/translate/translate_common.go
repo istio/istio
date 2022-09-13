@@ -17,6 +17,8 @@ package translate
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/ptypes/wrappers"
+
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
@@ -35,7 +37,7 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 	if !found || componentNodeI == nil {
 		return false, nil
 	}
-	componentNode, ok := componentNodeI.(*v1alpha1.BoolValueForPB)
+	componentNode, ok := componentNodeI.(*wrappers.BoolValue)
 	if !ok {
 		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha1.BoolValueForPB", componentName, componentNodeI)
 	}
@@ -47,7 +49,7 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 
 // IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
 // valuePath points to component path in the values tree.
-func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]interface{}) (enabled bool, pathExist bool, err error) {
+func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]any) (enabled bool, pathExist bool, err error) {
 	t := NewTranslator()
 	cnMap, ok := t.ComponentMaps[cn]
 	if !ok {

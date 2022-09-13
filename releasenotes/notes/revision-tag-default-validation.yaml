@@ -3,7 +3,8 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Updated** `istioctl tag set default` to control which revision handles Istio resource validation.
+    **Updated** `istioctl tag set default` to control which revision handles Istio resource validation. The revision indicated
+    through the default tag will also win leader elections and assume singleton cluster responsibilities.
 
 upgradeNotes:
   - title: Default revision must be switched when performing a revision-based upgrade.

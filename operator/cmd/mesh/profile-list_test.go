@@ -38,7 +38,27 @@ func TestProfileList(t *testing.T) {
 		t.Fatalf("failed to execute istioctl profile command: %v", err)
 	}
 	output := out.String()
-	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "remote"}
+	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "remote", "external"}
+	for _, prof := range expectedProfiles {
+		g.Expect(output).To(gomega.ContainSubstring(prof))
+	}
+}
+
+func TestProfileListByurl(t *testing.T) {
+	g := gomega.NewWithT(t)
+	args := []string{"profile", "list", "--dry-run", "--manifests", "https://github.com/istio/istio/releases/download/1.15.0/istio-1.15.0-linux-amd64.tar.gz"}
+
+	rootCmd := GetRootCmd(args)
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("failed to execute istioctl profile command: %v", err)
+	}
+	output := out.String()
+	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "external"}
 	for _, prof := range expectedProfiles {
 		g.Expect(output).To(gomega.ContainSubstring(prof))
 	}

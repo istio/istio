@@ -32,11 +32,9 @@ export BUILD_WITH_CONTAINER ?= 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 
-# An export free of arugments in a Makefile places all variables in the Makefile into the
+# An export free of arguments in a Makefile places all variables in the Makefile into the
 # environment. This is needed to allow overrides from Makefile.overrides.mk.
 export
-
-$(shell $(shell pwd)/common/scripts/setup_env.sh)
 
 RUN = ./common/scripts/run.sh
 
@@ -60,7 +58,7 @@ else
 $(shell mkdir -p out)
 $(shell $(shell pwd)/common/scripts/setup_env.sh envfile > out/.env)
 include out/.env
-# An export free of arugments in a Makefile places all variables in the Makefile into the
+# An export free of arguments in a Makefile places all variables in the Makefile into the
 # environment. This behavior may be surprising to many that use shell often, which simply
 # displays the existing environment
 export

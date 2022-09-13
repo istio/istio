@@ -21,17 +21,21 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ghodss/yaml"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -103,52 +107,62 @@ type Config struct {
 	Status Status
 }
 
+func ObjectInRevision(o *Config, rev string) bool {
+	configEnv, f := o.Labels[label.IoIstioRev.Name]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return true if revisions equal
+	return configEnv == rev
+}
+
 // Spec defines the spec for the config. In order to use below helper methods,
 // this must be one of:
 // * golang/protobuf Message
 // * gogo/protobuf Message
 // * Able to marshal/unmarshal using json
-type Spec interface{}
+type Spec any
 
-func ToProtoGogo(s Spec) (*gogotypes.Any, error) {
+func ToProto(s Spec) (*anypb.Any, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if pb, ok := s.(protoreflect.ProtoMessage); ok {
-		golangany, err := anypb.New(pb)
-		if err != nil {
-			return nil, err
-		}
-		return &gogotypes.Any{
-			TypeUrl: golangany.TypeUrl,
-			Value:   golangany.Value,
-		}, nil
+		return protoconv.MessageToAnyWithError(pb)
 	}
 
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
-		return gogotypes.MarshalAny(pb)
+		gogoany, err := gogotypes.MarshalAny(pb)
+		if err != nil {
+			return nil, err
+		}
+		return &anypb.Any{
+			TypeUrl: gogoany.TypeUrl,
+			Value:   gogoany.Value,
+		}, nil
 	}
 
 	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
 	}
-	pbs := &gogotypes.Struct{}
-	if err := gogojsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+	pbs := &structpb.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
 		return nil, err
 	}
-	return gogotypes.MarshalAny(pbs)
+	return protoconv.MessageToAnyWithError(pbs)
 }
 
-func ToMap(s Spec) (map[string]interface{}, error) {
+func ToMap(s Spec) (map[string]any, error) {
 	js, err := ToJSON(s)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal(js, &data)
 	if err != nil {
 		return nil, err
@@ -158,28 +172,38 @@ func ToMap(s Spec) (map[string]interface{}, error) {
 }
 
 func ToJSON(s Spec) ([]byte, error) {
-	b := &bytes.Buffer{}
+	return toJSON(s, false)
+}
+
+func ToPrettyJSON(s Spec) ([]byte, error) {
+	return toJSON(s, true)
+}
+
+func toJSON(s Spec, pretty bool) ([]byte, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			err := (&jsonpb.Marshaler{}).Marshal(b, pb)
-			return b.Bytes(), err
+			b, err := protomarshal.Marshal(pb)
+			return b, err
 		}
 	}
 
+	b := &bytes.Buffer{}
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
 		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
 		return b.Bytes(), err
 	}
-
+	if pretty {
+		return json.MarshalIndent(s, "", "\t")
+	}
 	return json.Marshal(s)
 }
 
 type deepCopier interface {
-	DeepCopyInterface() interface{}
+	DeepCopyInterface() any
 }
 
 func ApplyYAML(s Spec, yml string) error {
@@ -232,7 +256,7 @@ func ApplyJSON(s Spec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s interface{}) interface{} {
+func DeepCopy(s any) any {
 	if s == nil {
 		return nil
 	}
@@ -262,15 +286,15 @@ func DeepCopy(s interface{}) interface{} {
 		return nil
 	}
 
-	data := reflect.New(reflect.TypeOf(s).Elem()).Interface()
-	err = json.Unmarshal(js, &data)
-	if err != nil {
+	data := reflect.New(reflect.TypeOf(s)).Interface()
+	if err := json.Unmarshal(js, data); err != nil {
 		return nil
 	}
+	data = reflect.ValueOf(data).Elem().Interface()
 	return data
 }
 
-type Status interface{}
+type Status any
 
 // Key function for the configuration objects
 func Key(grp, ver, typ, name, namespace string) string {
@@ -324,6 +348,15 @@ func (g GroupVersionKind) GroupVersion() string {
 		return g.Version
 	}
 	return g.Group + "/" + g.Version
+}
+
+// Kubernetes returns the same GVK, using the Kubernetes object type
+func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   g.Group,
+		Version: g.Version,
+		Kind:    g.Kind,
+	}
 }
 
 // CanonicalGroup returns the group with defaulting applied. This means an empty group will

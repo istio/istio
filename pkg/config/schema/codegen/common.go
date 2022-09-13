@@ -24,7 +24,7 @@ const (
 	commentLinePrefix = "// "
 )
 
-func applyTemplate(tmpl string, i interface{}) (string, error) {
+func applyTemplate(tmpl string, i any) (string, error) {
 	t := template.New("tmpl").Funcs(template.FuncMap{
 		"wordWrap":     wordWrap,
 		"commentBlock": commentBlock,

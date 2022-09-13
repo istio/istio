@@ -1,0 +1,15 @@
+# The following policy selects a non-exist workload
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-{{ .To.ServiceName }}-bad
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+      "foo": "bla"
+  rules:
+    - to:
+        - operation:
+            paths: [ "/policy-{{ .To.Config.Namespace.Prefix }}-{{ .To.ServiceName }}-bad" ]

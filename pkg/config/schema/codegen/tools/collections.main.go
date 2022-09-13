@@ -22,7 +22,6 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/codegen"
 )
@@ -58,16 +57,22 @@ func main() {
 		os.Exit(-3)
 	}
 
-	// Validate the input.
-	if _, err := schema.Build(m); err != nil {
-		fmt.Printf("failed building metadata: %v", err)
-		os.Exit(-4)
-	}
-
 	var contents string
 
 	if pkg == "gvk" {
 		contents, err = codegen.WriteGvk(pkg, m)
+		if err != nil {
+			fmt.Printf("Error applying static init template: %v", err)
+			os.Exit(-3)
+		}
+		if err = os.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+			fmt.Printf("Error writing output file: %v", err)
+			os.Exit(-4)
+		}
+		return
+	}
+	if pkg == "kind" {
+		contents, err = codegen.WriteKind(pkg, m)
 		if err != nil {
 			fmt.Printf("Error applying static init template: %v", err)
 			os.Exit(-3)

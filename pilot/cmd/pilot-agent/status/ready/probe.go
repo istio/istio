@@ -100,11 +100,11 @@ func (p *Probe) isEnvoyReady() error {
 }
 
 func (p *Probe) checkEnvoyReadiness() error {
-	// If Envoy is ready atleast once i.e. server state is LIVE and workers
+	// If Envoy is ready at least once i.e. server state is LIVE and workers
 	// have started, they will not go back in the life time of Envoy process.
-	// They will only change at hot restart or health check fails. Since Istio
+	// They will only change at hot restart or health check fails. Since istio
 	// does not use both of them, it is safe to cache this value. Since the
-	// actual readiness probe goes via Envoy it ensures that Envoy is actively
+	// actual readiness probe goes via Envoy, it ensures that Envoy is actively
 	// serving traffic and we can rely on that.
 	if p.atleastOnceReady {
 		return nil

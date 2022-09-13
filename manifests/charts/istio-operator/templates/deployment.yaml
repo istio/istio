@@ -5,6 +5,7 @@ metadata:
   name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   replicas: 1
+  revisionHistoryLimit: {{ .Values.deploymentHistory }}
   selector:
     matchLabels:
       name: istio-operator
@@ -37,6 +38,10 @@ spec:
             runAsGroup: 1337
             runAsUser: 1337
             runAsNonRoot: true
+{{- if .Values.operator.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.operator.seccompProfile | trim | indent 14 }}
+{{- end }}
           imagePullPolicy: IfNotPresent
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
@@ -55,4 +60,16 @@ spec:
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
               value: {{.Values.revision | quote}}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 ---

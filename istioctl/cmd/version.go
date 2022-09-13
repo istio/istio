@@ -22,9 +22,9 @@ import (
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"

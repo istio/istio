@@ -89,7 +89,7 @@ func verifyRootCertAndPrivateKey(t *testing.T, shouldMatch bool, itemA, itemB ro
 	// Root cert rotation does not change root private key. Root private key should
 	// remain the same.
 	isMatched = bytes.Equal(itemA.caSecret.Data[CAPrivateKeyFile], itemB.caSecret.Data[CAPrivateKeyFile])
-	if isMatched != true {
+	if !isMatched {
 		t.Errorf("Root private key should not change. Want %v got %v", shouldMatch, isMatched)
 	}
 }
@@ -164,7 +164,8 @@ func TestRootCertRotatorKeepCertFieldsUnchanged(t *testing.T) {
 // updateRootCertWithCustomCertOptions generate root cert and private key with
 // custom cert options, and replaces root cert and key in CA secret.
 func updateRootCertWithCustomCertOptions(t *testing.T,
-	rotator *SelfSignedCARootCertRotator, options util.CertOptions) {
+	rotator *SelfSignedCARootCertRotator, options util.CertOptions,
+) {
 	certItem := loadCert(rotator)
 
 	pemCert, pemKey, err := util.GenCertKeyFromOptions(options)

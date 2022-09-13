@@ -21,17 +21,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ghodss/yaml"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/version"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -50,9 +50,10 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // representation of path-values passed through the --set flag.
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool,
-	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
+func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
+	client kube.Client, l clog.Logger,
+) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
+	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, client, l)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,8 +63,14 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 	}
 
 	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t)
+	var ver *version.Info
+	if client != nil {
+		ver, err = client.GetKubernetesVersion()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter, ver)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,8 +96,9 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
-func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeConfig *rest.Config,
-	l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+func GenerateConfig(inFilenames []string, setFlags []string, force bool, client kube.Client,
+	l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
@@ -100,12 +108,13 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 		return "", nil, err
 	}
 
-	return OverlayYAMLStrings(profile, fy, setFlags, force, kubeConfig, l)
+	return OverlayYAMLStrings(profile, fy, setFlags, force, client, l)
 }
 
 func OverlayYAMLStrings(profile string, fy string,
-	setFlags []string, force bool, kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
-	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
+	setFlags []string, force bool, client kube.Client, l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
+	iopsString, iops, err := GenIOPFromProfile(profile, fy, setFlags, force, false, client, l)
 	if err != nil {
 		return "", nil, err
 	}
@@ -124,7 +133,8 @@ func OverlayYAMLStrings(profile string, fy string,
 // GenIOPFromProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperator string and struct.
 func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
-	kubeConfig *rest.Config, l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	client kube.Client, l clog.Logger,
+) (string, *iopv1alpha1.IstioOperator, error) {
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
 		return "", nil, err
@@ -135,7 +145,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	}
 
 	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
-	installPackagePath, profileOrPath, err = rewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
+	installPackagePath, profileOrPath, err = RewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
 	if err != nil {
 		return "", nil, err
 	}
@@ -154,8 +164,8 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	}
 
 	// Merge k8s specific values.
-	if kubeConfig != nil {
-		kubeOverrides, err := getClusterSpecificValues(kubeConfig, skipValidation, l)
+	if client != nil {
+		kubeOverrides, err := getClusterSpecificValues(client, skipValidation, l)
 		if err != nil {
 			return "", nil, err
 		}
@@ -196,11 +206,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	}
 
 	// Validate Final IOP config against K8s cluster
-	if kubeConfig != nil {
-		client, err := kubernetes.NewForConfig(kubeConfig)
-		if err != nil {
-			return "", nil, err
-		}
+	if client != nil {
 		err = util.ValidateIOPCAConfig(client, finalIOP)
 		if err != nil {
 			return "", nil, err
@@ -214,7 +220,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	if finalIOP.Spec.Profile == "" {
 		finalIOP.Spec.Profile = name.DefaultProfileName
 	}
-	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
+	return util.MustToYAMLGeneric(finalIOP), finalIOP, nil
 }
 
 // ReadYamlProfile gets the overlay yaml file from list of files and return profile value from file overlay and set overlay.
@@ -288,12 +294,37 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		if err != nil {
 			return "", err
 		}
+		multiple := false
+		multiple, err = hasMultipleIOPs(string(b))
+		if err != nil {
+			return "", err
+		}
+		if multiple {
+			return "", fmt.Errorf("input file %s contains multiple IstioOperator CRs, only one per file is supported", fn)
+		}
 		ly, err = util.OverlayIOP(ly, string(b))
 		if err != nil {
 			return "", err
 		}
 	}
 	return ly, nil
+}
+
+func hasMultipleIOPs(s string) (bool, error) {
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(s)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, o := range objs {
+		if o.Kind == name.IstioOperator {
+			if found {
+				return true, nil
+			}
+			found = true
+		}
+	}
+	return false, nil
 }
 
 func GetProfile(iop *iopv1alpha1.IstioOperator) string {
@@ -304,12 +335,9 @@ func GetProfile(iop *iopv1alpha1.IstioOperator) string {
 	return profile
 }
 
-func GetMergedIOP(userIOPStr, profile, manifestsPath, revision, kubeConfigPath, context string,
-	logger clog.Logger) (*iopv1alpha1.IstioOperator, error) {
-	restConfig, err := kube.BuildClientConfig(kubeConfigPath, context)
-	if err != nil {
-		return nil, err
-	}
+func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client kube.Client,
+	logger clog.Logger,
+) (*iopv1alpha1.IstioOperator, error) {
 	extraFlags := make([]string, 0)
 	if manifestsPath != "" {
 		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
@@ -317,7 +345,7 @@ func GetMergedIOP(userIOPStr, profile, manifestsPath, revision, kubeConfigPath, 
 	if revision != "" {
 		extraFlags = append(extraFlags, fmt.Sprintf("revision=%s", revision))
 	}
-	_, mergedIOP, err := OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, restConfig, logger)
+	_, mergedIOP, err := OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, client, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -345,11 +373,11 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 	return uf.DestDir(), nil
 }
 
-// rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
+// RewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
 // Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
 // installation charts and profile file.
 // If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
-func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
+func RewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
 	isURL, err := util.IsHTTPURL(installPackagePath)
 	if err != nil && !skipValidation {
 		return "", "", err
@@ -393,20 +421,10 @@ func overlayHubAndTag(yml string) (string, error) {
 	return out, nil
 }
 
-func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (string, error) {
+func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
-	fsgroup, err := getFSGroupOverlay(config)
-	if err != nil {
-		if force {
-			l.LogAndPrint(err)
-		} else {
-			return "", err
-		}
-	} else if fsgroup != "" {
-		overlays = append(overlays, fsgroup)
-	}
-	jwt, err := getJwtTypeOverlay(config, l)
+	jwtStr, err := getJwtTypeOverlay(client, l)
 	if err != nil {
 		if force {
 			l.LogAndPrint(err)
@@ -414,20 +432,30 @@ func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (s
 			return "", err
 		}
 	} else {
-		overlays = append(overlays, jwt)
+		overlays = append(overlays, jwtStr)
+	}
+	cni := getCNISettings(client)
+	if cni != "" {
+		overlays = append(overlays, cni)
 	}
 	return makeTreeFromSetList(overlays)
 }
 
-func getFSGroupOverlay(config *rest.Config) (string, error) {
-	version, err := k8sversion.GetKubernetesVersion(config)
+// getCNISettings gets auto-detected values based on the Kubernetes environment.
+// Note: there are other settings as well; however, these are detected inline in the helm chart.
+// This ensures helm users also get them.
+func getCNISettings(client kube.Client) string {
+	ver, err := client.GetKubernetesVersion()
 	if err != nil {
-		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+		return ""
 	}
-	if version >= 19 {
-		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false", nil
+	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
+	// GKE requires deployment in kube-system namespace.
+	if strings.Contains(ver.GitVersion, "-gke") {
+		return "components.cni.namespace=kube-system"
 	}
-	return "", nil
+	// TODO: OpenShift
+	return ""
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
@@ -435,7 +463,7 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	if len(setOverlay) == 0 {
 		return "", nil
 	}
-	tree := make(map[string]interface{})
+	tree := make(map[string]any)
 	for _, kv := range setOverlay {
 		kvv := strings.Split(kv, "=")
 		if len(kvv) != 2 {
@@ -463,12 +491,8 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	return tpath.AddSpecRoot(string(out))
 }
 
-func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return "", err
-	}
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(client)
+func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(client.Kube())
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
@@ -484,8 +508,8 @@ func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
 func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*iopv1alpha1.IstioOperator, error) {
-	iop := &iopv1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iop, allowUnknownField); err != nil {
+	iop, err := istio.UnmarshalIstioOperator(iopsYAML, allowUnknownField)
+	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iop.Spec, true); len(errs) != 0 && !force {
@@ -509,13 +533,13 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
-	iop := make(map[string]interface{})
+	iop := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
 		return "", err
 	}
 	// Unmarshal returns nil for empty manifests but we need something to insert into.
 	if iop == nil {
-		iop = make(map[string]interface{})
+		iop = make(map[string]any)
 	}
 
 	for _, sf := range setFlags {

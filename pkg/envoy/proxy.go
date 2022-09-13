@@ -16,15 +16,14 @@ package envoy
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -48,8 +47,8 @@ type ProxyConfig struct {
 	ConfigPath             string
 	ConfigCleanup          bool
 	AdminPort              int32
-	DrainDuration          *types.Duration
-	ParentShutdownDuration *types.Duration
+	DrainDuration          *durationpb.Duration
+	ParentShutdownDuration *durationpb.Duration
 	Concurrency            int32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
@@ -112,17 +111,16 @@ func (e *envoy) UpdateConfig(config []byte) error {
 	return os.WriteFile(e.ConfigPath, config, 0o666)
 }
 
-func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
+func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
-	if isIPv6Proxy(e.NodeIPs) {
+	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
 	startupArgs := []string{
 		"-c", fname,
-		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(e.DrainDuration) / time.Second)),
+		"--drain-time-s", fmt.Sprint(int(e.DrainDuration.AsDuration().Seconds())),
 		"--drain-strategy", "immediate", // Clients are notified as soon as the drain process starts.
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.ParentShutdownDuration) / time.Second)),
+		"--parent-shutdown-time-s", fmt.Sprint(int(e.ParentShutdownDuration.AsDuration().Seconds())),
 		"--local-address-ip-version", proxyLocalAddressType,
 		// Reduce default flush interval from 10s to 1s. The access log buffer size is 64k and each log is ~256 bytes
 		// This means access logs will be written once we have ~250 requests, or ever 1s, which ever comes first.
@@ -162,11 +160,11 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	return startupArgs
 }
 
-var istioBootstrapOverrideVar = env.RegisterStringVar("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+var istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
-func (e *envoy) Run(epoch int, abort <-chan error) error {
+func (e *envoy) Run(abort <-chan error) error {
 	// spin up a new Envoy process
-	args := e.args(e.ConfigPath, epoch, istioBootstrapOverrideVar.Get())
+	args := e.args(e.ConfigPath, istioBootstrapOverrideVar.Get())
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
@@ -191,9 +189,9 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 
 	select {
 	case err := <-abort:
-		log.Warnf("Aborting epoch %d", epoch)
+		log.Warnf("Aborting proxy")
 		if errKill := cmd.Process.Kill(); errKill != nil {
-			log.Warnf("killing epoch %d caused an error %v", epoch, errKill)
+			log.Warnf("killing proxy caused an error %v", errKill)
 		}
 		return err
 	case err := <-done:
@@ -201,39 +199,10 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 	}
 }
 
-func (e *envoy) Cleanup(epoch int) {
+func (e *envoy) Cleanup() {
 	if e.ConfigCleanup {
 		if err := os.Remove(e.ConfigPath); err != nil {
-			log.Warnf("Failed to delete config file %s for %d, %v", e.ConfigPath, epoch, err)
+			log.Warnf("Failed to delete config file %s: %v", e.ConfigPath, err)
 		}
 	}
-}
-
-// convertDuration converts to golang duration and logs errors
-func convertDuration(d *types.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
-}
-
-// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
-// for all other cases it returns false
-func isIPv6Proxy(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			return false
-		}
-	}
-	return true
 }

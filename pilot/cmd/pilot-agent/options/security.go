@@ -16,7 +16,6 @@ package options
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -39,13 +38,13 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		PilotCertProvider:              features.PilotCertProvider,
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
-		WorkloadUDSPath:                filepath.Join(proxyConfig.ConfigPath, "SDS"),
 		ClusterID:                      clusterIDVar.Get(),
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              PodNamespaceVar.Get(),
 		ServiceAccount:                 serviceAccountVar.Get(),
 		XdsAuthProvider:                xdsAuthProvider.Get(),
 		TrustDomain:                    trustDomainEnv,
+		WorkloadRSAKeySize:             workloadRSAKeySizeEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
 		SecretTTL:                      secretTTLEnv,
@@ -54,6 +53,9 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		STSPort:                        stsPort,
 		CertSigner:                     certSigner.Get(),
 		CARootPath:                     cafile.CACertFilePath,
+		CertChainFilePath:              security.DefaultCertChainFilePath,
+		KeyFilePath:                    security.DefaultKeyFilePath,
+		RootCertFilePath:               security.DefaultRootCertFilePath,
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -74,7 +76,8 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 }
 
 func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
-	credFetcherTypeEnv, credIdentityProvider string) (*security.Options, error) {
+	credFetcherTypeEnv, credIdentityProvider string,
+) (*security.Options, error) {
 	var jwtPath string
 	switch jwtPolicy {
 	case jwt.PolicyThirdParty:
@@ -88,7 +91,6 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	}
 
 	o := secOpt
-	o.JWTPath = jwtPath
 
 	// If not set explicitly, default to the discovery address.
 	if o.CAEndpoint == "" {
@@ -96,17 +98,31 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAEndpointSAN = istiodSAN.Get()
 	}
 
-	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-	// GCE is the only supported plugin at the moment.
-	if credFetcherTypeEnv == security.GCE {
-		o.CredIdentityProvider = credIdentityProvider
-		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
-		}
-		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
-		o.CredFetcher = credFetcher
+	o.CredIdentityProvider = credIdentityProvider
+	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
 	}
+	log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
+	o.CredFetcher = credFetcher
+
+	if o.CAProviderName == security.GkeWorkloadCertificateProvider {
+		if !security.CheckWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
+			security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
+			return nil, fmt.Errorf("GKE workload certificate files (%v, %v, %v) not present",
+				security.GkeWorkloadCertChainFilePath, security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath)
+		}
+		if o.ProvCert != "" {
+			return nil, fmt.Errorf(
+				"invalid options: PROV_CERT and FILE_MOUNTED_CERTS of GKE workload cert are mutually exclusive")
+		}
+		o.FileMountedCerts = true
+		o.CertChainFilePath = security.GkeWorkloadCertChainFilePath
+		o.KeyFilePath = security.GkeWorkloadKeyFilePath
+		o.RootCertFilePath = security.GkeWorkloadRootCertFilePath
+		return o, nil
+	}
+
 	// Default the CA provider where possible
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider

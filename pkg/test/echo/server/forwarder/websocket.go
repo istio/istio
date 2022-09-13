@@ -18,35 +18,68 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
+	"net"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var _ protocol = &websocketProtocol{}
 
 type websocketProtocol struct {
-	dialer *websocket.Dialer
+	e *executor
 }
 
-func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	wsReq := make(http.Header)
+func newWebsocketProtocol(e *executor) protocol {
+	return &websocketProtocol{e: e}
+}
 
+func (c *websocketProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
+	return doForward(ctx, cfg, c.e, c.makeRequest)
+}
+
+func (c *websocketProtocol) Close() error {
+	return nil
+}
+
+func (c *websocketProtocol) makeRequest(ctx context.Context, cfg *Config, requestID int) (string, error) {
+	req := cfg.Request
 	var outBuffer bytes.Buffer
-	outBuffer.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
-	writeHeaders(req.RequestID, req.Header, outBuffer, wsReq.Add)
+	echo.ForwarderURLField.WriteForRequest(&outBuffer, requestID, req.Url)
 
 	// Set the special header to trigger the upgrade to WebSocket.
+	wsReq := cfg.headers.Clone()
+	if len(cfg.hostHeader) > 0 {
+		echo.HostField.WriteForRequest(&outBuffer, requestID, hostHeader)
+	}
+	writeForwardedHeaders(&outBuffer, requestID, wsReq)
 	common.SetWebSocketHeader(wsReq)
 
 	if req.Message != "" {
-		outBuffer.WriteString(fmt.Sprintf("[%d] Echo=%s\n", req.RequestID, req.Message))
+		echo.ForwarderMessageField.WriteForRequest(&outBuffer, requestID, req.Message)
 	}
 
-	conn, _, err := c.dialer.Dial(req.URL, wsReq)
+	dialContext := func(network, addr string) (net.Conn, error) {
+		return newDialer(cfg).Dial(network, addr)
+	}
+	if len(cfg.UDS) > 0 {
+		dialContext = func(network, addr string) (net.Conn, error) {
+			return newDialer(cfg).Dial("unix", cfg.UDS)
+		}
+	}
+
+	dialer := &websocket.Dialer{
+		TLSClientConfig:  cfg.tlsConfig,
+		NetDial:          dialContext,
+		HandshakeTimeout: cfg.timeout,
+	}
+
+	conn, _, err := dialer.Dial(req.Url, wsReq)
 	if err != nil {
 		// timeout or bad handshake
 		return outBuffer.String(), err
@@ -56,7 +89,7 @@ func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (stri
 	}()
 
 	// Apply per-request timeout to calculate deadline for reads/writes.
-	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
 
 	// Apply the deadline to the connection.
@@ -68,6 +101,7 @@ func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (stri
 		return outBuffer.String(), err
 	}
 
+	start := time.Now()
 	err = conn.WriteMessage(websocket.TextMessage, []byte(req.Message))
 	if err != nil {
 		return outBuffer.String(), err
@@ -78,15 +112,13 @@ func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (stri
 		return outBuffer.String(), err
 	}
 
+	echo.LatencyField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%v", time.Since(start)))
+	echo.ActiveRequestsField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%d", c.e.ActiveRequests()))
 	for _, line := range strings.Split(string(resp), "\n") {
 		if line != "" {
-			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
+			echo.WriteBodyLine(&outBuffer, requestID, line)
 		}
 	}
 
 	return outBuffer.String(), nil
-}
-
-func (c *websocketProtocol) Close() error {
-	return nil
 }

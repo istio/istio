@@ -1,0 +1,15 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: valid
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  url: oci://private-registry:5000/openid-connect/openid:latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecret: private-registry-pull-secret
+  phase: AUTHN
+  pluginConfig:
+    openid_server: authn
+    openid_realm: ingress

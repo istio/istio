@@ -1,0 +1,588 @@
+# Please keep entries ordered by code.
+# NOTE: The range 0000-0100 is reserved for internal and/or future use.
+messages:
+  - name: "InternalError"
+    code: IST0001
+    level: Error
+    description: "There was an internal error in the toolchain. This is almost always a bug in the implementation."
+    template: "Internal error: %v"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0001/"
+    args:
+      - name: detail
+        type: string
+
+  - name: "Deprecated"
+    code: IST0002
+    level: Warning
+    description: "A feature that the configuration is depending on is now deprecated."
+    template: "Deprecated: %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0002/"
+    args:
+      - name: detail
+        type: string
+
+  - name: "ReferencedResourceNotFound"
+    code: IST0101
+    level: Error
+    description: "A resource being referenced does not exist."
+    template: "Referenced %s not found: %q"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0101/"
+    args:
+      - name: reftype
+        type: string
+      - name: refval
+        type: string
+
+  - name: "NamespaceNotInjected"
+    code: IST0102
+    level: Info
+    description: "A namespace is not enabled for Istio injection."
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0102/"
+    args:
+      - name: namespace
+        type: string
+      - name: namespace2
+        type: string
+
+  - name: "PodMissingProxy"
+    code: IST0103
+    level: Warning
+    description: "A pod is missing the Istio proxy."
+    template: "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0103/"
+    args:
+      - name: podName
+        type: string
+
+  - name: "GatewayPortNotOnWorkload"
+    code: IST0104
+    level: Warning
+    description: "Unhandled gateway port"
+    template: "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0104/"
+    args:
+      - name: selector
+        type: string
+      - name: port
+        type: int
+
+  - name: "IstioProxyImageMismatch"
+    code: IST0105
+    level: Warning
+    description: "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration."
+    template: "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration (pod image: %s; injection configuration image: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0105/"
+    args:
+      - name: proxyImage
+        type: string
+      - name: injectionImage
+        type: string
+
+  - name: "SchemaValidationError"
+    code: IST0106
+    level: Error
+    description: "The resource has a schema validation error."
+    template: "Schema validation error: %v"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0106/"
+    args:
+      - name: err
+        type: error
+
+  - name: "MisplacedAnnotation"
+    code: IST0107
+    level: Warning
+    description: "An Istio annotation is applied to the wrong kind of resource."
+    template: "Misplaced annotation: %s can only be applied to %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0107/"
+    args:
+      - name: annotation
+        type: string
+      - name: kind
+        type: string
+
+  - name: "UnknownAnnotation"
+    code: IST0108
+    level: Warning
+    description: "An Istio annotation is not recognized for any kind of resource"
+    template: "Unknown annotation: %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0108/"
+    args:
+      - name: annotation
+        type: string
+
+  - name: "ConflictingMeshGatewayVirtualServiceHosts"
+    code: IST0109
+    level: Error
+    description: "Conflicting hosts on VirtualServices associated with mesh gateway"
+    template: "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0109/"
+    args:
+      - name: virtualServices
+        type: string
+      - name: host
+        type: string
+
+  - name: "ConflictingSidecarWorkloadSelectors"
+    code: IST0110
+    level: Error
+    description: "A Sidecar resource selects the same workloads as another Sidecar resource"
+    template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0110/"
+    args:
+      - name: conflictingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+      - name: workloadPod
+        type: string
+
+  - name: "MultipleSidecarsWithoutWorkloadSelectors"
+    code: IST0111
+    level: Error
+    description: "More than one sidecar resource in a namespace has no workload selector"
+    template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0111/"
+    args:
+      - name: conflictingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+
+  - name: "VirtualServiceDestinationPortSelectorRequired"
+    code: IST0112
+    level: Error
+    description: "A VirtualService routes to a service with more than one port exposed, but does not specify which to use."
+    template: "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0112/"
+    args:
+      - name: destHost
+        type: string
+      - name: destPorts
+        type: "[]int"
+
+  - name: "MTLSPolicyConflict"
+    code: IST0113
+    level: Error
+    description: "A DestinationRule and Policy are in conflict with regards to mTLS."
+    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0113/"
+    args:
+      - name: host
+        type: string
+      - name: destinationRuleName
+        type: string
+      - name: destinationRuleMTLSMode
+        type: bool
+      - name: policyName
+        type: string
+      - name: policyMTLSMode
+        type: string
+
+  # IST0114 RETIRED
+  # IST0115 RETIRED
+
+  - name: "DeploymentAssociatedToMultipleServices"
+    code: IST0116
+    level: Warning
+    description: "The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols."
+    template: "This deployment %s is associated with multiple services using port %d but different protocols: %v"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0116/"
+    args:
+      - name: deployment
+        type: string
+      - name: port
+        type: int32
+      - name: services
+        type: "[]string"
+
+  - name: "DeploymentRequiresServiceAssociated"
+    code: IST0117
+    level: Warning
+    description: "The resulting pods of a service mesh deployment must be associated with at least one service."
+    template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0117/"
+
+  - name: "PortNameIsNotUnderNamingConvention"
+    code: IST0118
+    level: Info
+    description: "Port name is not under naming convention. Protocol detection is applied to the port."
+    template: "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0118/"
+    args:
+      - name: portName
+        type: string
+      - name: port
+        type: int
+      - name: targetPort
+        type: string
+
+  - name: "JwtFailureDueToInvalidServicePortPrefix"
+    code: IST0119
+    level: Warning
+    description: "Authentication policy with JWT targets Service with invalid port specification."
+    template: "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s)."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0119/"
+    args:
+      - name: port
+        type: int
+      - name: portName
+        type: string
+      - name: protocol
+        type: string
+      - name: targetPort
+        type: string
+
+  # IST0120 RETIRED
+  # IST0121 RETIRED
+
+  - name: "InvalidRegexp"
+    code: IST0122
+    level: Warning
+    description: "Invalid Regex"
+    template: "Field %q regular expression invalid: %q (%s)"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0122/"
+    args:
+      - name: where
+        type: string
+      - name: re
+        type: string
+      - name: problem
+        type: string
+
+  - name: "NamespaceMultipleInjectionLabels"
+    code: IST0123
+    level: Warning
+    description: "A namespace has both new and legacy injection labels"
+    template: "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0123/"
+    args:
+      - name: namespace
+        type: string
+      - name: namespace2
+        type: string
+
+  - name: "InvalidAnnotation"
+    code: IST0125
+    level: Warning
+    description: "An Istio annotation that is not valid"
+    template: "Invalid annotation %s: %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0125/"
+    args:
+      - name: annotation
+        type: string
+      - name: problem
+        type: string
+
+  - name: "UnknownMeshNetworksServiceRegistry"
+    code: IST0126
+    level: Error
+    description: "A service registry in Mesh Networks is unknown"
+    template: "Unknown service registry %s in network %s"
+    args:
+      - name: serviceregistry
+        type: string
+      - name: network
+        type: string
+
+  - name: "NoMatchingWorkloadsFound"
+    code: IST0127
+    level: Warning
+    description: "There aren't workloads matching the resource labels"
+    template: "No matching workloads for this resource with the following labels: %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0127/"
+    args:
+      - name: labels
+        type: string
+
+  - name: "NoServerCertificateVerificationDestinationLevel"
+    code: IST0128
+    level: Error
+    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate."
+    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0128/"
+    args:
+      - name: destinationrule
+        type: string
+      - name: namespace
+        type: string
+      - name: mode
+        type: string
+      - name: host
+        type: string
+
+  - name: "NoServerCertificateVerificationPortLevel"
+    code: IST0129
+    level: Warning
+    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port."
+    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0129/"
+    args:
+      - name: destinationrule
+        type: string
+      - name: namespace
+        type: string
+      - name: mode
+        type: string
+      - name: host
+        type: string
+      - name: port
+        type: string
+
+  - name: "VirtualServiceUnreachableRule"
+    code: IST0130
+    level: Warning
+    description: "A VirtualService rule will never be used because a previous rule uses the same match."
+    template: "VirtualService rule %v not used (%s)."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0130/"
+    args:
+      - name: ruleno
+        type: string
+      - name: reason
+        type: "string"
+
+  - name: "VirtualServiceIneffectiveMatch"
+    code: IST0131
+    level: Info
+    description: "A VirtualService rule match duplicates a match in a previous rule."
+    template: "VirtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0131/"
+    args:
+      - name: ruleno
+        type: string
+      - name: matchno
+        type: string
+      - name: dupno
+        type: string
+
+  - name: "VirtualServiceHostNotFoundInGateway"
+    code: IST0132
+    level: Warning
+    description: "Host defined in VirtualService not found in Gateway."
+    template: "one or more host %v defined in VirtualService %s not found in Gateway %s."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0132/"
+    args:
+      - name: host
+        type: "[]string"
+      - name: virtualservice
+        type: string
+      - name: gateway
+        type: string
+
+  - name: "SchemaWarning"
+    code: IST0133
+    level: Warning
+    description: "The resource has a schema validation warning."
+    template: "Schema validation warning: %v"
+    args:
+      - name: err
+        type: error
+
+  - name: "ServiceEntryAddressesRequired"
+    code: IST0134
+    level: Warning
+    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
+    template: "ServiceEntry addresses are required for this protocol."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0134/"
+
+  - name: "DeprecatedAnnotation"
+    code: IST0135
+    level: Info
+    description: "A resource is using a deprecated Istio annotation."
+    template: "Annotation %q has been deprecated%s and may not work in future Istio versions."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0135/"
+    args:
+      - name: annotation
+        type: string
+      - name: extra
+        type: string
+
+  - name: "AlphaAnnotation"
+    code: IST0136
+    level: Info
+    description: "An Istio annotation may not be suitable for production."
+    template: "Annotation %q is part of an alpha-phase feature and may be incompletely supported."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0136/"
+    args:
+      - name: annotation
+        type: string
+
+  - name: "DeploymentConflictingPorts"
+    code: IST0137
+    level: Warning
+    description: "Two services selecting the same workload with the same targetPort MUST refer to the same port."
+    template: "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0137/"
+    args:
+      - name: deployment
+        type: string
+      - name: services
+        type: "[]string"
+      - name: targetPort
+        type: string
+      - name: ports
+        type: "[]int32"
+
+# https://github.com/envoyproxy/envoy/issues/6767
+  - name: "GatewayDuplicateCertificate"
+    code: IST0138
+    level: Warning
+    description: "Duplicate certificate in multiple gateways may cause 404s if clients re-use HTTP2 connections."
+    template: "Duplicate certificate in multiple gateways %v may cause 404s if clients re-use HTTP2 connections."
+    args:
+      - name: gateways
+        type: "[]string"
+
+  - name: "InvalidWebhook"
+    code: IST0139
+    level: Error
+    description: "Webhook is invalid or references a control plane service that does not exist."
+    template: "%v"
+    args:
+      - name: error
+        type: string
+
+  - name: "IngressRouteRulesNotAffected"
+    code: IST0140
+    level: Warning
+    description: "Route rules have no effect on ingress gateway requests"
+    template: "Subset in virtual service %s has no effect on ingress gateway %s requests"
+    args:
+      - name: virtualservicesubset
+        type: string
+      - name: virtualservice
+        type: string
+
+  - name: "InsufficientPermissions"
+    code: IST0141
+    level: Error
+    description: "Required permissions to install Istio are missing."
+    template: "Missing required permission to create resource %v (%v)"
+    args:
+      - name: resource
+        type: string
+      - name: error
+        type: string
+
+  - name: "UnsupportedKubernetesVersion"
+    code: IST0142
+    level: Error
+    description: "The Kubernetes version is not supported"
+    template: "The Kubernetes Version %q is lower than the minimum version: %v"
+    args:
+      - name: version
+        type: string
+      - name: minimumVersion
+        type: string
+
+  - name: "LocalhostListener"
+    code: IST0143
+    level: Error
+    description: "A port exposed in a Service is bound to a localhost address"
+    template: "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0143/"
+    args:
+      - name: port
+        type: string
+
+  - name: "InvalidApplicationUID"
+    code: IST0144
+    level: Warning
+    description: "Application pods should not run as user ID (UID) 1337"
+    template: "User ID (UID) 1337 is reserved for the sidecar proxy."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0144/"
+
+  - name: "ConflictingGateways"
+    code: IST0145
+    level: Error
+    description: "Gateway should not have the same selector, port and matched hosts of server"
+    template: "Conflict with gateways %s (workload selector %s, port %s, hosts %v)."
+    args:
+      - name: gateway
+        type: string
+      - name: selector
+        type: string
+      - name: portnumber
+        type: string
+      - name: hosts
+        type: string
+
+  - name: "ImageAutoWithoutInjectionWarning"
+    code: IST0146
+    level: Warning
+    description: "Deployments with `image: auto` should be targeted for injection."
+    template: "%s %s contains `image: auto` but does not match any Istio injection webhook selectors."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0146/"
+    args:
+      - name: resourceType
+        type: string
+      - name: resourceName
+        type: string
+
+  - name: "ImageAutoWithoutInjectionError"
+    code: IST0147
+    level: Error
+    description: "Pods with `image: auto` should be targeted for injection."
+    template: "%s %s contains `image: auto` but does not match any Istio injection webhook selectors."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0147/"
+    args:
+      - name: resourceType
+        type: string
+      - name: resourceName
+        type: string
+
+  - name: "NamespaceInjectionEnabledByDefault"
+    code: IST0148
+    level: Info
+    description: "user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set."
+    template: "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0148/"
+
+  - name: "JwtClaimBasedRoutingWithoutRequestAuthN"
+    code: IST0149
+    level: Error
+    description: "Virtual service using JWT claim based routing without request authentication."
+    template: "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing."
+    args:
+      - name: key
+        type: string
+      - name: gateway
+        type: string
+      - name: pod
+        type: string
+        
+  - name: "ExternalNameServiceTypeInvalidPortName"
+    code: IST0150
+    level: Warning
+    description: "Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services."
+    template: "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly"
+
+  - name: "EnvoyFilterUsesRelativeOperation"
+    code: IST0151
+    level: Warning
+    description: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+    template: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+   
+  - name: "EnvoyFilterUsesReplaceOperationIncorrectly"
+    code: IST0152
+    level: Error
+    description: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
+    template: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
+    
+  - name: "EnvoyFilterUsesAddOperationIncorrectly"
+    code: IST0153
+    level: Error
+    description: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    template: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+  
+  - name: "EnvoyFilterUsesRemoveOperationIncorrectly"
+    code: IST0154
+    level: Error
+    description: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    template: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
+    
+  - name: "EnvoyFilterUsesRelativeOperationWithProxyVersion"
+    code: IST0155
+    level: Warning
+    description: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+    template: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."

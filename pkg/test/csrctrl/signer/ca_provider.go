@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"crypto"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync/atomic"
 	"time"
@@ -75,7 +74,7 @@ type caProvider struct {
 
 // currentCertContent retrieve current certificate content from cert file
 func (p *caProvider) currentCertContent() ([]byte, error) {
-	certBytes, err := ioutil.ReadFile(p.caIntermediate.CertFile)
+	certBytes, err := os.ReadFile(p.caIntermediate.CertFile)
 	if err != nil {
 		return []byte(""), fmt.Errorf("error reading CA from cert file %s: %v", p.caLoader.CertFile, err)
 	}
@@ -84,7 +83,7 @@ func (p *caProvider) currentCertContent() ([]byte, error) {
 
 // currentKeyContent retrieve current private key content from key file
 func (p *caProvider) currentKeyContent() ([]byte, error) {
-	keyBytes, err := ioutil.ReadFile(p.caIntermediate.KeyFile)
+	keyBytes, err := os.ReadFile(p.caIntermediate.KeyFile)
 	if err != nil {
 		return []byte(""), fmt.Errorf("error reading private key from key file %s: %v", p.caLoader.KeyFile, err)
 	}

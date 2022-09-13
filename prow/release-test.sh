@@ -20,4 +20,7 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
-DRY_RUN=true "${ROOT}"/prow/release-commit.sh
+DRY_RUN=true "${ROOT}"/prow/release-commit.sh || {
+  tools/dump-docker-logs.sh
+  exit 1
+}

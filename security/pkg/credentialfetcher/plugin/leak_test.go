@@ -16,11 +16,11 @@ package plugin
 
 import (
 	"testing"
-
-	"istio.io/istio/tests/util/leak"
 )
 
 func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
-	leak.CheckMain(m)
+	// Leak test is explicitly disable for this test. The test involves an async job that calls GCE
+	// metadata server code against a fake metadata server. We do not control the client, and cannot
+	// configure it to exit early, retry faster, etc - its all fixed. As a result, we don't have a good
+	// way to shut it down if it is still retrying in the background.
 }

@@ -30,9 +30,10 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
+func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
-	writer io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
+	writer io.Writer,
+) (map[string]*xdsapi.DiscoveryResponse, error) {
 	var namespace, serviceAccount string
 	xdsRequest := xdsapi.DiscoveryRequest{
 		ResourceNames: []string{"list"},
@@ -50,10 +51,11 @@ func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 	return xdsResponses, nil
 }
 
-func HandlerForDebugErrors(kubeClient kube.ExtendedClient,
+func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
-	xdsResponses map[string]*xdsapi.DiscoveryResponse) (map[string]*xdsapi.DiscoveryResponse, error) {
+	xdsResponses map[string]*xdsapi.DiscoveryResponse,
+) (map[string]*xdsapi.DiscoveryResponse, error) {
 	for _, response := range xdsResponses {
 		for _, resource := range response.Resources {
 			eString := string(resource.Value)

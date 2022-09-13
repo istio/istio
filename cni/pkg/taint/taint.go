@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	}
 }
 
-// only pod with NodeReadiness Toleracnce with effect no schedule or
+// only pod with NodeReadiness Tolerance with effect no schedule or
 // a generalized tolerance with noschedule effect can be considered
 func (ts *Setter) validTolerance(pod v1.Pod) bool {
 	for _, toleration := range pod.Spec.Tolerations {
@@ -111,8 +111,8 @@ func (ts *Setter) validTolerance(pod v1.Pod) bool {
 
 // check whether current node have readiness
 func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
+	ts.mutex.RLock()
+	defer ts.mutex.RUnlock()
 	for _, taint := range node.Spec.Taints {
 		if taint.Key == TaintName && taint.Effect == v1.TaintEffectNoSchedule {
 			return true
@@ -124,8 +124,8 @@ func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
 
 // assumption: order of taint is not important
 func (ts *Setter) RemoveReadinessTaint(node *v1.Node) error {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
 	updatedTaint := deleteTaint(node.Spec.Taints, &v1.Taint{Key: TaintName, Effect: v1.TaintEffectNoSchedule})
 	node.Spec.Taints = updatedTaint
 	updatedNodeWithTaint, err := ts.Client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
@@ -160,7 +160,7 @@ func (ts *Setter) AddReadinessTaint(node *v1.Node) error {
 	return nil
 }
 
-// DeleteTaint removes all the the taints that have the same key and effect to given taintToDelete.
+// DeleteTaint removes all the taints that have the same key and effect to given taintToDelete.
 func deleteTaint(taints []v1.Taint, taintToDelete *v1.Taint) []v1.Taint {
 	newTaints := []v1.Taint{}
 	for i := range taints {

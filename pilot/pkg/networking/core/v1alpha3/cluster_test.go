@@ -25,15 +25,15 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -41,7 +41,6 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -49,6 +48,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test"
 )
 
 type ConfigType int
@@ -65,13 +67,13 @@ const (
 	TestServiceNHostname = "foo.bar"
 )
 
-func testMesh() meshconfig.MeshConfig {
-	return meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+func testMesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
-		EnableAutoMtls: &types.BoolValue{
+		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
 	}
@@ -189,18 +191,13 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	settings := &networking.ConnectionPoolSettings{
 		Http: &networking.ConnectionPoolSettings_HTTPSettings{
 			Http1MaxPendingRequests: 1,
-			IdleTimeout:             &types.Duration{Seconds: 15},
+			IdleTimeout:             &durationpb.Duration{Seconds: 15},
 		},
 	}
 
 	for _, tc := range cases {
-		defaultValue := features.EnableProtocolSniffingForInbound
-		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
-		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
-
-		gwClusters := features.FilterGatewayClusterConfig
-		features.FilterGatewayClusterConfig = false
-		defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+		test.SetForTest(t, &features.EnableProtocolSniffingForInbound, tc.sniffingEnabledForInbound)
+		test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
 		settingsName := "default"
 		if settings != nil {
@@ -252,7 +249,7 @@ type clusterTest struct {
 	serviceResolution model.Resolution
 	nodeType          model.NodeType
 	locality          *core.Locality
-	mesh              meshconfig.MeshConfig
+	mesh              *meshconfig.MeshConfig
 	destRule          proto.Message
 	peerAuthn         *authn_beta.PeerAuthentication
 	externalService   bool
@@ -388,7 +385,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		Services:   []*model.Service{service},
 		Instances:  instances,
 		Configs:    configs,
-		MeshConfig: &c.mesh,
+		MeshConfig: c.mesh,
 	})
 
 	var proxy *model.Proxy
@@ -438,14 +435,17 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 			2,
 			2,
 		},
+		{
+			"use ring hash",
+			2,
+			2,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			gwClusters := features.FilterGatewayClusterConfig
-			features.FilterGatewayClusterConfig = false
-			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
 			c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 				buildTestClusters(clusterTest{
@@ -460,7 +460,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 										HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
 											HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 												Name: "hash-cookie",
-												Ttl:  &types.Duration{Nanos: 100},
+												Ttl:  &durationpb.Duration{Nanos: 100},
 											},
 										},
 									},
@@ -477,7 +477,173 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	}
 }
 
-func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.MeshConfig { // nolint:interfacer
+func TestApplyRingHashLoadBalancer(t *testing.T) {
+	cases := []struct {
+		name     string
+		lb       *networking.LoadBalancerSettings
+		validate func(c *cluster.Cluster) error
+	}{
+		{
+			"default consistent hash settings",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().GetMinimumRingSize().Value != 1024 {
+					return fmt.Errorf("unexpected minimum ring size. expected: %v, got: %v", 1024, c.GetRingHashLbConfig().GetMinimumRingSize().Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with deprecated minring size",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						MinimumRingSize: 10,
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().GetMinimumRingSize().Value != 10 {
+					return fmt.Errorf("unexpected minimum ring size. expected: %v, got: %v", 10, c.GetRingHashLbConfig().GetMinimumRingSize().Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with Maglev",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_Maglev{
+							Maglev: &networking.LoadBalancerSettings_ConsistentHashLB_MagLev{},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_MAGLEV {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_MAGLEV, c.LbPolicy)
+				}
+				if c.GetMaglevLbConfig() != nil {
+					return fmt.Errorf("unexpected maglev config. expected: %v, got: %v", nil, c.GetMaglevLbConfig())
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with Maglev and table size defined",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_Maglev{
+							Maglev: &networking.LoadBalancerSettings_ConsistentHashLB_MagLev{
+								TableSize: 10,
+							},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_MAGLEV {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_MAGLEV, c.LbPolicy)
+				}
+				if c.GetMaglevLbConfig().TableSize.Value != 10 {
+					return fmt.Errorf("unexpected maglev table size. expected: %v, got: %v", 10, c.GetMaglevLbConfig().TableSize.Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with Ringhash",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash_{
+							RingHash: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash{},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig() != nil {
+					return fmt.Errorf("unexpected ring hash config. expected: %v, got: %v", nil, c.GetRingHashLbConfig())
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with RingHash and min ringsize size defined",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash_{
+							RingHash: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash{
+								MinimumRingSize: 10,
+							},
+						},
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().MinimumRingSize.Value != 10 {
+					return fmt.Errorf("unexpected min ring hash size. expected: %v, got: %v", 10, c.GetRingHashLbConfig().MinimumRingSize.Value)
+				}
+				return nil
+			},
+		},
+		{
+			"consistent hash settings with RingHash with min ringsize size defined along with deprecated minring size",
+			&networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash_{
+							RingHash: &networking.LoadBalancerSettings_ConsistentHashLB_RingHash{
+								MinimumRingSize: 10,
+							},
+						},
+						MinimumRingSize: 1000,
+					},
+				},
+			},
+			func(c *cluster.Cluster) error {
+				if c.LbPolicy != cluster.Cluster_RING_HASH {
+					return fmt.Errorf("unexpected load balancer. expected: %v, got: %v", cluster.Cluster_RING_HASH, c.LbPolicy)
+				}
+				if c.GetRingHashLbConfig().MinimumRingSize.Value != 10 {
+					return fmt.Errorf("unexpected min ring hash size. expected: %v, got: %v", 10, c.GetRingHashLbConfig().MinimumRingSize.Value)
+				}
+				return nil
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cluster.Cluster{}
+			ApplyRingHashLoadBalancer(c, tt.lb)
+			if err := tt.validate(c); err != nil {
+				t.Errorf("%s failed with error: %v", tt.name, err)
+			}
+		})
+	}
+}
+
+func withClusterLocalHosts(m *meshconfig.MeshConfig, hosts ...string) *meshconfig.MeshConfig { // nolint:interfacer
 	m.ServiceSettings = append(append(make([]*meshconfig.MeshConfig_ServiceSettings, 0), m.ServiceSettings...),
 		&meshconfig.MeshConfig_ServiceSettings{
 			Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
@@ -664,7 +830,7 @@ func buildTestClustersWithTCPKeepalive(t testing.TB, configType ConfigType) []*c
 	m := testMesh()
 	if configType != None {
 		m.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-			Time: &types.Duration{
+			Time: &durationpb.Duration{
 				Seconds: MeshWideTCPKeepaliveSeconds,
 				Nanos:   0,
 			},
@@ -675,7 +841,7 @@ func buildTestClustersWithTCPKeepalive(t testing.TB, configType ConfigType) []*c
 	var destinationRuleTCPKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive
 	if configType == DestinationRule {
 		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-			Time: &types.Duration{
+			Time: &durationpb.Duration{
 				Seconds: DestinationRuleTCPKeepaliveSeconds,
 				Nanos:   0,
 			},
@@ -844,8 +1010,8 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Consecutive gateway and 5xx errors are set",
 			&networking.OutlierDetection{
-				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
-				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+				Consecutive_5XxErrors:    &wrappers.UInt32Value{Value: 4},
+				ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 3},
 			},
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:                    &wrappers.UInt32Value{Value: 4},
@@ -858,7 +1024,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Only consecutive gateway is set",
 			&networking.OutlierDetection{
-				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+				ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 3},
 			},
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
@@ -869,7 +1035,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Only consecutive 5xx is set",
 			&networking.OutlierDetection{
-				Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 			},
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
@@ -880,7 +1046,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Consecutive gateway is set to 0",
 			&networking.OutlierDetection{
-				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 0},
+				ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 0},
 			},
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
@@ -891,7 +1057,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Consecutive 5xx is set to 0",
 			&networking.OutlierDetection{
-				Consecutive_5XxErrors: &types.UInt32Value{Value: 0},
+				Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 0},
 			},
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
@@ -903,7 +1069,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			"Local origin errors is enabled",
 			&networking.OutlierDetection{
 				SplitExternalLocalOriginErrors: true,
-				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+				ConsecutiveLocalOriginFailures: &wrappers.UInt32Value{Value: 10},
 			},
 			&cluster.OutlierDetection{
 				EnforcingSuccessRate:                   &wrappers.UInt32Value{Value: 0},
@@ -936,12 +1102,12 @@ func TestApplyOutlierDetection(t *testing.T) {
 func TestStatNamePattern(t *testing.T) {
 	g := NewWithT(t)
 
-	statConfigMesh := meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+	statConfigMesh := &meshconfig.MeshConfig{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
-		EnableAutoMtls: &types.BoolValue{
+		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
 		InboundClusterStatName:  "LocalService_%SERVICE%",
@@ -1149,9 +1315,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
-	gwClusters := features.FilterGatewayClusterConfig
-	features.FilterGatewayClusterConfig = false
-	defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1270,8 +1434,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Protocol: "GRPC",
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
-	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
+	instance := findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
 	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
@@ -1308,6 +1471,68 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 		clusters)
 	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
 	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
+}
+
+func TestSlowStartConfig(t *testing.T) {
+	g := NewWithT(t)
+	testcases := []struct {
+		name                string
+		lbType              networking.LoadBalancerSettings_SimpleLB
+		enableSlowStartMode bool
+	}{
+		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, enableSlowStartMode: true},
+		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, enableSlowStartMode: true},
+		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, enableSlowStartMode: true},
+		{name: "roundrobin-without-warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, enableSlowStartMode: false},
+		{name: "leastrequest-without-warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, enableSlowStartMode: false},
+		{name: "empty lb type", enableSlowStartMode: true},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			clusters := buildTestClusters(clusterTest{
+				t:               t,
+				serviceHostname: test.name,
+				nodeType:        model.SidecarProxy,
+				mesh:            testMesh(),
+				destRule: &networking.DestinationRule{
+					Host:          test.name,
+					TrafficPolicy: getSlowStartTrafficPolicy(test.enableSlowStartMode, test.lbType),
+				},
+			})
+
+			c := xdstest.ExtractCluster("outbound|8080||"+test.name,
+				clusters)
+
+			if !test.enableSlowStartMode {
+				g.Expect(c.GetLbConfig()).To(BeNil())
+			} else {
+				switch c.LbPolicy {
+				case cluster.Cluster_ROUND_ROBIN:
+					g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+				case cluster.Cluster_LEAST_REQUEST:
+					g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+				default:
+					g.Expect(c.GetLbConfig()).To(BeNil())
+				}
+			}
+		})
+	}
+}
+
+func getSlowStartTrafficPolicy(slowStartEnabled bool, lbType networking.LoadBalancerSettings_SimpleLB) *networking.TrafficPolicy {
+	var warmupDurationSecs *durationpb.Duration
+	if slowStartEnabled {
+		warmupDurationSecs = &durationpb.Duration{Seconds: 15}
+	}
+	return &networking.TrafficPolicy{
+		LoadBalancer: &networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: lbType,
+			},
+			WarmupDurationSecs: warmupDurationSecs,
+		},
+	}
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
@@ -1503,14 +1728,14 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 			name:          "redis disabled",
 			redisEnabled:  false,
 			resolution:    model.ClientSideLB,
-			lbType:        cluster.Cluster_ROUND_ROBIN,
+			lbType:        defaultLBAlgorithm(),
 			discoveryType: cluster.Cluster_EDS,
 		},
 		{
 			name:          "redis disabled passthrough",
 			redisEnabled:  false,
 			resolution:    model.Passthrough,
-			lbType:        cluster.Cluster_ROUND_ROBIN,
+			lbType:        defaultLBAlgorithm(),
 			discoveryType: cluster.Cluster_EDS,
 		},
 		{
@@ -1531,16 +1756,8 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-
-			gwClusters := features.FilterGatewayClusterConfig
-			features.FilterGatewayClusterConfig = false
-			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
-
-			if tt.redisEnabled {
-				defaultValue := features.EnableRedisFilter
-				features.EnableRedisFilter = true
-				defer func() { features.EnableRedisFilter = defaultValue }()
-			}
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
+			test.SetForTest(t, &features.EnableRedisFilter, tt.redisEnabled)
 			cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{service}})
 			clusters := cg.Clusters(cg.SetupProxy(&model.Proxy{Type: model.Router}))
 			xdstest.ValidateClusters(t, clusters)
@@ -1664,12 +1881,14 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 func TestApplyLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name                           string
-		lbSettings                     *networking.LoadBalancerSettings
-		discoveryType                  cluster.Cluster_DiscoveryType
-		port                           *model.Port
-		expectedLbPolicy               cluster.Cluster_LbPolicy
-		expectedLocalityWeightedConfig bool
+		name                               string
+		lbSettings                         *networking.LoadBalancerSettings
+		discoveryType                      cluster.Cluster_DiscoveryType
+		port                               *model.Port
+		sendUnhealthyEndpoints             bool
+		expectedLbPolicy                   cluster.Cluster_LbPolicy
+		expectedLocalityWeightedConfig     bool
+		expectClusterLoadAssignmenttoBeNil bool
 	}{
 		{
 			name:             "ORIGINAL_DST discovery type is a no op",
@@ -1686,7 +1905,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			name: "Loadbalancer has distribute",
 			lbSettings: &networking.LoadBalancerSettings{
 				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
-					Enabled: &types.BoolValue{Value: true},
+					Enabled: &wrappers.BoolValue{Value: true},
 					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 						{
 							From: "region1/zone1/subzone1",
@@ -1701,8 +1920,23 @@ func TestApplyLoadBalancer(t *testing.T) {
 			},
 			discoveryType:                  cluster.Cluster_EDS,
 			port:                           &model.Port{Protocol: protocol.HTTP},
-			expectedLbPolicy:               cluster.Cluster_ROUND_ROBIN,
+			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
+		},
+		{
+			name:          "DNS cluster with PASSTHROUGH in DR",
+			discoveryType: cluster.Cluster_STRICT_DNS,
+			lbSettings: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_PASSTHROUGH},
+			},
+			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
+			expectClusterLoadAssignmenttoBeNil: true,
+		},
+		{
+			name:                   "Send Unhealthy Endpoints enabled",
+			discoveryType:          cluster.Cluster_EDS,
+			sendUnhealthyEndpoints: true,
+			expectedLbPolicy:       defaultLBAlgorithm(),
 		},
 		// TODO: add more to cover all cases
 	}
@@ -1713,30 +1947,38 @@ func TestApplyLoadBalancer(t *testing.T) {
 		Metadata:     &model.NodeMetadata{},
 	}
 
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
-				ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
+				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 			}
 
-			if test.discoveryType == cluster.Cluster_ORIGINAL_DST {
+			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
 				c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 			}
 
-			if test.port != nil && test.port.Protocol == protocol.Redis {
-				defaultValue := features.EnableRedisFilter
-				features.EnableRedisFilter = true
-				defer func() { features.EnableRedisFilter = defaultValue }()
+			if tt.port != nil && tt.port.Protocol == protocol.Redis {
+				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(c, test.lbSettings, test.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
 
-			if c.LbPolicy != test.expectedLbPolicy {
-				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, test.expectedLbPolicy)
+			if c.LbPolicy != tt.expectedLbPolicy {
+				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
 			}
 
-			if test.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
+			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
+			}
+
+			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
+			}
+			if tt.expectClusterLoadAssignmenttoBeNil && c.LoadAssignment != nil {
+				t.Errorf("cluster expected not to have load assignmentset, but is present")
 			}
 		})
 	}
@@ -2336,13 +2578,7 @@ func TestTelemetryMetadata(t *testing.T) {
 	}
 }
 
-func resetVerifyCertAtClient() {
-	features.VerifyCertAtClient = false
-}
-
 func TestVerifyCertAtClient(t *testing.T) {
-	defer resetVerifyCertAtClient()
-
 	testCases := []struct {
 		name               string
 		policy             *networking.TrafficPolicy
@@ -2413,11 +2649,154 @@ func TestVerifyCertAtClient(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			features.VerifyCertAtClient = testCase.verifyCertAtClient
+			test.SetForTest(t, &features.VerifyCertAtClient, testCase.verifyCertAtClient)
 			selectTrafficPolicyComponents(testCase.policy)
 			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
 				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
 			}
 		})
 	}
+}
+
+func TestBuildDeltaClusters(t *testing.T) {
+	g := NewWithT(t)
+
+	testService1 := &model.Service{
+		Hostname: host.Name("test.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.ClientSideLB,
+		MeshExternal: false,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	testService2 := &model.Service{
+		Hostname: host.Name("testnew.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.ClientSideLB,
+		MeshExternal: false,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	// TODO: Add more test cases.
+	testCases := []struct {
+		name                 string
+		services             []*model.Service
+		configUpdated        map[model.ConfigKey]struct{}
+		watchedResourceNames []string
+		usedDelta            bool
+		removedClusters      []string
+		expectedClusters     []string
+	}{
+		{
+			name:                 "service is added",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com"},
+		},
+		{
+			name:                 "service is removed",
+			services:             []*model.Service{},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"},
+		},
+		{
+			name:                 "service port is removed",
+			services:             []*model.Service{testService1},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|7070||test.com"},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
+		},
+		{
+			name:                 "config update that is not delta aware",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            false,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: tc.services,
+			})
+			clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
+				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
+			if delta != tc.usedDelta {
+				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
+			}
+			g.Expect(removed).To(Equal(tc.removedClusters))
+			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
+		})
+	}
+}
+
+func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
+	g := NewWithT(t)
+
+	service := &model.Service{
+		Hostname: host.Name("static.test"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.DNSLB,
+		MeshExternal: true,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service},
+	})
+	proxy := cg.SetupProxy(nil)
+	proxy.Metadata.Raw = map[string]any{
+		security.CredentialMetaDataName: "true",
+	}
+	// Expect sds_external cluster be added if credentialSocket exists
+	clusters := cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", security.SDSExternalClusterName,
+	}))
+
+	// Expect no sds_external cluster be added if if credentialSocket does NOT exists
+	proxy = cg.SetupProxy(nil)
+	clusters = cg.Clusters(proxy)
+	xdstest.ValidateClusters(t, clusters)
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+	}))
 }

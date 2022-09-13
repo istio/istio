@@ -23,6 +23,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -150,6 +151,8 @@ BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
 -----END CERTIFICATE-----`
 )
 
+var certChainValid = loadPEMFile("../testdata/cert-chain.pem")
+
 func TestParsePemEncodedCertificate(t *testing.T) {
 	testCases := map[string]struct {
 		errMsg        string
@@ -184,6 +187,38 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 			}
 		} else if cert.PublicKeyAlgorithm != c.publicKeyAlgo {
 			t.Errorf("%s: Unexpected public key algorithm: want %d but got %d", id, c.publicKeyAlgo, cert.PublicKeyAlgorithm)
+		}
+	}
+}
+
+func TestParsePemEncodedCertificateChain(t *testing.T) {
+	testCases := map[string]struct {
+		errMsg string
+		pem    string
+	}{
+		"Parse Certificate Chain": {
+			pem: certChainValid,
+		},
+		"Invalid PEM string": {
+			pem:    "Invalid PEM string",
+			errMsg: "invalid PEM encoded certificate",
+		},
+		"Invalid certificate string": {
+			pem:    keyRSA,
+			errMsg: "failed to parse X.509 certificate",
+		},
+	}
+
+	for id, c := range testCases {
+		_, rootCertByte, err := ParsePemEncodedCertificateChain([]byte(c.pem))
+		if c.errMsg != "" {
+			if err == nil {
+				t.Errorf("%s: no error is returned", id)
+			} else if c.errMsg != err.Error() {
+				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
+			}
+		} else if len(rootCertByte) == 0 {
+			t.Errorf("%s: rootCertByte is nil", id)
 		}
 	}
 }
@@ -340,5 +375,30 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
 			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
+	}
+}
+
+func TestPemCertBytestoString(t *testing.T) {
+	// empty check
+	if len(PemCertBytestoString([]byte{})) != 0 {
+		t.Errorf("Empty call fails!")
+	}
+
+	certBytes := []byte(certECDSA)
+	certBytes = AppendCertByte(certBytes, []byte(certRSA))
+	result := PemCertBytestoString(certBytes)
+	cert1 := strings.TrimSuffix(strings.TrimPrefix(certECDSA, "\n"), "\n")
+	cert2 := strings.TrimSuffix(strings.TrimPrefix(certRSA, "\n"), "\n")
+	if !reflect.DeepEqual(result, []string{cert1, cert2}) {
+		t.Errorf("Basic comparison fails!")
+	}
+
+	// check only first string passed if second is bogus
+	certBytes = []byte(certRSA)
+	certBytes = AppendCertByte(certBytes, []byte("Bogus"))
+	result = PemCertBytestoString(certBytes)
+	cert1 = strings.TrimSuffix(strings.TrimPrefix(certRSA, "\n"), "\n")
+	if !reflect.DeepEqual(result, []string{cert1}) {
+		t.Errorf("Bogus comparison fails!")
 	}
 }

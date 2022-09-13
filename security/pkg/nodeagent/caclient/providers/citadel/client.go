@@ -18,23 +18,23 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -45,23 +45,28 @@ const (
 var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 
 type CitadelClient struct {
-	enableTLS     bool
-	caTLSRootCert []byte
-	client        pb.IstioCertificateServiceClient
-	conn          *grpc.ClientConn
-	provider      *caclient.TokenProvider
-	opts          *security.Options
-	usingMtls     *atomic.Bool
+	// It means enable tls connection to Citadel if this is not nil.
+	tlsOpts   *TLSOptions
+	client    pb.IstioCertificateServiceClient
+	conn      *grpc.ClientConn
+	provider  *caclient.TokenProvider
+	opts      *security.Options
+	usingMtls *atomic.Bool
+}
+
+type TLSOptions struct {
+	RootCert string
+	Key      string
+	Cert     string
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(opts *security.Options, tls bool, rootCert []byte) (*CitadelClient, error) {
+func NewCitadelClient(opts *security.Options, tlsOpts *TLSOptions) (*CitadelClient, error) {
 	c := &CitadelClient{
-		enableTLS:     tls,
-		caTLSRootCert: rootCert,
-		opts:          opts,
-		provider:      caclient.NewCATokenProvider(opts),
-		usingMtls:     atomic.NewBool(false),
+		tlsOpts:   tlsOpts,
+		opts:      opts,
+		provider:  caclient.NewCATokenProvider(opts),
+		usingMtls: atomic.NewBool(false),
 	}
 
 	conn, err := c.buildConnection()
@@ -80,12 +85,12 @@ func (c *CitadelClient) Close() {
 	}
 }
 
-// CSR Sign calls Citadel to sign a CSR.
+// CSRSign calls Citadel to sign a CSR.
 func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
-	crMetaStruct := &types.Struct{
-		Fields: map[string]*types.Value{
+	crMetaStruct := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
 			security.CertSigner: {
-				Kind: &types.Value_StringValue{StringValue: c.opts.CertSigner},
+				Kind: &structpb.Value_StringValue{StringValue: c.opts.CertSigner},
 			},
 		},
 	}
@@ -94,9 +99,11 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 		ValidityDuration: certValidTTLInSec,
 		Metadata:         crMetaStruct,
 	}
+
 	if err := c.reconnectIfNeeded(); err != nil {
 		return nil, err
 	}
+
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
@@ -111,59 +118,42 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 }
 
 func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
-	// Load the TLS root certificate from the specified file.
-	// Create a certificate pool
-	var certPool *x509.CertPool
-	var err error
-	if c.caTLSRootCert == nil {
-		// No explicit certificate - assume the citadel-compatible server uses a public cert
-		certPool, err = x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-		citadelClientLog.Info("Citadel client using public DNS: ", c.opts.CAEndpoint)
-	} else {
-		certPool = x509.NewCertPool()
-		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
-		if !ok {
-			return nil, fmt.Errorf("failed to append certificates")
-		}
-		citadelClientLog.Info("Citadel client using custom root cert: ", c.opts.CAEndpoint)
+	certPool, err := getRootCertificate(c.tlsOpts.RootCert)
+	if err != nil {
+		return nil, err
 	}
-	var certificate tls.Certificate
 	config := tls.Config{
-		Certificates: []tls.Certificate{certificate},
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			if c.opts.ProvCert != "" {
-				// Load the certificate from disk
-				certificate, err = tls.LoadX509KeyPair(
-					filepath.Join(c.opts.ProvCert, "cert-chain.pem"),
-					filepath.Join(c.opts.ProvCert, "key.pem"))
-
-				if err != nil {
-					// we will return an empty cert so that when user sets the Prov cert path
-					// but not have such cert in the file path we use the token to provide verification
-					// instead of just broken the workflow
-					citadelClientLog.Warnf("cannot load key pair, using token instead: %v", err)
-					return &certificate, nil
-				}
+			var certificate tls.Certificate
+			key, cert := c.tlsOpts.Key, c.tlsOpts.Cert
+			if cert != "" {
 				var isExpired bool
-				isExpired, err = c.isCertExpired(filepath.Join(c.opts.ProvCert, "cert-chain.pem"))
+				isExpired, err = util.IsCertExpired(cert)
 				if err != nil {
 					citadelClientLog.Warnf("cannot parse the cert chain, using token instead: %v", err)
-					return &tls.Certificate{}, nil
+					return &certificate, nil
 				}
 				if isExpired {
 					citadelClientLog.Warnf("cert expired, using token instead")
-					return &tls.Certificate{}, nil
+					return &certificate, nil
+				}
+
+				// Load the certificate from disk
+				certificate, err = tls.LoadX509KeyPair(cert, key)
+				if err != nil {
+					return nil, err
 				}
 				c.usingMtls.Store(true)
 			}
 			return &certificate, nil
 		},
+		RootCAs:    certPool,
+		MinVersion: tls.VersionTLS12,
 	}
-	config.RootCAs = certPool
 
+	if host, _, err := net.SplitHostPort(c.opts.CAEndpoint); err == nil {
+		config.ServerName = host
+	}
 	// For debugging on localhost (with port forward)
 	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
 	if strings.Contains(c.opts.CAEndpoint, "localhost") {
@@ -177,35 +167,41 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *CitadelClient) isCertExpired(filepath string) (bool, error) {
-	var err error
-	var certPEMBlock []byte
-	certPEMBlock, err = os.ReadFile(filepath)
+func getRootCertificate(rootCertFile string) (*x509.CertPool, error) {
+	if rootCertFile == "" {
+		// No explicit certificate - assume the citadel-compatible server uses a public cert
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+		citadelClientLog.Info("Citadel client using system cert")
+		return certPool, nil
+	}
+
+	certPool := x509.NewCertPool()
+	rootCert, err := os.ReadFile(rootCertFile)
 	if err != nil {
-		return true, fmt.Errorf("failed to read the cert, error is %v", err)
+		return nil, err
 	}
-	var certDERBlock *pem.Block
-	certDERBlock, _ = pem.Decode(certPEMBlock)
-	if certDERBlock == nil {
-		return true, fmt.Errorf("failed to decode certificate")
+	ok := certPool.AppendCertsFromPEM(rootCert)
+	if !ok {
+		return nil, fmt.Errorf("failed to append certificates")
 	}
-	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
-	if err != nil {
-		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
-	}
-	return x509Cert.NotAfter.Before(time.Now()), nil
+	citadelClientLog.Info("Citadel client using custom root cert: ", rootCertFile)
+	return certPool, nil
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 	var opts grpc.DialOption
 	var err error
-	if c.enableTLS {
+	// CA tls disabled
+	if c.tlsOpts == nil {
+		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
+	} else {
 		opts, err = c.getTLSDialOption()
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		opts = grpc.WithInsecure()
 	}
 
 	conn, err := grpc.Dial(c.opts.CAEndpoint,
@@ -225,9 +221,7 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 		// No need to reconnect, already using mTLS or never will use it
 		return nil
 	}
-	_, err := tls.LoadX509KeyPair(
-		filepath.Join(c.opts.ProvCert, "cert-chain.pem"),
-		filepath.Join(c.opts.ProvCert, "key.pem"))
+	_, err := tls.LoadX509KeyPair(c.tlsOpts.Cert, c.tlsOpts.Key)
 	if err != nil {
 		// Cannot load the certificates yet, don't both reconnecting
 		return nil

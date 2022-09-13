@@ -24,11 +24,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 )
 
-// Istio default namespace
-const (
-	IstioDefaultNamespace = "istio-system"
-)
-
 // Kubernetes Kind strings.
 const (
 	CRDStr                            = "CustomResourceDefinition"
@@ -40,6 +35,7 @@ const (
 	EndpointStr                       = "Endpoints"
 	HPAStr                            = "HorizontalPodAutoscaler"
 	IngressStr                        = "Ingress"
+	IstioOperator                     = "IstioOperator"
 	MutatingWebhookConfigurationStr   = "MutatingWebhookConfiguration"
 	NamespaceStr                      = "Namespace"
 	PVCStr                            = "PersistentVolumeClaim"

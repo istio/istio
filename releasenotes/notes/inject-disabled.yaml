@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 35271
+
+releaseNotes:
+- |
+  **Fixed** and issues causing the `sidecar.istio.io/injection=true` label to be ineffective when `values.global.proxy.autoInject=disabled` is configured.

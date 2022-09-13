@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/pull/38060
+releaseNotes:
+  - |
+    **Fixed** add default container annotation when there are multiple containers.

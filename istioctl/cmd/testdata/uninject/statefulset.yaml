@@ -13,11 +13,10 @@ spec:
   serviceName: hello
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       creationTimestamp: null
       labels:
         app: hello
+        sidecar.istio.io/inject: "false"
         tier: backend
         track: stable
     spec:
@@ -37,5 +36,6 @@ spec:
         name: data
   updateStrategy: {}
 status:
+  availableReplicas: 0
   replicas: 0
 ---

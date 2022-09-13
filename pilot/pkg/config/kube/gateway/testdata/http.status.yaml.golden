@@ -9,9 +9,9 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Handled by Istio controller
-    reason: Handled
+    reason: Accepted
     status: "True"
-    type: Admitted
+    type: Accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -36,26 +36,26 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - attachedRoutes: 4
+  - attachedRoutes: 5
     conditions:
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: NoConflicts
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: Attached
       status: "False"
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: Ready
       status: "True"
       type: Ready
     - lastTransitionTime: fake
       message: No errors found
-      reason: ListenerReady
+      reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
     name: default
@@ -75,70 +75,15 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
-      reason: RouteAdmitted
+      reason: Accepted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: http2
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
+      type: Accepted
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: redirect
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
-      status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: mirror
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: RouteAdmitted
-      status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -155,10 +100,115 @@ status:
   - conditions:
     - lastTransitionTime: fake
       message: no hostnames matched parent hostname "*.domain.example"
-      reason: InvalidParentReference
+      reason: NoMatchingListenerHostname
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: http2
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: mirror
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: redirect
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: rewrite
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system

@@ -25,6 +25,10 @@ source "${ROOT}/prow/lib.sh"
 
 setup_gcloud_credentials
 
+# Enable emulation required for cross compiling a few images (VMs)
+docker run --rm --privileged gcr.io/istio-testing/qemu-user-static --reset -p yes
+export ISTIO_DOCKER_QEMU=true
+
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
@@ -32,11 +36,11 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=343862e8279d9acd0308256b69a5f93fe74d5fde
+BUILDER_SHA=55c3306e83172818e87af7911756c249f142a4b1
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.12
+NEXT_VERSION=1.16
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 
@@ -66,15 +70,16 @@ ${DEPENDENCIES:-$(cat <<EOD
   client-go:
     git: https://github.com/istio/client-go
     branch: master
-  gogo-genproto:
-    git: https://github.com/istio/gogo-genproto
-    branch: master
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
   tools:
     git: https://github.com/istio/tools
     branch: master
+  release-builder:
+    git: https://github.com/istio/release-builder
+    sha: ${BUILDER_SHA}
+architectures: [linux/amd64, linux/arm64]
 EOD
 )}
 dashboards:
@@ -91,8 +96,7 @@ EOF
 # "Temporary" hacks
 export PATH=${GOPATH}/bin:${PATH}
 
-# cd to not impact go.mod
-(cd /tmp; go get "istio.io/release-builder@${BUILDER_SHA}")
+go install "istio.io/release-builder@${BUILDER_SHA}"
 
 release-builder build --manifest <(echo "${MANIFEST}")
 

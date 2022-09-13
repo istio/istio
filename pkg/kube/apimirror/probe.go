@@ -36,7 +36,7 @@ type HTTPGetAction struct {
 	// Scheme to use for connecting to the host.
 	// Defaults to HTTP.
 	// +optional
-	Scheme URIScheme `json:"scheme,omitempty" protobuf:"bytes,4,opt,name=scheme,casttype=URIScheme"`
+	Scheme URIScheme `json:"scheme,omitempty" protobuf:"bytes,4,opt,name=scheme"`
 	// Custom headers to set in the request. HTTP allows repeated headers.
 	// +optional
 	HTTPHeaders []HTTPHeader `json:"httpHeaders,omitempty" protobuf:"bytes,5,rep,name=httpHeaders"`
@@ -69,4 +69,18 @@ type TCPSocketAction struct {
 	// Optional: Host name to connect to, defaults to the pod IP.
 	// +optional
 	Host string `json:"host,omitempty" protobuf:"bytes,2,opt,name=host"`
+}
+
+// GRPCAction describes an action based on GRPC health check
+type GRPCAction struct {
+	// Port number of the gRPC service. Number must be in the range 1 to 65535.
+	Port int32 `json:"port" protobuf:"bytes,1,opt,name=port"`
+
+	// Service is the name of the service to place in the gRPC HealthCheckRequest
+	// (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+	//
+	// If this is not specified, the default behavior is defined by gRPC.
+	// +optional
+	// +default=""
+	Service *string `json:"service" protobuf:"bytes,2,opt,name=service"`
 }

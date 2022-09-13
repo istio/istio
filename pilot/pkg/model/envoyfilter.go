@@ -18,13 +18,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
@@ -65,7 +65,14 @@ var wellKnownVersions = map[string]string{
 	`^1\.10.*`: "1.10",
 	`^1\.11.*`: "1.11",
 	`^1\.12.*`: "1.12",
-	// Hopefully we have a better API by 1.13. If not, add it here
+	`^1\.13.*`: "1.13",
+	`^1\.14.*`: "1.14",
+	`^1\.15.*`: "1.15",
+	`^1\.16.*`: "1.16",
+	`^1\.17.*`: "1.17",
+	`^1\.18.*`: "1.18",
+	`^1\.19.*`: "1.19",
+	// Hopefully we have a better API by 1.19. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object

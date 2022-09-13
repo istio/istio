@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
@@ -38,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
@@ -109,12 +109,6 @@ type DiscoveryServer struct {
 	// the push context, which means that the next push to a proxy will receive this configuration.
 	CommittedUpdates *atomic.Int64
 
-	// mutex used for protecting shards.
-	mutex sync.RWMutex
-	// EndpointShards for a service. This is a global (per-server) list, built from
-	// incremental updates. This is keyed by service and namespace
-	EndpointShardsByService map[string]map[string]*EndpointShards
-
 	// pushChannel is the buffer used for debouncing.
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
@@ -139,7 +133,7 @@ type DiscoveryServer struct {
 
 	// StatusGen is notified of connect/disconnect/nack on all connections
 	StatusGen               *StatusGen
-	WorkloadEntryController *workloadentry.Controller
+	WorkloadEntryController *autoregistration.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
@@ -156,43 +150,26 @@ type DiscoveryServer struct {
 
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
-}
 
-// EndpointShards holds the set of endpoint shards of a service. Registries update
-// individual shards incrementally. The shards are aggregated and split into
-// clusters when a push for the specific cluster is needed.
-type EndpointShards struct {
-	// mutex protecting below map.
-	mutex sync.RWMutex
-
-	// Shards is used to track the shards. EDS updates are grouped by shard.
-	// Current implementation uses the registry name as key - in multicluster this is the
-	// name of the k8s cluster, derived from the config (secret).
-	Shards map[model.ShardKey][]*model.IstioEndpoint
-
-	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
-	// This is updated on push, based on shards. If the previous list is different than
-	// current list, a full push will be forced, to trigger a secure naming update.
-	// Due to the larger time, it is still possible that connection errors will occur while
-	// CDS is updated.
-	ServiceAccounts sets.Set
+	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// and if it has a different alias we should use that a cluster ID for proxy.
+	ClusterAliases map[cluster.ID]cluster.ID
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
-		Env:                     env,
-		Generators:              map[string]model.XdsResourceGenerator{},
-		ProxyNeedsPush:          DefaultProxyNeedsPush,
-		EndpointShardsByService: map[string]map[string]*EndpointShards{},
-		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
-		requestRateLimit:        rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
-		InboundUpdates:          atomic.NewInt64(0),
-		CommittedUpdates:        atomic.NewInt64(0),
-		pushChannel:             make(chan *model.PushRequest, 10),
-		pushQueue:               NewPushQueue(),
-		debugHandlers:           map[string]string{},
-		adsClients:              map[string]*Connection{},
+		Env:                 env,
+		Generators:          map[string]model.XdsResourceGenerator{},
+		ProxyNeedsPush:      DefaultProxyNeedsPush,
+		concurrentPushLimit: make(chan struct{}, features.PushThrottle),
+		requestRateLimit:    rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
+		InboundUpdates:      atomic.NewInt64(0),
+		CommittedUpdates:    atomic.NewInt64(0),
+		pushChannel:         make(chan *model.PushRequest, 10),
+		pushQueue:           NewPushQueue(),
+		debugHandlers:       map[string]string{},
+		adsClients:          map[string]*Connection{},
 		debounceOptions: debounceOptions{
 			debounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
@@ -202,13 +179,20 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		instanceID: instanceID,
 	}
 
+	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
+	for alias := range clusterAliases {
+		out.ClusterAliases[cluster.ID(alias)] = cluster.ID(clusterAliases[alias])
+	}
+
 	out.initJwksResolver()
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
+		// clear the cache as endpoint shards are modified to avoid cache write race
+		out.Env.EndpointIndex.SetCache(out.Cache)
 	}
 
-	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
 
 	return out
 }
@@ -318,8 +302,7 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	}
 }
 
-// Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
-// to avoid direct dependencies.
+// Push is called to push changes on config updates using ADS.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
@@ -365,7 +348,9 @@ func versionInfo() string {
 	return version
 }
 
-// Returns the global push context.
+// Returns the global push context. This should be used with caution; generally the proxy-specific
+// PushContext should be used to get the current state in the context of a single proxy. This should
+// only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	s.updateMutex.RLock()
 	defer s.updateMutex.RUnlock()
@@ -373,7 +358,6 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
-// It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
@@ -404,9 +388,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 	free := true
 	freeCh := make(chan struct{}, 1)
 
-	push := func(req *model.PushRequest, debouncedEvents int) {
+	push := func(req *model.PushRequest, debouncedEvents int, startDebounce time.Time) {
 		pushFn(req)
 		updateSent.Add(int64(debouncedEvents))
+		debounceTime.Record(time.Since(startDebounce).Seconds())
 		freeCh <- struct{}{}
 	}
 
@@ -418,8 +403,8 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
-					log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-						pushCounter, debouncedEvents,
+					log.Infof("Push debounce stable[%d] %d for reason %s: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, reasonsUpdated(req),
 						quietTime, eventDelay, req.Full)
 				} else {
 					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
@@ -427,7 +412,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 						quietTime, eventDelay, req.Full)
 				}
 				free = false
-				go push(req, debouncedEvents)
+				go push(req, debouncedEvents, startDebounce)
 				req = nil
 				debouncedEvents = 0
 			}
@@ -486,6 +471,17 @@ func configsUpdated(req *model.PushRequest) string {
 	return configs
 }
 
+func reasonsUpdated(req *model.PushRequest) string {
+	switch len(req.Reason) {
+	case 0:
+		return "unknown"
+	case 1:
+		return string(req.Reason[0])
+	default:
+		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+	}
+}
+
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
 	for {
 		select {
@@ -526,7 +522,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					return
 				case <-closed: // grpc stream was closed
 					doneFunc()
-					log.Infof("Client closed connection %v", client.ConID)
+					log.Infof("Client closed connection %v", client.conID)
 				}
 			}()
 		}
@@ -542,7 +538,7 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 	push.PushVersion = version
 	push.JwtKeyResolver = s.JwtKeyResolver
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
-		log.Errorf("XDS: Failed to update services: %v", err)
+		log.Errorf("XDS: failed to init push context: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Increment()
 		return nil, err
@@ -566,7 +562,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string) {
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -583,17 +579,17 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
-	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)
+	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
-	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
+	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
-// shutdown shuts down DiscoveryServer components.
+// Shutdown shuts down DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
 	s.closeJwksResolver()
 	s.pushQueue.ShutDown()
@@ -643,7 +639,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				log.Info("Failed to send internal event ", con.ConID, " ", err)
+				log.Errorf("Failed to send internal event %s: %v", con.conID, err)
 			}
 		}()
 	}

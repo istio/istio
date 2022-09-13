@@ -44,35 +44,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: helloworld-v3
-  labels:
-    app: helloworld
-    version: v3
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: helloworld
-      version: v3
-  template:
-    metadata:
-      labels:
-        app: helloworld
-        version: v3
-    spec:
-      containers:
-      - name: helloworld
-        image: docker.io/istio/examples-helloworld-v3
-        resources:
-          requests:
-            cpu: "100m"
-        imagePullPolicy: IfNotPresent #Always
-        ports:
-        - containerPort: 5000
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: helloworld-v2
   labels:
     app: helloworld

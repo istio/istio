@@ -17,10 +17,10 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/file"
 )
@@ -41,7 +41,7 @@ func CreateFileWatcher(dirs ...string) (watcher *fsnotify.Watcher, fileModified 
 		}
 		if err = watcher.Add(dir); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
-				err = errors.Wrap(err, closeErr.Error())
+				err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 			}
 			return nil, nil, nil, err
 		}
@@ -82,42 +82,42 @@ func WaitForFileMod(ctx context.Context, fileModified chan bool, errChan chan er
 }
 
 // Read CNI config from file and return the unmarshalled JSON as a map
-func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
+func ReadCNIConfigMap(path string) (map[string]any, error) {
 	cniConfig, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var cniConfigMap map[string]interface{}
+	var cniConfigMap map[string]any
 	if err = json.Unmarshal(cniConfig, &cniConfigMap); err != nil {
-		return nil, errors.Wrap(err, path)
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	return cniConfigMap, nil
 }
 
 // Given an unmarshalled CNI config JSON map, return the plugin list asserted as a []interface{}
-func GetPlugins(cniConfigMap map[string]interface{}) (plugins []interface{}, err error) {
-	plugins, ok := cniConfigMap["plugins"].([]interface{})
+func GetPlugins(cniConfigMap map[string]any) (plugins []any, err error) {
+	plugins, ok := cniConfigMap["plugins"].([]any)
 	if !ok {
-		err = errors.New("error reading plugin list from CNI config")
+		err = fmt.Errorf("error reading plugin list from CNI config")
 		return
 	}
 	return
 }
 
 // Given the raw plugin interface, return the plugin asserted as a map[string]interface{}
-func GetPlugin(rawPlugin interface{}) (plugin map[string]interface{}, err error) {
-	plugin, ok := rawPlugin.(map[string]interface{})
+func GetPlugin(rawPlugin any) (plugin map[string]any, err error) {
+	plugin, ok := rawPlugin.(map[string]any)
 	if !ok {
-		err = errors.New("error reading plugin from CNI config plugin list")
+		err = fmt.Errorf("error reading plugin from CNI config plugin list")
 		return
 	}
 	return
 }
 
 // Marshal the CNI config map and append a new line
-func MarshalCNIConfig(cniConfigMap map[string]interface{}) ([]byte, error) {
+func MarshalCNIConfig(cniConfigMap map[string]any) ([]byte, error) {
 	cniConfig, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {
 		return nil, err

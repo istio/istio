@@ -330,7 +330,7 @@ func TestSuite_Cleanup(t *testing.T) {
 			ctx.Cleanup(func() {
 				cleanupCalled = true
 			})
-			ctx.ConditionalCleanup(func() {
+			ctx.CleanupConditionally(func() {
 				conditionalCleanupCalled = true
 			})
 			return nil
@@ -361,7 +361,7 @@ func TestSuite_Cleanup(t *testing.T) {
 			ctx.Cleanup(func() {
 				cleanupCalled = true
 			})
-			ctx.ConditionalCleanup(func() {
+			ctx.CleanupConditionally(func() {
 				conditionalCleanupCalled = true
 			})
 			return nil
@@ -426,7 +426,7 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 func TestSuite_GetResource(t *testing.T) {
 	defer cleanupRT()
 
-	act := func(refPtr interface{}, trackedResource resource.Resource) error {
+	act := func(refPtr any, trackedResource resource.Resource) error {
 		var err error
 		runFn := func(ctx *suiteContext) int {
 			err = ctx.GetResource(refPtr)

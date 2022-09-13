@@ -23,50 +23,10 @@ import (
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/host"
 )
-
-func TestGetLocalityFromTopology(t *testing.T) {
-	cases := []struct {
-		name     string
-		topology map[string]string
-		locality string
-	}{
-		{
-			"all standard kubernetes labels",
-			map[string]string{
-				NodeRegionLabelGA: "region",
-				NodeZoneLabelGA:   "zone",
-			},
-			"region/zone",
-		},
-		{
-			"all standard kubernetes labels and Istio custom labels",
-			map[string]string{
-				NodeRegionLabelGA:          "region",
-				NodeZoneLabelGA:            "zone",
-				label.TopologySubzone.Name: "subzone",
-			},
-			"region/zone/subzone",
-		},
-		{
-			"missing zone",
-			map[string]string{
-				NodeRegionLabelGA: "region",
-			},
-			"region",
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getLocalityFromTopology(tt.topology)
-			if !reflect.DeepEqual(tt.locality, got) {
-				t.Fatalf("Expected %v, got %v", tt.topology, got)
-			}
-		})
-	}
-}
 
 func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	const (
@@ -75,8 +35,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 		appName = "prod-app"
 	)
 
-	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointSliceOnly})
-	defer controller.Stop()
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointSliceOnly})
 
 	node := generateNode("node1", map[string]string{
 		NodeZoneLabel:              "zone1",
@@ -109,13 +68,95 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	createEndpoints(t, controller, svcName, ns, portNames, svc1Ips, nil, map[string]string{
 		mcs.LabelServiceName: svcName,
 	})
-	if ev := fx.WaitForDuration("eds", 2*time.Second); ev != nil {
+	if ev := fx.WaitForDuration("eds", 200*time.Millisecond); ev != nil {
 		t.Fatalf("Received unexpected EDS event")
 	}
 
 	// Ensure that getting by port returns no ServiceInstances.
-	instances := controller.InstancesByPort(svc, svc.Ports[0].Port, labels.Collection{})
+	instances := controller.InstancesByPort(svc, svc.Ports[0].Port, nil)
 	if len(instances) != 0 {
 		t.Fatalf("should be 0 instances: len(instances) = %v", len(instances))
 	}
+}
+
+func TestEndpointSliceCache(t *testing.T) {
+	cache := newEndpointSliceCache()
+	hostname := host.Name("foo")
+
+	// add a endpoint
+	ep1 := &model.IstioEndpoint{
+		Address:         "1.2.3.4",
+		ServicePortName: "http",
+	}
+	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1}) {
+		t.Fatalf("unexpected endpoints")
+	}
+	if !cache.Has(hostname) {
+		t.Fatalf("expect to find the host name")
+	}
+	// add a new endpoint
+	ep2 := &model.IstioEndpoint{
+		Address:         "2.3.4.5",
+		ServicePortName: "http",
+	}
+	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, ep2})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2}) {
+		t.Fatalf("unexpected endpoints")
+	}
+
+	// change service port name
+	ep1 = &model.IstioEndpoint{
+		Address:         "1.2.3.4",
+		ServicePortName: "http2",
+	}
+	ep2 = &model.IstioEndpoint{
+		Address:         "2.3.4.5",
+		ServicePortName: "http2",
+	}
+	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, ep2})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2}) {
+		t.Fatalf("unexpected endpoints")
+	}
+
+	// add a new slice
+	ep3 := &model.IstioEndpoint{
+		Address:         "3.4.5.6",
+		ServicePortName: "http2",
+	}
+	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep3})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2, ep3}) {
+		t.Fatalf("unexpected endpoints")
+	}
+
+	// dedup when transitioning
+	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep2, ep3})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2, ep3}) {
+		t.Fatalf("unexpected endpoints")
+	}
+
+	cache.Delete(hostname, "slice1")
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep2, ep3}) {
+		t.Fatalf("unexpected endpoints")
+	}
+
+	cache.Delete(hostname, "slice2")
+	if cache.Get(hostname) != nil {
+		t.Fatalf("unexpected endpoints")
+	}
+}
+
+func testEndpointsEqual(a, b []*model.IstioEndpoint) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	m1 := make(map[endpointKey]int)
+	m2 := make(map[endpointKey]int)
+	for _, i := range a {
+		m1[endpointKey{i.Address, i.ServicePortName}]++
+	}
+	for _, i := range b {
+		m2[endpointKey{i.Address, i.ServicePortName}]++
+	}
+	return reflect.DeepEqual(m1, m2)
 }

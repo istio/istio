@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
-	"github.com/pkg/errors"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/util"
@@ -105,7 +104,7 @@ func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
 		return []byte(template.cniNetworkConfig), nil
 	}
 
-	return nil, errors.New("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
+	return nil, fmt.Errorf("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
 }
 
 func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) []byte {
@@ -150,7 +149,8 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 	}
 
 	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
-		return "", err
+		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
+		return cniConfigFilepath, err
 	}
 
 	if cfg.chainedCNIPlugin && strings.HasSuffix(cniConfigFilepath, ".conf") {
@@ -158,7 +158,8 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		installLog.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
 		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
 		if err != nil {
-			return "", err
+			installLog.Errorf("Failed to rename CNI config file %v: %v", cniConfigFilepath, err)
+			return cniConfigFilepath, err
 		}
 		cniConfigFilepath += "list"
 	}
@@ -273,13 +274,13 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 
 // newCNIConfig = istio-cni config, that should be inserted into existingCNIConfig
 func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
-	var istioMap map[string]interface{}
+	var istioMap map[string]any
 	err := json.Unmarshal(newCNIConfig, &istioMap)
 	if err != nil {
 		return nil, fmt.Errorf("error loading Istio CNI config (JSON error): %v", err)
 	}
 
-	var existingMap map[string]interface{}
+	var existingMap map[string]any
 	err = json.Unmarshal(existingCNIConfig, &existingMap)
 	if err != nil {
 		return nil, fmt.Errorf("error loading existing CNI config (JSON error): %v", err)
@@ -287,17 +288,17 @@ func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 
 	delete(istioMap, "cniVersion")
 
-	var newMap map[string]interface{}
+	var newMap map[string]any
 
 	if _, ok := existingMap["type"]; ok {
 		// Assume it is a regular network conf file
 		delete(existingMap, "cniVersion")
 
-		plugins := make([]map[string]interface{}, 2)
+		plugins := make([]map[string]any, 2)
 		plugins[0] = existingMap
 		plugins[1] = istioMap
 
-		newMap = map[string]interface{}{
+		newMap = map[string]any{
 			"name":       "k8s-pod-network",
 			"cniVersion": "0.3.1",
 			"plugins":    plugins,

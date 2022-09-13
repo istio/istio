@@ -30,26 +30,40 @@ type KeyCertBundle struct {
 
 type Watcher struct {
 	// Indicated whether bundle has been set, it is used to invoke watcher for the first time.
-	initDone atomic.Bool
-	mutex    sync.Mutex
-	bundle   KeyCertBundle
-	watchers []chan KeyCertBundle
+	initDone  atomic.Bool
+	mutex     sync.Mutex
+	bundle    KeyCertBundle
+	watcherID int32
+	watchers  map[int32]chan struct{}
 }
 
 func NewWatcher() *Watcher {
-	return &Watcher{}
+	return &Watcher{
+		watchers: make(map[int32]chan struct{}),
+	}
 }
 
 // AddWatcher returns channel to receive the updated items.
-func (w *Watcher) AddWatcher() chan KeyCertBundle {
-	ch := make(chan KeyCertBundle, 1)
+func (w *Watcher) AddWatcher() (int32, chan struct{}) {
+	ch := make(chan struct{}, 1)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	if w.initDone.Load() {
-		ch <- w.bundle
+	id := w.watcherID
+	w.watchers[id] = ch
+	w.watcherID++
+
+	return id, ch
+}
+
+// RemoveWatcher removes the given watcher.
+func (w *Watcher) RemoveWatcher(id int32) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	ch := w.watchers[id]
+	if ch != nil {
+		close(ch)
 	}
-	w.watchers = append(w.watchers, ch)
-	return ch
+	delete(w.watchers, id)
 }
 
 // SetAndNotify sets the key cert and root cert and notify the watchers.
@@ -67,7 +81,10 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 	}
 	w.initDone.Store(true)
 	for _, ch := range w.watchers {
-		ch <- w.bundle
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -98,7 +115,10 @@ func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) erro
 	}
 	w.initDone.Store(true)
 	for _, ch := range w.watchers {
-		ch <- w.bundle
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
 	}
 	return nil
 }
@@ -108,4 +128,11 @@ func (w *Watcher) GetCABundle() []byte {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	return w.bundle.CABundle
+}
+
+// GetCABundle returns the CABundle.
+func (w *Watcher) GetKeyCertBundle() KeyCertBundle {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	return w.bundle
 }

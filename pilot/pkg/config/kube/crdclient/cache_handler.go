@@ -17,12 +17,8 @@ package crdclient
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
-
-	//  import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
-	//  import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -40,17 +36,29 @@ type cacheHandler struct {
 	lister   func(namespace string) cache.GenericNamespaceLister
 }
 
-func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Event) error {
+func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 	if err := h.client.checkReadyForEvents(curr); err != nil {
 		return err
 	}
 
 	currItem, ok := curr.(runtime.Object)
-	if !ok {
-		scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)
+	if !ok && event == model.EventDelete {
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			scope.Warnf("Couldn't get object from tombstone %v, type %T", curr, curr)
+			return nil
+		}
+		currItem, ok = tombstone.Obj.(runtime.Object)
+		if !ok {
+			scope.Warnf("Tombstone's Object is not runtime Object %v, type %T", tombstone.Obj, tombstone.Obj)
+			return nil
+		}
+	} else if !ok {
+		scope.Warnf("Object can not be converted to runtime Object %v, is type %T", curr, curr)
 		return nil
 	}
-	currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+
+	currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
 	var oldConfig config.Config
 	if old != nil {
@@ -59,7 +67,7 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 			log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", old, old)
 			return nil
 		}
-		oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
 
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
@@ -84,7 +92,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	}
 	kind := schema.Resource().Kind()
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
+		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
 			if !cl.beginSync.Load() {
 				return
@@ -93,7 +101,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
-		UpdateFunc: func(old, cur interface{}) {
+		UpdateFunc: func(old, cur any) {
 			incrementEvent(kind, "update")
 			if !cl.beginSync.Load() {
 				return
@@ -102,7 +110,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
 			if !cl.beginSync.Load() {
 				return

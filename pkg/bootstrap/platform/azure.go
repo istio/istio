@@ -47,8 +47,8 @@ var (
 type azureEnv struct {
 	APIVersion      string
 	prefix          string
-	computeMetadata map[string]interface{}
-	networkMetadata map[string]interface{}
+	computeMetadata map[string]any
+	networkMetadata map[string]any
 }
 
 // IsAzure returns whether or not the platform for bootstrapping is Azure
@@ -66,7 +66,7 @@ func IsAzure() bool {
 func (e *azureEnv) updateAPIVersion() {
 	bodyJSON := stringToJSON(azureAPIVersionsFn())
 	if newestVersions, ok := bodyJSON["newest-versions"]; ok {
-		for _, version := range newestVersions.([]interface{}) {
+		for _, version := range newestVersions.([]any) {
 			if strings.Compare(version.(string), e.APIVersion) > 0 {
 				e.APIVersion = version.(string)
 			}
@@ -97,10 +97,10 @@ func (e *azureEnv) prefixName(name string) string {
 func (e *azureEnv) parseMetadata(metadata string) {
 	bodyJSON := stringToJSON(metadata)
 	if computeMetadata, ok := bodyJSON["compute"]; ok {
-		e.computeMetadata = computeMetadata.(map[string]interface{})
+		e.computeMetadata = computeMetadata.(map[string]any)
 	}
 	if networkMetadata, ok := bodyJSON["network"]; ok {
-		e.networkMetadata = networkMetadata.(map[string]interface{})
+		e.networkMetadata = networkMetadata.(map[string]any)
 	}
 }
 
@@ -132,8 +132,8 @@ func metadataRequest(query string) string {
 	return string(body)
 }
 
-func stringToJSON(s string) map[string]interface{} {
-	var stringJSON map[string]interface{}
+func stringToJSON(s string) map[string]any {
+	var stringJSON map[string]any
 	if err := json.Unmarshal([]byte(s), &stringJSON); err != nil {
 		log.Warnf("Could not unmarshal response: %v:", err)
 	}

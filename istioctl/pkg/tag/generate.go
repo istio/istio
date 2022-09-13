@@ -18,7 +18,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"net/url"
+	"os"
 	"strings"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -64,16 +65,18 @@ type GenerateOptions struct {
 	// TODO(Monkeyanator) once we stop using Helm templating remove this.
 	ManifestsPath string
 	// Generate determines whether we should just generate the webhooks without applying. This
-	// applying is not done here but we are looser with checks when doing generate.
+	// applying is not done here, but we are looser with checks when doing generate.
 	Generate bool
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
+	// AutoInjectNamespaces controls, if the sidecars should be injected into all namespaces by default.
+	AutoInjectNamespaces bool
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions) (string, error) {
+func Generate(ctx context.Context, client kube.CLIClient, opts *GenerateOptions, istioNS string) (string, error) {
 	// abort if there exists a revision with the target tag name
-	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
+	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +86,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	}
 
 	// find canonical revision webhook to base our tag webhook off of
-	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
+	revWebhooks, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Revision)
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +97,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		return "", fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
 	}
 
-	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
+	whs, err := GetWebhooksWithTag(ctx, client.Kube(), opts.Tag)
 	if err != nil {
 		return "", err
 	}
@@ -102,11 +105,11 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		return "", fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
 	}
 
-	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag)
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag, istioNS)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
-	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath)
+	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath, opts.AutoInjectNamespaces)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
@@ -114,12 +117,12 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	if opts.Tag == DefaultRevisionName {
 		if !opts.Generate {
 			// deactivate other istio-injection=enabled injectors if using default revisions.
-			err := DeactivateIstioInjectionWebhook(ctx, client)
+			err := DeactivateIstioInjectionWebhook(ctx, client.Kube())
 			if err != nil {
 				return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 			}
 			// delete deprecated validating webhook configuration if it exists.
-			err = DeleteDeprecatedValidator(ctx, client)
+			err = DeleteDeprecatedValidator(ctx, client.Kube())
 			if err != nil {
 				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
 			}
@@ -128,7 +131,9 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
 		// to ease complexity when pointing default to revision without per-revision validating webhook,
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
-		vwhYAML, err := generateValidatingWebhook(tagWhConfig, opts.ManifestsPath)
+		validationWhConfig := fixWhConfig(tagWhConfig)
+
+		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
@@ -140,8 +145,19 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	return tagWhYAML, nil
 }
 
+func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
+	if whConfig.URL != "" {
+		webhookURL, err := url.Parse(whConfig.URL)
+		if err == nil {
+			webhookURL.Path = "/validate"
+			whConfig.URL = webhookURL.String()
+		}
+	}
+	return whConfig
+}
+
 // Create applies the given tag manifests.
-func Create(client kube.ExtendedClient, manifests string) error {
+func Create(client kube.CLIClient, manifests string) error {
 	if err := applyYAML(client, manifests, "istio-system"); err != nil {
 		return fmt.Errorf("failed to apply tag manifests to cluster: %v", err)
 	}
@@ -150,17 +166,19 @@ func Create(client kube.ExtendedClient, manifests string) error {
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
 func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
 	values := fmt.Sprintf(`
+global:
+  istioNamespace: %s
 revision: %q
 base:
   validationURL: %s
-`, config.Revision, config.URL)
+`, config.IstioNamespace, config.Revision, config.URL)
 
 	validatingWebhookYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, vwhTemplateName)
@@ -197,8 +215,8 @@ base:
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
-func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
+func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool) (string, error) {
+	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
@@ -210,13 +228,14 @@ revisionTags:
   - %s
 
 sidecarInjectorWebhook:
+  enableNamespacesByDefault: %t
   objectSelector:
     enabled: true
     autoInject: true
 
 istiodRemote:
   injectionURL: %s
-`, config.Revision, config.Tag, config.URL)
+`, config.Revision, config.Tag, autoInjectNamespaces, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)
@@ -259,7 +278,7 @@ istiodRemote:
 }
 
 // tagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
-func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName string) (*tagWebhookConfig, error) {
+func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName, istioNS string) (*tagWebhookConfig, error) {
 	rev, err := GetWebhookRevision(wh)
 	if err != nil {
 		return nil, err
@@ -295,13 +314,13 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		Revision:       rev,
 		URL:            injectionURL,
 		CABundle:       caBundle,
-		IstioNamespace: "istio-system",
+		IstioNamespace: istioNS,
 		Path:           path,
 	}, nil
 }
 
 // applyYAML taken from remote_secret.go
-func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
+func applyYAML(client kube.CLIClient, yamlContent, ns string) error {
 	yamlFile, err := writeToTempFile(yamlContent)
 	if err != nil {
 		return fmt.Errorf("failed creating manifest file: %w", err)
@@ -316,7 +335,7 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 
 // writeToTempFile taken from remote_secret.go
 func writeToTempFile(content string) (string, error) {
-	outFile, err := ioutil.TempFile("", "revision-tag-manifest-*")
+	outFile, err := os.CreateTemp("", "revision-tag-manifest-*")
 	if err != nil {
 		return "", fmt.Errorf("failed creating temp file for manifest: %w", err)
 	}

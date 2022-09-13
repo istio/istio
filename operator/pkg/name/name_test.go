@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -101,7 +101,7 @@ a:
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tree := make(map[string]interface{})
+			tree := make(map[string]any)
 			if err := yaml.Unmarshal([]byte(tt.args.inputTree), &tree); err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +111,7 @@ a:
 				return
 			}
 
-			var wantTree interface{}
+			var wantTree any
 			if err := yaml.Unmarshal([]byte(tt.want), &wantTree); err != nil {
 				t.Fatal(err)
 			}

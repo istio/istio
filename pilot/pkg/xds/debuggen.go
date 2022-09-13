@@ -23,14 +23,10 @@ import (
 	"strconv"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes/any"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-)
-
-const (
-	// TypeDebug requests debug info from istio, a secured implementation for istio debug interface
-	TypeDebug = "istio.io/debug"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 var activeNamespaceDebuggers = map[string]struct{}{
@@ -76,18 +72,22 @@ func NewResponseCapture() *ResponseCapture {
 	}
 }
 
-func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
+func NewDebugGen(s *DiscoveryServer, systemNamespace string, debugMux *http.ServeMux) *DebugGen {
 	return &DebugGen{
 		Server:          s,
 		SystemNamespace: systemNamespace,
+		DebugMux:        debugMux,
 	}
 }
 
 // Generate XDS debug responses according to the incoming debug request
-func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
+	if proxy.VerifiedIdentity == nil {
+		log.Warnf("proxy %s is not authorized to receive debug. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil, model.DefaultXdsLogDetails, fmt.Errorf("authentication required")
+	}
 	if w.ResourceNames == nil {
 		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
 	}
@@ -108,10 +108,10 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 	}
 	debugURL := "/debug/" + resourceName
-	req, _ := http.NewRequest(http.MethodGet, debugURL, nil)
-	handler, _ := dg.DebugMux.Handler(req)
+	hreq, _ := http.NewRequest(http.MethodGet, debugURL, nil)
+	handler, _ := dg.DebugMux.Handler(hreq)
 	response := NewResponseCapture()
-	handler.ServeHTTP(response, req)
+	handler.ServeHTTP(response, hreq)
 	if response.wroteHeader && len(response.header) >= 1 {
 		header, _ := json.Marshal(response.header)
 		buffer.Write(header)
@@ -119,8 +119,8 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	buffer.Write(response.body.Bytes())
 	res = append(res, &discovery.Resource{
 		Name: resourceName,
-		Resource: &any.Any{
-			TypeUrl: TypeDebug,
+		Resource: &anypb.Any{
+			TypeUrl: v3.DebugType,
 			Value:   buffer.Bytes(),
 		},
 	})

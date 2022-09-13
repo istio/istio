@@ -21,28 +21,57 @@ import (
 )
 
 func TestInstance(t *testing.T) {
-	a := labels.Instance{"app": "a"}
-	a1 := labels.Instance{"app": "a", "prod": "env"}
-	a2 := labels.Instance{"app": "b", "prod": "env"}
-
-	if !labels.Instance(nil).SubsetOf(a) {
-		t.Errorf("nil.SubsetOf({a}) => Got false")
+	cases := []struct {
+		left     labels.Instance
+		right    labels.Instance
+		expected bool
+	}{
+		{
+			left:     nil,
+			right:    labels.Instance{"app": "a"},
+			expected: true,
+		},
+		{
+			left:     labels.Instance{"app": "a"},
+			right:    nil,
+			expected: false,
+		},
+		{
+			left:     labels.Instance{"app": "a"},
+			right:    labels.Instance{"app": "a", "prod": "env"},
+			expected: true,
+		},
+		{
+			left:     labels.Instance{"app": "a", "prod": "env"},
+			right:    labels.Instance{"app": "a"},
+			expected: false,
+		},
+		{
+			left:     labels.Instance{"app": "a"},
+			right:    labels.Instance{"app": "b", "prod": "env"},
+			expected: false,
+		},
+		{
+			left:     labels.Instance{"foo": ""},
+			right:    labels.Instance{"app": "a"},
+			expected: false,
+		},
+		{
+			left:     labels.Instance{"foo": ""},
+			right:    labels.Instance{"app": "a", "foo": ""},
+			expected: true,
+		},
+		{
+			left:     labels.Instance{"app": "a", "foo": ""},
+			right:    labels.Instance{"foo": ""},
+			expected: false,
+		},
 	}
-
-	if a.SubsetOf(nil) {
-		t.Errorf("{a}.SubsetOf(nil) => Got true")
-	}
-
-	if a1.SubsetOf(a) {
-		t.Errorf("%v.SubsetOf(%v) => Got true", a1, a)
-	}
-
-	if !a.SubsetOf(a1) {
-		t.Errorf("%v.SubsetOf(%v) => Got false", a, a1)
-	}
-
-	if a.SubsetOf(a2) {
-		t.Errorf("%v.SubsetOf(%v) => Got true", a, a2)
+	for _, c := range cases {
+		got := c.left.SubsetOf(c.right)
+		if got != c.expected {
+			t.Errorf("%v.SubsetOf(%v) got %v, expected %v", c.left, c.right, got, c.expected)
+		}
 	}
 }
 

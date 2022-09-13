@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -32,16 +33,17 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type stats struct {
@@ -69,7 +71,6 @@ var (
 // If the template is updated, refresh golden files using:
 // REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
-	out := "/tmp"
 	var ts *httptest.Server
 
 	cases := []struct {
@@ -165,13 +166,12 @@ func TestGolden(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Unable to parse mock server url: %v", err)
 				}
-				_ = os.Setenv("GCE_METADATA_HOST", u.Host)
+				t.Setenv("GCE_METADATA_HOST", u.Host)
 			},
 			teardown: func() {
 				if ts != nil {
 					ts.Close()
 				}
-				_ = os.Unsetenv("GCE_METADATA_HOST")
 			},
 			check: func(got *bootstrap.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
@@ -211,7 +211,7 @@ func TestGolden(t *testing.T) {
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 											StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
 												TokenExchangeServiceUri: "http://localhost:15463/token",
-												SubjectTokenPath:        "/var/run/secrets/tokens/istio-token",
+												SubjectTokenPath:        "./var/run/secrets/tokens/istio-token",
 												SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 												Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 											},
@@ -277,6 +277,7 @@ func TestGolden(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
+			out := t.TempDir()
 			if c.setup != nil {
 				c.setup()
 			}
@@ -327,7 +328,7 @@ func TestGolden(t *testing.T) {
 			}
 			fn, err := New(Config{
 				Node: node,
-			}).CreateFileForEpoch(0)
+			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -340,7 +341,7 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = os.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0o700)
+			err = os.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality, out), 0o700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
@@ -354,7 +355,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			goldenFile := "testdata/" + c.base + "_golden.json"
-			util.RefreshGoldenFile(read, goldenFile, t)
+			util.RefreshGoldenFile(t, read, goldenFile)
 
 			golden, err := os.ReadFile(goldenFile)
 			if err != nil {
@@ -369,7 +370,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jgolden), goldenM); err != nil {
+			if err = protomarshal.Unmarshal(jgolden, goldenM); err != nil {
 				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
 			}
 
@@ -377,7 +378,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golden %s: %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(read), realM); err != nil {
+			if err = protomarshal.Unmarshal(read, realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
@@ -477,6 +478,12 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.suffixes += "," + rbacEnvoyStatsMatcherInclusionSuffix
 	}
 
+	if stats.regexps == "" {
+		stats.regexps = requiredEnvoyStatsMatcherInclusionRegexes
+	} else {
+		stats.regexps += "," + requiredEnvoyStatsMatcherInclusionRegexes
+	}
+
 	if err := gsm.Validate(); err != nil {
 		t.Fatalf("Generated invalid matcher: %v", err)
 	}
@@ -505,7 +512,7 @@ type regexReplacement struct {
 
 // correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
 // so that they match the golden file's expected value.
-func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
+func correctForEnvDifference(in []byte, excludeLocality bool, tmpDir string) []byte {
 	replacements := []regexReplacement{
 		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
 		// are set. Standardize the path so that golden files can be properly checked.
@@ -518,6 +525,14 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 			// The path may change in CI/other machines
 			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap.json")`),
 			replacement: []byte(`"customConfigFile":"envoy_bootstrap.json"`),
+		},
+		{
+			pattern:     regexp.MustCompile(tmpDir),
+			replacement: []byte(`/tmp`),
+		},
+		{
+			pattern:     regexp.MustCompile(`("path": ".*/XDS")`),
+			replacement: []byte(`"path": "/tmp/XDS"`),
 		},
 	}
 	if excludeLocality {
@@ -546,52 +561,19 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 		return nil, err
 	}
 	cfg := &meshconfig.ProxyConfig{}
-	err = proto.UnmarshalText(string(content), cfg)
+
+	err = prototext.Unmarshal(content, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	// Exported from makefile or env
-	cfg.ConfigPath = out + "/bootstrap/" + base
-	gobase := os.Getenv("ISTIO_GO")
-	if gobase == "" {
-		gobase = "../.."
-	}
-	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap.json"
+	cfg.ConfigPath = filepath.Join(out, "/bootstrap/", base)
+	cfg.CustomConfigFile = filepath.Join(env.IstioSrc, "/tools/packaging/common/envoy_bootstrap.json")
 	if cfg.StatusPort == 0 {
 		cfg.StatusPort = 15020
 	}
 	return cfg, nil
-}
-
-func TestIsIPv6Proxy(t *testing.T) {
-	tests := []struct {
-		name     string
-		addrs    []string
-		expected bool
-	}{
-		{
-			name:     "ipv4 only",
-			addrs:    []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
-			expected: false,
-		},
-		{
-			name:     "ipv6 only",
-			addrs:    []string{"1111:2222::1", "::1", "2222:3333::1"},
-			expected: true,
-		},
-		{
-			name:     "mixed ipv4 and ipv6",
-			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
-			expected: false,
-		},
-	}
-	for _, tt := range tests {
-		result := isIPv6Proxy(tt.addrs)
-		if result != tt.expected {
-			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
-		}
-	}
 }
 
 // createEnv takes labels and annotations are returns environment in go format.

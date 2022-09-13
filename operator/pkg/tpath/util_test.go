@@ -74,7 +74,7 @@ func TestGetConfigSubtree(t *testing.T) {
 			desc:     "empty",
 			manifest: ``,
 			path:     ``,
-			expect: `null
+			expect: `{}
 `,
 			err: false,
 		},

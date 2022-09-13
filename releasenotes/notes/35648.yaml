@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+- |
+  **Added** Support arm64 api for operator, add nodeAffinity arm64 expression.

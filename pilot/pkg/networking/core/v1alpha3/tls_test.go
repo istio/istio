@@ -24,7 +24,7 @@ import (
 func TestMatchTLS(t *testing.T) {
 	type args struct {
 		match       *v1alpha3.TLSMatchAttributes
-		proxyLabels labels.Collection
+		proxyLabels labels.Instance
 		gateways    map[string]bool
 		port        int
 		namespace   string
@@ -85,7 +85,7 @@ func TestMatchTLS(t *testing.T) {
 func TestMatchTCP(t *testing.T) {
 	type args struct {
 		match       *v1alpha3.L4MatchAttributes
-		proxyLabels labels.Collection
+		proxyLabels labels.Instance
 		gateways    map[string]bool
 		port        int
 		namespace   string

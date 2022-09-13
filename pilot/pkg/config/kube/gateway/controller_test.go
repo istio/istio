@@ -22,7 +22,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -34,7 +33,7 @@ import (
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
-		Controller: ControllerName,
+		ControllerName: ControllerName,
 	}
 	gatewaySpec = &k8s.GatewaySpec{
 		GatewayClassName: "gwclass",
@@ -48,7 +47,7 @@ var (
 		},
 	}
 	httpRouteSpec = &k8s.HTTPRouteSpec{
-		CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentRef{{
+		CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentReference{{
 			Name: "gwspec",
 		}}},
 		Hostnames: []k8s.Hostname{"test.cluster.local"},
@@ -125,7 +124,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-	g.Expect(controller.Recompute(model.NewGatewayContext(cg.PushContext()))).ToNot(HaveOccurred())
+	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.Gateway, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
@@ -170,13 +169,13 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 	})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-	g.Expect(controller.Recompute(model.NewGatewayContext(cg.PushContext()))).ToNot(HaveOccurred())
+	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.VirtualService, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
 		g.Expect(c.GroupVersionKind).To(Equal(gvk.VirtualService))
-		g.Expect(c.Name).To(Equal("http-route-" + constants.KubernetesGatewayName))
+		g.Expect(c.Name).To(Equal("http-route-0-" + constants.KubernetesGatewayName))
 		g.Expect(c.Namespace).To(Equal("ns1"))
 		g.Expect(c.Spec).To(Equal(expectedvs))
 	}

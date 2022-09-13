@@ -26,18 +26,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
@@ -46,9 +46,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
 	"istio.io/pkg/log"
 )
@@ -68,13 +68,14 @@ var (
 	autoRegister   bool
 	dnsCapture     bool
 	ports          []string
-	labels         []string
+	resourceLabels []string
 	annotations    []string
 	svcAcctAnn     string
 )
 
 const (
-	filePerms = os.FileMode(0o744)
+	istioEastWestGatewayServiceName = "istio-eastwestgateway"
+	filePerms                       = os.FileMode(0o744)
 )
 
 func workloadCommands() *cobra.Command {
@@ -130,10 +131,10 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := &unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().APIVersion(),
 					"kind":       collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Kind(),
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name":      name,
 						"namespace": namespace,
 					},
@@ -141,7 +142,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 			}
 			spec := &networkingv1alpha3.WorkloadGroup{
 				Metadata: &networkingv1alpha3.WorkloadGroup_ObjectMeta{
-					Labels:      convertToStringMap(labels),
+					Labels:      convertToStringMap(resourceLabels),
 					Annotations: convertToStringMap(annotations),
 				},
 				Template: &networkingv1alpha3.WorkloadEntry{
@@ -159,7 +160,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	}
 	createCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	createCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
-	createCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createCmd.PersistentFlags().StringSliceVarP(&resourceLabels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
 	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
@@ -253,7 +254,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
-	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", multicluster.IstioEastWestGatewayServiceName, "Name of the Service to be"+
+	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", istioEastWestGatewayServiceName, "Name of the Service to be"+
 		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
@@ -289,8 +290,9 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, internalIP,
-	externalIP string, outputDir string, out io.Writer) error {
+func createConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, internalIP,
+	externalIP string, outputDir string, out io.Writer,
+) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -302,10 +304,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir, revision); err != nil {
 		return err
 	}
-	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
-		return err
-	}
-	if err := createSidecarEnv(internalIP, externalIP, outputDir, revision); err != nil {
+	if err := createClusterEnv(wg, proxyConfig, revision, internalIP, externalIP, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
@@ -318,7 +317,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, dir string) error {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, revision, internalIP, externalIP, dir string) error {
 	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
@@ -330,7 +329,10 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		portBehavior = strings.Join(ports, ",")
 	}
 
-	excludePorts := "15090,15021"
+	// 22: ssh is extremely common for VMs, and we do not want to make VM inaccessible if there is an issue
+	// 15090: prometheus
+	// 15021/15020: agent
+	excludePorts := "22,15090,15021"
 	if config.StatusPort != 15090 && config.StatusPort != 15021 {
 		if config.StatusPort != 0 {
 			// Explicit status port set, use that
@@ -350,6 +352,16 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		"SERVICE_ACCOUNT":           we.ServiceAccount,
 	}
 
+	if isRevisioned(revision) {
+		overrides["CA_ADDR"] = IstiodAddr(istioNamespace, revision)
+	}
+	if len(internalIP) > 0 {
+		overrides["ISTIO_SVC_IP"] = internalIP
+	} else if len(externalIP) > 0 {
+		overrides["ISTIO_SVC_IP"] = externalIP
+		overrides["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
+	}
+
 	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
 	// this is similar to the way the injector sets all values proxyConfig.proxyMetadata to the Pod's env
 	clusterEnv := map[string]string{}
@@ -362,43 +374,11 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
-func createSidecarEnv(internalIP, externalIP, dir, revision string) error {
-	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP, revision)
-
-	// If there is no sidecar specific configuration, then don't write the file and exit first.
-	allEmpty := true
-	for _, v := range sidecarEnv {
-		if len(v) > 0 {
-			allEmpty = false
-		}
-	}
-	if allEmpty {
-		return nil
-	}
-
-	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
-}
-
-func generateSidecarEnvAsMap(internalIP string, externalIP string, revision string) map[string]string {
-	sidecarEnv := make(map[string]string)
-
-	if isRevisioned(revision) {
-		sidecarEnv["CA_ADDR"] = istiodAddr(revision)
-	}
-	if len(internalIP) > 0 {
-		sidecarEnv["ISTIO_SVC_IP"] = internalIP
-	} else if len(externalIP) > 0 {
-		sidecarEnv["ISTIO_SVC_IP"] = externalIP
-		sidecarEnv["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
-	}
-	return sidecarEnv
-}
-
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
 // the token is generated by kubectl under the workload group's namespace and service account
 // TODO: Make the following accurate when using the Kubernetes certificate signer
-func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, dir string, out io.Writer) error {
-	rootCert, err := kubeClient.CoreV1().ConfigMaps(wg.Namespace).Get(context.Background(), controller.CACertNamespaceConfigMap, metav1.GetOptions{})
+func createCertsTokens(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, dir string, out io.Writer) error {
+	rootCert, err := kubeClient.Kube().CoreV1().ConfigMaps(wg.Namespace).Get(context.Background(), controller.CACertNamespaceConfigMap, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
 		return fmt.Errorf("configmap %s was not found in namespace %s: %v", controller.CACertNamespaceConfigMap, wg.Namespace, err)
@@ -409,7 +389,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenPath := filepath.Join(dir, "istio-token")
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient)
+	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.Kube())
 	if err != nil {
 		fmt.Fprintf(out, "Failed to determine JWT policy support: %v", err)
 	}
@@ -417,11 +397,11 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 		fmt.Fprintf(out, "Warning: cluster does not support third party JWT authentication. "+
 			"Falling back to less secure first party JWT. "+
 			"See "+url.ConfigureSAToken+" for details."+"\n")
-		sa, err := kubeClient.CoreV1().ServiceAccounts(wg.Namespace).Get(context.TODO(), serviceAccount, metav1.GetOptions{})
+		sa, err := kubeClient.Kube().CoreV1().ServiceAccounts(wg.Namespace).Get(context.TODO(), serviceAccount, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-		secret, err := kubeClient.CoreV1().Secrets(wg.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
+		secret, err := kubeClient.Kube().CoreV1().Secrets(wg.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -443,7 +423,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 			ExpirationSeconds: &tokenDuration,
 		},
 	}
-	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(wg.Namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
+	tokenReq, err := kubeClient.Kube().CoreV1().ServiceAccounts(wg.Namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
 	// errors if the token could not be created with the given service account in the given namespace
 	if err != nil {
 		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
@@ -456,13 +436,13 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	return nil
 }
 
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
+func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
 	if isRevisioned(revision) {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
 	}
-	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
+	istio, err := kubeClient.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
 		return nil, fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
@@ -473,11 +453,11 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 			ProxyMetadata: map[string]string{},
 		},
 	}
-	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
+	if err := protomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
 		return nil, err
 	}
 	if isRevisioned(revision) && meshConfig.DefaultConfig.DiscoveryAddress == "" {
-		meshConfig.DefaultConfig.DiscoveryAddress = istiodAddr(revision)
+		meshConfig.DefaultConfig.DiscoveryAddress = IstiodAddr(istioNamespace, revision)
 	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
@@ -486,7 +466,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	// support proxy.istio.io/config on the WorkloadGroup, in the WorkloadGroup spec
 	for _, annotations := range []map[string]string{wg.Annotations, wg.Spec.Metadata.Annotations} {
 		if pcYaml, ok := annotations[annotation.ProxyConfig.Name]; ok {
-			if err := gogoprotomarshal.ApplyYAML(pcYaml, meshConfig.DefaultConfig); err != nil {
+			if err := protomarshal.ApplyYAML(pcYaml, meshConfig.DefaultConfig); err != nil {
 				return nil, err
 			}
 			for k, v := range meshConfig.DefaultConfig.ProxyMetadata {
@@ -497,16 +477,16 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 
 	meshConfig.DefaultConfig.ProxyMetadata = proxyMetadata
 
-	labels := map[string]string{}
+	lbls := map[string]string{}
 	for k, v := range wg.Spec.Metadata.Labels {
-		labels[k] = v
+		lbls[k] = v
 	}
 	// case where a user provided custom workload group has labels in the workload entry template field
 	we := wg.Spec.Template
 	if len(we.Labels) > 0 {
 		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", we.Labels)
 		for k, v := range we.Labels {
-			labels[k] = v
+			lbls[k] = v
 		}
 	}
 
@@ -517,7 +497,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md = map[string]string{}
 		meshConfig.DefaultConfig.ProxyMetadata = md
 	}
-	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
+	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = labels.CanonicalService(lbls, wg.Name)
 	md["POD_NAMESPACE"] = wg.Namespace
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount
 	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
@@ -525,13 +505,13 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md["ISTIO_META_CLUSTER_ID"] = clusterID
 	md["ISTIO_META_MESH_ID"] = meshConfig.DefaultConfig.MeshId
 	md["ISTIO_META_NETWORK"] = we.Network
-	if portsJSON, err := json.Marshal(workloadEntryToPodPortsMeta(we.Ports)); err == nil {
-		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
+	if portsStr := marshalWorkloadEntryPodPorts(we.Ports); portsStr != "" {
+		md["ISTIO_META_POD_PORTS"] = portsStr
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
-	labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
-	labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
-	if labelsJSON, err := json.Marshal(labels); err == nil {
+	lbls[label.ServiceCanonicalName.Name] = md["CANONICAL_SERVICE"]
+	lbls[label.ServiceCanonicalRevision.Name] = md["CANONICAL_REVISION"]
+	if labelsJSON, err := json.Marshal(lbls); err == nil {
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
 
@@ -543,12 +523,12 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_AUTO_REGISTER_GROUP"] = wg.Name
 	}
 
-	proxyConfig, err := gogoprotomarshal.ToJSONMap(meshConfig.DefaultConfig)
+	proxyConfig, err := protomarshal.ToJSONMap(meshConfig.DefaultConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	proxyYAML, err := yaml.Marshal(map[string]interface{}{"defaultConfig": proxyConfig})
+	proxyYAML, err := yaml.Marshal(map[string]any{"defaultConfig": proxyConfig})
 	if err != nil {
 		return nil, err
 	}
@@ -556,16 +536,26 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	return meshConfig.DefaultConfig, os.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
-func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
-	var out model.PodPortList
+func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
+	var out []model.PodPort
 	for name, port := range p {
 		out = append(out, model.PodPort{Name: name, ContainerPort: int(port)})
 	}
-	return out
+	if len(out) == 0 {
+		return ""
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	str, err := json.Marshal(out)
+	if err != nil {
+		return ""
+	}
+	return string(str)
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision string) error {
+func createHosts(kubeClient kube.CLIClient, ingressIP, dir string, revision string) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
@@ -574,7 +564,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 			ingressSvc = p[0]
 			ingressNs = p[1]
 		}
-		ingress, err := kubeClient.CoreV1().Services(ingressNs).Get(context.Background(), ingressSvc, metav1.GetOptions{})
+		ingress, err := kubeClient.Kube().CoreV1().Services(ingressNs).Get(context.Background(), ingressSvc, metav1.GetOptions{})
 		if err == nil {
 			if ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
 				ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
@@ -587,10 +577,10 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 
 	var hosts string
 	if net.ParseIP(ingressIP) != nil {
-		hosts = fmt.Sprintf("%s %s\n", ingressIP, istiodHost(revision))
+		hosts = fmt.Sprintf("%s %s\n", ingressIP, IstiodHost(istioNamespace, revision))
 	} else {
-		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
-			istiodHost(revision), istioNamespace)
+		log.Warnf("Could not auto-detect IP for %s/%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
+			IstiodHost(istioNamespace, revision), istioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
@@ -599,17 +589,17 @@ func isRevisioned(revision string) bool {
 	return revision != "" && revision != "default"
 }
 
-func istiodHost(revision string) string {
+func IstiodHost(ns string, revision string) string {
 	istiod := "istiod"
 	if isRevisioned(revision) {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	return fmt.Sprintf("%s.%s.svc", istiod, istioNamespace)
+	return fmt.Sprintf("%s.%s.svc", istiod, ns)
 }
 
-func istiodAddr(revision string) string {
+func IstiodAddr(ns, revision string) string {
 	// TODO make port configurable
-	return fmt.Sprintf("%s:%d", istiodHost(revision), 15012)
+	return fmt.Sprintf("%s:%d", IstiodHost(ns, revision), 15012)
 }
 
 // Returns a map with each k,v entry on a new line
@@ -623,19 +613,19 @@ func mapToString(m map[string]string) string {
 }
 
 // extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
-func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) (string, error) {
+func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient) (string, error) {
 	injectionConfigMap := "istio-sidecar-injector"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()
 	if isRevisioned(revision) {
 		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
 	}
-	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
+	istioInjectionCM, err := kubeClient.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("fetch injection template: %v", err)
 	}
 
-	var injectedCMValues map[string]interface{}
+	var injectedCMValues map[string]any
 	if err := json.Unmarshal([]byte(istioInjectionCM.Data[valuesConfigMapKey]), &injectedCMValues); err != nil {
 		return "", err
 	}

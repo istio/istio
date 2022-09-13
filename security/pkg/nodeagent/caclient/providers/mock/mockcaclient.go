@@ -29,7 +29,7 @@ var (
 	sampleKeyCertsPath = "../../../../samples/certs/"
 	caCertPath         = path.Join(sampleKeyCertsPath, "ca-cert.pem")
 	caKeyPath          = path.Join(sampleKeyCertsPath, "ca-key.pem")
-	certChainPath      = path.Join(sampleKeyCertsPath, "cert-chain.pem")
+	certChainPath      = []string{path.Join(sampleKeyCertsPath, "cert-chain.pem")}
 	rootCertPath       = path.Join(sampleKeyCertsPath, "root-cert.pem")
 )
 

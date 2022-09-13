@@ -77,6 +77,18 @@ func (p *dnsProxy) close() {
 	}
 }
 
+func (p *dnsProxy) Address() string {
+	if p.server != nil {
+		if p.server.Listener != nil {
+			return p.server.Listener.Addr().String()
+		}
+		if p.server.PacketConn != nil {
+			return p.server.PacketConn.LocalAddr().String()
+		}
+	}
+	return ""
+}
+
 func (p *dnsProxy) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	p.resolver.ServeDNS(p, w, req)
 }

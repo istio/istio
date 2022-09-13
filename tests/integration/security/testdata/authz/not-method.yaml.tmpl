@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-allow
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: ALLOW
+  rules:
+    - to:
+      - operation:
+          notMethods: [ "PUT" ]

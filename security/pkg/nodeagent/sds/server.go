@@ -21,8 +21,9 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 )
@@ -43,22 +44,21 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options *security.Options, workloadSecretCache security.SecretManager) *Server {
+func NewServer(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) *Server {
 	s := &Server{stopped: atomic.NewBool(false)}
-	s.workloadSds = newSDSService(workloadSecretCache, options)
-	s.initWorkloadSdsService(options)
-	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", options.WorkloadUDSPath)
+	s.workloadSds = newSDSService(workloadSecretCache, options, pkpConf)
+	s.initWorkloadSdsService()
 	return s
 }
 
-func (s *Server) UpdateCallback(resourceName string) {
+func (s *Server) OnSecretUpdate(resourceName string) {
 	if s.workloadSds == nil {
 		return
 	}
 	s.workloadSds.XdsServer.Push(&model.PushRequest{
 		Full: false,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: gvk.Secret, Name: resourceName}: {},
+			{Kind: kind.Secret, Name: resourceName}: {},
 		},
 		Reason: []model.TriggerReason{model.SecretTrigger},
 	})
@@ -81,16 +81,11 @@ func (s *Server) Stop() {
 	}
 }
 
-func (s *Server) initWorkloadSdsService(options *security.Options) {
+func (s *Server) initWorkloadSdsService() {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
-
 	var err error
-	s.grpcWorkloadListener, err = uds.NewListener(options.WorkloadUDSPath)
-	if err != nil {
-		sdsServiceLog.Errorf("Failed to set up UDS path: %v", err)
-	}
-
+	s.grpcWorkloadListener, err = uds.NewListener(security.WorkloadIdentitySocketPath)
 	go func() {
 		sdsServiceLog.Info("Starting SDS grpc server")
 		waitTime := time.Second
@@ -102,7 +97,7 @@ func (s *Server) initWorkloadSdsService(options *security.Options) {
 			serverOk := true
 			setUpUdsOK := true
 			if s.grpcWorkloadListener == nil {
-				if s.grpcWorkloadListener, err = uds.NewListener(options.WorkloadUDSPath); err != nil {
+				if s.grpcWorkloadListener, err = uds.NewListener(security.WorkloadIdentitySocketPath); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 					setUpUdsOK = false
 				}
@@ -114,7 +109,7 @@ func (s *Server) initWorkloadSdsService(options *security.Options) {
 				}
 			}
 			if serverOk && setUpUdsOK {
-				sdsServiceLog.Info("SDS grpc server started")
+				sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", security.WorkloadIdentitySocketPath)
 				started = true
 				break
 			}

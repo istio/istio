@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 34211
+
+releaseNotes:
+- |
+  **Added** privileged flag to Istio-CNI Helm charts to set `securityContext` flag.

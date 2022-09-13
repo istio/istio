@@ -27,10 +27,9 @@ import (
 	"strings"
 	"testing"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/types"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	openshiftv1 "github.com/openshift/api/apps/v1"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -40,15 +39,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	v1beta12 "istio.io/api/networking/v1beta1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -58,7 +62,7 @@ const yamlSeparator = "\n---"
 var minimalSidecarTemplate = &Config{
 	Policy:           InjectionPolicyEnabled,
 	DefaultTemplates: []string{SidecarTemplateName},
-	Templates: map[string]string{SidecarTemplateName: `
+	RawTemplates: map[string]string{SidecarTemplateName: `
 spec:
   initContainers:
   - name: istio-init
@@ -459,10 +463,62 @@ func TestInjectRequired(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:      "policy-disabled-label-enabled",
+				Namespace: "test-namespace",
+				// Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels: map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-both-enabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-label-enabled-annotation-disabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-label-disabled-annotation-enabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "false"},
+			},
+			want: false,
+		},
 	}
 
 	for _, c := range cases {
-		if got := injectRequired(IgnoredNamespaces, c.config, c.podSpec, c.meta); got != c.want {
+		if got := injectRequired(IgnoredNamespaces.UnsortedList(), c.config, c.podSpec, c.meta); got != c.want {
 			t.Errorf("injectRequired(%v, %v) got %v want %v", c.config, c.meta, got, c.want)
 		}
 	}
@@ -528,10 +584,31 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	return nil
 }
 
+func readInjectionSettings(t testing.TB, fname string) (*Config, ValuesConfig, *meshconfig.MeshConfig) {
+	values := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".values.gen.yaml"))
+	template := file.AsBytesOrFail(t, filepath.Join("testdata", "inputs", fname+".template.gen.yaml"))
+	meshc := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"))
+
+	vc, err := NewValuesConfig(values)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := UnmarshalConfig(template)
+	if err != nil {
+		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+	}
+	meshConfig, err := mesh.ApplyMeshConfig(meshc, mesh.DefaultMeshConfig())
+	if err != nil {
+		t.Fatalf("failed to unmarshal meshconfig: %v", err)
+	}
+
+	return &cfg, vc, meshConfig
+}
+
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
-	t.Helper()
+func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFilePath string) {
 	// add --set installPackagePath=<path to charts snapshot>
 	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir(), "profile=empty", "components.pilot.enabled=true")
 	var inFilenames []string
@@ -540,23 +617,25 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 	}
 
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, l)
+	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
 	for _, mlist := range manifests[name.PilotComponentName] {
 		for _, object := range strings.Split(mlist, yamlSeparator) {
-
+			if len(object) == 0 {
+				continue
+			}
 			r := bytes.NewReader([]byte(object))
 			decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
 
 			out := &unstructured.Unstructured{}
 			err := decoder.Decode(out)
 			if err != nil {
-				t.Fatalf("error decoding object: %v", err)
+				t.Fatalf("error decoding object %q: %v", object, err)
 			}
 			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]interface{})
+				data, ok := out.Object["data"].(map[string]any)
 				if !ok {
 					t.Fatalf("failed to convert %v", out)
 				}
@@ -564,19 +643,18 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				values, ok = data["values"].(string)
+				vs, ok := data["values"].(string)
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				template, err := UnmarshalConfig([]byte(config))
-				if err != nil {
-					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".values.gen.yaml"), []byte(vs), 0o644); err != nil {
+					t.Fatal(err)
 				}
-				if meshConfig != nil {
-					return &template, values, meshConfig
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
+					t.Fatal(err)
 				}
 			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]interface{})
+				data, ok := out.Object["data"].(map[string]any)
 				if !ok {
 					t.Fatalf("failed to convert %v", out)
 				}
@@ -584,23 +662,17 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 				if !ok {
 					t.Fatalf("failed to get meshconfig %v", data)
 				}
-				meshConfig, err = mesh.ApplyMeshConfig(meshdata, mesh.DefaultMeshConfig())
-				if err != nil {
-					t.Fatalf("failed to unmarshal meshconfig: %v", err)
-				}
-				if template != nil {
-					return template, values, meshConfig
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"), []byte(meshdata), 0o644); err != nil {
+					t.Fatal(err)
 				}
 			}
 		}
 	}
-	t.Fatal("could not find injection template")
-	return nil, "", nil
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
 	t.Helper()
-	yamlBytes := util.ReadFile(yamlFile, t)
+	yamlBytes := util.ReadFile(t, yamlFile)
 	return splitYamlBytes(yamlBytes, t)
 }
 
@@ -619,7 +691,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 
 func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	t.Helper()
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlDoc), &m); err != nil {
 		t.Fatal(err)
 	}
@@ -649,7 +721,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func convertToJSON(i interface{}, t *testing.T) []byte {
+func convertToJSON(i any, t *testing.T) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -720,11 +792,11 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 		removeContainerEnvEntry(want, "ISTIO_METAJSON_ANNOTATIONS")
 	}
 
-	gotString, err := yaml.Marshal(got)
+	gotString, err := json.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantString, err := yaml.Marshal(want)
+	wantString, err := json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -792,22 +864,15 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 	return reviewJSON
 }
 
-func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
+func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "webhook_test")
-	if err != nil {
-		t.Fatalf("TempDir() failed: %v", err)
-	}
-	cleanup := func() {
-		_ = os.RemoveAll(dir)
-	}
-	t.Cleanup(cleanup)
+	dir := t.TempDir()
 
 	configBytes, err := yaml.Marshal(cfg)
 	if err != nil {
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values, _ := loadInjectionSettings(t, nil, "")
+	_, values, _ := readInjectionSettings(t, "default")
 	var (
 		configFile = filepath.Join(dir, "config-file.yaml")
 		valuesFile = filepath.Join(dir, "values-file.yaml")
@@ -818,14 +883,28 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := os.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(valuesFile, []byte(values.raw), 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
 	// mesh config
 	m := mesh.DefaultMeshConfig()
+	store := model.NewFakeStore()
+	for i := 0; i < pcResources; i++ {
+		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "istio-system", &v1beta12.ProxyConfig{
+			Concurrency: &wrapperspb.Int32Value{Value: int32(i % 5)},
+			EnvironmentVariables: map[string]string{
+				fmt.Sprintf("VAR_%d", i): fmt.Sprint(i),
+			},
+		}))
+	}
+	pcs, _ := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher: mesh.NewFixedWatcher(&m),
+		Watcher: mesh.NewFixedWatcher(m),
+		PushContext: &model.PushContext{
+			ProxyConfigs: pcs,
+		},
+		ConfigStore: model.MakeIstioStore(store),
 	}
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {
@@ -840,13 +919,12 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
 	}
-	return wh, cleanup
+	return wh
 }
 
 func TestRunAndServe(t *testing.T) {
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
-	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
-	defer cleanup()
+	wh := createWebhook(t, minimalSidecarTemplate, 0)
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 	wh.Run(stop)
@@ -1035,10 +1113,9 @@ func testSideCarInjectorMetrics(t *testing.T) {
 	}
 }
 
-func BenchmarkInjectServe(b *testing.B) {
-	sidecarTemplate, _, _ := loadInjectionSettings(b, nil, "")
-	wh, cleanup := createWebhook(b, sidecarTemplate)
-	defer cleanup()
+func benchmarkInjectServe(pcs int, b *testing.B) {
+	sidecarTemplate, _, _ := readInjectionSettings(b, "default")
+	wh := createWebhook(b, sidecarTemplate, pcs)
 
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
@@ -1053,6 +1130,18 @@ func BenchmarkInjectServe(b *testing.B) {
 
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
+}
+
+func BenchmarkInjectServePC0(b *testing.B) {
+	benchmarkInjectServe(0, b)
+}
+
+func BenchmarkInjectServePC5(b *testing.B) {
+	benchmarkInjectServe(5, b)
+}
+
+func BenchmarkInjectServePC15(b *testing.B) {
+	benchmarkInjectServe(15, b)
 }
 
 func TestEnablePrometheusAggregation(t *testing.T) {
@@ -1070,25 +1159,25 @@ func TestEnablePrometheusAggregation(t *testing.T) {
 		},
 		{
 			"mesh on",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: true}},
 			nil,
 			true,
 		},
 		{
 			"mesh off",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: false}},
 			nil,
 			false,
 		},
 		{
 			"annotation on",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: false}},
 			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
 			true,
 		},
 		{
 			"annotation off",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: true}},
 			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
 			false,
 		},
@@ -1132,6 +1221,11 @@ func TestParseInjectEnvs(t *testing.T) {
 			name: "two-kv",
 			in:   "/inject/cluster/cluster1/net/network1/",
 			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "ISTIO_META_NETWORK": "network1"},
+		},
+		{
+			name: "kv-with-slashes",
+			in:   "/inject/cluster/cluster--slash--1/net/network--slash--1",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster/1", "ISTIO_META_NETWORK": "network/1"},
 		},
 		{
 			name: "not-predefined-kv",
@@ -1199,6 +1293,17 @@ func TestParseInjectEnvs(t *testing.T) {
 				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
 			}
 		})
+	}
+}
+
+func newProxyConfig(name, ns string, spec config.Spec) config.Config {
+	return config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.ProxyConfig,
+			Name:             name,
+			Namespace:        ns,
+		},
+		Spec: spec,
 	}
 }
 

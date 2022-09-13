@@ -29,14 +29,15 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
+	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
@@ -45,12 +46,8 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
 				if filter.Name == wellknown.HTTPConnectionManager {
-					filter.GetTypedConfig()
-					hcon := &hcm.HttpConnectionManager{}
-					if err := filter.GetTypedConfig().UnmarshalTo(hcon); err != nil {
-						panic(err)
-					}
-					switch r := hcon.GetRouteSpecifier().(type) {
+					h := SilentlyUnmarshalAny[hcm.HttpConnectionManager](filter.GetTypedConfig())
+					switch r := h.GetRouteSpecifier().(type) {
 					case *hcm.HttpConnectionManager_Rds:
 						routes = append(routes, r.Rds.RouteConfigName)
 					}
@@ -62,15 +59,12 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
-func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
-	resourceNames := sets.NewSet()
+func ExtractSecretResources(t test.Failer, rs []*anypb.Any) []string {
+	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:
-			c := &cluster.Cluster{}
-			if err := r.UnmarshalTo(c); err != nil {
-				t.Fatal(err)
-			}
+			c := UnmarshalAny[cluster.Cluster](t, r)
 			sockets := []*core.TransportSocket{}
 			if c.TransportSocket != nil {
 				sockets = append(sockets, c.TransportSocket)
@@ -79,20 +73,14 @@ func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
 				sockets = append(sockets, ts.TransportSocket)
 			}
 			for _, s := range sockets {
-				tl := &tls.UpstreamTlsContext{}
-				if err := s.GetTypedConfig().UnmarshalTo(tl); err != nil {
-					t.Fatal(err)
-				}
+				tl := UnmarshalAny[tls.UpstreamTlsContext](t, s.GetTypedConfig())
 				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
 				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
 					resourceNames.Insert(s.GetName())
 				}
 			}
 		case v3.ListenerType:
-			l := &listener.Listener{}
-			if err := r.UnmarshalTo(l); err != nil {
-				t.Fatal(err)
-			}
+			l := UnmarshalAny[listener.Listener](t, r)
 			sockets := []*core.TransportSocket{}
 			for _, fc := range l.GetFilterChains() {
 				if fc.GetTransportSocket() != nil {
@@ -103,10 +91,7 @@ func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
 				sockets = append(sockets, ts)
 			}
 			for _, s := range sockets {
-				tl := &tls.DownstreamTlsContext{}
-				if err := s.GetTypedConfig().UnmarshalTo(tl); err != nil {
-					t.Fatal(err)
-				}
+				tl := UnmarshalAny[tls.DownstreamTlsContext](t, s.GetTypedConfig())
 				resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
 				for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
 					resourceNames.Insert(s.GetName())
@@ -128,6 +113,23 @@ func ExtractListenerNames(ll []*listener.Listener) []string {
 	return res
 }
 
+func SilentlyUnmarshalAny[T any](a *anypb.Any) *T {
+	dst := any(new(T)).(proto.Message)
+	if err := a.UnmarshalTo(dst); err != nil {
+		var z *T
+		return z
+	}
+	return any(dst).(*T)
+}
+
+func UnmarshalAny[T any](t test.Failer, a *anypb.Any) *T {
+	dst := any(new(T)).(proto.Message)
+	if err := a.UnmarshalTo(dst); err != nil {
+		t.Fatalf("failed to unmarshal to %T: %v", dst, err)
+	}
+	return any(dst).(*T)
+}
+
 func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 	for _, l := range ll {
 		if l.Name == name {
@@ -135,6 +137,23 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 		}
 	}
 	return nil
+}
+
+func ExtractVirtualHosts(rc *route.RouteConfiguration) map[string][]string {
+	res := map[string][]string{}
+	for _, vh := range rc.GetVirtualHosts() {
+		var dests []string
+		for _, r := range vh.Routes {
+			if dc := r.GetRoute().GetCluster(); dc != "" {
+				dests = append(dests, dc)
+			}
+		}
+		sort.Strings(dests)
+		for _, d := range vh.Domains {
+			res[d] = dests
+		}
+	}
+	return res
 }
 
 func ExtractRouteConfigurations(rc []*route.RouteConfiguration) map[string]*route.RouteConfiguration {
@@ -151,6 +170,43 @@ func ExtractListenerFilters(l *listener.Listener) map[string]*listener.ListenerF
 		res[lf.Name] = lf
 	}
 	return res
+}
+
+func ExtractFilterChain(name string, l *listener.Listener) *listener.FilterChain {
+	for _, f := range l.GetFilterChains() {
+		if f.GetName() == name {
+			return f
+		}
+	}
+	return nil
+}
+
+func ExtractFilterChainNames(l *listener.Listener) []string {
+	res := []string{}
+	for _, f := range l.GetFilterChains() {
+		res = append(res, f.GetName())
+	}
+	return res
+}
+
+func ExtractFilterNames(t test.Failer, fcs *listener.FilterChain) ([]string, []string) {
+	nwFilters := []string{}
+	httpFilters := []string{}
+	for _, fc := range fcs.Filters {
+		if fc.Name == wellknown.HTTPConnectionManager {
+			h := &hcm.HttpConnectionManager{}
+			if fc.GetTypedConfig() != nil {
+				if err := fc.GetTypedConfig().UnmarshalTo(h); err != nil {
+					t.Fatalf("failed to unmarshal hcm: %v", err)
+				}
+			}
+			for _, hf := range h.HttpFilters {
+				httpFilters = append(httpFilters, hf.Name)
+			}
+		}
+		nwFilters = append(nwFilters, fc.Name)
+	}
+	return nwFilters, httpFilters
 }
 
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProxy {
@@ -194,21 +250,40 @@ func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]
 	return got
 }
 
-func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+// ExtractHealthEndpoints returns all health and unhealth endpoints
+func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []string) {
 	if cla == nil {
-		return nil
+		return nil, nil
 	}
-	got := []string{}
+	healthy := []string{}
+	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
-			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-				got = append(got, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+			if lb.HealthStatus == core.HealthStatus_HEALTHY {
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					healthy = append(healthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+				} else {
+					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
+				}
 			} else {
-				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+				} else {
+					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
+				}
 			}
 		}
 	}
-	return got
+	return healthy, unhealthy
+}
+
+// ExtractEndpoints returns all endpoints in the load assignment (including unhealthy endpoints)
+func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+	h, uh := ExtractHealthEndpoints(cla)
+	h = append(h, uh...)
+	return h
 }
 
 func ExtractClusters(cc []*cluster.Cluster) map[string]*cluster.Cluster {
@@ -245,7 +320,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
-func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
 		scrt := &tls.Secret{}
@@ -257,7 +332,7 @@ func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret
 	return res
 }
 
-func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteConfiguration {
+func UnmarshalRouteConfiguration(t test.Failer, resp []*anypb.Any) []*route.RouteConfiguration {
 	un := make([]*route.RouteConfiguration, 0, len(resp))
 	for _, r := range resp {
 		u := &route.RouteConfiguration{}
@@ -269,7 +344,7 @@ func UnmarshalRouteConfiguration(t test.Failer, resp []*any.Any) []*route.RouteC
 	return un
 }
 
-func UnmarshalClusterLoadAssignment(t test.Failer, resp []*any.Any) []*endpoint.ClusterLoadAssignment {
+func UnmarshalClusterLoadAssignment(t test.Failer, resp []*anypb.Any) []*endpoint.ClusterLoadAssignment {
 	un := make([]*endpoint.ClusterLoadAssignment, 0, len(resp))
 	for _, r := range resp {
 		u := &endpoint.ClusterLoadAssignment{}
@@ -291,14 +366,10 @@ func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*c
 	return res
 }
 
-func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
-	slice := InterfaceSlice(p)
-	if len(slice) == 0 {
-		return &discovery.DiscoveryResponse{}
-	}
-	resources := make([]*any.Any, 0, len(slice))
-	for _, v := range slice {
-		resources = append(resources, util.MessageToAny(v.(proto.Message)))
+func ToDiscoveryResponse[T proto.Message](p []T) *discovery.DiscoveryResponse {
+	resources := make([]*anypb.Any, 0, len(p))
+	for _, v := range p {
+		resources = append(resources, protoconv.MessageToAny(v))
 	}
 	return &discovery.DiscoveryResponse{
 		Resources: resources,
@@ -306,26 +377,11 @@ func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	}
 }
 
-func InterfaceSlice(slice interface{}) []interface{} {
-	s := reflect.ValueOf(slice)
-	if s.Kind() != reflect.Slice {
-		panic("InterfaceSlice() given a non-slice type")
-	}
-
-	ret := make([]interface{}, s.Len())
-
-	for i := 0; i < s.Len(); i++ {
-		ret[i] = s.Index(i).Interface()
-	}
-
-	return ret
-}
-
-// DumpList will dump a list of protos. To workaround go type issues, call DumpList(t, InterfaceSlice([]proto.Message))
-func DumpList(t test.Failer, protoList []interface{}) []string {
+// DumpList will dump a list of protos.
+func DumpList[T any](t test.Failer, protoList []T) []string {
 	res := []string{}
 	for _, i := range protoList {
-		p, ok := i.(proto.Message)
+		p, ok := any(i).(proto.Message)
 		if !ok {
 			t.Fatalf("expected proto, got %T", i)
 		}
@@ -339,19 +395,15 @@ func Dump(t test.Failer, p proto.Message) string {
 	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 		return "nil"
 	}
-	s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(p)
+	s, err := protomarshal.ToJSONWithIndent(p, "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
-func MapKeys(mp interface{}) []string {
-	keys := reflect.ValueOf(mp).MapKeys()
-	res := []string{}
-	for _, k := range keys {
-		res = append(res, k.String())
-	}
+func MapKeys[M ~map[string]V, V any](mp M) []string {
+	res := maps.Keys(mp)
 	sort.Strings(res)
 	return res
 }

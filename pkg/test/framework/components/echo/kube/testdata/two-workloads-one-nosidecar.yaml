@@ -31,7 +31,7 @@ spec:
       labels:
         app: foo
         version: v1
-        test.istio.io/class: standard
+        test.istio.io/class: naked
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -52,20 +52,13 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "cluster-0"
-          - --grpc
-          - "7070"
-          - --port
-          - "8090"
-          - --port
-          - "8080"
-          - --port
-          - "3333"
-          - --version
-          - "v1"
-          - --istio-version
-          - ""
+          - --cluster=cluster-0
+          - --grpc=7070
+          - --port=8090
+          - --port=8080
+          - --port=3333
+          - --version=v1
+          - --istio-version=
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -95,7 +88,7 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 ---
 apiVersion: apps/v1
@@ -113,7 +106,7 @@ spec:
       labels:
         app: foo
         version: nosidecar
-        test.istio.io/class: standard
+        test.istio.io/class: naked
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -130,20 +123,13 @@ spec:
           runAsGroup: 1338
         args:
           - --metrics=15014
-          - --cluster
-          - "cluster-0"
-          - --grpc
-          - "7070"
-          - --port
-          - "8090"
-          - --port
-          - "8080"
-          - --port
-          - "3333"
-          - --version
-          - "nosidecar"
-          - --istio-version
-          - ""
+          - --cluster=cluster-0
+          - --grpc=7070
+          - --port=8090
+          - --port=8080
+          - --port=3333
+          - --version=nosidecar
+          - --istio-version=
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -173,6 +159,6 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 ---

@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -103,7 +104,7 @@ var (
 }`
 
 	// validRootCertFile, validIntCertFile and validWorkloadCertFile are in a certification chain.
-	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.doamin.com"
+	// They are generated using tools/certs/Makefile. Replace "cluster.local" with "foo.domain.com"
 	// export INTERMEDIATE_DAYS=3650
 	// export WORKLOAD_DAYS=3650
 	// make foo-certs-selfSigned
@@ -347,11 +348,11 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 
 // TestVerifyPeerCert tests VerifyPeerCert is effective at the client side, using a TLS server.
 func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
-	validRootCert := string(util.ReadFile(validRootCertFile1, t))
-	validRootCert2 := string(util.ReadFile(validRootCertFile2, t))
-	validIntCert := string(util.ReadFile(validIntCertFile, t))
-	validWorkloadCert := string(util.ReadFile(validWorkloadCertFile, t))
-	validWorkloadKey := string(util.ReadFile(validWorkloadKeyFile, t))
+	validRootCert := string(util.ReadFile(t, validRootCertFile1))
+	validRootCert2 := string(util.ReadFile(t, validRootCertFile2))
+	validIntCert := string(util.ReadFile(t, validIntCertFile))
+	validWorkloadCert := string(util.ReadFile(t, validWorkloadCertFile))
+	validWorkloadKey := string(util.ReadFile(t, validWorkloadKeyFile))
 
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -488,7 +489,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 		name         string
 		spiffeURI    []string
 		trustDomains []string
-		want         map[string]struct{}
+		want         sets.Set
 	}{
 		{
 			name:      "Basic",
@@ -559,7 +560,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ExpandWithTrustDomains(tc.spiffeURI, tc.trustDomains)
+			got := ExpandWithTrustDomains(sets.New(tc.spiffeURI...), tc.trustDomains)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("unexpected expanded results: %v", diff)
 			}

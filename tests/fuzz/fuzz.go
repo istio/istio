@@ -12,24 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint // Avoid it complaining about the Fuzz function name; it is required
 package fuzz
 
 import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/config/schema"
 )
 
 func FuzzParseInputs(data []byte) int {
 	_, _, err := crd.ParseInputs(string(data))
-	if err != nil {
-		return 0
-	}
-	return 1
-}
-
-func FuzzParseAndBuildSchema(data []byte) int {
-	_, err := schema.ParseAndBuild(string(data))
 	if err != nil {
 		return 0
 	}

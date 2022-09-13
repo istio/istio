@@ -46,7 +46,7 @@ func NewSigner(signerRoot, signerName string, certificateDuration time.Duration)
 	return ret, nil
 }
 
-func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage, requestedLifetime time.Duration) ([]byte, error) {
+func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage, requestedLifetime time.Duration, appendRootCert bool) ([]byte, error) {
 	currCA, err := s.caProvider.currentCA()
 	if err != nil {
 		return nil, err
@@ -74,10 +74,16 @@ func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage, r
 	if err != nil {
 		return nil, fmt.Errorf("failed to append intermediate certificates (%v)", err)
 	}
-	rootCerts, err := util.AppendRootCerts(intermediateCerts, s.caProvider.caLoader.CertFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+	if appendRootCert {
+		rootCerts, err := util.AppendRootCerts(intermediateCerts, s.caProvider.caLoader.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+		return rootCerts, nil
 	}
+	return intermediateCerts, nil
+}
 
-	return rootCerts, nil
+func (s *Signer) GetRootCerts() string {
+	return s.caProvider.caLoader.CertFile
 }

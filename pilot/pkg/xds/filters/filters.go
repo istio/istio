@@ -15,10 +15,10 @@
 package filters
 
 import (
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
@@ -30,19 +30,19 @@ import (
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
+	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	protobuf "github.com/gogo/protobuf/types"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/networking/util"
-	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
+	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
+	"istio.io/api/envoy/config/filter/network/metadata_exchange"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 const (
-	OriginalSrcFilterName = "envoy.filters.listener.original_src"
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
 
@@ -55,34 +55,46 @@ const (
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
 // This should not be used for filters that will be mutated
 var (
+	RetryPreviousHosts = &route.RetryPolicy_RetryHostPredicate{
+		Name: "envoy.retry_host_predicates.previous_hosts",
+		ConfigType: &route.RetryPolicy_RetryHostPredicate_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&previoushost.PreviousHostsPredicate{}),
+		},
+	}
+	RawBufferTransportSocket = &core.TransportSocket{
+		Name: wellknown.TransportSocketRawBuffer,
+		ConfigType: &core.TransportSocket_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{}),
+		},
+	}
 	Cors = &hcm.HttpFilter{
 		Name: wellknown.CORS,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&cors.Cors{}),
+			TypedConfig: protoconv.MessageToAny(&cors.Cors{}),
 		},
 	}
 	Fault = &hcm.HttpFilter{
 		Name: wellknown.Fault,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
+			TypedConfig: protoconv.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
 	Router = &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&router.Router{}),
+			TypedConfig: protoconv.MessageToAny(&router.Router{}),
 		},
 	}
 	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&grpcweb.GrpcWeb{}),
+			TypedConfig: protoconv.MessageToAny(&grpcweb.GrpcWeb{}),
 		},
 	}
 	GrpcStats = &hcm.HttpFilter{
 		Name: wellknown.HTTPGRPCStats,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
+			TypedConfig: protoconv.MessageToAny(&grpcstats.FilterConfig{
 				EmitFilterState: true,
 				PerMethodStatSpecifier: &grpcstats.FilterConfig_StatsForAllMethods{
 					StatsForAllMethods: &wrapperspb.BoolValue{Value: false},
@@ -93,25 +105,25 @@ var (
 	TLSInspector = &listener.ListenerFilter{
 		Name: wellknown.TlsInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{}),
+			TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
 	HTTPInspector = &listener.ListenerFilter{
 		Name: wellknown.HttpInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&httpinspector.HttpInspector{}),
+			TypedConfig: protoconv.MessageToAny(&httpinspector.HttpInspector{}),
 		},
 	}
 	OriginalDestination = &listener.ListenerFilter{
 		Name: wellknown.OriginalDestination,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
+			TypedConfig: protoconv.MessageToAny(&originaldst.OriginalDst{}),
 		},
 	}
 	OriginalSrc = &listener.ListenerFilter{
-		Name: OriginalSrcFilterName,
+		Name: wellknown.OriginalSource,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
+			TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
 				Mark: 1337,
 			}),
 		},
@@ -119,7 +131,7 @@ var (
 	Alpn = &hcm.HttpFilter{
 		Name: AlpnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&alpn.FilterConfig{
+			TypedConfig: protoconv.MessageToAny(&alpn.FilterConfig{
 				AlpnOverride: []*alpn.FilterConfig_AlpnOverride{
 					{
 						UpstreamProtocol: alpn.FilterConfig_HTTP10,
@@ -138,17 +150,7 @@ var (
 		},
 	}
 
-	tcpMx = util.MessageToAny(&udpa.TypedStruct{
-		// TODO(https://github.com/istio/istio/issues/35210) make this in API
-		TypeUrl: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
-		Value: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"protocol": {
-					Kind: &structpb.Value_StringValue{StringValue: "istio-peer-exchange"},
-				},
-			},
-		},
-	})
+	tcpMx = protoconv.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
 
 	TCPListenerMx = &listener.Filter{
 		Name:       MxFilterName,
@@ -171,7 +173,7 @@ func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&router.Router{
+			TypedConfig: protoconv.MessageToAny(&router.Router{
 				StartChildSpan: ctx.StartChildSpan,
 			}),
 		},
@@ -193,48 +195,12 @@ var (
 func buildHTTPMxFilter() *hcm.HttpFilter {
 	httpMxConfigProto := &httpwasm.Wasm{
 		Config: &wasm.PluginConfig{
-			Vm:            constructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
-			Configuration: util.MessageToAny(&protobuf.StringValue{Value: "{}"}),
+			Vm:            model.ConstructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
+			Configuration: protoconv.MessageToAny(&metadata_exchange.MetadataExchange{}),
 		},
 	}
-
 	return &hcm.HttpFilter{
 		Name:       MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(httpMxConfigProto)},
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpMxConfigProto)},
 	}
-}
-
-// constructVMConfig constructs a VM config. If WASM is enabled, the wasm plugin at filename will be used.
-// If not, the builtin (null vm) extension, name, will be used.
-func constructVMConfig(filename, name string) *wasm.PluginConfig_VmConfig {
-	var vmConfig *wasm.PluginConfig_VmConfig
-	if features.EnableWasmTelemetry {
-		vmConfig = &wasm.PluginConfig_VmConfig{
-			VmConfig: &wasm.VmConfig{
-				Runtime:          "envoy.wasm.runtime.v8",
-				AllowPrecompiled: true,
-				Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
-					Local: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: filename,
-						},
-					},
-				}},
-			},
-		}
-	} else {
-		vmConfig = &wasm.PluginConfig_VmConfig{
-			VmConfig: &wasm.VmConfig{
-				Runtime: "envoy.wasm.runtime.null",
-				Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
-					Local: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: name,
-						},
-					},
-				}},
-			},
-		}
-	}
-	return vmConfig
 }

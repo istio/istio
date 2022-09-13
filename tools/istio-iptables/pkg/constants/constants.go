@@ -14,7 +14,11 @@
 
 package constants
 
-import "time"
+import (
+	"time"
+
+	"istio.io/pkg/env"
+)
 
 // iptables tables
 const (
@@ -53,6 +57,7 @@ const (
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
 	CT       = "CT"
+	DROP     = "DROP"
 )
 
 const (
@@ -98,10 +103,29 @@ const (
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
+	DropInvalid               = "drop-invalid"
 	CaptureAllDNS             = "capture-all-dns"
 	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
+	HostNSEnterExec           = "host-nsenter-exec"
+)
+
+// Environment variables that deliberately have no equivalent command-line flags.
+//
+// The variables are defined as env.Var for documentation purposes.
+//
+// Use viper to resolve the value of the environment variable.
+var (
+	OwnerGroupsInclude = env.Register("ISTIO_OUTBOUND_OWNER_GROUPS", "*",
+		`Comma separated list of groups whose outgoing traffic is to be redirected to Envoy.
+A group can be specified either by name or by a numeric GID.
+The wildcard character "*" can be used to configure redirection of traffic from all groups.`)
+
+	OwnerGroupsExclude = env.Register("ISTIO_OUTBOUND_OWNER_GROUPS_EXCLUDE", "",
+		`Comma separated list of groups whose outgoing traffic is to be excluded from redirection to Envoy.
+A group can be specified either by name or by a numeric GID.
+Only applies when traffic from all groups (i.e. "*") is being redirected to Envoy.`)
 )
 
 const (
@@ -122,7 +146,6 @@ const (
 	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
-	IP               = "ip"
 	NSENTER          = "nsenter"
 )
 
@@ -133,7 +156,7 @@ const (
 )
 
 const (
-	DefaultIptablesProbePort = 15002
+	DefaultIptablesProbePort = "15002"
 	DefaultProbeTimeout      = 5 * time.Second
 )
 
@@ -145,4 +168,8 @@ const (
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"
+)
+
+const (
+	CommandConfigureRoutes = "configure-routes"
 )

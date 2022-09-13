@@ -88,11 +88,10 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			for _, e := range container.Env {
 				pi.ProxyEnvironments[e.Name] = e.Value
 				if e.Name == options.ProxyConfigEnv {
-					proxyConfig := mesh.DefaultProxyConfig()
 					mc := &meshconfig.MeshConfig{
-						DefaultConfig: &proxyConfig,
+						DefaultConfig: mesh.DefaultProxyConfig(),
 					}
-					mc, err := mesh.ApplyProxyConfig(e.Value, *mc)
+					mc, err := mesh.ApplyProxyConfig(e.Value, mc)
 					if err != nil {
 						log.Warnf("Failed to apply proxy config for %v/%v: %+v", pod.Namespace, pod.Name, err)
 					} else {
@@ -118,7 +117,7 @@ func (pi PodInfo) String() string {
 	b.WriteString(fmt.Sprintf("  Init Containers: %v\n", icn))
 	b.WriteString(fmt.Sprintf("  Containers: %v\n", pi.Containers))
 	b.WriteString(fmt.Sprintf("  Labels: %+v\n", pi.Labels))
-	b.WriteString(fmt.Sprintf("  Annotatioins: %+v\n", pi.Annotations))
+	b.WriteString(fmt.Sprintf("  Annotations: %+v\n", pi.Annotations))
 	b.WriteString(fmt.Sprintf("  Envs: %+v\n", pi.ProxyEnvironments))
 	b.WriteString(fmt.Sprintf("  ProxyConfig: %+v\n", pi.ProxyEnvironments))
 	return b.String()

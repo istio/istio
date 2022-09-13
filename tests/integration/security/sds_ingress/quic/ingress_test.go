@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,27 +21,50 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
-	inst istio.Instance
-	apps = &ingressutil.EchoDeployments{}
+	inst         istio.Instance
+	apps         deployment.SingleNamespaceView
+	echo1NS      namespace.Instance
+	customConfig []echo.Config
 )
 
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		// Need support for MixedProtocolLBService
 		RequireMinVersion(20).
+		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.PrimaryClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
 		})).
+		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
 		Setup(func(ctx resource.Context) error {
-			return ingressutil.SetupTest(ctx, apps)
+			// TODO: due to issue https://github.com/istio/istio/issues/25286,
+			// currently VM does not work in this test
+			err := ingressutil.SetupTest(ctx, &customConfig, namespace.Future(&echo1NS))
+			if err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
+			Namespaces: []namespace.Getter{
+				namespace.Future(&echo1NS),
+			},
+			Configs: echo.ConfigFuture(&customConfig),
+		})).
+		Setup(func(ctx resource.Context) error {
+			return ingressutil.CreateCustomInstances(&apps)
 		}).
 		Run()
 }
@@ -48,16 +73,17 @@ func TestMain(m *testing.M) {
 // private key and server certificate for each TLS gateway. Verifies that client can communicate by
 // using both QUIC and TCP/TLS
 func TestTlsGatewaysWithQUIC(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.tls").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				ingressutil.RunTestMultiTLSGateways(t, inst, apps)
+				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
 			t.NewSubTest("quic").Run(func(t framework.TestContext) {
-				ingressutil.RunTestMultiQUICGateways(t, inst, ingressutil.TLS, apps)
+				ingressutil.RunTestMultiQUICGateways(t, inst, ingressutil.TLS, namespace.Future(&echo1NS))
 			})
 		})
 }
@@ -66,16 +92,17 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that client can communicate
 // by using both QUIC and TCP/mTLS
 func TestMtlsGatewaysWithQUIC(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.mtls").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				ingressutil.RunTestMultiTLSGateways(t, inst, apps)
+				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
 			t.NewSubTest("quic").Run(func(t framework.TestContext) {
-				ingressutil.RunTestMultiQUICGateways(t, inst, ingressutil.Mtls, apps)
+				ingressutil.RunTestMultiQUICGateways(t, inst, ingressutil.Mtls, namespace.Future(&echo1NS))
 			})
 		})
 }

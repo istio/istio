@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/pkg/errors"
-
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/file"
@@ -59,12 +57,12 @@ type kubeconfigFields struct {
 
 func createKubeconfigFile(cfg *config.InstallConfig, saToken string) (kubeconfigFilepath string, err error) {
 	if len(cfg.K8sServiceHost) == 0 {
-		err = errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
+		err = fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 		return
 	}
 
 	if len(cfg.K8sServicePort) == 0 {
-		err = errors.New("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
+		err = fmt.Errorf("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
 		return
 	}
 

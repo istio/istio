@@ -25,7 +25,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	batch "k8s.io/api/batch/v1"
@@ -33,14 +32,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
 
 const (
-	annotationPolicy            = "sidecar.istio.io/inject"
 	certVolumeName              = "istio-certs"
 	dataVolumeName              = "istio-data"
 	enableCoreDumpContainerName = "enable-core-dump"
@@ -134,21 +134,21 @@ func restoreAppProbes(containers []corev1.Container, probers map[string]*inject.
 				switch probeType {
 				case "readyz":
 					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: prober.HTTPGet,
 						},
 						TimeoutSeconds: prober.TimeoutSeconds,
 					}
 				case "livez":
 					container.LivenessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: prober.HTTPGet,
 						},
 						TimeoutSeconds: prober.TimeoutSeconds,
 					}
 				case "startupz":
 					container.StartupProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: prober.HTTPGet,
 						},
 						TimeoutSeconds: prober.TimeoutSeconds,
@@ -230,13 +230,19 @@ func handleAnnotations(annotations map[string]string) map[string]string {
 			delete(annotations, key)
 		}
 	}
-	// sidecar.istio.io/inject: false to default the auto-injector in case it is present.
-	annotations[annotationPolicy] = "false"
 	return annotations
 }
 
+func handleLabels(labels map[string]string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[annotation.SidecarInject.Name] = "false"
+	return labels
+}
+
 // extractObject extras the sidecar injection and return the uninjected object.
-func extractObject(in runtime.Object) (interface{}, error) {
+func extractObject(in runtime.Object) (any, error) {
 	out := in.DeepCopyObject()
 
 	var metadata *metav1.ObjectMeta
@@ -297,6 +303,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	}
 
 	metadata.Annotations = handleAnnotations(metadata.Annotations)
+	metadata.Labels = handleLabels(metadata.Labels)
 	// skip uninjection for pods
 	sidecarInjected := false
 	for _, c := range podSpec.Containers {

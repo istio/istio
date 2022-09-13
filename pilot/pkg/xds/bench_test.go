@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"text/template"
@@ -27,24 +28,27 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes/any"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -58,6 +62,8 @@ type ConfigInput struct {
 	ConfigName string
 	// Number of services to make
 	Services int
+	// Number of instances to make
+	Instances int
 	// Type of proxy to generate configs for
 	ProxyType model.NodeType
 }
@@ -91,6 +97,10 @@ var testCases = []ConfigInput{
 		Services: 100,
 	},
 	{
+		Name:     "telemetry-api",
+		Services: 100,
+	},
+	{
 		Name:     "virtualservice",
 		Services: 100,
 	},
@@ -106,6 +116,12 @@ var testCases = []ConfigInput{
 		Name:      "knative-gateway",
 		Services:  100,
 		ProxyType: model.Router,
+	},
+	{
+		Name:      "serviceentry-workloadentry",
+		Services:  100,
+		Instances: 1000,
+		ProxyType: model.SidecarProxy,
 	},
 }
 
@@ -126,11 +142,7 @@ func configureBenchmark(t test.Failer) {
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
-	ov := features.EnableXDSCaching
-	features.EnableXDSCaching = false
-	t.Cleanup(func() {
-		features.EnableXDSCaching = ov
-	})
+	test.SetForTest(t, &features.EnableXDSCaching, false)
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
@@ -140,6 +152,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
+				s.Env().PushContext.InitDone.Store(false)
 				initPushContext(s.Env(), proxy)
 			}
 		})
@@ -150,7 +163,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 // update our benchmark doesn't become useless.
 func TestValidateTelemetry(t *testing.T) {
 	s, proxy := setupAndInitializeTest(t, ConfigInput{Name: "telemetry", Services: 1})
-	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, &model.PushRequest{Full: true, Push: s.PushContext()})
+	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, nil, &model.PushRequest{Full: true, Push: s.PushContext()})
 	if len(c) == 0 {
 		t.Fatal("Got no clusters!")
 	}
@@ -266,14 +279,14 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				ConfigNamespace: "default",
 				Metadata:        &model.NodeMetadata{},
 			}
-			push := s.Discovery.globalPushContext()
+			push := s.PushContext()
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				loadAssignments := make([]*any.Any, 0)
+				loadAssignments := make([]*anypb.Any, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
-					loadAssignments = append(loadAssignments, util.MessageToAny(l))
+					loadAssignments = append(loadAssignments, protoconv.MessageToAny(l))
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
@@ -291,7 +304,7 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 				if len(c) == 0 {
 					b.Fatalf("Got no %v's!", tpe)
 				}
@@ -306,9 +319,10 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 		t.Run(tt.Name, func(t *testing.T) {
 			// No need for large test here
 			tt.Services = 1
+			tt.Instances = 1
 			s, proxy := setupAndInitializeTest(t, tt)
 			wr := getWatchedResources(tpe, tt, s, proxy)
-			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 			if len(c) == 0 {
 				t.Fatalf("Got no %v's!", tpe)
 			}
@@ -344,13 +358,16 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
+		Labels: map[string]string{
+			"istio.io/benchmark": "true",
+		},
 		Metadata: &model.NodeMetadata{
 			Namespace: "default",
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.12.0",
+			IstioVersion: "1.16.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -358,12 +375,25 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 
 	configs, k8sConfig := getConfigsWithCache(t, config)
+	m := mesh.DefaultMeshConfig()
+	m.ExtensionProviders = append(m.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{},
+				},
+			},
+		},
+	})
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		Configs:                configs,
 		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
 		DebounceTime:               time.Millisecond * 10,
 		DisableSecretAuthorization: true,
+		MeshConfig:                 m,
 	})
 
 	return s, proxy
@@ -445,7 +475,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
-var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
+var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
 var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
 
@@ -456,7 +486,7 @@ func logDebug(b *testing.B, m model.Resources) {
 
 	if debugGeneration.Get() {
 		for i, r := range m {
-			s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(r)
+			s, err := protomarshal.MarshalIndent(r, "  ")
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -535,7 +565,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
 			}
 			req = req.Merge(nreq)
 		}
@@ -543,4 +573,66 @@ func BenchmarkPushRequest(b *testing.B) {
 			recordPushTriggers(req.Reason...)
 		}
 	}
+}
+
+func makeCacheKey(n int) model.XdsCacheEntry {
+	ns := strconv.Itoa(n)
+
+	// 100 services
+	services := make([]*model.Service, 0, 100)
+	// 100 destinationrules
+	drs := make([]*model.ConsolidatedDestRule, 0, 100)
+	for i := 0; i < 100; i++ {
+		index := strconv.Itoa(i)
+		services = append(services, &model.Service{
+			Hostname:   host.Name(ns + "some" + index + ".example.com"),
+			Attributes: model.ServiceAttributes{Namespace: "test" + index},
+		})
+		drs = append(drs, model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: index, Namespace: index}}))
+	}
+
+	key := &route.Cache{
+		RouteName:        "something",
+		ClusterID:        "my-cluster",
+		DNSDomain:        "some.domain.example.com",
+		DNSCapture:       true,
+		DNSAutoAllocate:  false,
+		ListenerPort:     1234,
+		Services:         services,
+		DestinationRules: drs,
+		EnvoyFilterKeys:  []string{ns + "1/a", ns + "2/b", ns + "3/c"},
+	}
+	return key
+}
+
+func BenchmarkCache(b *testing.B) {
+	// Ensure cache doesn't grow too large
+	test.SetForTest(b, &features.XDSCacheMaxSize, 1_000)
+	res := &discovery.Resource{Name: "test"}
+	zeroTime := time.Time{}
+	b.Run("key", func(b *testing.B) {
+		key := makeCacheKey(1)
+		for n := 0; n < b.N; n++ {
+			_ = key.Key()
+		}
+	})
+	b.Run("insert", func(b *testing.B) {
+		c := model.NewXdsCache()
+
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(n)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
+			c.Add(key, req, res)
+		}
+	})
+	b.Run("get", func(b *testing.B) {
+		c := model.NewXdsCache()
+
+		key := makeCacheKey(1)
+		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
+		c.Add(key, req, res)
+		for n := 0; n < b.N; n++ {
+			c.Get(key)
+		}
+	})
 }

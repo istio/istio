@@ -22,12 +22,13 @@ import (
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -50,8 +51,8 @@ type Bootstrap struct {
 }
 
 type ChannelCreds struct {
-	Type   string      `json:"type,omitempty"`
-	Config interface{} `json:"config,omitempty"`
+	Type   string `json:"type,omitempty"`
+	Config any    `json:"config,omitempty"`
 }
 
 type XdsServer struct {
@@ -61,8 +62,45 @@ type XdsServer struct {
 }
 
 type CertificateProvider struct {
-	PluginName string      `json:"plugin_name,omitempty"`
-	Config     interface{} `json:"config,omitempty"`
+	PluginName string `json:"plugin_name,omitempty"`
+	Config     any    `json:"config,omitempty"`
+}
+
+func (cp *CertificateProvider) UnmarshalJSON(data []byte) error {
+	var dat map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &dat); err != nil {
+		return err
+	}
+	*cp = CertificateProvider{}
+
+	if pluginNameVal, ok := dat["plugin_name"]; ok {
+		if err := json.Unmarshal(*pluginNameVal, &cp.PluginName); err != nil {
+			log.Warnf("failed parsing plugin_name in certificate_provider: %v", err)
+		}
+	} else {
+		log.Warnf("did not find plugin_name in certificate_provider")
+	}
+
+	if configVal, ok := dat["config"]; ok {
+		var err error
+		switch cp.PluginName {
+		case FileWatcherCertProviderName:
+			config := FileWatcherCertProviderConfig{}
+			err = json.Unmarshal(*configVal, &config)
+			cp.Config = config
+		default:
+			config := FileWatcherCertProviderConfig{}
+			err = json.Unmarshal(*configVal, &config)
+			cp.Config = config
+		}
+		if err != nil {
+			log.Warnf("failed parsing config in certificate_provider: %v", err)
+		}
+	} else {
+		log.Warnf("did not find config in certificate_provider")
+	}
+
+	return nil
 }
 
 const FileWatcherCertProviderName = "file_watcher"
@@ -145,7 +183,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 
 	if opts.CertDir != "" {
 		// TODO use a more appropriate interval
-		refresh, err := protojson.Marshal(durationpb.New(15 * time.Minute))
+		refresh, err := protomarshal.Marshal(durationpb.New(15 * time.Minute))
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +209,7 @@ func extractMeta(node *model.Node) (*structpb.Struct, error) {
 	if err != nil {
 		return nil, err
 	}
-	rawMeta := map[string]interface{}{}
+	rawMeta := map[string]any{}
 	if err := json.Unmarshal(bytes, &rawMeta); err != nil {
 		return nil, err
 	}

@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: golint
 package fuzz
 
 import (
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 )
 
@@ -28,7 +29,17 @@ type fakeClientWrapper struct {
 }
 
 func FuzzHelmReconciler(data []byte) int {
-	k8obj, err := object.ParseYAMLToK8sObject(data)
+	f := fuzz.NewConsumer(data)
+	k8sobjBytes, err := f.GetBytes()
+	if err != nil {
+		return 0
+	}
+	k8obj, err := object.ParseYAMLToK8sObject(k8sobjBytes)
+	if err != nil {
+		return 0
+	}
+	m := name.Manifest{}
+	err = f.GenerateStruct(&m)
 	if err != nil {
 		return 0
 	}
@@ -46,5 +57,7 @@ func FuzzHelmReconciler(data []byte) int {
 		return 0
 	}
 	_ = h.ApplyObject(obj, false)
+	_, _ = h.Reconcile()
+	_, _, _ = h.ApplyManifest(m, false)
 	return 1
 }

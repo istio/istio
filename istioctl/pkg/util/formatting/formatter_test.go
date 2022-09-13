@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/url"
 )
 

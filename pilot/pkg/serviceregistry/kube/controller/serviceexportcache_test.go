@@ -19,18 +19,20 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/mcs"
+	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -46,80 +48,97 @@ var serviceExportNamespacedName = types.NamespacedName{
 	Name:      serviceExportName,
 }
 
-func TestServiceNotExported(t *testing.T) {
-	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
-		t.Run(mode.String(), func(t *testing.T) {
-			// Create and run the controller.
-			ec, cleanup := newTestServiceExportCache(t, mode)
-			defer cleanup()
+type ClusterLocalMode string
 
-			// Check that the endpoint is cluster-local
-			ec.checkServiceInstances(t, false)
+func (m ClusterLocalMode) String() string {
+	return string(m)
+}
+
+const (
+	alwaysClusterLocal ClusterLocalMode = "always cluster local"
+	meshWide           ClusterLocalMode = "mesh wide"
+)
+
+var ClusterLocalModes = []ClusterLocalMode{alwaysClusterLocal, meshWide}
+
+func TestServiceNotExported(t *testing.T) {
+	for _, clusterLocalMode := range ClusterLocalModes {
+		t.Run(clusterLocalMode.String(), func(t *testing.T) {
+			for _, endpointMode := range EndpointModes {
+				t.Run(endpointMode.String(), func(t *testing.T) {
+					// Create and run the controller.
+					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
+
+					// Check that the endpoint is cluster-local
+					ec.checkServiceInstancesOrFail(t, false)
+				})
+			}
 		})
 	}
 }
 
 func TestServiceExported(t *testing.T) {
-	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
-		t.Run(mode.String(), func(t *testing.T) {
-			// Create and run the controller.
-			ec, cleanup := newTestServiceExportCache(t, mode)
-			defer cleanup()
+	for _, clusterLocalMode := range ClusterLocalModes {
+		t.Run(clusterLocalMode.String(), func(t *testing.T) {
+			for _, endpointMode := range EndpointModes {
+				t.Run(endpointMode.String(), func(t *testing.T) {
+					// Create and run the controller.
+					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
 
-			// Export the service.
-			ec.export(t)
+					// Export the service.
+					ec.export(t)
 
-			// Check that the endpoint is mesh-wide
-			ec.checkServiceInstances(t, true)
+					// Check that the endpoint is mesh-wide
+					ec.checkServiceInstancesOrFail(t, true)
+				})
+			}
 		})
 	}
 }
 
 func TestServiceUnexported(t *testing.T) {
-	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
-		t.Run(mode.String(), func(t *testing.T) {
-			// Create and run the controller.
-			ec, cleanup := newTestServiceExportCache(t, mode)
-			defer cleanup()
+	for _, clusterLocalMode := range ClusterLocalModes {
+		t.Run(clusterLocalMode.String(), func(t *testing.T) {
+			for _, endpointMode := range EndpointModes {
+				t.Run(endpointMode.String(), func(t *testing.T) {
+					// Create and run the controller.
+					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
 
-			// Export the service and then unexport it immediately.
-			ec.export(t)
-			ec.unExport(t)
+					// Export the service and then unexport it immediately.
+					ec.export(t)
+					ec.unExport(t)
 
-			// Check that the endpoint is cluster-local
-			ec.checkServiceInstances(t, false)
+					// Check that the endpoint is cluster-local
+					ec.checkServiceInstancesOrFail(t, false)
+				})
+			}
 		})
 	}
 }
 
-func newServiceExport() *v1alpha1.ServiceExport {
-	return &v1alpha1.ServiceExport{
+func newServiceExport() *unstructured.Unstructured {
+	se := &mcsapi.ServiceExport{
 		TypeMeta: v12.TypeMeta{
 			Kind:       "ServiceExport",
-			APIVersion: "multicluster.x-k8s.io/v1alpha1",
+			APIVersion: mcs.MCSSchemeGroupVersion.String(),
 		},
 		ObjectMeta: v12.ObjectMeta{
 			Name:      serviceExportName,
 			Namespace: serviceExportNamespace,
 		},
 	}
+	return toUnstructured(se)
 }
 
-func newTestServiceExportCache(t *testing.T, mode EndpointMode) (ec *serviceExportCacheImpl, cleanup func()) {
+func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
 	t.Helper()
 
-	stopCh := make(chan struct{})
-	prevValue := features.EnableMCSServiceDiscovery
-	features.EnableMCSServiceDiscovery = true
-	cleanup = func() {
-		close(stopCh)
-		features.EnableMCSServiceDiscovery = prevValue
-	}
+	istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
+	istiotest.SetForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
 
-	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
-		Stop:      stopCh,
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
-		Mode:      mode,
+		Mode:      endpointMode,
 	})
 
 	// Create the test service and endpoints.
@@ -136,7 +155,7 @@ func newTestServiceExportCache(t *testing.T, mode EndpointMode) (ec *serviceExpo
 		}
 		inst := ec.getProxyServiceInstances()
 		return len(inst) == 1 && inst[0].Service != nil && inst[0].Endpoint != nil
-	}, retry.Timeout(2*time.Second))
+	}, serviceExportTimeout)
 	return
 }
 
@@ -147,15 +166,17 @@ func (ec *serviceExportCacheImpl) serviceHostname() host.Name {
 func (ec *serviceExportCacheImpl) export(t *testing.T) {
 	t.Helper()
 
-	_, _ = ec.client.MCSApis().MulticlusterV1alpha1().ServiceExports(serviceExportNamespace).Create(
-		context.TODO(),
+	_, err := ec.client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(serviceExportNamespace).Create(context.TODO(),
 		newServiceExport(),
 		v12.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Wait for the export to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		return ec.isExported(serviceExportNamespacedName)
-	}, retry.Timeout(2*time.Second))
+	}, serviceExportTimeout)
 
 	// Wait for the XDS event.
 	ec.waitForXDS(t, true)
@@ -164,7 +185,7 @@ func (ec *serviceExportCacheImpl) export(t *testing.T) {
 func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 	t.Helper()
 
-	_ = ec.client.MCSApis().MulticlusterV1alpha1().ServiceExports(serviceExportNamespace).Delete(
+	_ = ec.client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(serviceExportNamespace).Delete(
 		context.TODO(),
 		serviceExportName,
 		v12.DeleteOptions{})
@@ -172,13 +193,13 @@ func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 	// Wait for the delete to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		return !ec.isExported(serviceExportNamespacedName)
-	}, retry.Timeout(2*time.Second))
+	}, serviceExportTimeout)
 
 	// Wait for the XDS event.
 	ec.waitForXDS(t, false)
 }
 
-func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, expectMeshWide bool) {
+func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		event := ec.opts.XDSUpdater.(*FakeXdsUpdater).Wait("eds")
@@ -186,25 +207,20 @@ func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, expectMeshWide bool) 
 			return errors.New("failed waiting for XDS event")
 		}
 		if len(event.Endpoints) != 1 {
-			return fmt.Errorf("waitForXDS failed: expected 1 endpoint, but found %v", event.Endpoints)
+			return fmt.Errorf("waitForXDS failed: expected 1 endpoint, found %d", len(event.Endpoints))
 		}
-		ep := event.Endpoints[0]
-		return ec.expectDiscoverable(ep, expectMeshWide)
-	}, retry.Timeout(2*time.Second))
-}
 
-func (ec *serviceExportCacheImpl) expectNotExported(t *testing.T) {
-	t.Helper()
-	if ec.isExported(serviceExportNamespacedName) {
-		t.Fatalf("endpoint was unexpectedly discoverable from proxy")
-	}
-}
-
-func (ec *serviceExportCacheImpl) expectExported(t *testing.T) {
-	t.Helper()
-	if !ec.isExported(serviceExportNamespacedName) {
-		t.Fatalf("endpoint was not discoverable from proxy")
-	}
+		hostName := host.Name(event.ID)
+		svc := ec.GetService(hostName)
+		if svc == nil {
+			return fmt.Errorf("unable to find service for host %s", hostName)
+		}
+		si := &model.ServiceInstance{
+			Service:  svc,
+			Endpoint: event.Endpoints[0],
+		}
+		return ec.checkServiceInstance(exported, si)
+	}, serviceExportTimeout)
 }
 
 func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceInstance {
@@ -213,6 +229,10 @@ func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 		IPAddresses:     []string{serviceExportPodIP},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceExportNamespace,
+		Labels: map[string]string{
+			"app":                      "prod-app",
+			label.SecurityTlsMode.Name: "mutual",
+		},
 		Metadata: &model.NodeMetadata{
 			ServiceAccount: "account",
 			ClusterID:      ec.Cluster(),
@@ -224,43 +244,69 @@ func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 	})
 }
 
-func (ec *serviceExportCacheImpl) checkServiceInstances(t *testing.T, meshWide bool) {
+func (ec *serviceExportCacheImpl) checkServiceInstancesOrFail(t *testing.T, exported bool) {
 	t.Helper()
-	inst := ec.getProxyServiceInstances()
-	if len(inst) != 1 {
-		t.Fatalf("expected 1 ServiceInstance, found %d", len(inst))
-	}
-	ep := inst[0].Endpoint
-	if err := ec.expectDiscoverable(ep, meshWide); err != nil {
+	if err := ec.checkServiceInstances(exported); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (ec *serviceExportCacheImpl) expectDiscoverable(ep *model.IstioEndpoint, expectMeshWide bool) error {
-	// All endpoints should be discoverable from within the same cluster.
-	if !ep.IsDiscoverableFromProxy(&model.Proxy{
+func (ec *serviceExportCacheImpl) checkServiceInstances(exported bool) error {
+	sis := ec.getProxyServiceInstances()
+	if len(sis) != 1 {
+		return fmt.Errorf("expected 1 ServiceInstance, found %d", len(sis))
+	}
+	return ec.checkServiceInstance(exported, sis[0])
+}
+
+func (ec *serviceExportCacheImpl) checkServiceInstance(exported bool, si *model.ServiceInstance) error {
+	ep := si.Endpoint
+
+	// Should always be discoverable from the same cluster.
+	if err := ec.checkDiscoverableFromSameCluster(ep); err != nil {
+		return err
+	}
+
+	if exported && !features.EnableMCSClusterLocal {
+		return ec.checkDiscoverableFromDifferentCluster(ep)
+	}
+
+	return ec.checkNotDiscoverableFromDifferentCluster(ep)
+}
+
+func (ec *serviceExportCacheImpl) checkDiscoverableFromSameCluster(ep *model.IstioEndpoint) error {
+	if !ec.isDiscoverableFromSameCluster(ep) {
+		return fmt.Errorf("endpoint was not discoverable from the same cluster")
+	}
+	return nil
+}
+
+func (ec *serviceExportCacheImpl) checkDiscoverableFromDifferentCluster(ep *model.IstioEndpoint) error {
+	if !ec.isDiscoverableFromDifferentCluster(ep) {
+		return fmt.Errorf("endpoint was not discoverable from a different cluster")
+	}
+	return nil
+}
+
+func (ec *serviceExportCacheImpl) checkNotDiscoverableFromDifferentCluster(ep *model.IstioEndpoint) error {
+	if ec.isDiscoverableFromDifferentCluster(ep) {
+		return fmt.Errorf("endpoint was discoverable from a different cluster")
+	}
+	return nil
+}
+
+func (ec *serviceExportCacheImpl) isDiscoverableFromSameCluster(ep *model.IstioEndpoint) bool {
+	return ep.IsDiscoverableFromProxy(&model.Proxy{
 		Metadata: &model.NodeMetadata{
 			ClusterID: ec.Cluster(),
 		},
-	}) {
-		return fmt.Errorf("endpoint was not discoverable in the same cluster")
-	}
+	})
+}
 
-	// Check if this endpoint is discoverable from another cluster.
-	meshWide := ep.IsDiscoverableFromProxy(&model.Proxy{
+func (ec *serviceExportCacheImpl) isDiscoverableFromDifferentCluster(ep *model.IstioEndpoint) bool {
+	return ep.IsDiscoverableFromProxy(&model.Proxy{
 		Metadata: &model.NodeMetadata{
 			ClusterID: "some-other-cluster",
 		},
 	})
-
-	if expectMeshWide {
-		if !meshWide {
-			return fmt.Errorf("endpoint was not discoverable mesh-wide")
-		}
-	} else {
-		if meshWide {
-			return fmt.Errorf("endpoint was discoverable mesh-wide")
-		}
-	}
-	return nil
 }

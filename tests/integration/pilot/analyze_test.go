@@ -25,9 +25,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/cmd"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -48,6 +48,7 @@ const (
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 
 func TestEmptyCluster(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -69,6 +70,7 @@ func TestEmptyCluster(t *testing.T) {
 }
 
 func TestFileOnly(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -95,6 +97,7 @@ func TestFileOnly(t *testing.T) {
 }
 
 func TestDirectoryWithoutRecursion(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -119,6 +122,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 }
 
 func TestDirectoryWithRecursion(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -140,6 +144,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 }
 
 func TestInvalidFileError(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -164,10 +169,18 @@ func TestInvalidFileError(t *testing.T) {
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
 			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+
+			// Parse error as the yaml file itself is not valid yaml, but ignore.
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+
+			g.Expect(err).To(BeNil())
 		})
 }
 
 func TestJsonInputFile(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -189,6 +202,7 @@ func TestJsonInputFile(t *testing.T) {
 }
 
 func TestJsonOutput(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -230,6 +244,7 @@ func TestJsonOutput(t *testing.T) {
 }
 
 func TestKubeOnly(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -253,6 +268,7 @@ func TestKubeOnly(t *testing.T) {
 }
 
 func TestFileAndKubeCombined(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -277,6 +293,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 }
 
 func TestAllNamespaces(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -335,6 +352,7 @@ func TestAllNamespaces(t *testing.T) {
 
 func TestTimeout(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/25893")
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -356,6 +374,7 @@ func TestTimeout(t *testing.T) {
 
 // Verify the error line number in the message is correct
 func TestErrorLine(t *testing.T) {
+	// nolint: staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -406,7 +425,7 @@ func expectNoMessages(t test.Failer, g *GomegaWithT, output []string) {
 func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected ...*diag.MessageType) {
 	t.Helper()
 
-	var j []map[string]interface{}
+	var j []map[string]any
 	if err := json.Unmarshal([]byte(output), &j); err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +465,7 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	if err := t.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
 		t.Fatal(err)
 	}
-	t.ConditionalCleanup(func() {
-		t.Clusters().Default().DeleteYAMLFiles(ns, filename)
+	t.Cleanup(func() {
+		_ = t.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
 }

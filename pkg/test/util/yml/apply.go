@@ -18,9 +18,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ghodss/yaml"
+	v1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 // ApplyNamespace applies the given namespaces to the resources in the yamlText if not set.
@@ -40,6 +43,40 @@ func ApplyNamespace(yamlText, ns string) (string, error) {
 	return result, nil
 }
 
+// ApplyPullSecrets applies the given pullsecret to the deployment resource
+func ApplyPullSecret(deploymentYaml string, pullSecret string) (string, error) {
+	var deploymentMerge v1.Deployment
+
+	mainYaml, err := yaml.YAMLToJSON([]byte(deploymentYaml))
+	if err != nil {
+		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, mainYaml)
+	}
+
+	patchYaml := tmpl.MustEvaluate(`
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: {{.pullSecret}}  	
+`, map[string]string{"pullSecret": pullSecret})
+
+	overlayYaml, err := yaml.YAMLToJSON([]byte(patchYaml))
+	if err != nil {
+		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, overlayYaml)
+	}
+
+	merged, err := strategicpatch.StrategicMergePatch(mainYaml, overlayYaml, &deploymentMerge)
+	if err != nil {
+		return "", fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, mainYaml, overlayYaml)
+	}
+
+	resYaml, err := yaml.JSONToYAML(merged)
+	if err != nil {
+		return "", fmt.Errorf("jsonToYAML error (%s) for merged object: \n%s", err, merged)
+	}
+	return string(resYaml), nil
+}
+
 // MustApplyNamespace applies the given namespaces to the resources in the yamlText  if not set.
 func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
 	y, err := ApplyNamespace(yamlText, ns)
@@ -50,7 +87,7 @@ func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
 }
 
 func applyNamespace(yamlText, ns string) (string, error) {
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlText), &m); err != nil {
 		return "", err
 	}
@@ -72,13 +109,13 @@ func applyNamespace(yamlText, ns string) (string, error) {
 	return string(by), nil
 }
 
-func ensureChildMap(m map[string]interface{}, name string) (map[string]interface{}, error) {
+func ensureChildMap(m map[string]any, name string) (map[string]any, error) {
 	c, ok := m[name]
 	if !ok {
-		c = make(map[string]interface{})
+		c = make(map[string]any)
 	}
 
-	cm, ok := c.(map[string]interface{})
+	cm, ok := c.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("child %q field is not a map: %v", name, reflect.TypeOf(c))
 	}

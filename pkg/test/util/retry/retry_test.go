@@ -48,4 +48,35 @@ func TestConverge(t *testing.T) {
 			t.Fatalf("expected convergance, but test failed: %v", err)
 		}
 	})
+
+	t.Run("attempts fail", func(t *testing.T) {
+		n := 0
+		err := UntilSuccess(func() error {
+			n++
+			return fmt.Errorf("oops")
+		}, MaxAttempts(10), Delay(0))
+		if err == nil {
+			t.Fatalf("expected error")
+		}
+		if n != 10 {
+			t.Fatalf("expected exactly 10 attempts, got %d", n)
+		}
+	})
+
+	t.Run("attempts success", func(t *testing.T) {
+		n := 0
+		err := UntilSuccess(func() error {
+			n++
+			if n == 7 {
+				return nil
+			}
+			return fmt.Errorf("oops")
+		}, MaxAttempts(10), Delay(0))
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if n != 7 {
+			t.Fatalf("expected exactly 7 attempts, got %d", n)
+		}
+	})
 }

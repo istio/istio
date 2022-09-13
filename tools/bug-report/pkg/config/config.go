@@ -21,14 +21,23 @@ import (
 	"math"
 	"strings"
 	"time"
+)
 
-	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+type ResourceType int
+
+const (
+	Namespace ResourceType = iota
+	Deployment
+	Pod
+	Label
+	Annotation
+	Container
 )
 
 // SelectionSpec is a spec for pods that will be Include in the capture
 // archive. The format is:
 //
-//   Namespace1,Namespace2../Services/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
+//	Namespace1,Namespace2../Deployments/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
 //
 // Namespace, pod and container names are pattern matching while labels
 // and annotations may have pattern in the values with exact match for keys.
@@ -42,27 +51,30 @@ import (
 // Examples:
 //
 // 1. All pods in test-namespace with label "test=foo" but without label "private" (with any value):
-//      include:
-//        test-namespace/*/*/test=foo
-//      exclude:
-//        test-namespace/*/*/private
+//
+//	include:
+//	  test-namespace/*/*/test=foo
+//	exclude:
+//	  test-namespace/*/*/private
 //
 // 2. Pods in all namespaces except "kube-system" with annotation "revision"
 // matching wildcard 1.6*:
-//      exclude:
-//        kube-system/*/*/*/revision=1.6*
+//
+//	exclude:
+//	  kube-system/*/*/*/revision=1.6*
 //
 // 3. Pods with "prometheus" in the name, except those with
 // the annotation "internal=true":
-//      include:
-//        */*/*prometheus*
-//      exclude:
-//        */*/*prometheus*/*/internal=true
+//
+//	include:
+//	  */*/*prometheus*
+//	exclude:
+//	  */*/*prometheus*/*/internal=true
 //
 // 4. Container logs for all containers called "istio-proxy":
-//      include:
-//        */*/*/*/*/istio-proxy
 //
+//	include:
+//	  */*/*/*/*/istio-proxy
 type SelectionSpec struct {
 	Namespaces  []string          `json:"namespaces,omitempty"`
 	Deployments []string          `json:"deployments,omitempty"`
@@ -82,7 +94,7 @@ func (s SelectionSpecs) String() string {
 			st += fmt.Sprintf("Namespaces: %s", strings.Join(ss.Namespaces, ","))
 		}
 		if !defaultListSetting(ss.Deployments) {
-			st += fmt.Sprintf("/Services: %s", strings.Join(ss.Deployments, ","))
+			st += fmt.Sprintf("/Deployments: %s", strings.Join(ss.Deployments, ","))
 		}
 		if !defaultListSetting(ss.Pods) {
 			st += fmt.Sprintf("/Pods:%s", strings.Join(ss.Pods, ","))
@@ -138,13 +150,13 @@ type BugReportConfig struct {
 	// Exclude is a list of SelectionSpec entries for resources t0 exclude.
 	Exclude SelectionSpecs `json:"exclude,omitempty"`
 
-	// StartTime is the start time the the log capture time range.
+	// StartTime is the start time the log capture time range.
 	// If set, Since must be unset.
 	StartTime time.Time `json:"startTime,omitempty"`
-	// EndTime is the end time the the log capture time range.
+	// EndTime is the end time the log capture time range.
 	// Default is now.
 	EndTime time.Time `json:"endTime,omitempty"`
-	// Since defines the start time the the log capture time range.
+	// Since defines the start time the log capture time range.
 	// StartTime is set to EndTime - Since.
 	// If set, StartTime must be unset.
 	Since Duration `json:"since,omitempty"`
@@ -182,7 +194,7 @@ func (b *BugReportConfig) String() string {
 }
 
 func parseToIncludeTypeSlice(s string) []string {
-	if strings.TrimSpace(s) == "*" {
+	if strings.TrimSpace(s) == "*" || s == "" {
 		return nil
 	}
 	return strings.Split(s, ",")
@@ -210,28 +222,28 @@ func parseToIncludeTypeMap(s string) (map[string]string, error) {
 }
 
 func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
-	ft := []cluster2.ResourceType{cluster2.Namespace, cluster2.Deployment, cluster2.Pod, cluster2.Label, cluster2.Annotation, cluster2.Container}
+	ft := []ResourceType{Namespace, Deployment, Pod, Label, Annotation, Container}
 	str := strings.TrimPrefix(strings.TrimSuffix(string(b), `"`), `"`)
 	for i, f := range strings.Split(str, "/") {
 		var err error
 		switch ft[i] {
-		case cluster2.Namespace:
+		case Namespace:
 			s.Namespaces = parseToIncludeTypeSlice(f)
-		case cluster2.Deployment:
+		case Deployment:
 			s.Deployments = parseToIncludeTypeSlice(f)
-		case cluster2.Pod:
+		case Pod:
 			s.Pods = parseToIncludeTypeSlice(f)
-		case cluster2.Label:
+		case Label:
 			s.Labels, err = parseToIncludeTypeMap(f)
 			if err != nil {
 				return err
 			}
-		case cluster2.Annotation:
+		case Annotation:
 			s.Annotations, err = parseToIncludeTypeMap(f)
 			if err != nil {
 				return err
 			}
-		case cluster2.Container:
+		case Container:
 			s.Containers = parseToIncludeTypeSlice(f)
 		}
 	}
@@ -243,17 +255,17 @@ func (s *SelectionSpec) MarshalJSON() ([]byte, error) {
 	out := fmt.Sprint(strings.Join(s.Namespaces, ","))
 	out += fmt.Sprintf("/%s", strings.Join(s.Deployments, ","))
 	out += fmt.Sprintf("/%s", strings.Join(s.Pods, ","))
-	out += fmt.Sprintf("/%s", strings.Join(s.Containers, ","))
-	tmp := "/"
+	tmp := []string{}
 	for k, v := range s.Labels {
-		tmp += fmt.Sprintf("%s=%s", k, v)
+		tmp = append(tmp, fmt.Sprintf("%s=%s", k, v))
 	}
-	out += tmp
-	tmp = "/"
+	out += fmt.Sprintf("/%s", strings.Join(tmp, ","))
+	tmp = []string{}
 	for k, v := range s.Annotations {
-		tmp += fmt.Sprintf("%s=%s", k, v)
+		tmp = append(tmp, fmt.Sprintf("%s=%s", k, v))
 	}
-	out += tmp
+	out += fmt.Sprintf("/%s", strings.Join(tmp, ","))
+	out += fmt.Sprintf("/%s", strings.Join(s.Containers, ","))
 	return []byte(`"` + out + `"`), nil
 }
 
@@ -264,7 +276,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v interface{}
+	var v any
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}

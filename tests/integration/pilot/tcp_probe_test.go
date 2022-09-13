@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -40,7 +40,6 @@ func TestTcpProbe(t *testing.T) {
 				openPort bool
 			}{
 				{name: "norewrite-success", rewrite: false, success: true, openPort: false},
-				{name: "rewrite-fail", rewrite: true, success: false, openPort: false},
 				{name: "rewrite-success", rewrite: true, success: true, openPort: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
@@ -51,7 +50,8 @@ func TestTcpProbe(t *testing.T) {
 }
 
 func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool, wantSuccess bool, openPort bool) {
+	name string, rewrite bool, wantSuccess bool, openPort bool,
+) {
 	ctx.Helper()
 
 	var tcpProbe echo.Instance
@@ -71,7 +71,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 			Name:         "readiness-tcp-port",
 			Protocol:     protocol.TCP,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 
@@ -79,7 +79,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 	if !wantSuccess {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	_, err := echoboot.NewBuilder(ctx).
+	_, err := deployment.New(ctx).
 		With(&tcpProbe, cfg).
 		Build()
 	gotSuccess := err == nil

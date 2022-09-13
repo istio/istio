@@ -1,4 +1,4 @@
-*                                                                @costinm @linsun @howardjohn @nmittler
+*                                                                @costinm @linsun @howardjohn @stevenctl @ericvn @hzxuzhonghu
 /.gitattributes                                                  @istio/wg-test-and-release-maintainers
 /.gitignore                                                      @istio/wg-test-and-release-maintainers
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
@@ -24,6 +24,7 @@ Makefile*                                                        @istio/wg-test-
 /pilot/pkg/networking/core                                       @istio/wg-networking-maintainers-pilot
 /pilot/pkg/proxy                                                 @istio/wg-networking-maintainers-pilot
 /pkg/adsc/                                                       @istio/wg-networking-maintainers
+/pkg/                                                            @istio/wg-test-and-release-maintainers
 /pkg/bootstrap/                                                  @istio/wg-networking-maintainers
 /pkg/config/                                                     @istio/wg-networking-maintainers
 /pkg/dns/                                                        @istio/wg-networking-maintainers
@@ -36,13 +37,14 @@ Makefile*                                                        @istio/wg-test-
 /pkg/security/                                                   @istio/wg-security-maintainers @istio/wg-environments-maintainers
 /pkg/spiffe/                                                     @istio/wg-security-maintainers
 /pkg/test/                                                       @istio/wg-test-and-release-maintainers
+/pkg/fuzz/                                                       @istio/wg-test-and-release-maintainers
 /pkg/tracing/                                                    @istio/wg-policies-and-telemetry-maintainers
 /pkg/wasm/                                                       @istio/wg-policies-and-telemetry-maintainers
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
 /releasenotes/                                                   @istio/wg-test-and-release-maintainers @istio/release-managers
-/samples/                                                        @istio/wg-docs-maintainers
+/samples/                                                        @istio/wg-docs-maintainers-english
 /samples/addons                                                  @istio/wg-policies-and-telemetry-maintainers @istio/wg-environments-maintainers
 /samples/multicluster                                            @istio/wg-networking-maintainers
 /security/                                                       @istio/wg-security-maintainers
@@ -56,7 +58,7 @@ Makefile*                                                        @istio/wg-test-
 /tests/integration/security/                                     @istio/wg-security-maintainers
 /tests/integration/istioctl/                                     @istio/wg-user-experience-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
-/tools/packaging/common/envoy_bootstrap.json                  @istio/wg-networking-maintainers
+/tools/packaging/common/envoy_bootstrap.json                     @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
 manifests/charts/global.yaml                                     @costinm @jacob-delgado @Monkeyanator

@@ -22,11 +22,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
@@ -40,7 +41,7 @@ const hubIDPPrefix = "https://gkehub.googleapis.com/"
 
 var (
 	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
-	envGkeClusterURL  = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	envGkeClusterURL  = env.Register("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 type googleCAClient struct {
@@ -65,7 +66,7 @@ func NewGoogleCAClient(endpoint string, tls bool, provider *caclient.TokenProvid
 			return nil, err
 		}
 	} else {
-		opts = grpc.WithInsecure()
+		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
 	conn, err := grpc.Dial(endpoint,
@@ -88,7 +89,7 @@ func (cl *googleCAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 	req := &gcapb.MeshCertificateRequest{
 		RequestId: uuid.New().String(),
 		Csr:       string(csrPEM),
-		Validity:  &duration.Duration{Seconds: certValidTTLInSec},
+		Validity:  &durationpb.Duration{Seconds: certValidTTLInSec},
 	}
 
 	out := metadata.New(nil)

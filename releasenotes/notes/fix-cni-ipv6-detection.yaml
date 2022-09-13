@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 36871
+releaseNotes:
+  - |
+    **Fixed** IP family detection when using the CNI to behave the same way as without it.

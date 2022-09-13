@@ -18,16 +18,17 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	proxyConfig := model.NodeMetaProxyConfig(mesh.DefaultProxyConfig())
-	proxyConfig.ServiceCluster = "my-cluster"
-	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
+	proxyConfig := (*model.NodeMetaProxyConfig)(mesh.DefaultProxyConfig())
+	proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "my-cluster"}
+	proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
 		LogLevel:               "trace",
@@ -52,10 +53,9 @@ func TestEnvoyArgs(t *testing.T) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
 
-	got := test.args("test.json", 5, "testdata/bootstrap.json")
+	got := test.args("test.json", "testdata/bootstrap.json")
 	want := []string{
 		"-c", "test.json",
-		"--restart-epoch", "5",
 		"--drain-time-s", "45",
 		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",

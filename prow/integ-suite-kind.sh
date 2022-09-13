@@ -37,9 +37,12 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.21.1"
+NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.25.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
+
+export FAST_VM_BUILDS=true
+export ISTIO_DOCKER_BUILDER=crane
 
 PARAMS=()
 
@@ -101,15 +104,16 @@ while (( "$#" )); do
   esac
 done
 
+if [ -f /proc/cpuinfo ]; then
+  echo "Checking CPU..."
+  grep 'model' /proc/cpuinfo || true
+fi
+
 # Default IP family of the cluster is IPv4
 export IP_FAMILY="${IP_FAMILY:-ipv4}"
 
-# KinD will not have a LoadBalancer, so we need to disable it
-export TEST_ENV=kind
-# LoadBalancer in Kind is supported using metallb if not ipv6.
-if [ "${IP_FAMILY}" != "ipv6" ]; then
-  export TEST_ENV=kind-metallb
-fi
+# LoadBalancer in Kind is supported using metallb
+export TEST_ENV=kind-metallb
 
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
@@ -137,11 +141,11 @@ export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  export DEFAULT_CLUSTER_YAML="./prow/config/mixedlb-service.yaml"
+  export DEFAULT_CLUSTER_YAML="./prow/config/default.yaml"
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    trace "setup kind cluster" setup_kind_cluster "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
+    trace "setup kind cluster" setup_kind_cluster_retry "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
   else
     trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
     trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"

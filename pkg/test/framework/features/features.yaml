@@ -55,6 +55,8 @@ features:
     cni:
       race-condition-repair:
       upgrade:
+    tunneling:
+    gateway:
   usability:
     observability:
       describe:
@@ -68,6 +70,7 @@ features:
       analysis:
         line-numbers:
       tcp-probe:
+      grpc-probe:
     helpers:
       add-to-mesh:
       remove-from-mesh:
@@ -143,6 +146,7 @@ features:
   extensibility:
     wasm:
       remote-load:
+      image-pull-policy:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:

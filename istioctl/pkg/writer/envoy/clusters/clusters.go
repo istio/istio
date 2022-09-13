@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/clusters"
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 )
 
 // EndpointFilter is used to pass filter information into route based config writer print functions
@@ -70,7 +70,17 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	if addr != nil {
 		return addr.Address
 	}
-	return "unix://" + host.Address.GetPipe().Path
+	if pipe := host.Address.GetPipe(); pipe != nil {
+		return "unix://" + pipe.Path
+	}
+	if internal := host.Address.GetEnvoyInternalAddress(); internal != nil {
+		switch an := internal.GetAddressNameSpecifier().(type) {
+		case *core.EnvoyInternalAddress_ServerListenerName:
+			// TODO: fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId) once go-control-plane updates
+			return fmt.Sprintf("envoy://%s", an.ServerListenerName)
+		}
+	}
+	return "unknown"
 }
 
 func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
@@ -152,7 +162,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 		return fmt.Errorf("config writer has not been primed")
 	}
 
-	filteredClusters := protio.MessageSlice{}
+	filteredClusters := proto.MessageSlice{}
 	for _, cluster := range c.clusters.ClusterStatuses {
 		for _, host := range cluster.HostStatuses {
 			if filter.Verify(host, cluster.Name) {

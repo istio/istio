@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/36456
+releaseNotes:
+  - |
+    **Fixed** an issue where scaling endpoint for a service from 0 to 1
+    might cause client side serivce account verification populated incorrectly.

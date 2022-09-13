@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/containernetworking/cni/pkg/skel"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/containernetworking/plugins/pkg/testutils"
 	"k8s.io/client-go/kubernetes"
 
@@ -32,6 +36,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	diff "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 )
 
 type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
@@ -42,8 +47,40 @@ func generateMockK8sPodInfoFunc(pi *PodInfo) k8sPodInfoFunc {
 	}
 }
 
+type mockNetNs struct {
+	path string
+}
+
+func (ns *mockNetNs) Do(toRun func(ns.NetNS) error) error {
+	return toRun(ns)
+}
+
+func (*mockNetNs) Set() error {
+	return nil
+}
+
+func (ns *mockNetNs) Path() string {
+	return ns.path
+}
+
+func (*mockNetNs) Fd() uintptr {
+	return 0
+}
+
+func (*mockNetNs) Close() error {
+	return nil
+}
+
+type netNsFunc func(nspath string) (ns.NetNS, error)
+
+func generateMockGetNsFunc(netNs string) netNsFunc {
+	return func(nspath string) (ns.NetNS, error) {
+		return &mockNetNs{path: netNs}, nil
+	}
+}
+
 func TestIPTablesRuleGeneration(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "iptables")
+	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "iptables")
 	args := testSetArgs(cniConf)
 	newKubeClient = mocknewK8sClient
 
@@ -114,25 +151,35 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/dns.txt.golden"),
 		},
+		{
+			name: "invalid-drop",
+			input: &PodInfo{
+				Containers:        []string{"test", "istio-proxy"},
+				InitContainers:    map[string]struct{}{"istio-validate": {}},
+				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyEnvironments: map[string]string{cmd.InvalidDropByIptables.Name: "true"},
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// TODO(bianpengyuan): How do we test ipv6 rules?
 			getKubePodInfo = generateMockK8sPodInfoFunc(tt.input)
+			getNs = generateMockGetNsFunc(sandboxDirectory)
 			tmpDir := t.TempDir()
 			outputFilePath := filepath.Join(tmpDir, "output.txt")
 			if _, err := os.Create(outputFilePath); err != nil {
 				t.Fatalf("Failed to create temp file for IPTables rule output: %v", err)
 			}
-			os.Setenv(dryRunFilePath.Name, outputFilePath)
+			t.Setenv(dryRunFilePath.Name, outputFilePath)
 			_, _, err := testutils.CmdAddWithArgs(
 				&skel.CmdArgs{
 					Netns:     sandboxDirectory,
 					IfName:    ifname,
 					StdinData: []byte(cniConf),
 				}, func() error { return CmdAdd(args) })
-			os.Unsetenv(dryRunFilePath.Name)
 			if err != nil {
 				t.Fatalf("CNI cmdAdd failed with error: %v", err)
 			}
@@ -188,5 +235,5 @@ func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[stri
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"
 	}
-	diff.RefreshGoldenFile([]byte(goldenFileContent), goldenFileName, t)
+	diff.RefreshGoldenFile(t, []byte(goldenFileContent), goldenFileName)
 }

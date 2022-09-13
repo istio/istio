@@ -38,7 +38,7 @@ type execTestCase struct {
 
 func TestProxyConfig(t *testing.T) {
 	loggingConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/logging/testdata/logging.txt", t),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../pkg/writer/envoy/logging/testdata/logging.txt"),
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 	}
 	cases := []execTestCase{
@@ -192,7 +192,7 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	}
 
 	if c.goldenFilename != "" {
-		util.CompareContent([]byte(output), c.goldenFilename, t)
+		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {
@@ -210,8 +210,8 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
 // nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.ExtendedClient, error) {
-	outFactory := func(_, _ string, _ string) (kube.ExtendedClient, error) {
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.CLIClient, error) {
+	outFactory := func(_, _ string, _ string) (kube.CLIClient, error) {
 		return kube.MockClient{
 			Results: testResults,
 		}, nil
@@ -220,8 +220,8 @@ func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconf
 	return outFactory
 }
 
-func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.ExtendedClient, error) {
-	outFactory := func(_, _ string) (kube.ExtendedClient, error) {
+func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.CLIClient, error) {
+	outFactory := func(_, _ string) (kube.CLIClient, error) {
 		return kube.MockClient{
 			Results: testResults,
 		}, nil

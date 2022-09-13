@@ -1,0 +1,93 @@
+iptables -t nat -N ISTIO_INBOUND
+iptables -t nat -N ISTIO_REDIRECT
+iptables -t nat -N ISTIO_IN_REDIRECT
+iptables -t mangle -N ISTIO_DIVERT
+iptables -t mangle -N ISTIO_TPROXY
+iptables -t mangle -N ISTIO_INBOUND
+iptables -t nat -N ISTIO_OUTPUT
+iptables -t nat -A PREROUTING -i not-istio-nic -j RETURN
+iptables -t nat -A OUTPUT -o not-istio-nic -j RETURN
+iptables -t mangle -A PREROUTING -i not-istio-nic -j RETURN
+iptables -t mangle -A OUTPUT -o not-istio-nic -j RETURN
+iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337
+iptables -t mangle -A ISTIO_DIVERT -j ACCEPT
+iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006
+iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND
+iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
+iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
+iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-ports 15053
+iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053
+iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2
+iptables -t raw -A PREROUTING -p udp --sport 53 -d 127.0.0.53/32 -j CT --zone 1
+iptables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
+iptables -t mangle -A OUTPUT -p tcp -o lo -m mark --mark 1337 -j RETURN
+iptables -t mangle -A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --uid-owner 1337 -j MARK --set-mark 1338
+iptables -t mangle -A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --gid-owner 1337 -j MARK --set-mark 1338
+iptables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark
+iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN
+iptables -t mangle -I ISTIO_INBOUND 2 -p tcp -s 127.0.0.6/32 -i lo -j RETURN
+iptables -t mangle -I ISTIO_INBOUND 3 -p tcp -i lo -m mark ! --mark 1338 -j RETURN
+ip6tables -t nat -N ISTIO_INBOUND
+ip6tables -t nat -N ISTIO_REDIRECT
+ip6tables -t nat -N ISTIO_IN_REDIRECT
+ip6tables -t mangle -N ISTIO_DIVERT
+ip6tables -t mangle -N ISTIO_TPROXY
+ip6tables -t mangle -N ISTIO_INBOUND
+ip6tables -t nat -N ISTIO_OUTPUT
+ip6tables -t nat -A PREROUTING -i not-istio-nic -j RETURN
+ip6tables -t nat -A OUTPUT -o not-istio-nic -j RETURN
+ip6tables -t mangle -A PREROUTING -i not-istio-nic -j RETURN
+ip6tables -t mangle -A OUTPUT -o not-istio-nic -j RETURN
+ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
+ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
+ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+ip6tables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337
+ip6tables -t mangle -A ISTIO_DIVERT -j ACCEPT
+ip6tables -t mangle -A ISTIO_TPROXY ! -d ::1/128 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006
+ip6tables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND
+ip6tables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
+ip6tables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
+ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+ip6tables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
+ip6tables -t mangle -A OUTPUT -p tcp -o lo -m mark --mark 1337 -j RETURN
+ip6tables -t mangle -A OUTPUT ! -d ::1/128 -p tcp -o lo -m owner --uid-owner 1337 -j MARK --set-mark 1338
+ip6tables -t mangle -A OUTPUT ! -d ::1/128 -p tcp -o lo -m owner --gid-owner 1337 -j MARK --set-mark 1338
+ip6tables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark
+ip6tables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN
+ip6tables -t mangle -I ISTIO_INBOUND 2 -p tcp -s ::6/128 -i lo -j RETURN
+ip6tables -t mangle -I ISTIO_INBOUND 3 -p tcp -i lo -m mark ! --mark 1338 -j RETURN

@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
 )
 
 type profileListArgs struct {
@@ -32,7 +33,7 @@ func addProfileListFlags(cmd *cobra.Command, args *profileListArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileListCmd(rootArgs *rootArgs, plArgs *profileListArgs) *cobra.Command {
+func profileListCmd(rootArgs *RootArgs, plArgs *profileListArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "Lists available Istio configuration profiles",
@@ -45,9 +46,15 @@ func profileListCmd(rootArgs *rootArgs, plArgs *profileListArgs) *cobra.Command 
 }
 
 // profileList list all the builtin profiles.
-func profileList(cmd *cobra.Command, args *rootArgs, plArgs *profileListArgs) error {
+func profileList(cmd *cobra.Command, args *RootArgs, plArgs *profileListArgs) error {
 	initLogsOrExit(args)
-	profiles, err := helm.ListProfiles(plArgs.manifestsPath)
+
+	manifestsPath, _, err := manifest.RewriteURLToLocalInstallPath(plArgs.manifestsPath, "" /*profileOrPath*/, false /*skipValidation */)
+	if err != nil {
+		return err
+	}
+
+	profiles, err := helm.ListProfiles(manifestsPath)
 	if err != nil {
 		return err
 	}

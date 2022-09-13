@@ -1,0 +1,30 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 34000
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: tcp
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - group: multicluster.x-k8s.io
+      kind: ServiceImport
+      name: echo
+      port: 80

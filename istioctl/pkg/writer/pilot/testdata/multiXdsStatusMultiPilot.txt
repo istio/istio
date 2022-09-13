@@ -1,4 +1,4 @@
-NAME       CDS         LDS        EDS        RDS          ISTIOD      VERSION
-proxy1     STALE       SYNCED     SYNCED     NOT_SENT     istiod1     1.1
-proxy2     STALE       SYNCED     STALE      SYNCED       istiod2     1.1
-proxy3     UNKNOWN     ERROR      STALE      NOT_SENT     istiod3     1.1
+NAME       CLUSTER      CDS         LDS        EDS        RDS          ECDS         ISTIOD      VERSION
+proxy1     cluster1     STALE       SYNCED     SYNCED     NOT_SENT     SYNCED       istiod1     1.1
+proxy2     cluster2     STALE       SYNCED     STALE      SYNCED       STALE        istiod2     1.1
+proxy3     cluster3     UNKNOWN     ERROR      STALE      NOT_SENT     NOT_SENT     istiod3     1.1

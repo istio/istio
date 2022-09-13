@@ -38,7 +38,7 @@ const (
 	defaultInjectorConfigMapName = "istio-sidecar-injector"
 )
 
-var injectionEnabled = env.RegisterBoolVar("INJECT_ENABLED", true, "Enable mutating webhook handler.")
+var injectionEnabled = env.Register("INJECT_ENABLED", true, "Enable mutating webhook handler.")
 
 func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// currently the constant: "./var/lib/istio/inject"
@@ -59,7 +59,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		}
 	} else if s.kubeClient != nil {
 		configMapName := getInjectorConfigMapName(args.Revision)
-		cms := s.kubeClient.CoreV1().ConfigMaps(args.Namespace)
+		cms := s.kubeClient.Kube().CoreV1().ConfigMaps(args.Namespace)
 		if _, err := cms.Get(context.TODO(), configMapName, metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
 				log.Infof("Skipping sidecar injector, template not found")
@@ -99,7 +99,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 				return nil
 			}
 
-			patcher.Run(stop)
+			go patcher.Run(stop)
 			return nil
 		})
 	}

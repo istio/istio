@@ -22,6 +22,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -136,11 +137,20 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
-	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.CLIClient, error) {
+	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
+		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+		// Bumping this up greatly decreases install time
+		config.QPS = 50
+		config.Burst = 100
+	})
+	if err != nil {
+		return nil, err
+	}
+	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
 	return newKubeClientWithRevision(kubeconfig, configContext, "")
 }
 
@@ -192,8 +202,13 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if err != nil {
 					return err
 				}
-				path := "config_dump"
-				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
+				var envoyDump []byte
+				if configDumpFile != "" {
+					envoyDump, err = readConfigFile(configDumpFile)
+				} else {
+					path := "config_dump"
+					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
+				}
 				if err != nil {
 					return fmt.Errorf("could not contact sidecar: %w", err)
 				}
@@ -227,6 +242,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 	opts.AttachControlPlaneFlags(statusCmd)
 	centralOpts.AttachControlPlaneFlags(statusCmd)
+	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	return statusCmd
 }

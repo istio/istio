@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ .Values.kind | default "Deployment" }}
 metadata:
   name: {{ include "gateway.name" . }}
   namespace: {{ .Release.Namespace }}
@@ -32,37 +32,53 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gateway.serviceAccountName" . }}
-      {{- if not .Values.runAsRoot }}
       securityContext:
-        runAsUser: 1337
-        runAsGroup: 1337
-        runAsNonRoot: true
-        fsGroup: 1337
+      {{- if .Values.securityContext }}
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- else if (semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion) }}
+        # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
       {{- end }}
       containers:
         - name: istio-proxy
+          # "auto" will be populated at runtime by the mutating webhook. See https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection
           image: auto
-          {{- if not .Values.runAsRoot }}
           securityContext:
-            allowPrivilegeEscalation: false
+          {{- if .Values.containerSecurityContext }}
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- else if (semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion) }}
+            # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
             capabilities:
               drop:
               - ALL
+            allowPrivilegeEscalation: false
             privileged: false
+            readOnlyRootFilesystem: true
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+          {{- else }}
+            capabilities:
+              drop:
+              - ALL
+              add:
+              - NET_BIND_SERVICE
+            runAsUser: 0
+            runAsGroup: 1337
+            runAsNonRoot: false
+            allowPrivilegeEscalation: true
             readOnlyRootFilesystem: true
           {{- end }}
           env:
-          {{- if not .Values.runAsRoot }}
-          - name: ISTIO_META_UNPRIVILEGED_POD
-            value: "true"
-          {{- end }}
           {{- with .Values.networkGateway }}
           - name: ISTIO_META_REQUESTED_NETWORK_VIEW
             value: "{{.}}"
           {{- end }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
-            value: {{ $val }}
+            value: {{ $val | quote }}
           {{- end }}
           ports:
           - containerPort: 15090
@@ -80,5 +96,9 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

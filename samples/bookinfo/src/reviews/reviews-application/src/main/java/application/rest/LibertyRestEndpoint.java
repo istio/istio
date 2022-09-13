@@ -40,7 +40,9 @@ public class LibertyRestEndpoint extends Application {
     private final static String star_color = System.getenv("STAR_COLOR") == null ? "black" : System.getenv("STAR_COLOR");
     private final static String services_domain = System.getenv("SERVICES_DOMAIN") == null ? "" : ("." + System.getenv("SERVICES_DOMAIN"));
     private final static String ratings_hostname = System.getenv("RATINGS_HOSTNAME") == null ? "ratings" : System.getenv("RATINGS_HOSTNAME");
-    private final static String ratings_service = "http://" + ratings_hostname + services_domain + ":9080/ratings";
+    private final static String ratings_service = String.format("http://%s%s:9080/ratings", ratings_hostname, services_domain);
+    private final static String pod_hostname = System.getenv("HOSTNAME");
+    private final static String clustername = System.getenv("CLUSTER_NAME");
     // HTTP headers to propagate for distributed tracing are documented at
     // https://istio.io/docs/tasks/telemetry/distributed-tracing/overview/#trace-context-propagation
     private final static String[] headers_to_propagate = {
@@ -85,14 +87,24 @@ public class LibertyRestEndpoint extends Application {
         "x-b3-sampled",
         "x-b3-flags",
 
+        // SkyWalking trace headers.
+        "sw8",
+
         // Application-specific headers to forward.
         "end-user",
         "user-agent",
+
+        // Context and session specific headers
+        "cookie",
+        "authorization",
+        "jwt",
     };
 
     private String getJsonResponse (String productId, int starsReviewer1, int starsReviewer2) {
     	String result = "{";
     	result += "\"id\": \"" + productId + "\",";
+        result += "\"podname\": \"" + pod_hostname + "\",";
+        result += "\"clustername\": \"" + clustername + "\",";
     	result += "\"reviews\": [";
 
     	// reviewer 1:
@@ -108,7 +120,7 @@ public class LibertyRestEndpoint extends Application {
         }
       }
     	result += "},";
-    	
+
     	// reviewer 2:
     	result += "{";
     	result += "  \"reviewer\": \"Reviewer2\",";
@@ -122,13 +134,13 @@ public class LibertyRestEndpoint extends Application {
         }
       }
     	result += "}";
-    	
+
     	result += "]";
     	result += "}";
 
     	return result;
     }
-    
+
     private JsonObject getRatings(String productId, HttpHeaders requestHeaders) {
       ClientBuilder cb = ClientBuilder.newBuilder();
       Integer timeout = star_color.equals("black") ? 10000 : 2500;
@@ -187,7 +199,7 @@ public class LibertyRestEndpoint extends Application {
             }
           }
         }
-      } 
+      }
 
       String jsonResStr = getJsonResponse(Integer.toString(productId), starsReviewer1, starsReviewer2);
       return Response.ok().type(MediaType.APPLICATION_JSON).entity(jsonResStr).build();

@@ -3,8 +3,21 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "global": {
+      "type": "object"
+    },
     "affinity": {
       "type": "object"
+    },
+    "securityContext": {
+      "type": ["object", "null"]
+    },
+    "containerSecurityContext": {
+      "type": ["object", "null"]
+    },
+    "kind":{
+      "type": "string",
+      "enum": ["Deployment", "DaemonSet"]
     },
     "annotations": {
       "additionalProperties": {
@@ -33,7 +46,7 @@
       }
     },
     "env": {
-      "type": "array"
+      "type": "object"
     },
     "labels": {
       "type": "object"
@@ -96,6 +109,10 @@
     },
     "runAsRoot": {
       "type": "boolean"
+    },
+    "unprivilegedPort": {
+      "type": ["string", "boolean"],
+      "enum": [true, false, "auto"]
     },
     "service": {
       "type": "object",
@@ -162,8 +179,22 @@
     "tolerations": {
       "type": "array"
     },
+    "topologySpreadConstraints": {
+      "type": "array"
+    },
     "networkGateway": {
       "type": "string"
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

@@ -32,7 +32,7 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-primary", Network: "network-0"},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName: "auto-fill-primary",
 					ClusterKind: cluster.Fake,
@@ -40,13 +40,14 @@ func TestBuild(t *testing.T) {
 					PrimaryClusterName: "auto-fill-primary",
 					ConfigClusterName:  "auto-fill-primary",
 					Network:            "network-0",
+					ConfigMetadata:     config.Map{},
 				},
 			},
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-remote", PrimaryClusterName: "auto-fill-primary"},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName:        "auto-fill-remote",
 					ClusterKind:        cluster.Fake,
@@ -54,19 +55,21 @@ func TestBuild(t *testing.T) {
 					// The config cluster should match the primary cluster when not specified
 					ConfigClusterName: "auto-fill-primary",
 					Index:             1,
+					ConfigMetadata:    config.Map{},
 				},
 			},
 		},
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "external-istiod", ConfigClusterName: "remote-config"},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName:        "external-istiod",
 					ClusterKind:        cluster.Fake,
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
 					Index:              2,
+					ConfigMetadata:     config.Map{},
 				},
 			},
 		},
@@ -78,7 +81,7 @@ func TestBuild(t *testing.T) {
 				ConfigClusterName:  "remote-config",
 			},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName: "remote-config",
 					ClusterKind: cluster.Fake,
@@ -86,6 +89,7 @@ func TestBuild(t *testing.T) {
 					PrimaryClusterName: "external-istiod",
 					ConfigClusterName:  "remote-config",
 					Index:              3,
+					ConfigMetadata:     config.Map{},
 				},
 			},
 		},
@@ -137,7 +141,7 @@ func TestValidation(t *testing.T) {
 			{Kind: cluster.Fake, Name: "no-primary", ConfigClusterName: "does-not-exist"},
 		},
 		"vm without kube primary": {
-			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []interface{}{
+			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []any{
 				config.Map{
 					"service": "vm", "namespace": "echo", "instances": []config.Map{{"ip": "1.2.3.4"}},
 				},

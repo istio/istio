@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 38832
+
+releaseNotes:
+  - |
+    **Removed** the deprecated istio operator `remote.yaml` profile which is equivalent to the default profile.

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/35385
+
+releaseNotes:
+- |
+  **Added** the support of integrating with GKE workload certificates.

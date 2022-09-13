@@ -25,11 +25,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -143,18 +143,18 @@ func (o *K8sObject) ResolveK8sConflict() *K8sObject {
 }
 
 // Unstructured exposes the raw object content, primarily for testing
-func (o *K8sObject) Unstructured() map[string]interface{} {
+func (o *K8sObject) Unstructured() map[string]any {
 	return o.UnstructuredObject().UnstructuredContent()
 }
 
 // Container returns a container subtree for Deployment objects if one is found, or nil otherwise.
-func (o *K8sObject) Container(name string) map[string]interface{} {
+func (o *K8sObject) Container(name string) map[string]any {
 	u := o.Unstructured()
 	path := fmt.Sprintf("spec.template.spec.containers.[name:%s]", name)
 	node, f, err := tpath.GetPathContext(u, util.PathFromString(path), false)
 	if err == nil && f {
 		// Must be the type from the schema.
-		return node.Node.(map[string]interface{})
+		return node.Node.(map[string]any)
 	}
 	return nil
 }
@@ -386,12 +386,9 @@ func (os K8sObjects) ToNameKindMap() map[string]*K8sObject {
 	return ret
 }
 
-// Valid checks returns true if Kind and Name of K8sObject are both not empty.
+// Valid checks returns true if Kind of K8sObject is not empty.
 func (o *K8sObject) Valid() bool {
-	if o.Kind == "" || o.Name == "" {
-		return false
-	}
-	return true
+	return o.Kind != ""
 }
 
 // FullName returns namespace/name of K8s object
@@ -514,7 +511,7 @@ func ParseK8SYAMLToIstioOperator(yml string) (*v1alpha1.IstioOperator, *schema.G
 		return nil, nil, err
 	}
 	iop := &v1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(yml, iop, false); err != nil {
+	if err := yaml.UnmarshalStrict([]byte(yml), iop); err != nil {
 		return nil, nil, err
 	}
 	gvk := o.GroupVersionKind()
@@ -541,41 +538,44 @@ func AllObjectHashes(m string) map[string]bool {
 // parameters are mutually exclusive, care must be taken
 // to resolve the issue
 func resolvePDBConflict(o *K8sObject) *K8sObject {
-	if o.json != nil {
-		spec := o.object.Object["spec"].(map[string]interface{})
-		isDefault := func(item interface{}) bool {
-			var ii intstr.IntOrString
-			switch item := item.(type) {
-			case int:
-				ii = intstr.FromInt(item)
-			case int64:
-				ii = intstr.FromInt(int(item))
-			case string:
-				ii = intstr.FromString(item)
-			default:
-				ii = intstr.FromInt(0)
-			}
-			intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
-			if err != nil || intVal == 0 {
-				return true
-			}
-			return false
+	if o.json == nil {
+		return o
+	}
+	if o.object.Object["spec"] == nil {
+		return o
+	}
+	spec := o.object.Object["spec"].(map[string]any)
+	isDefault := func(item any) bool {
+		var ii intstr.IntOrString
+		switch item := item.(type) {
+		case int:
+			ii = intstr.FromInt(item)
+		case int64:
+			ii = intstr.FromInt(int(item))
+		case string:
+			ii = intstr.FromString(item)
+		default:
+			ii = intstr.FromInt(0)
 		}
-		if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
-			// When both maxUnavailable and minAvailable present and
-			// neither has value 0, this is considered a conflict,
-			// then maxUnavailale will take precedence.
-			if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
-				delete(spec, "minAvailable")
-				// Make sure that the json and yaml representation of the object
-				// is consistent with the changed object
-				o.json = nil
-				o.json, _ = o.JSON()
-				if o.yaml != nil {
-					o.yaml = nil
-					o.yaml, _ = o.YAML()
-				}
-				return o
+		intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
+		if err != nil || intVal == 0 {
+			return true
+		}
+		return false
+	}
+	if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
+		// When both maxUnavailable and minAvailable present and
+		// neither has value 0, this is considered a conflict,
+		// then maxUnavailale will take precedence.
+		if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
+			delete(spec, "minAvailable")
+			// Make sure that the json and yaml representation of the object
+			// is consistent with the changed object
+			o.json = nil
+			o.json, _ = o.JSON()
+			if o.yaml != nil {
+				o.yaml = nil
+				o.yaml, _ = o.YAML()
 			}
 		}
 	}

@@ -21,9 +21,9 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -163,7 +163,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
 		lbsetting := &networking.LocalityLoadBalancerSetting{
-			Enabled: &types.BoolValue{Value: false},
+			Enabled: &wrappers.BoolValue{Value: false},
 		}
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -527,8 +527,8 @@ func TestGetLocalityLbSetting(t *testing.T) {
 		{
 			"dr only override",
 			nil,
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 		{
 			"both",
@@ -538,21 +538,21 @@ func TestGetLocalityLbSetting(t *testing.T) {
 		},
 		{
 			"mesh disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
 			nil,
 			nil,
 		},
 		{
 			"dr disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
 			nil,
 		},
 		{
 			"dr enabled override mesh disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: false}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &types.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 	}
 	for _, tt := range cases {
@@ -566,22 +566,20 @@ func TestGetLocalityLbSetting(t *testing.T) {
 }
 
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
-		{
-			Hostname:       "test.example.org",
-			DefaultAddress: "1.1.1.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "default",
-					Port:     8080,
-					Protocol: protocol.HTTP,
-				},
+	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
+		Hostname:       "test.example.org",
+		DefaultAddress: "1.1.1.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
 			},
 		},
 	})
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -592,16 +590,15 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(meshConfig),
-	}
+	env := model.NewEnvironment()
+	env.ServiceDiscovery = serviceDiscovery
+	env.ConfigStore = configStore
+	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]config.Config{
+	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
@@ -620,22 +617,20 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 }
 
 func buildEnvForClustersWithFailover() *model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
-		{
-			Hostname:       "test.example.org",
-			DefaultAddress: "1.1.1.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "default",
-					Port:     8080,
-					Protocol: protocol.HTTP,
-				},
+	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
+		Hostname:       "test.example.org",
+		DefaultAddress: "1.1.1.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
 			},
 		},
 	})
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -651,16 +646,15 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(meshConfig),
-	}
+	env := model.NewEnvironment()
+	env.ServiceDiscovery = serviceDiscovery
+	env.ConfigStore = configStore
+	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]config.Config{
+	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
@@ -679,22 +673,20 @@ func buildEnvForClustersWithFailover() *model.Environment {
 }
 
 func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
-		{
-			Hostname:       "test.example.org",
-			DefaultAddress: "1.1.1.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "default",
-					Port:     8080,
-					Protocol: protocol.HTTP,
-				},
+	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
+		Hostname:       "test.example.org",
+		DefaultAddress: "1.1.1.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
 			},
 		},
 	})
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -705,16 +697,15 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
 
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(meshConfig),
-	}
+	env := model.NewEnvironment()
+	env.ServiceDiscovery = serviceDiscovery
+	env.ConfigStore = configStore
+	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]config.Config{
+	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),

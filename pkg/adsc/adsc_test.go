@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,16 +29,18 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"istio.io/api/label"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -405,19 +407,29 @@ func readFile(dir string, t *testing.T) string {
 }
 
 func TestADSC_handleMCP(t *testing.T) {
+	rev := "test-rev"
 	adsc := &ADSC{
 		VersionInfo: map[string]string{},
 		Store:       model.MakeIstioStore(memory.Make(collections.Pilot)),
+		cfg:         &Config{Revision: rev},
+	}
+
+	patchLabel := func(lbls map[string]string, name, value string) map[string]string {
+		if lbls == nil {
+			lbls = map[string]string{}
+		}
+		lbls[name] = value
+		return lbls
 	}
 
 	tests := []struct {
 		desc              string
-		resources         []*any.Any
+		resources         []*anypb.Any
 		expectedResources [][]string
 	}{
 		{
 			desc: "create-resources",
-			resources: []*any.Any{
+			resources: []*anypb.Any{
 				constructResource("foo1", "foo1.bar.com", "192.1.1.1", "1"),
 				constructResource("foo2", "foo2.bar.com", "192.1.1.2", "1"),
 			},
@@ -427,8 +439,40 @@ func TestADSC_handleMCP(t *testing.T) {
 			},
 		},
 		{
+			desc: "create-resources-rev-1",
+			resources: []*anypb.Any{
+				constructResource("foo1", "foo1.bar.com", "192.1.1.1", "1"),
+				constructResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.2", "1", func(resource *mcp.Resource) {
+					resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev+"wrong") // to del
+				}),
+				constructResourceWithOptions("foo3", "foo3.bar.com", "192.1.1.3", "1", func(resource *mcp.Resource) {
+					resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev) // to add
+				}),
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo3", "foo3.bar.com", "192.1.1.3"},
+			},
+		},
+		{
+			desc: "create-resources-rev-2",
+			resources: []*anypb.Any{
+				constructResource("foo1", "foo1.bar.com", "192.1.1.1", "1"),
+				constructResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.2", "1", func(resource *mcp.Resource) {
+					resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev) // to add back
+				}),
+				constructResourceWithOptions("foo3", "foo3.bar.com", "192.1.1.3", "1", func(resource *mcp.Resource) {
+					resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev+"wrong") // to del
+				}),
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
+			},
+		},
+		{
 			desc: "update-and-create-resources",
-			resources: []*any.Any{
+			resources: []*anypb.Any{
 				constructResource("foo1", "foo1.bar.com", "192.1.1.11", "2"),
 				constructResource("foo2", "foo2.bar.com", "192.1.1.22", "1"),
 				constructResource("foo3", "foo3.bar.com", "192.1.1.3", ""),
@@ -441,7 +485,7 @@ func TestADSC_handleMCP(t *testing.T) {
 		},
 		{
 			desc: "update-delete-and-create-resources",
-			resources: []*any.Any{
+			resources: []*anypb.Any{
 				constructResource("foo2", "foo2.bar.com", "192.1.1.222", "4"),
 				constructResource("foo4", "foo4.bar.com", "192.1.1.4", "1"),
 			},
@@ -452,7 +496,7 @@ func TestADSC_handleMCP(t *testing.T) {
 		},
 		{
 			desc: "update-and-delete-resources",
-			resources: []*any.Any{
+			resources: []*anypb.Any{
 				constructResource("foo2", "foo2.bar.com", "192.2.2.22", "3"),
 				constructResource("foo3", "foo3.bar.com", "192.1.1.33", ""),
 			},
@@ -491,23 +535,32 @@ func TestADSC_handleMCP(t *testing.T) {
 	}
 }
 
-func constructResource(name string, host string, address, version string) *any.Any {
+func constructResourceWithOptions(name string, host string, address, version string, options ...func(resource *mcp.Resource)) *anypb.Any {
 	service := &networking.ServiceEntry{
 		Hosts:     []string{host},
 		Addresses: []string{address},
 	}
-	seAny, _ := types.MarshalAny(service)
+	seAny := protoconv.MessageToAny(service)
 	resource := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       "default/" + name,
-			CreateTime: types.TimestampNow(),
+			CreateTime: timestamppb.Now(),
 			Version:    version,
 		},
 		Body: seAny,
 	}
-	resAny, _ := types.MarshalAny(resource)
-	return &any.Any{
+
+	for _, o := range options {
+		o(resource)
+	}
+
+	resAny := protoconv.MessageToAny(resource)
+	return &anypb.Any{
 		TypeUrl: resAny.TypeUrl,
 		Value:   resAny.Value,
 	}
+}
+
+func constructResource(name string, host string, address, version string) *anypb.Any {
+	return constructResourceWithOptions(name, host, address, version)
 }

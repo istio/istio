@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 )
 
 const (
@@ -120,7 +121,7 @@ func fillInDefaults(cfg *Config) {
 	if cfg.StopTimeout == 0 {
 		cfg.StopTimeout = defaultTimeout
 	}
-	if cfg.Options.Validator == nil {
-		cfg.Options.Validator = echo.ExpectOK()
+	if cfg.Options.Check == nil {
+		cfg.Options.Check = check.OK()
 	}
 }

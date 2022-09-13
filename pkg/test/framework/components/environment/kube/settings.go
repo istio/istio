@@ -17,6 +17,8 @@ package kube
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/config"
@@ -31,21 +33,30 @@ type clusterTopology = map[clusterIndex]clusterIndex
 
 // ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
-type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, error)
+type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.CLIClient, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
 	// An array of paths to kube config files. Required if the environment is kubernetes.
 	KubeConfig []string
 
-	// Indicates that the Ingress Gateway is not available. This typically happens in minikube. The Ingress
-	// component will fall back to node-port in this case.
-	minikube bool
-
 	// Indicates that the LoadBalancer services can obtain a public IP. If not, NodePort be used as a workaround
 	// for ingress gateway. KinD will not support LoadBalancer out of the box and requires a workaround such as
 	// MetalLB.
 	LoadBalancerSupported bool
+
+	// Architecture indicates the architecture of the cluster under test
+	Architecture string
+
+	// MCSControllerEnabled indicates that the Kubernetes environment has a Multi-Cluster Services (MCS)
+	// controller up and running.
+	MCSControllerEnabled bool
+
+	// MCSAPIGroup the group to use for the MCS API
+	MCSAPIGroup string
+
+	// MCSAPIVersion the version to use for the MCS API
+	MCSAPIVersion string
 
 	// controlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
@@ -205,14 +216,30 @@ func replaceKubeconfigs(configs []cluster.Config, kubeconfigs []string) ([]clust
 	return out, nil
 }
 
+func (s *Settings) MCSAPIGroupVersion() schema.GroupVersion {
+	return schema.GroupVersion{
+		Group:   s.MCSAPIGroup,
+		Version: s.MCSAPIVersion,
+	}
+}
+
+func (s *Settings) ServiceExportGVR() schema.GroupVersionResource {
+	return s.MCSAPIGroupVersion().WithResource("serviceexports")
+}
+
+func (s *Settings) ServiceImportGVR() schema.GroupVersionResource {
+	return s.MCSAPIGroupVersion().WithResource("serviceimports")
+}
+
 // String implements fmt.Stringer
 func (s *Settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("Kubeconfigs:           %s\n", s.KubeConfig)
-	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
-	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.controlPlaneTopology)
-	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
-	result += fmt.Sprintf("ConfigTopology:      %v\n", s.configTopology)
+	result += fmt.Sprintf("LoadBalancerSupported: %v\n", s.LoadBalancerSupported)
+	result += fmt.Sprintf("MCSControllerEnabled:  %v\n", s.MCSControllerEnabled)
+	result += fmt.Sprintf("ControlPlaneTopology:  %v\n", s.controlPlaneTopology)
+	result += fmt.Sprintf("NetworkTopology:       %v\n", s.networkTopology)
+	result += fmt.Sprintf("ConfigTopology:        %v\n", s.configTopology)
 	return result
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,9 @@ package authenticate
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
-	oidc "github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/security"
@@ -45,7 +44,7 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuth
 	issuer := jwtRule.GetIssuer()
 	jwksURL := jwtRule.GetJwksUri()
 	// The key of a JWT issuer may change, so the key may need to be updated.
-	// Based on https://godoc.org/github.com/coreos/go-oidc#NewRemoteKeySet,
+	// Based on https://pkg.go.dev/github.com/coreos/go-oidc/v3/oidc#NewRemoteKeySet
 	// the oidc library handles caching and cache invalidation. Thus, the verifier
 	// is only created once in the constructor.
 	var verifier *oidc.IDTokenVerifier
@@ -68,22 +67,23 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuth
 	}, nil
 }
 
-func (j *JwtAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	targetJWT, err := security.ExtractRequestToken(req)
-	if err != nil {
-		return nil, fmt.Errorf("target JWT extraction error: %v", err)
-	}
-	return j.authenticate(req.Context(), targetJWT)
-}
-
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
-func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
-	bearerToken, err := security.ExtractBearerToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("ID token extraction error: %v", err)
+func (j *JwtAuthenticator) Authenticate(authRequest security.AuthContext) (*security.Caller, error) {
+	if authRequest.GrpcContext != nil {
+		bearerToken, err := security.ExtractBearerToken(authRequest.GrpcContext)
+		if err != nil {
+			return nil, fmt.Errorf("ID token extraction error: %v", err)
+		}
+		return j.authenticate(authRequest.GrpcContext, bearerToken)
 	}
-
-	return j.authenticate(ctx, bearerToken)
+	if authRequest.Request != nil {
+		bearerToken, err := security.ExtractRequestToken(authRequest.Request)
+		if err != nil {
+			return nil, fmt.Errorf("target JWT extraction error: %v", err)
+		}
+		return j.authenticate(authRequest.Request.Context(), bearerToken)
+	}
+	return nil, nil
 }
 
 func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string) (*security.Caller, error) {
@@ -92,7 +92,7 @@ func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string)
 		return nil, fmt.Errorf("failed to verify the JWT token (error %v)", err)
 	}
 
-	sa := &JwtPayload{}
+	sa := JwtPayload{}
 	// "aud" for trust domain, "sub" has "system:serviceaccount:$namespace:$serviceaccount".
 	// in future trust domain may use another field as a standard is defined.
 	if err := idToken.Claims(&sa); err != nil {

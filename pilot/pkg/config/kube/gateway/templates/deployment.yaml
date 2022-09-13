@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration") | nindent 4 }}
+  labels:
+    {{ toYamlMap .Labels
+      (strdict "gateway.istio.io/managed" "istio.io-gateway-controller")
+      | nindent 4}}
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1alpha2
+    kind: Gateway
+    name: {{.Name}}
+    uid: {{.UID}}
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: {{.Name}}
+  template:
+    metadata:
+      annotations:
+        {{ toYamlMap
+          (strdict "inject.istio.io/templates" "gateway")
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration")
+          | nindent 8}}
+      labels:
+        {{ toYamlMap
+          (strdict "sidecar.istio.io/inject" "true")
+          (strdict "istio.io/gateway-name" .Name)
+          .Labels
+          | nindent 8}}
+    spec:
+      {{- if .KubeVersion122 }}
+      {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      {{- end }}
+      containers:
+      - image: auto
+        name: istio-proxy
+        securityContext:
+        {{- if .KubeVersion122 }}
+          # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+          capabilities:
+            drop:
+            - ALL
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+        {{- else }}
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+          runAsUser: 0
+          runAsGroup: 1337
+          runAsNonRoot: false
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: true
+        {{- end }}
+        ports:
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
+        {{- with (index .Labels "topology.istio.io/network") }}
+        env:
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: {{.|quote}}
+        {{- end }}
+        readinessProbe:
+          failureThreshold: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+          periodSeconds: 2
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+

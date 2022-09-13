@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/monitoring"
 )
 
@@ -118,6 +118,12 @@ var (
 	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
+	debounceTime = monitoring.NewDistribution(
+		"pilot_debounce_time",
+		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue.",
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+	)
+
 	pushContextInitTime = monitoring.NewDistribution(
 		"pilot_pushcontext_init_seconds",
 		"Total time in seconds Pilot takes to init pushContext.",
@@ -137,7 +143,6 @@ var (
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
-	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
 		"Time in seconds, a proxy is in the push queue before being dequeued.",
@@ -150,7 +155,6 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
@@ -215,6 +219,7 @@ var triggerMetric = map[model.TriggerReason]monitoring.Metric{
 	model.NetworksTrigger: pushTriggers.With(typeTag.Value(string(model.NetworksTrigger))),
 	model.ProxyRequest:    pushTriggers.With(typeTag.Value(string(model.ProxyRequest))),
 	model.NamespaceUpdate: pushTriggers.With(typeTag.Value(string(model.NamespaceUpdate))),
+	model.ClusterUpdate:   pushTriggers.With(typeTag.Value(string(model.ClusterUpdate))),
 }
 
 func recordPushTriggers(reasons ...model.TriggerReason) {
@@ -291,6 +296,8 @@ func init() {
 		xdsClients,
 		xdsResponseWriteTimeouts,
 		pushes,
+		debounceTime,
+		pushContextInitTime,
 		pushTime,
 		proxiesConvergeDelay,
 		proxiesQueueTime,

@@ -15,21 +15,21 @@
 package crd
 
 import (
-	"reflect"
 	"testing"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
-	config2 "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]any{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
-	config := config2.Config{
-		Meta: config2.Meta{
+	cfg := config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "test",
 			Namespace:        "default",
@@ -39,14 +39,14 @@ func TestConvert(t *testing.T) {
 			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec: mock.ExampleVirtualService,
-		Status: v1alpha1.IstioStatus{
+		Status: &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{
 				{Type: "Health"},
 			},
 		},
 	}
 
-	obj, err := ConvertConfig(config)
+	obj, err := ConvertConfig(cfg)
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
@@ -54,9 +54,7 @@ func TestConvert(t *testing.T) {
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}
-	if !reflect.DeepEqual(&config, got) {
-		t.Errorf("ConvertObject(ConvertConfig(%#v)) => got %#v", config, got)
-	}
+	assert.Equal(t, &cfg, got)
 }
 
 func TestParseInputs(t *testing.T) {

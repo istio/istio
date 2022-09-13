@@ -25,13 +25,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -48,14 +49,15 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 		iop := &v1alpha1.IstioOperator{}
-		if err := util.UnmarshalWithJSONPB(string(iopStr), iop, false); err != nil {
+		if err := yaml.UnmarshalStrict(iopStr, iop); err != nil {
 			t.Fatal(err)
 		}
 		iop.Spec.Revision = testRevision
 		iop.Spec.InstallPackagePath = filepath.Join(env.IstioSrc, "manifests")
 
 		h := &HelmReconciler{
-			client: cl,
+			client:     cl,
+			kubeClient: kube.NewFakeClientWithVersion("24"),
 			opts: &Options{
 				ProgressLog: progress.NewLog(),
 				Log:         clog.NewDefaultLogger(),
@@ -72,7 +74,7 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 		if err := h.DeleteControlPlaneByManifests(manifestMap, testRevision, false); err != nil {
 			t.Fatalf("HelmReconciler.DeleteControlPlaneByManifests() error = %v", err)
 		}
-		for _, gvk := range append(NamespacedResources, ClusterCPResources...) {
+		for _, gvk := range append(h.NamespacedResources(), ClusterCPResources...) {
 			receiver := &unstructured.Unstructured{}
 			receiver.SetGroupVersionKind(schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind})
 			objKey := client.ObjectKey{Namespace: "istio-system", Name: "istiod-test"}

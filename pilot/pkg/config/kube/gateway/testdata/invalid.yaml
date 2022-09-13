@@ -3,7 +3,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -11,6 +11,9 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -43,6 +46,9 @@ metadata:
   name: target-port-reference
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -59,7 +65,7 @@ spec:
   gatewayClassName: istio
   addresses:
   - value: 1.2.3.4
-    type: IPAddress
+    type: istio.io/FakeType
   listeners:
   - name: default
     hostname: "*.domain.example"
@@ -72,6 +78,9 @@ metadata:
   name: invalid-tls
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -80,8 +89,8 @@ spec:
     protocol: HTTPS
     tls:
       mode: Terminate
-      certificateRef:
-        name: my-cert-http
+      certificateRefs:
+      - name: my-cert-http
         group: core
         kind: unknown
 ---
@@ -105,7 +114,22 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
-  name: invalid-backendRef
+  name: invalid-backendRef-kind
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["first.domain.example"]
+  rules:
+  - backendRefs:
+    - name: httpbin
+      kind: GcsBucket
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: invalid-backendRef-notfound
   namespace: default
 spec:
   parentRefs:
@@ -114,8 +138,30 @@ spec:
   hostnames: ["second.domain.example"]
   rules:
   - backendRefs:
+    - name: nonexistent
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: invalid-backendRef-mixed
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["third.domain.example"]
+  rules:
+  - backendRefs:
+    - name: nonexistent
+      port: 80
+      weight: 1
+    - name: httpbin
+      port: 80
+      weight: 1
     - name: httpbin
       kind: GcsBucket
+      weight: 1
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute

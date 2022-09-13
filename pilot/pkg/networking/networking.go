@@ -40,12 +40,13 @@ const (
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(p protocol.Instance,
-	trafficDirection core.TrafficDirection) ListenerProtocol {
+	trafficDirection core.TrafficDirection,
+) ListenerProtocol {
 	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
+		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
@@ -102,76 +103,30 @@ type FilterChain struct {
 	FilterChainMatch *listener.FilterChainMatch
 	// TLSContext is the TLS settings for this filter chains.
 	TLSContext *tls.DownstreamTlsContext
-	// ListenerFilters are the filters needed for the whole listener, not particular to this
-	// filter chain.
-	ListenerFilters []*listener.ListenerFilter
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
 	// TransportProtocol indicates the type of transport used - TCP, UDP, QUIC
 	// This would be TCP by default
 	TransportProtocol TransportProtocol
-	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
-	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
-	// This allows the authN plugin to add the istio_authn filter to gateways in addition to sidecars.
-	IstioMutualGateway bool
 
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
-	// IsFallthrough indicates if the filter chain is fallthrough.
-	IsFallThrough bool
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
 // Any lists should not be overridden, but rather only appended to.
 // Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
 // chain in unpredictable ways.
+// TODO: do we need this now?
 type MutableObjects struct {
 	// Listener is the listener being built. Must be initialized before Plugin methods are called.
 	Listener *listener.Listener
 
 	// FilterChains is the set of filter chains that will be attached to Listener.
 	FilterChains []FilterChain
-}
-
-const (
-	NoTunnelTypeName = "notunnel"
-	H2TunnelTypeName = "H2Tunnel"
-)
-
-type (
-	TunnelType    int
-	TunnelAbility int
-)
-
-const (
-	// Bind the no tunnel support to a name.
-	NoTunnel TunnelType = 0
-	// Enumeration of tunnel type below. Each type should own a unique bit field.
-	H2Tunnel TunnelType = 1 << 0
-)
-
-func MakeTunnelAbility(ttypes ...TunnelType) TunnelAbility {
-	ability := int(NoTunnel)
-	for _, tunnelType := range ttypes {
-		ability |= int(tunnelType)
-	}
-	return TunnelAbility(ability)
-}
-
-func (t TunnelType) ToString() string {
-	switch t {
-	case H2Tunnel:
-		return H2TunnelTypeName
-	default:
-		return NoTunnelTypeName
-	}
-}
-
-func (t TunnelAbility) SupportH2Tunnel() bool {
-	return (int(t) & int(H2Tunnel)) != 0
 }
 
 // ListenerClass defines the class of the listener

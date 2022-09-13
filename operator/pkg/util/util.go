@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type FileFilter func(fileName string) bool
@@ -85,8 +87,8 @@ func FindFiles(path string, filter FileFilter) ([]string, error) {
 }
 
 // ParseValue parses string into a value
-func ParseValue(valueStr string) interface{} {
-	var value interface{}
+func ParseValue(valueStr string) any {
+	var value any
 	if v, err := strconv.Atoi(valueStr); err == nil {
 		value = v
 	} else if v, err := strconv.ParseFloat(valueStr, 64); err == nil {
@@ -127,7 +129,7 @@ func ConsolidateLog(logMessage string) string {
 }
 
 // RenderTemplate is a helper method to render a template with the given values.
-func RenderTemplate(tmpl string, ts interface{}) (string, error) {
+func RenderTemplate(tmpl string, ts any) (string, error) {
 	t, err := template.New("").Parse(tmpl)
 	if err != nil {
 		return "", err
@@ -138,4 +140,20 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func ValueString(v *structpb.Value) string {
+	switch x := v.Kind.(type) {
+	case *structpb.Value_StringValue:
+		return x.StringValue
+	case *structpb.Value_NumberValue:
+		return fmt.Sprint(x.NumberValue)
+	default:
+		return v.String()
+	}
+}
+
+func MustStruct(m map[string]any) *structpb.Struct {
+	s, _ := structpb.NewStruct(m)
+	return s
 }

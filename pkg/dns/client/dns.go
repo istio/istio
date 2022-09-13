@@ -15,6 +15,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -52,7 +54,8 @@ type LocalDNSServer struct {
 	proxyDomain      string
 	proxyDomainParts []string
 
-	respondBeforeSync bool
+	respondBeforeSync         bool
+	forwardToUpstreamParallel bool
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -81,9 +84,10 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
-		proxyNamespace: proxyNamespace,
+		proxyNamespace:            proxyNamespace,
+		forwardToUpstreamParallel: forwardToUpstreamParallel,
 	}
 
 	registerStats()
@@ -173,7 +177,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalD
 	return h, nil
 }
 
-// StartDNS starts the DNS-over-UDP downstreamUDPServer.
+// StartDNS starts DNS-over-UDP and DNS-over-TCP servers.
 func (h *LocalDNSServer) StartDNS() {
 	for _, p := range h.dnsProxies {
 		go p.start()
@@ -187,30 +191,41 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
 	}
+	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
+	h.lookupTable.Store(lookupTable)
+	h.nameTable.Store(nt)
+	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
+}
+
+// BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
+// calls the passed in function with the built alternate hosts.
+func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
+	apply func(map[string]struct{}, []net.IP, []net.IP, []string),
+) {
 	for hostname, ni := range nt.Table {
 		// Given a host
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
 		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
-		var altHosts map[string]struct{}
+		var altHosts sets.Set
 		if ni.Registry == string(provider.Kubernetes) {
 			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
-			altHosts = map[string]struct{}{hostname + ".": {}}
+			if !strings.HasSuffix(hostname, ".") {
+				hostname += "."
+			}
+			altHosts = sets.New(hostname)
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {
 			// malformed ips
 			continue
 		}
-		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6, h.searchNamespaces)
+		apply(altHosts, ipv4, ipv6, h.searchNamespaces)
 	}
-	h.lookupTable.Store(lookupTable)
-	h.nameTable.Store(nt)
-	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
-// upstrem sends the requeset to the upstream server, with associated logs and metrics
+// upstream sends the request to the upstream server, with associated logs and metrics
 func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string) *dns.Msg {
 	upstreamRequests.Increment()
 	start := time.Now()
@@ -278,7 +293,9 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		// Randomize the responses; this ensures for things like headless services we can do DNS-LB
 		// This matches standard kube-dns behavior. We only do this for cached responses as the
 		// upstream DNS server would already round robin if desired.
-		roundRobinResponse(response)
+		if len(answers) > 0 {
+			roundRobinResponse(response)
+		}
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
 	} else {
 		response = h.upstream(proxy, req, hostname)
@@ -371,30 +388,94 @@ func (h *LocalDNSServer) Close() {
 	}
 }
 
-// TODO: Figure out how to send parallel queries to all nameservers
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
+	if h.forwardToUpstreamParallel {
+		return h.queryUpstreamParallel(upstreamClient, req, scope)
+	}
+
 	var response *dns.Msg
+
 	for _, upstream := range h.resolvConfServers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
 			break
-		} else {
-			scope.Infof("upstream failure: %v", err)
+		}
+		scope.Infof("upstream failure: %v", err)
+	}
+
+	if response == nil {
+		response = serverFailure(req)
+	}
+	return response
+}
+
+// queryUpstreamParallel will send parallel queries to all nameservers and return first successful response immediately.
+// The overall approach of parallel resolution is likely not widespread, but there are already some widely used
+// clients support it:
+//
+//   - dnsmasq: setting flag '--all-servers' forces dnsmasq to send all queries to all available servers. The reply from
+//     the server which answers first will be returned to the original requester.
+//   - tailscale: will either proxy all DNS requests—in which case we query all nameservers in parallel and use the quickest
+//     response—or defer to the operating system, which we have no control over.
+//   - systemd-resolved: which is used as a default resolver in many Linux distributions nowadays also performs parallel
+//     lookups for multiple DNS servers and returns the first successful response.
+func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
+	// Guarantee that the ctx we use below is done when this function returns.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	responseCh := make(chan *dns.Msg)
+	errCh := make(chan error)
+
+	queryOne := func(upstream string) {
+		// Note: After DialContext in ExchangeContext is called, this function cannot be cancelled by context.
+		cResponse, _, err := upstreamClient.ExchangeContext(ctx, req, upstream)
+		if err == nil {
+			// Only reserve first response and ignore others.
+			select {
+			case responseCh <- cResponse:
+			case <-ctx.Done():
+			}
+			return
+		}
+		scope.Infof("parallel querying upstream failure: %v", err)
+		select {
+		case errCh <- err:
+		case <-ctx.Done():
 		}
 	}
-	if response == nil {
-		failures.Increment()
-		response = new(dns.Msg)
-		response.SetReply(req)
-		response.Rcode = dns.RcodeServerFailure
+
+	for _, upstream := range h.resolvConfServers {
+		go queryOne(upstream)
 	}
+
+	errorsCount := 0
+	for {
+		select {
+		case response := <-responseCh:
+			// We got the first response.
+			return response
+		case <-errCh:
+			errorsCount++
+			// All servers returned error - return failure.
+			if errorsCount == len(h.resolvConfServers) {
+				scope.Infof("all upstream failed")
+				return serverFailure(req)
+			}
+		}
+	}
+}
+
+func serverFailure(req *dns.Msg) *dns.Msg {
+	response := new(dns.Msg)
+	response.SetReply(req)
+	response.Rcode = dns.RcodeServerFailure
 	return response
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	for _, ip := range ips {
-
 		addr := net.ParseIP(ip)
 		if addr == nil {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)
@@ -410,27 +491,29 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 }
 
 func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string) map[string]struct{} {
-	out := make(map[string]struct{})
-	out[hostname+"."] = struct{}{}
+	proxyDomainParts []string,
+) sets.Set {
+	out := sets.New()
+	out.Insert(hostname + ".")
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
 	if proxyDomain == "" || !strings.HasSuffix(hostname, proxyDomain) {
 		return out
 	}
-	out[nameinfo.Shortname+"."+nameinfo.Namespace+"."] = struct{}{}
+	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + ".")
 	if proxyNamespace == nameinfo.Namespace {
-		out[nameinfo.Shortname+"."] = struct{}{}
+		out.Insert(nameinfo.Shortname + ".")
 	}
 	// Do we need to generate entries for name.namespace.svc, name.namespace.svc.cluster, etc. ?
 	// If these are not that frequently used, then not doing so here will save some space and time
 	// as some people have very long proxy domains with multiple dots
 	// For now, we will generate just one more domain (which is usually the .svc piece).
-	out[nameinfo.Shortname+"."+nameinfo.Namespace+"."+proxyDomainParts[0]+"."] = struct{}{}
+	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + "." + proxyDomainParts[0] + ".")
 
 	// Add any additional alt hostnames.
+	// nolint: staticcheck
 	for _, altHost := range nameinfo.AltHosts {
-		out[altHost+"."] = struct{}{}
+		out.Insert(altHost + ".")
 	}
 	return out
 }
@@ -474,6 +557,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		hostname = cn[0].(*dns.CNAME).Target
 	}
 	var ipAnswers []dns.RR
+	var wcAnswers []dns.RR
 	switch qtype {
 	case dns.TypeA:
 		ipAnswers = table.name4[hostname]
@@ -488,7 +572,9 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		// For wildcard hosts, set the host that is being queried for.
 		if wildcard {
 			for _, answer := range ipAnswers {
-				answer.Header().Name = string(question)
+				copied := dns.Copy(answer)
+				copied.Header().Name = string(question)
+				wcAnswers = append(wcAnswers, copied)
 			}
 		}
 		// We will return a chained response. In a chained response, the first entry is the cname record,
@@ -497,7 +583,11 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		// big DNS response (presumably assuming that a recursive DNS query should do the deed, resolve
 		// cname et al and return the composite response).
 		out = append(out, cn...)
-		out = append(out, ipAnswers...)
+		if wildcard {
+			out = append(out, wcAnswers...)
+		} else {
+			out = append(out, ipAnswers...)
+		}
 	}
 	return out, hostFound
 }

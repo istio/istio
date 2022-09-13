@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/36499
+releaseNotes:
+  - |
+    **Fixed** an issue where TcpKeepalive setting at mesh config is not honored.

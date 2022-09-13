@@ -19,16 +19,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestServer(t *testing.T) {
 	router := http.NewServeMux()
 	isReady := initRouter(router)
 
-	assert.Falsef(t, isReady.Load().(bool), "isReady should be initialized to false")
+	assert.Equal(t, isReady.Load(), false)
 
 	server := httptest.NewServer(router)
 	defer server.Close()
@@ -37,13 +36,13 @@ func TestServer(t *testing.T) {
 	makeReq(t, server.URL, constants.ReadinessEndpoint, http.StatusServiceUnavailable)
 
 	SetReady(isReady)
-	assert.Truef(t, isReady.Load().(bool), "isReady should be set to true")
+	assert.Equal(t, isReady.Load(), true)
 
 	makeReq(t, server.URL, constants.LivenessEndpoint, http.StatusOK)
 	makeReq(t, server.URL, constants.ReadinessEndpoint, http.StatusOK)
 
 	SetNotReady(isReady)
-	assert.Falsef(t, isReady.Load().(bool), "isReady should be set to false")
+	assert.Equal(t, isReady.Load(), false)
 
 	makeReq(t, server.URL, constants.LivenessEndpoint, http.StatusOK)
 	makeReq(t, server.URL, constants.ReadinessEndpoint, http.StatusServiceUnavailable)

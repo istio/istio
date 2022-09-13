@@ -18,8 +18,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 const (

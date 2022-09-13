@@ -21,10 +21,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
+	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/pkg/env"
 )
 
@@ -38,7 +38,7 @@ const (
 var (
 	MsgOutputFormatKeys = []string{LogFormat, JSONFormat, YAMLFormat}
 	MsgOutputFormats    = make(map[string]bool)
-	termEnvVar          = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
+	termEnvVar          = env.Register("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 )
 
 func init() {

@@ -24,7 +24,7 @@ import (
 
 func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
 	return &status.Options{
-		IPv6:           IsIPv6Proxy(proxy.IPAddresses),
+		IPv6:           proxy.IsIPv6(),
 		PodIP:          InstanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:     uint16(proxyConfig.StatusPort),

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,6 @@ import (
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -86,9 +85,8 @@ func TestNDS(t *testing.T) {
 				},
 			})
 
-			var nt dnsProto.NameTable
-			// nolint: staticcheck
-			err := ptypes.UnmarshalAny(res.Resources[0], &nt)
+			nt := &dnsProto.NameTable{}
+			err := res.Resources[0].UnmarshalTo(nt)
 			if err != nil {
 				t.Fatal("Failed to unmarshal name table", err)
 				return

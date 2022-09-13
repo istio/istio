@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -32,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
@@ -130,8 +130,11 @@ type admitFunc func(*kube.AdmissionRequest) *kube.AdmissionResponse
 func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	var body []byte
 	if r.Body != nil {
-		if data, err := io.ReadAll(r.Body); err == nil {
+		if data, err := kube.HTTPConfigReader(r); err == nil {
 			body = data
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 	}
 	if len(body) == 0 {
@@ -212,14 +215,16 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 
 	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
 	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" &&
+		// ProxyConfig CR is stored as v1beta1 since it was introduced as v1beta1
+		gvk.Kind != collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().Kind() {
 		gvk.Version = "v1alpha3"
 	}
 	s, exists := wh.schemas.FindByGroupVersionKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
-		scope.Infof("unrecognized type %v", obj.Kind)
+		scope.Infof("unrecognized type %v", obj.GroupVersionKind())
 		reportValidationFailed(request, reasonUnknownType)
-		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
+		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.GroupVersionKind()))
 	}
 
 	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)

@@ -20,15 +20,13 @@ package eccsignaturealgorithm
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
+	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
@@ -63,39 +61,31 @@ func TestStrictMTLS(t *testing.T) {
 		NewTest(t).
 		Features("security.peer.ecc-signature-algorithm").
 		Run(func(t framework.TestContext) {
-			peerTemplate := tmpl.EvaluateOrFail(t, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), peerTemplate)
-			util.WaitForConfig(t, apps.Namespace, peerTemplate)
+			ns := apps.EchoNamespace.Namespace.Name()
+			args := map[string]string{"AppNamespace": ns}
+			t.ConfigIstio().Eval(ns, args, PeerAuthenticationConfig).ApplyOrFail(t, apply.Wait)
+			t.ConfigIstio().Eval(ns, args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, apply.Wait)
 
-			drTemplate := tmpl.EvaluateOrFail(t, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), drTemplate)
-			util.WaitForConfig(t, apps.Namespace, drTemplate)
-
-			response := apps.Client.CallOrFail(t, echo.CallOptions{
-				Target:   apps.Server,
-				PortName: "http",
-				Scheme:   scheme.HTTP,
-				Count:    1,
+			client := apps.EchoNamespace.A[0]
+			server := apps.EchoNamespace.B[0]
+			client.CallOrFail(t, echo.CallOptions{
+				To: server,
+				Port: echo.Port{
+					Name: "http",
+				},
+				Count: 1,
+				Check: check.OK(),
 			})
 
-			if err := response.CheckOK(); err != nil {
-				t.Fatalf("client could not reach server: %v", err)
-			}
-
-			kubeconfig := (t.Clusters().Default().(*kube.Cluster)).Filename()
-			target := fmt.Sprintf("server.%s:8091", apps.Namespace.Name())
-			certPEM, err := cert.DumpCertFromSidecar(apps.Namespace, "app=client", "istio-proxy", kubeconfig, target)
-			if err != nil {
-				t.Fatalf("client could not get certificate from server: %v", err)
-			}
-			block, _ := pem.Decode([]byte(certPEM))
+			certPEMs := cert.DumpCertFromSidecar(t, client, server, "http")
+			block, _ := pem.Decode([]byte(strings.Join(certPEMs, "\n")))
 			if block == nil { // nolint: staticcheck
 				t.Fatalf("failed to parse certificate PEM")
 			}
 
-			certificate, parseErr := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
+			certificate, err := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
 			if err != nil {
-				t.Fatalf("failed to parse certificate: %v", parseErr)
+				t.Fatalf("failed to parse certificate: %v", err)
 			}
 
 			if certificate.PublicKeyAlgorithm != x509.ECDSA {
