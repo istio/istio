@@ -54,7 +54,7 @@ func (s *Server) newConfigMapWatcher() {
 
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
-		controllers.WithReconciler(s.Reconciler),
+		controllers.WithReconciler(s.Reconcile),
 		controllers.WithMaxAttempts(5),
 	)
 
@@ -81,7 +81,7 @@ func (s *Server) ReconcileNamespaces() {
 	}
 }
 
-func (s *Server) Reconciler(name types.NamespacedName) error {
+func (s *Server) Reconcile(name types.NamespacedName) error {
 	// If ztunnel is not running, we won't requeue the namespace as it will be requeued after ztunnel comes online...
 	// let's do this to cleanup the logs a bit and drop an info message
 	if !s.isZTunnelRunning() {

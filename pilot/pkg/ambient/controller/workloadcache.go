@@ -36,7 +36,7 @@ type workloadCache struct {
 	pods    func(namespace string) v1.PodInterface
 }
 
-func initWorkloadCache(opts *Options) *workloadCache {
+func initWorkloadCache(opts Options) *workloadCache {
 	wc := &workloadCache{
 		xds:  opts.xds,
 		pods: opts.Client.Kube().CoreV1().Pods,

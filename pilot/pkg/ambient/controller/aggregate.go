@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -118,21 +119,26 @@ func (a *Aggregate) clusterAdded(cluster *multicluster.Cluster, stop <-chan stru
 
 	// don't modify remote clusters, just find their waypoint proxies and Pods
 	opts.LocalCluster = a.localCluster == cluster.ID
-
-	a.clusters[cluster.ID] = initForCluster(&opts)
+	a.clusters[cluster.ID] = initForCluster(opts)
 	return nil
 }
 
-func initForCluster(opts *Options) *ambientController {
+func initForCluster(opts Options) *ambientController {
 	if opts.LocalCluster {
-		// TODO handle istiodless remote clusters
-		initAutolabel(opts)
-		go func() {
-			if crdclient.WaitForCRD(gvk.KubernetesGateway, opts.Stop) {
-				waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
-				waypointController.Run(opts.Stop)
-			}
-		}()
+		election := leaderelection.
+			NewLeaderElection(opts.SystemNamespace, "pod name ", leaderelection.NamespaceController, "", opts.Client).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				// TODO handle istiodless remote clusters
+				// copy to reset stop channel
+				opt := opts
+				opt.Stop = leaderStop
+				initAutolabel(opt)
+				if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+					waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+					waypointController.Run(leaderStop)
+				}
+			})
+		go election.Run(opts.Stop)
 	}
 	return &ambientController{
 		workloads: initWorkloadCache(opts),
