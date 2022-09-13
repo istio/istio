@@ -177,9 +177,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if !opts.DisableAmbient {
 		ambient = controller.NewAggregate("istio-system", opts.DefaultClusterName, webhookConfigNoop, s, true)
 	}
-	if opts.DisableSecretAuthorization {
-		disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
-	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
@@ -204,6 +201,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
+			if opts.DisableSecretAuthorization {
+				disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
+			}
 			defaultKubeController = k8s
 		} else {
 			client.RunAndWait(stop)
