@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -26,6 +27,7 @@ import (
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -430,7 +432,11 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 		return nil
 	}
 	attrList := make([]*otlpcommon.KeyValue, 0, len(labels))
-	for key, value := range labels {
+	// Sort keys to ensure stable XDS generation
+	keys := maps.Keys(labels)
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := labels[key]
 		kv := &otlpcommon.KeyValue{
 			Key:   key,
 			Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: value.GetStringValue()}},
