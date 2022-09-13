@@ -1,13 +1,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: otel-collector-conf
+  name: opentelemetry-collector-conf
   namespace: istio-system
   labels:
-    app: otel-collector
+    app: opentelemetry-collector
 data:
-  otel-collector-config: |
+  opentelemetry-collector-config: |
     receivers:
+      opencensus:
+        endpoint: 0.0.0.0:55678
       otlp:
         protocols:
           grpc:
@@ -15,44 +17,58 @@ data:
     processors:
       batch:
     exporters:
+      zipkin:
+        # Export to zipkin for easy querying
+        endpoint: http://zipkin.istio-system.svc:9411/api/v2/spans
       logging:
         loglevel: debug
+    extensions:
+      health_check:
+        port: 13133
     service:
+      extensions:
+      - health_check
       pipelines:
         logs:
           receivers: [otlp]
           processors: [batch]
           exporters: [logging]
+        traces:
+          receivers:
+          - opencensus
+          exporters:
+          - zipkin
+          - logging
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: otel-collector
+  name: opentelemetry-collector
   namespace: istio-system
   labels:
-    app: otel-collector
+    app: opentelemetry-collector
 spec:
   ports:
+    - name: grpc-opencensus
+      port: 55678
+      protocol: TCP
+      targetPort: 55678
     - name: grpc-otlp # Default endpoint for OpenTelemetry receiver.
       port: 4317
       protocol: TCP
       targetPort: 4317
   selector:
-    app: otel-collector
+    app: opentelemetry-collector
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: otel-collector
+  name: opentelemetry-collector
   namespace: istio-system
 spec:
-  minReadySeconds: 5
-  progressDeadlineSeconds: 120
-  replicas: 1
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: otel-collector
+      app: opentelemetry-collector
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -61,13 +77,13 @@ spec:
   template:
     metadata:
       labels:
-        app: otel-collector
+        app: opentelemetry-collector
         sidecar.istio.io/inject: "false" # do not inject
     spec:
       containers:
         - command:
             - "/otelcol"
-            - "--config=/conf/otel-collector-config.yaml"
+            - "--config=/conf/opentelemetry-collector-config.yaml"
           env:
             - name: POD_NAME
               valueFrom:
@@ -81,9 +97,12 @@ spec:
                   fieldPath: metadata.namespace
           image: otel/opentelemetry-collector:0.54.0
           imagePullPolicy: IfNotPresent
-          name: otel-collector
+          name: opentelemetry-collector
           ports:
             - containerPort: 4317
+              protocol: TCP
+            - name: grpc-opencensus
+              containerPort: 55678
               protocol: TCP
           resources:
             limits:
@@ -95,7 +114,7 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
-            - name: otel-collector-config-vol
+            - name: opentelemetry-collector-config-vol
               mountPath: /conf
       dnsPolicy: ClusterFirst
       restartPolicy: Always
@@ -105,7 +124,7 @@ spec:
         - configMap:
             defaultMode: 420
             items:
-              - key: otel-collector-config
-                path: otel-collector-config.yaml
-            name: otel-collector-conf
-          name: otel-collector-config-vol
+              - key: opentelemetry-collector-config
+                path: opentelemetry-collector-config.yaml
+            name: opentelemetry-collector-conf
+          name: opentelemetry-collector-config-vol

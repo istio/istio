@@ -15,13 +15,19 @@
 package util
 
 import (
+	"context"
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -86,5 +92,39 @@ func ValidateIOPCAConfig(client kube.Client, iop *iopv1alpha1.IstioOperator) err
 				"Please pick another value for PILOT_CERT_PROVIDER", ca, ver.String())
 		}
 	}
+	return nil
+}
+
+// CreateNamespace creates a namespace using the given k8s interface.
+func CreateNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
+	if dryRun {
+		scope.Infof("Not applying Namespace %s because of dry run.", namespace)
+		return nil
+	}
+	if namespace == "" {
+		// Setup default namespace
+		namespace = constants.IstioSystemNamespace
+	}
+	// check if the namespace already exists. If yes, do nothing. If no, create a new one.
+	if _, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			ns := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name:   namespace,
+				Labels: map[string]string{},
+			}}
+			if network != "" {
+				ns.Labels[label.TopologyNetwork.Name] = network
+			}
+			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
+			}
+
+			return nil
+		}
+
+		return fmt.Errorf("failed to check if namespace %v exists: %v", namespace, err)
+	}
+
 	return nil
 }

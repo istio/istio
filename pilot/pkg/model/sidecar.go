@@ -581,7 +581,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
-			if workloadSelector.SubsetOf(proxy.Metadata.Labels) {
+			if workloadSelector.SubsetOf(proxy.Labels) {
 				return destRule
 			}
 		}

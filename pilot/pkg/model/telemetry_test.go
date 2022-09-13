@@ -17,7 +17,9 @@ package model
 import (
 	"testing"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
@@ -35,19 +37,12 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries, *PushContext) {
-	t.Helper()
-
-	store := &telemetryStore{}
-	for _, cfg := range configs {
-		store.add(cfg)
-	}
-	m := mesh.DefaultMeshConfig()
-	jsonTextProvider := &meshconfig.MeshConfig_ExtensionProvider{
+var (
+	jsonTextProvider = &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "envoy-json",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
 			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-				Path: "/dev/null",
+				Path: "/dev/stdout",
 				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
 					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
 						Labels: &structpb.Struct{},
@@ -56,6 +51,28 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 			},
 		},
 	}
+
+	defaultJSONLabelsOut = &fileaccesslog.FileAccessLog{
+		Path: "/dev/stdout",
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormatIstio,
+				},
+			},
+		},
+	}
+)
+
+func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries, *PushContext) {
+	t.Helper()
+
+	store := &telemetryStore{}
+	for _, cfg := range configs {
+		store.add(cfg)
+	}
+	m := mesh.DefaultMeshConfig()
+
 	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider)
 
 	environment := &Environment{
@@ -147,7 +164,11 @@ const (
 )
 
 func TestTracing(t *testing.T) {
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+	}
 	envoy := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
@@ -474,7 +495,11 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}}
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+	}
 	emptyPrometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
@@ -550,7 +575,6 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
-
 	tests := []struct {
 		name             string
 		cfgs             []config.Config

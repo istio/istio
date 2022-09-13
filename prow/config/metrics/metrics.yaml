@@ -136,7 +136,7 @@ spec:
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
         - --kubelet-use-node-status-port
         - --kubelet-insecure-tls
-        image: k8s.gcr.io/metrics-server/metrics-server:v0.4.4
+        image: registry.k8s.io/metrics-server/metrics-server:v0.4.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3

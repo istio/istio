@@ -38,7 +38,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.16-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-08-05T19-00-49
+BASE_VERSION ?= master-2022-09-07T19-00-50
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -137,6 +137,8 @@ endif
 ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
+
+PROW_ARTIFACTS_BASE ?= https://gcsweb.istio.io/gcs/istio-prow
 
 include tools/proto/proto.mk
 
@@ -268,10 +270,11 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pilot/pkg/security/authz/builder/...
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./cni/pkg/plugin/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
+		./pkg/bootstrap/... \
+		./pkg/kube/inject/... \
+		./pilot/pkg/security/authz/builder/... \
+		./cni/pkg/plugin/...
 
 update-golden: refresh-goldens
 

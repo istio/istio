@@ -575,7 +575,7 @@ func makeInstance(cfg *config.Config, address string, port int,
 
 func TestConvertService(t *testing.T) {
 	testConvertServiceBody(t)
-	test.SetBoolForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	testConvertServiceBody(t)
 }
 

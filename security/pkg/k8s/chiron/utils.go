@@ -305,7 +305,7 @@ func readSignedCertificate(client clientset.Interface, csrName string,
 	if len(certPEM) == 0 {
 		return []byte{}, []byte{}, fmt.Errorf("no certificate returned for the CSR: %q", csrName)
 	}
-	certsParsed, err := util.ParsePemEncodedCertificateChain(certPEM)
+	certsParsed, _, err := util.ParsePemEncodedCertificateChain(certPEM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decoding certificate failed")
 	}

@@ -88,7 +88,7 @@ func FuzzPemCertBytestoString(data []byte) int {
 // FuzzParsePemEncodedCertificateChain implements
 // a fuzzer that tests ParsePemEncodedCertificateChain
 func FuzzParsePemEncodedCertificateChain(data []byte) int {
-	_, _ = util.ParsePemEncodedCertificateChain(data)
+	_, _, _ = util.ParsePemEncodedCertificateChain(data)
 	return 1
 }
 

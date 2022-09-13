@@ -33,7 +33,7 @@ type clusterTopology = map[clusterIndex]clusterIndex
 
 // ClientFactoryFunc is a transformation function that creates k8s clients
 // from the provided k8s config files.
-type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.ExtendedClient, error)
+type ClientFactoryFunc func(kubeConfigs []string) ([]istioKube.CLIClient, error)
 
 // Settings provide kube-specific Settings from flags.
 type Settings struct {
@@ -44,6 +44,9 @@ type Settings struct {
 	// for ingress gateway. KinD will not support LoadBalancer out of the box and requires a workaround such as
 	// MetalLB.
 	LoadBalancerSupported bool
+
+	// Architecture indicates the architecture of the cluster under test
+	Architecture string
 
 	// MCSControllerEnabled indicates that the Kubernetes environment has a Multi-Cluster Services (MCS)
 	// controller up and running.

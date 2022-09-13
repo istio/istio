@@ -210,8 +210,8 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
 // nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.ExtendedClient, error) {
-	outFactory := func(_, _ string, _ string) (kube.ExtendedClient, error) {
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.CLIClient, error) {
+	outFactory := func(_, _ string, _ string) (kube.CLIClient, error) {
 		return kube.MockClient{
 			Results: testResults,
 		}, nil
@@ -220,8 +220,8 @@ func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconf
 	return outFactory
 }
 
-func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.ExtendedClient, error) {
-	outFactory := func(_, _ string) (kube.ExtendedClient, error) {
+func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.CLIClient, error) {
+	outFactory := func(_, _ string) (kube.CLIClient, error) {
 		return kube.MockClient{
 			Results: testResults,
 		}, nil

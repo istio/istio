@@ -28,6 +28,7 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/duration"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -65,6 +66,10 @@ const DefaultRouteName = "default"
 // regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
 const prefixMatchRegex = `((\/).*)?`
 
+var notimeout = durationpb.New(0)
+
+type DestinationHashMap map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB
+
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
 // Note: Currently we are not fully utilizing this structure. We could invoke this logic
 // once for all sidecars in the cluster to compute all RDS for inside the mesh and arrange
@@ -88,63 +93,42 @@ type VirtualHostWrapper struct {
 	Routes []*route.Route
 }
 
-// BuildSidecarVirtualHostWrapper creates virtual hosts from
-// the given set of virtual Services and a list of Services from the
-// service registry. Services are indexed by FQDN hostnames.
+// BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
+// and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []config.Config, listenPort int,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
-	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
+	// dependentDestinationRules includes all the destinationrules referenced by
+	// the virtualservices, which have consistent hash policy.
 	dependentDestinationRules := []*model.ConsolidatedDestRule{}
-	// consistent hash policies for the http route destinations
-	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
-	for _, virtualService := range virtualServices {
-		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
-			for _, destination := range httpRoute.Route {
-				hostName := destination.Destination.Host
-				var configNamespace string
-				if serviceRegistry[host.Name(hostName)] != nil {
-					configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
-				} else {
-					configNamespace = virtualService.Namespace
-				}
-				hash, destinationRule := GetHashForHTTPDestination(push, node, destination, configNamespace)
-				if hash != nil {
-					hashByDestination[destination] = hash
-					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
-				}
-			}
-		}
-	}
 
-	// translate all virtual service configs into virtual hosts
+	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
+		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
+		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
 		out = append(out, wrappers...)
 	}
 
-	// compute Services missing virtual service configs
+	// Now exclude the services that have virtual services.
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
 			delete(serviceRegistry, service.Hostname)
 		}
 	}
 
-	hashByService := map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				hash, destinationRule := getHashForService(node, push, svc, port)
+				hash, destinationRule := hashForService(push, node, svc, port)
 				if hash != nil {
-					if _, ok := hashByService[svc.Hostname]; !ok {
-						hashByService[svc.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
-					}
-					hashByService[svc.Hostname][port.Port] = hash
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
+				// append default hosts for the service missing virtual Services.
+				out = append(out, buildSidecarVirtualHostForService(svc, port, hash, push.Mesh))
 			}
 		}
 	}
@@ -153,8 +137,6 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		routeCache.DestinationRules = dependentDestinationRules
 	}
 
-	// append default hosts for the service missing virtual Services
-	out = append(out, buildSidecarVirtualHostsForService(serviceRegistry, hashByService, push.Mesh)...)
 	return out
 }
 
@@ -215,7 +197,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	hashByDestination DestinationHashMap,
 	listenPort int,
 	mesh *meshconfig.MeshConfig,
 ) []VirtualHostWrapper {
@@ -263,35 +245,25 @@ func buildSidecarVirtualHostsForVirtualService(
 	return out
 }
 
-func buildSidecarVirtualHostsForService(
-	serviceRegistry map[host.Name]*model.Service,
-	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
+func buildSidecarVirtualHostForService(svc *model.Service,
+	port *model.Port,
+	hash *networking.LoadBalancerSettings_ConsistentHashLB,
 	mesh *meshconfig.MeshConfig,
-) []VirtualHostWrapper {
-	out := make([]VirtualHostWrapper, 0)
-	for _, svc := range serviceRegistry {
-		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := telemetry.TraceOperation(string(svc.Hostname), port.Port)
-				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
+) VirtualHostWrapper {
+	cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+	traceOperation := telemetry.TraceOperation(string(svc.Hostname), port.Port)
+	httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
 
-				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-				if hashByPort, ok := hashByService[svc.Hostname]; ok {
-					hashPolicy := consistentHashToHashPolicy(hashByPort[port.Port])
-					if hashPolicy != nil {
-						httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
-					}
-				}
-				out = append(out, VirtualHostWrapper{
-					Port:     port.Port,
-					Services: []*model.Service{svc},
-					Routes:   []*route.Route{httpRoute},
-				})
-			}
-		}
+	// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
 	}
-	return out
+	return VirtualHostWrapper{
+		Port:     port.Port,
+		Services: []*model.Service{svc},
+		Routes:   []*route.Route{httpRoute},
+	}
 }
 
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
@@ -329,7 +301,7 @@ func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	hashByDestination DestinationHashMap,
 	listenPort int,
 	gatewayNames map[string]bool,
 	isHTTP3AltSvcHeaderNeeded bool,
@@ -404,7 +376,7 @@ func translateRoute(
 	listenPort int,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	hashByDestination DestinationHashMap,
 	gatewayNames map[string]bool,
 	isHTTP3AltSvcHeaderNeeded bool,
 	mesh *meshconfig.MeshConfig,
@@ -417,7 +389,7 @@ func translateRoute(
 		return nil
 	}
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, node.Metadata.Labels, gatewayNames, node.Metadata.Namespace) {
+	if !sourceMatchHTTP(match, node.Labels, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
@@ -431,6 +403,11 @@ func translateRoute(
 		Match:    translateRouteMatch(node, virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
+
+	if match != nil && match.StatPrefix != "" {
+		out.StatPrefix = match.StatPrefix
+	}
+
 	authority := ""
 	if in.Headers != nil {
 		operations := translateHeadersOperations(in.Headers)
@@ -477,7 +454,7 @@ func applyHTTPRouteDestination(
 	authority string,
 	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
-	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+	hashByDestination DestinationHashMap,
 ) {
 	policy := in.Retries
 	if policy == nil {
@@ -489,19 +466,7 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
-	if in.Timeout != nil {
-		action.Timeout = in.Timeout
-	}
-	if node.IsProxylessGrpc() {
-		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: action.Timeout}
-	} else {
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		action.MaxGrpcTimeout = action.Timeout
-	}
+	setTimeout(action, in.Timeout, node)
 
 	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
 		// return 500 for invalid backends
@@ -1066,16 +1031,21 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
-	notimeout := durationpb.New(0)
-	routeAction := &route.RouteAction{
-		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-		Timeout:          notimeout,
-	}
-	routeAction.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+	out := buildDefaultHTTPRoute(clusterName, operation)
+	// For inbound, configure with notimeout.
+	out.GetRoute().Timeout = notimeout
+	out.GetRoute().MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
 		MaxStreamDuration: notimeout,
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: notimeout,
+	}
+	return out
+}
+
+func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+	routeAction := &route.RouteAction{
+		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
 		Match: translateRouteMatch(nil, config.Config{}, nil),
@@ -1091,13 +1061,41 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 	return val
 }
 
+// setTimeout sets timeout for a route.
+func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
+	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+	action.Timeout = features.DefaultRequestTimeout
+	if vsTimeout != nil {
+		action.Timeout = vsTimeout
+	}
+	if node != nil && node.IsProxylessGrpc() {
+		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+			MaxStreamDuration: action.Timeout,
+		}
+	} else {
+		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
+		if action.Timeout.AsDuration().Nanoseconds() == 0 {
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+				MaxStreamDuration:    notimeout,
+				GrpcTimeoutHeaderMax: notimeout,
+			}
+		} else {
+			// If not configured at all, the grpc-timeout header is not used and
+			// gRPC requests time out like any other requests using timeout or its default.
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = action.Timeout
+		}
+	}
+}
+
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
 func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
-	// Start with the same configuration as for inbound.
-	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
-
+	out := buildDefaultHTTPRoute(clusterName, operation)
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
+	setTimeout(out.GetRoute(), nil, nil)
 	return out
 }
 
@@ -1235,8 +1233,10 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 	return nil
 }
 
-func getHashForService(node *model.Proxy, push *model.PushContext,
-	svc *model.Service, port *model.Port,
+func hashForService(push *model.PushContext,
+	node *model.Proxy,
+	svc *model.Service,
+	port *model.Port,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
@@ -1262,33 +1262,32 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 	return consistentHash, mergedDR
 }
 
-func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
+func hashForVirtualService(push *model.PushContext,
+	node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
-) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
-	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
+) (DestinationHashMap, []*model.ConsolidatedDestRule) {
+	hashByDestination := DestinationHashMap{}
+	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
-			hostName := destination.Destination.Host
-			var configNamespace string
-			if serviceRegistry[host.Name(hostName)] != nil {
-				configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
-			} else {
-				configNamespace = virtualService.Namespace
-			}
-			hash, _ := GetHashForHTTPDestination(push, node, destination, configNamespace)
+			hash, dr := hashForHTTPDestination(push, node, destination)
 			if hash != nil {
 				hashByDestination[destination] = hash
+				destinationRules = append(destinationRules, dr)
 			}
 		}
 	}
+	return hashByDestination, destinationRules
+}
 
+func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) DestinationHashMap {
+	hashByDestination, _ := hashForVirtualService(push, node, virtualService)
 	return hashByDestination
 }
 
-// GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
-func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
-	configNamespace string,
+// hashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
+func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
+	dst *networking.HTTPRouteDestination,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil

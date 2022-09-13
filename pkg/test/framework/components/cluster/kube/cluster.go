@@ -33,8 +33,8 @@ type Cluster struct {
 	// vmSupport indicates the cluster is being used for fake VMs
 	vmSupport bool
 
-	// ExtendedClient is embedded to interact with the kube cluster.
-	kube.ExtendedClient
+	// CLIClient is embedded to interact with the kube cluster.
+	kube.CLIClient
 
 	// Topology is embedded to include common functionality.
 	cluster.Topology

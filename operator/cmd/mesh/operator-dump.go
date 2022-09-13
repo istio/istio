@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/config/constants"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -34,7 +35,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", istioDefaultNamespace,
+	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", constants.IstioSystemNamespace,
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
 	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)

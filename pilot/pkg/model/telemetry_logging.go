@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -26,6 +27,7 @@ import (
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -118,7 +120,7 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 		// For built-in provider, fallback to Mesh Config for formatting options.
 		if fp.Name == defaultEnvoyAccessLogProvider {
-			al = fileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
+			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
 		} else {
 			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
 		}
@@ -204,11 +206,8 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	return al
 }
 
-func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
-	formatString := EnvoyTextLogFormat
-	if text != "" {
-		formatString = text
-	}
+func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+	formatString := fileAccessLogFormat(logFormatText)
 	needsFormatter := strings.Contains(formatString, requestWithoutQuery)
 	return &fileaccesslog.FileAccessLog_LogFormat{
 		LogFormat: &core.SubstitutionFormatString{
@@ -294,7 +293,20 @@ func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConf
 	}
 }
 
-func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+func fileAccessLogFormat(formatString string) string {
+	if formatString != "" {
+		// From the spec: "NOTE: Istio will insert a newline ('\n') on all formats (if missing)."
+		if !strings.HasSuffix(formatString, "\n") {
+			formatString += "\n"
+		}
+
+		return formatString
+	}
+
+	return EnvoyTextLogFormat
+}
+
+func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
@@ -302,10 +314,7 @@ func fileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	needsFormatter := false
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
-		formatString := EnvoyTextLogFormat
-		if mesh.AccessLogFormat != "" {
-			formatString = mesh.AccessLogFormat
-		}
+		formatString := fileAccessLogFormat(mesh.AccessLogFormat)
 		needsFormatter = strings.Contains(formatString, requestWithoutQuery)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
@@ -426,7 +435,11 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 		return nil
 	}
 	attrList := make([]*otlpcommon.KeyValue, 0, len(labels))
-	for key, value := range labels {
+	// Sort keys to ensure stable XDS generation
+	keys := maps.Keys(labels)
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := labels[key]
 		kv := &otlpcommon.KeyValue{
 			Key:   key,
 			Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: value.GetStringValue()}},

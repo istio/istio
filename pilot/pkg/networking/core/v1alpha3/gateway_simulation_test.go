@@ -1031,11 +1031,12 @@ type simulationTest struct {
 	calls          []simulation.Expect
 }
 
-var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", true, "if enabled, will dump verbose output").Get()
+var debugMode = env.Register("SIMULATION_DEBUG", true, "if enabled, will dump verbose output").Get()
 
 func runGatewayTest(t *testing.T, cases ...simulationTest) {
 	for _, tt := range cases {
 		proxy := &model.Proxy{
+			Labels: map[string]string{"istio": "ingressgateway"},
 			Metadata: &model.NodeMetadata{
 				Labels:    map[string]string{"istio": "ingressgateway"},
 				Namespace: "istio-system",

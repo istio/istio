@@ -392,7 +392,7 @@ func TestInboundClusters(t *testing.T) {
 			name += "-disableinbound"
 		}
 		t.Run(name, func(t *testing.T) {
-			test.SetBoolForTest(t, &features.EnableInboundPassthrough, !tt.disableInboundPassthrough)
+			test.SetForTest(t, &features.EnableInboundPassthrough, !tt.disableInboundPassthrough)
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
@@ -1570,8 +1570,11 @@ spec:
 			},
 		},
 	}
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
-	test.SetBoolForTest(t, &features.EnableTLSOnSidecarIngress, true)
+	proxy := &model.Proxy{
+		Labels:   map[string]string{"app": "foo"},
+		Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
+	}
+	test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
 	for _, tt := range cases {
 		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 			name:   tt.name,

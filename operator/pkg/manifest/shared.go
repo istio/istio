@@ -352,15 +352,12 @@ func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client ku
 	return mergedIOP, nil
 }
 
-// validateSetFlags 1: validates that setFlags all have path=value format, 2: check profile whether it is deprecated.
+// validateSetFlags validates that setFlags all have path=value format.
 func validateSetFlags(setFlags []string) error {
 	for _, sf := range setFlags {
 		pv := strings.Split(sf, "=")
 		if len(pv) != 2 {
 			return fmt.Errorf("set flag %s has incorrect format, must be path=value", sf)
-		}
-		if pv[0] == "profile" && pv[1] == "remote" {
-			return fmt.Errorf("profile \"remote\" has been removed (use the \"default\" profile, which is equivalent)")
 		}
 	}
 	return nil
@@ -427,7 +424,7 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
-	jwtStr, jwtPolicy, err := getJwtTypeOverlay(client, l)
+	jwtStr, err := getJwtTypeOverlay(client, l)
 	if err != nil {
 		if force {
 			l.LogAndPrint(err)
@@ -437,20 +434,27 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	} else {
 		overlays = append(overlays, jwtStr)
 	}
-	fsgroup := getFSGroupOverlay(client, jwtPolicy)
-	if fsgroup != "" {
-		overlays = append(overlays, fsgroup)
+	cni := getCNISettings(client)
+	if cni != "" {
+		overlays = append(overlays, cni)
 	}
 	return makeTreeFromSetList(overlays)
 }
 
-func getFSGroupOverlay(config kube.Client, jwtPolicy util.JWTPolicy) string {
-	// Set ENABLE_LEGACY_FSGROUP_INJECTION to true only for Kubernetes 1.18 or older,
-	// together with third-party-jwt, as we need the fsGroup configuration for the projected
-	// service account volume mount, which is only used by third-party-jwt.
-	if kube.IsLessThanVersion(config, 19) && jwtPolicy == util.ThirdPartyJWT {
-		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=true"
+// getCNISettings gets auto-detected values based on the Kubernetes environment.
+// Note: there are other settings as well; however, these are detected inline in the helm chart.
+// This ensures helm users also get them.
+func getCNISettings(client kube.Client) string {
+	ver, err := client.GetKubernetesVersion()
+	if err != nil {
+		return ""
 	}
+	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
+	// GKE requires deployment in kube-system namespace.
+	if strings.Contains(ver.GitVersion, "-gke") {
+		return "components.cni.namespace=kube-system"
+	}
+	// TODO: OpenShift
 	return ""
 }
 
@@ -487,17 +491,17 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	return tpath.AddSpecRoot(string(out))
 }
 
-func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, util.JWTPolicy, error) {
+func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
 	jwtPolicy, err := util.DetectSupportedJWTPolicy(client.Kube())
 	if err != nil {
-		return "", "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
+		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
 	if jwtPolicy == util.FirstPartyJWT {
 		// nolint: lll
 		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
 			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
 	}
-	return "values.global.jwtPolicy=" + string(jwtPolicy), jwtPolicy, nil
+	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
 // unmarshalAndValidateIOP unmarshals a string containing IstioOperator YAML, validates it, and returns a struct

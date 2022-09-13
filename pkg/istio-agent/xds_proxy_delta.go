@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -29,6 +30,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
@@ -50,7 +52,7 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 	con := &ProxyConnection{
 		upstreamError:     make(chan error, 2), // can be produced by recv and send
 		downstreamError:   make(chan error, 2), // can be produced by recv and send
-		deltaRequestsChan: channels.NewUnbounded(),
+		deltaRequestsChan: channels.NewUnbounded[*discovery.DeltaDiscoveryRequest](),
 		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
 		deltaResponsesChan: make(chan *discovery.DeltaDiscoveryResponse, 1),
 		stopChan:           make(chan struct{}),
@@ -193,16 +195,24 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 	}()
 	for {
 		select {
-		case requ := <-con.deltaRequestsChan.Get():
+		case req := <-con.deltaRequestsChan.Get():
 			con.deltaRequestsChan.Load()
-			req := requ.(*discovery.DeltaDiscoveryRequest)
 			proxyLog.Debugf("delta request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
+			// override the first xds request node metadata labels
+			if req.Node != nil {
+				node, err := p.ia.generateNodeMetadata()
+				if err != nil {
+					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
+				} else if node.ID != "" {
+					req.Node = bootstrap.ConvertNodeToXDSNode(node)
+				}
+			}
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
-				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
+				err = fmt.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
 			}

@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/pkg/log"
 )
 
 var settingsFromCommandLine = DefaultSettings()
@@ -127,6 +128,7 @@ func validate(s *Settings) error {
 
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
+	log.EnableKlogWithGoFlag()
 	flag.StringVar(&settingsFromCommandLine.BaseDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 

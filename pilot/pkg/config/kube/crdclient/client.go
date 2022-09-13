@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
@@ -95,16 +94,17 @@ type Client struct {
 	schemasByCRDName    map[string]collection.Schema
 	client              kube.Client
 	crdMetadataInformer cache.SharedIndexInformer
+	logger              *log.Scope
 }
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreController, error) {
+func New(client kube.Client, revision, domainSuffix, identifier string) (model.ConfigStoreController, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
 	}
-	return NewForSchemas(client, revision, domainSuffix, schemas)
+	return NewForSchemas(client, revision, domainSuffix, identifier, schemas)
 }
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
@@ -130,7 +130,7 @@ func newWaiter() *waiter {
 func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	ch, f := crdWatches[k]
 	if !f {
-		log.Warnf("waiting for CRD that is not registered")
+		log.Warnf("waiting for CRD %s that is not registered", k.String())
 		return false
 	}
 	select {
@@ -141,7 +141,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreController, error) {
+func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string, schemas collection.Schemas) (model.ConfigStoreController, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -163,6 +163,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			GroupVersionResource()).Informer(),
 		beginSync:   atomic.NewBool(false),
 		initialSync: atomic.NewBool(false),
+		logger:      scope.WithLabels("controller", identifier),
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
@@ -183,7 +184,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			if _, f := known[name]; f {
 				handleCRDAdd(out, name, nil)
 			} else {
-				scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+				out.logger.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 			}
 		}
 	}
@@ -198,7 +199,7 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
-		scope.Infof("Error retrieving key: %v", err)
+		cl.logger.Infof("Error retrieving key: %v", err)
 	}
 	return nil
 }
@@ -220,22 +221,22 @@ func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err erro
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
-	scope.Info("Starting Pilot K8S CRD controller")
+	cl.logger.Infof("Starting Pilot K8S CRD controller")
 
 	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
-		scope.Error("Failed to sync Pilot K8S CRD controller cache")
+		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
 	cl.SyncAll()
 	cl.initialSync.Store(true)
-	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
+	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 
 	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
 				// Shouldn't happen
-				scope.Errorf("wrong type %T: %v", obj, obj)
+				cl.logger.Errorf("wrong type %T: %v", obj, obj)
 				return
 			}
 			handleCRDAdd(cl, crd.Name, stop)
@@ -245,13 +246,13 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	})
 
 	cl.queue.Run(stop)
-	scope.Info("controller terminated")
+	cl.logger.Infof("controller terminated")
 }
 
 func (cl *Client) informerSynced() bool {
 	for _, ctl := range cl.allKinds() {
 		if !ctl.informer.HasSynced() {
-			scope.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
+			cl.logger.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
 			return false
 		}
 	}
@@ -279,7 +280,7 @@ func (cl *Client) SyncAll() {
 			for _, object := range objects {
 				currItem, ok := object.(runtime.Object)
 				if !ok {
-					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
+					cl.logger.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
@@ -301,14 +302,14 @@ func (cl *Client) Schemas() collection.Schemas {
 func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	h, f := cl.kind(typ)
 	if !f {
-		scope.Warnf("unknown type: %s", typ)
+		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
 
 	obj, err := h.lister(namespace).Get(name)
 	if err != nil {
 		// TODO we should be returning errors not logging
-		scope.Warnf("error on get %v/%v: %v", name, namespace, err)
+		cl.logger.Warnf("error on get %v/%v: %v", name, namespace, err)
 		return nil
 	}
 
@@ -421,24 +422,14 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 // knownCRDs returns all CRDs present in the cluster, with timeout and retries.
 func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	var res *crd.CustomResourceDefinitionList
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = time.Second
-	b.MaxElapsedTime = 20 * time.Second
-	err := backoff.Retry(func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		var err error
-		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-		if err == nil {
-			return nil
-		}
-		scope.Errorf("failed to list CRDs: %v", err)
-		return err
-	}, b)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var err error
+	res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 	if err != nil {
+		scope.Errorf("failed to list CRDs: %v", err)
 		return nil, err
 	}
-
 	mp := map[string]struct{}{}
 	for _, r := range res.Items {
 		mp[r.Name] = struct{}{}
@@ -493,10 +484,10 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 }
 
 func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
-	scope.Debugf("adding CRD %q", name)
+	cl.logger.Debugf("adding CRD %q", name)
 	s, f := cl.schemasByCRDName[name]
 	if !f {
-		scope.Debugf("added resource that we are not watching: %v", name)
+		cl.logger.Debugf("added resource that we are not watching: %v", name)
 		return
 	}
 	resourceGVK := s.Resource().GroupVersionKind()
@@ -505,7 +496,7 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
 	if _, f := cl.kinds[resourceGVK]; f {
-		scope.Debugf("added resource that already exists: %v", resourceGVK)
+		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
 	var i informers.GenericInformer
@@ -528,14 +519,14 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 
 	if err != nil {
 		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
+		cl.logger.Errorf("failed to create informer for %v: %v", resourceGVK, err)
 		return
 	}
 	_ = i.Informer().SetTransform(kube.StripUnusedFields)
 
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
 	if w, f := crdWatches[resourceGVK]; f {
-		scope.Infof("notifying watchers %v was created", resourceGVK)
+		cl.logger.Infof("notifying watchers %v was created", resourceGVK)
 		w.once.Do(func() {
 			close(w.stop)
 		})

@@ -34,8 +34,7 @@ func dedupTrustDomains(tds []string) []string {
 	deduped := make([]string, 0, len(tds))
 
 	for _, td := range tds {
-		if td != "" && !known.Contains(td) {
-			known.Insert(td)
+		if td != "" && !known.InsertContains(td) {
 			deduped = append(deduped, td)
 		}
 	}

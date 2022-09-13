@@ -26,11 +26,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
-)
-
-const (
-	// TypeDebug requests debug info from istio, a secured implementation for istio debug interface
-	TypeDebug = "istio.io/debug"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 var activeNamespaceDebuggers = map[string]struct{}{
@@ -76,10 +72,11 @@ func NewResponseCapture() *ResponseCapture {
 	}
 }
 
-func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
+func NewDebugGen(s *DiscoveryServer, systemNamespace string, debugMux *http.ServeMux) *DebugGen {
 	return &DebugGen{
 		Server:          s,
 		SystemNamespace: systemNamespace,
+		DebugMux:        debugMux,
 	}
 }
 
@@ -123,7 +120,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	res = append(res, &discovery.Resource{
 		Name: resourceName,
 		Resource: &anypb.Any{
-			TypeUrl: TypeDebug,
+			TypeUrl: v3.DebugType,
 			Value:   buffer.Bytes(),
 		},
 	})

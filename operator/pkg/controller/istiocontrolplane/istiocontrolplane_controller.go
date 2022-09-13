@@ -176,7 +176,7 @@ var (
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
 				return false
 			}
-			newIOP := e.ObjectNew.(*iopv1alpha1.IstioOperator)
+			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
@@ -444,7 +444,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 // and Start it when the Manager is Started. It also provides additional options to modify internal reconciler behavior.
 func Add(mgr manager.Manager, options *Options) error {
 	restConfig = mgr.GetConfig()
-	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(restConfig), "")
+	kubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}

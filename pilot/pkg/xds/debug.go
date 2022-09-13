@@ -103,6 +103,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
+	Labels       map[string]string   `json:"labels"`
 	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
@@ -140,9 +141,12 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+func (s *DiscoveryServer) InitDebug(
+	mux *http.ServeMux,
+	sctl *aggregate.Controller,
+	enableProfiling bool,
 	fetchWebhook func() map[string]string,
-) {
+) *http.ServeMux {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.XdsUpdater = s
@@ -156,10 +160,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 	internalMux := http.NewServeMux()
 	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
-	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
-	if ok {
-		debugGen.DebugMux = internalMux
-	}
+	return internalMux
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -576,6 +577,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			ConnectionID: c.conID,
 			ConnectedAt:  c.connectedAt,
 			PeerAddress:  c.peerAddr,
+			Labels:       c.proxy.Labels,
 			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
@@ -886,12 +888,13 @@ type PushContextDebug struct {
 // pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
 	push := PushContextDebug{}
-	if s.globalPushContext() == nil {
+	pc := s.globalPushContext()
+	if pc == nil {
 		return
 	}
-	push.AuthorizationPolicies = s.globalPushContext().AuthzPolicies
-	if s.globalPushContext().NetworkManager() != nil {
-		push.NetworkGateways = s.globalPushContext().NetworkManager().GatewaysByNetwork()
+	push.AuthorizationPolicies = pc.AuthzPolicies
+	if pc.NetworkManager() != nil {
+		push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
 	}
 
 	writeJSON(w, push, req)

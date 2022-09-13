@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -201,6 +202,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
+	if SidecarIgnorePort(node) {
+		out.IgnorePortInHostMatching = true
+	}
 
 	// apply envoy filter patches
 	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
@@ -347,19 +351,21 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			return services[i].Hostname <= services[j].Hostname
 		})
 
-		routeCache = &istio_route.Cache{
-			RouteName:               routeName,
-			ProxyVersion:            node.Metadata.IstioVersion,
-			ClusterID:               string(node.Metadata.ClusterID),
-			DNSDomain:               node.DNSDomain,
-			DNSCapture:              bool(node.Metadata.DNSCapture),
-			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
-			AllowAny:                util.IsAllowAnyOutbound(node),
-			ListenerPort:            listenerPort,
-			Services:                services,
-			VirtualServices:         virtualServices,
-			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
-			EnvoyFilterKeys:         efKeys,
+		if features.EnableRDSCaching {
+			routeCache = &istio_route.Cache{
+				RouteName:               routeName,
+				ProxyVersion:            node.Metadata.IstioVersion,
+				ClusterID:               string(node.Metadata.ClusterID),
+				DNSDomain:               node.DNSDomain,
+				DNSCapture:              bool(node.Metadata.DNSCapture),
+				DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
+				AllowAny:                util.IsAllowAnyOutbound(node),
+				ListenerPort:            listenerPort,
+				Services:                services,
+				VirtualServices:         virtualServices,
+				DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
+				EnvoyFilterKeys:         efKeys,
+			}
 		}
 	}
 
@@ -371,9 +377,11 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
 
-	resource, exist := xdsCache.Get(routeCache)
-	if exist && !features.EnableUnsafeAssertions {
-		return nil, resource, routeCache
+	if features.EnableRDSCaching {
+		resource, exist := xdsCache.Get(routeCache)
+		if exist && !features.EnableUnsafeAssertions {
+			return nil, resource, routeCache
+		}
 	}
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
@@ -383,7 +391,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
 		name := util.DomainName(hostname, vhwrapper.Port)
-		if duplicateVirtualHost(name, vhosts) {
+		if vhosts.InsertContains(name) {
 			// This means this virtual host has caused duplicate virtual host name.
 			var msg string
 			if svc == nil {
@@ -397,9 +405,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			domains = []string{util.IPv6Compliant(hostname), name}
+			if SidecarIgnorePort(node) {
+				domains = []string{util.IPv6Compliant(hostname)}
+			} else {
+				domains = []string{util.IPv6Compliant(hostname), name}
+			}
 		} else {
-			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
+			domains, altHosts = generateVirtualHostDomains(svc, listenerPort, vhwrapper.Port, node)
 		}
 		dl := len(domains)
 		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
@@ -463,15 +475,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	return out, nil, routeCache
 }
 
-// duplicateVirtualHost checks whether the virtual host with the same name exists in the route.
-func duplicateVirtualHost(vhost string, vhosts sets.Set) bool {
-	if vhosts.Contains(vhost) {
-		return true
-	}
-	vhosts.Insert(vhost)
-	return false
-}
-
 // dedupeDomains removes the duplicate domains from the passed in domains.
 func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string, knownFQDNs sets.Set) []string {
 	temp := domains[:0]
@@ -497,10 +500,11 @@ func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string,
 // setup. This listener should only get the virtual hosts that correspond to this service+port and not
 // all virtual hosts that are usually supplied for 0.0.0.0:PORT.
 func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName string) []*route.VirtualHost {
+	nameWithoutPort, _, _ := net.SplitHostPort(routeName)
 	var virtualHosts []*route.VirtualHost
 	for _, vh := range vhosts {
 		for _, domain := range vh.Domains {
-			if domain == routeName {
+			if domain == routeName || domain == nameWithoutPort {
 				virtualHosts = append(virtualHosts, vh)
 				break
 			}
@@ -520,11 +524,27 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	return virtualHosts
 }
 
+// GatewayIgnorePort determines if we can exclude ports from domain matches
+func GatewayIgnorePort(node *model.Proxy) bool {
+	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc()
+}
+
+// SidecarIgnorePort determines if we can exclude ports from domain matches for sidecars specifically.
+// This differs from GatewayIgnorePort as it is flag protected to avoid breaking change risks
+func SidecarIgnorePort(node *model.Proxy) bool {
+	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc() && features.SidecarIgnorePort
+}
+
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
+func generateVirtualHostDomains(service *model.Service, listenerPort int, port int, node *model.Proxy) ([]string, []string) {
+	if SidecarIgnorePort(node) && listenerPort != 0 {
+		// Indicate we do not need port, as we will set IgnorePortInHostMatching
+		port = portNoAppendPortSuffix
+	}
 	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
-	domains := []string{util.IPv6Compliant(string(service.Hostname)), util.DomainName(string(service.Hostname), port)}
+	domains := make([]string, 0, 4+len(altHosts))
+	domains = appendDomainPort(domains, string(service.Hostname), port)
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
@@ -536,9 +556,18 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 
 	svcAddr := service.GetAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		domains = append(domains, util.IPv6Compliant(svcAddr), util.DomainName(svcAddr, port))
+		domains = appendDomainPort(domains, svcAddr, port)
 	}
 	return domains, altHosts
+}
+
+// appendDomainPort appends `domain` and `domain:port` to `domains`. The `domain:port` variant is skipped
+// if port is unset.
+func appendDomainPort(domains []string, domain string, port int) []string {
+	if port == portNoAppendPortSuffix {
+		return append(domains, util.IPv6Compliant(domain))
+	}
+	return append(domains, util.IPv6Compliant(domain), util.DomainName(domain, port))
 }
 
 // GenerateAltVirtualHosts given a service and a port, generates all possible HTTP Host headers.
@@ -584,14 +613,17 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")
 
 	// Add the uniqueHost.
-	vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
+	vhosts = appendDomainPort(vhosts, uniqueHostname, port)
 	if len(uniqueHostnameParts) == 2 {
 		// This is the case of uniqHostname having namespace already.
 		dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-		vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
+		vhosts = appendDomainPort(vhosts, dnsHostName, port)
 	}
 	return vhosts
 }
+
+// portNoAppendPortSuffix is a signal to not append port to vhost
+const portNoAppendPortSuffix = 0
 
 func generateAltVirtualHostsForKubernetesService(hostname string, port int, proxyDomain string) []string {
 	id := strings.Index(proxyDomain, ".svc.")
@@ -604,6 +636,13 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 		}
 		if hostname[ns+1:ih] == proxyDomain[:id] {
 			// Same namespace
+			if port == portNoAppendPortSuffix {
+				return []string{
+					hostname[:ns],
+					hostname[:ih] + ".svc",
+					hostname[:ih],
+				}
+			}
 			return []string{
 				hostname[:ns],
 				util.DomainName(hostname[:ns], port),
@@ -614,6 +653,12 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 			}
 		}
 		// Different namespace
+		if port == portNoAppendPortSuffix {
+			return []string{
+				hostname[:ih],
+				hostname[:ih] + ".svc",
+			}
+		}
 		return []string{
 			hostname[:ih],
 			util.DomainName(hostname[:ih], port),

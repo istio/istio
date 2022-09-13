@@ -449,7 +449,7 @@ func extractResourceChunksFromListYamlChunk(chunk []byte) ([]resourceYamlChunk, 
 			break
 		}
 	}
-	if itemsInd >= len(yamlNode.Content) && yamlNode.Content[itemsInd].Kind != yamlv3.SequenceNode {
+	if itemsInd >= len(yamlNode.Content) || yamlNode.Content[itemsInd].Kind != yamlv3.SequenceNode {
 		return nil, fmt.Errorf("failed parsing yamlChunk: malformed items field")
 	}
 	for _, n := range yamlNode.Content[itemsInd].Content {

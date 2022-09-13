@@ -96,7 +96,7 @@ type controller struct {
 }
 
 // TODO: move to features ( and remove in 1.2 )
-var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
+var ingressNamespace = env.Register("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 

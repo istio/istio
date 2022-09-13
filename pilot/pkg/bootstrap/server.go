@@ -115,6 +115,7 @@ type Server struct {
 	serviceEntryController *serviceentry.Controller
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
+	httpAddr         string
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 
@@ -126,6 +127,8 @@ type Server struct {
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
 	monitoringMux *http.ServeMux
+	// internalDebugMux is a mux for *internal* calls to the debug interface. That is, authentication is disabled.
+	internalDebugMux *http.ServeMux
 
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
@@ -136,9 +139,6 @@ type Server struct {
 	// httpsMux listens on the httpsAddr(15017), handling webhooks
 	// If the address os empty, the webhooks will be set on the default httpPort.
 	httpsMux *http.ServeMux // webhooks
-
-	// MultiplexGRPC will serve gRPC and HTTP (1 or 2) over the HTTPListener, if enabled.
-	MultiplexGRPC bool
 
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
@@ -228,6 +228,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.addReadinessProbe("discovery", func() (bool, error) {
 		return s.XDSServer.IsServerReady(), nil
 	})
+	s.initServers(args)
 	if err := s.initIstiodAdminServer(args, whc); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
@@ -274,7 +275,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace)
+	s.XDSServer.InitGenerators(e, args.Namespace, s.internalDebugMux)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -314,7 +315,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// This should be called only after controllers are initialized.
 	s.initRegistryEventHandlers()
 
-	s.initDiscoveryService(args)
+	s.initDiscoveryService()
 
 	s.initSDSServer()
 
@@ -336,8 +337,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
-	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	if s.kubeClient != nil {
+		authenticators = append(authenticators,
+			kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	}
 	if len(features.TrustedGatewayCIDR) > 0 {
 		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
 	}
@@ -451,29 +454,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				log.Errorf("error serving GRPC server: %v", err)
 			}
 		}()
-	}
-
-	if s.MultiplexGRPC {
-		log.Infof("multiplexing gRPC services with HTTP services")
-		h2s := &http2.Server{
-			MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
-		}
-		// In the past, we have tried using "cmux" to handle multiplexing. This only works if we have
-		// only HTTP/1.1 and gRPC on the same port. If we have gRPC and HTTP2, clients (envoy) may
-		// multiplex the connections. cmux works at the connection level, so if the first request is
-		// gRPC then all future non-GRPC HTTP2 requests will match the gRPC server and fail. The major
-		// downside of multiplexing by using gRPC's ServeHTTP is that we are using the golang HTTP2
-		// stack. This means a lot of features on the gRPC server (keepalives, etc) do not apply.
-		multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// If we detect gRPC, serve using grpcServer
-			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
-				s.grpcServer.ServeHTTP(w, r)
-				return
-			}
-			// Otherwise, this is meant for the standard HTTP server
-			s.httpMux.ServeHTTP(w, r)
-		}), h2s)
-		s.httpServer.Handler = multiplexHandler
 	}
 
 	if s.httpsServer != nil {
@@ -595,30 +575,57 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// initIstiodAdminServer initializes monitoring, debug and readiness end points.
-func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
+// initServers initializes http and grpc servers
+func (s *Server) initServers(args *PilotArgs) {
+	s.initGrpcServer(args.KeepaliveOptions)
+	multiplexGRPC := false
+	if args.ServerOptions.GRPCAddr != "" {
+		s.grpcAddress = args.ServerOptions.GRPCAddr
+	} else {
+		// This happens only if the GRPC port (15010) is disabled. We will multiplex
+		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
+		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
+		multiplexGRPC = true
+	}
+	h2s := &http2.Server{
+		MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
+	}
+	multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If we detect gRPC, serve using grpcServer
+		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+			s.grpcServer.ServeHTTP(w, r)
+			return
+		}
+		// Otherwise, this is meant for the standard HTTP server
+		s.httpMux.ServeHTTP(w, r)
+	}), h2s)
 	s.httpServer = &http.Server{
 		Addr:        args.ServerOptions.HTTPAddr,
 		Handler:     s.httpMux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
 	}
+	if multiplexGRPC {
+		s.httpServer.Handler = multiplexHandler
+	}
 
-	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
-
-	if shouldMultiplex {
+	if args.ServerOptions.MonitoringAddr == "" {
 		s.monitoringMux = s.httpMux
 		log.Info("initializing Istiod admin server multiplexed on httpAddr ", s.httpServer.Addr)
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
+}
 
+// initIstiodAdminServer initializes monitoring, debug and readiness end points.
+func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
 	// Debug Server.
-	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	internalMux := s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	s.internalDebugMux = internalMux
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
-	if !shouldMultiplex {
+	if args.ServerOptions.MonitoringAddr != "" {
 		s.XDSServer.AddDebugHandlers(s.httpMux, nil, args.ServerOptions.EnableProfiling, whc)
 	}
 
@@ -634,7 +641,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 }
 
 // initDiscoveryService initializes discovery server on plain text port.
-func (s *Server) initDiscoveryService(args *PilotArgs) {
+func (s *Server) initDiscoveryService() {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -642,17 +649,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		s.XDSServer.Start(stop)
 		return nil
 	})
-
-	s.initGrpcServer(args.KeepaliveOptions)
-
-	if args.ServerOptions.GRPCAddr != "" {
-		s.grpcAddress = args.ServerOptions.GRPCAddr
-	} else {
-		// This happens only if the GRPC port (15010) is disabled. We will multiplex
-		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
-		s.MultiplexGRPC = true
-	}
 }
 
 // Wait for the stop, and do cleanups
@@ -1291,5 +1287,6 @@ func (s *Server) serveHTTP() error {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
+	s.httpAddr = httpListener.Addr().String()
 	return nil
 }

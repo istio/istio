@@ -30,22 +30,21 @@ import (
 // Because the spec is a customization API, specifying an empty IstioOperatorSpec results in a default Istio
 // component values.
 //
-// ```yaml
-// apiVersion: install.istio.io/v1alpha1
-// kind: IstioOperator
-// spec:
-//   profile: default
-//   hub: gcr.io/istio-testing
-//   tag: latest
-//   revision: 1-8-0
-//   meshConfig:
-//     accessLogFile: /dev/stdout
-//     enableTracing: true
-//   components:
-//     egressGateways:
-//     - name: istio-egressgateway
-//       enabled: true
-// ```
+//	apiVersion: install.istio.io/v1alpha1
+//	kind: IstioOperator
+//	spec:
+//	  profile: default
+//	  hub: gcr.io/istio-testing
+//	  tag: latest
+//	  revision: 1-8-0
+//	  meshConfig:
+//	    accessLogFile: /dev/stdout
+//	    enableTracing: true
+//	  components:
+//	    egressGateways:
+//	    - name: istio-egressgateway
+//	      enabled: true
+//
 // +kubetype-gen
 // +kubetype-gen:groupVersion=install.istio.io/v1alpha1
 // +k8s:deepcopy-gen=true

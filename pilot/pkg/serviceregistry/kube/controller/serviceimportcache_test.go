@@ -203,7 +203,7 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 }
 
 func newTestServiceImportCache(t test.Failer, mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl) {
-	test.SetBoolForTest(t, &features.EnableMCSHost, true)
+	test.SetForTest(t, &features.EnableMCSHost, true)
 
 	c, _ = NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: serviceImportCluster,
@@ -340,6 +340,10 @@ func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 		IPAddresses:     []string{serviceImportPodIP},
 		Locality:        &envoyCore.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceImportNamespace,
+		Labels: map[string]string{
+			"app":                      "prod-app",
+			label.SecurityTlsMode.Name: "mutual",
+		},
 		Metadata: &model.NodeMetadata{
 			ServiceAccount: "account",
 			ClusterID:      ic.Cluster(),

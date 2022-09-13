@@ -160,7 +160,7 @@ func createFakeCsr(t *testing.T) []byte {
 	return csrPEM
 }
 
-func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
+func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 	client := kube.NewFakeClient()
 	ctx := test.NewContext(t)
 	w, _ := client.Kube().CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})

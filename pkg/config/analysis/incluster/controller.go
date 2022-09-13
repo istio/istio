@@ -52,7 +52,7 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	ia.AddSource(rwConfigStore)
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store, err := crdclient.NewForSchemas(kubeClient, "default",
-		domainSuffix, collections.All.Remove(rwConfigStore.Schemas().All()...))
+		domainSuffix, "analysis-controller", collections.All.Remove(rwConfigStore.Schemas().All()...))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
 	}
@@ -113,7 +113,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			log.Debugf("finished enqueueing all statuses")
 		case <-stop:
 			t.Stop()
-			break
+			return
 		}
 	}
 }

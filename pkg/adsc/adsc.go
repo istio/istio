@@ -28,7 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -263,7 +263,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	}
 	// We want to recreate stream
 	if opts.BackoffPolicy == nil {
-		opts.BackoffPolicy = backoff.NewExponentialBackOff()
+		opts.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
 	}
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
@@ -471,6 +471,7 @@ func (a *ADSC) reconnect() {
 	if err == nil {
 		a.cfg.BackoffPolicy.Reset()
 	} else {
+		// TODO: fix reconnect
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
 }
@@ -1149,6 +1150,13 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
 	var resources []string
+
+	if strings.HasPrefix(msg.TypeUrl, v3.DebugType) {
+		// If the response is for istio.io/debug or istio.io/debug/*,
+		// skip to send ACK.
+		return
+	}
+
 	if msg.TypeUrl == v3.EndpointType {
 		for c := range a.edsClusters {
 			resources = append(resources, c)

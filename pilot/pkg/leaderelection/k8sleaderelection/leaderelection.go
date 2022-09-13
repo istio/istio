@@ -62,10 +62,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 )
@@ -182,7 +182,7 @@ type LeaderElectionConfig struct {
 // lifecycle events of the LeaderElector. These are invoked asynchronously.
 //
 // possible future callbacks:
-//  * OnChallenge()
+//   - OnChallenge()
 type LeaderCallbacks struct {
 	// OnStartedLeading is called when a LeaderElector client starts leading
 	OnStartedLeading func(context.Context)

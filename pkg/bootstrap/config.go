@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
@@ -58,6 +59,9 @@ const (
 	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 
 	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + ",downstream_cx_active" // Needed for draining.
+
+	// required for metrics based on stat_prefix in virtual service.
+	requiredEnvoyStatsMatcherInclusionRegexes = `vhost\.*\.route\.*`
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
@@ -87,7 +91,6 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
-		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType))
@@ -250,7 +253,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
 			inclusionSuffixes, proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -273,14 +276,13 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 	return opts
 }
 
-var StripFragment = env.RegisterBoolVar("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
+var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
 func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 	// Setup defaults
 	runtimeFlags := map[string]string{
 		"overload.global_downstream_max_connections":                                                           "2147483647",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"envoy.reloadable_features.require_strict_1xx_and_204_response_headers":                                "false",
 		"re2.max_program_size.error_level":                                                                     "32768",
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
 		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
@@ -485,6 +487,7 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 			m := jsonStringToMap(val)
 			if len(m) > 0 {
 				meta.Labels = m
+				meta.StaticLabels = m
 			}
 		case "POD_NAME":
 			meta.InstanceName = val
@@ -508,22 +511,35 @@ type MetadataOptions struct {
 	ID                          string
 	ProxyConfig                 *meshAPI.ProxyConfig
 	PilotSubjectAltName         []string
+	CredentialSocketExists      bool
 	XDSRootCert                 string
 	OutlierLogPath              string
-	ProvCert                    string
 	annotationFilePath          string
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
 }
 
+const (
+	// DefaultDeploymentUniqueLabelKey is the default key of the selector that is added
+	// to existing ReplicaSets (and label key that is added to its pods) to prevent the existing ReplicaSets
+	// to select new pods (and old pods being select by new ReplicaSet).
+	DefaultDeploymentUniqueLabelKey string = "pod-template-hash"
+)
+
 // GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // The name of variable is ignored.
-// ISTIO_META_* env variables are passed thru
+// ISTIO_META_* env variables are passed through
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]any{}
+
+	for k, v := range options.ProxyConfig.GetProxyMetadata() {
+		if strings.HasPrefix(k, IstioMetaPrefix) {
+			untypedMeta[strings.TrimPrefix(k, IstioMetaPrefix)] = v
+		}
+	}
 
 	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]any, key string, val string) {
 		m[key] = val
@@ -544,7 +560,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if err := json.Unmarshal(j, meta); err != nil {
 		return nil, err
 	}
-	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
@@ -559,6 +574,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 	// Add all instance labels with lower precedence than pod labels
 	extractInstanceLabels(options.Platform, meta)
 
@@ -566,10 +582,15 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	// These are typically volume mounted by the downward API
 	lbls, err := readPodLabels()
 	if err == nil {
-		if meta.Labels == nil {
-			meta.Labels = map[string]string{}
+		meta.Labels = map[string]string{}
+		for k, v := range meta.StaticLabels {
+			meta.Labels[k] = v
 		}
 		for k, v := range lbls {
+			// ignore `pod-template-hash` label
+			if k == DefaultDeploymentUniqueLabelKey {
+				continue
+			}
 			meta.Labels[k] = v
 		}
 	} else {
@@ -610,7 +631,9 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
 	meta.XDSRootCert = options.XDSRootCert
 	meta.OutlierLogPath = options.OutlierLogPath
-	meta.ProvCert = options.ProvCert
+	if options.CredentialSocketExists {
+		untypedMeta[security.CredentialMetaDataName] = "true"
+	}
 
 	return &model.Node{
 		ID:          options.ID,
@@ -683,11 +706,11 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 		return
 	}
 	instanceLabels := plat.Labels()
-	if meta.Labels == nil {
-		meta.Labels = map[string]string{}
+	if meta.StaticLabels == nil {
+		meta.StaticLabels = map[string]string{}
 	}
 	for k, v := range instanceLabels {
-		meta.Labels[k] = v
+		meta.StaticLabels[k] = v
 	}
 }
 
@@ -733,8 +756,7 @@ func removeDuplicates(values []string) []string {
 	set := sets.New()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
-		if !set.Contains(v) {
-			set.Insert(v)
+		if !set.InsertContains(v) {
 			newValues = append(newValues, v)
 		}
 	}

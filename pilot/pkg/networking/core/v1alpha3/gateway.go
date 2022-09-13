@@ -94,7 +94,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 		for transport, gwServers := range transportToServers {
 			if gwServers == nil {
-				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port)
+				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port.Number)
 				continue
 			}
 
@@ -394,7 +394,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
 					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh)
 				if err != nil {
@@ -413,7 +413,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -437,7 +437,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    buildGatewayVirtualHostDomains(hostname, port),
+				Domains:                    buildGatewayVirtualHostDomains(node, hostname, port),
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
@@ -471,6 +471,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
+	}
+	if GatewayIgnorePort(node) {
+		routeCfg.IgnorePortInHostMatching = true
 	}
 
 	return routeCfg
@@ -817,7 +820,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 			filterChains = append(filterChains, builtAutoPassthroughFilterChains(push, node, node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 		}
 	} else {
-		tlsSniHosts := map[string]struct{}{} // sni host -> exists
+		tlsSniHosts := map[string]string{} // sni host -> exists
 
 		virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {
@@ -843,7 +846,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 						// Envoy will reject config that has multiple filter chain matches with the same matching rules
 						// To avoid this, we need to make sure we don't have duplicated SNI hosts, which will become
 						// SNI filter chain matches
-						if duplicateSniHosts := model.CheckDuplicates(match.SniHosts, tlsSniHosts); len(duplicateSniHosts) != 0 {
+						if duplicateSniHosts := model.CheckDuplicates(match.SniHosts, server.Bind, tlsSniHosts); len(duplicateSniHosts) != 0 {
 							log.Debugf(
 								"skipping VirtualService %s rule #%v on server port %d of gateway %s, duplicate SNI host names: %v",
 								v.Meta.Name, i, port.Port, gatewayName, duplicateSniHosts)
@@ -1012,9 +1015,9 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	return false
 }
 
-func buildGatewayVirtualHostDomains(hostname string, port int) []string {
+func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" {
+	if features.StripHostPort || hostname == "*" || GatewayIgnorePort(node) {
 		return domains
 	}
 
@@ -1039,9 +1042,8 @@ func filteredGatewayCipherSuites(server *networking.Server) []string {
 	validCiphers := sets.New()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			if !validCiphers.Contains(s) {
+			if !validCiphers.InsertContains(s) {
 				ret = append(ret, s)
-				validCiphers = validCiphers.Insert(s)
 			} else if log.DebugEnabled() {
 				log.Debugf("ignoring duplicated cipherSuite: %q for server %s", s, server.String())
 			}

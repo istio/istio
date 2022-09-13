@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 39797
+
+releaseNotes:
+  - |
+    **Added** a new istio operator `remote` profile and deprecated the equivalent `external` profile.

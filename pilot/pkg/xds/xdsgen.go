@@ -50,7 +50,7 @@ func ControlPlane() *corev3.ControlPlane {
 
 func init() {
 	// The Pod Name (instance identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
-	podName := env.RegisterStringVar("POD_NAME", "", "").Get()
+	podName := env.Register("POD_NAME", "", "").Get()
 	byVersion, err := json.Marshal(IstioControlPlaneInstance{
 		Component: "istiod",
 		ID:        podName,
@@ -75,7 +75,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 	// some types to use custom generators - for example EDS.
 	g := con.proxy.XdsResourceGenerator
 	if g == nil {
-		if strings.HasPrefix(typeURL, "istio.io/debug/") {
+		if strings.HasPrefix(typeURL, TypeDebugPrefix) {
 			g = s.Generators["event"]
 		} else {
 			// TODO move this to just directly using the resource TypeUrl

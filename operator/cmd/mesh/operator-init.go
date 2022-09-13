@@ -25,7 +25,9 @@ import (
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
+	operatorutil "istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	buildversion "istio.io/pkg/version"
 )
@@ -55,7 +57,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
-	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", istioDefaultNamespace,
+	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", constants.IstioSystemNamespace,
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -130,7 +132,7 @@ func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
-	if err := createNamespace(kubeClient.Kube(), oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
+	if err := operatorutil.CreateNamespace(kubeClient.Kube(), oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -141,7 +143,7 @@ func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		namespaces = append(namespaces, istioNamespace)
 	}
 	for _, ns := range namespaces {
-		if err := createNamespace(kubeClient.Kube(), ns, "", opts.DryRun); err != nil {
+		if err := operatorutil.CreateNamespace(kubeClient.Kube(), ns, "", opts.DryRun); err != nil {
 			l.LogAndFatal(err)
 		}
 	}

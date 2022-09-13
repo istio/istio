@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -128,7 +129,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if pb, ok := s.(protoreflect.ProtoMessage); ok {
-		return anypb.New(pb)
+		return protoconv.MessageToAnyWithError(pb)
 	}
 
 	// gogo protobuf
@@ -151,7 +152,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
 		return nil, err
 	}
-	return anypb.New(pbs)
+	return protoconv.MessageToAnyWithError(pbs)
 }
 
 func ToMap(s Spec) (map[string]any, error) {

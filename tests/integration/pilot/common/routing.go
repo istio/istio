@@ -56,16 +56,16 @@ const httpVirtualServiceTmpl = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: {{.VirtualServiceHost}}
+  name: "{{.VirtualServiceHost|replace "*" "wild"}}"
 spec:
   gateways:
   - {{.Gateway}}
   hosts:
-  - {{.VirtualServiceHost}}
+  - "{{.VirtualServiceHost}}"
   http:
   - route:
     - destination:
-        host: {{.VirtualServiceHost}}
+        host: "{{.DestinationHost | default .VirtualServiceHost}}"
         port:
           number: {{.Port}}
 {{- if .MatchScheme }}
@@ -84,9 +84,10 @@ func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(httpVirtualServiceTmpl, struct {
 		Gateway            string
 		VirtualServiceHost string
+		DestinationHost    string
 		Port               int
 		MatchScheme        string
-	}{gateway, host, port, ""})
+	}{gateway, host, "", port, ""})
 }
 
 const gatewayTmpl = `
@@ -660,7 +661,8 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name: "fault abort gRPC",
+		name:            "fault abort gRPC",
+		minIstioVersion: "1.15.0",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1384,6 +1386,82 @@ spec:
 			}
 		},
 	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "wildcard hostname",
+		targetMatchers:   singleTarget,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.example.com"
+---
+` + httpVirtualServiceTmpl,
+		children: []TrafficCall{
+			{
+				name: "no port",
+				call: nil,
+				opts: echo.CallOptions{
+					HTTP: echo.HTTP{
+						HTTP2:   true,
+						Headers: headers.New().WithHost("foo.example.com").Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Check: check.OK(),
+				},
+			},
+			{
+				name: "correct port",
+				call: nil,
+				opts: echo.CallOptions{
+					HTTP: echo.HTTP{
+						HTTP2:   true,
+						Headers: headers.New().WithHost("foo.example.com:80").Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Check: check.OK(),
+				},
+			},
+			{
+				name: "random port",
+				call: nil,
+				opts: echo.CallOptions{
+					HTTP: echo.HTTP{
+						HTTP2:   true,
+						Headers: headers.New().WithHost("foo.example.com:12345").Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					Check: check.OK(),
+				},
+			},
+		},
+		minIstioVersion: "1.15.0",
+		setupOpts:       noTarget,
+		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
+			return map[string]any{
+				"Gateway":            "gateway",
+				"VirtualServiceHost": "*.example.com",
+				"DestinationHost":    dests[0].Config().ClusterLocalFQDN(),
+				"Port":               ports.All().MustForName(ports.HTTP).ServicePort,
+			}
+		},
+	})
 
 	for _, port := range []string{"auto-http", "http", "http2"} {
 		for _, h2 := range []bool{true, false} {
@@ -1679,26 +1757,33 @@ func hostCases(t TrafficContext) {
 			t.Fatalf("no workloads found")
 		}
 		address := wl[0].Address()
+		// We test all variants with no port, the expected port, and a random port.
 		hosts := []string{
 			cfg.ClusterLocalFQDN(),
 			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
+			fmt.Sprintf("%s:12345", cfg.ClusterLocalFQDN()),
 			fmt.Sprintf("%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			fmt.Sprintf("%s.%s.svc:12345", cfg.Service, cfg.Namespace.Name()),
 			cfg.Service,
 			fmt.Sprintf("%s:%d", cfg.Service, port),
+			fmt.Sprintf("%s:12345", cfg.Service),
 			fmt.Sprintf("some-instances.%s:%d", cfg.ClusterLocalFQDN(), port),
+			fmt.Sprintf("some-instances.%s:12345", cfg.ClusterLocalFQDN()),
 			fmt.Sprintf("some-instances.%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
-			fmt.Sprintf("some-instances.%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			fmt.Sprintf("some-instances.%s.%s.svc:12345", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("some-instances.%s", cfg.Service),
 			fmt.Sprintf("some-instances.%s:%d", cfg.Service, port),
+			fmt.Sprintf("some-instances.%s:12345", cfg.Service),
 			address,
 			fmt.Sprintf("%s:%d", address, port),
 		}
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
 			t.RunTraffic(TrafficTestCase{
-				name: name,
-				call: c.CallOrFail,
+				name:            name,
+				minIstioVersion: "1.15.0",
+				call:            c.CallOrFail,
 				opts: echo.CallOptions{
 					To:    t.Apps.Headless,
 					Count: 1,
@@ -1708,7 +1793,8 @@ func hostCases(t TrafficContext) {
 					HTTP: echo.HTTP{
 						Headers: HostHeader(h),
 					},
-					Check: check.OK(),
+					// check mTLS to ensure we are not hitting pass-through cluster
+					Check: check.And(check.OK(), check.MTLSForHTTP()),
 				},
 			})
 		}
@@ -1716,23 +1802,35 @@ func hostCases(t TrafficContext) {
 		hosts = []string{
 			cfg.ClusterLocalFQDN(),
 			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
+			fmt.Sprintf("%s:12345", cfg.ClusterLocalFQDN()),
 			fmt.Sprintf("%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			fmt.Sprintf("%s.%s.svc:12345", cfg.Service, cfg.Namespace.Name()),
 			cfg.Service,
 			fmt.Sprintf("%s:%d", cfg.Service, port),
+			fmt.Sprintf("%s:12345", cfg.Service),
 			fmt.Sprintf("some-instances.%s:%d", cfg.ClusterLocalFQDN(), port),
+			fmt.Sprintf("some-instances.%s:12345", cfg.ClusterLocalFQDN()),
 			fmt.Sprintf("some-instances.%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("some-instances.%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			fmt.Sprintf("some-instances.%s.%s.svc:12345", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("some-instances.%s", cfg.Service),
 			fmt.Sprintf("some-instances.%s:%d", cfg.Service, port),
+			fmt.Sprintf("some-instances.%s:12345", cfg.Service),
 			address,
 			fmt.Sprintf("%s:%d", address, port),
 		}
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/http"
+			assertion := check.And(check.OK(), check.MTLSForHTTP())
+			if strings.Contains(name, "ip") {
+				// we expect to actually do passthrough for the IP case
+				assertion = check.OK()
+			}
 			t.RunTraffic(TrafficTestCase{
-				name: name,
-				call: c.CallOrFail,
+				name:            name,
+				minIstioVersion: "1.15.0",
+				call:            c.CallOrFail,
 				opts: echo.CallOptions{
 					To: t.Apps.Headless,
 					Port: echo.Port{
@@ -1741,7 +1839,8 @@ func hostCases(t TrafficContext) {
 					HTTP: echo.HTTP{
 						Headers: HostHeader(h),
 					},
-					Check: check.OK(),
+					// check mTLS to ensure we are not hitting pass-through cluster
+					Check: assertion,
 				},
 			})
 		}
@@ -2006,10 +2105,11 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "tcp source ip " + c.Config().Service,
-				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:   c.CallOrFail,
-				opts:   tcpCallopts,
+				name:            "tcp source ip " + c.Config().Service,
+				minIstioVersion: "1.14.0",
+				config:          svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:            c.CallOrFail,
+				opts:            tcpCallopts,
 				skip: skip{
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
@@ -2027,7 +2127,7 @@ var ConsistentHostChecker echo.Checker = func(result echo.CallResult, _ error) e
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
 	unique := sets.New(hostnames...).SortedList()
 	if len(unique) != 1 {
-		return fmt.Errorf("excepted only one destination, got: %v", unique)
+		return fmt.Errorf("expected only one destination, got: %v", unique)
 	}
 	return nil
 }

@@ -9,11 +9,10 @@ spec:
     app: nginx
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       creationTimestamp: null
       labels:
         app: nginx
+        sidecar.istio.io/inject: "false"
       name: nginx
     spec:
       containers:

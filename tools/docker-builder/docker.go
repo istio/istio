@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -23,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -165,25 +165,20 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		// --save is specified so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
 		// This is typically used when running release-builder locally.
 		// Output an error message telling the user how to create a builder with the correct driver.
-		c := VerboseCommand("docker", "buildx", "ls") // get current builder
+		c := VerboseCommand("docker", "buildx", "inspect") // get current builder
 		out := new(bytes.Buffer)
 		c.Stdout = out
 		err := c.Run()
 		if err != nil {
 			return fmt.Errorf("command failed: %v", err)
 		}
-		scanner := bufio.NewScanner(out)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.Split(line, " ")[1] == "*" { // This is the default builder
-				if strings.Split(line, " ")[3] == "docker-container" { // if using docker-container driver
-					return nil // current builder will work for --save
-				}
-				return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
-					"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3" +
-					" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
-			}
+		matches := regexp.MustCompile(`Driver: (.*)`).FindStringSubmatch(out.String())
+		if len(matches) == 0 || matches[1] != "docker-container" {
+			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
+				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3" +
+				" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
+		return nil
 	}
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled

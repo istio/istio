@@ -17,8 +17,6 @@ package multicluster
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -35,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 const secretNamespace string = "istio-system"
@@ -101,25 +98,11 @@ func resetCallbackData() {
 	deleted = ""
 }
 
-func GetFunctionName(i interface{}) string {
-	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
-}
-
-func Test_SecretControllert(t *testing.T) {
-	s := log.RegisterScope("x", "y", 0)
-	fmt.Println(GetFunctionName(log.Infof))
-	fmt.Println(GetFunctionName(log.WithLabels("baz", 1).Infof))
-	fmt.Println(GetFunctionName(s.Infof))
-	fmt.Println(GetFunctionName(s.WithLabels("foo", "bar").Infof))
-	s.WithLabels("foo", "bar").Infof("%s %s", 1)
-	log.Infof("%s %s", 1)
-}
-
 func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	test.SetDurationForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
+	test.SetForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
 	clientset := kube.NewFakeClient()
 
 	var (

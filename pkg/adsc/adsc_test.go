@@ -40,6 +40,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -539,7 +540,7 @@ func constructResourceWithOptions(name string, host string, address, version str
 		Hosts:     []string{host},
 		Addresses: []string{address},
 	}
-	seAny, _ := anypb.New(service)
+	seAny := protoconv.MessageToAny(service)
 	resource := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       "default/" + name,
@@ -553,7 +554,7 @@ func constructResourceWithOptions(name string, host string, address, version str
 		o(resource)
 	}
 
-	resAny, _ := anypb.New(resource)
+	resAny := protoconv.MessageToAny(resource)
 	return &anypb.Any{
 		TypeUrl: resAny.TypeUrl,
 		Value:   resAny.Value,

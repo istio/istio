@@ -18,13 +18,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
-	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	util2 "k8s.io/kubectl/pkg/util"
+	kubectlutil "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
@@ -164,12 +162,10 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		return errs.ToError()
 	}
 
-	if err := util2.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
+	if err := kubectlutil.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
 		scope.Errorf("unexpected error adding apply annotation to object: %s", err)
 	}
 
-	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(obj.GroupVersionKind())
 	objectKey := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
@@ -182,18 +178,19 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		return nil
 	}
 
-	gvk := obj.GetObjectKind().GroupVersionKind()
 	if serverSideApply {
 		return h.serverSideApply(obj)
 	}
 
+	receiver := &unstructured.Unstructured{}
+	receiver.SetGroupVersionKind(obj.GroupVersionKind())
+	gvk := obj.GetObjectKind().GroupVersionKind()
 	// for k8s version before 1.16
-	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
-	return retry.RetryOnConflict(backoff, func() error {
+	return retry.RetryOnConflict(conflictBackoff, func() error {
 		err := h.client.Get(context.TODO(), objectKey, receiver)
 
 		switch {
-		case errors2.IsNotFound(err):
+		case apierrors.IsNotFound(err):
 			scope.Infof("Creating %s (%s/%s)", objectStr, h.iop.Name, h.iop.Spec.Revision)
 			err = h.client.Create(context.TODO(), obj)
 			if err != nil {

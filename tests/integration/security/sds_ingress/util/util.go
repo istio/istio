@@ -18,12 +18,10 @@
 package util
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -34,12 +32,11 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -101,6 +98,11 @@ var IngressCredentialServerKeyCertB = IngressCredential{
 	PrivateKey:  TLSServerKeyB,
 	Certificate: TLSServerCertB,
 }
+
+var (
+	A  echo.Instances
+	VM echo.Instances
+)
 
 // IngressKubeSecretYAML will generate a credential for a gateway
 func IngressKubeSecretYAML(name, namespace string, ingressType CallType, ingressCred IngressCredential) string {
@@ -400,24 +402,13 @@ func EchoConfig(service string, ns namespace.Instance, buildVM bool) echo.Config
 	}
 }
 
-func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
-	var err error
-	apps.ServerNs, err = namespace.New(ctx, namespace.Config{
-		Prefix: "ingress",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
+func SetupTest(ctx resource.Context, customCfg *[]echo.Config, customNs namespace.Getter) error {
+	var customConfig []echo.Config
 	buildVM := !ctx.Settings().Skip(echo.VM)
-	echos, err := deployment.New(ctx).
-		WithClusters(ctx.Clusters()...).
-		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
-		WithConfig(EchoConfig(VMSvc, apps.ServerNs, buildVM)).Build()
-	if err != nil {
-		return err
-	}
-	apps.All = echos
+	a := EchoConfig(ASvc, customNs.Get(), false)
+	vm := EchoConfig(VMSvc, customNs.Get(), buildVM)
+	customConfig = append(customConfig, a, vm)
+	*customCfg = customConfig
 	return nil
 }
 
@@ -469,34 +460,22 @@ spec:
     - "{{.Host}}"
 `
 
-func runTemplate(t test.Failer, tmpl string, params any) string {
-	tm, err := template.New("").Parse(tmpl)
-	if err != nil {
-		t.Fatalf("failed to render template: %v", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tm.Execute(&buf, params); err != nil {
-		t.Fatal(err)
-	}
-	return buf.String()
-}
-
 func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) {
-	var cfg []string
+	b := ctx.ConfigIstio().New()
 	for _, c := range config {
-		cfg = append(cfg, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
+		b.Eval(ns.Name(), c, vsTemplate)
+		b.Eval(ns.Name(), c, gwTemplate)
 	}
-	ctx.ConfigIstio().YAML(ns.Name(), cfg...).ApplyOrFail(ctx)
+	b.ApplyOrFail(ctx)
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes secret that stores
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
 // mTLS connections successfully.
-func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, apps *EchoDeployments) { // nolint:interfacer
+func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ns namespace.Getter) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(ctx, apps.All).
+	echotest.New(ctx, A).
 		SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultimtlsgateways-%d", i)
@@ -508,7 +487,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 				})
 				credNames = append(credNames, cred)
 			}
-			SetupConfig(ctx, apps.ServerNs, tests...)
+			SetupConfig(ctx, ns.Get(), tests...)
 			return nil
 		}).
 		To(echotest.SimplePodServiceAndAllSpecial(1)).
@@ -540,10 +519,10 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 // RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes secret that stores
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
-func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps *EchoDeployments) { // nolint:interfacer
+func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, ns namespace.Getter) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(t, apps.All).
+	echotest.New(t, A).
 		SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
@@ -555,7 +534,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 				})
 				credNames = append(credNames, cred)
 			}
-			SetupConfig(t, apps.ServerNs, tests...)
+			SetupConfig(t, ns.Get(), tests...)
 			return nil
 		}).
 		To(echotest.SimplePodServiceAndAllSpecial(1)).
@@ -585,54 +564,69 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 // RunTestMultiQUICGateways deploys multiple TLS/mTLS gateways with SDS enabled, and creates kubernetes secret that stores
 // private key and server certificate for each TLS/mTLS gateway. Verifies that all gateways are able to terminate
 // QUIC connections successfully.
-func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, callType CallType, apps *EchoDeployments) {
+func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, callType CallType, ns namespace.Getter) {
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(ctx, apps.All).
-		SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
-			for i := 1; i < 6; i++ {
-				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
-				mode := "SIMPLE"
+	allInstances := []echo.Instances{A, VM}
+	for _, instances := range allInstances {
+		echotest.New(ctx, instances).
+			SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
+				for i := 1; i < 6; i++ {
+					cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
+					mode := "SIMPLE"
+					if callType == Mtls {
+						mode = "MUTUAL"
+					}
+					tests = append(tests, TestConfig{
+						Mode:           mode,
+						CredentialName: cred,
+						Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
+						ServiceName:    to.Config().Service,
+					})
+					credNames = append(credNames, cred)
+				}
+				SetupConfig(ctx, ns.Get(), tests...)
+				return nil
+			}).
+			To(echotest.SimplePodServiceAndAllSpecial(1)).
+			RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
+				for _, cn := range credNames {
+					CreateIngressKubeSecret(ctx, cn, TLS, IngressCredentialA, false)
+				}
+
+				ing := inst.IngressFor(fromCluster)
+				if ing == nil {
+					ctx.Skip()
+				}
+				tlsContext := TLSContext{
+					CaCert: CaCertA,
+				}
 				if callType == Mtls {
-					mode = "MUTUAL"
+					tlsContext = TLSContext{
+						CaCert:     CaCertA,
+						PrivateKey: TLSClientKeyA,
+						Cert:       TLSClientCertA,
+					}
 				}
-				tests = append(tests, TestConfig{
-					Mode:           mode,
-					CredentialName: cred,
-					Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
-					ServiceName:    to.Config().Service,
-				})
-				credNames = append(credNames, cred)
-			}
-			SetupConfig(ctx, apps.ServerNs, tests...)
-			return nil
-		}).
-		To(echotest.SimplePodServiceAndAllSpecial(1)).
-		RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
-			for _, cn := range credNames {
-				CreateIngressKubeSecret(ctx, cn, TLS, IngressCredentialA, false)
-			}
 
-			ing := inst.IngressFor(fromCluster)
-			if ing == nil {
-				ctx.Skip()
-			}
-			tlsContext := TLSContext{
-				CaCert: CaCertA,
-			}
-			if callType == Mtls {
-				tlsContext = TLSContext{
-					CaCert:     CaCertA,
-					PrivateKey: TLSClientKeyA,
-					Cert:       TLSClientCertA,
+				for _, h := range tests {
+					ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+						SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+							ExpectedResponse{StatusCode: http.StatusOK})
+					})
 				}
-			}
+			})
+	}
+}
 
-			for _, h := range tests {
-				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
-					SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{StatusCode: http.StatusOK})
-				})
-			}
-		})
+func CreateCustomInstances(apps *deployment.SingleNamespaceView) error {
+	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+		switch {
+		case namespacedName.Name == "a":
+			A = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "vm":
+			VM = apps.EchoNamespace.All[index]
+		}
+	}
+	return nil
 }
