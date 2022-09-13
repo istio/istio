@@ -62,7 +62,7 @@ func (s *Server) setupHandlers() {
 	s.nsLister = ns.Lister()
 	ns.Informer().AddEventHandler(controllers.ObjectHandler(s.queue.AddObject))
 
-	s.kubeClient.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(s.newPodInformer())
+	s.kubeClient.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(s.podHandler())
 }
 
 func (s *Server) Run(stop <-chan struct{}) {
@@ -150,11 +150,11 @@ func (s *Server) Reconciler(name types.NamespacedName) error {
 	return nil
 }
 
-func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
+func (s *Server) podHandler() *cache.ResourceEventHandlerFuncs {
 	return &cache.ResourceEventHandlerFuncs{
 		// We only handle existing resources, so if we get an add event,
 		// we need to check to see if pod is running, if so, it's safe to
-		// assume it's existing and we've restarted.
+		// assume it's existing, and we've restarted.
 		//
 		// We also watch for ztunnel to start, because that means we need to trigger
 		// a bunch of iptable and routing changes.
@@ -163,28 +163,34 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 			// https://github.com/solo-io/istio-sidecarless/issues/85
 			pod := obj.(*corev1.Pod)
 
-			if pod.GetLabels()["app"] == "ztunnel" && podOnMyNode(pod) {
+			scopeLog := log.WithLabels("type", "add")
+			if !podOnMyNode(pod) {
+				scopeLog.Debugf("skipping pod not on my node")
+				return
+			}
+
+			if ztunnelPod(pod) {
 				if pod.Status.Phase != corev1.PodRunning {
 					return
 				}
 
-				log.WithLabels("type", "add").Infof("ztunnel is now running")
+				scopeLog.Infof("ztunnel is now running")
 
 				veth, err := getDeviceWithDestinationOf(pod.Status.PodIP)
 				if err != nil {
-					log.Errorf("Failed to get device for ztunnel ip: %v", err)
+					scopeLog.Errorf("Failed to get device for ztunnel ip: %v", err)
 					return
 				}
 
 				captureDNS := getEnvFromPod(pod, "ISTIO_META_DNS_CAPTURE") == "true"
 				err = s.CreateRulesOnNode(veth, pod.Status.PodIP, captureDNS)
 				if err != nil {
-					log.Errorf("Failed to configure node for ztunnel: %v", err)
+					scopeLog.Errorf("Failed to configure node rules for ztunnel: %v", err)
 					return
 				}
 
 				s.setZTunnelRunning(true)
-				// Reconile namespaces, as it is possible for the original reconciliation to have failed, and a
+				// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a
 				// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 				// catch the existing pods
 				s.ReconcileNamespaces()
@@ -196,29 +202,30 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 			newPod := cur.(*corev1.Pod)
 			oldPod := old.(*corev1.Pod)
 
-			if newPod.GetLabels()["app"] == "ztunnel" && podOnMyNode(newPod) {
+			scopeLog := log.WithLabels("type", "update")
+
+			if ztunnelPod(newPod) && podOnMyNode(newPod) {
 				// This will catch if ztunnel begins running after us... otherwise it gets handled by AddFunc
 				if newPod.Status.Phase != corev1.PodRunning || oldPod.Status.Phase == newPod.Status.Phase {
 					return
 				}
-
-				log.WithLabels("type", "update").Infof("ztunnel is now running")
+				scopeLog.Infof("ztunnel is now running")
 
 				veth, err := getDeviceWithDestinationOf(newPod.Status.PodIP)
 				if err != nil {
-					log.Errorf("Failed to get device for ztunnel ip: %v", err)
+					scopeLog.Errorf("Failed to get device for ztunnel ip: %v", err)
 					return
 				}
 
 				captureDNS := getEnvFromPod(newPod, "ISTIO_META_DNS_CAPTURE") == "true"
 				err = s.CreateRulesOnNode(veth, newPod.Status.PodIP, captureDNS)
 				if err != nil {
-					log.Errorf("Failed to configure node for ztunnel: %v", err)
+					scopeLog.Errorf("Failed to configure node for ztunnel: %v", err)
 					return
 				}
 
 				s.setZTunnelRunning(true)
-				// Reconile namespaces, as it is possible for the original reconciliation to have failed, and a
+				// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a
 				// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 				// catch the existing pods
 				s.ReconcileNamespaces()
@@ -226,7 +233,7 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 
 			// Catch pod with opt out applied
 			if ambientpod.PodHasOptOut(newPod) && !ambientpod.PodHasOptOut(oldPod) && podOnMyNode(newPod) {
-				log.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
+				scopeLog.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
 				DelPodFromMesh(newPod)
 				return
 			}
@@ -235,15 +242,25 @@ func (s *Server) newPodInformer() *cache.ResourceEventHandlerFuncs {
 			// @TODO: maybe not using the full pod struct, likely related to
 			// https://github.com/solo-io/istio-sidecarless/issues/85
 			pod := obj.(*corev1.Pod)
+			scopeLog := log.WithLabels("type", "delete")
 
-			if pod.GetLabels()["app"] == "ztunnel" && podOnMyNode(pod) {
-				log.WithLabels("type", "delete").Infof("ztunnel is now stopped... cleaning up.")
+			if !podOnMyNode(pod) {
+				scopeLog.Debugf("skipping pod not on my node")
+				return
+			}
+
+			if ztunnelPod(pod) {
+				scopeLog.Infof("ztunnel is now stopped... cleaning up.")
 				s.cleanup()
 				s.setZTunnelRunning(false)
-			} else if podOnMyNode(pod) && IsPodInIpset(pod) {
-				log.WithLabels("type", "delete").Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
+			} else if IsPodInIpset(pod) {
+				scopeLog.Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
 				DelPodFromMesh(pod)
 			}
 		},
 	}
+}
+
+func ztunnelPod(pod *corev1.Pod) bool {
+	return pod.GetLabels()["app"] == "ztunnel"
 }
