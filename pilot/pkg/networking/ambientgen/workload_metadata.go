@@ -35,8 +35,7 @@ const (
 // WorkloadMetadataGenerator is responsible for generating dynamic Ambient Listener Filter
 // configurations. These configurations include workload metadata for individual
 // workload instances (Kubernetes pods) running on a Kubernetes node.
-type WorkloadMetadataGenerator struct {
-}
+type WorkloadMetadataGenerator struct{}
 
 var _ model.XdsResourceGenerator = &WorkloadMetadataGenerator{}
 
