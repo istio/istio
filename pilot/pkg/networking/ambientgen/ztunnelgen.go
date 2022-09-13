@@ -423,7 +423,6 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 				// TODO2: this is still broken even with custom orig_dst. the listener sets the orig_src mark
 				// If we
 
-				name := sourceWl.Identity() + "_to_" + wl.PodIP
 				tunnel := &tcp.TcpProxy_TunnelingConfig{
 					Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 					HeadersToAdd: []*core.HeaderValueOption{
@@ -443,6 +442,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 					tunnel = nil
 				}
 
+				name := "fc-" + cluster
 				chain = &listener.FilterChain{
 					Name: name,
 					Filters: []*listener.Filter{
