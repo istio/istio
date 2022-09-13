@@ -15,12 +15,9 @@
 package controller
 
 import (
-	"context"
-
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
@@ -33,13 +30,13 @@ var _ ambient.Cache = &workloadCache{}
 type workloadCache struct {
 	xds     model.XDSUpdater
 	indexes map[ambient.NodeType]*ambient.WorkloadIndex
-	pods    func(namespace string) v1.PodInterface
+	pods    func(namespace string) v1.PodNamespaceLister
 }
 
 func initWorkloadCache(opts *Options) *workloadCache {
 	wc := &workloadCache{
 		xds:  opts.xds,
-		pods: opts.Client.Kube().CoreV1().Pods,
+		pods: opts.Client.KubeInformer().Core().V1().Pods().Lister().Pods,
 		// 3 types of things here: ztunnels, waypoint proxies, and Workloads.
 		// While we don't have to look up all of these by the same keys, the indexes should be pretty cheap.
 		indexes: map[ambient.NodeType]*ambient.WorkloadIndex{
@@ -65,9 +62,7 @@ func initWorkloadCache(opts *Options) *workloadCache {
 }
 
 func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
-	ctx := context.Background()
-	// TODO use lister
-	pod, err := wc.pods(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
+	pod, err := wc.pods(key.Namespace).Get(key.Name)
 	if kubeErrors.IsNotFound(err) {
 		wc.removeFromAll(key)
 		wc.xds.ConfigUpdate(&model.PushRequest{
