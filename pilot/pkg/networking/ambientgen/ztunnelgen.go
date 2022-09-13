@@ -166,7 +166,7 @@ func (g *ZTunnelConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.P
 	for sa := range workloads.ByIdentity {
 		for _, svc := range services {
 			for _, port := range svc.Ports {
-				c := g.waypointOutboundCluster(proxy, push, sa, svc, port.Name)
+				c := g.serviceOutboundCluster(proxy, push, sa, svc, port.Name)
 				if c == nil {
 					continue
 				}
@@ -369,7 +369,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 					chain = clientWaypointChain
 				} else {
 					// No waypoint proxy
-					name := waypointOutboundClusterName(sourceWl.Identity(), port.Name, svc.Hostname.String())
+					name := outboundServiceClusterName(sourceWl.Identity(), port.Name, svc.Hostname.String())
 					chain = &listener.FilterChain{
 						Name: name,
 						Filters: []*listener.Filter{{
@@ -596,12 +596,12 @@ func passthroughFilterChain() *listener.FilterChain {
 	}
 }
 
-func (g *ZTunnelConfigGenerator) waypointOutboundCluster(
+func (g *ZTunnelConfigGenerator) serviceOutboundCluster(
 	proxy *model.Proxy, push *model.PushContext, sa string, svc *model.Service, port string,
 ) *cluster.Cluster {
 	discoveryType := convertResolution(proxy.Type, svc)
 	c := &cluster.Cluster{
-		Name:                 waypointOutboundClusterName(sa, port, svc.Hostname.String()),
+		Name:                 outboundServiceClusterName(sa, port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 
 		TransportSocketMatches: v1alpha3.InternalUpstreamSocketMatch,
@@ -643,11 +643,11 @@ func (g *ZTunnelConfigGenerator) waypointOutboundCluster(
 	return c
 }
 
-func waypointOutboundClusterName(sa, port string, hostname string) string {
+func outboundServiceClusterName(sa, port string, hostname string) string {
 	return fmt.Sprintf("%s_to_%s_%s_outbound_internal", sa, port, hostname)
 }
 
-func parseWaypointOutboundClusterName(clusterName string) (sa, port string, hostname string, ok bool) {
+func parseServiceOutboundClusterName(clusterName string) (sa, port string, hostname string, ok bool) {
 	p := strings.Split(clusterName, "_")
 	if !strings.HasSuffix(clusterName, "_outbound_internal") || len(p) < 3 {
 		return "", "", "", false
@@ -751,7 +751,7 @@ func (g *ZTunnelConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.
 	// ztunnel outbound to upstream
 	for _, clusterName := range names {
 		// sa here is already our "envoy friendly" one
-		sa, port, hostname, ok := parseWaypointOutboundClusterName(clusterName)
+		sa, port, hostname, ok := parseServiceOutboundClusterName(clusterName)
 		if !ok {
 			continue
 		}
