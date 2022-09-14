@@ -4,5 +4,5 @@ area: extensibility
 issue: [39345]
 releaseNotes:
   - |
-    **Added** Add the `match` field in the WasmPlugin API. With this `match` clause, a WasmPlugin can be applied to more specific traffic (e.g., traffic to a specific port).
+    **Added** the `match` field in the WasmPlugin API. With this `match` clause, a WasmPlugin can be applied to more specific traffic (e.g., traffic to a specific port).
 
