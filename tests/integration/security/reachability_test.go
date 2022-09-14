@@ -93,7 +93,7 @@ func TestReachability(t *testing.T) {
 							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 						},
 					},
-					IPFamilies:     "['IPv4', 'IPv6']",
+					IPFamilies:     "'IPv4', 'IPv6'",
 					IPFamilyPolicy: "RequireDualStack",
 				}).
 				BuildOrFail(t)
