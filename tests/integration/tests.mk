@@ -42,6 +42,7 @@ ifeq ($(IP_FAMILY),ipv6)
 	support_ipv6 = yes
 else ifeq ($(IP_FAMILY),dual)
 	support_ipv6 = yes
+	_INTEGRATION_TEST_FLAGS += --istio.test.enableDualStack
 endif
 ifdef support_ipv6
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-ipv4"
