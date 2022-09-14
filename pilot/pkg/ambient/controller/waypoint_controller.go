@@ -258,7 +258,7 @@ func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions
 		return fmt.Errorf("update gateway status: %v", err)
 	}
 
-	log.Info("gateway %s/%s status updated", gw.Namespace, gw.Name)
+	log.Infof("gateway %s/%s status updated", gw.Namespace, gw.Name)
 	return nil
 }
 
