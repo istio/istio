@@ -1887,11 +1887,50 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
+
+	destinationRule5ExportToRootNamespace := config.Config{
+		Meta: config.Meta{
+			Name:      "rule5",
+			Namespace: "test5",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     "api.test.com",
+			ExportTo: []string{"istio-system"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset5-0",
+				},
+				{
+					Name: "subset5-1",
+				},
+			},
+		},
+	}
+
+	destinationRule6ExportToRootNamespace := config.Config{
+		Meta: config.Meta{
+			Name:      "rule6",
+			Namespace: "test6",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     "api.test.com",
+			ExportTo: []string{"istio-system"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset6-0",
+				},
+				{
+					Name: "subset6-1",
+				},
+			},
+		},
+	}
 	ps.setDestinationRules([]config.Config{
 		destinationRuleNamespace1, destinationRuleNamespace2,
 		destinationRuleNamespace3, destinationRuleNamespace4Local,
 		destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
 		destinationRuleRootNamespaceLocalWithWildcardHost1, destinationRuleRootNamespaceLocalWithWildcardHost2,
+		destinationRule5ExportToRootNamespace, destinationRule6ExportToRootNamespace,
 	})
 	cases := []struct {
 		proxyNs     string
@@ -1971,19 +2010,48 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			host:        appHost,
 			wantSubsets: []string{"subset13", "subset14"},
 		},
+		// dr in the svc ns takes effect on proxy in root ns
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "test5",
+			host:        "api.test.com",
+			wantSubsets: []string{"subset5-0", "subset5-1"},
+		},
+		// dr in the svc ns takes effect on proxy in root ns
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "test6",
+			host:        "api.test.com",
+			wantSubsets: []string{"subset6-0", "subset6-1"},
+		},
+		// both svc and dr namespace is not equal to proxy ns, the dr will not take effect on the proxy
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "test7",
+			host:        "api.test.com",
+			wantSubsets: nil,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			destRuleConfig := ps.destinationRule(tt.proxyNs,
+			out := ps.destinationRule(tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
 						Namespace: tt.serviceNs,
 					},
-				})[0]
-			if destRuleConfig == nil {
+				})
+			if tt.wantSubsets == nil {
+				if len(out) != 0 {
+					t.Fatalf("proxy in %s namespace: unexpected dr found %+v", tt.proxyNs, out)
+				}
+				return
+			}
+
+			if len(out) == 0 {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
+			destRuleConfig := out[0]
 			destRule := destRuleConfig.rule.Spec.(*networking.DestinationRule)
 			var gotSubsets []string
 			for _, ss := range destRule.Subsets {
