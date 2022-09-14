@@ -606,6 +606,8 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 		}
 	}
 
+	// AddressMap contains a mutex, which is safe to return a copy in this case.
+	// nolint: govet
 	return out
 }
 
