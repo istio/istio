@@ -20,21 +20,16 @@ import (
 )
 
 var helpFlags = map[string]bool{
-	"context":              true,
-	"istioNamespace":       true,
-	"kubeconfig":           true,
 	"log_as_json":          true,
 	"log_stacktrace_level": true,
 	"log_target":           true,
 	"log_caller":           true,
 	"log_output_level":     true,
-	"namespace":            true,
-	"vklog":                true,
 	// istioctl also inherits support for log_rotate, log_rotate_max_age, log_rotate_max_backups,
 	// log_rotate_max_size, but these are rarely appropriate for a user-facing CLI so we ignore them
 }
 
-func optionsCommand() *cobra.Command {
+func optionsCommand(rootCmd *cobra.Command) *cobra.Command {
 	retval := &cobra.Command{
 		Use:   "options",
 		Short: "Displays istioctl global options",
@@ -42,9 +37,9 @@ func optionsCommand() *cobra.Command {
 	}
 
 	retval.SetHelpFunc(func(c *cobra.Command, args []string) {
-		c.Printf("The following options can be passed to any command:\n\n")
+		c.Printf("The following options can be passed to any command:\n")
 		// (Currently the only global options we show are help options)
-		retval.Root().PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+		rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
 			if _, ok := helpFlags[flag.Name]; ok {
 				// Currently every flag.Shorthand is "", so there is no point in showing shorthands
 				shorthand := "   "
