@@ -566,7 +566,49 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	// Nested mutexes are configured to be ignored by copystructure.Copy.
 	// Disabling `go vet` warning since this is actually safe in this case.
 	// nolint: vet
-	return copyInternal(*s).(ServiceAttributes)
+	out := *s
+
+	if s.Labels != nil {
+		out.Labels = make(map[string]string, len(s.Labels))
+		for k, v := range s.Labels {
+			out.Labels[k] = v
+		}
+	}
+
+	if s.ExportTo != nil {
+		out.ExportTo = make(map[visibility.Instance]bool, len(s.ExportTo))
+		for k, v := range s.ExportTo {
+			out.ExportTo[k] = v
+		}
+	}
+
+	if s.LabelSelectors != nil {
+		out.LabelSelectors = make(map[string]string, len(s.LabelSelectors))
+		for k, v := range s.LabelSelectors {
+			out.LabelSelectors[k] = v
+		}
+	}
+
+	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
+
+	if s.ClusterExternalPorts != nil {
+		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
+		for k, m := range s.ClusterExternalPorts {
+			if m == nil {
+				out.ClusterExternalPorts[k] = nil
+				continue
+			}
+
+			out.ClusterExternalPorts[k] = make(map[uint32]uint32, len(m))
+			for sp, np := range m {
+				out.ClusterExternalPorts[k][sp] = np
+			}
+		}
+	}
+
+	// AddressMap contains a mutex, which is safe to return a copy in this case.
+	// nolint: govet
+	return out
 }
 
 // ServiceDiscovery enumerates Istio service instances.
