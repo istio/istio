@@ -305,12 +305,15 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			// - max number of message events
 			// The following code block allows control for a single configuration once during the lifecycle of a
 			// mesh.
+			// nolint: staticcheck
 			if provider.Stackdriver.GetMaxNumberOfAnnotations() != nil {
 				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.GetMaxNumberOfAnnotations().GetValue()
 			}
+			// nolint: staticcheck
 			if provider.Stackdriver.GetMaxNumberOfAttributes() != nil {
 				sd.TraceConfig.MaxNumberOfAttributes = provider.Stackdriver.GetMaxNumberOfAttributes().GetValue()
 			}
+			// nolint: staticcheck
 			if provider.Stackdriver.GetMaxNumberOfMessageEvents() != nil {
 				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.GetMaxNumberOfMessageEvents().GetValue()
 			}
