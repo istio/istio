@@ -281,6 +281,14 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 	chainsByPort := make(map[uint32]inboundChainConfig)
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners.
 	if !lb.node.SidecarScope.HasIngressListener() {
+
+		// We should not create inbound listeners in NONE mode based on the service instances
+		// Doing so will prevent the workloads from starting as they would be listening on the same port
+		// Users are required to provide the sidecar config to define the inbound listeners
+		if lb.node.GetInterceptionMode() == model.InterceptionNone {
+			return nil
+		}
+
 		// We will look at all Services that apply to this proxy and build chains for each distinct port.
 		// Note: this does mean that we may have multiple Services applying to the same port, which introduces a conflict
 		for _, i := range lb.node.ServiceInstances {

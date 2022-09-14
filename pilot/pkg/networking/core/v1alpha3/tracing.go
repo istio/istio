@@ -146,9 +146,11 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-		tracing, err = buildHCMTracing(pushCtx, envoyZipkin, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyZipkin, provider.Zipkin.GetService(),
+			provider.Zipkin.GetPort(), provider.Zipkin.GetMaxTagLength(), zipkinConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-		tracing, err = buildHCMTracing(pushCtx, envoyDatadog, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyDatadog, provider.Datadog.GetService(),
+			provider.Datadog.GetPort(), provider.Datadog.GetMaxTagLength(), datadogConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 		// todo: read raw metadata and retrieve lightstep extensions (instead of relying on version)
 
@@ -156,7 +158,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 		// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
 		useOTel := util.IsIstioVersionGE116(model.ParseIstioVersion(meta.IstioVersion))
 		if useOTel {
-			tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
+			tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Lightstep.GetService(),
+				provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(hostname, clusterName string) (*anypb.Any, error) {
 					dc := &tracingcfg.OpenTelemetryConfig{
 						GrpcService: &envoy_config_core_v3.GrpcService{
@@ -169,7 +172,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 							InitialMetadata: []*envoy_config_core_v3.HeaderValue{
 								{
 									Key:   "lightstep-access-token",
-									Value: provider.Lightstep.AccessToken,
+									Value: provider.Lightstep.GetAccessToken(),
 								},
 							},
 						},
@@ -177,31 +180,33 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					return anypb.New(dc)
 				})
 		} else {
-			tracing, err = buildHCMTracing(pushCtx, envoyLightstep, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
+			tracing, err = buildHCMTracing(pushCtx, envoyLightstep, provider.Lightstep.GetService(), provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(hostname, clusterName string) (*anypb.Any, error) {
 					lc := &tracingcfg.LightstepConfig{
 						CollectorCluster: clusterName,
-						AccessTokenFile:  provider.Lightstep.AccessToken,
+						AccessTokenFile:  provider.Lightstep.GetAccessToken(),
 					}
 					return protoconv.MessageToAnyWithError(lc)
 				})
 		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Opencensus.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Opencensus.GetMaxTagLength(), func() (*anypb.Any, error) {
 			oc := &tracingcfg.OpenCensusConfig{
-				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.Service, provider.Opencensus.Port),
+				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.GetService(), provider.Opencensus.GetPort()),
 				OcagentExporterEnabled: true,
-				IncomingTraceContext:   convert(provider.Opencensus.Context),
-				OutgoingTraceContext:   convert(provider.Opencensus.Context),
+				// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
+				// is not allowed during the lifetime of a proxy.
+				IncomingTraceContext: convert(provider.Opencensus.GetContext()),
+				OutgoingTraceContext: convert(provider.Opencensus.GetContext()),
 			}
 
 			return protoconv.MessageToAnyWithError(oc)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-		tracing, err = buildHCMTracing(pushCtx, envoySkywalking, provider.Skywalking.Service,
-			provider.Skywalking.Port, 0, func(hostname, clusterName string) (*anypb.Any, error) {
+		tracing, err = buildHCMTracing(pushCtx, envoySkywalking, provider.Skywalking.GetService(),
+			provider.Skywalking.GetPort(), 0, func(hostname, clusterName string) (*anypb.Any, error) {
 				s := &tracingcfg.SkyWalkingConfig{
 					GrpcService: &envoy_config_core_v3.GrpcService{
 						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
@@ -221,7 +226,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Stackdriver.GetMaxTagLength(), func() (*anypb.Any, error) {
 			proj, ok := meta.PlatformMetadata[platform.GCPProject]
 			if !ok {
 				proj, ok = meta.PlatformMetadata[platform.GCPProjectNumber]
@@ -235,7 +240,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				StackdriverProjectId:       proj,
 				IncomingTraceContext:       allContexts,
 				OutgoingTraceContext:       allContexts,
-				StdoutExporterEnabled:      provider.Stackdriver.Debug,
+				// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+				StdoutExporterEnabled: false,
 				TraceConfig: &opb.TraceConfig{
 					MaxNumberOfAnnotations:   200,
 					MaxNumberOfAttributes:    200,
@@ -248,6 +254,17 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
+				// prior to Istio 1.14, token path was absolute. this was changed
+				// in Istio 1.14 to the relative path used here. to prevent issues
+				// with OpenCensus configuration across version upgrades, we must
+				// preserve behavior for older version even in the face of control
+				// plane upgrades.
+				tokenPath := constants.TrustworthyJWTPath
+				if !util.IsIstioVersionGE114(model.ParseIstioVersion(meta.IstioVersion)) {
+					// use legacy path
+					tokenPath = "/var/run/secrets/tokens/istio-token"
+				}
+
 				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
 					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
 						{
@@ -269,7 +286,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
 											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-											SubjectTokenPath:        constants.TrustworthyJWTPath,
+											SubjectTokenPath:        tokenPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 										},
@@ -281,21 +298,28 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				}
 			}
 
-			if provider.Stackdriver.MaxNumberOfAnnotations != nil {
-				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.MaxNumberOfAnnotations.Value
+			// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+			// so, we should not allow dynamic control based on provider configuration of the following params:
+			// - max number of annotations
+			// - max number of attributes
+			// - max number of message events
+			// The following code block allows control for a single configuration once during the lifecycle of a
+			// mesh.
+			if provider.Stackdriver.GetMaxNumberOfAnnotations() != nil {
+				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.GetMaxNumberOfAnnotations().GetValue()
 			}
-			if provider.Stackdriver.MaxNumberOfAttributes != nil {
-				sd.TraceConfig.MaxNumberOfAttributes = provider.Stackdriver.MaxNumberOfAttributes.Value
+			if provider.Stackdriver.GetMaxNumberOfAttributes() != nil {
+				sd.TraceConfig.MaxNumberOfAttributes = provider.Stackdriver.GetMaxNumberOfAttributes().GetValue()
 			}
-			if provider.Stackdriver.MaxNumberOfMessageEvents != nil {
-				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.MaxNumberOfMessageEvents.Value
+			if provider.Stackdriver.GetMaxNumberOfMessageEvents() != nil {
+				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.GetMaxNumberOfMessageEvents().GetValue()
 			}
 			return protoconv.MessageToAnyWithError(sd)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
-		tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Opentelemetry.Service,
-			provider.Opentelemetry.Port, provider.Opentelemetry.MaxTagLength, otelConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Opentelemetry.GetService(),
+			provider.Opentelemetry.GetPort(), provider.Opentelemetry.GetMaxTagLength(), otelConfigGen)
 	}
 
 	return tracing, rfCtx, err

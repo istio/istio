@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -134,6 +135,8 @@ func TestReachability(t *testing.T) {
 				expectCrossCluster condition
 				expectCrossNetwork condition
 				expectSuccess      condition
+				// minIstioVersion allows conditionally skipping based on required version
+				minIstioVersion string
 			}{
 				{
 					name: "global mtls strict",
@@ -151,6 +154,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notNaked,
+					minIstioVersion:    "1.15.0",
 				},
 				{
 					name: "global mtls permissive",
@@ -168,6 +172,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notToNaked,
+					minIstioVersion:    "1.15.0",
 				},
 				{
 					name: "global mtls disabled",
@@ -185,6 +190,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: never,
 					expectSuccess:      always,
+					minIstioVersion:    "1.15.0",
 				},
 				{
 					name: "global plaintext to mtls permissive",
@@ -202,6 +208,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: never,
 					expectSuccess:      always,
+					minIstioVersion:    "1.15.0",
 				},
 				{
 					name: "global automtls strict",
@@ -252,6 +259,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: and(notFromNaked, or(toHeadless, toStatefulSet)),
 					expectCrossNetwork: never,
 					expectSuccess:      always,
+					minIstioVersion:    "1.15.0",
 				},
 				{
 					name: "global no peer authn",
@@ -267,6 +275,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notToNaked,
+					minIstioVersion:    "1.15.0",
 				},
 				{
 					name: "mtls strict",
@@ -398,6 +407,12 @@ func TestReachability(t *testing.T) {
 				c := c
 
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+					if c.minIstioVersion != "" {
+						skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
+						if skipMV {
+							t.SkipNow()
+						}
+					}
 					// Apply the configs.
 					config.New(t).
 						Source(c.configs...).
