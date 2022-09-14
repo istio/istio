@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -893,6 +894,22 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
+
+	sort.SliceStable(filters, func(i, j int) bool {
+		iName := filters[i].Name
+		jName := filters[j].Name
+		iMysql := strings.HasSuffix(iName, "mysql_proxy")
+		jMysql := strings.HasSuffix(jName, "mysql_proxy")
+		iRbac := strings.HasSuffix(iName, "rbac")
+		jRbac := strings.HasSuffix(jName, "rbac")
+		if iMysql && jRbac {
+			return true
+		} else if jMysql && iRbac {
+			return false
+		} else {
+			return i < j
+		}
+	})
 
 	return filters
 }

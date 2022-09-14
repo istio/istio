@@ -124,6 +124,7 @@ func TestMysqlWithRbacFilterOrder(t *testing.T) {
 	}
 
 	listenerBuilder := NewListenerBuilder(cg.SetupProxy(nil), pushContext)
+
 	listenerFilters := listenerBuilder.buildInboundNetworkFilters(fcc)
 
 	g := NewGomegaWithT(t)
