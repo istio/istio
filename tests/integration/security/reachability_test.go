@@ -38,7 +38,6 @@ import (
 
 const (
 	migrationServiceName     = "migration"
-	migrationServiceNameDS   = "migration-ds"
 	migrationVersionIstio    = "vistio"
 	migrationVersionNonIstio = "vlegacy"
 	migrationPathIstio       = "/" + migrationVersionIstio
@@ -84,7 +83,7 @@ func TestReachability(t *testing.T) {
 				migrationApp = deployment.New(t).
 					WithClusters(t.Clusters()...).WithConfig(echo.Config{
 					Namespace:      echo1NS,
-					Service:        migrationServiceNameDS,
+					Service:        migrationServiceName,
 					ServiceAccount: true,
 					Ports:          ports.All(),
 					Subsets: []echo.SubsetConfig{
