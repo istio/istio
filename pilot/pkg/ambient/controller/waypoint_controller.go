@@ -21,7 +21,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	listerappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -31,7 +30,6 @@ import (
 
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -62,12 +60,17 @@ type WaypointProxyController struct {
 	deployments     listerappsv1.DeploymentLister
 	serviceAccounts listerv1.ServiceAccountLister
 	gateways        gwlister.GatewayLister
-	patcher         istiogw.Patcher
 
 	cluster cluster.ID
 
 	injectConfig func() inject.WebhookConfig
 }
+
+const (
+	istioMeshGatewayClass           = "istio-mesh"
+	maxReconcileAttempts            = 5
+	gatewayServiceAccountAnnotation = "istio.io/service-account"
+)
 
 var waypointLog = istiolog.RegisterScope("waypoint proxy", "", 0)
 
@@ -80,21 +83,11 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, con
 		client:       client,
 		cluster:      clusterID,
 		injectConfig: config,
-		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
-			c := client.Dynamic().Resource(gvr).Namespace(namespace)
-			t := true
-			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
-				Force:        &t,
-				FieldManager: "waypoint proxy controller",
-			}, subresources...)
-			return err
-		},
 	}
 
 	rc.queue = controllers.NewQueue("waypoint proxy",
 		controllers.WithReconciler(rc.Reconcile),
-		controllers.WithMaxAttempts(5))
-
+		controllers.WithMaxAttempts(maxReconcileAttempts))
 	gateways := rc.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
 	rc.gateways = gateways.Lister()
 	gateways.Informer().AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
@@ -104,9 +97,9 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, con
 
 	deployments.Informer().AddEventHandler(controllers.ObjectHandler(controllers.EnqueueForParentHandler(rc.queue, gvk.KubernetesGateway)))
 
-	sas := rc.client.KubeInformer().Core().V1().ServiceAccounts()
-	rc.serviceAccounts = sas.Lister()
-	sas.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	saInformer := rc.client.KubeInformer().Core().V1().ServiceAccounts()
+	rc.serviceAccounts = saInformer.Lister()
+	saInformer.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// Anytime SA change, trigger all gateways in the namespace. This could probably be more efficient...
 		gws, _ := gateways.Lister().Gateways(o.GetNamespace()).List(klabels.Everything())
 		for _, gw := range gws {
@@ -127,7 +120,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		// Mostly used to avoid issues with local runs
 		return fmt.Errorf("injection config invalid, skipping reconile")
 	}
-	log := waypointLog.WithLabels("gateway", name.String())
+	scopedLog := waypointLog.WithLabels("gateway", name.String())
 
 	gw, err := rc.gateways.Gateways(name.Namespace).Get(name.Name)
 	if err != nil || gw == nil {
@@ -138,45 +131,29 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			log.Errorf("unable to fetch Gateway: %v", err)
 			return err
 		}
-		log.Debugf("gateway deleted")
+		scopedLog.Debugf("gateway deleted")
 		return rc.pruneGateway(name)
 	}
 
-	if gw.Spec.GatewayClassName != "istio-mesh" {
-		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
+	if gw.Spec.GatewayClassName != istioMeshGatewayClass {
+		scopedLog.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return rc.pruneGateway(name)
 	}
 
-	haveProxies := sets.New()
-	wantProxies := sets.New()
-
-	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
-	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)
-	for _, d := range proxyDeployments {
-		p := d.Spec.Template
-		haveProxies.Insert(p.Spec.ServiceAccountName)
-	}
 	// by default, match all
-	gatewaySA := gw.Annotations["istio.io/service-account"]
-	serviceAccounts, _ := rc.serviceAccounts.ServiceAccounts(gw.Namespace).List(klabels.Everything())
-	for _, sa := range serviceAccounts {
-		if gatewaySA != "" && sa.Name != gatewaySA {
-			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
-			continue
-		}
-		wantProxies.Insert(sa.Name)
-	}
-
-	add, remove := wantProxies.Diff(haveProxies)
-
+	gatewaySA := gw.Annotations[gatewayServiceAccountAnnotation]
+	existsProxies := rc.existsProxies(name)
+	wantProxies := rc.wantProxies(name, gatewaySA)
+	add, remove := wantProxies.Diff(existsProxies)
 	if len(remove)+len(add) == 0 {
-		log.Debugf("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(haveProxies))
-	} else {
-		log.Infof("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(haveProxies))
+		scopedLog.Debugf("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(existsProxies))
+		return nil
 	}
-	for _, k := range remove {
-		log.Infof("removing waypoint proxy %q", k+"-waypoint-proxy")
-		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), k+"-waypoint-proxy", metav1.DeleteOptions{}); err != nil {
+
+	scopedLog.Infof("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(existsProxies))
+	for _, sa := range remove {
+		scopedLog.Infof("removing waypoint proxy %q", waypointName(sa))
+		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), waypointName(sa), metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("pod remove: %v", err)
 		}
 
@@ -191,16 +168,16 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			},
 		})
 		if err != nil {
-			log.Errorf("unable to update Gateway status %v on delete: %v", gw.Name, err)
+			scopedLog.Errorf("unable to update Gateway status %v on delete: %v", gw.Name, err)
 		}
 	}
-	for _, k := range add {
-		log.Infof("adding waypoint proxy %v", k+"-waypoint-proxy")
+	for _, sa := range add {
+		scopedLog.Infof("adding waypoint proxy %v", waypointName(sa))
 		input := MergedInput{
 			Namespace:      gw.Namespace,
 			GatewayName:    gw.Name,
 			UID:            string(gw.UID),
-			ServiceAccount: k,
+			ServiceAccount: sa,
 			Cluster:        rc.cluster.String(),
 		}
 		proxyDeploy, err := rc.RenderDeploymentMerged(input)
@@ -227,10 +204,36 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			},
 		})
 		if err != nil {
-			log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
+			scopedLog.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
 		}
 	}
 	return nil
+}
+
+func (rc *WaypointProxyController) existsProxies(name types.NamespacedName) sets.Set {
+	haveProxies := sets.New()
+	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + name.Name)
+	proxyDeployments, _ := rc.deployments.Deployments(name.Namespace).List(proxyLbl)
+	for _, d := range proxyDeployments {
+		p := d.Spec.Template
+		haveProxies.Insert(p.Spec.ServiceAccountName)
+	}
+	return haveProxies
+}
+
+func (rc *WaypointProxyController) wantProxies(name types.NamespacedName, gatewaySA string) sets.Set {
+	scopedLog := waypointLog.WithLabels("gateway", name.String())
+
+	wantProxies := sets.New()
+	serviceAccounts, _ := rc.serviceAccounts.ServiceAccounts(name.Namespace).List(klabels.Everything())
+	for _, sa := range serviceAccounts {
+		if gatewaySA != "" && sa.Name != gatewaySA {
+			scopedLog.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
+			continue
+		}
+		wantProxies.Insert(sa.Name)
+	}
+	return wantProxies
 }
 
 func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions map[string]*istiogw.Condition) error {
@@ -250,27 +253,13 @@ func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions
 			Conditions: istiogw.SetConditions(gw.Generation, nil, conditions),
 		},
 	}
-	if err := rc.ApplyObject(gws, "status"); err != nil {
+
+	if _, err := rc.client.GatewayAPI().GatewayV1alpha2().Gateways(gw.Namespace).UpdateStatus(context.TODO(), gws, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("update gateway status: %v", err)
 	}
-	log.Info("gateway updated")
+
+	log.Info("gateway %s/%s status updated", gw.Namespace, gw.Name)
 	return nil
-}
-
-// ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
-func (rc *WaypointProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
-	j, err := config.ToJSON(obj)
-	if err != nil {
-		return err
-	}
-
-	gvr, err := controllers.ObjectToGVR(obj)
-	if err != nil {
-		return err
-	}
-	log.Debugf("applying %v", string(j))
-
-	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
 func (rc *WaypointProxyController) RenderDeploymentMerged(input MergedInput) (*appsv1.Deployment, error) {
@@ -301,7 +290,7 @@ func (rc *WaypointProxyController) pruneGateway(gw types.NamespacedName) error {
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
 	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)
 	for _, d := range proxyDeployments {
-		log.Infof("pruning waypoint proxy %v", d.Name)
+		log.Infof("pruning waypoint proxy %s/%s", gw.Namespace, d.Name)
 		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), d.Name, metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("deployment remove: %v", err)
 		}
@@ -316,6 +305,11 @@ func unmarshalDeploy(dyaml []byte) (*appsv1.Deployment, error) {
 	}
 
 	return deploy, nil
+}
+
+// TODO: make waypoint suffix configurable
+func waypointName(sa string) string {
+	return sa + "-waypoint-proxy"
 }
 
 type MergedInput struct {
