@@ -243,12 +243,12 @@ func makeGateway(s string, sa string) *v1alpha2.Gateway {
 			Namespace: "test",
 		},
 		Spec: v1alpha2.GatewaySpec{
-			GatewayClassName: "istio-mesh",
+			GatewayClassName: istioMeshGatewayClass,
 		},
 	}
 	if sa != "" {
 		gw.Annotations = map[string]string{
-			"istio.io/service-account": sa,
+			gatewayServiceAccountAnnotation: sa,
 		}
 	}
 	return gw
