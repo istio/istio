@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,7 +25,6 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubectl/pkg/util/templates"
 
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
@@ -146,10 +144,6 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
-			return nil
-		},
 		PersistentPreRunE: configureLogging,
 	}
 
@@ -176,11 +170,6 @@ debug and diagnose their Istio mesh.
 		"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
 		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller", "log_output_level",
 	}
-
-	group := templates.CommandGroup{
-		Message:  "Available Commands:",
-		Commands: []*cobra.Command{},
-	}
 	for _, opt := range hiddenFlags {
 		_ = rootCmd.PersistentFlags().MarkHidden(opt)
 	}
@@ -189,7 +178,7 @@ debug and diagnose their Istio mesh.
 
 	kubeInjectCmd := injectCommand()
 	hideInheritedFlags(kubeInjectCmd, FlagNamespace)
-	group.Commands = append(group.Commands, kubeInjectCmd)
+	rootCmd.AddCommand(kubeInjectCmd)
 
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
@@ -205,26 +194,37 @@ debug and diagnose their Istio mesh.
 		newVersionCommand(),
 		statusCommand(),
 	}
+	var debugCmdAttachmentPoint *cobra.Command
 	if viper.GetBool("PREFER-EXPERIMENTAL") {
 		legacyCmd := &cobra.Command{
 			Use:   "legacy",
 			Short: "Legacy command variants",
 		}
-		group.Commands = append(group.Commands, legacyCmd)
-		group.Commands = append(group.Commands, xdsBasedTroubleshooting...)
+		rootCmd.AddCommand(legacyCmd)
+		for _, c := range xdsBasedTroubleshooting {
+			rootCmd.AddCommand(c)
+		}
+		debugCmdAttachmentPoint = legacyCmd
 	} else {
-		group.Commands = append(group.Commands, debugBasedTroubleshooting...)
+		debugCmdAttachmentPoint = rootCmd
 	}
 	for _, c := range xdsBasedTroubleshooting {
 		experimentalCmd.AddCommand(c)
 	}
+	for _, c := range debugBasedTroubleshooting {
+		debugCmdAttachmentPoint.AddCommand(c)
+	}
 
-	group.Commands = append(group.Commands, experimentalCmd, proxyConfig(), adminCmd())
+	rootCmd.AddCommand(experimentalCmd)
+	rootCmd.AddCommand(proxyConfig())
+	rootCmd.AddCommand(adminCmd())
 	experimentalCmd.AddCommand(injectorCommand())
 
-	group.Commands = append(group.Commands, install.NewVerifyCommand(), mesh.UninstallCmd(loggingOptions))
+	rootCmd.AddCommand(install.NewVerifyCommand())
+	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+
 	experimentalCmd.AddCommand(AuthZ())
-	group.Commands = append(group.Commands, seeExperimentalCmd("authz"))
+	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
@@ -241,48 +241,49 @@ debug and diagnose their Istio mesh.
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
-	group.Commands = append(group.Commands, analyzeCmd)
+	rootCmd.AddCommand(analyzeCmd)
 
 	dashboardCmd := dashboard()
 	hideInheritedFlags(dashboardCmd, FlagNamespace, FlagIstioNamespace)
-	group.Commands = append(group.Commands, dashboardCmd)
+	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
 	hideInheritedFlags(manifestCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	group.Commands = append(group.Commands, manifestCmd)
+	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
 	hideInheritedFlags(operatorCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	group.Commands = append(group.Commands, operatorCmd)
+	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
 	hideInheritedFlags(installCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	group.Commands = append(group.Commands, installCmd)
+	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd(loggingOptions)
 	hideInheritedFlags(profileCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	group.Commands = append(group.Commands, profileCmd)
+	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
 	hideInheritedFlags(upgradeCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
-	group.Commands = append(group.Commands, upgradeCmd)
+	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd(loggingOptions)
 	hideInheritedFlags(bugReportCmd, FlagNamespace, FlagIstioNamespace)
-	group.Commands = append(group.Commands, bugReportCmd)
+	rootCmd.AddCommand(bugReportCmd)
 
 	tagCmd := tagCommand()
 	hideInheritedFlags(tagCommand(), FlagNamespace, FlagIstioNamespace, FlagCharts)
-	group.Commands = append(group.Commands, tagCmd)
+	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
 	remoteClustersCmd := clustersCommand()
 	// leave the multicluster commands in x for backwards compat
-	group.Commands = append(group.Commands, remoteSecretCmd, remoteClustersCmd)
+	rootCmd.AddCommand(remoteSecretCmd)
+	rootCmd.AddCommand(remoteClustersCmd)
 	experimentalCmd.AddCommand(remoteSecretCmd)
 	experimentalCmd.AddCommand(remoteClustersCmd)
 
-	group.Commands = append(group.Commands, collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
@@ -290,17 +291,9 @@ debug and diagnose their Istio mesh.
 
 	validateCmd := validate.NewValidateCommand(&istioNamespace, &namespace)
 	hideInheritedFlags(validateCmd, "kubeconfig")
-	group.Commands = append(group.Commands, validateCmd, optionsCommand())
+	rootCmd.AddCommand(validateCmd)
 
-	sort.SliceStable(group.Commands, func(i, j int) bool {
-		return group.Commands[i].Use < group.Commands[j].Use
-	})
-
-	groups := templates.CommandGroups{group}
-	groups.Add(rootCmd)
-
-	filters := []string{"options"}
-	templates.ActsAsRootCommand(rootCmd, filters, groups...)
+	rootCmd.AddCommand(optionsCommand(rootCmd))
 
 	// BFS applies the flag error function to all subcommands
 	seenCommands := make(map[*cobra.Command]bool)
