@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -119,7 +120,7 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 	match.ApplicationProtocols = opt.ApplicationProtocols
 	match.TransportProtocol = opt.TransportProtocol
 	if cc.passthrough {
-		// Pasthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
+		// Passthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
 		// but Envoy doesn't explicitly have version check.
 		if cc.clusterName == util.InboundPassthroughClusterIpv4 {
 			match.PrefixRanges = IPv4PassthroughCIDR
@@ -136,7 +137,7 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 // ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
 // Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
 type ServiceInstancePort struct {
-	// Name ascribes a human readable name for the port object. When a
+	// Name ascribes a human-readable name for the port object. When a
 	// service has multiple ports, the name field is mandatory
 	Name string `json:"name,omitempty"`
 
@@ -833,6 +834,22 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
+
+	sort.SliceStable(filters, func(i, j int) bool {
+		iName := filters[i].Name
+		jName := filters[j].Name
+		iMysql := strings.HasSuffix(iName, "mysql_proxy")
+		jMysql := strings.HasSuffix(jName, "mysql_proxy")
+		iRbac := strings.HasSuffix(iName, "rbac")
+		jRbac := strings.HasSuffix(jName, "rbac")
+		if iMysql && jRbac {
+			return true
+		} else if jMysql && iRbac {
+			return false
+		} else {
+			return i < j
+		}
+	})
 
 	return filters
 }
