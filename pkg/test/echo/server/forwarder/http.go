@@ -30,6 +30,7 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
+
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
