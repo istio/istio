@@ -45,7 +45,6 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 // General setting to control behavior
 type Option struct {
 	IsCustomBuilder bool
-	Logger          *AuthzLogger
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -61,13 +60,15 @@ type Builder struct {
 	denyPolicies  []model.AuthorizationPolicy
 	allowPolicies []model.AuthorizationPolicy
 	auditPolicies []model.AuthorizationPolicy
+
+	// logger emits logs about policies
+	logger *AuthzLogger
 }
 
 // New returns a new builder for the given workload with the authorization policy.
 // Returns nil if none of the authorization policies are enabled for the workload.
 func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies model.AuthorizationPoliciesResult, option Option) *Builder {
 	if option.IsCustomBuilder {
-		option.Logger.AppendDebugf("found %d CUSTOM actions", len(policies.Custom))
 		if len(policies.Custom) == 0 {
 			return nil
 		}
@@ -79,7 +80,6 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 		}
 	}
 
-	option.Logger.AppendDebugf("found %d DENY actions, %d ALLOW actions, %d AUDIT actions", len(policies.Deny), len(policies.Allow), len(policies.Audit))
 	if len(policies.Deny) == 0 && len(policies.Allow) == 0 && len(policies.Audit) == 0 {
 		return nil
 	}
@@ -94,10 +94,12 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 
 // BuildHTTP returns the HTTP filters built from the authorization policy.
 func (b Builder) BuildHTTP() []*httppb.HttpFilter {
+	b.logger = &AuthzLogger{}
+	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
 		// Use the DENY action so that a HTTP rule is properly handled when generating for TCP filter chain.
 		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, false); configs != nil {
-			b.option.Logger.AppendDebugf("built %d HTTP filters for CUSTOM action", len(configs.http))
+			b.logger.AppendDebugf("built %d HTTP filters for CUSTOM action", len(configs.http))
 			return configs.http
 		}
 		return nil
@@ -105,15 +107,15 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 
 	var filters []*httppb.HttpFilter
 	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, false); configs != nil {
-		b.option.Logger.AppendDebugf("built %d HTTP filters for AUDIT action", len(configs.http))
+		b.logger.AppendDebugf("built %d HTTP filters for AUDIT action", len(configs.http))
 		filters = append(filters, configs.http...)
 	}
 	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, false); configs != nil {
-		b.option.Logger.AppendDebugf("built %d HTTP filters for DENY action", len(configs.http))
+		b.logger.AppendDebugf("built %d HTTP filters for DENY action", len(configs.http))
 		filters = append(filters, configs.http...)
 	}
 	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, false); configs != nil {
-		b.option.Logger.AppendDebugf("built %d HTTP filters for ALLOW action", len(configs.http))
+		b.logger.AppendDebugf("built %d HTTP filters for ALLOW action", len(configs.http))
 		filters = append(filters, configs.http...)
 	}
 	return filters
@@ -121,9 +123,11 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 
 // BuildTCP returns the TCP filters built from the authorization policy.
 func (b Builder) BuildTCP() []*tcppb.Filter {
+	b.logger = &AuthzLogger{}
+	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
 		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true); configs != nil {
-			b.option.Logger.AppendDebugf("built %d TCP filters for CUSTOM action", len(configs.tcp))
+			b.logger.AppendDebugf("built %d TCP filters for CUSTOM action", len(configs.tcp))
 			return configs.tcp
 		}
 		return nil
@@ -131,15 +135,15 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 
 	var filters []*tcppb.Filter
 	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true); configs != nil {
-		b.option.Logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
+		b.logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
 	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, true); configs != nil {
-		b.option.Logger.AppendDebugf("built %d TCP filters for DENY action", len(configs.tcp))
+		b.logger.AppendDebugf("built %d TCP filters for DENY action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
 	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true); configs != nil {
-		b.option.Logger.AppendDebugf("built %d TCP filters for ALLOW action", len(configs.tcp))
+		b.logger.AppendDebugf("built %d TCP filters for ALLOW action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
 	return filters
@@ -156,7 +160,7 @@ func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
 		var err error
 		dryRun, err = strconv.ParseBool(val)
 		if err != nil {
-			b.option.Logger.AppendError(fmt.Errorf("failed to parse the value of %s: %v", annotation.IoIstioDryRun.Name, err))
+			b.logger.AppendError(fmt.Errorf("failed to parse the value of %s: %v", annotation.IoIstioDryRun.Name, err))
 		}
 	}
 	return dryRun
@@ -209,32 +213,32 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			// The name will later be used by ext_authz filter to get the evaluation result from dynamic metadata.
 			name := policyName(policy.Namespace, policy.Name, i, b.option)
 			if rule == nil {
-				b.option.Logger.AppendError(fmt.Errorf("skipped nil rule %s", name))
+				b.logger.AppendError(fmt.Errorf("skipped nil rule %s", name))
 				continue
 			}
 			m, err := authzmodel.New(rule)
 			if err != nil {
-				b.option.Logger.AppendError(multierror.Prefix(err, fmt.Sprintf("skipped invalid rule %s:", name)))
+				b.logger.AppendError(multierror.Prefix(err, fmt.Sprintf("skipped invalid rule %s:", name)))
 				continue
 			}
 			m.MigrateTrustDomain(b.trustDomainBundle)
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
-				b.option.Logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
+				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
 			}
 			generated, err := m.Generate(forTCP, action)
 			if err != nil {
-				b.option.Logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
+				b.logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
 				continue
 			}
 			if generated != nil {
 				currentRule.Policies[name] = generated
-				b.option.Logger.AppendDebugf("generated config from rule %s on %s filter chain successfully", name, filterType)
+				b.logger.AppendDebugf("generated config from rule %s on %s filter chain successfully", name, filterType)
 			}
 		}
 		if len(policy.Spec.Rules) == 0 {
 			// Generate an explicit policy that never matches.
 			name := policyName(policy.Namespace, policy.Name, 0, b.option)
-			b.option.Logger.AppendDebugf("generated config from policy %s on %s filter chain successfully", name, filterType)
+			b.logger.AppendDebugf("generated config from policy %s on %s filter chain successfully", name, filterType)
 			currentRule.Policies[name] = rbacPolicyMatchNever
 		}
 	}
@@ -268,7 +272,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 
 	extauthz, err := getExtAuthz(b.extensions, providers)
 	if err != nil {
-		b.option.Logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action:"))
+		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action:"))
 		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
 		return []*httppb.HttpFilter{
 			{
@@ -315,7 +319,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 	}
 
 	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
-		b.option.Logger.AppendError(multierror.Prefix(err, "failed to parse CUSTOM action, will generate a deny all config:"))
+		b.logger.AppendError(multierror.Prefix(err, "failed to parse CUSTOM action, will generate a deny all config:"))
 		rbac := &rbactcppb.RBAC{
 			Rules:      rbacDefaultDenyAll,
 			StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
@@ -327,7 +331,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			},
 		}
 	} else if extauthz.tcp == nil {
-		b.option.Logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
+		b.logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
 	} else {
 		rbac := &rbactcppb.RBAC{
