@@ -30,8 +30,6 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/proxy"
-
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -121,9 +119,11 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			AllowHTTP: true,
 			// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-				if strings.Contains(cfg.Proxy, "socks5") {
-					splitProxyURL := strings.Split(cfg.Proxy, "://")
-					dialer, _ := proxy.SOCKS5("tcp", splitProxyURL[1], nil, proxy.Direct)
+				if len(cfg.Proxy) > 0 {
+					dialer, err := newProxyDialer(cfg)
+					if err != nil {
+						return nil, err
+					}
 					return dialer.Dial(network, addr)
 				}
 				return newDialer(cfg).Dial(network, addr)

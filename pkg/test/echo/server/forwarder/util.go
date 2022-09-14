@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/net/proxy"
 
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
@@ -44,6 +46,18 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 			echo.ForwarderHeaderField.WriteKeyValueForRequest(out, requestID, key, v)
 		}
 	}
+}
+
+func newProxyDialer(cfg *Config) (proxy.Dialer, error) {
+	proxyURL, err := url.Parse(cfg.Proxy)
+	if err != nil {
+		return nil, err
+	}
+	if proxyURL.Scheme == "socks5" {
+		dialer, _ := proxy.SOCKS5("tcp", proxyURL.Host, nil, proxy.Direct)
+		return dialer, nil
+	}
+	return nil, fmt.Errorf("proxy scheme '%s' not supported", proxyURL.Scheme)
 }
 
 func newDialer(cfg *Config) hbone.Dialer {
