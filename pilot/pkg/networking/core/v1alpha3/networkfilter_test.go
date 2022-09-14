@@ -15,6 +15,9 @@
 package v1alpha3
 
 import (
+	. "github.com/onsi/gomega"
+	authpb "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"reflect"
 	"testing"
 	"time"
@@ -60,6 +63,74 @@ func TestBuildRedisFilter(t *testing.T) {
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
 	}
+}
+
+func TestMysqlWithRbacFilterOrder(t *testing.T) {
+
+	services := []*model.Service{
+		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+
+	m := mesh.DefaultMeshConfig()
+	m.InboundClusterStatName = "inbound|8888||"
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:   services,
+		MeshConfig: m,
+	})
+
+	features.EnableMysqlFilter = true
+
+	fcc := inboundChainConfig{
+		telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "v0.default.example.org"},
+		clusterName:       "inbound|8888||",
+		port: ServiceInstancePort{
+			Protocol: protocol.MySQL,
+		},
+	}
+
+	pushContext := cg.PushContext()
+
+	policySpec := &authpb.AuthorizationPolicy{
+		Rules: []*authpb.Rule{
+			{
+				From: []*authpb.Rule_From{
+					{
+						Source: &authpb.Source{
+							Principals: []string{"cluster.local/ns/default/sa/book-app"},
+						},
+					},
+				},
+				To: []*authpb.Rule_To{
+					{
+						Operation: &authpb.Operation{
+							Ports: []string{"3306"},
+						},
+					},
+				},
+			},
+		},
+		Action: authpb.AuthorizationPolicy_ALLOW,
+	}
+
+	policy := model.AuthorizationPolicy{
+		Name:      "test-policy",
+		Namespace: "default",
+		Spec:      policySpec,
+	}
+
+	pushContext.AuthzPolicies.NamespaceToPolicies = map[string][]model.AuthorizationPolicy{
+		"default": []model.AuthorizationPolicy{policy},
+	}
+
+	listenerBuilder := NewListenerBuilder(cg.SetupProxy(nil), pushContext)
+	listenerFilters := listenerBuilder.buildInboundNetworkFilters(fcc)
+
+	g := NewGomegaWithT(t)
+	g.Expect(listenerFilters).To(HaveLen(4))
+	g.Expect(listenerFilters[1].Name).To(HaveSuffix("mysql_proxy"))
+	g.Expect(listenerFilters[2].Name).To(HaveSuffix("rbac"))
+	g.Expect(listenerFilters[3].Name).To(HaveSuffix("tcp_proxy"))
 }
 
 func TestInboundNetworkFilterStatPrefix(t *testing.T) {
