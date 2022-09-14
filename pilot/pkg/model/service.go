@@ -563,9 +563,6 @@ type ServiceAttributes struct {
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
-	// Nested mutexes are configured to be ignored by copystructure.Copy.
-	// Disabling `go vet` warning since this is actually safe in this case.
-	// nolint: vet
 	out := *s
 
 	if s.Labels != nil {
