@@ -362,7 +362,8 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 
 	labels := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"protocol":   {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"start_time": {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
 		},
 	}
 
@@ -413,7 +414,16 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			},
 		},
 		Attributes: &otlpcommon.KeyValueList{
-			Values: convertStructToAttributeKeyValues(labels.Fields),
+			Values: []*otlpcommon.KeyValue{
+				{
+					Key:   "protocol",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%PROTOCOL%"}},
+				},
+				{
+					Key:   "start_time",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%START_TIME%"}},
+				},
+			},
 		},
 	}
 
