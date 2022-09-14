@@ -55,32 +55,34 @@ func TestReachability(t *testing.T) {
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			var migrationApp echo.Instances
-			// Create a custom echo deployment in NS1 with subsets that allows us to test the
-			// migration of a workload to istio (from no sidecar to sidecar).
-			mAppBuilder := deployment.New(t).
-				WithClusters(t.Clusters()...).WithConfig(echo.Config{
-				Namespace:      echo1NS,
-				Service:        migrationServiceName,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				Subsets: []echo.SubsetConfig{
-					{
-						// Istio deployment, with sidecar.
-						Version:     migrationVersionIstio,
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, true),
-					},
-					{
-						// Legacy (non-Istio) deployment subset, does not have sidecar injected.
-						Version:     migrationVersionNonIstio,
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-					},
-				},
-			})
-			// if dual stack is enabled, a dual stack encho config should be added in
+			// if dual stack is enabled, a dual stack encho config should be added
 			if !t.Settings().EnableDualStack {
-				migrationApp = mAppBuilder.BuildOrFail(t)
+				// Create a custom echo deployment in NS1 with subsets that allows us to test the
+				// migration of a workload to istio (from no sidecar to sidecar).
+				migrationApp = deployment.New(t).
+					WithClusters(t.Clusters()...).WithConfig(echo.Config{
+					Namespace:      echo1NS,
+					Service:        migrationServiceName,
+					ServiceAccount: true,
+					Ports:          ports.All(),
+					Subsets: []echo.SubsetConfig{
+						{
+							// Istio deployment, with sidecar.
+							Version:     migrationVersionIstio,
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, true),
+						},
+						{
+							// Legacy (non-Istio) deployment subset, does not have sidecar injected.
+							Version:     migrationVersionNonIstio,
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+						},
+					},
+				}).BuildOrFail(t)
 			} else {
-				migrationApp = mAppBuilder.WithConfig(echo.Config{
+				// Create a custom echo deployment in NS1 with subsets that allows us to test the
+				// migration of a workload to istio (from no sidecar to sidecar).
+				migrationApp = deployment.New(t).
+					WithClusters(t.Clusters()...).WithConfig(echo.Config{
 					Namespace:      echo1NS,
 					Service:        migrationServiceNameDS,
 					ServiceAccount: true,
