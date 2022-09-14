@@ -53,10 +53,11 @@ func TestReachability(t *testing.T) {
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
-
 			// Create a custom echo deployment in NS1 with subsets that allows us to test the
 			// migration of a workload to istio (from no sidecar to sidecar).
-			migrationApp := deployment.New(t).
+
+			var migrationApp echo.Instances
+			mAppBuilder := deployment.New(t).
 				WithClusters(t.Clusters()...).
 				WithConfig(echo.Config{
 					Namespace:      echo1NS,
@@ -75,8 +76,12 @@ func TestReachability(t *testing.T) {
 							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 						},
 					},
-				}).
-				WithConfig(echo.Config{
+				})
+			// if dual stack is enabled, a dual stack encho config should be added in
+			if !t.Settings().EnableDualStack {
+				migrationApp = mAppBuilder.BuildOrFail(t)
+			} else {
+				migrationApp = mAppBuilder.WithConfig(echo.Config{
 					Namespace:      echo1NS,
 					Service:        migrationServiceNameDS,
 					ServiceAccount: true,
@@ -97,6 +102,7 @@ func TestReachability(t *testing.T) {
 					IPFamilyPolicy: "RequireDualStack",
 				}).
 				BuildOrFail(t)
+			}
 
 			// Add the migration app to the full list of services.
 			allServices := apps.Ns1.All.Append(migrationApp.Services())
