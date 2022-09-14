@@ -255,10 +255,9 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				Logger:          &AuthzLogger{},
 			}
+
 			in := inputParams(t, baseDir+tc.input, tc.meshConfig, tc.version)
-			defer option.Logger.Report(in)
 			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
 			g := New(tc.tdBundle, in.Push, policies, option)
 			if g == nil {
@@ -322,10 +321,9 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				Logger:          &AuthzLogger{},
 			}
+
 			in := inputParams(t, baseDir+tc.input, tc.meshConfig, nil)
-			defer option.Logger.Report(in)
 			policies := in.Push.AuthzPolicies.ListAuthorizationPolicies(in.Node.ConfigNamespace, in.Node.Metadata.Labels)
 			g := New(tc.tdBundle, in.Push, policies, option)
 			if g == nil {
