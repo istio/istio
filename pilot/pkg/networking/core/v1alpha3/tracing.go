@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
@@ -155,8 +156,10 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			oc := &tracingcfg.OpenCensusConfig{
 				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.GetService(), provider.Opencensus.GetPort()),
 				OcagentExporterEnabled: true,
-				IncomingTraceContext:   convert(provider.Opencensus.GetContext()),
-				OutgoingTraceContext:   convert(provider.Opencensus.GetContext()),
+				// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
+				// is not allowed during the lifetime of a proxy.
+				IncomingTraceContext: convert(provider.Opencensus.GetContext()),
+				OutgoingTraceContext: convert(provider.Opencensus.GetContext()),
 			}
 
 			return anypb.New(oc)
@@ -198,7 +201,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				StackdriverProjectId:       proj,
 				IncomingTraceContext:       allContexts,
 				OutgoingTraceContext:       allContexts,
-				StdoutExporterEnabled:      provider.Stackdriver.GetDebug(),
+				// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+				StdoutExporterEnabled: false,
 				TraceConfig: &opb.TraceConfig{
 					MaxNumberOfAnnotations:   200,
 					MaxNumberOfAttributes:    200,
@@ -211,6 +215,17 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
+				// prior to Istio 1.14, token path was absolute. this was changed
+				// in Istio 1.14 to the relative path used here. to prevent issues
+				// with OpenCensus configuration across version upgrades, we must
+				// preserve behavior for older version even in the face of control
+				// plane upgrades.
+				tokenPath := constants.TrustworthyJWTPath
+				if !util.IsIstioVersionGE114(model.ParseIstioVersion(meta.IstioVersion)) {
+					// use legacy path
+					tokenPath = "/var/run/secrets/tokens/istio-token"
+				}
+
 				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
 					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
 						{
@@ -232,7 +247,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
 											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-											SubjectTokenPath:        constants.TrustworthyJWTPath,
+											SubjectTokenPath:        tokenPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 										},
@@ -244,6 +259,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				}
 			}
 
+			// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+			// so, we should not allow dynamic control based on provider configuration of the following params:
+			// - max number of annotations
+			// - max number of attributes
+			// - max number of message events
+			// The following code block allows control for a single configuration once during the lifecycle of a
+			// mesh.
 			if provider.Stackdriver.GetMaxNumberOfAnnotations() != nil {
 				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.GetMaxNumberOfAnnotations().GetValue()
 			}
