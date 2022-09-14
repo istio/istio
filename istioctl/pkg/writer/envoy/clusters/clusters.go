@@ -76,8 +76,7 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	if internal := host.Address.GetEnvoyInternalAddress(); internal != nil {
 		switch an := internal.GetAddressNameSpecifier().(type) {
 		case *core.EnvoyInternalAddress_ServerListenerName:
-			// TODO: fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId) once go-control-plane updates
-			return fmt.Sprintf("envoy://%s", an.ServerListenerName)
+			return fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId)
 		}
 	}
 	return "unknown"
