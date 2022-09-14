@@ -37,6 +37,7 @@ import (
 
 const (
 	migrationServiceName     = "migration"
+	migrationServiceNameDS   = "migration-ds"
 	migrationVersionIstio    = "vistio"
 	migrationVersionNonIstio = "vlegacy"
 	migrationPathIstio       = "/" + migrationVersionIstio
@@ -73,6 +74,26 @@ func TestReachability(t *testing.T) {
 							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 						},
 					},
+				}).
+				WithConfig(echo.Config{
+					Namespace:      echo1NS,
+					Service:        migrationServiceNameDS,
+					ServiceAccount: true,
+					Ports:          ports.All(),
+					Subsets: []echo.SubsetConfig{
+						{
+							// Istio deployment, with sidecar.
+							Version:     migrationVersionIstio,
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, true),
+						},
+						{
+							// Legacy (non-Istio) deployment subset, does not have sidecar injected.
+							Version:     migrationVersionNonIstio,
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+						},
+					},
+					IPFamilies:     "['IPv4', 'IPv6']",
+					IPFamilyPolicy: "RequireDualStack",
 				}).
 				BuildOrFail(t)
 
