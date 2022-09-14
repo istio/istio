@@ -325,9 +325,10 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 	var referential bool
 
 	c := &cobra.Command{
-		Use:     "validate -f FILENAME [options]",
-		Aliases: []string{"v"},
-		Short:   "Validate Istio policy and rules files",
+		Use:                   "validate -f FILENAME [options]",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"v"},
+		Short:                 "Validate Istio policy and rules files",
 		Example: `  # Validate bookinfo-gateway.yaml
   istioctl validate -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
@@ -349,7 +350,7 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 		},
 	}
 
-	flags := c.PersistentFlags()
+	flags := c.Flags()
 	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 

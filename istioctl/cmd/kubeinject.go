@@ -507,8 +507,9 @@ func injectCommand() *cobra.Command {
 	var centralOpts clioptions.CentralControlPlaneOptions
 
 	injectCmd := &cobra.Command{
-		Use:   "kube-inject",
-		Short: "Inject Istio sidecar into Kubernetes pod resources",
+		Use:                   "kube-inject",
+		DisableFlagsInUseLine: true,
+		Short:                 "Inject Istio sidecar into Kubernetes pod resources",
 		Long: `
 kube-inject manually injects the Istio sidecar into Kubernetes
 workloads. Unsupported resources are left unmodified so it is safe to
@@ -637,27 +638,27 @@ It's best to do kube-inject when the resource is initially created.
 		},
 	}
 
-	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
+	injectCmd.Flags().StringVar(&meshConfigFile, "meshConfigFile", "",
 		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
-	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
+	injectCmd.Flags().StringVar(&injectConfigFile, "injectConfigFile", "",
 		"Injection configuration filename. Cannot be used with --injectConfigMapName")
-	injectCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
+	injectCmd.Flags().StringVar(&valuesFile, "valuesFile", "",
 		"Injection values configuration filename.")
 
-	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
+	injectCmd.Flags().StringVarP(&inFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
-	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
+	injectCmd.Flags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
-	injectCmd.PersistentFlags().StringVar(&iopFilename, "operatorFileName", "",
+	injectCmd.Flags().StringVar(&iopFilename, "operatorFileName", "",
 		"Path to file containing IstioOperator custom resources. If configs from files like "+
 			"meshConfigFile, valuesFile are provided, they will be overridden by iop config values.")
 
-	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
+	injectCmd.Flags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
-	injectCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
+	injectCmd.Flags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
-	_ = injectCmd.PersistentFlags().MarkHidden("injectConfigMapName")
-	injectCmd.PersistentFlags().StringVar(&whcName, "webhookConfig", defaultInjectWebhookConfigName,
+	_ = injectCmd.Flags().MarkHidden("injectConfigMapName")
+	injectCmd.Flags().StringVar(&whcName, "webhookConfig", defaultInjectWebhookConfigName,
 		"MutatingWebhookConfiguration name for Istio")
 	opts.AttachControlPlaneFlags(injectCmd)
 	centralOpts.AttachControlPlaneFlags(injectCmd)

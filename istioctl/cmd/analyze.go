@@ -81,8 +81,9 @@ var (
 // Analyze command
 func Analyze() *cobra.Command {
 	analysisCmd := &cobra.Command{
-		Use:   "analyze <file>...",
-		Short: "Analyze Istio configuration and print validation messages",
+		Use:                   "analyze <file>...",
+		DisableFlagsInUseLine: true,
+		Short:                 "Analyze Istio configuration and print validation messages",
 		Example: `  # Analyze the current live cluster
   istioctl analyze
 
@@ -288,33 +289,33 @@ func Analyze() *cobra.Command {
 		},
 	}
 
-	analysisCmd.PersistentFlags().BoolVarP(&listAnalyzers, "list-analyzers", "L", false,
+	analysisCmd.Flags().BoolVarP(&listAnalyzers, "list-analyzers", "L", false,
 		"List the analyzers available to run. Suppresses normal execution.")
-	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", true,
+	analysisCmd.Flags().BoolVarP(&useKube, "use-kube", "k", true,
 		"Use live Kubernetes cluster for analysis. Set --use-kube=false to analyze files only.")
-	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", formatting.IstioctlColorDefault(analysisCmd.OutOrStdout()),
+	analysisCmd.Flags().BoolVar(&colorize, "color", formatting.IstioctlColorDefault(analysisCmd.OutOrStdout()),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
-	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
+	analysisCmd.Flags().BoolVarP(&verbose, "verbose", "v", false,
 		"Enable verbose output")
-	analysisCmd.PersistentFlags().Var(&failureThreshold, "failure-threshold",
+	analysisCmd.Flags().Var(&failureThreshold, "failure-threshold",
 		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().Var(&outputThreshold, "output-threshold",
+	analysisCmd.Flags().Var(&outputThreshold, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
+	analysisCmd.Flags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
 		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
-	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
+	analysisCmd.Flags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
-	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
+	analysisCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
 		"Analyze all namespaces")
-	analysisCmd.PersistentFlags().StringArrayVarP(&suppress, "suppress", "S", []string{},
+	analysisCmd.Flags().StringArrayVarP(&suppress, "suppress", "S", []string{},
 		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
 			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
-	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
+	analysisCmd.Flags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"The duration to wait before failing")
-	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
+	analysisCmd.Flags().BoolVarP(&recursive, "recursive", "R", false,
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
-	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
+	analysisCmd.Flags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	return analysisCmd
 }

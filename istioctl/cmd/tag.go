@@ -70,8 +70,9 @@ type tagDescription struct {
 
 func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tag",
-		Short: "Command group used to interact with revision tags",
+		Use:                   "tag",
+		DisableFlagsInUseLine: true,
+		Short:                 "Command group used to interact with revision tags",
 		Long: `Command group used to interact with revision tags. Revision tags allow for the creation of mutable aliases
 referring to control plane revisions for sidecar injection.
 
@@ -105,8 +106,9 @@ without manual relabeling of the "istio.io/rev" tag.
 
 func tagSetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "set <revision-tag>",
-		Short: "Create or modify revision tags",
+		Use:                   "set <revision-tag>",
+		DisableFlagsInUseLine: true,
+		Short:                 "Create or modify revision tags",
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
@@ -145,21 +147,22 @@ injection labels.`,
 		},
 	}
 
-	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
-	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
-	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
-	_ = cmd.MarkPersistentFlagRequired("revision")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
+	cmd.Flags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	cmd.Flags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.Flags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
+	cmd.Flags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.Flags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
+	_ = cmd.MarkFlagRequired("revision")
 
 	return cmd
 }
 
 func tagGenerateCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "generate <revision-tag>",
-		Short: "Generate configuration for a revision tag to stdout",
+		Use:                   "generate <revision-tag>",
+		DisableFlagsInUseLine: true,
+		Short:                 "Generate configuration for a revision tag to stdout",
 		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
@@ -193,23 +196,24 @@ injection labels.`,
 		},
 	}
 
-	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
-	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
-	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
-	_ = cmd.MarkPersistentFlagRequired("revision")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
+	cmd.Flags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	cmd.Flags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.Flags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
+	cmd.Flags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.Flags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
+	_ = cmd.MarkFlagRequired("revision")
 
 	return cmd
 }
 
 func tagListCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List existing revision tags",
-		Example: "istioctl tag list",
-		Aliases: []string{"show"},
+		Use:                   "list",
+		DisableFlagsInUseLine: true,
+		Short:                 "List existing revision tags",
+		Example:               "istioctl tag list",
+		Aliases:               []string{"show"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("tag list command does not accept arguments")
@@ -230,8 +234,9 @@ func tagListCommand() *cobra.Command {
 
 func tagRemoveCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove <revision-tag>",
-		Short: "Remove Istio control plane revision tag",
+		Use:                   "remove <revision-tag>",
+		DisableFlagsInUseLine: true,
+		Short:                 "Remove Istio control plane revision tag",
 		Long: `Remove Istio control plane revision tag.
 
 Removing a revision tag should be done with care. Removing a revision tag will disrupt sidecar injection in namespaces
@@ -261,7 +266,7 @@ revision tag before removing using the "istioctl tag list" command.
 		},
 	}
 
-	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.Flags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	return cmd
 }
 

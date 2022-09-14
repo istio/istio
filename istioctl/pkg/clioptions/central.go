@@ -59,21 +59,21 @@ type CentralControlPlaneOptions struct {
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
 // (Currently just --endpoint)
 func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&o.Xds, "xds-address", viper.GetString("XDS-ADDRESS"),
+	cmd.Flags().StringVar(&o.Xds, "xds-address", viper.GetString("XDS-ADDRESS"),
 		"XDS Endpoint")
-	cmd.PersistentFlags().StringVar(&o.CertDir, "cert-dir", viper.GetString("CERT-DIR"),
+	cmd.Flags().StringVar(&o.CertDir, "cert-dir", viper.GetString("CERT-DIR"),
 		"XDS Endpoint certificate directory")
-	cmd.PersistentFlags().StringVar(&o.XdsPodLabel, "xds-label", "",
+	cmd.Flags().StringVar(&o.XdsPodLabel, "xds-label", "",
 		"Istiod pod label selector")
-	cmd.PersistentFlags().IntVar(&o.XdsPodPort, "xds-port", viper.GetInt("XDS-PORT"),
+	cmd.Flags().IntVar(&o.XdsPodPort, "xds-port", viper.GetInt("XDS-PORT"),
 		"Istiod pod port")
-	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
+	cmd.Flags().DurationVar(&o.Timeout, "timeout", time.Second*30,
 		"The duration to wait before failing")
-	cmd.PersistentFlags().StringVar(&o.XDSSAN, "authority", viper.GetString("AUTHORITY"),
+	cmd.Flags().StringVar(&o.XDSSAN, "authority", viper.GetString("AUTHORITY"),
 		"XDS Subject Alternative Name (for example istiod.istio-system.svc)")
-	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure", viper.GetBool("INSECURE"),
+	cmd.Flags().BoolVar(&o.InsecureSkipVerify, "insecure", viper.GetBool("INSECURE"),
 		"Skip server certificate and domain verification. (NOT SECURE!)")
-	cmd.PersistentFlags().BoolVar(&o.Plaintext, "plaintext", viper.GetBool("PLAINTEXT"),
+	cmd.Flags().BoolVar(&o.Plaintext, "plaintext", viper.GetBool("PLAINTEXT"),
 		"Use plain-text HTTP/2 when connecting to server (no TLS).")
 }
 

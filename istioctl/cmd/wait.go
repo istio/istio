@@ -54,9 +54,10 @@ const pollInterval = time.Second
 func waitCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "wait [flags] <type> <name>[.<namespace>]",
-		Short: "Wait for an Istio resource",
-		Long:  `Waits for the specified condition to be true of an Istio resource.`,
+		Use:                   "wait [flags] <type> <name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Wait for an Istio resource",
+		Long:                  `Waits for the specified condition to be true of an Istio resource.`,
 		Example: `  # Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
   istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
@@ -132,17 +133,17 @@ func waitCmd() *cobra.Command {
 			return validateType(args[0])
 		},
 	}
-	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
+	cmd.Flags().StringVar(&forFlag, "for", "distribution",
 		"Wait condition, must be 'distribution' or 'delete'")
-	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
+	cmd.Flags().DurationVar(&timeout, "timeout", time.Second*30,
 		"The duration to wait before failing")
-	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
+	cmd.Flags().Float32Var(&threshold, "threshold", 1,
 		"The ratio of distribution required for success")
-	cmd.PersistentFlags().StringVar(&generation, "generation", "",
+	cmd.Flags().StringVar(&generation, "generation", "",
 		"Wait for a specific generation of config to become current, rather than using whatever is latest in "+
 			"Kubernetes")
-	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
-	_ = cmd.PersistentFlags().MarkHidden("verbose")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
+	_ = cmd.Flags().MarkHidden("verbose")
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }

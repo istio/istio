@@ -348,8 +348,9 @@ var (
 
 func uninjectCommand() *cobra.Command {
 	uninjectCmd := &cobra.Command{
-		Use:   "kube-uninject",
-		Short: "Uninject Envoy sidecar from Kubernetes pod resources",
+		Use:                   "kube-uninject",
+		DisableFlagsInUseLine: true,
+		Short:                 "Uninject Envoy sidecar from Kubernetes pod resources",
 		Long: `
 kube-uninject is used to prevent Istio from adding a sidecar and
 also provides the inverse of "istioctl kube-inject -f".
@@ -414,9 +415,9 @@ also provides the inverse of "istioctl kube-inject -f".
 		},
 	}
 
-	uninjectCmd.PersistentFlags().StringVarP(&uninjectInFilename, "filename", "f",
+	uninjectCmd.Flags().StringVarP(&uninjectInFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
-	uninjectCmd.PersistentFlags().StringVarP(&uninjectOutFilename, "output", "o",
+	uninjectCmd.Flags().StringVarP(&uninjectOutFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
 
 	return uninjectCmd

@@ -65,7 +65,7 @@ type RootArgs struct {
 }
 
 func addFlags(cmd *cobra.Command, rootArgs *RootArgs) {
-	cmd.PersistentFlags().BoolVarP(&rootArgs.DryRun, "dry-run", "",
+	cmd.Flags().BoolVarP(&rootArgs.DryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
 }
 

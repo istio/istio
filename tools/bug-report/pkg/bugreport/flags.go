@@ -37,59 +37,59 @@ var (
 
 func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// k8s client config
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "",
+	cmd.Flags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "",
 		"Path to kube config.")
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "",
+	cmd.Flags().StringVar(&args.Context, "context", "",
 		"Name of the kubeconfig Context to use.")
 
 	// input config
-	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "",
+	cmd.Flags().StringVarP(&configFile, "filename", "f", "",
 		"Path to a file containing configuration in YAML format. The file contents are applied over the default "+
 			"values and flag settings, with lists being replaced per JSON merge semantics.")
 
 	// dry run
-	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false,
+	cmd.Flags().BoolVarP(&args.DryRun, "dry-run", "", false,
 		"Only log commands that would be run, don't fetch or write.")
 
 	// full secrets
-	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false,
+	cmd.Flags().BoolVarP(&args.FullSecrets, "full-secrets", "", false,
 		"If set, secret contents are included in output.")
 
 	// istio namespaces
-	cmd.PersistentFlags().StringVar(&args.IstioNamespace, "istio-namespace", bugReportDefaultIstioNamespace,
+	cmd.Flags().StringVar(&args.IstioNamespace, "istio-namespace", bugReportDefaultIstioNamespace,
 		"Namespace where Istio control plane is installed.")
 
 	// timeouts and max sizes
-	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout,
+	cmd.Flags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout,
 		"Maximum amount of time to spend fetching logs. When timeout is reached "+
 			"only the logs captured so far are saved to the archive.")
 	// include / exclude specs
-	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude,
+	cmd.Flags().StringSliceVar(&included, "include", bugReportDefaultInclude,
 		"Spec for which pod's proxy logs to include in the archive. See above for format and examples.")
-	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude,
+	cmd.Flags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude,
 		"Spec for which pod's proxy logs to exclude from the archive, after the include spec "+
 			"is processed. See above for format and examples.")
 
 	// log time ranges
-	cmd.PersistentFlags().StringVar(&startTime, "start-time", "",
+	cmd.Flags().StringVar(&startTime, "start-time", "",
 		"Start time for the range of log entries to include in the archive. "+
 			"Default is the infinite past. If set, --duration must be unset.")
-	cmd.PersistentFlags().StringVar(&endTime, "end-time", "",
+	cmd.Flags().StringVar(&endTime, "end-time", "",
 		"End time for the range of log entries to include in the archive. Default is now.")
-	cmd.PersistentFlags().DurationVar(&since, "duration", 0,
+	cmd.Flags().DurationVar(&since, "duration", 0,
 		"How far to go back in time from end-time for log entries to include in the archive. "+
 			"Default is infinity. If set, --start-time must be unset.")
 
 	// log error control
-	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil,
+	cmd.Flags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil,
 		"List of comma separated glob patterns to match against log error strings. "+
 			"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion.")
-	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil,
+	cmd.Flags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil,
 		"List of comma separated glob patterns to match against log error strings. "+
 			"Any error matching these patterns is ignored when calculating the log importance heuristic.")
 
 	// output/working dir
-	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
+	cmd.Flags().StringVar(&tempDir, "dir", "",
 		"Set a specific directory for temporary artifact storage.")
 }
 

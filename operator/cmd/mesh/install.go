@@ -91,27 +91,28 @@ func (a *InstallArgs) String() string {
 }
 
 func addInstallFlags(cmd *cobra.Command, args *InstallArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "", ContextFlagHelpStr)
-	cmd.PersistentFlags().DurationVar(&args.ReadinessTimeout, "readiness-timeout", 300*time.Second,
+	cmd.Flags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.Flags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.Flags().StringVar(&args.Context, "context", "", ContextFlagHelpStr)
+	cmd.Flags().DurationVar(&args.ReadinessTimeout, "readiness-timeout", 300*time.Second,
 		"Maximum time to wait for Istio resources in each component to be ready.")
-	cmd.PersistentFlags().BoolVarP(&args.SkipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.Verify, "verify", false, VerifyCRInstallHelpStr)
-	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.Flags().BoolVarP(&args.SkipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.Flags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
+	cmd.Flags().BoolVar(&args.Verify, "verify", false, VerifyCRInstallHelpStr)
+	cmd.Flags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
+	cmd.Flags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
 // InstallCmdWithArgs generates an Istio install manifest and applies it to a cluster
 func InstallCmdWithArgs(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options) *cobra.Command {
 	ic := &cobra.Command{
-		Use:     "install",
-		Short:   "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
-		Long:    "The install command generates an Istio install manifest and applies it to a cluster.",
-		Aliases: []string{"apply"},
+		Use:                   "install",
+		DisableFlagsInUseLine: true,
+		Short:                 "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
+		Long:                  "The install command generates an Istio install manifest and applies it to a cluster.",
+		Aliases:               []string{"apply"},
 		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl install

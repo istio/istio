@@ -32,25 +32,26 @@ type operatorDumpArgs struct {
 func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
 
-	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", constants.IstioSystemNamespace,
+	cmd.Flags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
+	cmd.Flags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
+	cmd.Flags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
+	cmd.Flags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", constants.IstioSystemNamespace,
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
-	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
-	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.common.outputFormat, "output", "o", yamlOutput,
+	cmd.Flags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
+	cmd.Flags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
+	cmd.Flags().StringVarP(&args.common.outputFormat, "output", "o", yamlOutput,
 		"Output format: one of json|yaml")
 }
 
 func operatorDumpCmd(rootArgs *RootArgs, odArgs *operatorDumpArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "dump",
-		Short: "Dumps the Istio operator controller manifest.",
-		Long:  "The dump subcommand dumps the Istio operator controller manifest.",
-		Args:  cobra.ExactArgs(0),
+		Use:                   "dump",
+		DisableFlagsInUseLine: true,
+		Short:                 "Dumps the Istio operator controller manifest.",
+		Long:                  "The dump subcommand dumps the Istio operator controller manifest.",
+		Args:                  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorDump(rootArgs, odArgs, l)

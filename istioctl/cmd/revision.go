@@ -25,6 +25,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
+	"istio.io/istio/operator/cmd/mesh"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +37,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/tag"
-	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
@@ -104,20 +105,29 @@ func revisionCommand() *cobra.Command {
 		Short:   "Provide insight into various revisions (istiod, gateways) installed in the cluster",
 		Aliases: []string{"rev"},
 	}
-	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
-	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
-	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
-		"(available formats: table,json)")
-
-	revisionCmd.AddCommand(revisionListCommand())
-	revisionCmd.AddCommand(revisionDescribeCommand())
-	revisionCmd.AddCommand(tagCommand())
+	cmds := []*cobra.Command{
+		revisionListCommand(),
+		revisionDescribeCommand(),
+		tagCommand(),
+	}
+	for i := range cmds {
+		addRevisionFlags(cmds[i].Flags())
+		revisionCmd.AddCommand(cmds[i])
+	}
 	return revisionCmd
+}
+
+func addRevisionFlags(f *flag.FlagSet) {
+	f.StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	f.BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
+	f.StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
+		"(available formats: table,json)")
 }
 
 func revisionDescribeCommand() *cobra.Command {
 	describeCmd := &cobra.Command{
-		Use: "describe",
+		Use:                   "describe",
+		DisableFlagsInUseLine: true,
 		Example: `  # View the details of a revision named 'canary'
   istioctl x revision describe canary
 
@@ -151,14 +161,14 @@ func revisionDescribeCommand() *cobra.Command {
 			return printRevisionDescription(cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
-	describeCmd.Flags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
 	return describeCmd
 }
 
 func revisionListCommand() *cobra.Command {
 	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
+		Use:                   "list",
+		DisableFlagsInUseLine: true,
+		Short:                 "Show list of control plane and gateway revisions that are currently installed in cluster",
 		Example: `  # View summary of revisions installed in the current cluster
   # which can be overridden with --context parameter.
   istioctl x revision list

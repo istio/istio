@@ -42,8 +42,9 @@ func NewVerifyCommand() *cobra.Command {
 		manifestsPath  string
 	)
 	verifyInstallCmd := &cobra.Command{
-		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
-		Short: "Verifies Istio Installation Status",
+		Use:                   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
+		Short:                 "Verifies Istio Installation Status",
+		DisableFlagsInUseLine: true,
 		Long: `
 verify-install verifies Istio installation status against the installation file
 you specified when you installed Istio. It loops through all the installation
@@ -87,12 +88,12 @@ istioctl experimental precheck.
 		},
 	}
 
-	flags := verifyInstallCmd.PersistentFlags()
+	flags := verifyInstallCmd.Flags()
 	flags.StringVarP(&istioNamespace, "istioNamespace", "i", constants.IstioSystemNamespace,
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	flags.StringSliceVarP(&filenames, "filename", "f", filenames, "Istio YAML installation file.")
-	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	verifyInstallCmd.Flags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)
 	return verifyInstallCmd
 }

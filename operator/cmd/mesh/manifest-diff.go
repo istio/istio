@@ -48,19 +48,19 @@ type manifestDiffArgs struct {
 }
 
 func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
-	cmd.PersistentFlags().BoolVarP(&diffArgs.compareDir, "directory", "r",
+	cmd.Flags().BoolVarP(&diffArgs.compareDir, "directory", "r",
 		false, "Compare directory.")
-	cmd.PersistentFlags().BoolVarP(&diffArgs.verbose, "verbose", "v",
+	cmd.Flags().BoolVarP(&diffArgs.verbose, "verbose", "v",
 		false, "Verbose output.")
-	cmd.PersistentFlags().StringVar(&diffArgs.selectResources, "select", "::",
+	cmd.Flags().StringVar(&diffArgs.selectResources, "select", "::",
 		"Constrain the list of resources to compare to only the ones in this list, ignoring all others.\n"+
 			"The format of each list item is \"::\" and the items are comma separated. The \"*\" character represents wildcard selection.\n"+
 			"e.g.\n"+
 			"    Deployment:istio-system:* - compare all deployments in istio-system namespace\n"+
 			"    Service:*:istiod - compare Services called \"istiod\" in all namespaces")
-	cmd.PersistentFlags().StringVar(&diffArgs.ignoreResources, "ignore", "",
+	cmd.Flags().StringVar(&diffArgs.ignoreResources, "ignore", "",
 		"Ignore all listed items during comparison, using the same list format as selectResources.")
-	cmd.PersistentFlags().StringVar(&diffArgs.renameResources, "rename", "",
+	cmd.Flags().StringVar(&diffArgs.renameResources, "rename", "",
 		"Rename resources before comparison.\n"+
 			"The format of each renaming pair is A->B, all renaming pairs are comma separated.\n"+
 			"e.g. Service:*:istiod->Service:*:istio-control - rename istiod service into istio-control")
@@ -68,8 +68,9 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 
 func manifestDiffCmd(rootArgs *RootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "diff <file|dir> <file|dir>",
-		Short: "Compare manifests and generate diff",
+		Use:                   "diff <file|dir> <file|dir>",
+		DisableFlagsInUseLine: true,
+		Short:                 "Compare manifests and generate diff",
 		Long: "The diff subcommand compares manifests from two files or directories. The output is a list of\n" +
 			"changed paths with the value changes shown as OLD-VALUE -> NEW-VALUE.\n" +
 			"List order changes are shown as [OLD-INDEX->NEW-INDEX], with ? used where a list item is added or\n" +

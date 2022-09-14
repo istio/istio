@@ -50,26 +50,27 @@ var kubeClients = KubernetesClients
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
 
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
-	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", constants.IstioSystemNamespace,
+	cmd.Flags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
+	cmd.Flags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.Flags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
+	cmd.Flags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
+	cmd.Flags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
+	cmd.Flags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
+	cmd.Flags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
+	cmd.Flags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", constants.IstioSystemNamespace,
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
-	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
+	cmd.Flags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *RootArgs, oiArgs *operatorInitArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "init",
-		Short: "Installs the Istio operator controller in the cluster.",
-		Long:  "The init subcommand installs the Istio operator controller in the cluster.",
-		Args:  cobra.ExactArgs(0),
+		Use:                   "init",
+		DisableFlagsInUseLine: true,
+		Short:                 "Installs the Istio operator controller in the cluster.",
+		Long:                  "The init subcommand installs the Istio operator controller in the cluster.",
+		Args:                  cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if !labels.IsDNS1123Label(oiArgs.common.revision) && cmd.PersistentFlags().Changed("revision") {
 				return fmt.Errorf("invalid revision specified: %v", oiArgs.common.revision)

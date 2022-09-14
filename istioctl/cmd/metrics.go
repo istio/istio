@@ -84,7 +84,7 @@ calculated over a time interval of 1 minute.
 		DisableFlagsInUseLine: true,
 	}
 
-	cmd.PersistentFlags().DurationVarP(&metricsDuration, "duration", "d", time.Minute, "Duration of query metrics, default value is 1m.")
+	cmd.Flags().DurationVarP(&metricsDuration, "duration", "d", time.Minute, "Duration of query metrics, default value is 1m.")
 
 	return cmd
 }

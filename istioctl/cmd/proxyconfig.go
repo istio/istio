@@ -332,9 +332,10 @@ func clusterConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	clusterConfigCmd := &cobra.Command{
-		Use:   "cluster [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves cluster configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
+		Use:                   "cluster [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves cluster configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about cluster configuration for a given pod from Envoy.
   istioctl proxy-config clusters <pod-name[.namespace]>
 
@@ -388,12 +389,12 @@ func clusterConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	clusterConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
-	clusterConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
-	clusterConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
-	clusterConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter clusters by Port field")
-	clusterConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	clusterConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	clusterConfigCmd.Flags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
+	clusterConfigCmd.Flags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
+	clusterConfigCmd.Flags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
+	clusterConfigCmd.Flags().IntVar(&port, "port", 0, "Filter clusters by Port field")
+	clusterConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return clusterConfigCmd
@@ -401,9 +402,10 @@ func clusterConfigCmd() *cobra.Command {
 
 func allConfigCmd() *cobra.Command {
 	allConfigCmd := &cobra.Command{
-		Use:   "all [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves all configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about all configuration for the Envoy instance in the specified pod.`,
+		Use:                   "all [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves all configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about all configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about all configuration for a given pod from Envoy.
   istioctl proxy-config all <pod-name[.namespace]>
 
@@ -496,25 +498,25 @@ func allConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	allConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	allConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
-	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	allConfigCmd.Flags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 
 	// cluster
-	allConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
-	allConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
-	allConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
+	allConfigCmd.Flags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
+	allConfigCmd.Flags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
+	allConfigCmd.Flags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
 
 	// applies to cluster and route
-	allConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter clusters and listeners by Port field")
+	allConfigCmd.Flags().IntVar(&port, "port", 0, "Filter clusters and listeners by Port field")
 
 	// Listener
-	allConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
-	allConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
+	allConfigCmd.Flags().StringVar(&address, "address", "", "Filter listeners by address field")
+	allConfigCmd.Flags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 
 	// route
-	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+	allConfigCmd.Flags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 
 	return allConfigCmd
 }
@@ -523,9 +525,10 @@ func listenerConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	listenerConfigCmd := &cobra.Command{
-		Use:   "listener [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves listener configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
+		Use:                   "listener [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves listener configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about listener configuration for a given pod from Envoy.
   istioctl proxy-config listeners <pod-name[.namespace]>
 
@@ -580,12 +583,12 @@ func listenerConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
-	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
-	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
-	listenerConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	listenerConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	listenerConfigCmd.Flags().StringVar(&address, "address", "", "Filter listeners by address field")
+	listenerConfigCmd.Flags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
+	listenerConfigCmd.Flags().IntVar(&port, "port", 0, "Filter listeners by Port field")
+	listenerConfigCmd.Flags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	listenerConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return listenerConfigCmd
@@ -595,9 +598,10 @@ func statsConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	statsConfigCmd := &cobra.Command{
-		Use:   "envoy-stats [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves Envoy metrics in the specified pod",
-		Long:  `Retrieve Envoy emitted metrics for the specified pod.`,
+		Use:                   "envoy-stats [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves Envoy metrics in the specified pod",
+		Long:                  `Retrieve Envoy emitted metrics for the specified pod.`,
 		Example: `  # Retrieve Envoy emitted metrics for the specified pod.
   istioctl experimental envoy-stats <pod-name[.namespace]>
 
@@ -655,8 +659,8 @@ func statsConfigCmd() *cobra.Command {
 		},
 		ValidArgsFunction: validPodsNameArgs,
 	}
-	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom")
-	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
+	statsConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom")
+	statsConfigCmd.Flags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 
 	return statsConfigCmd
 }
@@ -666,9 +670,10 @@ func logCmd() *cobra.Command {
 	var podNames []string
 
 	logCmd := &cobra.Command{
-		Use:   "log [<type>/]<name>[.<namespace>]",
-		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
-		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
+		Use:                   "log [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "(experimental) Retrieves logging levels of the Envoy in the specified pod",
+		Long:                  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
   istioctl proxy-config log <pod-name[.namespace]>
 
@@ -793,9 +798,9 @@ func logCmd() *cobra.Command {
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
 
-	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
-	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
+	logCmd.Flags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
+	logCmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	logCmd.Flags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
 			s, levelListString))
@@ -807,9 +812,10 @@ func routeConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	routeConfigCmd := &cobra.Command{
-		Use:   "route [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves route configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about route configuration for the Envoy instance in the specified pod.`,
+		Use:                   "route [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves route configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about route configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about route configuration for a given pod from Envoy.
   istioctl proxy-config routes <pod-name[.namespace]>
 
@@ -861,10 +867,10 @@ func routeConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
-	routeConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	routeConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	routeConfigCmd.Flags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+	routeConfigCmd.Flags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	routeConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return routeConfigCmd
@@ -874,9 +880,10 @@ func endpointConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	endpointConfigCmd := &cobra.Command{
-		Use:   "endpoint [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
+		Use:                   "endpoint [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves endpoint configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
   istioctl proxy-config endpoint <pod-name[.namespace]>
 
@@ -937,12 +944,12 @@ func endpointConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
-	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
-	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
-	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
-	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	endpointConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	endpointConfigCmd.Flags().StringVar(&address, "address", "", "Filter endpoints by address field")
+	endpointConfigCmd.Flags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
+	endpointConfigCmd.Flags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
+	endpointConfigCmd.Flags().StringVar(&status, "status", "", "Filter endpoints by status field")
+	endpointConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return endpointConfigCmd
@@ -958,9 +965,10 @@ func edsConfigCmd() *cobra.Command {
 		// Currently, we have an "endpoints" and "eds" command. While for simple use cases these are nearly identical, they give
 		// pretty different outputs for the full JSON output. This makes it a useful command for developers, but may be overwhelming
 		// for basic usage. For now, hide to avoid confusion.
-		Hidden: true,
-		Short:  "Retrieves endpoint configuration for the Envoy in the specified pod",
-		Long:   `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
+		DisableFlagsInUseLine: true,
+		Hidden:                true,
+		Short:                 "Retrieves endpoint configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
   istioctl proxy-config eds <pod-name[.namespace]>
 
@@ -1020,12 +1028,12 @@ func edsConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
-	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
-	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
-	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
-	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	endpointConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	endpointConfigCmd.Flags().StringVar(&address, "address", "", "Filter endpoints by address field")
+	endpointConfigCmd.Flags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
+	endpointConfigCmd.Flags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
+	endpointConfigCmd.Flags().StringVar(&status, "status", "", "Filter endpoints by status field")
+	endpointConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return endpointConfigCmd
@@ -1038,9 +1046,10 @@ func bootstrapConfigCmd() *cobra.Command {
 	var outputFormat string
 
 	bootstrapConfigCmd := &cobra.Command{
-		Use:   "bootstrap [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
+		Use:                   "bootstrap [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves bootstrap configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
   istioctl proxy-config bootstrap <pod-name[.namespace]>
 
@@ -1087,7 +1096,7 @@ func bootstrapConfigCmd() *cobra.Command {
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
-	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	bootstrapConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return bootstrapConfigCmd
@@ -1097,9 +1106,10 @@ func secretConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	secretConfigCmd := &cobra.Command{
-		Use:   "secret [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves secret configuration for the Envoy in the specified pod",
-		Long:  `Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
+		Use:                   "secret [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves secret configuration for the Envoy in the specified pod",
+		Long:                  `Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.
   istioctl proxy-config secret <pod-name[.namespace]>
 
@@ -1140,8 +1150,8 @@ func secretConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	secretConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	secretConfigCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
 	return secretConfigCmd
@@ -1151,9 +1161,10 @@ func rootCACompareConfigCmd() *cobra.Command {
 	var podName1, podName2, podNamespace1, podNamespace2 string
 
 	rootCACompareConfigCmd := &cobra.Command{
-		Use:   "rootca-compare [pod/]<name-1>[.<namespace-1>] [pod/]<name-2>[.<namespace-2>]",
-		Short: "Compare ROOTCA values for the two given pods",
-		Long:  `Compare ROOTCA values for given 2 pods to check the connectivity between them.`,
+		Use:                   "rootca-compare [pod/]<name-1>[.<namespace-1>] [pod/]<name-2>[.<namespace-2>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Compare ROOTCA values for the two given pods",
+		Long:                  `Compare ROOTCA values for given 2 pods to check the connectivity between them.`,
 		Example: `  # Compare ROOTCA values for given 2 pods to check the connectivity between them.
   istioctl proxy-config rootca-compare <pod-name-1[.namespace]> <pod-name-2[.namespace]>`,
 		Aliases: []string{"rc"},
@@ -1227,19 +1238,21 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"pc"},
 	}
 
-	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-
-	configCmd.AddCommand(clusterConfigCmd())
-	configCmd.AddCommand(allConfigCmd())
-	configCmd.AddCommand(listenerConfigCmd())
-	configCmd.AddCommand(logCmd())
-	configCmd.AddCommand(routeConfigCmd())
-	configCmd.AddCommand(bootstrapConfigCmd())
-	configCmd.AddCommand(endpointConfigCmd())
-	configCmd.AddCommand(edsConfigCmd())
-	configCmd.AddCommand(secretConfigCmd())
-	configCmd.AddCommand(rootCACompareConfigCmd())
-
+	cmds := []*cobra.Command{
+		clusterConfigCmd(),
+		allConfigCmd(),
+		listenerConfigCmd(),
+		logCmd(),
+		routeConfigCmd(),
+		endpointConfigCmd(),
+		bootstrapConfigCmd(),
+		edsConfigCmd(),
+		secretConfigCmd(),
+		rootCACompareConfigCmd(),
+	}
+	for i := range cmds {
+		configCmd.AddCommand(cmds[i])
+	}
 	return configCmd
 }
 

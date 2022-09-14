@@ -38,8 +38,9 @@ func statusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
-		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
+		Use:                   "proxy-status [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 
@@ -110,7 +111,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	statusCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return statusCmd
@@ -159,8 +160,9 @@ func xdsStatusCommand() *cobra.Command {
 	var centralOpts clioptions.CentralControlPlaneOptions
 
 	statusCmd := &cobra.Command{
-		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves the synchronization status of each Envoy in the mesh",
+		Use:                   "proxy-status [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves the synchronization status of each Envoy in the mesh",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 `,
@@ -242,7 +244,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 	opts.AttachControlPlaneFlags(statusCmd)
 	centralOpts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	statusCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return statusCmd

@@ -73,19 +73,19 @@ const (
 )
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
-	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
-	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", constants.IstioSystemNamespace,
+	cmd.Flags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.Flags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
+	cmd.Flags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.Flags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
+	cmd.Flags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
+	cmd.Flags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.Flags().StringVar(&args.istioNamespace, "istioNamespace", constants.IstioSystemNamespace,
 		"The namespace of Istio Control Plane.")
-	cmd.PersistentFlags().StringVarP(&args.filename, "filename", "f", "",
+	cmd.Flags().StringVarP(&args.filename, "filename", "f", "",
 		"The filename of the IstioOperator CR.")
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().BoolVarP(&args.verbose, "verbose", "v", false, "Verbose output.")
+	cmd.Flags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.Flags().BoolVarP(&args.verbose, "verbose", "v", false, "Verbose output.")
 }
 
 // UninstallCmd command uninstalls Istio from a cluster
@@ -93,9 +93,10 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &RootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
-		Use:   "uninstall",
-		Short: "Uninstall Istio from a cluster",
-		Long:  "The uninstall command uninstalls Istio from a cluster",
+		Use:                   "uninstall",
+		DisableFlagsInUseLine: true,
+		Short:                 "Uninstall Istio from a cluster",
+		Long:                  "The uninstall command uninstalls Istio from a cluster",
 		Example: `  # Uninstall a single control plane by revision
   istioctl uninstall --revision foo
 

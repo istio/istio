@@ -81,8 +81,9 @@ func debugCommand() *cobra.Command {
 	var centralOpts clioptions.CentralControlPlaneOptions
 
 	debugCommand := &cobra.Command{
-		Use:   "internal-debug [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves the debug information of istio",
+		Use:                   "internal-debug [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Retrieves the debug information of istio",
 		Long: `
 Retrieves the debug information from Istiod or Pods in the mesh using the service account from the pod if --cert-dir is empty.
 By default it will use the default serviceAccount from (istio-system) namespace if the pod is not specified.
@@ -156,7 +157,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
 	debugCommand.Long += "\n\n" + ExperimentalMsg
-	debugCommand.PersistentFlags().BoolVar(&internalDebugAllIstiod, "all", false,
+	debugCommand.Flags().BoolVar(&internalDebugAllIstiod, "all", false,
 		"Send the same request to all instances of Istiod. Only applicable for in-cluster deployment.")
 	return debugCommand
 }

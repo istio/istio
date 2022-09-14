@@ -90,8 +90,9 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 		Type:             SecretTypeRemote,
 	}
 	c := &cobra.Command{
-		Use:   "create-remote-secret",
-		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
+		Use:                   "create-remote-secret",
+		DisableFlagsInUseLine: true,
+		Short:                 "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
 		Example: `  # Create a secret to access cluster c0's apiserver and install it in cluster c1.
   istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
     | kubectl --kubeconfig=c1.yaml apply -f -
@@ -124,7 +125,7 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 			return nil
 		},
 	}
-	opts.addFlags(c.PersistentFlags())
+	opts.addFlags(c.Flags())
 	return c
 }
 

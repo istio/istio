@@ -115,8 +115,9 @@ func entryCommand() *cobra.Command {
 
 func createCommand() *cobra.Command {
 	createCmd := &cobra.Command{
-		Use:   "create",
-		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
+		Use:                   "create",
+		DisableFlagsInUseLine: true,
+		Short:                 "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
 		Long: `Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries.
 The default output is serialized YAML, which can be piped into 'kubectl apply -f -' to send the artifact to the API Server.`,
 		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --annotations annotation=foobar --serviceAccount sa",
@@ -158,12 +159,12 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 			return err
 		},
 	}
-	createCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
-	createCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
-	createCmd.PersistentFlags().StringSliceVarP(&resourceLabels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
-	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
-	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
-	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
+	createCmd.Flags().StringVar(&name, "name", "", "The name of the workload group")
+	createCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
+	createCmd.Flags().StringSliceVarP(&resourceLabels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createCmd.Flags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
+	createCmd.Flags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
+	createCmd.Flags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	return createCmd
 }
 
@@ -185,8 +186,9 @@ func configureCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	configureCmd := &cobra.Command{
-		Use:   "configure",
-		Short: "Generates all the required configuration files for a workload instance running on a VM or non-Kubernetes environment",
+		Use:                   "configure",
+		DisableFlagsInUseLine: true,
+		Short:                 "Generates all the required configuration files for a workload instance running on a VM or non-Kubernetes environment",
 		Long: `Generates all the required configuration files for workload instance on a VM or non-Kubernetes environment from a WorkloadGroup artifact.
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
 Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
@@ -248,19 +250,19 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 	}
-	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact. Leave this field empty if using the API server")
-	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
-	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
-	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
-	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
-	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
-	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", istioEastWestGatewayServiceName, "Name of the Service to be"+
+	configureCmd.Flags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact. Leave this field empty if using the API server")
+	configureCmd.Flags().StringVar(&name, "name", "", "The name of the workload group")
+	configureCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
+	configureCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
+	configureCmd.Flags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
+	configureCmd.Flags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
+	configureCmd.Flags().StringVar(&ingressSvc, "ingressService", istioEastWestGatewayServiceName, "Name of the Service to be"+
 		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
-	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
-	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
-	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
-	configureCmd.PersistentFlags().StringVar(&internalIP, "internalIP", "", "Internal IP address of the workload")
-	configureCmd.PersistentFlags().StringVar(&externalIP, "externalIP", "", "External IP address of the workload")
+	configureCmd.Flags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
+	configureCmd.Flags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
+	configureCmd.Flags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
+	configureCmd.Flags().StringVar(&internalIP, "internalIP", "", "Internal IP address of the workload")
+	configureCmd.Flags().StringVar(&externalIP, "externalIP", "", "External IP address of the workload")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }

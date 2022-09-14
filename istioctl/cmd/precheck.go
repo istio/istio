@@ -56,9 +56,10 @@ func preCheck() *cobra.Command {
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
-		Use:   "precheck",
-		Short: "check whether Istio can safely be installed or upgrade",
-		Long:  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
+		Use:                   "precheck",
+		DisableFlagsInUseLine: true,
+		Short:                 "check whether Istio can safely be installed or upgrade",
+		Long:                  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
 		Example: `  # Verify that Istio can be installed or upgraded
   istioctl x precheck
 
@@ -104,7 +105,7 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 			return nil
 		},
 	}
-	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
+	cmd.Flags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }

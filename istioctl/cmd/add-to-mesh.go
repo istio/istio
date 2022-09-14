@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,9 +75,10 @@ type vmServiceOpts struct {
 
 func addToMeshCmd() *cobra.Command {
 	addToMeshCmd := &cobra.Command{
-		Use:     "add-to-mesh",
-		Aliases: []string{"add"},
-		Short:   "Add workloads into Istio service mesh",
+		Use:                   "add-to-mesh",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"add"},
+		Short:                 "Add workloads into Istio service mesh",
 		Long: `'istioctl experimental add-to-mesh' restarts pods with an Istio sidecar or configures meshed pod access to external services.
 Use 'add-to-mesh' as an alternate to namespace-wide auto injection for troubleshooting compatibility.
 
@@ -104,35 +106,44 @@ The 'remove-from-mesh' command can be used to restart with the sidecar removed.`
 			return nil
 		},
 	}
-	addToMeshCmd.AddCommand(svcMeshifyCmd())
-	addToMeshCmd.AddCommand(deploymentMeshifyCmd())
 	externalSvcMeshifyCmd := externalSvcMeshifyCmd()
+	cmds := []*cobra.Command{
+		svcMeshifyCmd(),
+		deploymentMeshifyCmd(),
+		externalSvcMeshifyCmd,
+	}
+	for i := range cmds {
+		addToMeshCmd.AddCommand(cmds[i])
+		addFlags(cmds[i].Flags())
+	}
 	hideInheritedFlags(externalSvcMeshifyCmd, "meshConfigFile", "meshConfigMapName", "injectConfigFile",
 		"injectConfigMapName", "valuesFile")
-	addToMeshCmd.AddCommand(externalSvcMeshifyCmd)
-	addToMeshCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
-	addToMeshCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"Injection configuration filename. Cannot be used with --injectConfigMapName")
-	addToMeshCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
-		"Injection values configuration filename.")
-
-	addToMeshCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
-	addToMeshCmd.PersistentFlags().StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
-		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
-
 	addToMeshCmd.Long += "\n\n" + ExperimentalMsg
 	return addToMeshCmd
+}
+
+func addFlags(f *flag.FlagSet) {
+	f.StringVar(&meshConfigFile, "meshConfigFile", "",
+		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+	f.StringVar(&injectConfigFile, "injectConfigFile", "",
+		"Injection configuration filename. Cannot be used with --injectConfigMapName")
+	f.StringVar(&valuesFile, "valuesFile", "",
+		"Injection values configuration filename.")
+
+	f.StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
+		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
+	f.StringVar(&injectConfigMapName, "injectConfigMapName", defaultInjectConfigMapName,
+		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:     "deployment <deployment>",
-		Aliases: []string{"deploy", "dep"},
-		Short:   "Add deployment to Istio service mesh",
+		Use:                   "deployment <deployment>",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"deploy", "dep"},
+		Short:                 "Add deployment to Istio service mesh",
 		// nolint: lll
 		Long: `'istioctl experimental add-to-mesh deployment' restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
@@ -185,9 +196,10 @@ func svcMeshifyCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
-		Use:     "service <service>",
-		Aliases: []string{"svc"},
-		Short:   "Add Service to Istio service mesh",
+		Use:                   "service <service>",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"svc"},
+		Short:                 "Add Service to Istio service mesh",
 		// nolint: lll
 		Long: `istioctl experimental add-to-mesh service restarts pods with the Istio sidecar.  Use 'add-to-mesh'
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
@@ -256,9 +268,10 @@ func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Dep
 
 func externalSvcMeshifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
-		Aliases: []string{"es"},
-		Short:   "Add external service (e.g. services running on a VM) to Istio service mesh",
+		Use:                   "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"es"},
+		Short:                 "Add external service (e.g. services running on a VM) to Istio service mesh",
 		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
@@ -288,11 +301,11 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 			return fmt.Errorf("service %q already exists, skip", args[0])
 		},
 	}
-	cmd.PersistentFlags().StringSliceVarP(&resourceLabels, "labels", "l",
+	cmd.Flags().StringSliceVarP(&resourceLabels, "labels", "l",
 		nil, "List of labels to apply if creating a service/endpoint; e.g. -l env=prod,vers=2")
-	cmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a",
+	cmd.Flags().StringSliceVarP(&annotations, "annotations", "a",
 		nil, "List of string annotations to apply if creating a service/endpoint; e.g. -a foo=bar,x=y")
-	cmd.PersistentFlags().StringVarP(&svcAcctAnn, "serviceaccount", "s",
+	cmd.Flags().StringVarP(&svcAcctAnn, "serviceaccount", "s",
 		"default", "Service account to link to the service")
 
 	cmd.Long += "\n\n" + ExperimentalMsg

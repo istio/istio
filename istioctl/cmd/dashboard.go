@@ -25,6 +25,7 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -45,17 +46,16 @@ var (
 	labelSelector = ""
 
 	addonNamespace = ""
-
-	envoyDashNs = ""
 )
 
 // port-forward to Istio System Prometheus; open browser
 func promDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "prometheus",
-		Short: "Open Prometheus web UI",
-		Long:  `Open Istio's Prometheus dashboard`,
+		Use:                   "prometheus",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open Prometheus web UI",
+		Long:                  `Open Istio's Prometheus dashboard`,
 		Example: `  istioctl dashboard prometheus
 
   # with short syntax
@@ -81,6 +81,7 @@ func promDashCmd() *cobra.Command {
 				"http://%s", bindAddress, 9090, client, cmd.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -89,9 +90,10 @@ func promDashCmd() *cobra.Command {
 func grafanaDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "grafana",
-		Short: "Open Grafana web UI",
-		Long:  `Open Istio's Grafana dashboard`,
+		Use:                   "grafana",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open Grafana web UI",
+		Long:                  `Open Istio's Grafana dashboard`,
 		Example: `  istioctl dashboard grafana
 
   # with short syntax
@@ -117,6 +119,7 @@ func grafanaDashCmd() *cobra.Command {
 				"http://%s", bindAddress, 3000, client, cmd.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -125,9 +128,10 @@ func grafanaDashCmd() *cobra.Command {
 func kialiDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "kiali",
-		Short: "Open Kiali web UI",
-		Long:  `Open Istio's Kiali dashboard`,
+		Use:                   "kiali",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open Kiali web UI",
+		Long:                  `Open Istio's Kiali dashboard`,
 		Example: `  istioctl dashboard kiali
 
   # with short syntax
@@ -153,6 +157,7 @@ func kialiDashCmd() *cobra.Command {
 				"http://%s/kiali", bindAddress, 20001, client, cmd.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -161,9 +166,10 @@ func kialiDashCmd() *cobra.Command {
 func jaegerDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "jaeger",
-		Short: "Open Jaeger web UI",
-		Long:  `Open Istio's Jaeger dashboard`,
+		Use:                   "jaeger",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open Jaeger web UI",
+		Long:                  `Open Istio's Jaeger dashboard`,
 		Example: `  istioctl dashboard jaeger
 
   # with short syntax
@@ -189,6 +195,7 @@ func jaegerDashCmd() *cobra.Command {
 				"http://%s", bindAddress, 16686, client, cmd.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -197,9 +204,10 @@ func jaegerDashCmd() *cobra.Command {
 func zipkinDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "zipkin",
-		Short: "Open Zipkin web UI",
-		Long:  `Open Istio's Zipkin dashboard`,
+		Use:                   "zipkin",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open Zipkin web UI",
+		Long:                  `Open Istio's Zipkin dashboard`,
 		Example: `  istioctl dashboard zipkin
 
   # with short syntax
@@ -225,6 +233,7 @@ func zipkinDashCmd() *cobra.Command {
 				"http://%s", bindAddress, 9411, client, cmd.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -232,9 +241,10 @@ func zipkinDashCmd() *cobra.Command {
 // port-forward to sidecar Envoy admin port; open browser
 func envoyDashCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "envoy [<type>/]<name>[.<namespace>]",
-		Short: "Open Envoy admin web UI",
-		Long:  `Open the Envoy admin dashboard for a sidecar`,
+		Use:                   "envoy [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open Envoy admin web UI",
+		Long:                  `Open the Envoy admin dashboard for a sidecar`,
 		Example: `  # Open Envoy dashboard for the productpage-123-456.default pod
   istioctl dashboard envoy productpage-123-456.default
 
@@ -263,7 +273,7 @@ func envoyDashCmd() *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(addonNamespace, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -281,7 +291,7 @@ func envoyDashCmd() *cobra.Command {
 				ns = pl.Items[0].Namespace
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
+					handlers.HandleNamespace(addonNamespace, defaultNamespace),
 					client.UtilFactory())
 				if err != nil {
 					return err
@@ -292,6 +302,7 @@ func envoyDashCmd() *cobra.Command {
 				"http://%s", bindAddress, 15000, client, c.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -300,9 +311,10 @@ func envoyDashCmd() *cobra.Command {
 func controlZDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "controlz [<type>/]<name>[.<namespace>]",
-		Short: "Open ControlZ web UI",
-		Long:  `Open the ControlZ web UI for a pod in the Istio control plane`,
+		Use:                   "controlz [<type>/]<name>[.<namespace>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open ControlZ web UI",
+		Long:                  `Open the ControlZ web UI for a pod in the Istio control plane`,
 		Example: `  # Open ControlZ web UI for the istiod-123-456.istio-system pod
   istioctl dashboard controlz istiod-123-456.istio-system
 
@@ -363,6 +375,7 @@ func controlZDashCmd() *cobra.Command {
 				"http://%s", bindAddress, controlZport, client, c.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -371,9 +384,10 @@ func controlZDashCmd() *cobra.Command {
 func skywalkingDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "skywalking",
-		Short: "Open SkyWalking UI",
-		Long:  "Open the Istio dashboard in the SkyWalking UI",
+		Use:                   "skywalking",
+		DisableFlagsInUseLine: true,
+		Short:                 "Open SkyWalking UI",
+		Long:                  "Open the Istio dashboard in the SkyWalking UI",
 		Example: `  istioctl dashboard skywalking
 
   # with short syntax
@@ -399,6 +413,7 @@ func skywalkingDashCmd() *cobra.Command {
 				"http://%s", bindAddress, 8080, client, cmd.OutOrStdout(), browser)
 		},
 	}
+	addDashboardFlags(cmd.Flags())
 
 	return cmd
 }
@@ -498,18 +513,7 @@ func dashboard() *cobra.Command {
 			return nil
 		},
 	}
-
-	dashboardCmd.PersistentFlags().IntVarP(&listenPort, "port", "p", 0, "Local port to listen to")
-	dashboardCmd.PersistentFlags().StringVar(&bindAddress, "address", "localhost",
-		"Address to listen on. Only accepts IP address or localhost as a value. "+
-			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
-			"and will fail if neither of these address are available to bind.")
-	dashboardCmd.PersistentFlags().BoolVar(&browser, "browser", true,
-		"When --browser is supplied as false, istioctl dashboard will not open the browser. "+
-			"Default is true which means istioctl dashboard will always open a browser to view the dashboard.")
-	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
-		"Namespace where the addon is running, if not specified, istio-system would be used")
-
+	addDashboardFlags(dashboardCmd.Flags())
 	dashboardCmd.AddCommand(kialiDashCmd())
 	dashboardCmd.AddCommand(promDashCmd())
 	dashboardCmd.AddCommand(grafanaDashCmd())
@@ -518,17 +522,26 @@ func dashboard() *cobra.Command {
 	dashboardCmd.AddCommand(skywalkingDashCmd())
 
 	envoy := envoyDashCmd()
-	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", defaultNamespace,
-		"Namespace where the addon is running, if not specified, istio-system would be used")
+	envoy.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(envoy)
 
 	controlz := controlZDashCmd()
-	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
-	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
-		"Namespace where the addon is running, if not specified, istio-system would be used")
+	controlz.Flags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	controlz.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(controlz)
 
 	return dashboardCmd
+}
+
+func addDashboardFlags(f *flag.FlagSet) {
+	f.IntVarP(&listenPort, "port", "p", 0, "Local port to listen to")
+	f.StringVar(&bindAddress, "address", "localhost",
+		"Address to listen on. Only accepts IP address or localhost as a value. "+
+			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
+			"and will fail if neither of these address are available to bind.")
+	f.BoolVar(&browser, "browser", true,
+		"When --browser is supplied as false, istioctl dashboard will not open the browser. "+
+			"Default is true which means istioctl dashboard will always open a browser to view the dashboard.")
+	f.StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+		"Namespace where the addon is running, if not specified, istio-system would be used")
 }

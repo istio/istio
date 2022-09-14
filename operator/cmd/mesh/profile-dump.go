@@ -55,20 +55,21 @@ kind: IstioOperator
 )
 
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
+	cmd.Flags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.Flags().StringVarP(&args.configPath, "config-path", "p", "",
 		"The path the root of the configuration subtree to dump e.g. components.pilot. By default, dump whole tree")
-	cmd.PersistentFlags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
+	cmd.Flags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
 		"Output format: one of json|yaml|flags")
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
-		Use:   "dump [<profile>]",
-		Short: "Dumps an Istio configuration profile",
-		Long:  "The dump subcommand dumps the values in an Istio configuration profile.",
+		Use:                   "dump [<profile>]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Dumps an Istio configuration profile",
+		Long:                  "The dump subcommand dumps the values in an Istio configuration profile.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return fmt.Errorf("too many positional arguments")

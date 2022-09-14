@@ -33,15 +33,16 @@ type profileDiffArgs struct {
 }
 
 func addProfileDiffFlags(cmd *cobra.Command, args *profileDiffArgs) {
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 func profileDiffCmd(rootArgs *RootArgs, pfArgs *profileDiffArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
-		Use:   "diff <profile|file1.yaml> <profile|file2.yaml>",
-		Short: "Diffs two Istio configuration profiles",
-		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
+		Use:                   "diff <profile|file1.yaml> <profile|file2.yaml>",
+		DisableFlagsInUseLine: true,
+		Short:                 "Diffs two Istio configuration profiles",
+		Long:                  "The diff subcommand displays the differences between two Istio configuration profiles.",
 		Example: `  # Profile diff by providing yaml files
   istioctl profile diff manifests/profiles/default.yaml manifests/profiles/demo.yaml
 

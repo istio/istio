@@ -40,19 +40,20 @@ type operatorRemoveArgs struct {
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
-	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", ContextFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
-	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "", OperatorRevFlagHelpStr)
+	cmd.Flags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.Flags().StringVar(&oiArgs.context, "context", "", ContextFlagHelpStr)
+	cmd.Flags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
+	cmd.Flags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
+	cmd.Flags().StringVarP(&oiArgs.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
 func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove",
-		Short: "Removes the Istio operator controller from the cluster.",
-		Long:  "The remove subcommand removes the Istio operator controller from the cluster.",
-		Args:  cobra.ExactArgs(0),
+		Use:                   "remove",
+		DisableFlagsInUseLine: true,
+		Short:                 "Removes the Istio operator controller from the cluster.",
+		Long:                  "The remove subcommand removes the Istio operator controller from the cluster.",
+		Args:                  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
 			operatorRemove(rootArgs, orArgs, l)

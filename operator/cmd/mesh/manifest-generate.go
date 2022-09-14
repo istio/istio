@@ -74,28 +74,29 @@ func (a *ManifestGenerateArgs) String() string {
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.OutFilename, "output", "o", "", "Manifest output directory path.")
-	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
-	_ = cmd.PersistentFlags().MarkHidden("filter")
+	cmd.Flags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.Flags().StringVarP(&args.OutFilename, "output", "o", "", "Manifest output directory path.")
+	cmd.Flags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
+	cmd.Flags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
+	cmd.Flags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.Flags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
+	cmd.Flags().StringSliceVar(&args.Filter, "filter", nil, "")
+	_ = cmd.Flags().MarkHidden("filter")
 
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr+" Requires --cluster-specific.")
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "", ContextFlagHelpStr+" Requires --cluster-specific.")
-	cmd.PersistentFlags().BoolVar(&args.EnableClusterSpecific, "cluster-specific", false,
+	cmd.Flags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr+" Requires --cluster-specific.")
+	cmd.Flags().StringVar(&args.Context, "context", "", ContextFlagHelpStr+" Requires --cluster-specific.")
+	cmd.Flags().BoolVar(&args.EnableClusterSpecific, "cluster-specific", false,
 		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
 }
 
 func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
-		Use:   "generate",
-		Short: "Generates an Istio install manifest",
-		Long:  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
+		Use:                   "generate",
+		DisableFlagsInUseLine: true,
+		Short:                 "Generates an Istio install manifest",
+		Long:                  "The generate subcommand generates an Istio install manifest and outputs to the console by default.",
 		// nolint: lll
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate

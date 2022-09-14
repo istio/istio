@@ -29,16 +29,17 @@ type profileListArgs struct {
 }
 
 func addProfileListFlags(cmd *cobra.Command, args *profileListArgs) {
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.Flags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.Flags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 func profileListCmd(rootArgs *RootArgs, plArgs *profileListArgs) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "Lists available Istio configuration profiles",
-		Long:  "The list subcommand lists the available Istio configuration profiles.",
-		Args:  cobra.ExactArgs(0),
+		Use:                   "list",
+		DisableFlagsInUseLine: true,
+		Short:                 "Lists available Istio configuration profiles",
+		Long:                  "The list subcommand lists the available Istio configuration profiles.",
+		Args:                  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return profileList(cmd, rootArgs, plArgs)
 		},

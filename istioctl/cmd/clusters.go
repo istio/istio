@@ -31,8 +31,9 @@ import (
 func clustersCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "remote-clusters",
-		Short: "Lists the remote clusters each istiod instance is connected to.",
+		Use:                   "remote-clusters",
+		DisableFlagsInUseLine: true,
+		Short:                 "Lists the remote clusters each istiod instance is connected to.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {

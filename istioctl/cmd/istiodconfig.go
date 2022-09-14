@@ -376,9 +376,10 @@ func istiodLogCmd() *cobra.Command {
 	outputFormat := "short"
 
 	logCmd := &cobra.Command{
-		Use:   "log [<pod-name>] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[-r|--reset]|[--output|-o short|yaml]",
-		Short: "Manage istiod logging.",
-		Long:  "Retrieve or update logging levels of istiod components.",
+		Use:                   "log [<pod-name>] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[-r|--reset]|[--output|-o short|yaml]",
+		DisableFlagsInUseLine: true,
+		Short:                 "Manage istiod logging.",
+		Long:                  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
   istioctl admin log
 
@@ -457,15 +458,16 @@ func istiodLogCmd() *cobra.Command {
 			return nil
 		},
 	}
-	logCmd.PersistentFlags().BoolVarP(&istiodReset, "reset", "r", istiodReset, "Reset levels to default value. (info)")
-	logCmd.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
-	logCmd.PersistentFlags().StringVar(&outputLogLevel, "level", outputLogLevel,
+	logCmd.Flags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
+	logCmd.Flags().BoolVarP(&istiodReset, "reset", "r", istiodReset, "Reset levels to default value. (info)")
+	logCmd.Flags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	logCmd.Flags().StringVar(&outputLogLevel, "level", outputLogLevel,
 		"Comma-separated list of output logging level for scopes in format <scope>:<level>[,<scope>:<level>,...]"+
 			"Possible values for <level>: none, error, warn, info, debug")
-	logCmd.PersistentFlags().StringVar(&stackTraceLevel, "stack-trace-level", stackTraceLevel,
+	logCmd.Flags().StringVar(&stackTraceLevel, "stack-trace-level", stackTraceLevel,
 		"Comma-separated list of stack trace level  for scopes in format <scope>:<stack-trace-level>[,<scope>:<stack-trace-level>,...] "+
 			"Possible values for <stack-trace-level>: none, error, warn, info, debug")
-	logCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o",
+	logCmd.Flags().StringVarP(&outputFormat, "output", "o",
 		outputFormat, "Output format: one of json|short")
 	return logCmd
 }

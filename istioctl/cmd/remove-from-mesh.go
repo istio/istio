@@ -41,9 +41,10 @@ import (
 
 func removeFromMeshCmd() *cobra.Command {
 	removeFromMeshCmd := &cobra.Command{
-		Use:     "remove-from-mesh",
-		Aliases: []string{"rm"},
-		Short:   "Remove workloads from Istio service mesh",
+		Use:                   "remove-from-mesh",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"rm"},
+		Short:                 "Remove workloads from Istio service mesh",
 		Long: `'istioctl experimental remove-from-mesh' restarts pods without an Istio sidecar or removes external service access configuration.
 Use 'remove-from-mesh' to quickly test uninjected behavior as part of compatibility troubleshooting.
 The 'add-to-mesh' command can be used to add or restore the sidecar.`,

@@ -32,8 +32,9 @@ import (
 var configDumpFile string
 
 var checkCmd = &cobra.Command{
-	Use:   "check [<type>/]<name>[.<namespace>]",
-	Short: "Check AuthorizationPolicy applied in the pod.",
+	Use:                   "check [<type>/]<name>[.<namespace>]",
+	DisableFlagsInUseLine: true,
+	Short:                 "Check AuthorizationPolicy applied in the pod.",
 	Long: `Check prints the AuthorizationPolicy applied to a pod by directly checking
 the Envoy configuration of the pod. The command is especially useful for inspecting
 the policy propagation from Istiod to Envoy and the final AuthorizationPolicy list merged
@@ -154,6 +155,6 @@ func AuthZ() *cobra.Command {
 }
 
 func init() {
-	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	checkCmd.Flags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")
 }

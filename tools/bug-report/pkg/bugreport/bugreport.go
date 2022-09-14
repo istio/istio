@@ -63,9 +63,10 @@ var (
 // Cmd returns a cobra command for bug-report.
 func Cmd(logOpts *log.Options) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:          "bug-report",
-		Short:        "Cluster information and log capture support tool.",
-		SilenceUsage: true,
+		Use:                   "bug-report",
+		DisableFlagsInUseLine: true,
+		Short:                 "Cluster information and log capture support tool.",
+		SilenceUsage:          true,
 		Long: `bug-report selectively captures cluster information and logs into an archive to help diagnose problems.
 Proxy logs can be filtered using:
   --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2.../cntr1,cntr...

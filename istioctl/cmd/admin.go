@@ -22,9 +22,10 @@ import (
 
 func adminCmd() *cobra.Command {
 	adminCmd := &cobra.Command{
-		Use:   "admin",
-		Short: "Manage control plane (istiod) configuration",
-		Long:  "A group of commands used to manage istiod configuration",
+		Use:                   "admin",
+		DisableFlagsInUseLine: true,
+		Short:                 "Manage control plane (istiod) configuration",
+		Long:                  "A group of commands used to manage istiod configuration",
 		Example: `  # Retrieve information about istiod configuration.
   istioctl admin log`,
 		Aliases: []string{"istiod"},
@@ -42,7 +43,5 @@ func adminCmd() *cobra.Command {
 
 	istiodLog := istiodLogCmd()
 	adminCmd.AddCommand(istiodLog)
-	adminCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
-
 	return adminCmd
 }
