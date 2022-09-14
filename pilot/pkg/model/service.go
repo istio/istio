@@ -563,6 +563,8 @@ type ServiceAttributes struct {
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
+	// AddressMap contains a mutex, which is safe to copy in this case.
+	// nolint: govet
 	out := *s
 
 	if s.Labels != nil {
