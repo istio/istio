@@ -33,6 +33,8 @@ var log = istiolog.RegisterScope("ambient", "ambient mesh controllers", 0)
 
 type Options struct {
 	xds       model.XDSUpdater
+	podName   string
+	revision  string
 	Client    kubelib.Client
 	Stop      <-chan struct{}
 	ClusterID cluster.ID
@@ -53,6 +55,8 @@ var (
 func NewAggregate(
 	systemNamespace string,
 	localCluster cluster.ID,
+	podName string,
+	revision string,
 	webhookConfig func() inject.WebhookConfig,
 	xdsUpdater model.XDSUpdater,
 	forceAutoLabel bool,
@@ -63,6 +67,8 @@ func NewAggregate(
 			SystemNamespace: systemNamespace,
 			WebhookConfig:   webhookConfig,
 			xds:             xdsUpdater,
+			podName:         podName,
+			revision:        revision,
 			forceAutoLabel:  forceAutoLabel,
 		},
 
@@ -126,7 +132,7 @@ func (a *Aggregate) clusterAdded(cluster *multicluster.Cluster, stop <-chan stru
 func initForCluster(opts Options) *ambientController {
 	if opts.LocalCluster {
 		election := leaderelection.
-			NewLeaderElection(opts.SystemNamespace, "pod name ", leaderelection.NamespaceController, "", opts.Client).
+			NewLeaderElection(opts.SystemNamespace, opts.podName, "istio-ambient-controller", opts.revision, opts.Client).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
 				// TODO handle istiodless remote clusters
 				// copy to reset stop channel

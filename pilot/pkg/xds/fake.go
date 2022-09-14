@@ -175,7 +175,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	var ambient *controller.Aggregate
 	if !opts.DisableAmbient {
-		ambient = controller.NewAggregate("istio-system", opts.DefaultClusterName, webhookConfigNoop, s, true)
+		ambient = controller.NewAggregate("istio-system", "fake-istiod", "", opts.DefaultClusterName, webhookConfigNoop, s, true)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)

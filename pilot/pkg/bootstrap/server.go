@@ -1104,7 +1104,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 }
 
 func (s *Server) initAmbient(args *PilotArgs, webhookConfig func() inject.WebhookConfig) {
-	ambientController := ambientcontroller.NewAggregate(args.Namespace, s.clusterID, webhookConfig, s.XDSServer, false)
+	ambientController := ambientcontroller.NewAggregate(args.Namespace, s.clusterID, args.PodName, args.Revision, webhookConfig, s.XDSServer, false)
 	s.environment.Cache = ambientController
 	if s.multiclusterController != nil {
 		s.multiclusterController.AddHandler(ambientController)
