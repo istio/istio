@@ -2,6 +2,9 @@ apiVersion: release-notes/v2
 kind: bug-fix
 area: installation
 
+issue:
+  - 39599
+
 releaseNotes:
   - |
     **Fixed** an issue `AddRunningKubeSourceWithRevision` return error cause Istio Operator going to error loops.
