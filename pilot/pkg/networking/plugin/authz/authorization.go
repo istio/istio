@@ -46,7 +46,6 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
-		Logger:          &builder.AuthzLogger{},
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
 	b := builder.New(tdBundle, push, policies, option)
