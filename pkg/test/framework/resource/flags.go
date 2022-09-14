@@ -192,6 +192,6 @@ func init() {
 	flag.Uint64Var(&settingsFromCommandLine.MaxDumps, "istio.test.maxDumps", settingsFromCommandLine.MaxDumps,
 		"Maximum number of full test dumps that are allowed to occur within a test suite.")
 
-	flag.BoolVar(&settingsFromCommandline.EnableDualStack, "istio.test.enableDualStack", settingsFromCommandline.EnableDualStack,
+	flag.BoolVar(&settingsFromCommandLine.EnableDualStack, "istio.test.enableDualStack", settingsFromCommandLine.EnableDualStack,
 		"Deploy Istio with Dual Stack enabled.")
 }
