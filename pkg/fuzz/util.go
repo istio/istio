@@ -17,10 +17,15 @@ package fuzz
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	fuzzheaders "github.com/AdaLogics/go-fuzz-headers"
+
+	"istio.io/pkg/log"
 )
+
+const panicPrefix = "go-fuzz-skip: "
 
 // Helper is a helper struct for fuzzing
 type Helper struct {
@@ -33,6 +38,37 @@ type Validator interface {
 	FuzzValidate() bool
 }
 
+// Fuzz is a wrapper around:
+//
+//	 fuzz.BaseCases(f)
+//		f.Fuzz(func(...) {
+//		   defer fuzz.Finalizer()
+//		}
+//
+// To avoid needing to call BaseCases and Finalize everywhere.
+func Fuzz(f *testing.F, ff func(fg Helper)) {
+	BaseCases(f)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		defer Finalize()
+		fg := New(t, data)
+		ff(fg)
+	})
+}
+
+// Finalize works around an issue in the oss-fuzz logic that doesn't allow using Skip()
+// Instead, we send a panic which we handle and treat as skip.
+// https://github.com/AdamKorcz/go-118-fuzz-build/issues/6
+func Finalize() {
+	if r := recover(); r != nil {
+		if s, ok := r.(string); ok {
+			if strings.HasPrefix(s, panicPrefix) {
+				return
+			}
+		}
+		panic(r)
+	}
+}
+
 // New creates a new fuzz.Helper, capable of generating more complex types
 func New(t *testing.T, data []byte) Helper {
 	return Helper{cf: fuzzheaders.NewConsumer(data), t: t}
@@ -42,8 +78,10 @@ func New(t *testing.T, data []byte) Helper {
 // Additionally, if the T implements Validator, it will implicitly be used.
 func Struct[T any](h Helper, validators ...func(T) bool) T {
 	d := new(T)
+	h.skip("blah")
 	if err := h.cf.GenerateStruct(d); err != nil {
-		h.t.Skip(err.Error())
+		log.Errorf("howardjohn: SKIP")
+		h.skip(err.Error())
 	}
 	r := *d
 	validate(h, validators, r)
@@ -60,7 +98,7 @@ func Slice[T any](h Helper, count int, validators ...func(T) bool) []T {
 	for i := 0; i < count; i++ {
 		d := new(T)
 		if err := h.cf.GenerateStruct(d); err != nil {
-			h.t.Skip(err.Error())
+			h.skip(err.Error())
 		}
 		r := *d
 		validate(h, validators, r)
@@ -72,12 +110,12 @@ func Slice[T any](h Helper, count int, validators ...func(T) bool) []T {
 func validate[T any](h Helper, validators []func(T) bool, r T) {
 	if fz, ok := any(r).(Validator); ok {
 		if !fz.FuzzValidate() {
-			h.t.Skip("struct didn't pass validator")
+			h.skip("struct didn't pass validator")
 		}
 	}
 	for i, v := range validators {
 		if !v(r) {
-			h.t.Skipf(fmt.Sprintf("struct didn't pass validator %d", i))
+			h.skip(fmt.Sprintf("struct didn't pass validator %d", i))
 		}
 	}
 }
@@ -97,4 +135,9 @@ func BaseCases(f Fuzzer) {
 // which utilizes a custom type.
 type Fuzzer interface {
 	Add(args ...any)
+}
+
+// Returns the underlying testing.T. Should be avoided where possible; in oss-fuzz many functions do not work.
+func (h Helper) T() *testing.T {
+	return h.t
 }
