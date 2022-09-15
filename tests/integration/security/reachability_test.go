@@ -45,6 +45,8 @@ const (
 	mtlsModeParam            = "MTLSMode"
 	mtlsModeOverrideParam    = "MTLSModeOverride"
 	tlsModeParam             = "TLSMode"
+	cMinIstioVersion         = "1.15.0"
+	cMinIstioVersionDS       = "1.16.0"
 )
 
 func TestReachability(t *testing.T) {
@@ -53,6 +55,7 @@ func TestReachability(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
+			integIstioVersion := cMinIstioVersion
 			var migrationApp echo.Instances
 			// if dual stack is enabled, a dual stack encho config should be added
 			if !t.Settings().EnableDualStack {
@@ -78,6 +81,7 @@ func TestReachability(t *testing.T) {
 					},
 				}).BuildOrFail(t)
 			} else {
+				integIstioVersion = cMinIstioVersionDS
 				// Create a custom echo deployment in NS1 with subsets that allows us to test the
 				// migration of a workload to istio (from no sidecar to sidecar).
 				migrationApp = deployment.New(t).
@@ -159,7 +163,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notNaked,
-					minIstioVersion:    "1.15.0",
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global mtls permissive",
@@ -177,7 +181,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notToNaked,
-					minIstioVersion:    "1.15.0",
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global mtls disabled",
@@ -195,7 +199,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: never,
 					expectSuccess:      always,
-					minIstioVersion:    "1.15.0",
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global plaintext to mtls permissive",
@@ -213,7 +217,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: never,
 					expectSuccess:      always,
-					minIstioVersion:    "1.15.0",
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global automtls strict",
@@ -264,7 +268,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: and(notFromNaked, or(toHeadless, toStatefulSet)),
 					expectCrossNetwork: never,
 					expectSuccess:      always,
-					minIstioVersion:    "1.15.0",
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global no peer authn",
@@ -280,7 +284,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notToNaked,
-					minIstioVersion:    "1.15.0",
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "mtls strict",
