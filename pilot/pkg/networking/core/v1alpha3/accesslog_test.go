@@ -366,7 +366,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 	labels := &types.Struct{
 		Fields: map[string]*types.Value{
 			"protocol":   {Kind: &types.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"start_time": {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
+			"start_time": {Kind: &types.Value_StringValue{StringValue: "%START_TIME%"}},
 		},
 	}
 
