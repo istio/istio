@@ -401,6 +401,9 @@ func buildHTTPVirtualServices(
 				// merge http routes
 				vs := cfg.Spec.(*istio.VirtualService)
 				vs.Http = append(vs.Http, httproutes...)
+				// append parents
+				cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
+					cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
 			} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				routeMap[routeKey][h] = &config.Config{
@@ -486,7 +489,7 @@ func parentMeta(obj config.Config, sectionName *k8s.SectionName) map[string]stri
 		name = fmt.Sprintf("%s/%s/%s.%s", obj.GroupVersionKind.Kind, obj.Name, *sectionName, obj.Namespace)
 	}
 	return map[string]string{
-		constants.InternalParentName: name,
+		constants.InternalParentNames: name,
 	}
 }
 
