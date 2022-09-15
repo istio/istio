@@ -24,6 +24,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -37,6 +38,7 @@ import (
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -113,7 +115,11 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	}
 
 	builder.patchListeners()
-	return builder.getListeners()
+	l := builder.getListeners()
+	if node.EnableHBONE() {
+		l = append(l, outboundTunnelListener(push, node))
+	}
+	return l
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
@@ -1074,6 +1080,7 @@ type httpListenerOpts struct {
 
 	class istionetworking.ListenerClass
 	port  int
+	hbone bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1632,4 +1639,50 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
+}
+
+const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
+
+// outboundTunnelListener is built for each ServiceAccount from pods on the node.
+// This listener adds the original destination headers from the dynamic EDS metadata pass through.
+// We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
+func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	name := "tunnel"
+	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
+	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
+	p := &tcp.TcpProxy{
+		StatPrefix:       name,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
+			HeadersToAdd: []*core.HeaderValueOption{
+				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: `%DYNAMIC_METADATA(["tunnel", "destination"])%`}},
+
+				{Header: &core.HeaderValue{
+					Key: "baggage",
+					Value: fmt.Sprintf(baggageFormat,
+						proxy.Metadata.ClusterID, proxy.ConfigNamespace,
+						// TODO do not hardcode deployment. But I think we ignore it anyways?
+						"deployment", proxy.Metadata.WorkloadName,
+						canonicalName, canonicalRevision,
+					),
+				}},
+			},
+		},
+	}
+
+	l := &listener.Listener{
+		Name:              name,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters:   []*listener.ListenerFilter{filters.SetDstAddress},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarOutbound)
+	for _, a := range l.AccessLog {
+		a.Filter = nil
+	}
+	return l
 }
