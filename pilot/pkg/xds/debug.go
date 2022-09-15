@@ -965,6 +965,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	if s.Generators[v3.NameTableType] != nil {
 		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
 			Push: con.proxy.LastPushContext,
+			Full: true,
 		})
 		if len(nds) == 0 {
 			return
