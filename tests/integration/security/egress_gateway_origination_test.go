@@ -105,7 +105,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All)
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					newTLSGatewayDestinationRule(t, apps.External.All, "SIMPLE", tc.credentialToUse)
+					//newTLSGatewayDestinationRule(t, apps.External.All, "SIMPLE", tc.credentialToUse)
 					newTLSGatewayTest(t).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway)
