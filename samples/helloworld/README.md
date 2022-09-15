@@ -54,7 +54,7 @@ You can use this script to deploy a custom version:
 
 ## Configure the helloworld gateway
 
-*___Note:___ Istio intends to [replace its traffic management API](https://istio.io/latest/blog/2022/gateway-api-beta/) with the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) as the default API for traffic management in the future. You can use the new API to configure the helloworld service, instead of the classic Istio configuration model, by following the instructions in [./gateway-api/README.md](./gateway-api/README.md), instead of the instructions below.*
+*___Note:___ Istio intends to make the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) the default API for traffic management [in the future](https://istio.io/latest/blog/2022/gateway-api-beta/). You can use the Gateway API to configure the helloworld service, instead of the classic Istio configuration model, by following the instructions in [./gateway-api/README.md](./gateway-api/README.md), instead of the instructions below.*
 
 Apply the helloworld gateway configuration:
 

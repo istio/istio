@@ -1,7 +1,6 @@
 # Configure helloworld using the Kubernetes Gateway API
 
-Istio intends to [replace its traffic management API](https://istio.io/latest/blog/2022/gateway-api-beta/) with the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) as the default API for traffic management in the future.
-
+Istio intends to make the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) the default API for traffic management [in the future](https://istio.io/latest/blog/2022/gateway-api-beta/).
 You can use the following instructions to configure the ingress gateway and routing for the helloworld sample.
 
 ## Before you begin
@@ -26,6 +25,8 @@ Apply the helloworld gateway configuration:
 ```bash
 kubectl apply -f ./helloworld-gateway.yaml
 ```
+
+Note that unlike an Istio `Gateway`, creating a Kubernetes `Gateway` configuration will, by default, also [deploy an associated controller](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment).
 
 Set the INGRESS_HOST environment variables to the address of the helloworld gateway:
 
