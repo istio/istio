@@ -26,7 +26,7 @@ Apply the helloworld gateway configuration:
 kubectl apply -f ./helloworld-gateway.yaml
 ```
 
-Note that unlike an Istio `Gateway`, creating a Kubernetes `Gateway` configuration will, by default, also [deploy an associated controller](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment).
+Note that unlike an Istio `Gateway`, creating a Kubernetes `Gateway` resource will, by default, also [deploy an associated controller](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment).
 
 Set the INGRESS_HOST environment variables to the address of the helloworld gateway:
 
