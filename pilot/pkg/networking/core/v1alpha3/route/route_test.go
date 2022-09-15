@@ -951,6 +951,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
+		// nolint: staticcheck
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
@@ -986,6 +987,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(directResponseAction.DirectResponse.Status).To(gomega.Equal(uint32(200)))
 		g.Expect(directResponseAction.DirectResponse.Body.Specifier.(*core.DataSource_InlineString).InlineString).To(gomega.Equal("hello"))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
+		// nolint: staticcheck
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
