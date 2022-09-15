@@ -21,8 +21,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -56,13 +58,33 @@ func (c ControlPlaneNotFoundError) Error() string {
 
 var _ error = ControlPlaneNotFoundError{}
 
+type Options struct {
+	// MessageWriter is a writer for displaying messages to users.
+	MessageWriter io.Writer
+
+	// XdsViaAgents accesses Istiod via the tap service of each agent.
+	// This is only used in `proxy-status` command.
+	XdsViaAgents bool
+
+	// XdsViaAgentsLimit is the maximum number of pods being visited by istioctl,
+	// when `XdsViaAgents` is true. This is only used in `proxy-status` command.
+	// 0 means that there is no limit.
+	XdsViaAgentsLimit int
+}
+
+var DefaultOptions = Options{
+	MessageWriter:     os.Stdout,
+	XdsViaAgents:      false,
+	XdsViaAgentsLimit: 0,
+}
+
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 // nolint: lll
 func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) (*xdsapi.DiscoveryResponse, error) {
 	responses, err := MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace,
-		istioNamespace, tokenServiceAccount, kubeClient)
+		istioNamespace, tokenServiceAccount, kubeClient, DefaultOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +148,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 // If `all` is true, `queryDebugSynczViaAgents` iterates all the pod having a proxy
 // except the pods of which status information is already queried.
 func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
-	centralOpts clioptions.CentralControlPlaneOptions,
+	centralOpts clioptions.CentralControlPlaneOptions, options Options,
 ) ([]*xdsapi.DiscoveryResponse, error) {
 	xdsOpts := clioptions.CentralControlPlaneOptions{
 		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
@@ -180,7 +202,10 @@ func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamesp
 			// Iterate all the pod.
 			for _, pod := range list.Items {
 				touchedPods++
-				if centralOpts.XdsViaAgentsLimit != 0 && touchedPods > centralOpts.XdsViaAgentsLimit {
+				if options.XdsViaAgentsLimit != 0 && touchedPods > options.XdsViaAgentsLimit {
+					fmt.Fprintf(options.MessageWriter, "Some proxies may be missing from the list"+
+						" because the number of visited pod hits the limit %d,"+
+						" which can be set by `--xds-via-agents-limit` flag.", options.XdsViaAgentsLimit)
 					break GetProxyLoop
 				}
 				if visited[pod.Name+"."+pod.Namespace] {
@@ -250,18 +275,18 @@ func makeSan(istioNamespace, revision string) string {
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
 func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.CLIClient,
+	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
+	return MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient, options)
 }
 
 // FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
 // stopping after the first response that returns any resources.
 // nolint: lll
 func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.CLIClient,
+	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
+	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient, options)
 }
 
 type xdsAddr struct {
@@ -298,7 +323,7 @@ func getXdsAddressFromWebhooks(client kube.CLIClient) (*xdsAddr, error) {
 
 // nolint: lll
 func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.CLIClient,
+	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*xdsapi.DiscoveryResponse, error) {
 	// If Central Istiod case, just call it
 	if ns == "" {
@@ -326,8 +351,8 @@ func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 		err       error
 	)
 
-	if centralOpts.XdsViaAgents {
-		responses, err = queryDebugSynczViaAgents(all, dr, istioNamespace, kubeClient, centralOpts)
+	if options.XdsViaAgents {
+		responses, err = queryDebugSynczViaAgents(all, dr, istioNamespace, kubeClient, centralOpts, options)
 	} else {
 		// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
 		responses, err = queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts)
