@@ -1,6 +1,6 @@
 # Configure helloworld using the Kubernetes Gateway API
 
-Istio intends to [replace its traffic management API](https://istio.io/latest/blog/2022/gateway-api-beta/) with the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) as the default API for traffic management in the future. 
+Istio intends to [replace its traffic management API](https://istio.io/latest/blog/2022/gateway-api-beta/) with the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) as the default API for traffic management in the future.
 
 You can use the following instructions to configure the ingress gateway and routing for the helloworld sample.
 
@@ -62,7 +62,7 @@ Run the previous curl commands again:
 for run in {1..10}; do curl http://$INGRESS_HOST/hello; done
 ```
 
-Now you should see about 9 out of 10 requests serviced by helloworld-v1 and only about 1 in 10 serviced by helloworld-v2.
+Now you should see about 9 out of 10 requests handled by helloworld-v1 and only about 1 in 10 handled by helloworld-v2.
 
 ## Cleanup
 
