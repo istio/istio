@@ -34,7 +34,7 @@ import (
 func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
-	vsset := sets.New()
+	vsset := sets.New[string]()
 	addVirtualService := func(vs config.Config, hosts host.Names) {
 		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)

@@ -306,7 +306,7 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		entries = append(entries, e)
 	}
 	// Single instance and sort names
-	names := sets.New()
+	names := sets.New[string]()
 
 	for _, r := range m.Resources {
 		if r.ProtoPackage != "" {

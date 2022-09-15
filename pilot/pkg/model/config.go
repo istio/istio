@@ -96,7 +96,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
-	ret := sets.New()
+	ret := sets.New[string]()
 
 	for conf := range configs {
 		if conf.Kind == kind {

@@ -174,11 +174,11 @@ func (s Settings) Skip(class string) bool {
 	return false
 }
 
-func (s *Settings) SkipWorkloadClassesAsSet() sets.Set {
+func (s *Settings) SkipWorkloadClassesAsSet() sets.String {
 	return sets.New(s.SkipWorkloadClasses...)
 }
 
-func (s *Settings) OnlyWorkloadClassesAsSet() sets.Set {
+func (s *Settings) OnlyWorkloadClassesAsSet() sets.String {
 	return sets.New(s.OnlyWorkloadClasses...)
 }
 

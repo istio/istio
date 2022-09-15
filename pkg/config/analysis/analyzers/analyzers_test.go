@@ -833,7 +833,7 @@ func TestAnalyzersInAll(t *testing.T) {
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewWithT(t)
 
-	existingNames := sets.New()
+	existingNames := sets.New[string]()
 	for _, a := range All() {
 		n := a.Metadata().Name
 		// TODO (Nino-K): remove this condition once metadata is clean up
