@@ -254,7 +254,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				cloneVhostRouteByRouteIndex(virtualHost,routeIndex)
+				cloneVhostRouteByRouteIndex(virtualHost, routeIndex)
 				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
@@ -389,6 +389,6 @@ func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper)
 	return true
 }
 
-func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost,routeIndex int) {
+func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int) {
 	virtualHost.Routes[routeIndex] = proto.Clone(virtualHost.Routes[routeIndex]).(*route.Route)
 }
