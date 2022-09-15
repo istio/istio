@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var knownOptimizationGaps = sets.New(
+var knownOptimizationGaps = sets.New[string](
 	"BlackHoleCluster",
 	"InboundPassthroughClusterIpv4",
 	"InboundPassthroughClusterIpv6",
@@ -68,9 +68,9 @@ func (s *DiscoveryServer) compareDiff(
 	watched := sets.New(w.ResourceNames...)
 
 	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
-	wantDeleted := sets.New()
-	wantChanged := sets.New()
-	wantUnchanged := sets.New()
+	wantDeleted := sets.New[string]()
+	wantChanged := sets.New[string]()
+	wantUnchanged := sets.New[string]()
 	for _, c := range current {
 		n := newByName[c.Name]
 		if n == nil {
@@ -94,11 +94,11 @@ func (s *DiscoveryServer) compareDiff(
 		}
 	}
 
-	gotDeleted := sets.New()
+	gotDeleted := sets.New[string]()
 	if usedDelta {
 		gotDeleted.InsertAll(deleted...)
 	}
-	gotChanged := sets.New()
+	gotChanged := sets.New[string]()
 	for _, v := range resp {
 		gotChanged.Insert(v.Name)
 	}

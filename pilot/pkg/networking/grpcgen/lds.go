@@ -326,8 +326,8 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 type listenerNames map[string]listenerName
 
 type listenerName struct {
-	RequestedNames sets.Set
-	Ports          sets.Set
+	RequestedNames sets.String
+	Ports          sets.String
 }
 
 func (ln *listenerName) includesPort(port string) bool {
@@ -382,7 +382,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 		for _, name := range allNames {
 			ln, ok := filter[name]
 			if !ok {
-				ln = listenerName{RequestedNames: sets.New()}
+				ln = listenerName{RequestedNames: sets.New[string]()}
 			}
 			ln.RequestedNames.Insert(requestedName)
 

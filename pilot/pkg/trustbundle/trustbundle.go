@@ -134,7 +134,7 @@ func verifyTrustAnchor(trustAnchor string) error {
 
 func (tb *TrustBundle) mergeInternal() {
 	var mergeCerts []string
-	certMap := sets.New()
+	certMap := sets.New[string]()
 
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
