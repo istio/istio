@@ -573,13 +573,31 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 }
 
 // DestinationRule returns a destinationrule for a svc.
-func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *ConsolidatedDestRule {
-	destinationRules := sc.destinationRules[svc]
-	var catchAllDr *ConsolidatedDestRule
+func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc *Service) *ConsolidatedDestRule {
+	if svc == nil {
+		return nil
+	}
+	
+	// select destinationrule with priority order:
+	// 1. same namespace as the proxy, and with workload selector
+	// 2. same namespace as the proxy
+	// 3. same namespace as the service
+	// 4. others
+
+	destinationRules := sc.destinationRules[svc.Hostname]
+	var proxyNamespaceDrs, svcNamespaceDrs, catchAllDrs []*ConsolidatedDestRule
 	for _, destRule := range destinationRules {
 		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
 		if destinationRule.GetWorkloadSelector() == nil {
-			catchAllDr = destRule
+			if sc.Namespace == destRule.rule.Namespace {
+				proxyNamespaceDrs = append(proxyNamespaceDrs, destRule)
+				continue
+			}
+			if svc.Attributes.Namespace == destRule.rule.Namespace {
+				svcNamespaceDrs = append(svcNamespaceDrs, destRule)
+				continue
+			}
+			catchAllDrs = append(catchAllDrs, destRule)
 		}
 		// filter DestinationRule based on workloadSelector for outbound configs.
 		// WorkloadSelector configuration is honored only for outbound configuration, because
@@ -593,9 +611,15 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 			}
 		}
 	}
-	// If there is no workload specific destinationRule, return the wild carded dr if present.
-	if catchAllDr != nil {
-		return catchAllDr
+
+	if len(proxyNamespaceDrs) > 0 {
+		return proxyNamespaceDrs[0]
+	}
+	if len(svcNamespaceDrs) > 0 {
+		return svcNamespaceDrs[0]
+	}
+	if len(catchAllDrs) > 0 {
+		return catchAllDrs[0]
 	}
 	return nil
 }

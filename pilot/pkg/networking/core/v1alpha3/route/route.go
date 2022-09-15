@@ -1241,7 +1241,7 @@ func hashForService(push *model.PushContext,
 	if push == nil {
 		return nil, nil
 	}
-	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc.Hostname)
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, svc)
 	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil
@@ -1294,7 +1294,11 @@ func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 	}
 
 	destination := dst.GetDestination()
-	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, host.Name(destination.Host))
+	mergedDR := node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node,
+		&model.Service{
+			Hostname:   host.Name(destination.Host),
+			Attributes: model.ServiceAttributes{Namespace: node.ConfigNamespace},
+		})
 	destinationRule := mergedDR.GetRule()
 	if destinationRule == nil {
 		return nil, nil

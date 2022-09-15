@@ -1130,9 +1130,9 @@ var (
 			},
 		},
 	}
-	nonWorkloadSelectorDr = config.Config{
+	destinationRule4 = config.Config{
 		Meta: config.Meta{
-			Name:      "drRule3",
+			Name:      "drRule4",
 			Namespace: "mynamespace",
 		},
 		Spec: &networking.DestinationRule{
@@ -1145,6 +1145,23 @@ var (
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
+				},
+			},
+		},
+	}
+	destinationRule5 = config.Config{
+		Meta: config.Meta{
+			Name:      "drRule5",
+			Namespace: "anotherNs",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "httpbin.org",
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset5-0",
+				},
+				{
+					Name: "subset5-1",
 				},
 			},
 		},
@@ -1779,7 +1796,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
-			&nonWorkloadSelectorDr,
+			&destinationRule4,
 		},
 		{
 			"sidecar-scope-same-workloadselector-labels-drs-should-be-merged",
@@ -1850,7 +1867,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = meshConfig
-			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
+			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, destinationRule4})
 			if tt.services != nil {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
@@ -1926,7 +1943,7 @@ func TestCreateSidecarScope(t *testing.T) {
 						Labels:          tt.sidecarConfig.Labels,
 						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
 						ConfigNamespace: tt.sidecarConfig.Namespace,
-					}, host.Name("httpbin.org")).GetRule()
+					}, services20[0]).GetRule()
 				assert.Equal(t, dr, tt.expectedDr)
 			}
 		})

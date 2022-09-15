@@ -71,7 +71,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
-		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
+		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc)
 	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,

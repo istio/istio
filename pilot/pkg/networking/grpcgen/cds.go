@@ -177,7 +177,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 
 	// resolve policy from context
 	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(
-		model.TrafficDirectionOutbound, b.node, b.svc.Hostname).GetRule())
+		model.TrafficDirectionOutbound, b.node, b.svc).GetRule())
 	trafficPolicy := corexds.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
