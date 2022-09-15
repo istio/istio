@@ -20,12 +20,19 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
+	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -36,10 +43,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -167,6 +177,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
@@ -182,9 +193,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
+
 	// if credential socket exists, create a cluster for it
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
+	}
+	if proxy.EnableHBONE() {
+		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
 	}
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
@@ -1001,4 +1016,110 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 		}
 	}
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
+}
+
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance) []*cluster.Cluster {
+	if !proxy.EnableHBONE() {
+		return nil
+	}
+	clusters := make([]*cluster.Cluster, 0)
+	for _, i := range instances {
+		p := i.Endpoint.EndpointPort
+		name := fmt.Sprintf("inbound-hbone|%d", p)
+		clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
+	}
+	return clusters
+}
+
+func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
+	clusterType := cluster.Cluster_STATIC
+	llb := util.BuildInternalEndpoint(listenerName, nil)
+	port := &model.Port{}
+	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
+		model.TrafficDirectionInbound, port, nil, nil)
+	// no TLS
+	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = InternalUpstreamSocket
+	return localCluster
+}
+
+var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
+	{
+		Name:            "hbone",
+		Match:           hboneTransportSocketMatch,
+		TransportSocket: InternalUpstreamSocket,
+	},
+	defaultTransportSocketMatch(),
+}
+
+var InternalUpstreamSocket = &core.TransportSocket{
+	Name: "envoy.transport_sockets.internal_upstream",
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
+				Name: "tunnel",
+			},
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
+					Cluster: &metadata.MetadataKind_Cluster{},
+				}},
+				Name: "istio",
+			},
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
+					Host: &metadata.MetadataKind_Host{},
+				}},
+				Name: "istio",
+			},
+		},
+		TransportSocket: &core.TransportSocket{
+			Name:       "envoy.transport_sockets.raw_buffer",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
+		},
+	})},
+}
+
+func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 "tunnel",
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       durationpb.New(2 * time.Second),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{UseHttpHeader: true},
+		},
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+						Http2ProtocolOptions: &core.Http2ProtocolOptions{
+							AllowConnect: true,
+						},
+					},
+				}},
+			}),
+		},
+		TransportSocket: &core.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+				CommonTlsContext: buildHBONECommonTLSContext(proxy, push, false),
+			})},
+		},
+	}
+}
+
+func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
+	ctx := &tls.CommonTlsContext{}
+	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
+
+	ctx.AlpnProtocols = []string{"h2"}
+
+	ctx.TlsParams = &tls.TlsParameters{
+		// Ensure TLS 1.3 is used everywhere for HBONE
+		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+	}
+	return ctx
 }

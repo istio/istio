@@ -160,6 +160,12 @@ const (
 )
 
 const (
+	TunnelLabel          = "networking.istio.io/tunnel"
+	TunnelLabelShortName = "tunnel"
+	TunnelH2             = "h2"
+)
+
+const (
 	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
 	TLSModeLabelShortname = "tlsMode"
 
