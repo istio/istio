@@ -1000,7 +1000,7 @@ func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa st
 		CleanupInterval:      durationpb.New(60 * time.Second),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-				UpstreamPortOverride: ZTunnelInboundCapturePort,
+				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundCapturePort),
 			},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -1024,7 +1024,7 @@ func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, 
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UseHttpHeader:        true,
-				UpstreamPortOverride: ZTunnelInboundNodeLocalCapturePort,
+				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundNodeLocalCapturePort),
 			},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -1305,7 +1305,7 @@ func (g *ZTunnelConfigGenerator) buildVirtualInboundClusterHBONE() *discovery.Re
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UseHttpHeader:        true,
-				UpstreamPortOverride: ZTunnelInboundCapturePort,
+				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundCapturePort),
 			},
 		},
 	}
