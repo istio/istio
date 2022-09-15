@@ -25,6 +25,7 @@ import (
 
 func FuzzBuildGatewayListeners(f *testing.F) {
 	f.Fuzz(func(t *testing.T, patchCount int, hostname string, data []byte) {
+		defer fuzz.Finalize()
 		fg := fuzz.New(t, data)
 		proxy := fuzz.Struct[*model.Proxy](fg)
 		to := fuzz.Struct[TestOptions](fg)
@@ -38,6 +39,7 @@ func FuzzBuildGatewayListeners(f *testing.F) {
 
 func FuzzBuildSidecarOutboundHTTPRouteConfig(f *testing.F) {
 	f.Fuzz(func(t *testing.T, patchCount int, hostname string, data []byte) {
+		defer fuzz.Finalize()
 		fg := fuzz.New(t, data)
 		proxy := fuzz.Struct[*model.Proxy](fg)
 		to := fuzz.Struct[TestOptions](fg)
@@ -51,6 +53,7 @@ func FuzzBuildSidecarOutboundHTTPRouteConfig(f *testing.F) {
 
 func FuzzBuildSidecarOutboundListeners(f *testing.F) {
 	f.Fuzz(func(t *testing.T, patchCount int, hostname string, data []byte) {
+		defer fuzz.Finalize()
 		fg := fuzz.New(t, data)
 		proxy := fuzz.Struct[*model.Proxy](fg)
 		to := fuzz.Struct[TestOptions](fg)

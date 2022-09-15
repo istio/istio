@@ -12,17 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+//go:build !gofuzz
 
-import (
-	"testing"
+package fuzz
 
-	"istio.io/istio/pkg/fuzz"
-)
-
-func FuzzConvertResources(f *testing.F) {
-	fuzz.Fuzz(f, func(fg fuzz.Helper) {
-		r := fuzz.Struct[KubernetesResources](fg)
-		convertResources(r)
-	})
+func (h Helper) skip(reason string) {
+	h.t.Skip(reason)
 }
