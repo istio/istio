@@ -21,8 +21,6 @@ import (
 	"testing"
 
 	fuzzheaders "github.com/AdaLogics/go-fuzz-headers"
-
-	"istio.io/pkg/log"
 )
 
 const panicPrefix = "go-fuzz-skip: "
@@ -78,9 +76,7 @@ func New(t *testing.T, data []byte) Helper {
 // Additionally, if the T implements Validator, it will implicitly be used.
 func Struct[T any](h Helper, validators ...func(T) bool) T {
 	d := new(T)
-	h.skip("blah")
 	if err := h.cf.GenerateStruct(d); err != nil {
-		log.Errorf("howardjohn: SKIP")
 		h.skip(err.Error())
 	}
 	r := *d
