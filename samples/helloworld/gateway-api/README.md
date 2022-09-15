@@ -30,8 +30,8 @@ kubectl apply -f ./helloworld-gateway.yaml
 Set the INGRESS_HOST environment variables to the address of the helloworld gateway:
 
 ```bash
-kubectl wait --for=condition=ready gtw helloword-gateway
-export INGRESS_HOST=$(kubectl get gtw helloword-gateway -o jsonpath='{.status.addresses[*].value}')
+kubectl wait --for=condition=ready gtw helloworld-gateway
+export INGRESS_HOST=$(kubectl get gtw helloworld-gateway -o jsonpath='{.status.addresses[*].value}')
 ```
 
 Confirm the sample is running using curl:
@@ -40,7 +40,7 @@ Confirm the sample is running using curl:
 for run in {1..10}; do curl http://$INGRESS_HOST/hello; done
 ```
 
-Since no version routing has been configured, you should see an equal split of traffic, about half serviced by helloworld-v1 and the other half serviced by helloworld-v2.
+Since no version routing has been configured, you should see an equal split of traffic, about half handled by helloworld-v1 and the other half handled by helloworld-v2.
 
 ## Configure weight-based routing
 
