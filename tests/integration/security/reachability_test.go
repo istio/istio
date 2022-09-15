@@ -102,8 +102,10 @@ func TestReachability(t *testing.T) {
 							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 						},
 					},
-					IPFamilies:     "'IPv4', 'IPv6'",
-					IPFamilyPolicy: "RequireDualStack",
+					// TODO, the IPFamilies should be "IPv4, IPv6" and
+					// IPFamilyPolicy should be "RequireDualStack" once dual stack is totally supported
+					IPFamilies:     "IPv4",
+					IPFamilyPolicy: "SingleStack",
 				}).BuildOrFail(t)
 			}
 
