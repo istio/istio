@@ -254,7 +254,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				cloneVhostRouteByRouteIndex(virtualHost.Routes,routeIndex)
+				cloneVhostRouteByRouteIndex(virtualHost,routeIndex)
 				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
