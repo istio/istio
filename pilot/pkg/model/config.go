@@ -198,7 +198,7 @@ type ConfigStoreController interface {
 	// SetWatchErrorHandler should be call if store has started
 	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 
-	// HasStarted return treu after store started.
+	// HasStarted return ture after store started.
 	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
