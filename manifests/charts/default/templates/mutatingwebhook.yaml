@@ -115,7 +115,7 @@ webhooks:
       operator: DoesNotExist
     - key: "kubernetes.io/metadata.name"
       operator: "NotIn"
-      values: [ "kube-system" ]  
+      values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
