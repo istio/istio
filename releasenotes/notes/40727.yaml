@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** an issue `AddRunningKubeSourceWithRevision` return error cause Istio Operator going to error loops.
+    **Fixed** an issue where `AddRunningKubeSourceWithRevision` returns an error causing the Istio Operator to go into an error loop.
