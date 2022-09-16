@@ -22,15 +22,16 @@ display_usage() {
     echo "    -h|--help: Prints usage information"
     echo "    version:   Version of the sample app images (Required)"
     echo "    prefix:    Use the value as the prefix for image names (Required)"
-    exit 1
 }
 
 if [ "$#" -ne 2 ]; then
   if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
     display_usage
+    exit 0
   else
     echo "Incorrect parameters"
     display_usage
+    exit 1
   fi
 fi
 
