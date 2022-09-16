@@ -19,10 +19,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -88,7 +88,7 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	}
 
 	// permit if object resides in a namespace labeled for discovery
-	return d.discoveryNamespaces.Has(object.GetNamespace())
+	return d.discoveryNamespaces.Contains(object.GetNamespace())
 }
 
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
@@ -101,7 +101,7 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	oldDiscoveryNamespaces := d.discoveryNamespaces
 
 	var selectors []labels.Selector
-	newDiscoveryNamespaces := sets.NewString()
+	newDiscoveryNamespaces := sets.New[string]()
 
 	namespaceList, err := d.nsLister.List(labels.Everything())
 	if err != nil {
@@ -134,8 +134,8 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 		}
 	}
 
-	selectedNamespaces = newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces).List()
-	deselectedNamespaces = oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces).List()
+	selectedNamespaces = newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces).SortedList()
+	deselectedNamespaces = oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces).SortedList()
 
 	// update filter state
 	d.discoveryNamespaces = newDiscoveryNamespaces
@@ -148,7 +148,7 @@ func (d *discoveryNamespacesFilter) SyncNamespaces() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	newDiscoveryNamespaces := sets.NewString()
+	newDiscoveryNamespaces := sets.New[string]()
 
 	namespaceList, err := d.nsLister.List(labels.Everything())
 	if err != nil {
@@ -213,9 +213,7 @@ func (d *discoveryNamespacesFilter) NamespaceDeleted(ns metav1.ObjectMeta) (memb
 func (d *discoveryNamespacesFilter) GetMembers() sets.String {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	members := sets.NewString()
-	members.Insert(d.discoveryNamespaces.List()...)
-	return members
+	return d.discoveryNamespaces.Copy()
 }
 
 func (d *discoveryNamespacesFilter) addNamespace(ns string) {
@@ -227,7 +225,7 @@ func (d *discoveryNamespacesFilter) addNamespace(ns string) {
 func (d *discoveryNamespacesFilter) hasNamespace(ns string) bool {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	return d.discoveryNamespaces.Has(ns)
+	return d.discoveryNamespaces.Contains(ns)
 }
 
 func (d *discoveryNamespacesFilter) removeNamespace(ns string) {
