@@ -25,7 +25,7 @@ import (
 // insecureTLSCipherNames returns a list of insecure cipher suite names implemented by crypto/tls
 // which have security issues.
 func insecureTLSCipherNames() []string {
-	cipherKeys := sets.New()
+	cipherKeys := sets.New[string]()
 	for _, cipher := range tls.InsecureCipherSuites() {
 		cipherKeys.Insert(cipher.Name)
 	}
@@ -34,7 +34,7 @@ func insecureTLSCipherNames() []string {
 
 // secureTLSCipherNames returns a list of secure cipher suite names implemented by crypto/tls.
 func secureTLSCipherNames() []string {
-	cipherKeys := sets.New()
+	cipherKeys := sets.New[string]()
 	for _, cipher := range tls.CipherSuites() {
 		cipherKeys.Insert(cipher.Name)
 	}
