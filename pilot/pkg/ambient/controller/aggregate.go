@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -32,6 +33,8 @@ var log = istiolog.RegisterScope("ambient", "ambient mesh controllers", 0)
 
 type Options struct {
 	xds       model.XDSUpdater
+	podName   string
+	revision  string
 	Client    kubelib.Client
 	Stop      <-chan struct{}
 	ClusterID cluster.ID
@@ -52,6 +55,8 @@ var (
 func NewAggregate(
 	systemNamespace string,
 	localCluster cluster.ID,
+	podName string,
+	revision string,
 	webhookConfig func() inject.WebhookConfig,
 	xdsUpdater model.XDSUpdater,
 	forceAutoLabel bool,
@@ -62,6 +67,8 @@ func NewAggregate(
 			SystemNamespace: systemNamespace,
 			WebhookConfig:   webhookConfig,
 			xds:             xdsUpdater,
+			podName:         podName,
+			revision:        revision,
 			forceAutoLabel:  forceAutoLabel,
 		},
 
@@ -118,21 +125,26 @@ func (a *Aggregate) clusterAdded(cluster *multicluster.Cluster, stop <-chan stru
 
 	// don't modify remote clusters, just find their waypoint proxies and Pods
 	opts.LocalCluster = a.localCluster == cluster.ID
-
-	a.clusters[cluster.ID] = initForCluster(&opts)
+	a.clusters[cluster.ID] = initForCluster(opts)
 	return nil
 }
 
-func initForCluster(opts *Options) *ambientController {
+func initForCluster(opts Options) *ambientController {
 	if opts.LocalCluster {
-		// TODO handle istiodless remote clusters
-		initAutolabel(opts)
-		go func() {
-			if crdclient.WaitForCRD(gvk.KubernetesGateway, opts.Stop) {
-				waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
-				waypointController.Run(opts.Stop)
-			}
-		}()
+		election := leaderelection.
+			NewLeaderElection(opts.SystemNamespace, opts.podName, "istio-ambient-controller", opts.revision, opts.Client).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				// TODO handle istiodless remote clusters
+				// copy to reset stop channel
+				opt := opts
+				opt.Stop = leaderStop
+				initAutolabel(opt)
+				if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+					waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+					waypointController.Run(leaderStop)
+				}
+			})
+		go election.Run(opts.Stop)
 	}
 	return &ambientController{
 		workloads: initWorkloadCache(opts),

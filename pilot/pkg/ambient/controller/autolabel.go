@@ -34,7 +34,7 @@ import (
 
 var autoLabel = env.RegisterBoolVar("AMBIENT_AUTO_LABEL", false, "").Get()
 
-func initAutolabel(opts *Options) {
+func initAutolabel(opts Options) {
 	if !autoLabel && !opts.forceAutoLabel {
 		return
 	}

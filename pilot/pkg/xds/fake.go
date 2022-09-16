@@ -175,11 +175,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	var ambient *controller.Aggregate
 	if !opts.DisableAmbient {
-		ambient = controller.NewAggregate("istio-system", opts.DefaultClusterName, webhookConfigNoop, s, true)
+		ambient = controller.NewAggregate("istio-system", opts.DefaultClusterName, "fake-istiod", "", webhookConfigNoop, s, true)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
+
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -200,6 +201,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
+			if opts.DisableSecretAuthorization {
+				disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
+			}
 			defaultKubeController = k8s
 		} else {
 			client.RunAndWait(stop)
@@ -215,9 +219,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 
-	if opts.DisableSecretAuthorization {
-		disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
-	}
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})

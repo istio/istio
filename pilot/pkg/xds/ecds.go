@@ -70,7 +70,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 		}
 	}
 	if isWorkloadMeta {
-		wg := &ambientgen.WorkloadMetadataGenerator{Workloads: e.Server.Env}
+		wg := &ambientgen.WorkloadMetadataGenerator{}
 		return wg.Generate(proxy, w, req)
 	}
 

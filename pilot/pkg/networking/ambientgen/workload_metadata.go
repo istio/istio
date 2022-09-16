@@ -35,9 +35,7 @@ const (
 // WorkloadMetadataGenerator is responsible for generating dynamic Ambient Listener Filter
 // configurations. These configurations include workload metadata for individual
 // workload instances (Kubernetes pods) running on a Kubernetes node.
-type WorkloadMetadataGenerator struct {
-	Workloads ambient.Cache
-}
+type WorkloadMetadataGenerator struct{}
 
 var _ model.XdsResourceGenerator = &WorkloadMetadataGenerator{}
 
@@ -53,7 +51,7 @@ func (g *WorkloadMetadataGenerator) Generate(proxy *model.Proxy, w *model.Watche
 
 	var workloads []*wmpb.WorkloadMetadataResource
 
-	for _, wl := range g.Workloads.AmbientWorkloads().Workloads.ByNode[proxyKubernetesNodeName] {
+	for _, wl := range req.Push.AmbientIndex.Workloads.ByNode[proxyKubernetesNodeName] {
 		// TODO: this is cheating. we need a way to get the owing workload name
 		// in a way that isn't a shortcut.
 		name, workloadType := workloadNameAndType(wl)
