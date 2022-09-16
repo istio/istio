@@ -246,14 +246,14 @@ func TestMatchListener(t *testing.T) {
 		desc         string
 		wasmPlugin   *WasmPluginWrapper
 		proxyLabels  map[string]string
-		listenerInfo *WasmPluginListenerInfo
+		listenerInfo WasmPluginListenerInfo
 		want         bool
 	}{
 		{
 			desc:        "match and selector are nil",
 			wasmPlugin:  &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{Selector: nil, Match: nil}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -268,7 +268,7 @@ func TestMatchListener(t *testing.T) {
 				Match: nil,
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -283,7 +283,7 @@ func TestMatchListener(t *testing.T) {
 				Match: nil,
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -298,7 +298,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -316,7 +316,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -334,7 +334,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -352,7 +352,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -370,7 +370,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -390,7 +390,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -408,7 +408,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarOutbound,
 			},
@@ -426,7 +426,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassUndefined,
 			},
@@ -444,7 +444,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassGateway,
 			},
@@ -462,7 +462,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassGateway,
 			},

@@ -564,13 +564,13 @@ func TestWasmPlugins(t *testing.T) {
 	testCases := []struct {
 		name               string
 		node               *Proxy
-		listenerInfo       *WasmPluginListenerInfo
+		listenerInfo       WasmPluginListenerInfo
 		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
-			listenerInfo:       nil,
+			listenerInfo:       anyListener,
 			expectedExtensions: nil,
 		},
 		{
@@ -579,7 +579,7 @@ func TestWasmPlugins(t *testing.T) {
 				ConfigNamespace: "other",
 				Metadata:        &NodeMetadata{},
 			},
-			listenerInfo:       nil,
+			listenerInfo:       anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
 		},
 		{
@@ -595,7 +595,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: nil,
+			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
@@ -615,7 +615,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: nil,
+			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
@@ -637,7 +637,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: nil,
+			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -667,7 +667,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: &WasmPluginListenerInfo{
+			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},

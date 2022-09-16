@@ -354,7 +354,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, &model.WasmPluginListenerInfo{
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	})
