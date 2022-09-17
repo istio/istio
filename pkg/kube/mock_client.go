@@ -256,6 +256,10 @@ func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]strin
 	return nil, fmt.Errorf("TODO MockClient doesn't implement IstioPods")
 }
 
+func (c MockClient) GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error) {
+	return nil, fmt.Errorf("TODO MockClient doesn't implement GetProxyPods")
+}
+
 func (c MockClient) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error) {
 	return "", "", fmt.Errorf("TODO MockClient doesn't implement exec")
 }
