@@ -147,6 +147,7 @@ func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error
 func xdsStatusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
+	var multiXdsOpts multixds.Options
 
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
@@ -184,6 +185,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if err != nil {
 				return err
 			}
+			multiXdsOpts.MessageWriter = c.OutOrStdout()
 
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
@@ -207,7 +209,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
 					TypeUrl:       pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient, multiXdsOpts)
 				if err != nil {
 					return err
 				}
@@ -217,11 +219,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-
 			xdsRequest := xdsapi.DiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient, multiXdsOpts)
 			if err != nil {
 				return err
 			}
@@ -234,6 +235,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
+	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
+		"Access Istiod via the tap service of each agent")
+	statusCmd.PersistentFlags().IntVar(&multiXdsOpts.XdsViaAgentsLimit, "xds-via-agents-limit", 100,
+		"Maximum number of pods being visited by istioctl when `xds-via-agent` flag is true."+
+			"To iterate all the agent pods without limit, set to 0")
 
 	return statusCmd
 }
