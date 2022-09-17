@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+releaseNotes:
+  - |
+    **Fixed** an issue that running istioctl install will failed when both `pilot.cpu.targetAverageUtilization` and `hpaSpec.metrics[0].resource.targetAverageUtilization` are setted.
