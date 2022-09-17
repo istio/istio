@@ -412,6 +412,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect: []string{"templates/deployment.yaml", "templates/autoscale.yaml"},
 		},
 		{
+			desc:       "pilot_autoscaling",
+			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
+			fileSelect: []string{"templates/deployment.yaml", "templates/autoscale.yaml"},
+		},
+		{
 			desc:       "pilot_override_kubernetes",
 			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ClusterRoleBinding::istio-reader-istio-system",
 			fileSelect: []string{

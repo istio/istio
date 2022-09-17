@@ -426,6 +426,12 @@ func translateHPASpec(inPath string, outPath string, valueTree map[string]any, c
 			}
 		}
 	}
+
+	autoscalingv2API, found, err := tpath.Find(valueTree, util.ToYAMLPath(".global.autoscalingv2API"))
+	if found && err == nil || autoscalingv2API == "false" {
+		return nil
+	}
+
 	valPath := newPS + ".cpu.targetAverageUtilization"
 	asVal, found, err := tpath.Find(valueTree, util.ToYAMLPath(valPath))
 	if found && err == nil {
