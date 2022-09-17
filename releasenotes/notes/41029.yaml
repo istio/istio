@@ -4,4 +4,4 @@ area: installation
 
 releaseNotes:
   - |
-    **Fixed** an issue that running istioctl install will failed when both `pilot.cpu.targetAverageUtilization` and `hpaSpec.metrics[0].resource.targetAverageUtilization` are setted.
+    **Fixed** an issue that Istio installation using IOP failed when hpaSpec for cpu utilization configured for components.
