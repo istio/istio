@@ -1170,6 +1170,121 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
+func TestRootSidecarScopePropagation(t *testing.T) {
+	rootNS := "istio-system"
+	defaultNS := "default"
+	otherNS := "foo"
+
+	verifyServices := func(sidecarScopeEnabled bool, desc string, ns string, push *PushContext) {
+		t.Run(desc, func(t *testing.T) {
+			scScope := push.getSidecarScope(&Proxy{Type: SidecarProxy, ConfigNamespace: ns}, nil)
+			services := scScope.Services()
+			numSvc := 0
+			svcList := []string{}
+			for _, service := range services {
+				svcName := service.Attributes.Name
+				svcNS := service.Attributes.Namespace
+				if svcNS != ns && svcNS != rootNS {
+					numSvc++
+				}
+				svcList = append(svcList, fmt.Sprintf("%v.%v.cluster.local", svcName, svcNS))
+			}
+			if sidecarScopeEnabled && numSvc > 0 {
+				t.Fatalf("For namespace:%v, should not see services from other ns. Instead got these services: %v", ns, svcList)
+			}
+		})
+	}
+
+	env := NewEnvironment()
+	configStore := NewFakeStore()
+
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(m)
+
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc1",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc1",
+					Namespace: defaultNS,
+				},
+			},
+			{
+				Hostname: "svc2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc2",
+					Namespace: otherNS,
+				},
+			},
+			{
+				Hostname: "svc3",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc3",
+					Namespace: otherNS,
+				},
+			},
+			{
+				Hostname: "svc4",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc4",
+					Namespace: rootNS,
+				},
+			},
+		},
+	}
+	env.Init()
+	globalSidecar := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"./*", fmt.Sprintf("%v/*", rootNS)},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
+	rootConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "global",
+			Namespace:        constants.IstioSystemNamespace,
+		},
+		Spec: globalSidecar,
+	}
+
+	_, _ = configStore.Create(rootConfig)
+	store := istioConfigStore{ConfigStore: configStore}
+	env.ConfigStore = &store
+
+	testDesc := "Testing root SidecarScope for ns:%v enabled when %v is called."
+	when := "createNewContext"
+	newPush := NewPushContext()
+	newPush.Mesh = env.Mesh()
+	newPush.InitContext(env, nil, nil)
+	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
+	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
+
+	oldPush := newPush
+	newPush = NewPushContext()
+	newPush.Mesh = env.Mesh()
+	svcName := "svc6.foo.cluster.local"
+	if err := newPush.InitContext(env, oldPush, &PushRequest{
+		ConfigsUpdated: map[ConfigKey]struct{}{
+			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
+		},
+		Reason: nil,
+		Full:   true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	when = "updateContext(with no changes)"
+	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
+	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
+}
+
 func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	const partialNS string = "partial"
 	const wholeNS string = "whole"
