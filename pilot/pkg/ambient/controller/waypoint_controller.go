@@ -68,7 +68,6 @@ type WaypointProxyController struct {
 
 const (
 	istioMeshGatewayClass           = "istio-mesh"
-	maxReconcileAttempts            = 5
 	gatewayServiceAccountAnnotation = "istio.io/service-account"
 )
 
@@ -87,7 +86,7 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, con
 
 	rc.queue = controllers.NewQueue("waypoint proxy",
 		controllers.WithReconciler(rc.Reconcile),
-		controllers.WithMaxAttempts(maxReconcileAttempts))
+		controllers.WithMaxAttempts(5))
 	gateways := rc.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
 	rc.gateways = gateways.Lister()
 	gateways.Informer().AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
@@ -120,7 +119,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		// Mostly used to avoid issues with local runs
 		return fmt.Errorf("injection config invalid, skipping reconile")
 	}
-	scopedLog := waypointLog.WithLabels("gateway", name.String())
+	log := waypointLog.WithLabels("gateway", name.String())
 
 	gw, err := rc.gateways.Gateways(name.Namespace).Get(name.Name)
 	if err != nil || gw == nil {
@@ -131,12 +130,12 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			log.Errorf("unable to fetch Gateway: %v", err)
 			return err
 		}
-		scopedLog.Debugf("gateway deleted")
+		log.Debugf("gateway deleted")
 		return rc.pruneGateway(name)
 	}
 
 	if gw.Spec.GatewayClassName != istioMeshGatewayClass {
-		scopedLog.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
+		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return rc.pruneGateway(name)
 	}
 
@@ -146,13 +145,13 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 	wantProxies := rc.wantProxies(name, gatewaySA)
 	add, remove := wantProxies.Diff(existsProxies)
 	if len(remove)+len(add) == 0 {
-		scopedLog.Debugf("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(existsProxies))
+		log.Debugf("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(existsProxies))
 		return nil
 	}
 
-	scopedLog.Infof("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(existsProxies))
+	log.Infof("reconcile: remove %d, add %d. Have %d", len(remove), len(add), len(existsProxies))
 	for _, sa := range remove {
-		scopedLog.Infof("removing waypoint proxy %q", waypointName(sa))
+		log.Infof("removing waypoint proxy %q", waypointName(sa))
 		if err := rc.client.Kube().AppsV1().Deployments(gw.Namespace).Delete(context.Background(), waypointName(sa), metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("pod remove: %v", err)
 		}
@@ -168,11 +167,11 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			},
 		})
 		if err != nil {
-			scopedLog.Errorf("unable to update Gateway status %v on delete: %v", gw.Name, err)
+			log.Errorf("unable to update Gateway status %v on delete: %v", gw.Name, err)
 		}
 	}
 	for _, sa := range add {
-		scopedLog.Infof("adding waypoint proxy %v", waypointName(sa))
+		log.Infof("adding waypoint proxy %v", waypointName(sa))
 		input := MergedInput{
 			Namespace:      gw.Namespace,
 			GatewayName:    gw.Name,
@@ -204,7 +203,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			},
 		})
 		if err != nil {
-			scopedLog.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
+			log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
 		}
 	}
 	return nil
