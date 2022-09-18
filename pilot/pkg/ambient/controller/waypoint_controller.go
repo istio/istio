@@ -21,6 +21,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	listerappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -30,6 +31,7 @@ import (
 
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -60,6 +62,7 @@ type WaypointProxyController struct {
 	deployments     listerappsv1.DeploymentLister
 	serviceAccounts listerv1.ServiceAccountLister
 	gateways        gwlister.GatewayLister
+	patcher         istiogw.Patcher
 
 	cluster cluster.ID
 
@@ -82,6 +85,15 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, con
 		client:       client,
 		cluster:      clusterID,
 		injectConfig: config,
+		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			c := client.Dynamic().Resource(gvr).Namespace(namespace)
+			t := true
+			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
+				Force:        &t,
+				FieldManager: "waypoint proxy controller",
+			}, subresources...)
+			return err
+		},
 	}
 
 	rc.queue = controllers.NewQueue("waypoint proxy",
@@ -252,13 +264,27 @@ func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions
 			Conditions: istiogw.SetConditions(gw.Generation, nil, conditions),
 		},
 	}
-
-	if _, err := rc.client.GatewayAPI().GatewayV1alpha2().Gateways(gw.Namespace).UpdateStatus(context.TODO(), gws, metav1.UpdateOptions{}); err != nil {
+	if err := rc.ApplyObject(gws, "status"); err != nil {
 		return fmt.Errorf("update gateway status: %v", err)
 	}
-
-	log.Infof("gateway %s/%s status updated", gw.Namespace, gw.Name)
+	log.Info("gateway updated")
 	return nil
+}
+
+// ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
+func (rc *WaypointProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
+	j, err := config.ToJSON(obj)
+	if err != nil {
+		return err
+	}
+
+	gvr, err := controllers.ObjectToGVR(obj)
+	if err != nil {
+		return err
+	}
+	log.Debugf("applying %v", string(j))
+
+	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
 func (rc *WaypointProxyController) RenderDeploymentMerged(input MergedInput) (*appsv1.Deployment, error) {
