@@ -1039,7 +1039,7 @@ func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int
 func filteredGatewayCipherSuites(server *networking.Server) []string {
 	suites := server.Tls.CipherSuites
 	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New()
+	validCiphers := sets.New[string]()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
 			if !validCiphers.InsertContains(s) {

@@ -110,7 +110,7 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 }
 
 func TestFuzzers(t *testing.T) {
-	testedFuzzers := sets.New()
+	testedFuzzers := sets.New[string]()
 	cases := []struct {
 		name   string
 		fuzzer func([]byte) int

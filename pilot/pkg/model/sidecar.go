@@ -668,7 +668,7 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 	return nil
 }
 
-func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.IntSet) *Service {
+func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[int]) *Service {
 	// A value of 0 in vsDestPorts is used as a sentinel to indicate a dependency
 	// on every port of the service.
 	if len(vsDestPorts) == 0 || vsDestPorts.Contains(0) {
