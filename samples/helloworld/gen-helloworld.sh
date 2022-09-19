@@ -23,7 +23,6 @@ display_usage() {
     echo "    --version: Specifies the version that will be returned by the helloworld service, default: 'v1'"
     echo "    --includeService: If 'true' the service will be included in the YAML, default: 'true'"
     echo "    --includeDeployment: If 'true' the deployment will be included in the YAML, default: 'true'"
-    exit 1
 }
 
 INCLUDE_SERVICE=${INCLUDE_SERVICE:-"true"}
@@ -33,6 +32,7 @@ while (( "$#" )); do
   case "$1" in
     -h|--help)
       display_usage
+      exit 0
       ;;
 
     --version)
@@ -53,6 +53,7 @@ while (( "$#" )); do
     *)
       echo "Error: Unsupported flag $1" >&2
       display_usage
+      exit 1
       ;;
   esac
 done
