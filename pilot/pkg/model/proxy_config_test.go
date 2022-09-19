@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -200,6 +201,18 @@ func TestMergeWithPrecedence(t *testing.T) {
 					"b": "y",
 					"c": "d",
 				},
+			},
+		},
+		{
+			name: "terminationDrainDuration",
+			first: &meshconfig.ProxyConfig{
+				TerminationDrainDuration: durationpb.New(500 * time.Millisecond),
+			},
+			second: &meshconfig.ProxyConfig{
+				TerminationDrainDuration: durationpb.New(5 * time.Second),
+			},
+			expected: &meshconfig.ProxyConfig{
+				TerminationDrainDuration: durationpb.New(500 * time.Millisecond),
 			},
 		},
 	}
