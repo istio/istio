@@ -15,7 +15,6 @@
 package model
 
 import (
-	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
@@ -24,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
@@ -133,7 +133,7 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 		// TODO(Monkeyanator) some fields seem not to merge when set to the type's default value
 		// such as overriding with a concurrency value 0. Do we need a custom merge similar to what the
 		// telemetry code does with shallowMerge?
-		proto.Merge(merged, pcs[i])
+		merge.Merge(merged, pcs[i])
 		if pcs[i].GetConcurrency() != nil {
 			merged.Concurrency = wrappers.Int32(pcs[i].GetConcurrency().GetValue())
 		}
