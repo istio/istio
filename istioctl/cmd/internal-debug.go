@@ -43,7 +43,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 		TypeUrl: v3.DebugType,
 	}
 	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace,
-		namespace, serviceAccount, kubeClient)
+		namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 	if respErr != nil {
 		return xdsResponses, respErr
 	}
@@ -133,7 +133,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			}
 
 			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, istioNamespace,
-				namespace, serviceAccount, kubeClient)
+				namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 			if err != nil {
 				return err
 			}
