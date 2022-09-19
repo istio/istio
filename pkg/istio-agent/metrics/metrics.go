@@ -72,5 +72,7 @@ func init() {
 		IstiodConnectionErrors,
 		istiodDisconnections,
 		envoyDisconnections,
+		XdsProxyRequests,
+		XdsProxyResponses,
 	)
 }
