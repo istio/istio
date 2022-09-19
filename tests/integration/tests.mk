@@ -37,6 +37,7 @@ ifneq ($(JOB_TYPE),postsubmit)
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-postsubmit"
 endif
 
+# both ipv6 only and dual stack support ipv6
 support_ipv6 =
 ifeq ($(IP_FAMILY),ipv6)
 	support_ipv6 = yes
