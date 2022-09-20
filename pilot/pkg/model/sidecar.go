@@ -587,7 +587,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 	// select destinationrule with priority order:
 	// 1. same namespace as the proxy, and with workload selector
 	// 2. same namespace as the proxy
-	var proxyNamespaceDrs, svcNamespaceDrs, catchAllDrs []*ConsolidatedDestRule
+	var proxyNamespaceDrs []*ConsolidatedDestRule
 	destinationRules := sc.destinationRules[svc.Hostname][sc.Namespace]
 	for _, destRule := range destinationRules {
 		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
