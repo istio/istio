@@ -64,6 +64,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 	}
 
+	router := &model.Proxy{
+		Type:        model.Router,
+		IPAddresses: []string{"2.2.2.2"},
+		ID:          "someGatewayID",
+		DNSDomain:   "foo.com",
+		Metadata:    &model.NodeMetadata{},
+	}
+
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
@@ -81,6 +89,21 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
 		g.Expect(routes[0].GetRoute().MaxStreamDuration.GrpcTimeoutHeaderMax.Seconds).To(gomega.Equal(int64(0)))
 		g.Expect(routes[0].GetRoute().MaxStreamDuration.MaxStreamDuration.Seconds).To(gomega.Equal(int64(0)))
+	})
+
+	t.Run("gateway route name", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(router, virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetName()).To(gomega.Equal("*.example.org:8484"))
+		// Validate that when timeout is not specified, we disable it based on default value of flag.
+		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
+		// nolint: staticcheck
+		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with HTTP/3 discovery enabled", func(t *testing.T) {

@@ -424,6 +424,13 @@ func translateRoute(
 		applyDirectResponse(out, in.DirectResponse)
 	} else {
 		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		if node.Type == model.Router {
+			c := out.GetRoute().GetCluster()
+			if out.Name == "" && model.IsValidSubsetKey(c) {
+				_, _, h, p := model.ParseSubsetKey(c)
+				out.Name = string(h) + ":" + strconv.Itoa(p)
+			}
+		}
 	}
 
 	out.Decorator = &route.Decorator{
