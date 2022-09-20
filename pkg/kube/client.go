@@ -147,6 +147,8 @@ type Client interface {
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
 
+	HasStarted() bool
+
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
 
@@ -344,6 +346,7 @@ type client struct {
 	gatewayapi         gatewayapiclient.Interface
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
+	started atomic.Bool
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
@@ -510,6 +513,10 @@ func (c *client) ExtInformer() kubeExtInformers.SharedInformerFactory {
 	return c.extInformer
 }
 
+func (c *client) HasStarted() bool {
+	return c.started.Load()
+}
+
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
@@ -517,12 +524,9 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.mirrorQueueStarted.Store(true)
 		go c.mirrorQueue.Run(stop)
 	}
-	c.kubeInformer.Start(stop)
-	c.dynamicInformer.Start(stop)
-	c.metadataInformer.Start(stop)
-	c.istioInformer.Start(stop)
-	c.gatewayapiInformer.Start(stop)
-	c.extInformer.Start(stop)
+
+	c.startInformer(stop)
+
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -552,6 +556,16 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.gatewayapiInformer.WaitForCacheSync(stop)
 		c.extInformer.WaitForCacheSync(stop)
 	}
+}
+
+func (c *client) startInformer(stop <-chan struct{}) {
+	c.kubeInformer.Start(stop)
+	c.dynamicInformer.Start(stop)
+	c.metadataInformer.Start(stop)
+	c.istioInformer.Start(stop)
+	c.gatewayapiInformer.Start(stop)
+	c.extInformer.Start(stop)
+	c.started.Store(true)
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {

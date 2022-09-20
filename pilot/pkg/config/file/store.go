@@ -112,6 +112,10 @@ func (s *KubeSource) SetWatchErrorHandler(f func(r *cache.Reflector, err error))
 	panic("implement me")
 }
 
+func (s *KubeSource) HasStarted() bool {
+	return true
+}
+
 func (s *KubeSource) HasSynced() bool {
 	return true
 }
