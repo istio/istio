@@ -187,7 +187,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 }
 
 func (h *HelmReconciler) pilotExists(istioNamespace, revision string) (bool, error) {
-	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd("", ""), revision)
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd("", ""), revision)
 	if err != nil {
 		return false, err
 	}
