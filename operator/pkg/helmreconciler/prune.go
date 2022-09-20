@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 )
 
@@ -114,11 +115,6 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		return errStatus,
 			fmt.Errorf("failed to get enabled components: %v", err)
 	}
-	pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
-	if err != nil {
-		return errStatus,
-			fmt.Errorf("failed to check proxy infos: %v", err)
-	}
 	pilotEnabled := false
 	// check wherther the istiod is enabled
 	for _, c := range enabledComponents {
@@ -127,14 +123,29 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			break
 		}
 	}
+	// If istiod is enabled, check if it has any proxies connected.
+	if pilotEnabled {
+		pilotExists, err := h.pilotExists(iopSpec.Revision, ns)
+		if err != nil {
+			return errStatus, fmt.Errorf("failed to check istiod extist: %v", err)
+		}
 
-	// TODO(richardwxn): add warning message together with the status
-	if len(pids) != 0 && pilotEnabled {
-		msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
-			strings.Join(pids, " "))
-		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
-		return st, nil
+		if pilotExists {
+			// TODO(ramaraochavali): Find a better alternative instead of using debug interface
+			// of istiod as it is typically not recommended in production environments.
+			pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
+			if err != nil {
+				return errStatus, fmt.Errorf("failed to check proxy infos: %v", err)
+			}
+			if len(pids) != 0 {
+				msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
+					strings.Join(pids, " "))
+				st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
+				return st, nil
+			}
+		}
 	}
+
 	var allUslist []*unstructured.UnstructuredList
 	for _, c := range enabledComponents {
 		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
@@ -147,6 +158,22 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		return errStatus, err
 	}
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
+}
+
+func (h *HelmReconciler) pilotExists(istioNamespace, revision string) (bool, error) {
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd("", ""), revision)
+	if err != nil {
+		return false, err
+	}
+	istiodPods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
+		"labelSelector": "app=istiod",
+		"fieldSelector": "status.phase=Running",
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return len(istiodPods) > 0, nil
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
