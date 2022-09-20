@@ -395,7 +395,7 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 	go func() {
 		err := grpcServer.Serve(lis)
 		if err != nil {
-			log.Errora(err)
+			log.Error(err)
 		}
 	}()
 	time.Sleep(3 * time.Second)

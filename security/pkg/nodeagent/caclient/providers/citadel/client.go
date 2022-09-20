@@ -151,7 +151,7 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if host, _, err := net.SplitHostPort(c.opts.CAEndpoint); err != nil {
+	if host, _, err := net.SplitHostPort(c.opts.CAEndpoint); err == nil {
 		config.ServerName = host
 	}
 	// For debugging on localhost (with port forward)

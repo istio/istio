@@ -63,7 +63,7 @@ const (
 
 var (
 	// IstioConfig is the name of the istioctl config file (if any)
-	IstioConfig = env.RegisterStringVar("ISTIOCONFIG", defaultIstioctlConfig,
+	IstioConfig = env.Register("ISTIOCONFIG", defaultIstioctlConfig,
 		"Default values for istioctl flags").Get()
 
 	kubeconfig       string

@@ -19,11 +19,14 @@ package pilot
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -50,7 +53,7 @@ func TestPiggyback(t *testing.T) {
 				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
 					return fmt.Errorf("unmarshal: %v", err)
 				}
-				if dr.TypeUrl != "istio.io/debug/syncz" {
+				if dr.TypeUrl != xds.TypeDebugSyncronization {
 					return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
 				}
 				if len(dr.Resources) < 1 {
@@ -60,6 +63,38 @@ func TestPiggyback(t *testing.T) {
 					return fmt.Errorf("resources[0] doesn't contain expected typeURL: %s", out)
 				}
 				return nil
+			})
+
+			expectSubstrings := func(have string, wants ...string) error {
+				for _, want := range wants {
+					if !strings.Contains(have, want) {
+						return fmt.Errorf("substring %q not found; have %q", want, have)
+					}
+				}
+				return nil
+			}
+
+			// Test gRPC-based Tap Service using istioctl.
+			retry.UntilSuccessOrFail(t, func() error {
+				podName := apps.A[0].WorkloadsOrFail(t)[0].PodName()
+				nsName := apps.A.Config().Namespace.Name()
+				pf, err := t.Clusters()[0].NewPortForwarder(podName, nsName, "localhost", 0, 15004)
+				if err != nil {
+					return fmt.Errorf("failed to create the port forwarder: %v", err)
+				}
+				pf.Start()
+				defer pf.Close()
+
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+				args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+
+				// Just verify pod A is known to Pilot; implicitly this verifies that
+				// the printing code printed it.
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, nsName))
 			})
 		})
 }

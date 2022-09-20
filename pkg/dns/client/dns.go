@@ -207,7 +207,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
 		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
-		var altHosts sets.Set
+		var altHosts sets.String
 		if ni.Registry == string(provider.Kubernetes) {
 			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
@@ -492,8 +492,8 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 
 func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
 	proxyDomainParts []string,
-) sets.Set {
-	out := sets.New()
+) sets.String {
+	out := sets.New[string]()
 	out.Insert(hostname + ".")
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains

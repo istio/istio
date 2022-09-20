@@ -2036,7 +2036,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		for _, version := range []string{"1.14.0", "1.15.0"} {
 			for _, tt := range cases {
 				t.Run(tt.name, func(t *testing.T) {
-					test.SetBoolForTest(t, &features.StripHostPort, value)
+					test.SetForTest(t, &features.StripHostPort, value)
 					cfgs := tt.gateways
 					cfgs = append(cfgs, tt.virtualServices...)
 					cg := NewConfigGenTest(t, TestOptions{
@@ -2860,7 +2860,7 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 		ConfigNamespace: "test",
 	}
 	proxy = cg.SetupProxy(proxy)
-	test.SetBoolForTest(t, &features.EnableHCMInternalNetworks, true)
+	test.SetForTest(t, &features.EnableHCMInternalNetworks, true)
 	push := cg.PushContext()
 	cases := []struct {
 		name           string

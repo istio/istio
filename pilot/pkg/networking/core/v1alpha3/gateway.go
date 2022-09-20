@@ -394,7 +394,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
 					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh)
 				if err != nil {
@@ -1039,12 +1039,11 @@ func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int
 func filteredGatewayCipherSuites(server *networking.Server) []string {
 	suites := server.Tls.CipherSuites
 	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New()
+	validCiphers := sets.New[string]()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			if !validCiphers.Contains(s) {
+			if !validCiphers.InsertContains(s) {
 				ret = append(ret, s)
-				validCiphers = validCiphers.Insert(s)
 			} else if log.DebugEnabled() {
 				log.Debugf("ignoring duplicated cipherSuite: %q for server %s", s, server.String())
 			}

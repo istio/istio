@@ -51,7 +51,7 @@ var (
 // Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
 
-var knativeEnv = env.RegisterStringVar("K_REVISION", "",
+var knativeEnv = env.Register("K_REVISION", "",
 	"KNative revision, set if running in knative").Get()
 
 // DiscoveryStream is a server interface for XDS.
@@ -780,7 +780,7 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set) {
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
 	if s == nil {
 		return
 	}
@@ -830,7 +830,8 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 	})
 }
 
-// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
+// AdsPushAll will send updates to all nodes, with a full push.
+// Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), &model.PushRequest{
 		Full:   true,
@@ -839,9 +840,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	})
 }
 
-// AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
-// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
-// to the model ConfigStorageCache and Controller.
+// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
 		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
@@ -986,10 +985,10 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 // watched resources for the proxy, ordered in accordance with known push order.
 // It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
+func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.New()
+	typeUrls := sets.New[string]()
 	for k := range conn.proxy.WatchedResources {
 		typeUrls.Insert(k)
 	}

@@ -509,9 +509,6 @@ type BootstrapNodeMetadata struct {
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
-	// ProvCertDir is the directory containing pre-provisioned certs.
-	ProvCert string `json:"PROV_CERT,omitempty"`
-
 	// AppContainers is the list of containers in the pod.
 	AppContainers string `json:"APP_CONTAINERS,omitempty"`
 
@@ -1149,6 +1146,16 @@ func (node *Proxy) IsProxylessGrpc() bool {
 
 func (node *Proxy) FuzzValidate() bool {
 	if node.Metadata == nil {
+		return false
+	}
+	found := false
+	for _, t := range NodeTypes {
+		if node.Type == t {
+			found = true
+			break
+		}
+	}
+	if !found {
 		return false
 	}
 	return len(node.IPAddresses) != 0

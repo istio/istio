@@ -661,7 +661,8 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name: "fault abort gRPC",
+		name:            "fault abort gRPC",
+		minIstioVersion: "1.15.0",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1780,8 +1781,9 @@ func hostCases(t TrafficContext) {
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
 			t.RunTraffic(TrafficTestCase{
-				name: name,
-				call: c.CallOrFail,
+				name:            name,
+				minIstioVersion: "1.15.0",
+				call:            c.CallOrFail,
 				opts: echo.CallOptions{
 					To:    t.Apps.Headless,
 					Count: 1,
@@ -1826,8 +1828,9 @@ func hostCases(t TrafficContext) {
 				assertion = check.OK()
 			}
 			t.RunTraffic(TrafficTestCase{
-				name: name,
-				call: c.CallOrFail,
+				name:            name,
+				minIstioVersion: "1.15.0",
+				call:            c.CallOrFail,
 				opts: echo.CallOptions{
 					To: t.Apps.Headless,
 					Port: echo.Port{
@@ -2102,10 +2105,11 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "tcp source ip " + c.Config().Service,
-				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:   c.CallOrFail,
-				opts:   tcpCallopts,
+				name:            "tcp source ip " + c.Config().Service,
+				minIstioVersion: "1.14.0",
+				config:          svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:            c.CallOrFail,
+				opts:            tcpCallopts,
 				skip: skip{
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
@@ -2123,7 +2127,7 @@ var ConsistentHostChecker echo.Checker = func(result echo.CallResult, _ error) e
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
 	unique := sets.New(hostnames...).SortedList()
 	if len(unique) != 1 {
-		return fmt.Errorf("excepted only one destination, got: %v", unique)
+		return fmt.Errorf("expected only one destination, got: %v", unique)
 	}
 	return nil
 }

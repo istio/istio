@@ -17,7 +17,6 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -70,8 +69,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	// when multiple injector configmaps exist, we may need to assess them respectively.
 	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
 		cmName := r.Metadata.FullName.Name.String()
-		match, _ := regexp.MatchString(`^istio-sidecar-injector`, cmName)
-		if match {
+		if strings.HasPrefix(cmName, "istio-sidecar-injector") {
 			cm := r.Message.(*v1.ConfigMap)
 			proxyImageMap[cmName] = GetIstioProxyImage(cm)
 

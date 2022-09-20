@@ -10,6 +10,7 @@ pilot:
   rollingMaxUnavailable: 25%
   hub: ""
   tag: ""
+  variant: ""
   # Can be a full hub/image:tag
   image: pilot
   traceSampling: 1.0
@@ -208,6 +209,9 @@ global:
   hub: gcr.io/istio-testing
   # Default tag for Istio images.
   tag: latest
+  # Variant of the image to use.
+  # Currently supported are: [debug, distroless]
+  variant: ""
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent.
   imagePullPolicy: ""

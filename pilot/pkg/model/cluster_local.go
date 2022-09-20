@@ -33,7 +33,7 @@ type ClusterLocalHosts map[host.Name]struct{}
 // IsClusterLocal indicates whether the given host should be treated as a
 // cluster-local destination.
 func (c ClusterLocalHosts) IsClusterLocal(h host.Name) bool {
-	_, ok := MostSpecificHostMatch2(h, c)
+	_, ok := MostSpecificHostMatch(h, c)
 	return ok
 }
 

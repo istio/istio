@@ -118,7 +118,7 @@ func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 
 // GetRootCertBundle:  Get CA certs of the pool from Google CAS API endpoint
 func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
-	rootCertSet := sets.New()
+	rootCertSet := sets.New[string]()
 
 	ctx := context.Background()
 
@@ -133,9 +133,7 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 	for _, certChain := range resp.CaCerts {
 		certs := certChain.Certificates
 		rootCert := certs[len(certs)-1]
-		if !rootCertSet.Contains(rootCert) {
-			rootCertSet.Insert(rootCert)
-		}
+		rootCertSet.Insert(rootCert)
 	}
 
 	return rootCertSet.SortedList(), nil

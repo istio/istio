@@ -598,7 +598,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]config.Config{
+	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
@@ -654,7 +654,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]config.Config{
+	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
@@ -705,7 +705,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	env.PushContext = model.NewPushContext()
 	env.Init()
 	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRules([]config.Config{
+	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),

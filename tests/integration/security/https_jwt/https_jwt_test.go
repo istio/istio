@@ -18,19 +18,15 @@
 package security
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 )
@@ -38,32 +34,10 @@ import (
 // TestJWTHTTPS tests the requestauth policy with https jwks server.
 func TestJWTHTTPS(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
-
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
-			ns := apps.Namespace1
-			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
-
-			for _, cluster := range t.AllClusters() {
-				t.ConfigKube(cluster).EvalFile(istioSystemNS.Name(), map[string]string{
-					"Namespace": istioSystemNS.Name(),
-				}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t)
-			}
-
-			for _, cluster := range t.AllClusters() {
-				fetchFn := kube.NewPodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
-				_, err := kube.WaitUntilPodsAreReady(fetchFn)
-				if err != nil {
-					t.Fatalf("pod is not getting ready : %v", err)
-				}
-			}
-
-			for _, cluster := range t.AllClusters() {
-				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster.Kube(), istioSystemNS.Name(), "jwt-server"); err != nil {
-					t.Fatalf("Wait for jwt-server server failed: %v", err)
-				}
-			}
+			ns := apps.EchoNamespace.Namespace
 
 			cases := []struct {
 				name          string
@@ -89,7 +63,7 @@ func TestJWTHTTPS(t *testing.T) {
 
 			for _, c := range cases {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					echotest.New(t, apps.All).
+					echotest.New(t, apps.EchoNamespace.A).
 						SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 							args := map[string]string{
 								"Namespace": ns.Name(),

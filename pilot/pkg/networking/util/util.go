@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -212,6 +213,12 @@ func IsIstioVersionGE114(version *model.IstioVersion) bool {
 func IsIstioVersionGE115(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
+func IsIstioVersionGE116(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -414,12 +421,9 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 	// Merge the two typed protos
 	merge.Merge(dstX, srcX)
-	var retVal *anypb.Any
 
 	// Convert the merged proto back to dst
-	if retVal, err = anypb.New(dstX); err != nil {
-		return nil, err
-	}
+	retVal := protoconv.MessageToAny(dstX)
 
 	return retVal, nil
 }

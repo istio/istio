@@ -29,7 +29,7 @@ import (
 	"istio.io/pkg/env"
 )
 
-var k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
+var k8sInCluster = env.Register("KUBERNETES_SERVICE_HOST", "",
 	"Kubernetes service host, set automatically when running in-cluster")
 
 // ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: documentation
+issue:
+  - 40405
+
+releaseNotes:
+- |
+  **Added** `build_push_update_images.sh` now supports the `--multiarch-images` argument to build multi-arch container images used in the bookinfo application.

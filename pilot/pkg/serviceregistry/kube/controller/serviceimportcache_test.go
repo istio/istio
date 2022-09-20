@@ -203,7 +203,7 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 }
 
 func newTestServiceImportCache(t test.Failer, mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl) {
-	test.SetBoolForTest(t, &features.EnableMCSHost, true)
+	test.SetForTest(t, &features.EnableMCSHost, true)
 
 	c, _ = NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: serviceImportCluster,

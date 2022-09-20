@@ -388,12 +388,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Root: key.Root,
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Root: key.Root,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -403,12 +405,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Namespace: key.Namespace,
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Namespace: key.Namespace,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -422,12 +426,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if selector.SubsetOf(proxy.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, spec.GetTracing()...)
 			break
 		}
@@ -472,7 +478,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	allKeys := sets.New()
+	allKeys := sets.New[string]()
 	for k := range tml {
 		allKeys.Insert(k)
 	}
@@ -528,7 +534,7 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	filters := map[string]*tpb.AccessLogging_Filter{}
 	for _, m := range logs {
-		names := sets.New()
+		names := sets.New[string]()
 		for _, p := range m.Logging {
 			subProviders := getProviderNames(p.Providers)
 			names.InsertAll(subProviders...)
@@ -648,7 +654,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
-	disabledAllMetricsProviders := sets.New()
+	disabledAllMetricsProviders := sets.New[string]()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		// If providers is not set, use parent's

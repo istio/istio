@@ -96,6 +96,6 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					},
 				},
 			}
-			reachability.Run(testCases, t, apps)
+			reachability.Run(testCases, t)
 		})
 }

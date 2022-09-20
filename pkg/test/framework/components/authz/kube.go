@@ -250,7 +250,7 @@ func installProviders(ctx resource.Context, providerYAML string) error {
 		return err
 	}
 
-	providerNames := sets.New()
+	providerNames := sets.New[string]()
 	for _, p := range newMC.GetExtensionProviders() {
 		providerNames.Insert(p.Name)
 	}

@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	kubeversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,6 +57,7 @@ import (
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -176,7 +176,7 @@ var (
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
 				return false
 			}
-			newIOP := e.ObjectNew.(*iopv1alpha1.IstioOperator)
+			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
@@ -271,9 +271,9 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	deleted := iop.GetDeletionTimestamp() != nil
-	finalizers := sets.NewString(iop.GetFinalizers()...)
+	finalizers := sets.New(iop.GetFinalizers()...)
 	if deleted {
-		if !finalizers.Has(finalizer) {
+		if !finalizers.Contains(finalizer) {
 			scope.Infof("IstioOperator %s deleted", iopName)
 			metrics.CRDeletionTotal.Increment()
 			return reconcile.Result{}, nil
@@ -290,14 +290,14 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 
 		finalizers.Delete(finalizer)
-		iop.SetFinalizers(finalizers.List())
+		iop.SetFinalizers(finalizers.SortedList())
 		finalizerError := r.client.Update(context.TODO(), iop)
 		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			scope.Info("API server conflict during finalizer removal, retrying.")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, iop)
-			finalizers = sets.NewString(iop.GetFinalizers()...)
+			finalizers = sets.New(iop.GetFinalizers()...)
 			finalizers.Delete(finalizer)
-			iop.SetFinalizers(finalizers.List())
+			iop.SetFinalizers(finalizers.SortedList())
 			finalizerError = r.client.Update(context.TODO(), iop)
 		}
 		if finalizerError != nil {
@@ -313,10 +313,10 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, finalizerError
 		}
 		return reconcile.Result{}, nil
-	} else if !finalizers.Has(finalizer) {
+	} else if !finalizers.Contains(finalizer) {
 		log.Infof("Adding finalizer %v to %v", finalizer, request)
 		finalizers.Insert(finalizer)
-		iop.SetFinalizers(finalizers.List())
+		iop.SetFinalizers(finalizers.SortedList())
 		err := r.client.Update(context.TODO(), iop)
 		if err != nil {
 			if errors.IsNotFound(err) {

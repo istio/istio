@@ -22,10 +22,10 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 var (
@@ -48,7 +48,7 @@ var (
 )
 
 func TestInsertedExtensionConfigurations(t *testing.T) {
-	wasm, _ := anypb.New(&extensionsv3.Wasm{})
+	wasm := protoconv.MessageToAny(&extensionsv3.Wasm{})
 	testCases := []struct {
 		name        string
 		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper

@@ -20,7 +20,7 @@ import (
 	"istio.io/pkg/env"
 )
 
-var dryRunFilePath = env.RegisterStringVar("DRY_RUN_FILE_PATH", "",
+var dryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "",
 	"If provided, CNI will dry run iptables rule apply, and print the applied rules to the given file.")
 
 type iptables struct{}

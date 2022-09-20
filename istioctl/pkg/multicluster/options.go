@@ -15,13 +15,15 @@
 package multicluster
 
 import (
-	"errors"
-
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
-const clusterNameAnnotationKey = "networking.istio.io/cluster"
+const (
+	clusterNameAnnotationKey = "networking.istio.io/cluster"
+)
 
 // KubeOptions contains kubernetes options common to all commands.
 type KubeOptions struct {
@@ -45,7 +47,7 @@ func (o *KubeOptions) prepare(flags *pflag.FlagSet) {
 	}
 
 	if o.Namespace == "" {
-		o.Namespace = defaultIstioNamespace
+		o.Namespace = constants.IstioSystemNamespace
 
 		configAccess := clientcmd.NewDefaultPathOptions()
 		configAccess.GlobalFile = o.Kubeconfig
@@ -55,22 +57,4 @@ func (o *KubeOptions) prepare(flags *pflag.FlagSet) {
 			}
 		}
 	}
-}
-
-type filenameOption struct {
-	filename string
-}
-
-func (f *filenameOption) addFlags(flagset *pflag.FlagSet) {
-	if flagset.Lookup("filename") == nil {
-		flagset.StringVarP(&f.filename, "filename", "f", "",
-			"Filename of the multicluster mesh description")
-	}
-}
-
-func (f *filenameOption) prepare() error {
-	if len(f.filename) == 0 {
-		return errors.New("must specify -f")
-	}
-	return nil
 }

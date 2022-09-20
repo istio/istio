@@ -40,6 +40,7 @@ arguments:
 
 Argument | Default | Description
 -------- | ------- | -----------
+`-h`,`--help` | | Prints usage information.
 `--version` | `v1` | Specifies the version that will be returned by the helloworld service.
 `--includeService` | `true` | If `true` the service will be included in the YAML.
 `--includeDeployment` | `true` | If `true` the deployment will be included in the YAML.
@@ -52,6 +53,8 @@ You can use this script to deploy a custom version:
 ```
 
 ## Configure the helloworld gateway
+
+*___Note:___ Istio intends to make the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) the default API for traffic management [in the future](https://istio.io/latest/blog/2022/gateway-api-beta/). You can use the Gateway API to configure the helloworld service, instead of the classic Istio configuration model, by following the instructions in [./gateway-api/README.md](./gateway-api/README.md), instead of the instructions below.*
 
 Apply the helloworld gateway configuration:
 

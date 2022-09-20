@@ -72,7 +72,7 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap,
 ) {
-	removedVirtualHosts := sets.New()
+	removedVirtualHosts := sets.New[string]()
 	// first do removes/merges/replaces
 	for i := range routeConfiguration.VirtualHosts {
 		if patchVirtualHost(patchContext, patches, routeConfiguration, routeConfiguration.VirtualHosts, i, portMap) {

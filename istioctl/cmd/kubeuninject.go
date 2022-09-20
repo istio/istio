@@ -34,13 +34,13 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
 
 const (
-	annotationPolicy            = "sidecar.istio.io/inject"
 	certVolumeName              = "istio-certs"
 	dataVolumeName              = "istio-data"
 	enableCoreDumpContainerName = "enable-core-dump"
@@ -230,9 +230,15 @@ func handleAnnotations(annotations map[string]string) map[string]string {
 			delete(annotations, key)
 		}
 	}
-	// sidecar.istio.io/inject: false to default the auto-injector in case it is present.
-	annotations[annotationPolicy] = "false"
 	return annotations
+}
+
+func handleLabels(labels map[string]string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[annotation.SidecarInject.Name] = "false"
+	return labels
 }
 
 // extractObject extras the sidecar injection and return the uninjected object.
@@ -297,6 +303,7 @@ func extractObject(in runtime.Object) (any, error) {
 	}
 
 	metadata.Annotations = handleAnnotations(metadata.Annotations)
+	metadata.Labels = handleLabels(metadata.Labels)
 	// skip uninjection for pods
 	sidecarInjected := false
 	for _, c := range podSpec.Containers {

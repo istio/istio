@@ -1850,7 +1850,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = meshConfig
-			ps.SetDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
+			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
 			if tt.services != nil {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
@@ -2139,7 +2139,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
 			// nolint lll
 			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
-			ps.SetDestinationRules(destinationRules)
+			ps.setDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")

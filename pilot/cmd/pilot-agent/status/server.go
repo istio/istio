@@ -79,20 +79,20 @@ var (
 	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
 )
 
-var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
+var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
 
 	promRegistry *prometheus.Registry
 
-	EnableHTTP2Probing = env.RegisterBoolVar("ISTIO_ENABLE_HTTP2_PROBING", true,
+	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
 		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
 
-	LegacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
+	LegacyLocalhostProbeDestination = env.Register("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
 		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
 
-	ProbeKeepaliveConnections = env.RegisterBoolVar("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
+	ProbeKeepaliveConnections = env.Register("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
 		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
 			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
 )

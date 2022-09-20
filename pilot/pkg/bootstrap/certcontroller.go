@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/pkg/log"
 )
@@ -187,20 +188,18 @@ func (s *Server) initDNSCerts() error {
 func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	for {
-		select {
-		case <-stop:
+		if !sleep.Until(stop, rootCertPollingInterval) {
 			return
-		case <-time.After(rootCertPollingInterval):
-			newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			if !bytes.Equal(caBundle, newRootCert) {
-				caBundle = newRootCert
-				certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
-				if err != nil {
-					log.Errorf("failed generating istiod key cert %v", err)
-				} else {
-					s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
-					log.Infof("regenerated istiod dns cert: %s", certChain)
-				}
+		}
+		newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
+		if !bytes.Equal(caBundle, newRootCert) {
+			caBundle = newRootCert
+			certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
+			if err != nil {
+				log.Errorf("failed generating istiod key cert %v", err)
+			} else {
+				s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+				log.Infof("regenerated istiod dns cert: %s", certChain)
 			}
 		}
 	}

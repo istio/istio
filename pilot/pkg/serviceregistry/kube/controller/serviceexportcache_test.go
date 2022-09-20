@@ -133,8 +133,8 @@ func newServiceExport() *unstructured.Unstructured {
 func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
 	t.Helper()
 
-	istiotest.SetBoolForTest(t, &features.EnableMCSServiceDiscovery, true)
-	istiotest.SetBoolForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
+	istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
+	istiotest.SetForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
 
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,

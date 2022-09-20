@@ -570,7 +570,7 @@ func splitOutput(configs []config.Config) OutputResources {
 
 func splitInput(configs []config.Config) KubernetesResources {
 	out := KubernetesResources{}
-	namespaces := sets.New()
+	namespaces := sets.New[string]()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
 		switch c.GroupVersionKind {

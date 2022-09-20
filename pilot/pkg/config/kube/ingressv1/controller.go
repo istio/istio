@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
@@ -93,10 +94,12 @@ type controller struct {
 	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes ingressinformer.IngressClassInformer
+
+	started atomic.Bool
 }
 
 // TODO: move to features ( and remove in 1.2 )
-var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
+var ingressNamespace = env.Register("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
@@ -133,6 +136,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
+	c.started.Store(true)
 	c.queue.Run(stop)
 }
 
@@ -256,6 +260,10 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 		errs = multierror.Append(err, errs)
 	}
 	return errs
+}
+
+func (c *controller) HasStarted() bool {
+	return c.started.Load()
 }
 
 func (c *controller) HasSynced() bool {

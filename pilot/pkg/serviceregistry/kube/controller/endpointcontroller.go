@@ -106,13 +106,15 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.E
 			endpoints = epc.buildIstioEndpoints(ep, hostName)
 		}
 
-		svc := c.GetService(hostName)
-		if svc != nil {
-			fep := c.collectWorkloadInstanceEndpoints(svc)
-			endpoints = append(endpoints, fep...)
-		} else {
-			log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
-				namespacedName.Namespace, namespacedName.Name)
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			svc := c.GetService(hostName)
+			if svc != nil {
+				fep := c.collectWorkloadInstanceEndpoints(svc)
+				endpoints = append(endpoints, fep...)
+			} else {
+				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
+					namespacedName.Namespace, namespacedName.Name)
+			}
 		}
 
 		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)

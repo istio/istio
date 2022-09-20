@@ -196,8 +196,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		test.SetBoolForTest(t, &features.EnableProtocolSniffingForInbound, tc.sniffingEnabledForInbound)
-		test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
+		test.SetForTest(t, &features.EnableProtocolSniffingForInbound, tc.sniffingEnabledForInbound)
+		test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
 		settingsName := "default"
 		if settings != nil {
@@ -445,7 +445,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
 			c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 				buildTestClusters(clusterTest{
@@ -1315,7 +1315,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
-	test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1756,8 +1756,8 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			test.SetBoolForTest(t, &features.FilterGatewayClusterConfig, false)
-			test.SetBoolForTest(t, &features.EnableRedisFilter, tt.redisEnabled)
+			test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
+			test.SetForTest(t, &features.EnableRedisFilter, tt.redisEnabled)
 			cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{service}})
 			clusters := cg.Clusters(cg.SetupProxy(&model.Proxy{Type: model.Router}))
 			xdstest.ValidateClusters(t, clusters)
@@ -1961,7 +1961,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			}
 
 			if tt.port != nil && tt.port.Protocol == protocol.Redis {
-				test.SetBoolForTest(t, &features.EnableRedisFilter, true)
+				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
 			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
@@ -2649,7 +2649,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			test.SetBoolForTest(t, &features.VerifyCertAtClient, testCase.verifyCertAtClient)
+			test.SetForTest(t, &features.VerifyCertAtClient, testCase.verifyCertAtClient)
 			selectTrafficPolicyComponents(testCase.policy)
 			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
 				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)

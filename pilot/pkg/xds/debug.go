@@ -888,12 +888,13 @@ type PushContextDebug struct {
 // pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
 	push := PushContextDebug{}
-	if s.globalPushContext() == nil {
+	pc := s.globalPushContext()
+	if pc == nil {
 		return
 	}
-	push.AuthorizationPolicies = s.globalPushContext().AuthzPolicies
-	if s.globalPushContext().NetworkManager() != nil {
-		push.NetworkGateways = s.globalPushContext().NetworkManager().GatewaysByNetwork()
+	push.AuthorizationPolicies = pc.AuthzPolicies
+	if pc.NetworkManager() != nil {
+		push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
 	}
 
 	writeJSON(w, push, req)
@@ -964,6 +965,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	if s.Generators[v3.NameTableType] != nil {
 		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
 			Push: con.proxy.LastPushContext,
+			Full: true,
 		})
 		if len(nds) == 0 {
 			return

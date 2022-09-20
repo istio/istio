@@ -203,12 +203,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
 func filteredSidecarCipherSuites(suites []string) []string {
 	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New()
+	validCiphers := sets.New[string]()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			if !validCiphers.Contains(s) {
+			if !validCiphers.InsertContains(s) {
 				ret = append(ret, s)
-				validCiphers = validCiphers.Insert(s)
 			} else if log.DebugEnabled() {
 				log.Debugf("ignoring duplicated cipherSuite: %q", s)
 			}
@@ -1066,6 +1065,7 @@ type httpListenerOpts struct {
 	http3Only bool
 
 	class istionetworking.ListenerClass
+	port  int
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1348,6 +1348,9 @@ func (ml *MutableListener) build(builder *ListenerBuilder, opts buildListenerOpt
 			// If statPrefix has been set before calling this method, respect that.
 			if len(opt.httpOpts.statPrefix) == 0 {
 				opt.httpOpts.statPrefix = strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
+			}
+			if opts.port != nil {
+				opt.httpOpts.port = opts.port.Port
 			}
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{

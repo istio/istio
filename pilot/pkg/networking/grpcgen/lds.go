@@ -260,6 +260,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 			m, err := authzmodel.New(rule)
 			if err != nil {
 				log.Warn("Invalid rule ", rule, err)
+				continue
 			}
 			generated, _ := m.Generate(false, a)
 			rules.Policies[name] = generated
@@ -351,8 +352,8 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 type listenerNames map[string]listenerName
 
 type listenerName struct {
-	RequestedNames sets.Set
-	Ports          sets.Set
+	RequestedNames sets.String
+	Ports          sets.String
 }
 
 func (ln *listenerName) includesPort(port string) bool {
@@ -407,7 +408,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 		for _, name := range allNames {
 			ln, ok := filter[name]
 			if !ok {
-				ln = listenerName{RequestedNames: sets.New()}
+				ln = listenerName{RequestedNames: sets.New[string]()}
 			}
 			ln.RequestedNames.Insert(requestedName)
 

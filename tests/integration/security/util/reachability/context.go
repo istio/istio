@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util"
 )
 
 // TestCase represents reachability test cases.
@@ -64,8 +64,36 @@ type TestCase struct {
 	SkippedForMulticluster bool
 }
 
+var (
+	A             echo.Instances
+	B             echo.Instances
+	C             echo.Instances
+	D             echo.Instances
+	E             echo.Instances
+	Multiversion  echo.Instances
+	VM            echo.Instances
+	External      echo.Instances
+	Naked         echo.Instances
+	Headless      echo.Instances
+	HeadlessNaked echo.Instances
+)
+
+const (
+	ASvc             = "a"
+	BSvc             = "b"
+	CSvc             = "c"
+	DSvc             = "d"
+	ESvc             = "e"
+	MultiversionSvc  = "multiversion"
+	VMSvc            = "vm"
+	HeadlessSvc      = "headless"
+	NakedSvc         = "naked"
+	HeadlessNakedSvc = "headless-naked"
+	ExternalSvc      = "external"
+)
+
 // Run runs the given reachability test cases with the context.
-func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeployments) {
+func Run(testCases []TestCase, t framework.TestContext) {
 	callOptions := []echo.CallOptions{
 		{
 			Port: echo.Port{
@@ -111,21 +139,21 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return cfg.Apply(apply.Wait)
 			})
-			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
+			for _, clients := range []echo.Instances{A, B, Headless, Naked, HeadlessNaked} {
 				for _, from := range clients {
 					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
 						from.Config().Service, from.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 						destinationSets := []echo.Instances{
-							apps.A,
-							apps.B,
+							A,
+							B,
 							// only hit same network headless services
-							match.Network(from.Config().Cluster.NetworkName()).GetMatches(apps.Headless),
+							match.Network(from.Config().Cluster.NetworkName()).GetMatches(Headless),
 							// only hit same cluster multiversion services
-							match.Cluster(from.Config().Cluster).GetMatches(apps.Multiversion),
+							match.Cluster(from.Config().Cluster).GetMatches(Multiversion),
 							// only hit same cluster naked services
-							match.Cluster(from.Config().Cluster).GetMatches(apps.Naked),
-							apps.VM,
+							match.Cluster(from.Config().Cluster).GetMatches(Naked),
+							VM,
 						}
 
 						for _, to := range destinationSets {
@@ -214,4 +242,34 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 // However, no endpoint exists for VM in k8s, so calls from naked->VM will fail, regardless of mTLS
 func isNakedToVM(from echo.Instance, to echo.Target) bool {
 	return from.Config().IsNaked() && to.Config().IsVM()
+}
+
+func CreateCustomInstances(apps *deployment.SingleNamespaceView) error {
+	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+		switch {
+		case namespacedName.Name == ASvc:
+			A = apps.EchoNamespace.All[index]
+		case namespacedName.Name == BSvc:
+			B = apps.EchoNamespace.All[index]
+		case namespacedName.Name == CSvc:
+			C = apps.EchoNamespace.All[index]
+		case namespacedName.Name == DSvc:
+			D = apps.EchoNamespace.All[index]
+		case namespacedName.Name == ESvc:
+			E = apps.EchoNamespace.All[index]
+		case namespacedName.Name == HeadlessSvc:
+			Headless = apps.EchoNamespace.All[index]
+		case namespacedName.Name == HeadlessNakedSvc:
+			HeadlessNaked = apps.EchoNamespace.All[index]
+		case namespacedName.Name == ExternalSvc:
+			External = apps.EchoNamespace.All[index]
+		case namespacedName.Name == NakedSvc:
+			Naked = apps.EchoNamespace.All[index]
+		case namespacedName.Name == VMSvc:
+			VM = apps.EchoNamespace.All[index]
+		case namespacedName.Name == MultiversionSvc:
+			Multiversion = apps.EchoNamespace.All[index]
+		}
+	}
+	return nil
 }
