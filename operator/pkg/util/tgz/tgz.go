@@ -107,7 +107,10 @@ func Extract(gzipStream io.Reader, destination string) error {
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return fmt.Errorf("copy: %v", err)
 			}
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				return fmt.Errorf("close: %v", err)
+			}
+
 		default:
 			return fmt.Errorf("uknown type: %v in %v", header.Typeflag, header.Name)
 		}
