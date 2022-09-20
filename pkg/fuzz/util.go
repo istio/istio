@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	fuzzheaders "github.com/AdaLogics/go-fuzz-headers"
+
+	"istio.io/istio/pkg/test"
 )
 
 const panicPrefix = "go-fuzz-skip: "
@@ -44,7 +46,7 @@ type Validator interface {
 //		}
 //
 // To avoid needing to call BaseCases and Finalize everywhere.
-func Fuzz(f *testing.F, ff func(fg Helper)) {
+func Fuzz(f test.Fuzzer, ff func(fg Helper)) {
 	BaseCases(f)
 	f.Fuzz(func(t *testing.T, data []byte) {
 		defer Finalize()
@@ -117,7 +119,7 @@ func validate[T any](h Helper, validators []func(T) bool, r T) {
 }
 
 // BaseCases inserts a few trivial test cases to do a very brief sanity check of a test that relies on []byte inputs
-func BaseCases(f Fuzzer) {
+func BaseCases(f test.Fuzzer) {
 	for _, c := range [][]byte{
 		{},
 		[]byte("."),
@@ -125,12 +127,6 @@ func BaseCases(f Fuzzer) {
 	} {
 		f.Add(c)
 	}
-}
-
-// Fuzzer abstracts *testing.F to handle oss-fuzz's (temporary) workaround to support native fuzzing,
-// which utilizes a custom type.
-type Fuzzer interface {
-	Add(args ...any)
 }
 
 // Returns the underlying testing.T. Should be avoided where possible; in oss-fuzz many functions do not work.
