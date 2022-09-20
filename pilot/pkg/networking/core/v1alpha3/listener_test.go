@@ -89,6 +89,7 @@ var (
 		},
 		ConfigNamespace: "not-default",
 	}
+	// this proxy is a dual stack proxy which holds ipv4 and ipv6 addresses
 	dualStackProxy = model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
