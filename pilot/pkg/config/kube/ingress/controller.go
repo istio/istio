@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/go-multierror"
 	ingress "k8s.io/api/networking/v1beta1"
@@ -95,6 +96,8 @@ type controller struct {
 	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes v1beta1.IngressClassInformer
+
+	started atomic.Bool
 }
 
 // TODO: move to features ( and remove in 1.2 )
@@ -180,7 +183,12 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	return c
 }
 
+func (c *controller) HasStarted() bool {
+	return c.started.Load()
+}
+
 func (c *controller) Run(stop <-chan struct{}) {
+	c.started.Store(true)
 	c.queue.Run(stop)
 }
 

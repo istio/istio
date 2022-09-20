@@ -695,6 +695,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		},
 		protocol:   cc.port.Protocol,
 		class:      istionetworking.ListenerClassSidecarInbound,
+		port:       int(cc.port.TargetPort),
 		statPrefix: cc.StatPrefix(),
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy

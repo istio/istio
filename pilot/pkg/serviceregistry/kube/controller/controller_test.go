@@ -1396,7 +1396,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 			// assert that namespace membership has been updated
 			eventually(t, func() bool {
 				members := discoveryNamespacesFilter.GetMembers()
-				return members.Has(nsA) && members.Has(nsB) && members.Has(nsC)
+				return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
 			})
 
 			// service event handlers should trigger for all svcs

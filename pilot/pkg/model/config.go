@@ -96,7 +96,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
-	ret := sets.New()
+	ret := sets.New[string]()
 
 	for conf := range configs {
 		if conf.Kind == kind {
@@ -194,7 +194,12 @@ type ConfigStoreController interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
+
+	// SetWatchErrorHandler should be call if store has started
 	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
+
+	// HasStarted return ture after store started.
+	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool

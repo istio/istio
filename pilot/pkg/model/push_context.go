@@ -356,9 +356,9 @@ type PushRequest struct {
 // ResourceDelta records the difference in requested resources by an XDS client
 type ResourceDelta struct {
 	// Subscribed indicates the client requested these additional resources
-	Subscribed sets.Set
+	Subscribed sets.String
 	// Unsubscribed indicates the client no longer requires these resources
-	Unsubscribed sets.Set
+	Unsubscribed sets.String
 }
 
 func (rd ResourceDelta) IsEmpty() bool {
@@ -706,16 +706,16 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.IntSet {
+func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
 
-	out := make(map[string]sets.IntSet)
+	out := make(map[string]sets.Set[int])
 
 	addDestination := func(host string, port *networking.PortSelector) {
 		if _, ok := out[host]; !ok {
-			out[host] = make(sets.IntSet)
+			out[host] = sets.New[int]()
 		}
 		if port != nil {
 			out[host].Insert(int(port.Number))
@@ -765,7 +765,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := sets.New()
+	hostsFromGateways := sets.New[string]()
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
@@ -802,8 +802,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func getHostsFromMeshConfig(ps *PushContext) sets.Set {
-	hostsFromMeshConfig := sets.New()
+func getHostsFromMeshConfig(ps *PushContext) sets.String {
+	hostsFromMeshConfig := sets.New[string]()
 
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
@@ -1442,7 +1442,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			var accounts sets.Set
+			var accounts sets.String
 			func() {
 				// First get endpoint level service accounts
 				shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
@@ -1843,8 +1843,13 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 	return nil
 }
 
-// WasmPlugins return the WasmPluginWrappers of a proxy
+// WasmPlugins return the WasmPluginWrappers of a proxy.
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
+	return ps.WasmPluginsByListenerInfo(proxy, anyListener)
+}
+
+// WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
+func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo) map[extensions.PluginPhase][]*WasmPluginWrapper {
 	if proxy == nil {
 		return nil
 	}
@@ -1855,7 +1860,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
+			if plugin.MatchListener(proxy.Labels, info) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1864,7 +1869,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
+			if plugin.MatchListener(proxy.Labels, info) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}

@@ -574,9 +574,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		return
 	}
 
-	invalidCiphers := sets.New()
-	validCiphers := sets.New()
-	duplicateCiphers := sets.New()
+	invalidCiphers := sets.New[string]()
+	validCiphers := sets.New[string]()
+	duplicateCiphers := sets.New[string]()
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
@@ -702,7 +702,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithSelector bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
-		exportToSet := sets.New()
+		exportToSet := sets.New[string]()
 		for _, e := range exportTo {
 			key := e
 			if visibility.Instance(e) == visibility.Private {
@@ -3814,6 +3814,7 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),
+			validateWasmPluginMatch(spec.Match),
 		)
 		return errs.Unwrap()
 	})
@@ -3856,7 +3857,7 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 		return nil
 	}
 
-	keys := sets.New()
+	keys := sets.New[string]()
 	for _, env := range vm.Env {
 		if env == nil {
 			continue
@@ -3871,5 +3872,22 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 		}
 	}
 
+	return nil
+}
+
+func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector) error {
+	if len(selectors) == 0 {
+		return nil
+	}
+	for selIdx, sel := range selectors {
+		for portIdx, port := range sel.Ports {
+			if port == nil {
+				return fmt.Errorf("spec.Match[%d].Ports[%d] is nil", selIdx, portIdx)
+			}
+			if port.GetNumber() <= 0 || port.GetNumber() > 65535 {
+				return fmt.Errorf("spec.Match[%d].Ports[%d] is out of range: %d", selIdx, portIdx, port.GetNumber())
+			}
+		}
+	}
 	return nil
 }

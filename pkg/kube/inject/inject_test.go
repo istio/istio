@@ -311,7 +311,7 @@ func TestInjection(t *testing.T) {
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
-	alreadyTested := sets.New()
+	alreadyTested := sets.New[string]()
 	for _, t := range cases {
 		if t.want != "" {
 			alreadyTested.Insert(t.want)
@@ -329,7 +329,7 @@ func TestInjection(t *testing.T) {
 	// Automatically add any other test files in the folder. This ensures we don't
 	// forget to add to this list, that we don't have duplicates, etc
 	// Keep track of all golden files so we can ensure we don't have unused ones later
-	allOutputFiles := sets.New()
+	allOutputFiles := sets.New[string]()
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".injected") {
 			allOutputFiles.Insert(f.Name())
