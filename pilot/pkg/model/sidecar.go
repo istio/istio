@@ -100,7 +100,7 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name][]*ConsolidatedDestRule
+	destinationRules map[host.Name]map[string][]*ConsolidatedDestRule
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -187,7 +187,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRules:   make(map[host.Name]map[string][]*ConsolidatedDestRule),
 		servicesByHostname: make(map[host.Name]map[string]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[ConfigHash]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
@@ -212,26 +212,28 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.servicesByHostname[s.Hostname] = make(map[string]*Service)
 		}
 		out.servicesByHostname[s.Hostname][s.Attributes.Namespace] = s
-		if dr := ps.destinationRule(configNamespace, s); dr != nil {
-			out.destinationRules[s.Hostname] = dr
+		if drs := ps.destinationRule(configNamespace, s); len(drs) != 0 {
+			ns := drs[0].GetRule().Namespace
+			if out.destinationRules[s.Hostname] == nil {
+				out.destinationRules[s.Hostname] = make(map[string][]*ConsolidatedDestRule)
+			}
+			out.destinationRules[s.Hostname][ns] = drs
+
+			for _, dr := range drs {
+				for _, namespacedName := range dr.from {
+					out.AddConfigDependencies(ConfigKey{
+						Kind:      kind.DestinationRule,
+						Name:      namespacedName.Name,
+						Namespace: namespacedName.Namespace,
+					}.HashCode())
+				}
+			}
 		}
 		out.AddConfigDependencies(ConfigKey{
 			Kind:      kind.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
 		}.HashCode())
-	}
-
-	for _, drList := range out.destinationRules {
-		for _, dr := range drList {
-			for _, namespacedName := range dr.from {
-				out.AddConfigDependencies(ConfigKey{
-					Kind:      kind.DestinationRule,
-					Name:      namespacedName.Name,
-					Namespace: namespacedName.Namespace,
-				}.HashCode())
-			}
-		}
 	}
 
 	for _, el := range out.EgressListeners {
@@ -413,15 +415,19 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]map[string]*Service, len(out.services))
-	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
+	out.destinationRules = make(map[host.Name]map[string][]*ConsolidatedDestRule)
 	for _, s := range out.services {
 		if out.servicesByHostname[s.Hostname] == nil {
 			out.servicesByHostname[s.Hostname] = make(map[string]*Service)
 		}
 		out.servicesByHostname[s.Hostname][s.Attributes.Namespace] = s
 		drList := ps.destinationRule(configNamespace, s)
-		if drList != nil {
-			out.destinationRules[s.Hostname] = drList
+		if len(drList) != 0 {
+			ns := drList[0].GetRule().Namespace
+			if out.destinationRules[s.Hostname] == nil {
+				out.destinationRules[s.Hostname] = make(map[string][]*ConsolidatedDestRule)
+			}
+			out.destinationRules[s.Hostname][ns] = drList
 			for _, dr := range drList {
 				for _, key := range dr.from {
 					out.AddConfigDependencies(ConfigKey{
@@ -577,49 +583,51 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 	if svc == nil {
 		return nil
 	}
-	
+
 	// select destinationrule with priority order:
 	// 1. same namespace as the proxy, and with workload selector
 	// 2. same namespace as the proxy
-	// 3. same namespace as the service
-	// 4. others
-
-	destinationRules := sc.destinationRules[svc.Hostname]
 	var proxyNamespaceDrs, svcNamespaceDrs, catchAllDrs []*ConsolidatedDestRule
+	destinationRules := sc.destinationRules[svc.Hostname][sc.Namespace]
 	for _, destRule := range destinationRules {
 		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
 		if destinationRule.GetWorkloadSelector() == nil {
-			if sc.Namespace == destRule.rule.Namespace {
-				proxyNamespaceDrs = append(proxyNamespaceDrs, destRule)
-				continue
-			}
-			if svc.Attributes.Namespace == destRule.rule.Namespace {
-				svcNamespaceDrs = append(svcNamespaceDrs, destRule)
-				continue
-			}
-			catchAllDrs = append(catchAllDrs, destRule)
+			proxyNamespaceDrs = append(proxyNamespaceDrs, destRule)
 		}
-		// filter DestinationRule based on workloadSelector for outbound configs.
-		// WorkloadSelector configuration is honored only for outbound configuration, because
-		// for inbound configuration, the settings at sidecar would be more explicit and the preferred way forward.
-		if sc.Namespace == destRule.rule.Namespace &&
-			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
+		if destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
 			if workloadSelector.SubsetOf(proxy.Labels) {
+				// 1
 				return destRule
 			}
 		}
 	}
-
+	// 2
 	if len(proxyNamespaceDrs) > 0 {
 		return proxyNamespaceDrs[0]
 	}
-	if len(svcNamespaceDrs) > 0 {
-		return svcNamespaceDrs[0]
+
+	// 3. same namespace as the service
+	destinationRules = sc.destinationRules[svc.Hostname][svc.Attributes.Namespace]
+	for _, destRule := range destinationRules {
+		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
+		if destinationRule.GetWorkloadSelector() == nil {
+			return destRule
+		}
 	}
-	if len(catchAllDrs) > 0 {
-		return catchAllDrs[0]
+
+	// 4. other namespaces catch all rules
+	for ns, drs := range sc.destinationRules[svc.Hostname] {
+		if ns == sc.Namespace || ns == svc.Attributes.Namespace {
+			continue
+		}
+		for _, destRule := range drs {
+			destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
+			if destinationRule.GetWorkloadSelector() == nil {
+				return destRule
+			}
+		}
 	}
 	return nil
 }
