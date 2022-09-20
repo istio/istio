@@ -495,6 +495,13 @@ var (
 		},
 	}
 
+	configs22 = &config.Config{
+		Meta: config.Meta{
+			Name:      "sidecar-scope-different-ns",
+			Namespace: "unique-ns",
+		},
+		Spec: &networking.Sidecar{},
+	}
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -891,6 +898,12 @@ var (
 				Namespace: "mynamespace",
 			},
 		},
+		{
+			Hostname: "httpbin.org",
+			Attributes: ServiceAttributes{
+				Namespace: "anotherNs",
+			},
+		},
 	}
 
 	services21 = []*Service{
@@ -1177,31 +1190,32 @@ func TestCreateSidecarScope(t *testing.T) {
 		virtualServices []config.Config
 		// list of services expected to be in the listener
 		excpectedServices []*Service
-		expectedDr        *config.Config
+
+		// get dr for this service
+		svc        *Service
+		expectedDr *config.Config
 	}{
 		{
-			"no-sidecar-config",
-			nil,
-			nil,
-			nil,
-			nil,
-			nil,
+			name:              "no-sidecar-config",
+			sidecarConfig:     nil,
+			services:          nil,
+			virtualServices:   nil,
+			excpectedServices: nil,
+			expectedDr:        nil,
 		},
 		{
 			"no-sidecar-config-with-service",
 			nil,
 			services1,
 			nil,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-			},
+			services1,
+			nil,
 			nil,
 		},
 		{
 			"sidecar-with-multiple-egress",
 			configs1,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1212,12 +1226,8 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs1,
 			services1,
 			nil,
-
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-			},
+			services1,
+			nil,
 			nil,
 		},
 		{
@@ -1234,6 +1244,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-multiple-service",
@@ -1249,10 +1260,12 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-zero-egress",
 			configs2,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1272,10 +1285,12 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
 			configs3,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1295,6 +1310,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport-with-services",
@@ -1310,6 +1326,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-match-with-services-with-and-without-port",
@@ -1321,6 +1338,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "bar",
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1335,6 +1353,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-merges-service-ports",
@@ -1347,6 +1366,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    twoPorts,
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1369,6 +1389,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"two-egresslisteners-one-with-port-and-without-port",
@@ -1385,6 +1406,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		// Validates when service is scoped to Sidecar, it uses service port rather than listener port.
 		{
@@ -1398,6 +1420,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1423,6 +1446,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1465,6 +1489,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"wild-card-egress-listener-match-with-two-ports",
@@ -1490,6 +1515,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"http-proxy-protocol-matches-any-port",
@@ -1508,6 +1534,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service",
@@ -1525,6 +1552,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-ports",
@@ -1537,6 +1565,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1555,6 +1584,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-tcp-virtual-service-ports",
@@ -1568,6 +1598,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-tls-virtual-service-ports",
@@ -1580,6 +1611,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7000,
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1600,6 +1632,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-prefer-config-namespace",
@@ -1616,6 +1649,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1636,6 +1670,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-pick-public",
@@ -1655,6 +1690,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-bad-host",
@@ -1668,6 +1704,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destination-port-missing-from-service",
@@ -1675,6 +1712,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services22,
 			virtualServices3,
 			[]*Service{},
+			nil,
 			nil,
 		},
 		{
@@ -1693,6 +1731,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-2-match-service-and-domain",
@@ -1709,6 +1748,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1727,6 +1767,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-scope-with-illegal-host",
@@ -1740,6 +1781,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-scope-with-specific-host",
@@ -1751,6 +1793,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "en.wikipedia.org",
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1767,20 +1810,15 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-scope-with-matching-workloadselector-dr",
 			configs18,
 			services20,
 			nil,
-			[]*Service{
-				{
-					Hostname: "httpbin.org",
-					Attributes: ServiceAttributes{
-						Namespace: "mynamespace",
-					},
-				},
-			},
+			services20,
+			services20[0],
 			&destinationRule2,
 		},
 		{
@@ -1788,15 +1826,27 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs19,
 			services20,
 			nil,
-			[]*Service{
-				{
-					Hostname: "httpbin.org",
-					Attributes: ServiceAttributes{
-						Namespace: "mynamespace",
-					},
-				},
-			},
+			services20,
+			services20[0],
 			&destinationRule4,
+		},
+		{
+			"sidecar-scope-with-no-dr-in-same-ns-select-select-from-svc-ns",
+			configs22,
+			services20,
+			nil,
+			services20,
+			services20[0],
+			&destinationRule4,
+		},
+		{
+			"sidecar-scope-with-no-dr-in-same-ns-select-select-from-svc-ns",
+			nil,
+			services20,
+			nil,
+			services20,
+			services20[1],
+			&destinationRule5,
 		},
 		{
 			"sidecar-scope-same-workloadselector-labels-drs-should-be-merged",
@@ -1811,6 +1861,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			services20[0],
 			&mergedDr1and3,
 		},
 		{
@@ -1890,7 +1941,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			sidecarConfig := tt.sidecarConfig
-			sidecarScope := ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
+			var sidecarScope *SidecarScope
+			if sidecarConfig != nil && sidecarConfig.Namespace != "" {
+				sidecarScope = ConvertToSidecarScope(ps, sidecarConfig, sidecarConfig.Namespace)
+			} else {
+				sidecarScope = ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
+			}
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
@@ -1943,7 +1999,7 @@ func TestCreateSidecarScope(t *testing.T) {
 						Labels:          tt.sidecarConfig.Labels,
 						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
 						ConfigNamespace: tt.sidecarConfig.Namespace,
-					}, services20[0]).GetRule()
+					}, tt.svc).GetRule()
 				assert.Equal(t, dr, tt.expectedDr)
 			}
 		})
