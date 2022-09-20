@@ -79,20 +79,6 @@ components:
        env:
        - name: GODEBUG
          value: gctrace=1
-       hpaSpec:
-          maxReplicas: 3
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-           - resource:
-               name: cpu
-               target:
-                 averageUtilization: 80
-                 type: Utilization
-             type: Resource
        nodeSelector:
           kubernetes.io/os: linux
        tolerations:
@@ -117,6 +103,10 @@ values:
   pilot:
     image: pilot
     autoscaleEnabled: true
+    autoscaleMax: 3
+    autoscaleMin: 1
+    cpu:
+      targetAverageUtilization: 80
     traceSampling: 1
 `,
 		},
@@ -281,20 +271,6 @@ spec:
           value: kubernetes.io/legacy-unknown
         - name: GODEBUG
           value: gctrace=1
-        hpaSpec:
-          minReplicas: 1
-          maxReplicas: 3
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-          - type: Resource
-            resource:
-              name: cpu
-              target:
-                averageUtilization: 80
-                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -399,20 +375,6 @@ spec:
         env:
         - name: GODEBUG
           value: gctrace=1
-        hpaSpec:
-          minReplicas: 1
-          maxReplicas: 3
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-          - type: Resource
-            resource:
-              name: cpu
-              target:
-                averageUtilization: 80
-                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -519,20 +481,6 @@ spec:
         env:
         - name: SPIFFE_BUNDLE_ENDPOINTS
           value: "SPIFFE_BUNDLE_ENDPOINT"
-        hpaSpec:
-          minReplicas: 1
-          maxReplicas: 3
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-          - type: Resource
-            resource:
-              name: cpu
-              target:
-                averageUtilization: 80
-                type: Utilization
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -642,20 +590,6 @@ spec:
           value: "false"
         - name: PROXY_XDS_DEBUG_VIA_AGENT
           value: "false"
-        hpaSpec:
-          minReplicas: 1
-          maxReplicas: 3
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-          - resource:
-              name: cpu
-              target:
-                averageUtilization: 80
-                type: Utilization
-            type: Resource
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -773,20 +707,6 @@ spec:
           value: "false"
         - name: PROXY_XDS_DEBUG_VIA_AGENT
           value: "false"
-        hpaSpec:
-          minReplicas: 1
-          maxReplicas: 3
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-          - resource:
-              name: cpu
-              target:
-                averageUtilization: 80
-                type: Utilization
-            type: Resource
         nodeSelector:
           master: "true"
           kubernetes.io/os: linux
@@ -924,21 +844,6 @@ spec:
   components:
     pilot:
       enabled: true
-      k8s:
-        hpaSpec:
-          maxReplicas: 3
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod-canary
-          metrics:
-          - resource:
-              name: cpu
-              target:
-                averageUtilization: 80
-                type: Utilization
-            type: Resource
   values:
     pilot:
       autoscaleMin: 1
