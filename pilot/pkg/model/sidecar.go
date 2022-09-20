@@ -89,8 +89,9 @@ type SidecarScope struct {
 	EgressListeners []*IstioEgressListenerWrapper
 
 	// Union of services imported across all egress listeners for use by CDS code.
-	services           []*Service
-	servicesByHostname map[host.Name]*Service
+	services []*Service
+	// services by hostname and namespace
+	servicesByHostname map[host.Name]map[string]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -187,7 +188,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name][]*ConsolidatedDestRule),
-		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		servicesByHostname: make(map[host.Name]map[string]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[ConfigHash]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
@@ -203,11 +204,14 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
 		// "domain squatting" on the hostname before a Kubernetes Service is created.
 		// This relies on the assumption that
-		if existing, f := out.servicesByHostname[s.Hostname]; f &&
+		if existing, f := out.servicesByHostname[s.Hostname][s.Attributes.Namespace]; f &&
 			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
 			continue
 		}
-		out.servicesByHostname[s.Hostname] = s
+		if out.servicesByHostname[s.Hostname] == nil {
+			out.servicesByHostname[s.Hostname] = make(map[string]*Service)
+		}
+		out.servicesByHostname[s.Hostname][s.Attributes.Namespace] = s
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
@@ -408,10 +412,13 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
+	out.servicesByHostname = make(map[host.Name]map[string]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
 	for _, s := range out.services {
-		out.servicesByHostname[s.Hostname] = s
+		if out.servicesByHostname[s.Hostname] == nil {
+			out.servicesByHostname[s.Hostname] = make(map[string]*Service)
+		}
+		out.servicesByHostname[s.Hostname][s.Attributes.Namespace] = s
 		drList := ps.destinationRule(configNamespace, s)
 		if drList != nil {
 			out.destinationRules[s.Hostname] = drList

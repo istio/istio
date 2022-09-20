@@ -860,9 +860,18 @@ func (ps *PushContext) GetAllServices() []*Service {
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
+// It returns the service in the proxy namespace in high priority.
 func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
 	if proxy != nil && proxy.SidecarScope != nil {
-		return proxy.SidecarScope.servicesByHostname[hostname]
+		// first return the service from proxy namespace
+		if proxy.SidecarScope.servicesByHostname[hostname][proxy.ConfigNamespace] != nil {
+			return proxy.SidecarScope.servicesByHostname[hostname][proxy.ConfigNamespace]
+		}
+		// return arbitrary service
+		for _, svc := range proxy.SidecarScope.servicesByHostname[hostname] {
+			return svc
+		}
+		return nil
 	}
 
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
@@ -873,6 +882,20 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 	// No service found
 	return nil
+}
+
+// ServiceForHostnameAndNamespace returns the service associated with a given hostname and namespace following SidecarScope
+func (ps *PushContext) ServiceForHostnameAndNamespace(proxy *Proxy, hostname host.Name, namespace string) *Service {
+	if proxy != nil && proxy.SidecarScope != nil {
+		if proxy.SidecarScope.servicesByHostname[hostname][namespace] != nil {
+			return proxy.SidecarScope.servicesByHostname[hostname][namespace]
+		}
+		return ps.ServiceForHostname(proxy, hostname)
+	}
+
+	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
+	// so the selection must be undefined.
+	return ps.ServiceIndex.HostnameAndNamespace[hostname][namespace]
 }
 
 // IsServiceVisible returns true if the input service is visible to the given namespace.
