@@ -85,8 +85,8 @@ type controller struct {
 	queue                  controllers.Queue
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
-
-	mutex sync.RWMutex
+	a                      atomic.Value
+	mutex                  sync.RWMutex
 	// processed ingresses
 	ingresses map[types.NamespacedName]*ingress.Ingress
 
