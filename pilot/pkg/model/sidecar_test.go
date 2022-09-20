@@ -1867,7 +1867,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = meshConfig
-			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, destinationRule4})
+			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, destinationRule4, destinationRule5})
 			if tt.services != nil {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
