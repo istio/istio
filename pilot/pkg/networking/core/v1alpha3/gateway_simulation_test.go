@@ -570,6 +570,7 @@ tls:
 					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_443",
 						VirtualHostMatched: "example.com:443",
+						RouteMatched:       "b.default:443",
 						RouteConfigMatched: "https.443.https.gateway.default",
 						ClusterMatched:     "outbound|443||b.default",
 						StrictMatch:        true,
