@@ -51,8 +51,8 @@ func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInf
 	return nil
 }
 
-func convertTypeURLToMCPGVK(typeUrl string) (config.GroupVersionKind, bool) {
-	parts := strings.SplitN(typeUrl, "/", 3)
+func convertTypeURLToMCPGVK(typeURL string) (config.GroupVersionKind, bool) {
+	parts := strings.SplitN(typeURL, "/", 3)
 	if len(parts) != 3 {
 		return config.GroupVersionKind{}, false
 	}
