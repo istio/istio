@@ -446,7 +446,7 @@ func (a *ADSC) HasSynced() bool {
 	defer a.mutex.RUnlock()
 
 	for _, req := range a.cfg.InitialDiscoveryRequests {
-		_, isMCP := convertTypeUrlToMCPGVK(req.TypeUrl)
+		_, isMCP := convertTypeURLToMCPGVK(req.TypeUrl)
 		if !isMCP {
 			continue
 		}
@@ -502,7 +502,7 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Group-value-kind - used for high level api generator.
-		gvk, isMCP := convertTypeUrlToMCPGVK(msg.TypeUrl)
+		gvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
 		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
 			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
