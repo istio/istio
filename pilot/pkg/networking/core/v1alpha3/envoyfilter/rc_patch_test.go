@@ -960,7 +960,7 @@ func TestPatchHTTPRoute(t *testing.T) {
 		portMap            model.GatewayPortMap
 	}
 	obj := &route.Route{}
-	if err := xds.GogoStructToMessage(buildPatchStruct(`{"route": { "prefix_rewrite": "/foo"}}`), obj, false); err != nil {
+	if err := xds.StructToMessage(buildPatchStruct(`{"route": { "prefix_rewrite": "/foo"}}`), obj, false); err != nil {
 		t.Errorf("GogoStructToMessage error %v", err)
 	}
 	tests := []struct {
