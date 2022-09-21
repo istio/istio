@@ -212,12 +212,12 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 	return nil
 }
 
-func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	cl.handlers[kind] = append(cl.handlers[kind], handler)
-}
-
 func (cl *Client) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
 	cl.namespacesFilter = filter
+}
+
+func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
+	cl.handlers[kind] = append(cl.handlers[kind], handler)
 }
 
 func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -325,8 +325,8 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		return nil
 	}
 
-	obj, err := h.lister(namespace).Get(name)
-	if err != nil {
+	obj, err := h.lister.Get(namespace, name)
+	if obj == nil || err != nil {
 		// TODO we should be returning errors not logging
 		cl.logger.Warnf("error on get %v/%v: %v", name, namespace, err)
 		return nil
@@ -402,15 +402,12 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 		return nil, nil
 	}
 
-	list, err := h.lister(namespace).List(klabels.Everything())
+	list, err := h.lister.List(namespace, klabels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
-		if namespace == model.NamespaceAll && cl.namespacesFilter != nil && !cl.namespacesFilter(item) {
-			continue
-		}
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
 		if cl.objectInRevision(&cfg) {
 			out = append(out, cfg)

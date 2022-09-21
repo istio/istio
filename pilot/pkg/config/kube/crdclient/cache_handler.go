@@ -15,6 +15,7 @@
 package crdclient
 
 import (
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
@@ -33,7 +34,7 @@ type cacheHandler struct {
 	client   *Client
 	informer cache.SharedIndexInformer
 	schema   collection.Schema
-	lister   func(namespace string) cache.GenericNamespaceLister
+	lister   *filteredLister
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
@@ -77,6 +78,36 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 	return nil
 }
 
+type filteredLister struct {
+	filterFunc func(obj any) bool
+	lister     func(namespace string) cache.GenericNamespaceLister
+}
+
+func (w filteredLister) List(namespace string, selector klabels.Selector) ([]runtime.Object, error) {
+	unfiltered, err := w.lister(namespace).List(selector)
+	if err != nil {
+		return unfiltered, err
+	}
+	var filtered []runtime.Object
+	for _, obj := range unfiltered {
+		if w.filterFunc(obj) {
+			filtered = append(filtered, obj)
+		}
+	}
+	return filtered, nil
+}
+
+func (w filteredLister) Get(namespace, name string) (item runtime.Object, err error) {
+	item, err = w.lister(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	if w.filterFunc(item) {
+		return item, nil
+	}
+	return nil, nil
+}
+
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
 	scope.Debugf("registered CRD %v", schema.Resource().GroupVersionKind())
 	h := &cacheHandler{
@@ -84,12 +115,17 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		schema:   schema,
 		informer: i.Informer(),
 	}
-	h.lister = func(namespace string) cache.GenericNamespaceLister {
+	lister := func(namespace string) cache.GenericNamespaceLister {
 		if schema.Resource().IsClusterScoped() {
 			return i.Lister()
 		}
 		return i.Lister().ByNamespace(namespace)
 	}
+	h.lister = &filteredLister{
+		filterFunc: cl.namespacesFilter,
+		lister:     lister,
+	}
+
 	kind := schema.Resource().Kind()
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {

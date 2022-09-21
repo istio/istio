@@ -346,7 +346,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCon
 	return crdclient.New(s.kubeClient, crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-		Identifier:   "crd-controller",
+
+		Identifier: "crd-controller",
 	})
 }
 
