@@ -34,6 +34,7 @@ import (
     	"k8s.io/apimachinery/pkg/runtime"
     	"k8s.io/apimachinery/pkg/types"
     	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
     	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
     	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -56,11 +57,18 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 	switch cfg.GroupVersionKind {
 {{- range . }}
   {{- if not .Readonly }}
-	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
+	case {{.TypeName}}:
+	{{- if .MultiVersion }}
+		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), (*{{.PreferredClientImport}}.{{ .Kind }})(&{{ .ClientImport }}.{{ .Kind }}{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
+		}), metav1.CreateOptions{})
+	{{- else }}
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
 		}, metav1.CreateOptions{})
+  {{- end }}
   {{- end }}
 {{- end }}
 	default:
@@ -72,11 +80,18 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 	switch cfg.GroupVersionKind {
 {{- range . }}
   {{- if not .Readonly }}
-	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
+	case {{.TypeName}}:
+	{{- if .MultiVersion }}
+		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), (*{{.PreferredClientImport}}.{{ .Kind }})(&{{ .ClientImport }}.{{ .Kind }}{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
+		}), metav1.UpdateOptions{})
+	{{- else }}
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
 		}, metav1.UpdateOptions{})
+  {{- end }}
   {{- end }}
 {{- end }}
 	default:
@@ -89,11 +104,18 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
     {{- range . }}
       {{- if not .Readonly }}
       {{ if .StatusKind }}
-    	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
+        case {{.TypeName}}:
+        {{- if .MultiVersion }}
+          return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).UpdateStatus(context.TODO(), (*{{.PreferredClientImport}}.{{ .Kind }})(&{{ .ClientImport }}.{{ .Kind }}{
+            ObjectMeta: objMeta,
+            Status:       *(cfg.Status.(*{{ .StatusAPIImport }}.{{ .StatusKind }})),
+          }), metav1.UpdateOptions{})
+        {{- else }}
     		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).UpdateStatus(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
     			ObjectMeta: objMeta,
     			Status:     *(cfg.Status.(*{{ .StatusAPIImport }}.{{ .StatusKind }})),
     		}, metav1.UpdateOptions{})
+        {{- end }}
       {{- end }}
       {{- end }}
     {{- end }}
@@ -110,7 +132,23 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 	switch orig.GroupVersionKind {
 {{- range . }}
   {{- if not .Readonly }}
-    case collections.{{ .VariableName }}.Resource().GroupVersionKind():
+    case {{.TypeName}}:
+        {{- if .MultiVersion }}
+        oldRes := &{{ .PreferredClientImport }}.{{ .Kind }}{
+            ObjectMeta: origMeta,
+            Spec:       *(orig.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
+        }
+        modRes := &{{ .PreferredClientImport }}.{{ .Kind }}{
+            ObjectMeta: modMeta,
+            Spec:       *(mod.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
+        }
+        patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+        if err != nil {
+            return nil, err
+        }
+        return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}orig.Namespace{{end}}).
+            Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+        {{- else }}
         oldRes := &{{ .ClientImport }}.{{ .Kind }}{
             ObjectMeta: origMeta,
             Spec:       *(orig.Spec.(*{{ .APIImport }}.{{ .ClientType }})),
@@ -125,6 +163,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
         }
         return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}orig.Namespace{{end}}).
             Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+        {{- end }}
   {{- end }}
 {{- end }}
 	default:
@@ -141,7 +180,7 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	switch typ {
 {{- range . }}
   {{- if not .Readonly }}
-	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
+  case {{.TypeName}}:
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}namespace{{end}}).Delete(context.TODO(), name, deleteOptions)
   {{- end }}
 {{- end }}
@@ -150,13 +189,31 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	}
 }
 
+{{- range . }}
+var {{.TypeName}} = config.GroupVersionKind{Group: "{{.Gvk.Group}}", Version: "{{.Gvk.Version}}", Kind: "{{.Gvk.Kind}}"}
+{{- end }}
+
 var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
 {{- range . }}
-	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
-		obj := r.(*{{ .ClientImport }}.{{ .Kind }})
+  {{ $tl := . }}
+	{{.TypeName}}: func(r runtime.Object) config.Config {
+    {{- if .MultiVersion }}
+    // Not primary
+    var obj *{{ .ClientImport }}.{{ .Kind }}
+    switch v := r.(type) {
+    {{- range $ver := .Versions }}
+      case *{{ $ver }}.{{ $tl.Kind }}:
+        obj = (*{{ $tl.ClientImport }}.{{ $tl.Kind }})(v)
+    {{- end }}
+      default:
+        panic(fmt.Sprintf("unknown type %T", v))
+    }
+    {{- else }}
+    obj := r.(*{{ .ClientImport }}.{{ .Kind }})
+    {{- end }}
 		return config.Config{
 		  Meta: config.Meta{
-		  	GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
+		  	GroupVersionKind:  {{.TypeName}},
 		  	Name:              obj.Name,
 		  	Namespace:         obj.Namespace,
 		  	Labels:            obj.Labels,

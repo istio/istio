@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/pkg/log"
 )
 
@@ -32,8 +31,14 @@ import (
 type cacheHandler struct {
 	client   *Client
 	informer cache.SharedIndexInformer
-	schema   collection.Schema
-	lister   func(namespace string) cache.GenericNamespaceLister
+	// preferredGvk is the GVK we use internally. This is typically the same as clusterGvk, unless
+	// we support multiple versions and the cluster we are connected to does not support or preferred version.
+	// All calls to the client will come in as preferredGvk types.
+	preferredGvk config.GroupVersionKind
+	// clusterGvk is the actually GVK in the cluster. This may differ from preferredGvk when using multiple versions.
+	// All reads and writes to the cluster will use this GVK.
+	clusterGvk config.GroupVersionKind
+	lister     func(namespace string) cache.GenericNamespaceLister
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
@@ -58,7 +63,7 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 		return nil
 	}
 
-	currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+	currConfig := TranslateObject(currItem, h.clusterGvk, h.client.domainSuffix)
 
 	var oldConfig config.Config
 	if old != nil {
@@ -67,30 +72,34 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 			log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", old, old)
 			return nil
 		}
-		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+		oldConfig = TranslateObject(oldItem, h.clusterGvk, h.client.domainSuffix)
 	}
 
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
-	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
+	for _, f := range h.client.handlers[h.clusterGvk] {
 		f(oldConfig, currConfig, event)
 	}
 	return nil
 }
 
-func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
-	scope.Debugf("registered CRD %v", schema.Resource().GroupVersionKind())
+func createCacheHandler(cl *Client, i informers.GenericInformer, preferredGvk, clusterGvk config.GroupVersionKind, clusterScoped bool) *cacheHandler {
+	scope.Debugf("registered CRD %v", preferredGvk)
 	h := &cacheHandler{
-		client:   cl,
-		schema:   schema,
-		informer: i.Informer(),
+		client:       cl,
+		clusterGvk:   clusterGvk,
+		preferredGvk: preferredGvk,
+		informer:     i.Informer(),
+	}
+	if preferredGvk != clusterGvk {
+		scope.Infof("preferred version %v is not available, reading %v", preferredGvk, clusterGvk)
 	}
 	h.lister = func(namespace string) cache.GenericNamespaceLister {
-		if schema.Resource().IsClusterScoped() {
+		if clusterScoped {
 			return i.Lister()
 		}
 		return i.Lister().ByNamespace(namespace)
 	}
-	kind := schema.Resource().Kind()
+	kind := preferredGvk.Kind
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")

@@ -77,11 +77,15 @@ var (
 	}
 )
 
+var StaticVersionTranslator = func(typ config.GroupVersionKind) config.GroupVersionKind {
+	return typ
+}
+
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, controller.Options{})
+	controller := NewController(clientSet, store, StaticVersionTranslator, controller.Options{})
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c, err := controller.List(typ, "ns1")
@@ -94,7 +98,7 @@ func TestListGatewayResourceType(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, controller.Options{})
+	controller := NewController(clientSet, store, StaticVersionTranslator, controller.Options{})
 
 	store.Create(config.Config{
 		Meta: config.Meta{
@@ -141,7 +145,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, controller.Options{})
+	controller := NewController(clientSet, store, StaticVersionTranslator, controller.Options{})
 
 	store.Create(config.Config{
 		Meta: config.Meta{

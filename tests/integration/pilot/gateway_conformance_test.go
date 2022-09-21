@@ -68,7 +68,10 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"GatewaySecretMissingReferencedSecret": "Not supported in this version of Istio",
+	"GatewayUnsupportedRouteKind":          "Not supported in this version of Istio",
+}
 
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck
@@ -136,7 +139,7 @@ func DeployGatewayAPICRD(ctx framework.TestContext) {
 	// Wait until our GatewayClass is ready
 	retry.UntilSuccessOrFail(ctx, func() error {
 		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+			_, err := c.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}

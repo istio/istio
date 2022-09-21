@@ -226,12 +226,13 @@ func (s *schemaImpl) Version() string {
 }
 
 func (s *schemaImpl) GroupVersionAliasKinds() []config.GroupVersionKind {
-	gvks := make([]config.GroupVersionKind, len(s.versionAliases))
-	for i, va := range s.versionAliases {
-		gvks[i] = s.gvk
-		gvks[i].Version = va
-	}
+	gvks := make([]config.GroupVersionKind, 0, len(s.versionAliases)+1)
 	gvks = append(gvks, s.GroupVersionKind())
+	for _, va := range s.versionAliases {
+		gvk := s.gvk
+		gvk.Version = va
+		gvks = append(gvks, gvk)
+	}
 	return gvks
 }
 

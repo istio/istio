@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,12 +37,13 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.ExtendedClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		createCRD(t, fake, s.Resource())
+		createCRD(t, fake, s.Resource(), nil)
 	}
 	stop := test.NewStop(t)
 	config, err := New(fake, "", "")
@@ -54,11 +56,27 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	return config, fake
 }
 
+func makeClientVersions(t *testing.T, schemas collection.Schemas, versions sets.Set) (model.ConfigStoreController, kube.ExtendedClient) {
+	fake := kube.NewFakeClient()
+	for _, s := range schemas.All() {
+		createCRD(t, fake, s.Resource(), versions)
+	}
+	stop := test.NewStop(t)
+	config, err := New(fake, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go config.Run(stop)
+	fake.RunAndWait(stop)
+	kube.WaitForCacheSync(stop, config.HasSynced)
+	retry.UntilOrFail(t, config.HasSynced, retry.Timeout(time.Second))
+	return config, fake
+}
+
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
 	store, _ := makeClient(t, schema)
-	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	configMeta := config.Meta{
 		Name:             "name",
@@ -97,7 +115,6 @@ func TestClientNoCRDs(t *testing.T) {
 func TestClientDelayedCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
 	store, fake := makeClient(t, schema)
-	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 
 	// Create a virtual service
@@ -130,7 +147,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 		return nil
 	}, retry.Timeout(time.Second*5), retry.Converge(5))
 
-	createCRD(t, fake, r)
+	createCRD(t, fake, r, nil)
 
 	retry.UntilSuccessOrFail(t, func() error {
 		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
@@ -149,120 +166,9 @@ func TestClientDelayedCRDs(t *testing.T) {
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
 	store, _ := makeClient(t, collections.PilotGatewayAPI.Union(collections.Kube))
-	configName := "name"
-	configNamespace := "namespace"
-	timeout := retry.Timeout(time.Millisecond * 200)
 	for _, c := range collections.PilotGatewayAPI.All() {
-		name := c.Resource().Kind()
-		t.Run(name, func(t *testing.T) {
-			r := c.Resource()
-			configMeta := config.Meta{
-				GroupVersionKind: r.GroupVersionKind(),
-				Name:             configName,
-			}
-			if !r.IsClusterScoped() {
-				configMeta.Namespace = configNamespace
-			}
-
-			pb, err := r.NewInstance()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := store.Create(config.Config{
-				Meta: configMeta,
-				Spec: pb,
-			}); err != nil {
-				t.Fatalf("Create(%v) => got %v", name, err)
-			}
-			// Kubernetes is eventually consistent, so we allow a short time to pass before we get
-			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
-				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
-					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
-				}
-				return nil
-			}, timeout)
-
-			// Validate it shows up in List
-			retry.UntilSuccessOrFail(t, func() error {
-				cfgs, err := store.List(r.GroupVersionKind(), configNamespace)
-				if err != nil {
-					return err
-				}
-				if len(cfgs) != 1 {
-					return fmt.Errorf("expected 1 config, got %v", len(cfgs))
-				}
-				for _, cfg := range cfgs {
-					if !reflect.DeepEqual(cfg.Meta, configMeta) {
-						return fmt.Errorf("get(%v) => got %v", name, cfg)
-					}
-				}
-				return nil
-			}, timeout)
-
-			// check we can update object metadata
-			annotations := map[string]string{
-				"foo": "bar",
-			}
-			configMeta.Annotations = annotations
-			if _, err := store.Update(config.Config{
-				Meta: configMeta,
-				Spec: pb,
-			}); err != nil {
-				t.Errorf("Unexpected Error in Update -> %v", err)
-			}
-			if r.StatusKind() != "" {
-				stat, err := r.Status()
-				if err != nil {
-					t.Fatal(err)
-				}
-				if _, err := store.UpdateStatus(config.Config{
-					Meta:   configMeta,
-					Status: stat,
-				}); err != nil {
-					t.Errorf("Unexpected Error in Update -> %v", err)
-				}
-			}
-			var cfg *config.Config
-			// validate it is updated
-			retry.UntilSuccessOrFail(t, func() error {
-				cfg = store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
-				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
-					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
-				}
-				return nil
-			})
-
-			// check we can patch items
-			var patchedCfg config.Config
-			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
-				cfg.Annotations["fizz"] = "buzz"
-				patchedCfg = cfg
-				return cfg, types.JSONPatchType
-			}); err != nil {
-				t.Errorf("unexpected err in Patch: %v", err)
-			}
-			// validate it is updated
-			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
-				if cfg == nil || !reflect.DeepEqual(cfg.Meta, patchedCfg.Meta) {
-					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
-				}
-				return nil
-			})
-
-			// Check we can remove items
-			if err := store.Delete(r.GroupVersionKind(), configName, configNamespace, nil); err != nil {
-				t.Fatalf("failed to delete: %v", err)
-			}
-			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configNamespace)
-				if cfg != nil {
-					return fmt.Errorf("get(%v) => got %v, expected item to be deleted", name, cfg)
-				}
-				return nil
-			}, timeout)
+		t.Run(c.Resource().Kind(), func(t *testing.T) {
+			runCRUDTest(t, c, store)
 		})
 	}
 
@@ -327,18 +233,146 @@ func TestClient(t *testing.T) {
 	})
 }
 
-func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
+func runCRUDTest(t *testing.T, c collection.Schema, store model.ConfigStoreController) {
+	configName := "name"
+	configNamespace := "namespace"
+	timeout := retry.Timeout(time.Millisecond * 200)
+	name := c.Resource().Kind()
+	r := c.Resource()
+	configMeta := config.Meta{
+		GroupVersionKind: r.GroupVersionKind(),
+		Name:             configName,
+	}
+	if !r.IsClusterScoped() {
+		configMeta.Namespace = configNamespace
+	}
+
+	pb, err := r.NewInstance()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.Create(config.Config{
+		Meta: configMeta,
+		Spec: pb,
+	}); err != nil {
+		t.Fatalf("Create(%v) => got %v", name, err)
+	}
+	// Kubernetes is eventually consistent, so we allow a short time to pass before we get
+	retry.UntilSuccessOrFail(t, func() error {
+		cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+		if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
+			return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+		}
+		return nil
+	}, timeout)
+
+	// Validate it shows up in List
+	retry.UntilSuccessOrFail(t, func() error {
+		cfgs, err := store.List(r.GroupVersionKind(), configNamespace)
+		if err != nil {
+			return err
+		}
+		if len(cfgs) != 1 {
+			return fmt.Errorf("expected 1 config, got %v", len(cfgs))
+		}
+		for _, cfg := range cfgs {
+			if !reflect.DeepEqual(cfg.Meta, configMeta) {
+				return fmt.Errorf("get(%v) => got %v", name, cfg)
+			}
+		}
+		return nil
+	}, timeout)
+
+	// check we can update object metadata
+	annotations := map[string]string{
+		"foo": "bar",
+	}
+	configMeta.Annotations = annotations
+	if _, err := store.Update(config.Config{
+		Meta: configMeta,
+		Spec: pb,
+	}); err != nil {
+		t.Errorf("Unexpected Error in Update -> %v", err)
+	}
+	if r.StatusKind() != "" {
+		stat, err := r.Status()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.UpdateStatus(config.Config{
+			Meta:   configMeta,
+			Status: stat,
+		}); err != nil {
+			t.Errorf("Unexpected Error in Update -> %v", err)
+		}
+	}
+	var cfg *config.Config
+	// validate it is updated
+	retry.UntilSuccessOrFail(t, func() error {
+		cfg = store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+		if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
+			return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+		}
+		return nil
+	})
+
+	// check we can patch items
+	var patchedCfg config.Config
+	if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
+		cfg.Annotations["fizz"] = "buzz"
+		patchedCfg = cfg
+		return cfg, types.JSONPatchType
+	}); err != nil {
+		t.Errorf("unexpected err in Patch: %v", err)
+	}
+	// validate it is updated
+	retry.UntilSuccessOrFail(t, func() error {
+		cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
+		if cfg == nil || !reflect.DeepEqual(cfg.Meta.Annotations, patchedCfg.Meta.Annotations) {
+			return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+		}
+		return nil
+	}, retry.Timeout(time.Second*5))
+
+	// Check we can remove items
+	if err := store.Delete(r.GroupVersionKind(), configName, configNamespace, nil); err != nil {
+		t.Fatalf("failed to delete: %v", err)
+	}
+	retry.UntilSuccessOrFail(t, func() error {
+		cfg := store.Get(r.GroupVersionKind(), configName, configNamespace)
+		if cfg != nil {
+			return fmt.Errorf("get(%v) => got %v, expected item to be deleted", name, cfg)
+		}
+		return nil
+	}, timeout)
+}
+
+func createCRD(t test.Failer, client kube.Client, r resource.Schema, versions sets.Set) {
 	t.Helper()
+	var vers []v1.CustomResourceDefinitionVersion
+	if versions.IsEmpty() {
+		versions = sets.New(r.GroupVersionKind().Version)
+	}
+	for v := range versions {
+		vers = append(vers, v1.CustomResourceDefinitionVersion{
+			Name:   v,
+			Served: true,
+		})
+	}
 	crd := &v1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s.%s", r.Plural(), r.Group()),
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Versions: vers,
 		},
 	}
 	if _, err := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Metadata client fake is not kept in sync, so if using a fake clinet update that as well
+	// Metadata client fake is not kept in sync, so if using a fake client update that as well
 	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
 	if !ok {
 		return
@@ -353,5 +387,27 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 		ObjectMeta: crd.ObjectMeta,
 	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Ensure that the client can run without CRDs present
+func TestClientClusterVersion(t *testing.T) {
+	versions := []sets.Set{
+		sets.New("v1alpha2"),
+		sets.New("v1beta1"),
+		sets.New("v1alpha2", "v1beta1"),
+	}
+	schema := collection.NewSchemasBuilder().
+		MustAdd(collections.K8SGatewayApiV1Beta1Httproutes).
+		MustAdd(collections.K8SGatewayApiV1Beta1Gateways).
+		MustAdd(collections.K8SGatewayApiV1Beta1Gatewayclasses).
+		Build()
+	for _, versions := range versions {
+		for _, res := range schema.All() {
+			t.Run(res.Resource().Kind()+"_"+strings.Join(versions.SortedList(), "-"), func(t *testing.T) {
+				store, _ := makeClientVersions(t, schema, versions)
+				runCRUDTest(t, res, store)
+			})
+		}
 	}
 }
