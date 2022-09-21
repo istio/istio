@@ -88,6 +88,9 @@ func (w filteredLister) List(namespace string, selector klabels.Selector) ([]run
 	if err != nil {
 		return unfiltered, err
 	}
+	if w.filterFunc == nil {
+		return unfiltered, nil
+	}
 	var filtered []runtime.Object
 	for _, obj := range unfiltered {
 		if w.filterFunc(obj) {
@@ -102,7 +105,7 @@ func (w filteredLister) Get(namespace, name string) (item runtime.Object, err er
 	if err != nil {
 		return nil, err
 	}
-	if w.filterFunc(item) {
+	if w.filterFunc == nil || w.filterFunc(item) {
 		return item, nil
 	}
 	return nil, nil

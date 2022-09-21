@@ -171,7 +171,7 @@ func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]con
 	if err != nil {
 		return nil, err
 	}
-	if namespace == model.NamespaceAll && c.namespacesFilter != nil {
+	if c.namespacesFilter != nil {
 		var out []config.Config
 		for _, config := range configs {
 			if c.namespacesFilter(config) {

@@ -85,7 +85,7 @@ func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]conf
 	if err != nil {
 		return nil, err
 	}
-	if namespace == model.NamespaceAll && s.namespacesFilter != nil {
+	if s.namespacesFilter != nil {
 		var out []config.Config
 		for _, config := range configs {
 			if s.namespacesFilter(config) {

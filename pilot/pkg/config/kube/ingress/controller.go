@@ -373,7 +373,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	ingressByHost := map[string]*config.Config{}
 
 	for _, ingress := range sortIngressByCreationTime(c.ingressInformer.GetStore().List()) {
-		if namespace == model.NamespaceAll && c.namespacesFilter != nil && !c.namespacesFilter(ingress) {
+		if c.namespacesFilter != nil && !c.namespacesFilter(ingress) {
 			continue
 		}
 		if namespace != "" && namespace != ingress.Namespace {
