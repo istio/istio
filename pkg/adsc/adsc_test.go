@@ -75,11 +75,11 @@ func TestADSC_Run(t *testing.T) {
 
 	descs := []testDesc{
 		{
-			desc:        "stream-no-resources",
+			desc:            "stream-no-resources",
 			initialRequests: []*xdsapi.DiscoveryRequest{},
 		},
 		{
-			desc:        "stream-2-unnamed-resources",
+			desc: "stream-2-unnamed-resources",
 			initialRequests: []*xdsapi.DiscoveryRequest{
 				{
 					TypeUrl: "foo",
@@ -90,7 +90,7 @@ func TestADSC_Run(t *testing.T) {
 			},
 		},
 		{
-			desc:        "stream-3-completed-mcp-resources",
+			desc:            "stream-3-completed-mcp-resources",
 			initialRequests: ConfigInitialRequests(),
 			validator: func(testCase testCase) error {
 				if !testCase.inAdsc.HasSynced() {
@@ -100,7 +100,7 @@ func TestADSC_Run(t *testing.T) {
 			},
 		},
 		{
-			desc:        "stream-4-uncompleted-mcp-resources",
+			desc:            "stream-4-uncompleted-mcp-resources",
 			initialRequests: ConfigInitialRequests(),
 			// XDS Server don't push this kind resource.
 			excludedResource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(),
@@ -488,9 +488,9 @@ func TestADSC_handleMCP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			gvk := config.GroupVersionKind{
-				Group: "networking.istio.io",
+				Group:   "networking.istio.io",
 				Version: "v1alpha3",
-				Kind: "ServiceEntry",
+				Kind:    "ServiceEntry",
 			}
 			adsc.handleMCP(gvk, tt.resources)
 			configs, _ := adsc.Store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), "")

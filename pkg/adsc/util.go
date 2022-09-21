@@ -16,10 +16,10 @@ package adsc
 
 import (
 	"crypto/tls"
-	"istio.io/istio/pkg/config/schema/collections"
 	"strings"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
 )
 
@@ -58,9 +58,9 @@ func convertTypeUrlToMCPGVK(typeUrl string) (config.GroupVersionKind, bool) {
 	}
 
 	gvk := config.GroupVersionKind{
-		Group: parts[0],
+		Group:   parts[0],
 		Version: parts[1],
-		Kind: parts[2],
+		Kind:    parts[2],
 	}
 
 	_, isMCP := collections.Pilot.FindByGroupVersionKind(gvk)
