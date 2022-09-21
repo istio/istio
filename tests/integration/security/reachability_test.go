@@ -46,7 +46,7 @@ const (
 	mtlsModeOverrideParam    = "MTLSModeOverride"
 	tlsModeParam             = "TLSMode"
 	cMinIstioVersion         = "1.15.0"
-	cMinIstioVersionDS       = "1.16.0"
+	// cMinIstioVersionDS       = "1.16.0"
 )
 
 func TestReachability(t *testing.T) {
@@ -81,7 +81,8 @@ func TestReachability(t *testing.T) {
 					},
 				}).BuildOrFail(t)
 			} else {
-				integIstioVersion = cMinIstioVersionDS
+				// TODO: remove the MinIstioVersion setting for dual stack integration test for next line
+				// integIstioVersion = cMinIstioVersionDS
 				// Create a custom echo deployment in NS1 with subsets that allows us to test the
 				// migration of a workload to istio (from no sidecar to sidecar).
 				migrationApp = deployment.New(t).
@@ -104,7 +105,7 @@ func TestReachability(t *testing.T) {
 					},
 					// TODO, the IPFamilies should be "IPv4, IPv6" and
 					// IPFamilyPolicy should be "RequireDualStack" once dual stack is totally supported
-					IPFamilies:     "IPv4",
+					// IPFamilies:     "IPv4",
 					IPFamilyPolicy: "SingleStack",
 				}).BuildOrFail(t)
 			}
