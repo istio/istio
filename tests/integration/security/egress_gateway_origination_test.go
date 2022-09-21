@@ -365,7 +365,7 @@ func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGatew
 }
 
 func newTLSGatewayTest(t framework.TestContext) *echotest.T {
-	return echotest.New(t, apps.Ns1.All.Instances()).
+	return echotest.New(t, apps.All.Instances()).
 		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.Namespace(apps.Ns1.Namespace),
