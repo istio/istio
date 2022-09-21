@@ -446,7 +446,8 @@ func (a *ADSC) HasSynced() bool {
 	defer a.mutex.RUnlock()
 
 	for _, req := range a.cfg.InitialDiscoveryRequests {
-		if strings.Count(req.TypeUrl, "/") != 3 {
+		_, isMCP := convertTypeUrlToMCPGVK(req.TypeUrl)
+		if !isMCP {
 			continue
 		}
 
@@ -501,7 +502,7 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Group-value-kind - used for high level api generator.
-		gvk := strings.SplitN(msg.TypeUrl, "/", 3)
+		gvk, isMCP := convertTypeUrlToMCPGVK(msg.TypeUrl)
 
 		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
 			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
@@ -571,7 +572,9 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleRDS(routes)
 		default:
-			a.handleMCP(gvk, msg.Resources)
+			if isMCP {
+				a.handleMCP(gvk, msg.Resources)
+			}
 		}
 
 		// If we got no resource - still save to the store with empty name/namespace, to notify sync
@@ -580,10 +583,9 @@ func (a *ADSC) handleRecv() {
 		// TODO: add hook to inject nacks
 
 		a.mutex.Lock()
-		if len(gvk) == 3 {
-			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
-			if _, exist := a.sync[gt.String()]; !exist {
-				a.sync[gt.String()] = time.Now()
+		if isMCP {
+			if _, exist := a.sync[gvk.String()]; !exist {
+				a.sync[gvk.String()] = time.Now()
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
@@ -1219,16 +1221,12 @@ func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	return a.eds
 }
 
-func (a *ADSC) handleMCP(gvk []string, resources []*anypb.Any) {
-	if len(gvk) != 3 {
-		return // Not MCP
-	}
+func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*anypb.Any) {
 	// Generic - fill up the store
 	if a.Store == nil {
 		return
 	}
 
-	groupVersionKind := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	existingConfigs, err := a.Store.List(groupVersionKind, "")
 	if err != nil {
 		adscLog.Warnf("Error listing existing configs %v", err)
