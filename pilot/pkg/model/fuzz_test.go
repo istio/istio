@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/fuzz"
+	"istio.io/istio/pkg/test"
 )
 
 func FuzzDeepCopyService(f *testing.F) {
@@ -44,7 +45,7 @@ type deepCopier[T any] interface {
 	DeepCopy() T
 }
 
-func fuzzDeepCopy[T deepCopier[T]](f *testing.F, opts ...cmp.Option) {
+func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer, opts ...cmp.Option) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		fg := fuzz.New(t, data)
 		orig := fuzz.Struct[T](fg)

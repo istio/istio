@@ -31,7 +31,7 @@ mv "${SRC}"/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter/listener_patch_
 
 # Find all native fuzzers and compile them
 # shellcheck disable=SC2016
-grep --line-buffered --include '*.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
+grep --line-buffered --include '*_test.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
   fname="$(dirname $(echo "{}" | cut -d: -f1))"
   func="Fuzz$(echo "{}" | cut -d: -f2)"
   set -x
