@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/net/proxy"
 
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
@@ -54,6 +56,11 @@ func newDialer(cfg *Config) hbone.Dialer {
 			TLS:          cfg.hboneTLSConfig,
 		})
 		return out
+	}
+	proxyURL, _ := url.Parse(cfg.Proxy)
+	if len(cfg.Proxy) > 0 && proxyURL.Scheme == "socks5" {
+		dialer, _ := proxy.SOCKS5("tcp", proxyURL.Host, nil, proxy.Direct)
+		return dialer.(hbone.Dialer)
 	}
 	out := &net.Dialer{
 		Timeout: common.ConnectionTimeout,
