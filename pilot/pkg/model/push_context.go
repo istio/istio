@@ -888,6 +888,11 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
+//
+// Note that for generating the imported virtual services of sidecar egress
+// listener, we don't call this function to copy configs for performance issues.
+// Instead, we pass the virtualServiceIndex directly into SelectVirtualServices
+// function.
 func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []config.Config {
 	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway])+
 		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway])+

@@ -30,8 +30,8 @@ import (
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
-// This is a common function used by both sidecar converter and http route.
-func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
+// This function is used by sidecar converter.
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
 	vsset := sets.New()
@@ -54,23 +54,30 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 			}
 		}
 	}
-	for _, c := range virtualServices {
-		configNamespace := c.Namespace
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// if any host in the list matches one service hostname, select the virtual service
-		// and break out of the loop.
 
-		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			addVirtualService(c, importedHosts)
-		}
+	loopAndAdd := func(vses []config.Config) {
+		for _, c := range vses {
+			configNamespace := c.Namespace
+			// Selection algorithm:
+			// virtualservices have a list of hosts in the API spec
+			// if any host in the list matches one service hostname, select the virtual service
+			// and break out of the loop.
 
-		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			addVirtualService(c, importedHosts)
+			// Check if there is an explicit import of form ns/* or ns/host
+			if importedHosts, nsFound := hosts[configNamespace]; nsFound {
+				addVirtualService(c, importedHosts)
+			}
+
+			// Check if there is an import of form */host or */*
+			if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
+				addVirtualService(c, importedHosts)
+			}
 		}
 	}
+
+	loopAndAdd(vsidx.privateByNamespaceAndGateway[configNamespace][constants.IstioMeshGateway])
+	loopAndAdd(vsidx.exportedToNamespaceByGateway[configNamespace][constants.IstioMeshGateway])
+	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
 
 	return importedVirtualServices
 }
