@@ -48,18 +48,6 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 	}
 }
 
-func newProxyDialer(cfg *Config) (proxy.Dialer, error) {
-	proxyURL, err := url.Parse(cfg.Proxy)
-	if err != nil {
-		return nil, err
-	}
-	if proxyURL.Scheme == "socks5" {
-		dialer, _ := proxy.SOCKS5("tcp", proxyURL.Host, nil, proxy.Direct)
-		return dialer, nil
-	}
-	return nil, fmt.Errorf("proxy scheme '%s' not supported", proxyURL.Scheme)
-}
-
 func newDialer(cfg *Config) hbone.Dialer {
 	if cfg.Request.Hbone.GetAddress() != "" {
 		out := hbone.NewDialer(hbone.Config{
@@ -68,6 +56,11 @@ func newDialer(cfg *Config) hbone.Dialer {
 			TLS:          cfg.hboneTLSConfig,
 		})
 		return out
+	}
+	proxyURL, _ := url.Parse(cfg.Proxy)
+	if len(cfg.Proxy) > 0 && proxyURL.Scheme == "socks5" {
+		dialer, _ := proxy.SOCKS5("tcp", proxyURL.Host, nil, proxy.Direct)
+		return dialer.(hbone.Dialer)
 	}
 	out := &net.Dialer{
 		Timeout: common.ConnectionTimeout,
