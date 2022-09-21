@@ -594,16 +594,16 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 		if destinationRule.GetWorkloadSelector() == nil {
 			proxyNamespaceDrs = append(proxyNamespaceDrs, destRule)
 		}
+		// 1. same namespace as the proxy, and with workload selector
 		if destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
 			if workloadSelector.SubsetOf(proxy.Labels) {
-				// 1
 				return destRule
 			}
 		}
 	}
-	// 2
+	// 2. same namespace as the proxy but without workload selector
 	if len(proxyNamespaceDrs) > 0 {
 		return proxyNamespaceDrs[0]
 	}

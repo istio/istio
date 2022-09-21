@@ -860,14 +860,14 @@ func (ps *PushContext) GetAllServices() []*Service {
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
-// It returns the service in the proxy namespace in high priority.
+// It returns the service in the proxy namespace if available otherwise returns a service from any other namespace.
 func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
 	if proxy != nil && proxy.SidecarScope != nil {
 		// first return the service from proxy namespace
 		if proxy.SidecarScope.servicesByHostname[hostname][proxy.ConfigNamespace] != nil {
 			return proxy.SidecarScope.servicesByHostname[hostname][proxy.ConfigNamespace]
 		}
-		// return arbitrary service
+		// return the service from other namespace
 		for _, svc := range proxy.SidecarScope.servicesByHostname[hostname] {
 			return svc
 		}
