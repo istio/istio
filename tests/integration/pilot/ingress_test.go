@@ -228,7 +228,7 @@ spec:
 					})
 					t.NewSubTest("status").Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
-							gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+							gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 							if err != nil {
 								return err
 							}
