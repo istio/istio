@@ -17,7 +17,7 @@ The following environments are known to not work currently:
 
 * GKE with Calico CNI
 * GKE with Dataplane V2 CNI
-* `kind` on Mac M1
+* `kind` on Mac computers with Apple silicon
 
 All other environments are unknown currently.
 
