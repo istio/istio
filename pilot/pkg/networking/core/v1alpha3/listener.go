@@ -291,10 +291,16 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 ) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	actualWildcardIPv4, actualWildcardIPv6, actualLocalHostAddrIPv4, actualLocalHostAddrIPv6, isDualStack := getDualStackWildcardAndLocalHost(node)
-	// if it's not dual stack environment
-	if !isDualStack {
-		actualWildcardIPv4, actualLocalHostAddrIPv4 = getActualWildcardAndLocalHost(node)
+	oWildcardAndLocalHost := NewWildcardAndLocalHost(node.GetIPMode())
+	if oWildcardAndLocalHost == nil {
+		log.Warnf("buildSidecarOutboundListeners: Can not fetch wildcar and localhost from proxy [%s]", node.ID)
+		return nil
+	}
+	actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
+	actualLocalHosts := oWildcardAndLocalHost.GetLocalHostAddresses()
+	if len(actualWildcards) == 0 || len(actualLocalHosts) == 0 {
+		log.Warnf("buildSidecarOutboundListeners: actualWildcard/actualLocalHost addresses can not be fetched in [%s]", node.ID)
+		return nil
 	}
 
 	var tcpListeners, httpListeners []*listener.Listener
@@ -381,14 +387,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			bind := egressListener.IstioListener.Bind
 			if bind == "" {
 				if bindToPort {
-					bind = actualLocalHostAddrIPv4
-					if actualLocalHostAddrIPv6 != "" {
-						extraBind = append(extraBind, actualLocalHostAddrIPv6)
+					bind = actualLocalHosts[0]
+					if len(actualLocalHosts) > 1 {
+						extraBind = actualLocalHosts[1:]
 					}
 				} else {
-					bind = actualWildcardIPv4
-					if actualWildcardIPv6 != "" {
-						extraBind = append(extraBind, actualWildcardIPv6)
+					bind = actualWildcards[0]
+					if len(actualWildcards) > 1 {
+						extraBind = actualWildcards[1:]
 					}
 				}
 			}
@@ -408,7 +414,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			for _, service := range services {
 				listenerOpts.service = service
 				// Set service specific attributes here.
-				lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
+				lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcards[0])
 			}
 		} else {
 			// This is a catch all egress listener with no port. This
@@ -440,7 +446,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				bind = egressListener.IstioListener.Bind
 			}
 			if bindToPort && bind == "" {
-				bind = actualLocalHostAddrIPv4
+				bind = actualLocalHosts[0]
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
@@ -465,11 +471,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
-					// bind and extraBind should be specified at the same time for dual stack env
-					// and make sure that it's necessary to add the extra addresses, such as it's a dual stack env
-					if actualLocalHostAddrIPv6 != "" {
-						if bind == actualLocalHostAddrIPv4 {
-							listenerOpts.extraBind = []string{actualLocalHostAddrIPv6}
+					// listenerOpts.extraBind should be specified at the same time for dual stack env
+					if len(actualLocalHosts) > 1 {
+						if bind == actualLocalHosts[0] {
+							listenerOpts.extraBind = actualLocalHosts[1:]
 						} else if len(sExtrAddresses) > 0 {
 							listenerOpts.extraBind = sExtrAddresses
 						}
@@ -495,7 +500,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// selected or scaled down, so we skip these as well. This leaves us with
 							// only a plain ServiceEntry with resolution NONE. In this case, we will
 							// fallback to a wildcard listener.
-							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
+							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcards[0])
 							continue
 						}
 						for _, instance := range instances {
@@ -512,11 +517,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 								continue
 							}
 							listenerOpts.bind = instance.Endpoint.Address
-							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
+							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcards[0])
 						}
 					} else {
 						// Standard logic for headless and non headless services
-						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcardIPv4)
+						lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcards[0])
 					}
 				}
 			}
@@ -557,10 +562,15 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	_, _, listenAddressIPv4, listenAddressesIPv6, isDualStack := getDualStackWildcardAndLocalHost(node)
-	// if it's not dual stack environment
-	if !isDualStack {
-		_, listenAddressIPv4 = getActualWildcardAndLocalHost(node)
+	oWildcardAndLocalHost := NewWildcardAndLocalHost(node.GetIPMode())
+	if oWildcardAndLocalHost == nil {
+		log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", node.ID)
+		return nil
+	}
+	actualLocalHosts := oWildcardAndLocalHost.GetLocalHostAddresses()
+	if len(actualLocalHosts) == 0 {
+		log.Warnf("inboundVirtualListener: actualLocalHost addresses can not be fetched in [%s]", node.ID)
+		return nil
 	}
 
 	httpOpts := &core.Http1ProtocolOptions{
@@ -573,7 +583,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	opts := buildListenerOpts{
 		push:  push,
 		proxy: node,
-		bind:  listenAddressIPv4,
+		bind:  actualLocalHosts[0],
 		port:  &model.Port{Port: int(httpProxyPort)},
 		filterChainOpts: []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
@@ -590,8 +600,8 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 		skipUserFilters: true,
 	}
 
-	if listenAddressesIPv6 != "" {
-		opts.extraBind = []string{listenAddressesIPv6}
+	if len(actualLocalHosts) > 1 {
+		opts.extraBind = actualLocalHosts[1:]
 	}
 	l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
@@ -617,19 +627,19 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
-		actualWildcardIPv4, actualWildcardIPv6, _, _, isDualStack := getDualStackWildcardAndLocalHost(listenerOpts.proxy)
-		// if it's not dual stack environment
-		if !isDualStack {
-			listenerOpts.bind = actualWildcard
-		} else {
-			// should respect the ip policy order
-			if actualWildcard == actualWildcardIPv4 {
-				listenerOpts.bind = actualWildcardIPv4
-				listenerOpts.extraBind = []string{actualWildcardIPv6}
-			} else {
-				listenerOpts.bind = actualWildcardIPv6
-				listenerOpts.extraBind = []string{actualWildcardIPv4}
-			}
+		oWildcardAndLocalHost := NewWildcardAndLocalHost(listenerOpts.proxy.GetIPMode())
+		if oWildcardAndLocalHost == nil {
+			log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", listenerOpts.proxy.ID)
+			return false, nil
+		}
+		actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
+		if len(actualWildcards) == 0 {
+			log.Warnf("inboundVirtualListener: actualWildcard addresses can not be fetched in [%s]", listenerOpts.proxy.ID)
+			return false, nil
+		}
+		listenerOpts.bind = actualWildcards[0]
+		if len(actualWildcards) > 0 {
+			listenerOpts.extraBind = actualWildcards[1:]
 		}
 	}
 	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(listenerOpts.port.Port)
@@ -1278,10 +1288,8 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			ConnectionBalanceConfig: connectionBalance,
 		}
 		// add extra addresses for the listener
-		err := util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
-		if err != nil {
-			log.Warnf("warning for adding extra addresses for listener [%s]", res.Name)
-		}
+		util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
+
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
 			if res.ListenerFiltersTimeout != nil {
@@ -1309,10 +1317,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			EnableReusePort: proto.BoolTrue,
 		}
 		// add extra addresses for the listener
-		err := util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
-		if err != nil {
-			log.Warnf("warning for adding extra addresses for listener [%s]", res.Name)
-		}
+		util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
 	}
 
 	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res, opts.class)

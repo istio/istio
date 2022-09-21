@@ -180,10 +180,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			// If this config is for bindToPort, we want to actually create a real Listener.
 			l := lb.inboundCustomListener(cc, chains)
 			// add extra addresses for the listener
-			err := util.BuildExtraAddresses(cc.extraBind, cc.port.TargetPort, l, lb.node)
-			if err != nil {
-				log.Warnf("warning for adding extra addresses for listener [%s]", l.Name)
-			}
+			util.BuildExtraAddresses(cc.extraBind, cc.port.TargetPort, l, lb.node)
 			listeners = append(listeners, l)
 		} else {
 			// Otherwise, just append the filter chain to the virtual inbound chains.
@@ -201,10 +198,15 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	actualWildcardIPv4, actualWildcardIPv6, _, _, isDualStack := getDualStackWildcardAndLocalHost(lb.node)
-	// if it's not dual stack environment
-	if !isDualStack {
-		actualWildcardIPv4, _ = getActualWildcardAndLocalHost(lb.node)
+	oWildcardAndLocalHost := NewWildcardAndLocalHost(lb.node.GetIPMode())
+	if oWildcardAndLocalHost == nil {
+		log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", lb.node.ID)
+		return nil
+	}
+	actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
+	if len(actualWildcards) == 0 {
+		log.Warnf("inboundVirtualListener: actualWildcard addresses can not be fetched in [%s]", lb.node.ID)
+		return nil
 	}
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
@@ -212,11 +214,10 @@ func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
 	allChains := buildInboundPassthroughChains(lb)
 	allChains = append(allChains, chains...)
-	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcardIPv4, ProxyInboundListenPort), false, allChains)
+	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcards[0], ProxyInboundListenPort), false, allChains)
 	// add extra addresses for the listener
-	err := util.BuildExtraAddresses([]string{actualWildcardIPv6}, ProxyInboundListenPort, l, lb.node)
-	if err != nil {
-		log.Warnf("warning for adding extra addresses for listener [%s]", l.Name)
+	if len(actualWildcards) > 1 {
+		util.BuildExtraAddresses(actualWildcards[1:], ProxyInboundListenPort, l, lb.node)
 	}
 	return l
 }
@@ -362,11 +363,16 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				cc.bind = getSidecarInboundBindIP(lb.node)
 				// if no global unicast address
 				if cc.bind == WildcardAddress || cc.bind == WildcardIPv6Address {
-					bindAddress, extraBindAddresses, _, _, isDualStack := getDualStackWildcardAndLocalHost(lb.node)
-					// if it's dual stack environment
-					if isDualStack {
-						cc.bind = bindAddress
-						cc.extraBind = []string{extraBindAddresses}
+					oWildcardAndLocalHost := NewWildcardAndLocalHost(lb.node.GetIPMode())
+					if oWildcardAndLocalHost == nil {
+						log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", lb.node.ID)
+						continue
+					}
+					actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
+					// actualWildcardIPv4/6 should not be empty if it's dual stack environment
+					if len(actualWildcards) > 1 {
+						cc.bind = actualWildcards[0]
+						cc.extraBind = actualWildcards[1:]
 					}
 				}
 			}

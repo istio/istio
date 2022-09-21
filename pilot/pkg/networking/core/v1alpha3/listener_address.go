@@ -36,13 +36,58 @@ const (
 	InboundPassthroughBindIpv6 = "::6"
 )
 
-// getDualStackWildcardAndLocalHost will return corresponding Wildcard and LocalHost for both IPv4 and IPv6
-// depending on value of proxy's IPAddresses.
-func getDualStackWildcardAndLocalHost(node *model.Proxy) (string, string, string, string, bool) {
-	if node.SupportsIPv4() && node.SupportsIPv6() {
-		return WildcardAddress, WildcardIPv6Address, LocalhostAddress, LocalhostIPv6Address, true
+type WildcardAndLocalHost struct {
+	wildCardIPv4  string
+	wildCardIPv6  string
+	localHostIPv4 string
+	localHostIPv6 string
+	ipMode        model.IPMode
+}
+
+func NewWildcardAndLocalHost(ipMode model.IPMode) *WildcardAndLocalHost {
+	wcLh := &WildcardAndLocalHost{ipMode: ipMode}
+	switch ipMode {
+	case model.IPv4:
+		wcLh.wildCardIPv4 = WildcardAddress
+		wcLh.localHostIPv4 = LocalhostAddress
+	case model.IPv6:
+		wcLh.wildCardIPv6 = WildcardIPv6Address
+		wcLh.localHostIPv6 = LocalhostIPv6Address
+	case model.Dual:
+		wcLh.wildCardIPv4 = WildcardAddress
+		wcLh.wildCardIPv6 = WildcardIPv6Address
+		wcLh.localHostIPv4 = LocalhostAddress
+		wcLh.localHostIPv6 = LocalhostIPv6Address
+	default:
+		return nil
 	}
-	return "", "", "", "", false
+	return wcLh
+}
+
+func (wl *WildcardAndLocalHost) IsDualStack() bool {
+	return wl.ipMode == model.Dual
+}
+
+func (wl *WildcardAndLocalHost) GetWildcardAddresses() []string {
+	var addresses []string
+	if wl.wildCardIPv4 != "" {
+		addresses = append(addresses, wl.wildCardIPv4)
+	}
+	if wl.wildCardIPv6 != "" {
+		addresses = append(addresses, wl.wildCardIPv6)
+	}
+	return addresses
+}
+
+func (wl *WildcardAndLocalHost) GetLocalHostAddresses() []string {
+	var addresses []string
+	if wl.localHostIPv4 != "" {
+		addresses = append(addresses, wl.localHostIPv4)
+	}
+	if wl.localHostIPv6 != "" {
+		addresses = append(addresses, wl.localHostIPv6)
+	}
+	return addresses
 }
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost

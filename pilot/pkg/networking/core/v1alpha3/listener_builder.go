@@ -121,25 +121,31 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	actualWildcard, extrActualWildcard, _, _, isDualStack := getDualStackWildcardAndLocalHost(lb.node)
-	if !isDualStack {
-		actualWildcard, _ = getActualWildcardAndLocalHost(lb.node)
+	oWildcardAndLocalHost := NewWildcardAndLocalHost(lb.node.GetIPMode())
+	if oWildcardAndLocalHost == nil {
+		log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", lb.node.ID)
+		return nil
+	}
+	actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
+	if len(actualWildcards) == 0 {
+		log.Warnf("inboundVirtualListener: actualWildcard addresses can not be fetched in [%s]", lb.node.ID)
+		return nil
 	}
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
 		Name:             model.VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Address:          util.BuildAddress(actualWildcards[0], uint32(lb.push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	// add extra addresses for the listener
-	err := util.BuildExtraAddresses([]string{extrActualWildcard}, uint32(lb.push.Mesh.ProxyListenPort), ipTablesListener, lb.node)
-	if err != nil {
-		log.Warnf("warning for adding extra addresses for listener [%s]", ipTablesListener.Name)
+	if len(actualWildcards) > 1 {
+		util.BuildExtraAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), ipTablesListener, lb.node)
 	}
+
 	class := model.OutboundListenerClass(lb.node.Type)
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener, class)
 	lb.virtualOutboundListener = ipTablesListener

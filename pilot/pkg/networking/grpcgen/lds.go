@@ -113,10 +113,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
-		extraErr := util.BuildExtraAddresses(extrAddresses, uint32(listenPort), ll, node)
-		if extraErr != nil {
-			log.Warnf("warning for adding extra addresses for listener [%s]", ll.Name)
-		}
+		util.BuildExtraAddresses(extrAddresses, uint32(listenPort), ll, node)
 
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
@@ -321,10 +318,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
-				err := util.BuildExtraAddresses(extrAddresses, uint32(p.Port), ll, node)
-				if err != nil {
-					log.Warnf("warning for adding extra addresses for listener [%s]", ll.Name)
-				}
+				util.BuildExtraAddresses(extrAddresses, uint32(p.Port), ll, node)
 
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,

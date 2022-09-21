@@ -939,35 +939,36 @@ func TestGetDualStackActualWildcard(t *testing.T) {
 	tests := []struct {
 		name     string
 		proxy    *model.Proxy
-		expected [2]string
+		expected []string
 	}{
 		{
 			name: "ipv4 only",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
 			},
-			expected: [2]string{"", ""},
+			expected: []string{WildcardAddress},
 		},
 		{
 			name: "ipv6 only",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"1111:2222::1", "::1", "2222:3333::1"},
 			},
-			expected: [2]string{"", ""},
+			expected: []string{WildcardIPv6Address},
 		},
 		{
 			name: "mixed ipv4 and ipv6",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			},
-			expected: [2]string{WildcardAddress, WildcardIPv6Address},
+			expected: []string{WildcardAddress, WildcardIPv6Address},
 		},
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPMode()
-		wm, lh, _, _, _ := getDualStackWildcardAndLocalHost(tt.proxy)
-		if wm != tt.expected[0] && lh != tt.expected[1] {
-			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
+		oWildcardAndLocalHost := NewWildcardAndLocalHost(tt.proxy.GetIPMode())
+		actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
+		if len(actualWildcards) != len(tt.expected) {
+			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, actualWildcards)
 		}
 	}
 }
@@ -976,35 +977,36 @@ func TestGetDualStackLocalHost(t *testing.T) {
 	tests := []struct {
 		name     string
 		proxy    *model.Proxy
-		expected [2]string
+		expected []string
 	}{
 		{
 			name: "ipv4 only",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
 			},
-			expected: [2]string{"", ""},
+			expected: []string{LocalhostAddress},
 		},
 		{
 			name: "ipv6 only",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"1111:2222::1", "::1", "2222:3333::1"},
 			},
-			expected: [2]string{"", ""},
+			expected: []string{LocalhostIPv6Address},
 		},
 		{
 			name: "mixed ipv4 and ipv6",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			},
-			expected: [2]string{LocalhostAddress, LocalhostIPv6Address},
+			expected: []string{LocalhostAddress, LocalhostIPv6Address},
 		},
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPMode()
-		_, _, wm, lh, _ := getDualStackWildcardAndLocalHost(tt.proxy)
-		if wm != tt.expected[0] && lh != tt.expected[1] {
-			t.Errorf("Test %s failed, expected: %s / %s got: %s / %s", tt.name, tt.expected[0], tt.expected[1], wm, lh)
+		oWildcardAndLocalHost := NewWildcardAndLocalHost(tt.proxy.GetIPMode())
+		actualLocalHosts := oWildcardAndLocalHost.GetLocalHostAddresses()
+		if len(actualLocalHosts) != len(tt.expected) {
+			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, actualLocalHosts)
 		}
 	}
 }
