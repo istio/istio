@@ -8,6 +8,8 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+replace sigs.k8s.io/gateway-api => github.com/howardjohn/gateway-api v0.0.0-20220921141146-8d902cf4043b
+
 require (
 	cloud.google.com/go/compute v1.10.0
 	cloud.google.com/go/security v1.7.0
@@ -98,7 +100,7 @@ require (
 	k8s.io/kubectl v0.25.1
 	k8s.io/utils v0.0.0-20220823124924-e9cbc92d1a73
 	sigs.k8s.io/controller-runtime v0.13.0
-	sigs.k8s.io/gateway-api v0.5.1-0.20220830123301-a7a465ababc8
+	sigs.k8s.io/gateway-api v0.5.1-0.20220920012121-57cefb9268f6
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )

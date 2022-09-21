@@ -148,7 +148,7 @@ func DeployGatewayAPICRD(ctx framework.TestContext) {
 	// Wait until our GatewayClass is ready
 	retry.UntilSuccessOrFail(ctx, func() error {
 		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+			_, err := c.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}

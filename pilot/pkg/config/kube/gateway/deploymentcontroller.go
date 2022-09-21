@@ -33,8 +33,8 @@ import (
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
@@ -73,8 +73,8 @@ type DeploymentController struct {
 	queue              controllers.Queue
 	templates          *template.Template
 	patcher            patcher
-	gatewayLister      v1alpha2.GatewayLister
-	gatewayClassLister v1alpha2.GatewayClassLister
+	gatewayLister      lister.GatewayLister
+	gatewayClassLister lister.GatewayClassLister
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -83,8 +83,8 @@ type patcher func(gvr schema.GroupVersionResource, name string, namespace string
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client) *DeploymentController {
-	gw := client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
-	gwc := client.GatewayAPIInformer().Gateway().V1alpha2().GatewayClasses()
+	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
+	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	dc := &DeploymentController{
 		client:    client,
 		templates: processTemplates(),
