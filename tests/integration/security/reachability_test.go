@@ -46,7 +46,7 @@ const (
 	mtlsModeOverrideParam    = "MTLSModeOverride"
 	tlsModeParam             = "TLSMode"
 	cMinIstioVersion         = "1.15.0"
-	cMinIstioVersionDS       = "1.16.0"
+	// cMinIstioVersionDS       = "1.16.0"
 )
 
 func TestReachability(t *testing.T) {
@@ -106,7 +106,7 @@ func TestReachability(t *testing.T) {
 					// TODO, the IPFamilies should be "IPv4, IPv6" and
 					// IPFamilyPolicy should be "RequireDualStack" once dual stack is totally supported
 					// IPFamilies:     "IPv4",
-					// IPFamilyPolicy: "SingleStack",
+					IPFamilyPolicy: "SingleStack",
 				}).BuildOrFail(t)
 			}
 
