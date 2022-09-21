@@ -15,11 +15,10 @@
 package adsc
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -68,88 +68,61 @@ func TestADSC_Run(t *testing.T) {
 
 	type testDesc struct {
 		desc             string
-		reqTypeUrls      []string
-		expectedTypeUrls []string // nil means equals to requested
+		initialRequests  []*xdsapi.DiscoveryRequest
+		excludedResource string
 		validator        func(testCase) error
 	}
 
 	descs := []testDesc{
 		{
-			desc:        "stream-no-resources",
-			reqTypeUrls: []string{},
+			desc:            "stream-no-resources",
+			initialRequests: []*xdsapi.DiscoveryRequest{},
 		},
 		{
-			desc:        "stream-2-unnamed-resources",
-			reqTypeUrls: []string{"foo", "bar"},
+			desc: "stream-2-unnamed-resources",
+			initialRequests: []*xdsapi.DiscoveryRequest{
+				{
+					TypeUrl: "foo",
+				},
+				{
+					TypeUrl: "bar",
+				},
+			},
 		},
-		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
-	}
-
-	initTypeUrls := func() []string {
-		var ret []string
-		for _, req := range ConfigInitialRequests() {
-			ret = append(ret, req.TypeUrl)
-		}
-		return ret
-	}()
-	incompleteTypeUrls := func() []string {
-		var ret []string
-		for idx, item := range initTypeUrls {
-			if strings.Count(item, "/") == 3 {
-				ret = append(ret, initTypeUrls[:idx]...)
-				ret = append(ret, initTypeUrls[idx+1:]...)
-				break
-			}
-		}
-		if ret == nil {
-			ret = initTypeUrls
-		}
-		return ret
-	}()
-	descs = append(descs, testDesc{
-		desc:        "mcp-should-hasSynced",
-		reqTypeUrls: initTypeUrls,
-		validator: func(tc testCase) error {
-			if !tc.inAdsc.HasSynced() {
-				return fmt.Errorf("adsc not synced")
-			}
-			return nil
-		},
-	})
-	if len(incompleteTypeUrls) != len(initTypeUrls) {
-		descs = append(descs, testDesc{
-			desc:             "mcp-should-not-hasSynced",
-			reqTypeUrls:      initTypeUrls,
-			expectedTypeUrls: incompleteTypeUrls,
-			validator: func(tc testCase) error {
-				if tc.inAdsc.HasSynced() {
-					return fmt.Errorf("adsc synced but should not")
+		{
+			desc:            "stream-3-completed-mcp-resources",
+			initialRequests: ConfigInitialRequests(),
+			validator: func(testCase testCase) error {
+				if !testCase.inAdsc.HasSynced() {
+					return errors.New("ADSC should be synced")
 				}
 				return nil
 			},
-		})
+		},
+		{
+			desc:            "stream-4-uncompleted-mcp-resources",
+			initialRequests: ConfigInitialRequests(),
+			// XDS Server don't push this kind resource.
+			excludedResource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(),
+			validator: func(testCase testCase) error {
+				if testCase.inAdsc.HasSynced() {
+					return errors.New("ADSC should not be synced")
+				}
+				return nil
+			},
+		},
+		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
 	}
 
 	for _, item := range descs {
 		desc := item // avoid refer to on-stack-var
 		expected := map[string]*xdsapi.DiscoveryResponse{}
-		if desc.expectedTypeUrls == nil {
-			desc.expectedTypeUrls = desc.reqTypeUrls
-		}
-		var initReqs []*xdsapi.DiscoveryRequest
-		for _, typeURL := range desc.reqTypeUrls {
-			initReqs = append(initReqs, &xdsapi.DiscoveryRequest{TypeUrl: typeURL})
-		}
-		for _, typeURL := range desc.expectedTypeUrls {
-			expected[typeURL] = &xdsapi.DiscoveryResponse{TypeUrl: typeURL}
-		}
-
-		if desc.validator == nil {
-			desc.validator = func(tc testCase) error {
-				if !cmp.Equal(tc.inAdsc.Received, tc.expectedADSResources.Received, protocmp.Transform()) {
-					return fmt.Errorf("%s: expected recv %v got %v", tc.desc, tc.expectedADSResources.Received, tc.inAdsc.Received)
-				}
-				return nil
+		for _, request := range desc.initialRequests {
+			if desc.excludedResource != "" && request.TypeUrl == desc.excludedResource {
+				continue
+			}
+			expected[request.TypeUrl] = &xdsapi.DiscoveryResponse{
+				TypeUrl: request.TypeUrl,
 			}
 		}
 
@@ -161,15 +134,15 @@ func TestADSC_Run(t *testing.T) {
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
-					InitialDiscoveryRequests: initReqs,
+					InitialDiscoveryRequests: desc.initialRequests,
 				},
 				VersionInfo: map[string]string{},
 				sync:        map[string]time.Time{},
 			},
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-				for _, typeURL := range desc.expectedTypeUrls {
+				for _, resource := range expected {
 					_ = stream.Send(&xdsapi.DiscoveryResponse{
-						TypeUrl: typeURL,
+						TypeUrl: resource.TypeUrl,
 					})
 				}
 				return nil
@@ -216,8 +189,14 @@ func TestADSC_Run(t *testing.T) {
 			}
 			tt.inAdsc.RecvWg.Wait()
 
-			if err := tt.validator(tt); err != nil {
-				t.Error(err)
+			if tt.validator != nil {
+				if err := tt.validator(tt); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
+				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
 			}
 		})
 	}
@@ -508,7 +487,11 @@ func TestADSC_handleMCP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gvk := []string{"networking.istio.io", "v1alpha3", "ServiceEntry"}
+			gvk := config.GroupVersionKind{
+				Group:   "networking.istio.io",
+				Version: "v1alpha3",
+				Kind:    "ServiceEntry",
+			}
 			adsc.handleMCP(gvk, tt.resources)
 			configs, _ := adsc.Store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), "")
 			if len(configs) != len(tt.expectedResources) {
