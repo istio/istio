@@ -13,8 +13,6 @@ spec:
             type: Resource
       name: istio-ingressgateway
   values:
-    global:
-      autoscalingv2API: false
     pilot:
       cpu:
         targetAverageUtilization: 80

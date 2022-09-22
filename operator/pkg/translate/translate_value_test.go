@@ -78,20 +78,6 @@ components:
        env:
        - name: GODEBUG
          value: gctrace=1
-       hpaSpec:
-          maxReplicas: 3
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istiod
-          metrics:
-           - resource:
-               name: cpu
-               target:
-                 averageUtilization: 80
-                 type: Utilization
-             type: Resource
        nodeSelector:
           kubernetes.io/os: linux
        tolerations:
@@ -116,6 +102,10 @@ values:
   pilot:
     image: pilot
     autoscaleEnabled: true
+    autoscaleMax: 3
+    autoscaleMin: 1
+    cpu:
+      targetAverageUtilization: 80
     traceSampling: 1
 `,
 		},
