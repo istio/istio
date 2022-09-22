@@ -373,6 +373,8 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 	}
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
+	// need to call DiscoverIPMode to check the ipMode of the proxy
+	proxy.DiscoverIPMode()
 
 	configs, k8sConfig := getConfigsWithCache(t, config)
 	m := mesh.DefaultMeshConfig()
