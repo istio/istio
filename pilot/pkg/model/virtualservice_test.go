@@ -26,6 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -2124,9 +2125,22 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec7,
 	}
-	configs := SelectVirtualServices(
-		[]config.Config{virtualService1, virtualService2, virtualService3, virtualService4, virtualService5, virtualService6, virtualService7},
-		hostsByNamespace)
+
+	index := virtualServiceIndex{
+		publicByGateway: map[string][]config.Config{
+			constants.IstioMeshGateway: {
+				virtualService1,
+				virtualService2,
+				virtualService3,
+				virtualService4,
+				virtualService5,
+				virtualService6,
+				virtualService7,
+			},
+		},
+	}
+
+	configs := SelectVirtualServices(index, "some-ns", hostsByNamespace)
 	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name}
 	if len(expectedVS) != len(configs) {
 		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
