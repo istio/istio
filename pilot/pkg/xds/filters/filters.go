@@ -184,6 +184,13 @@ var (
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.baggagehandler.v1.Config"),
 		},
 	}
+
+	MetadataToPeerNodeListenerFilter = &listener.ListenerFilter{
+		Name: "envoy.filters.listener.metadata_to_peer_node",
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config"),
+		},
+	}
 )
 
 func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {

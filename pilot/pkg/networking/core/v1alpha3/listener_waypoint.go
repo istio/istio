@@ -293,10 +293,7 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 				FilterChains:      []*listener.FilterChain{},
 				ListenerFilters: []*listener.ListenerFilter{
 					util.InternalListenerSetAddressFilter(),
-					{
-						Name:       "envoy.filters.listener.metadata_to_peer_node",
-						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config")},
-					},
+					xdsfilters.MetadataToPeerNodeListenerFilter,
 				},
 			}
 			if port.Protocol.IsUnsupported() {
