@@ -3032,6 +3032,32 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
+		name:             "matched multiple claims with regex:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"@request.auth.claims.sub", "regex", "(\\W|^)(sub-1|sub-2)(\\W|$)"},
+					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value[AB](\\W|$)"},
+				},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims:200",
 		targetMatchers:   podB,
 		workloadAgnostic: true,
@@ -3104,15 +3130,18 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
-		name:             "matched both with and without claims:200",
+		name:             "matched both with and without claims with regex:200",
 		targetMatchers:   podB,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers":        []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
-				"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				"WithoutHeaders": []configData{
+					{"@request.auth.claims.nested.key1", "exact", "value-not-matched"},
+					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value\\s{0,3}not{0,1}\\s{0,3}matched(\\W|$)"},
+				},
 			}
 		},
 		opts: echo.CallOptions{
