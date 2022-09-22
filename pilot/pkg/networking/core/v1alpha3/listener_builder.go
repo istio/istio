@@ -121,16 +121,8 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	oWildcardAndLocalHost := NewWildcardAndLocalHost(lb.node.GetIPMode())
-	if oWildcardAndLocalHost == nil {
-		log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", lb.node.ID)
-		return nil
-	}
-	actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
-	if len(actualWildcards) == 0 {
-		log.Warnf("inboundVirtualListener: actualWildcard addresses can not be fetched in [%s]", lb.node.ID)
-		return nil
-	}
+	oWildcardAndLocalHost := NewHostAddresses(lb.node.GetIPMode())
+	actualWildcards := oWildcardAndLocalHost.Wildcards()
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{

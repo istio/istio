@@ -178,10 +178,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 		if cc.bindToPort {
 			// If this config is for bindToPort, we want to actually create a real Listener.
-			l := lb.inboundCustomListener(cc, chains)
-			// add extra addresses for the listener
-			util.BuildExtraAddresses(cc.extraBind, cc.port.TargetPort, l, lb.node)
-			listeners = append(listeners, l)
+			listeners = append(listeners, lb.inboundCustomListener(cc, chains))
 		} else {
 			// Otherwise, just append the filter chain to the virtual inbound chains.
 			virtualInboundFilterChains = append(virtualInboundFilterChains, chains...)
@@ -198,40 +195,43 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	oWildcardAndLocalHost := NewWildcardAndLocalHost(lb.node.GetIPMode())
-	if oWildcardAndLocalHost == nil {
-		log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", lb.node.ID)
-		return nil
-	}
-	actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
-	if len(actualWildcards) == 0 {
-		log.Warnf("inboundVirtualListener: actualWildcard addresses can not be fetched in [%s]", lb.node.ID)
-		return nil
-	}
+	oWildcardAndLocalHost := NewHostAddresses(lb.node.GetIPMode())
+	actualWildcards := oWildcardAndLocalHost.Wildcards()
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
 	// * Passthrough filter chains, matching all unmatched traffic. There are a few of these to handle all cases
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
 	allChains := buildInboundPassthroughChains(lb)
 	allChains = append(allChains, chains...)
-	l := lb.buildInboundListener(model.VirtualInboundListenerName, util.BuildAddress(actualWildcards[0], ProxyInboundListenPort), false, allChains)
-	// add extra addresses for the listener
-	if len(actualWildcards) > 1 {
-		util.BuildExtraAddresses(actualWildcards[1:], ProxyInboundListenPort, l, lb.node)
-	}
+	l := lb.buildInboundListener(model.VirtualInboundListenerName, actualWildcards, ProxyInboundListenPort, false, allChains)
 	return l
 }
 
 // inboundCustomListener build a custom listener that actually binds to a port, rather than relying on redirection.
 func (lb *ListenerBuilder) inboundCustomListener(cc inboundChainConfig, chains []*listener.FilterChain) *listener.Listener {
-	return lb.buildInboundListener(cc.Name(istionetworking.ListenerProtocolTCP), util.BuildAddress(cc.bind, cc.port.TargetPort), true, chains)
+	addresses := []string{cc.bind}
+	if len(cc.extraBind) > 0 {
+		addresses = append(addresses, cc.extraBind...)
+	}
+	ll := lb.buildInboundListener(cc.Name(istionetworking.ListenerProtocolTCP), addresses, cc.port.TargetPort, true, chains)
+	return ll
 }
 
-func (lb *ListenerBuilder) buildInboundListener(name string, address *core.Address, bindToPort bool, chains []*listener.FilterChain) *listener.Listener {
+func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string, tPort uint32,
+	bindToPort bool, chains []*listener.FilterChain,
+) *listener.Listener {
+	if len(addresses) == 0 {
+		return nil
+	}
+	address := util.BuildAddress(addresses[0], tPort)
 	l := &listener.Listener{
 		Name:             name,
 		Address:          address,
 		TrafficDirection: core.TrafficDirection_INBOUND,
+	}
+	if len(addresses) > 1 {
+		// add extra addresses for the listener
+		util.BuildExtraAddresses(addresses[1:], tPort, l, lb.node)
 	}
 	if lb.node.Metadata.InboundListenerExactBalance {
 		l.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{
@@ -300,24 +300,19 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				Protocol:   i.ServicePort.Protocol,
 			}
 
-			var bindAddr, extraBindAddrs string
-			bindAddr = WildcardAddress
-			// IPv6 only
-			if lb.node.IsIPv6() {
-				bindAddr = WildcardIPv6Address
-			}
-			// Dual Stack
-			if lb.node.SupportsIPv4() && lb.node.SupportsIPv6() {
-				extraBindAddrs = WildcardIPv6Address
-			}
+			oWildcardAndLocalHost := NewHostAddresses(lb.node.GetIPMode())
+			actualWildcards := oWildcardAndLocalHost.Wildcards()
 
 			cc := inboundChainConfig{
 				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},
 				port:              port,
 				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
-				bind:              bindAddr,
-				extraBind:         []string{extraBindAddrs},
+				bind:              actualWildcards[0],
 				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
+			}
+			// add extra binding addresses
+			if len(actualWildcards) > 1 {
+				cc.extraBind = actualWildcards[1:]
 			}
 			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
 				cc.telemetryMetadata.KubernetesServiceNamespace = i.Service.Attributes.Namespace
@@ -360,20 +355,10 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			}
 			if cc.bind == "" {
 				// If user didn't provide, pick one based on IP
-				cc.bind = getSidecarInboundBindIP(lb.node)
-				// if no global unicast address
-				if cc.bind == WildcardAddress || cc.bind == WildcardIPv6Address {
-					oWildcardAndLocalHost := NewWildcardAndLocalHost(lb.node.GetIPMode())
-					if oWildcardAndLocalHost == nil {
-						log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", lb.node.ID)
-						continue
-					}
-					actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
-					// actualWildcardIPv4/6 should not be empty if it's dual stack environment
-					if len(actualWildcards) > 1 {
-						cc.bind = actualWildcards[0]
-						cc.extraBind = actualWildcards[1:]
-					}
+				actualWildcards := getSidecarInboundBindIPs(lb.node)
+				cc.bind = actualWildcards[0]
+				if len(actualWildcards) > 1 {
+					cc.extraBind = actualWildcards[1:]
 				}
 			}
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.

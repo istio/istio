@@ -291,17 +291,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 ) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	oWildcardAndLocalHost := NewWildcardAndLocalHost(node.GetIPMode())
-	if oWildcardAndLocalHost == nil {
-		log.Warnf("buildSidecarOutboundListeners: Can not fetch wildcar and localhost from proxy [%s]", node.ID)
-		return nil
-	}
-	actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
-	actualLocalHosts := oWildcardAndLocalHost.GetLocalHostAddresses()
-	if len(actualWildcards) == 0 || len(actualLocalHosts) == 0 {
-		log.Warnf("buildSidecarOutboundListeners: actualWildcard/actualLocalHost addresses can not be fetched in [%s]", node.ID)
-		return nil
-	}
+	oWildcardAndLocalHost := NewHostAddresses(node.GetIPMode())
+	actualWildcards := oWildcardAndLocalHost.Wildcards()
+	actualLocalHosts := oWildcardAndLocalHost.Localhosts()
 
 	var tcpListeners, httpListeners []*listener.Listener
 	// For conflict resolution
@@ -562,16 +554,8 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	oWildcardAndLocalHost := NewWildcardAndLocalHost(node.GetIPMode())
-	if oWildcardAndLocalHost == nil {
-		log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", node.ID)
-		return nil
-	}
-	actualLocalHosts := oWildcardAndLocalHost.GetLocalHostAddresses()
-	if len(actualLocalHosts) == 0 {
-		log.Warnf("inboundVirtualListener: actualLocalHost addresses can not be fetched in [%s]", node.ID)
-		return nil
-	}
+	oWildcardAndLocalHost := NewHostAddresses(node.GetIPMode())
+	actualLocalHosts := oWildcardAndLocalHost.Localhosts()
 
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
@@ -627,16 +611,8 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
-		oWildcardAndLocalHost := NewWildcardAndLocalHost(listenerOpts.proxy.GetIPMode())
-		if oWildcardAndLocalHost == nil {
-			log.Warnf("inboundVirtualListener: Can not fetch wildcar and localhost from proxy [%s]", listenerOpts.proxy.ID)
-			return false, nil
-		}
-		actualWildcards := oWildcardAndLocalHost.GetWildcardAddresses()
-		if len(actualWildcards) == 0 {
-			log.Warnf("inboundVirtualListener: actualWildcard addresses can not be fetched in [%s]", listenerOpts.proxy.ID)
-			return false, nil
-		}
+		oWildcardAndLocalHost := NewHostAddresses(listenerOpts.proxy.GetIPMode())
+		actualWildcards := oWildcardAndLocalHost.Wildcards()
 		listenerOpts.bind = actualWildcards[0]
 		if len(actualWildcards) > 0 {
 			listenerOpts.extraBind = actualWildcards[1:]

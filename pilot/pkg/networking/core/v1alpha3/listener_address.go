@@ -36,7 +36,7 @@ const (
 	InboundPassthroughBindIpv6 = "::6"
 )
 
-type WildcardAndLocalHost struct {
+type HostAddresses struct {
 	wildCardIPv4  string
 	wildCardIPv6  string
 	localHostIPv4 string
@@ -44,8 +44,8 @@ type WildcardAndLocalHost struct {
 	ipMode        model.IPMode
 }
 
-func NewWildcardAndLocalHost(ipMode model.IPMode) *WildcardAndLocalHost {
-	wcLh := &WildcardAndLocalHost{ipMode: ipMode}
+func NewHostAddresses(ipMode model.IPMode) HostAddresses {
+	wcLh := HostAddresses{ipMode: ipMode}
 	switch ipMode {
 	case model.IPv4:
 		wcLh.wildCardIPv4 = WildcardAddress
@@ -59,16 +59,16 @@ func NewWildcardAndLocalHost(ipMode model.IPMode) *WildcardAndLocalHost {
 		wcLh.localHostIPv4 = LocalhostAddress
 		wcLh.localHostIPv6 = LocalhostIPv6Address
 	default:
-		return nil
+		panic("Unknow IP mode")
 	}
 	return wcLh
 }
 
-func (wl *WildcardAndLocalHost) IsDualStack() bool {
+func (wl *HostAddresses) IsDualStack() bool {
 	return wl.ipMode == model.Dual
 }
 
-func (wl *WildcardAndLocalHost) GetWildcardAddresses() []string {
+func (wl *HostAddresses) Wildcards() []string {
 	var addresses []string
 	if wl.wildCardIPv4 != "" {
 		addresses = append(addresses, wl.wildCardIPv4)
@@ -79,7 +79,7 @@ func (wl *WildcardAndLocalHost) GetWildcardAddresses() []string {
 	return addresses
 }
 
-func (wl *WildcardAndLocalHost) GetLocalHostAddresses() []string {
+func (wl *HostAddresses) Localhosts() []string {
 	var addresses []string
 	if wl.localHostIPv4 != "" {
 		addresses = append(addresses, wl.localHostIPv4)
@@ -90,6 +90,7 @@ func (wl *WildcardAndLocalHost) GetLocalHostAddresses() []string {
 	return addresses
 }
 
+// TODO: getActualWildcardAndLocalHost would be removed once the dual stack support in Istio
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
 // depending on value of proxy's IPAddresses.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
@@ -106,14 +107,15 @@ func getPassthroughBindIP(node *model.Proxy) string {
 	return InboundPassthroughBindIpv6
 }
 
-// getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
+// getSidecarInboundBindIPs returns the IP that the proxy can bind to along with the sidecar specified port.
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
-func getSidecarInboundBindIP(node *model.Proxy) string {
+func getSidecarInboundBindIPs(node *model.Proxy) []string {
 	// Return the IP if its a global unicast address.
 	if len(node.GlobalUnicastIP) > 0 {
-		return node.GlobalUnicastIP
+		return []string{node.GlobalUnicastIP}
 	}
-	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
-	return defaultInboundIP
+	oWildcardAndLocalHost := NewHostAddresses(node.GetIPMode())
+	defaultInboundIPs := oWildcardAndLocalHost.Wildcards()
+	return defaultInboundIPs
 }
