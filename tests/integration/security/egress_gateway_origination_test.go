@@ -371,6 +371,7 @@ func newTLSGatewayTest(t framework.TestContext) *echotest.T {
 		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.Namespace(apps.Ns1.Namespace),
-			match.RegularPod)).
+			match.NotNaked,
+			match.NotProxylessGRPC)).
 		ToMatch(match.ServiceName(apps.External.All.NamespacedName()))
 }
