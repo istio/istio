@@ -213,7 +213,7 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *
 	}
 	// localCluster may also be the "config" cluster, in an external-istiod setup.
 	localCluster := m.opts.ClusterID == cluster.ID
-	if features.EnableConfigurationDiscovery && localCluster && m.configController != nil {
+	if features.EnableEnhancedResourceScoping && localCluster && m.configController != nil {
 		// register filter
 		m.configController.RegisterNameSpaceDiscoveryFilter(kubeRegistry.opts.DiscoveryNamespacesFilter.Filter)
 	}
