@@ -2609,8 +2609,8 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 					},
 				},
 			},
-			hostname:    util.PassthroughCluster,
-			idleTimeout: durationpb.New(0 * time.Second),
+			hostname: util.PassthroughCluster,
+			// idleTimeout shouldn't be set, will use default value in envoy
 		},
 	}
 	for _, tt := range tests {
@@ -2636,6 +2636,9 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 			}
 			if tt.idleTimeout != nil && !reflect.DeepEqual(tcpProxy.IdleTimeout, tt.idleTimeout) {
 				t.Errorf("Expected IdleTimeout %s but got %s\n", tt.idleTimeout, tcpProxy.IdleTimeout)
+			}
+			if tt.idleTimeout == nil && tcpProxy.IdleTimeout != nil {
+				t.Errorf("Expected no IdleTimeout set, but got %s\n", tcpProxy.IdleTimeout.AsDuration())
 			}
 		})
 	}
