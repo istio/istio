@@ -119,7 +119,7 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			// So http2.Transport doesn't complain the URL scheme isn't 'https'
 			AllowHTTP: true,
 			// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
-			DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
+			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 				return newDialer(cfg).Dial(network, addr)
 			},
 		}
@@ -160,11 +160,13 @@ func newHTTPTransportGetter(cfg *Config) (httpTransportGetter, func()) {
 			DisableKeepAlives: true,
 			TLSClientConfig:   cfg.tlsConfig,
 			DialContext:       dialContext,
-			Proxy:             http.ProxyFromEnvironment,
 		}
 
 		// Set the proxy in the transport, if specified.
-		out.Proxy = cfg.proxyURL
+		// for socks5 proxy is setup is done in the newDialer function.
+		if !strings.HasPrefix(cfg.Proxy, "socks5://") {
+			out.Proxy = cfg.proxyURL
+		}
 		return out
 	}
 	noCloseFn := func() {}
