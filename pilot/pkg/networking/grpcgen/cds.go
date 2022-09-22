@@ -85,10 +85,9 @@ type clusterBuilder struct {
 	node *model.Proxy
 
 	// guaranteed to be set in init
-	defaultClusterName   string
-	requestedClusterName string
-	hostname             host.Name
-	portNum              int
+	defaultClusterName string
+	hostname           host.Name
+	portNum            int
 
 	// may not be set
 	svc    *model.Service
@@ -127,15 +126,6 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 		svc:  svc,
 		port: port,
 	}, nil
-}
-
-// subsetFilter returns the requestedClusterName if it isn't the default cluster
-// for subset clusters, gRPC may request them individually
-func (b *clusterBuilder) subsetFilter() string {
-	if b.defaultClusterName == b.requestedClusterName {
-		return ""
-	}
-	return b.requestedClusterName
 }
 
 func (b *clusterBuilder) build() []*cluster.Cluster {
