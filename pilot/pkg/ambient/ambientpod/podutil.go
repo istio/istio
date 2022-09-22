@@ -49,6 +49,7 @@ func WorkloadFromPod(pod *corev1.Pod) ambient.Workload {
 		Labels:            pod.Labels, // TODO copy?
 		ServiceAccount:    pod.Spec.ServiceAccountName,
 		NodeName:          pod.Spec.NodeName,
+		HostNetwork:       pod.Spec.HostNetwork,
 		PodIP:             pod.Status.PodIP,
 		PodIPs:            ips,
 		CreationTimestamp: pod.CreationTimestamp.Time,

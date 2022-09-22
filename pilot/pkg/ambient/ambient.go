@@ -42,6 +42,7 @@ type Workload struct {
 	NodeName       string
 	PodIP          string
 	PodIPs         []string
+	HostNetwork    bool
 
 	WorkloadMetadata
 
