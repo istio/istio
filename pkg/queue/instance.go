@@ -20,7 +20,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"istio.io/istio/pkg/backoff"
 	"istio.io/pkg/log"
 )
 
@@ -39,14 +38,13 @@ type Instance interface {
 }
 
 type queueImpl struct {
-	delay        time.Duration
-	retryBackoff *backoff.ExponentialBackOff
-	tasks        []Task
-	cond         *sync.Cond
-	closing      bool
-	closed       chan struct{}
-	closeOnce    *sync.Once
-	id           string
+	delay     time.Duration
+	tasks     []Task
+	cond      *sync.Cond
+	closing   bool
+	closed    chan struct{}
+	closeOnce *sync.Once
+	id        string
 }
 
 // NewQueue instantiates a queue with a processing function
