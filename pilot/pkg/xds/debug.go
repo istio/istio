@@ -650,11 +650,6 @@ func (s *DiscoveryServer) getExtensionConfiguration(con *Connection) ([]proto.Me
 	return nil, nil
 }
 
-const (
-	apiTypePrefix      = "type.googleapis.com/"
-	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
-)
-
 func unmarshalToWasm(r *discovery.Resource) (proto.Message, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
