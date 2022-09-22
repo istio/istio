@@ -15,14 +15,11 @@
 package v1alpha3
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
@@ -219,30 +216,6 @@ func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking
 			return inboundPlainTextTCPFilterChainMatchOptions
 		}
 	}
-}
-
-type fcOpts struct {
-	matchOpts FilterChainMatchOptions
-	fc        networking.FilterChain
-}
-
-func (opt fcOpts) populateFilterChain(mtls authn.MTLSSettings, port uint32, matchingIP string) fcOpts {
-	opt.fc.FilterChainMatch = &listener.FilterChainMatch{}
-	opt.fc.FilterChainMatch.ApplicationProtocols = opt.matchOpts.ApplicationProtocols
-	opt.fc.FilterChainMatch.TransportProtocol = opt.matchOpts.TransportProtocol
-	if len(matchingIP) > 0 {
-		opt.fc.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
-	}
-	if port > 0 {
-		opt.fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
-	}
-	opt.fc.ListenerProtocol = opt.matchOpts.Protocol
-	if opt.fc.ListenerProtocol == networking.ListenerProtocolHTTP {
-		opt.fc.TLSContext = mtls.HTTP
-	} else {
-		opt.fc.TLSContext = mtls.TCP
-	}
-	return opt
 }
 
 func (opt FilterChainMatchOptions) ToTransportSocket(mtls authn.MTLSSettings) *tls.DownstreamTlsContext {

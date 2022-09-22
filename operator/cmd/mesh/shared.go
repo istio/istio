@@ -44,6 +44,7 @@ var (
 	installerScope = log.RegisterScope("installer", "installer", 0)
 
 	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
+	// nolint: unused
 	testK8Interface *kubernetes.Clientset
 	testRestConfig  *rest.Config
 )
