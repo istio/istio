@@ -57,7 +57,7 @@ type SimpleServer struct {
 	ConfigStoreCache model.ConfigStoreController
 }
 
-// Creates an basic, functional discovery server, using the same code as Istiod, but
+// NewXDS creates a basic, functional discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint stores.
 //
 // Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S or
@@ -111,9 +111,9 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	go configController.Run(stop)
 
 	// configStoreCache - with HasSync interface
-	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreController{
+	aggregateConfigController, err := configaggregate.MakeWriteableCache([]model.ConfigStoreController{
 		configController,
-	})
+	}, configController)
 	if err != nil {
 		log.Fatalf("Creating aggregate config: %v", err)
 	}
