@@ -46,10 +46,6 @@ type SimpleServer struct {
 	// PushContext.
 	DiscoveryServer *DiscoveryServer
 
-	// MemoryStore is an in-memory config store, part of the aggregate store
-	// used by the discovery server.
-	MemoryConfigStore model.ConfigStore
-
 	// GRPCListener is the listener used for GRPC. For agent it is
 	// an insecure port, bound to 127.0.0.1
 	GRPCListener net.Listener
@@ -95,12 +91,11 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
 	configController := memory.NewController(store)
-	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
 	serviceControllers := aggregate.NewController(aggregate.Options{})
 
-	serviceEntryController := serviceentry.NewController(configController, s.MemoryConfigStore, ds)
+	serviceEntryController := serviceentry.NewController(configController, ds)
 	serviceControllers.AddRegistry(serviceEntryController)
 
 	sd := controllermemory.NewServiceDiscovery()

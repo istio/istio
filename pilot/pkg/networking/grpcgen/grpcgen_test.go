@@ -137,7 +137,7 @@ func TestGRPC(t *testing.T) {
 	port, _ := strconv.Atoi(ports)
 	// Echo service
 	// initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
-	initRBACTests(sd, ds.MemoryConfigStore, "echo-rbac-mtls", port, true)
+	initRBACTests(sd, ds.ConfigStoreCache, "echo-rbac-mtls", port, true)
 
 	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
 	if err != nil {

@@ -165,7 +165,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 	}()
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewController(configController, istioStore, xdsUpdater)
+	serviceController := NewController(configController, xdsUpdater)
 
 	return istioStore, serviceController
 }
@@ -185,9 +185,9 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 	istioStore := model.MakeIstioStore(configController)
 	var controller *Controller
 	if !workloadOnly {
-		controller = NewController(configController, istioStore, xdsUpdater, opts...)
+		controller = NewController(configController, xdsUpdater, opts...)
 	} else {
-		controller = NewWorkloadEntryController(configController, istioStore, xdsUpdater, opts...)
+		controller = NewWorkloadEntryController(configController, xdsUpdater, opts...)
 	}
 	go controller.Run(stop)
 	return istioStore, controller, eventch
