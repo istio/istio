@@ -259,6 +259,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			election := leaderelection.
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+				Enabled(m.opts.EnableLeaderElection).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
 					nc := NewNamespaceController(client, m.caBundleWatcher)
@@ -301,6 +302,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, !configCluster, client).
+				Enabled(m.opts.EnableLeaderElection).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,
