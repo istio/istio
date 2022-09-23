@@ -393,22 +393,6 @@ func translateStrategy(fieldName string, outPath string, value any, cpSpecTree m
 	return nil
 }
 
-// setOutputAndClean is helper function to set value of iscp tree and clean the original value from value.yaml tree.
-func setOutputAndClean(valPath, outPath string, outVal any, valueTree, cpSpecTree map[string]any, clean bool) error {
-	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-
-	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outVal); err != nil {
-		return err
-	}
-	if !clean {
-		return nil
-	}
-	if _, err := tpath.Delete(valueTree, util.ToYAMLPath(valPath)); err != nil {
-		return err
-	}
-	return nil
-}
-
 // translateEnv translates env value from helm values.yaml tree.
 func translateEnv(outPath string, value any, cpSpecTree map[string]any) error {
 	envMap, ok := value.(map[string]any)
