@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -289,10 +290,12 @@ type deploymentInput struct {
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
+	http := string(protocol.HTTP)
 	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
 	svcPorts = append(svcPorts, corev1.ServicePort{
-		Name: "status-port",
-		Port: int32(15021),
+		Name:        "status-port",
+		Port:        int32(15021),
+		AppProtocol: &http,
 	})
 	portNums := map[int32]struct{}{}
 	for i, l := range gw.Spec.Listeners {
@@ -305,9 +308,11 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 			// Should not happen since name is required, but in case an invalid resource gets in...
 			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
 		}
+		appProtocol := string(l.Protocol)
 		svcPorts = append(svcPorts, corev1.ServicePort{
-			Name: name,
-			Port: int32(l.Port),
+			Name:        name,
+			Port:        int32(l.Port),
+			AppProtocol: &appProtocol,
 		})
 	}
 	return svcPorts
