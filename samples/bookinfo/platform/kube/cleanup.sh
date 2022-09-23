@@ -54,7 +54,6 @@ if kubectl get crd gateways.gateway.networking.k8s.io >/dev/null 2>&1; then
       kubectl delete -n ${NAMESPACE} "$resource";
     done
   done
-  kubectl delete -n istio-system gateways.gateway.networking.k8s.io bookinfo-gateway >/dev/null 2>&1 # getting started config
   kubectl delete -n ${NAMESPACE} -f "$SCRIPTDIR/bookinfo-versions.yaml" >/dev/null 2>&1
 fi
 
