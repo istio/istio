@@ -19,6 +19,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -75,8 +76,9 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		}
 	}
 
-	loopAndAdd(vsidx.privateByNamespaceAndGateway[configNamespace][constants.IstioMeshGateway])
-	loopAndAdd(vsidx.exportedToNamespaceByGateway[configNamespace][constants.IstioMeshGateway])
+	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
+	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
 
 	return importedVirtualServices
