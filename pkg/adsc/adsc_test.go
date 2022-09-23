@@ -38,7 +38,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -389,7 +388,7 @@ func TestADSC_handleMCP(t *testing.T) {
 	rev := "test-rev"
 	adsc := &ADSC{
 		VersionInfo: map[string]string{},
-		Store:       model.MakeIstioStore(memory.Make(collections.Pilot)),
+		Store:       memory.Make(collections.Pilot),
 		cfg:         &Config{Revision: rev},
 	}
 

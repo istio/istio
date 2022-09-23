@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -322,31 +321,6 @@ func MostSpecificHostMatch[V any](needle host.Name, m map[host.Name]V) (host.Nam
 	return "", false
 }
 
-// istioConfigStore provides a simple adapter for Istio configuration types
-// from the generic config registry
-type istioConfigStore struct {
-	ConfigStore
-}
-
-// MakeIstioStore creates a wrapper around a store.
-// In pilot it is initialized with a ConfigStoreController, tests only use
-// a regular ConfigStore.
-func MakeIstioStore(store ConfigStore) ConfigStore {
-	return &istioConfigStore{store}
-}
-
-func (store *istioConfigStore) ServiceEntries() []config.Config {
-	serviceEntries, err := store.List(gvk.ServiceEntry, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	// To ensure the ip allocation logic deterministically
-	// allocates the same IP to a service entry.
-	sortConfigByCreationTime(serviceEntries)
-	return serviceEntries
-}
-
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
 func sortConfigByCreationTime(configs []config.Config) {
 	sort.Slice(configs, func(i, j int) bool {
@@ -365,14 +339,4 @@ func sortConfigByCreationTime(configs []config.Config) {
 // key creates a key from a reference's name and namespace.
 func key(name, namespace string) string {
 	return name + "/" + namespace
-}
-
-func (store *istioConfigStore) AuthorizationPolicies(namespace string) []config.Config {
-	authorizationPolicies, err := store.List(gvk.AuthorizationPolicy, namespace)
-	if err != nil {
-		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
-		return nil
-	}
-
-	return authorizationPolicies
 }

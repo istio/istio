@@ -252,7 +252,7 @@ func newTestEnviroment() *model.Environment {
 		},
 	})
 
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+	configStore := memory.Make(collections.Pilot)
 	configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "test",

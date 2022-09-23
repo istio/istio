@@ -120,7 +120,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 
 	// TODO: fix the mess of store interfaces - most are too generic for their own good.
 	s.ConfigStoreCache = aggregateConfigController
-	env.ConfigStore = model.MakeIstioStore(aggregateConfigController)
+	env.ConfigStore = aggregateConfigController
 
 	return s
 }

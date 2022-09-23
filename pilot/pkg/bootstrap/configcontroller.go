@@ -136,7 +136,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.configController = aggregateConfigController
 
 	// Create the config store.
-	s.environment.ConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -257,7 +257,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 			configController.RegisterHasSyncedHandler(xdsMCP.HasSynced)
-			xdsMCP.Store = model.MakeIstioStore(configController)
+			xdsMCP.Store = configController
 			err = xdsMCP.Run()
 			if err != nil {
 				return fmt.Errorf("MCP: failed running %v", err)
