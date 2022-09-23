@@ -195,8 +195,8 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	oWildcardAndLocalHost := NewHostAddresses(lb.node.GetIPMode())
-	actualWildcards := oWildcardAndLocalHost.Wildcards()
+	hostAddresses := NewHostAddresses(lb.node.GetIPMode())
+	actualWildcards := hostAddresses.Wildcards()
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
 	// * Passthrough filter chains, matching all unmatched traffic. There are a few of these to handle all cases
@@ -300,8 +300,8 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				Protocol:   i.ServicePort.Protocol,
 			}
 
-			oWildcardAndLocalHost := NewHostAddresses(lb.node.GetIPMode())
-			actualWildcards := oWildcardAndLocalHost.Wildcards()
+			hostAddresses := NewHostAddresses(lb.node.GetIPMode())
+			actualWildcards := hostAddresses.Wildcards()
 
 			cc := inboundChainConfig{
 				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},

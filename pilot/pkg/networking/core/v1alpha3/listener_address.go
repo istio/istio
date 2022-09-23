@@ -115,7 +115,7 @@ func getSidecarInboundBindIPs(node *model.Proxy) []string {
 	if len(node.GlobalUnicastIP) > 0 {
 		return []string{node.GlobalUnicastIP}
 	}
-	oWildcardAndLocalHost := NewHostAddresses(node.GetIPMode())
-	defaultInboundIPs := oWildcardAndLocalHost.Wildcards()
+	hostAddresses := NewHostAddresses(node.GetIPMode())
+	defaultInboundIPs := hostAddresses.Wildcards()
 	return defaultInboundIPs
 }

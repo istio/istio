@@ -965,8 +965,8 @@ func TestGetDualStackActualWildcard(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPMode()
-		oWildcardAndLocalHost := NewHostAddresses(tt.proxy.GetIPMode())
-		actualWildcards := oWildcardAndLocalHost.Wildcards()
+		hostAddresses := NewHostAddresses(tt.proxy.GetIPMode())
+		actualWildcards := hostAddresses.Wildcards()
 		if len(actualWildcards) != len(tt.expected) {
 			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, actualWildcards)
 		}
@@ -1003,8 +1003,8 @@ func TestGetDualStackLocalHost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPMode()
-		oWildcardAndLocalHost := NewHostAddresses(tt.proxy.GetIPMode())
-		actualLocalHosts := oWildcardAndLocalHost.Localhosts()
+		hostAddresses := NewHostAddresses(tt.proxy.GetIPMode())
+		actualLocalHosts := hostAddresses.Localhosts()
 		if len(actualLocalHosts) != len(tt.expected) {
 			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, actualLocalHosts)
 		}

@@ -121,8 +121,8 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	oWildcardAndLocalHost := NewHostAddresses(lb.node.GetIPMode())
-	actualWildcards := oWildcardAndLocalHost.Wildcards()
+	hostAddresses := NewHostAddresses(lb.node.GetIPMode())
+	actualWildcards := hostAddresses.Wildcards()
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
