@@ -137,7 +137,7 @@ func TestGRPC(t *testing.T) {
 	port, _ := strconv.Atoi(ports)
 	// Echo service
 	// initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
-	initRBACTests(sd, ds.MemoryConfigStore, "echo-rbac-mtls", port, true)
+	initRBACTests(sd, ds.ConfigStoreCache, "echo-rbac-mtls", port, true)
 
 	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
 	if err != nil {
@@ -166,8 +166,8 @@ func TestGRPC(t *testing.T) {
 	// This does not attempt to resolve CDS or EDS.
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := xdsresolver
-		stateCh := &Channel{ch: make(chan any, 1)}
-		errorCh := &Channel{ch: make(chan any, 1)}
+		stateCh := make(chan resolver.State, 1)
+		errorCh := make(chan error, 1)
 		_, err := rb.Build(resolver.Target{URL: url.URL{
 			Scheme: "xds",
 			Path:   "/" + net.JoinHostPort(istiodSvcHost, xdsPorts),
@@ -178,9 +178,9 @@ func TestGRPC(t *testing.T) {
 		}
 		tm := time.After(10 * time.Second)
 		select {
-		case s := <-stateCh.ch:
+		case s := <-stateCh:
 			t.Log("Got state ", s)
-		case e := <-errorCh.ch:
+		case e := <-errorCh:
 			t.Error("Error in resolve", e)
 		case <-tm:
 			t.Error("Didn't resolve in time")
@@ -427,32 +427,23 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 	t.Log(err)
 }
 
-type Channel struct {
-	ch chan any
-}
-
-// Send sends value on the underlying channel.
-func (c *Channel) Send(value any) {
-	c.ch <- value
-}
-
 // From xds_resolver_test
 // testClientConn is a fake implemetation of resolver.ClientConn. All is does
 // is to store the state received from the resolver locally and signal that
 // event through a channel.
 type testClientConn struct {
 	resolver.ClientConn
-	stateCh *Channel
-	errorCh *Channel
+	stateCh chan resolver.State
+	errorCh chan error
 }
 
 func (t *testClientConn) UpdateState(s resolver.State) error {
-	t.stateCh.Send(s)
+	t.stateCh <- s
 	return nil
 }
 
 func (t *testClientConn) ReportError(err error) {
-	t.errorCh.Send(err)
+	t.errorCh <- err
 }
 
 func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseResult {
