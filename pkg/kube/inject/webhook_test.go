@@ -904,7 +904,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 		PushContext: &model.PushContext{
 			ProxyConfigs: pcs,
 		},
-		ConfigStore: model.MakeIstioStore(store),
+		ConfigStore: store,
 	}
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {

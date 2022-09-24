@@ -447,7 +447,7 @@ func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 		store.Create(cfg)
 	}
 
-	return MakeIstioStore(store)
+	return store
 }
 
 func setCreationTimestamp(c config.Config, t time.Time) config.Config {
