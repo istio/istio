@@ -103,7 +103,7 @@ type Option struct {
 	Revision         string
 	DomainSuffix     string
 	Identifier       string
-	namespacesFilter func(obj interface{}) bool
+	NamespacesFilter func(obj interface{}) bool
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -173,7 +173,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		beginSync:        atomic.NewBool(false),
 		initialSync:      atomic.NewBool(false),
 		logger:           scope.WithLabels("controller", opts.Identifier),
-		namespacesFilter: opts.namespacesFilter,
+		namespacesFilter: opts.NamespacesFilter,
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
