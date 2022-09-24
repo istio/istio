@@ -65,7 +65,7 @@ var testMesh = &meshconfig.MeshConfig{
 }
 
 func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStore {
-	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	store := memory.Make(collections.Pilot)
 
 	for i, cp := range configPatches {
 		store.Create(config.Config{
