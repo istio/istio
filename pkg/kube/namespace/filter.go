@@ -73,7 +73,7 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	if len(d.discoverySelectors) == 0 {
 		return true
 	}
-	
+
 	if ns, ok := obj.(string); ok {
 		return d.discoveryNamespaces.Contains(ns)
 	}

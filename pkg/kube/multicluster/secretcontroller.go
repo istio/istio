@@ -154,7 +154,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	nsInformer := kubeclientset.KubeInformer().Core().V1().Namespaces().Informer()
 	_ = nsInformer.SetTransform(kube.StripUnusedFields)
 	nsLister := kubeclientset.KubeInformer().Core().V1().Namespaces().Lister()
-	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(nsLister, meshWatcher.Mesh().DiscoverySelectors)
+	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(nsLister, meshWatcher.Mesh().GetDiscoverySelectors())
 	controller.queue = controllers.NewQueue("multicluster secret",
 		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
