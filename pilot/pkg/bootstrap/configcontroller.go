@@ -133,6 +133,10 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
+	if features.EnableEnhancedResourceScoping {
+		// TODO: make filter as a param during instantiate
+		aggregateConfigController.RegisterNameSpaceDiscoveryFilter(args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter)
+	}
 	s.configController = aggregateConfigController
 
 	// Create the config store.

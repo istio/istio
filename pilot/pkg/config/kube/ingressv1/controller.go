@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/env"
 )
 
@@ -88,10 +89,11 @@ type controller struct {
 	// processed ingresses
 	ingresses map[types.NamespacedName]*knetworking.Ingress
 
-	ingressInformer cache.SharedInformer
-	ingressLister   networkinglister.IngressLister
-	serviceInformer cache.SharedInformer
-	serviceLister   listerv1.ServiceLister
+	ingressInformer         cache.SharedIndexInformer
+	filteredIngressInformer informer.FilteredSharedIndexInformer
+	ingressLister           networkinglister.IngressLister
+	serviceInformer         cache.SharedInformer
+	serviceLister           listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes ingressinformer.IngressClassInformer
 
@@ -133,12 +135,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	c.queue = controllers.NewQueue("ingress",
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
-	c.ingressInformer.AddEventHandler(controllers.FilteredObjectHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		if c.namespacesFilter != nil {
-			return c.namespacesFilter(o)
-		}
-		return true
-	}))
+	c.ingressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
 }
 
@@ -189,6 +186,9 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 }
 
 func (c *controller) onEvent(item types.NamespacedName) error {
+	if c.namespacesFilter != nil && !c.namespacesFilter(item.Namespace) {
+		return nil
+	}
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
@@ -257,6 +257,7 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 
 func (c *controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
 	c.namespacesFilter = filter
+	c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(filter, c.ingressInformer)
 }
 
 func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -318,17 +319,24 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 		return nil, errUnsupportedOp
 	}
 
-	out := make([]config.Config, 0)
+	var list []any
+	var err error
+	if c.filteredIngressInformer != nil {
+		if namespace == model.NamespaceAll {
+			list = c.filteredIngressInformer.GetIndexer().List()
+		}
+		list, err = c.filteredIngressInformer.GetIndexer().ByIndex("namespace", namespace)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		list = c.ingressInformer.GetStore().List()
+	}
 
+	out := make([]config.Config, 0)
 	ingressByHost := map[string]*config.Config{}
 
-	for _, ingress := range sortIngressByCreationTime(c.ingressInformer.GetStore().List()) {
-		if c.namespacesFilter != nil && !c.namespacesFilter(ingress) {
-			continue
-		}
-		if namespace != "" && namespace != ingress.Namespace {
-			continue
-		}
+	for _, ingress := range sortIngressByCreationTime(list) {
 		process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
 		if err != nil {
 			return nil, err

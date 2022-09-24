@@ -68,7 +68,7 @@ func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 }
 
 func (c *Controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
-	// TODO: enable filter for memory store
+	c.namespacesFilter = filter
 }
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -98,6 +98,9 @@ func (c *Controller) Schemas() collection.Schemas {
 }
 
 func (c *Controller) Get(kind config.GroupVersionKind, key, namespace string) *config.Config {
+	if c.namespacesFilter != nil && !c.namespacesFilter(namespace) {
+		return nil
+	}
 	return c.configStore.Get(kind, key, namespace)
 }
 

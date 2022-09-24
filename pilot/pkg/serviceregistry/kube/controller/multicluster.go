@@ -206,16 +206,16 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
+	// config cluster's DiscoveryNamespacesFilter is shared by both configController and serviceController
+	// it is initiated in bootstrap initMulticluster function, pass to service controller to update it.
+	// For other clusters, it should filter by its own cluster's namespace.
+	if !configCluster {
+		options.DiscoveryNamespacesFilter = nil
+	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
 		Controller: kubeRegistry,
-	}
-	// localCluster may also be the "config" cluster, in an external-istiod setup.
-	localCluster := m.opts.ClusterID == cluster.ID
-	if features.EnableEnhancedResourceScoping && localCluster && m.configController != nil {
-		// register filter
-		m.configController.RegisterNameSpaceDiscoveryFilter(kubeRegistry.opts.DiscoveryNamespacesFilter.Filter)
 	}
 	return kubeRegistry, &options, configCluster, nil
 }
