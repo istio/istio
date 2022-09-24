@@ -672,9 +672,7 @@ func (c *Controller) registerHandlers(
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
 	}
-	if informer, ok := informer.(cache.SharedInformer); ok {
-		_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
-	}
+	_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj any) {

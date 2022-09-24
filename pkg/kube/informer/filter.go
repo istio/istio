@@ -23,7 +23,7 @@ import (
 type FilteredSharedIndexInformer interface {
 	AddEventHandler(handler cache.ResourceEventHandler)
 	GetIndexer() cache.Indexer
-	SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error
+	SetWatchErrorHandler(handler cache.WatchErrorHandler) error
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
 }
@@ -85,7 +85,7 @@ func (w *filteredSharedIndexInformer) GetIndexer() cache.Indexer {
 	return w.filteredIndexer
 }
 
-func (w *filteredSharedIndexInformer) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+func (w *filteredSharedIndexInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	_ = w.SharedIndexInformer.SetWatchErrorHandler(handler)
 	return nil
 }
