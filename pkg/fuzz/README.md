@@ -14,9 +14,7 @@ Here is an example:
 ```go
 // Define a new fuzzer. Must have Fuzz prefix
 func FuzzBuildHTTP(f *testing.F) {
-  fuzz.BaseCases(f) // Insert basic cases so a few trivial cases run in presubmit
-  f.Fuzz(func(t *testing.T, data []byte) {
-    fg := fuzz.New(t, data)
+  fuzz.Fuzz(f, func(fg fuzz.Helper) {
     // Setup a few structs for testing
     bundle := fuzz.Struct[trustdomain.Bundle](fg)
         // This one has a custom validator
