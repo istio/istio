@@ -217,9 +217,6 @@ func (d dfCache) HasStarted() bool {
 	return true
 }
 
-func (d dfCache) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
-}
-
 // Run intentionally left empty
 func (d dfCache) Run(_ <-chan struct{}) {
 }

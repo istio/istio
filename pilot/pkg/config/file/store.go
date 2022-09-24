@@ -121,10 +121,6 @@ func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler 
 	panic("implement me")
 }
 
-func (s *KubeSource) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
-	// TODO: enable filter for KubeSource
-}
-
 func (s *KubeSource) Run(stop <-chan struct{}) {
 }
 

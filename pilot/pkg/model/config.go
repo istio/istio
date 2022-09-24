@@ -192,9 +192,6 @@ type ConfigStoreController interface {
 	// configuration type
 	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
-	// RegisterNameSpaceDiscoveryFilter adds a namespace filter func to select configs that are selected
-	RegisterNameSpaceDiscoveryFilter(func(obj interface{}) bool)
-
 	// Run until a signal is received
 	Run(stop <-chan struct{})
 

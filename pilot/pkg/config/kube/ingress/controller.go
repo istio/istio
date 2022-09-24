@@ -305,9 +305,6 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 	}
 }
 
-func (c *controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
-}
-
 func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
 	var errs error
 	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
