@@ -214,7 +214,6 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 }
 
 func (cl *Client) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
-	cl.namespacesFilter = filter
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {

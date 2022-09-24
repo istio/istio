@@ -89,7 +89,6 @@ type controller struct {
 	// processed ingresses
 	ingresses map[types.NamespacedName]*knetworking.Ingress
 
-	ingressInformer         cache.SharedIndexInformer
 	filteredIngressInformer informer.FilteredSharedIndexInformer
 	ingressLister           networkinglister.IngressLister
 	serviceInformer         cache.SharedInformer
@@ -98,8 +97,6 @@ type controller struct {
 	classes ingressinformer.IngressClassInformer
 
 	started atomic.Bool
-	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
-	namespacesFilter func(obj interface{}) bool
 }
 
 // TODO: move to features ( and remove in 1.2 )
@@ -126,7 +123,6 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
 		ingresses:       make(map[types.NamespacedName]*knetworking.Ingress),
-		ingressInformer: ingressInformer.Informer(),
 		ingressLister:   ingressInformer.Lister(),
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
@@ -135,7 +131,12 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	c.queue = controllers.NewQueue("ingress",
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
-	c.ingressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+	if options.DiscoveryNamespacesFilter != nil {
+		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
+	} else {
+		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(nil, ingressInformer.Informer())
+	}
+	c.filteredIngressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
 }
 
@@ -186,9 +187,6 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 }
 
 func (c *controller) onEvent(item types.NamespacedName) error {
-	if c.namespacesFilter != nil && !c.namespacesFilter(item.Namespace) {
-		return nil
-	}
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
@@ -256,8 +254,6 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 }
 
 func (c *controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
-	c.namespacesFilter = filter
-	c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(filter, c.ingressInformer)
 }
 
 func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -265,7 +261,7 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
 		errs = multierror.Append(err, errs)
 	}
-	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
+	if err := c.filteredIngressInformer.SetWatchErrorHandler(handler); err != nil {
 		errs = multierror.Append(err, errs)
 	}
 	if err := c.classes.Informer().SetWatchErrorHandler(handler); err != nil {
@@ -280,7 +276,7 @@ func (c *controller) HasStarted() bool {
 
 func (c *controller) HasSynced() bool {
 	// TODO: add c.queue.HasSynced() once #36332 is ready, ensuring Run is called before HasSynced
-	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
+	return c.filteredIngressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
 		(c.classes == nil || c.classes.Informer().HasSynced())
 }
 
@@ -321,16 +317,14 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 
 	var list []any
 	var err error
-	if c.filteredIngressInformer != nil {
-		if namespace == model.NamespaceAll {
-			list = c.filteredIngressInformer.GetIndexer().List()
-		}
+
+	if namespace == model.NamespaceAll {
+		list = c.filteredIngressInformer.GetIndexer().List()
+	} else {
 		list, err = c.filteredIngressInformer.GetIndexer().ByIndex("namespace", namespace)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		list = c.ingressInformer.GetStore().List()
 	}
 
 	out := make([]config.Config, 0)
