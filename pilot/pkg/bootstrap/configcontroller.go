@@ -133,7 +133,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	if features.EnableEnhancedResourceScoping {
+	if features.EnableEnhancedResourceScoping && args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
 		// TODO: make filter as a param during instantiate
 		aggregateConfigController.RegisterNameSpaceDiscoveryFilter(args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter)
 	}
@@ -347,12 +347,15 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
-	return crdclient.New(s.kubeClient, crdclient.Option{
+	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-
-		Identifier: "crd-controller",
-	})
+		Identifier:   "crd-controller",
+	}
+	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
+		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter
+	}
+	return crdclient.New(s.kubeClient, opts)
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

@@ -100,9 +100,10 @@ type Client struct {
 }
 
 type Option struct {
-	Revision     string
-	DomainSuffix string
-	Identifier   string
+	Revision         string
+	DomainSuffix     string
+	Identifier       string
+	namespacesFilter func(obj interface{}) bool
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -169,9 +170,10 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		gatewayAPIClient: client.GatewayAPI(),
 		crdMetadataInformer: client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
 			GroupVersionResource()).Informer(),
-		beginSync:   atomic.NewBool(false),
-		initialSync: atomic.NewBool(false),
-		logger:      scope.WithLabels("controller", opts.Identifier),
+		beginSync:        atomic.NewBool(false),
+		initialSync:      atomic.NewBool(false),
+		logger:           scope.WithLabels("controller", opts.Identifier),
+		namespacesFilter: opts.namespacesFilter,
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
@@ -320,10 +322,10 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-	item, exists, err := h.informer.GetIndexer().Get(KeyFunc(namespace, name))
-	if !exists || err != nil {
+	item, _, err := h.informer.GetIndexer().GetByKey(KeyFunc(namespace, name))
+	if item == nil || err != nil {
 		// TODO we should be returning errors not logging
-		cl.logger.Warnf("couldn't find %s/%s in informer index", KeyFunc(namespace, name))
+		cl.logger.Warnf("couldn't find %q in informer index", KeyFunc(namespace, name))
 		return nil
 	}
 
