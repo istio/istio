@@ -15,7 +15,6 @@
 package crdclient
 
 import (
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
@@ -25,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/log"
 )
 
@@ -32,9 +32,8 @@ import (
 // and will be invoked on each informer event.
 type cacheHandler struct {
 	client   *Client
-	informer cache.SharedIndexInformer
+	informer informer.FilteredSharedIndexInformer
 	schema   collection.Schema
-	lister   *filteredLister
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
@@ -78,65 +77,19 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 	return nil
 }
 
-type filteredLister struct {
-	filterFunc func(obj any) bool
-	lister     func(namespace string) cache.GenericNamespaceLister
-}
-
-func (w filteredLister) List(namespace string, selector klabels.Selector) ([]runtime.Object, error) {
-	unfiltered, err := w.lister(namespace).List(selector)
-	if err != nil {
-		return unfiltered, err
-	}
-	if w.filterFunc == nil {
-		return unfiltered, nil
-	}
-	var filtered []runtime.Object
-	for _, obj := range unfiltered {
-		if w.filterFunc(obj) {
-			filtered = append(filtered, obj)
-		}
-	}
-	return filtered, nil
-}
-
-func (w filteredLister) Get(namespace, name string) (item runtime.Object, err error) {
-	item, err = w.lister(namespace).Get(name)
-	if err != nil {
-		return nil, err
-	}
-	if w.filterFunc == nil || w.filterFunc(item) {
-		return item, nil
-	}
-	return nil, nil
-}
-
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
 	scope.Debugf("registered CRD %v", schema.Resource().GroupVersionKind())
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: i.Informer(),
-	}
-	lister := func(namespace string) cache.GenericNamespaceLister {
-		if schema.Resource().IsClusterScoped() {
-			return i.Lister()
-		}
-		return i.Lister().ByNamespace(namespace)
-	}
-	h.lister = &filteredLister{
-		filterFunc: cl.namespacesFilter,
-		lister:     lister,
+		informer: informer.NewFilteredSharedIndexInformer(cl.namespacesFilter, i.Informer()),
 	}
 
 	kind := schema.Resource().Kind()
-	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	h.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
 			if !cl.beginSync.Load() {
-				return
-			}
-			if cl.namespacesFilter != nil && !cl.namespacesFilter(obj) {
 				return
 			}
 			cl.queue.Push(func() error {
@@ -148,9 +101,6 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			if !cl.beginSync.Load() {
 				return
 			}
-			if cl.namespacesFilter != nil && !cl.namespacesFilter(cur) {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
@@ -158,9 +108,6 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
 			if !cl.beginSync.Load() {
-				return
-			}
-			if cl.namespacesFilter != nil && !cl.namespacesFilter(obj) {
 				return
 			}
 			cl.queue.Push(func() error {

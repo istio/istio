@@ -36,7 +36,6 @@ import (
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -96,7 +95,7 @@ type Client struct {
 	crdMetadataInformer cache.SharedIndexInformer
 	logger              *log.Scope
 
-	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
+	// namespacesFilter is only used to initiate filtered informer.
 	namespacesFilter func(obj interface{}) bool
 }
 
@@ -299,9 +298,6 @@ func (cl *Client) SyncAll() {
 					cl.logger.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
-				if cl.namespacesFilter != nil && !cl.namespacesFilter(currItem) {
-					continue
-				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
@@ -324,15 +320,14 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-
-	obj, err := h.lister.Get(namespace, name)
-	if obj == nil || err != nil {
+	item, exists, err := h.informer.GetIndexer().Get(KeyFunc(namespace, name))
+	if !exists || err != nil {
 		// TODO we should be returning errors not logging
-		cl.logger.Warnf("error on get %v/%v: %v", name, namespace, err)
+		cl.logger.Warnf("couldn't find %s/%s in informer index", KeyFunc(namespace, name))
 		return nil
 	}
 
-	cfg := TranslateObject(obj, typ, cl.domainSuffix)
+	cfg := TranslateObject(item.(runtime.Object), typ, cl.domainSuffix)
 	if !cl.objectInRevision(&cfg) {
 		return nil
 	}
@@ -402,19 +397,25 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 		return nil, nil
 	}
 
-	list, err := h.lister.List(namespace, klabels.Everything())
-	if err != nil {
-		return nil, err
+	var list []any
+	var err error
+	if namespace == model.NamespaceAll {
+		list = h.informer.GetIndexer().List()
+	} else {
+		list, err = h.informer.GetIndexer().ByIndex("namespace", namespace)
+		if err != nil {
+			return nil, err
+		}
 	}
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
-		cfg := TranslateObject(item, kind, cl.domainSuffix)
+		cfg := TranslateObject(item.(runtime.Object), kind, cl.domainSuffix)
 		if cl.objectInRevision(&cfg) {
 			out = append(out, cfg)
 		}
 	}
 
-	return out, err
+	return out, nil
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {
@@ -560,4 +561,14 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 
 type starter interface {
 	Start(stopCh <-chan struct{})
+}
+
+// TODO: move to a common place, maybe pkg/kube
+// KeyFunc is the internal API key function that returns "namespace"/"name" or
+// "name" if "namespace" is empty
+func KeyFunc(namespace, name string) string {
+	if len(namespace) == 0 {
+		return name
+	}
+	return namespace + "/" + name
 }
