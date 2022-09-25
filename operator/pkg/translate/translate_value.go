@@ -393,111 +393,6 @@ func translateStrategy(fieldName string, outPath string, value interface{}, cpSp
 	return nil
 }
 
-// translateHPASpec translates HPA related configurations from helm values.yaml tree.
-// do not translate if autoscaleEnabled is explicitly set to false
-func translateHPASpec(inPath string, outPath string, valueTree map[string]interface{}, cpSpecTree map[string]interface{}) error {
-	m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
-	if err != nil {
-		return err
-	}
-	if found {
-		asEnabled, ok := m.(bool)
-		if !ok {
-			return fmt.Errorf("expect autoscaleEnabled node type to be bool but got: %T", m)
-		}
-		if !asEnabled {
-			return nil
-		}
-	}
-
-	newP := util.PathFromString(inPath)
-	// last path element is k8s setting name
-	newPS := newP[:len(newP)-1].String()
-	valMap := map[string]string{
-		".autoscaleMin": ".minReplicas",
-		".autoscaleMax": ".maxReplicas",
-	}
-	for key, newVal := range valMap {
-		valPath := newPS + key
-		asVal, found, err := tpath.Find(valueTree, util.ToYAMLPath(valPath))
-		if found && err == nil {
-			if err := setOutputAndClean(valPath, outPath+newVal, asVal, valueTree, cpSpecTree, true); err != nil {
-				return err
-			}
-		}
-	}
-	valPath := newPS + ".cpu.targetAverageUtilization"
-	asVal, found, err := tpath.Find(valueTree, util.ToYAMLPath(valPath))
-	if found && err == nil {
-		rs := make([]interface{}, 1)
-		rsVal := `
-- type: Resource
-  resource:
-    name: cpu
-    target:
-      type: Utilization
-      averageUtilization: %f`
-
-		rsString := fmt.Sprintf(rsVal, asVal)
-		if err = yaml.Unmarshal([]byte(rsString), &rs); err != nil {
-			return err
-		}
-		if err := setOutputAndClean(valPath, outPath+".metrics", rs, valueTree, cpSpecTree, true); err != nil {
-			return err
-		}
-	}
-
-	// There is no direct source from value.yaml for scaleTargetRef value, we need to construct from component name
-	if found {
-		revision := ""
-		rev, ok := cpSpecTree["revision"]
-		if ok {
-			revision = rev.(string)
-		}
-		st := make(map[string]interface{})
-		stVal := `
-apiVersion: apps/v1
-kind: Deployment
-name: %s`
-
-		// need to do special handling for gateways
-		if specialComponentPath[newPS] && len(newP) > 2 {
-			newPS = newP[1 : len(newP)-1].String()
-		}
-		// convert from values component name to correct deployment target
-		if newPS == "pilot" {
-			newPS = "istiod"
-			if revision != "" {
-				newPS = newPS + "-" + revision
-			}
-		}
-		stString := fmt.Sprintf(stVal, newPS)
-		if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
-			return err
-		}
-		if err := setOutputAndClean(valPath, outPath+".scaleTargetRef", st, valueTree, cpSpecTree, false); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// setOutputAndClean is helper function to set value of iscp tree and clean the original value from value.yaml tree.
-func setOutputAndClean(valPath, outPath string, outVal interface{}, valueTree, cpSpecTree map[string]interface{}, clean bool) error {
-	scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", outPath)
-
-	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outVal); err != nil {
-		return err
-	}
-	if !clean {
-		return nil
-	}
-	if _, err := tpath.Delete(valueTree, util.ToYAMLPath(valPath)); err != nil {
-		return err
-	}
-	return nil
-}
-
 // translateEnv translates env value from helm values.yaml tree.
 func translateEnv(outPath string, value interface{}, cpSpecTree map[string]interface{}) error {
 	envMap, ok := value.(map[string]interface{})
@@ -559,10 +454,6 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			k8sSettingName = path[len(path)-1]
 		}
 		if k8sSettingName == "autoscaleEnabled" {
-			if err := translateHPASpec(inPath, v.OutPath, valueTree, cpSpecTree); err != nil {
-				return fmt.Errorf("error in translating K8s HPA spec: %s", err)
-			}
-			metrics.LegacyPathTranslationTotal.Increment()
 			continue
 		}
 		m, found, err := tpath.Find(valueTree, util.ToYAMLPath(inPath))
