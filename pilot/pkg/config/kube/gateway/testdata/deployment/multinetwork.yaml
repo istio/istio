@@ -14,10 +14,12 @@ metadata:
     uid: null
 spec:
   ports:
-  - name: status-port
+  - appProtocol: http
+    name: status-port
     port: 15021
     protocol: TCP
-  - name: http
+  - appProtocol: http
+    name: http
     port: 80
     protocol: TCP
   selector:
