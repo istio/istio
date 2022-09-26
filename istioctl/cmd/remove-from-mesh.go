@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
@@ -230,8 +231,12 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			}
 		}
 		if !sidecarInjected {
-			// The sidecar wasn't explicitly injected.  (Unless there is annotation it may have been auto injected)
-			if val := dep.Spec.Template.Annotations[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
+			inject := dep.Spec.Template.Annotations[annotation.SidecarInject.Name]
+			if lbl, labelPresent := dep.Spec.Template.Labels[label.SidecarInject.Name]; labelPresent {
+				inject = lbl
+			}
+			// The sidecar wasn't explicitly injected.
+			if strings.EqualFold(inject, "false") {
 				fmt.Fprintf(writer, "deployment %q has no Istio sidecar injected. Skipping.\n", depName)
 				continue
 			}
@@ -261,10 +266,10 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		res.Spec.Template.Spec = *podSpec
 		// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
 		// must prevent injection
-		if res.Spec.Template.Annotations == nil {
-			res.Spec.Template.Annotations = make(map[string]string)
+		if res.Spec.Template.Labels == nil {
+			res.Spec.Template.Labels = make(map[string]string)
 		}
-		res.Spec.Template.Annotations[annotation.SidecarInject.Name] = "false"
+		res.Spec.Template.Labels[label.SidecarInject.Name] = "false"
 		if _, err := client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q due to %v", depName, name, err))
 			continue

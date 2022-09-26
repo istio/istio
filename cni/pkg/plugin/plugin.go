@@ -30,6 +30,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -59,7 +60,7 @@ type Kubernetes struct {
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
 type Config struct {
-	types.NetConf           // You may wish to not nest this type
+	types.NetConf // You may wish to not nest this type
 	RuntimeConfig *struct { // SampleConfig map[string]interface{} `json:"sample"`
 	} `json:"runtimeConfig"`
 
@@ -244,7 +245,12 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 			if len(pi.Containers) > 1 {
 				log.Debugf("Checking pod %s/%s annotations prior to redirect for Istio proxy", podNamespace, podName)
-				if val, ok := pi.Annotations[injectAnnotationKey]; ok {
+				val := pi.Annotations[injectAnnotationKey]
+				if lbl, labelPresent := pi.Labels[label.SidecarInject.Name]; labelPresent {
+					// The label is the new API; if both are present we prefer the label
+					val = lbl
+				}
+				if val != "" {
 					log.Debugf("Pod %s/%s contains inject annotation: %s", podNamespace, podName, val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {

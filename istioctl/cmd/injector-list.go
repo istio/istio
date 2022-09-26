@@ -333,7 +333,7 @@ func hideFromOutput(ns resource.Namespace) bool {
 
 func injectionDisabled(pod *v1.Pod) bool {
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
-	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[label.SidecarInject.Name]; labelPresent {
 		inject = lbl
 	}
 	return strings.EqualFold(inject, "false")
