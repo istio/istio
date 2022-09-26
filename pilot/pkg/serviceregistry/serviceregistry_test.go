@@ -291,6 +291,39 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
+	t.Run("External only: the port name of the workloadEntry and serviceEntry does match, "+
+		"serviceEntry's targetPort not equal workloadEntry's, use workloadEntry port to override", func(t *testing.T) {
+		_, wc, store, _, _ := setupTest(t)
+		se := serviceEntry.Spec.(*networking.ServiceEntry).DeepCopy()
+		se.Ports[0].TargetPort = 8081 // respect wle port firstly, does not care about this value at all.
+
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workload",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					serviceEntry.Spec.(*networking.ServiceEntry).Ports[0].Name: 8080,
+				},
+			},
+		})
+
+		makeIstioObject(t, store, serviceEntry)
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
 	t.Run("External only: workloadEntry port is not set, use target port", func(t *testing.T) {
 		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, config.Config{
