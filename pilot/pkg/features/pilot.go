@@ -415,7 +415,14 @@ var (
 	)
 
 	TrustedGatewayCIDR = func() []string {
-		return strings.Split(trustedGatewayCIDR.Get(), ",")
+		cidr := trustedGatewayCIDR.Get()
+
+		// splitting the empty string will result [""]
+		if cidr == "" {
+			return []string{}
+		}
+
+		return strings.Split(cidr, ",")
 	}()
 
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue: []
+releaseNotes:
+- |
+  **Updated** the default value for TRUSTED_GATEWAY_CIDR.
+
+  Previously this was empty which implicitly caused the
+  XfccAuthenticator to disallow non-loopback requests.
