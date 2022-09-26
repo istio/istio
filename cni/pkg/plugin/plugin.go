@@ -35,7 +35,6 @@ import (
 )
 
 var (
-	nsSetupBinDir       = "/opt/cni/bin"
 	injectAnnotationKey = annotation.SidecarInject.Name
 	sidecarStatusKey    = annotation.SidecarStatus.Name
 
@@ -194,9 +193,6 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	log.Infof("istio-cni cmdAdd with k8s args: %+v", k8sArgs)
-	if conf.Kubernetes.CNIBinDir != "" {
-		nsSetupBinDir = conf.Kubernetes.CNIBinDir
-	}
 	if conf.Kubernetes.InterceptRuleMgrType != "" {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}

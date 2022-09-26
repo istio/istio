@@ -89,9 +89,9 @@ type exportToDefaults struct {
 
 // virtualServiceIndex is the index of virtual services by various fields.
 type virtualServiceIndex struct {
-	exportedToNamespaceByGateway map[string]map[string][]config.Config
+	exportedToNamespaceByGateway map[types.NamespacedName][]config.Config
 	// this contains all the virtual services with exportTo "." and current namespace. The keys are namespace,gateway.
-	privateByNamespaceAndGateway map[string]map[string][]config.Config
+	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
 	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
@@ -101,8 +101,8 @@ type virtualServiceIndex struct {
 func newVirtualServiceIndex() virtualServiceIndex {
 	return virtualServiceIndex{
 		publicByGateway:              map[string][]config.Config{},
-		privateByNamespaceAndGateway: map[string]map[string][]config.Config{},
-		exportedToNamespaceByGateway: map[string]map[string][]config.Config{},
+		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
+		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
 	}
 }
@@ -898,12 +898,21 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
+//
+// Note that for generating the imported virtual services of sidecar egress
+// listener, we don't call this function to copy configs for performance issues.
+// Instead, we pass the virtualServiceIndex directly into SelectVirtualServices
+// function.
 func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []config.Config {
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway])+
-		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway])+
+	name := types.NamespacedName{
+		Namespace: proxyNamespace,
+		Name:      gateway,
+	}
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway]...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway]...)
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 
 	return res
@@ -1476,8 +1485,8 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[string]map[string][]config.Config{}
-	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[string]map[string][]config.Config{}
+	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
+	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
 
 	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
@@ -1516,13 +1525,11 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			// No exportTo in virtualService. Use the global default
 			// We only honor ., *
 			if ps.exportToDefaults.virtualService[visibility.Private] {
-				if _, f := ps.virtualServiceIndex.privateByNamespaceAndGateway[ns]; !f {
-					ps.virtualServiceIndex.privateByNamespaceAndGateway[ns] = map[string][]config.Config{}
-				}
 				// add to local namespace only
 				private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 				for _, gw := range gwNames {
-					private[ns][gw] = append(private[ns][gw], virtualService)
+					n := types.NamespacedName{Namespace: ns, Name: gw}
+					private[n] = append(private[n], virtualService)
 				}
 			} else if ps.exportToDefaults.virtualService[visibility.Public] {
 				for _, gw := range gwNames {
@@ -1549,21 +1556,17 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				// . or other namespaces
 				for exportTo := range exportToMap {
 					if exportTo == visibility.Private || string(exportTo) == ns {
-						if _, f := ps.virtualServiceIndex.privateByNamespaceAndGateway[ns]; !f {
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[ns] = map[string][]config.Config{}
-						}
 						// add to local namespace only
 						for _, gw := range gwNames {
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[ns][gw] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[ns][gw], virtualService)
+							n := types.NamespacedName{Namespace: ns, Name: gw}
+							ps.virtualServiceIndex.privateByNamespaceAndGateway[n] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[n], virtualService)
 						}
 					} else {
-						if _, f := ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)]; !f {
-							ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)] = map[string][]config.Config{}
-						}
 						exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 						// add to local namespace only
 						for _, gw := range gwNames {
-							exported[string(exportTo)][gw] = append(exported[string(exportTo)][gw], virtualService)
+							n := types.NamespacedName{Namespace: string(exportTo), Name: gw}
+							exported[n] = append(exported[n], virtualService)
 						}
 					}
 				}

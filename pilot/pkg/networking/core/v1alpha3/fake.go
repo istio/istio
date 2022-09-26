@@ -132,7 +132,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	se := serviceentry.NewController(
-		configController, model.MakeIstioStore(configStore),
+		configController,
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
@@ -158,7 +158,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
 	env.ServiceDiscovery = serviceDiscovery
-	env.ConfigStore = model.MakeIstioStore(configController)
+	env.ConfigStore = configController
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
 

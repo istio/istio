@@ -386,7 +386,7 @@ function install_metallb() {
 
   # Give this cluster of those IPs
   RANGE="["
-  for i in {0..9}; do
+  for i in {0..19}; do
     RANGE+="${METALLB_IPS4[1]},"
     METALLB_IPS4=("${METALLB_IPS4[@]:1}")
     if [[ "${#METALLB_IPS6[@]}" != 0 ]]; then

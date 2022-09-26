@@ -46,6 +46,7 @@ import (
 func TestSimpleTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.tls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -121,6 +122,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 func TestMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -365,7 +367,7 @@ func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGatew
 }
 
 func newTLSGatewayTest(t framework.TestContext) *echotest.T {
-	return echotest.New(t, apps.Ns1.All.Instances()).
+	return echotest.New(t, apps.All.Instances()).
 		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.Namespace(apps.Ns1.Namespace),

@@ -82,10 +82,6 @@ type fakeDefaultWatcher struct {
 	defaultRevision string
 }
 
-func (w *fakeDefaultWatcher) setDefaultRevision(r string) {
-	w.defaultRevision = r
-}
-
 func (w *fakeDefaultWatcher) Run(stop <-chan struct{}) {
 }
 

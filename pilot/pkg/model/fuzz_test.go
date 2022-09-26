@@ -46,13 +46,12 @@ type deepCopier[T any] interface {
 }
 
 func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer, opts ...cmp.Option) {
-	f.Fuzz(func(t *testing.T, data []byte) {
-		fg := fuzz.New(t, data)
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		orig := fuzz.Struct[T](fg)
 		copied := orig.DeepCopy()
 		if !cmp.Equal(orig, copied, opts...) {
 			diff := cmp.Diff(orig, copied, opts...)
-			t.Fatalf("unexpected diff %v", diff)
+			fg.T().Fatalf("unexpected diff %v", diff)
 		}
 	})
 }
