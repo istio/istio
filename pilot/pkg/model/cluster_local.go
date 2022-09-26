@@ -95,7 +95,10 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	// Collect the cluster-local hosts.
 	hosts := make(ClusterLocalHosts, 0)
 	for _, serviceSettings := range e.Mesh().ServiceSettings {
-		if serviceSettings.Settings.ClusterLocal {
+		if serviceSettings == nil {
+			continue
+		}
+		if serviceSettings.Settings.GetClusterLocal() {
 			for _, h := range serviceSettings.Hosts {
 				hosts[host.Name(h)] = struct{}{}
 			}
