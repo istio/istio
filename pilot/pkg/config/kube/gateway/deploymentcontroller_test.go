@@ -70,8 +70,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: v1alpha2.GatewaySpec{
 					Listeners: []v1alpha2.Listener{{
-						Name: "http",
-						Port: v1alpha2.PortNumber(80),
+						Name:     "http",
+						Port:     v1alpha2.PortNumber(80),
+						Protocol: v1alpha2.HTTPProtocolType,
 					}},
 				},
 			},
@@ -86,8 +87,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: v1alpha2.GatewaySpec{
 					Listeners: []v1alpha2.Listener{{
-						Name: "http",
-						Port: v1alpha2.PortNumber(80),
+						Name:     "http",
+						Port:     v1alpha2.PortNumber(80),
+						Protocol: v1alpha2.HTTPProtocolType,
 					}},
 				},
 			},
