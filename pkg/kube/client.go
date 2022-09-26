@@ -49,6 +49,7 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -303,16 +304,14 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 
 	c.fastSync = true
 
+	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
+
 	return c
 }
 
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
-	if minor != "" && minor != "latest" {
-		c.version = lazy.New(func() (*kubeVersion.Info, error) {
-			return &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}, nil
-		})
-	}
+	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 	return c
 }
 
