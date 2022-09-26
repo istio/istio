@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/informer"
 	filterinformer "istio.io/istio/pkg/kube/informer"
 )
 
@@ -84,7 +83,7 @@ func endpointSliceV1Available(client kubelib.Client) bool {
 	return client != nil && !kubelib.IsLessThanVersion(client, 21)
 }
 
-func (esc *endpointSliceController) getInformer() informer.FilteredSharedIndexInformer {
+func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedIndexInformer {
 	return esc.informer
 }
 

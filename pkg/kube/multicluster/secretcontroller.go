@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/namespace"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -94,7 +93,7 @@ type Controller struct {
 	queue               controllers.Queue
 	informer            cache.SharedIndexInformer
 
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	cs                        *ClusterStore
 
 	handlers []ClusterHandler
