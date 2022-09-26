@@ -96,13 +96,13 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	// Collect the cluster-local hosts.
 	hosts := make(ClusterLocalHosts, 0)
 	for _, serviceSettings := range e.Mesh().ServiceSettings {
-		if serviceSettings.Settings.ClusterLocal {
-			for _, h := range serviceSettings.Hosts {
+		if serviceSettings.GetSettings().GetClusterLocal() {
+			for _, h := range serviceSettings.GetHosts() {
 				hosts = append(hosts, host.Name(h))
 			}
 		} else {
 			// Remove defaults if specified to be non-cluster-local.
-			for _, h := range serviceSettings.Hosts {
+			for _, h := range serviceSettings.GetHosts() {
 				for i, defaultClusterLocalHost := range defaultClusterLocalHosts {
 					if len(defaultClusterLocalHost) > 0 {
 						if h == string(defaultClusterLocalHost) ||
