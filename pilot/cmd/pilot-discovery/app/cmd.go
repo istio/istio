@@ -153,8 +153,6 @@ func addFlags(c *cobra.Command) {
 		"The ID of the cluster that this Istiod instance resides")
 	c.PersistentFlags().StringToStringVar(&serverArgs.RegistryOptions.KubeOptions.ClusterAliases, "clusterAliases", map[string]string{},
 		"Alias names for clusters")
-	c.PersistentFlags().BoolVar(&serverArgs.RegistryOptions.KubeOptions.EnableLeaderElection, "leader-elect", true,
-		"Start a leader election client and gain leadership before executing controllers. Enable this when running replicated istiod for high availability.")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.HTTPAddr, "httpAddr", ":8080",

@@ -10,6 +10,6 @@ docs:
 
 releaseNotes:
 - |
-  **Added** a `--leader-elect=false` flag for pilot-discovery to disable leader
-  election when using a single replica of istiod.
+  **Added** an `ENABLE_LEADER_ELECTION=false` feature flag for pilot-discovery
+  to disable leader election when using a single replica of istiod.
 

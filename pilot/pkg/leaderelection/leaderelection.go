@@ -196,13 +196,13 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
-func NewLeaderElection(namespace, name, electionID, revision string, enabled bool, client kube.Client) *LeaderElection {
-	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, enabled, false, client)
+func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
+	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, false, client)
 }
 
-func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, enabled, remote bool, client kube.Client) *LeaderElection {
+func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
-	if enabled && features.PrioritizedLeaderElection {
+	if features.EnableLeaderElection && features.PrioritizedLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
 	}
 	if name == "" {
@@ -215,7 +215,7 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 		client:         client.Kube(),
 		electionID:     electionID,
 		revision:       revision,
-		enabled:        enabled,
+		enabled:        features.EnableLeaderElection,
 		remote:         remote,
 		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,

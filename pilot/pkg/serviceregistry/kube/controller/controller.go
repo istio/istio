@@ -141,12 +141,6 @@ type Options struct {
 	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
 	SyncTimeout time.Duration
 
-	// EnableLeaderElection, if true (default), starts a leader election client
-	// and gains leadership before executing controllers. If false, it assumes
-	// that only one instance of istiod is running and bypasses the leader
-	// election algorithm.
-	EnableLeaderElection bool
-
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
