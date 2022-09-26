@@ -314,6 +314,7 @@ func expectInt(t *testing.T, f func() int32, expected int32) {
 		return nil
 	}, retry.Timeout(time.Second))
 }
+
 func TestLeaderElectionDisabled(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
