@@ -128,7 +128,11 @@ spec:
     {{- end }}
   {{- end }}
     resources:
-  {{ template "resources" . }}
+    {{- if .Values.global.proxy_init.resources }}
+      {{ toYaml .Values.global.proxy_init.resources | indent 6 }}
+    {{ else }}
+      {{ template "resources" . }}
+    {{- end }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       privileged: {{ .Values.global.proxy.privileged }}
