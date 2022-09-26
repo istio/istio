@@ -26,7 +26,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -87,6 +86,7 @@ import (
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
@@ -146,7 +146,6 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
-
 	HasStarted() bool
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
@@ -310,8 +309,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
-		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
+		c.version = lazy.New(func() (*kubeVersion.Info, error) {
+			return &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}, nil
 		})
 	}
 	return c
@@ -360,8 +359,7 @@ type client struct {
 	discoveryClient discovery.CachedDiscoveryInterface
 	mapper          meta.ResettableRESTMapper
 
-	versionOnce sync.Once
-	version     *kubeVersion.Info
+	version lazy.Lazy[*kubeVersion.Info]
 
 	portManager PortManager
 }
@@ -434,6 +432,18 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
 
 	c.portManager = defaultAvailablePort
+
+	var clientWithTimeout kubernetes.Interface
+	clientWithTimeout = c.kube
+	restConfig := c.RESTConfig()
+	if restConfig != nil {
+		restConfig.Timeout = time.Second * 5
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err == nil {
+			clientWithTimeout = kubeClient
+		}
+	}
+	c.version = lazy.NewWithRetry(clientWithTimeout.Discovery().ServerVersion)
 
 	return &c, nil
 }
@@ -569,32 +579,7 @@ func (c *client) startInformer(stop <-chan struct{}) {
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	var clientWithTimeout kubernetes.Interface
-	clientWithTimeout = c.kube
-	restConfig := c.RESTConfig()
-	if restConfig != nil {
-		restConfig.Timeout = time.Second * 5
-		kubeClient, err := kubernetes.NewForConfig(restConfig)
-		if err == nil {
-			clientWithTimeout = kubeClient
-		}
-	}
-
-	c.versionOnce.Do(func() {
-		v, err := clientWithTimeout.Discovery().ServerVersion()
-		if err == nil {
-			c.version = v
-		}
-	})
-	if c.version != nil {
-		return c.version, nil
-	}
-	// Initial attempt failed, retry on each call to this function
-	v, err := clientWithTimeout.Discovery().ServerVersion()
-	if err != nil {
-		c.version = v
-	}
-	return c.version, err
+	return c.version.Get()
 }
 
 type reflectInformerSync interface {
