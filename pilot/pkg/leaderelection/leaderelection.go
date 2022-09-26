@@ -61,7 +61,12 @@ type LeaderElection struct {
 	runFns    []func(stop <-chan struct{})
 	client    kubernetes.Interface
 	ttl       time.Duration
-	enabled   bool
+
+	// enabled sets whether leader election is enabled. Setting enabled=false
+	// before calling Run() bypasses leader election and assumes that we are
+	// always leader, avoiding unnecessary lease updates on single-node
+	// clusters.
+	enabled bool
 
 	// Criteria to determine leader priority.
 	revision       string
@@ -184,16 +189,6 @@ func LocationPrioritizedComparison(currentLeaderRevision string, l *LeaderElecti
 	return l.revision == currentLeaderRevision && !l.remote && currentLeaderRemote
 }
 
-// Enabled sets whether leader election is enabled. Calling Enabled(false)
-// bypasses leader election and assumes that we are always leader, avoiding
-// unnecessary lease updates on single-node clusters.
-//
-// It is not thread-safe and must be called before Run().
-func (l *LeaderElection) Enabled(enabled bool) *LeaderElection {
-	l.enabled = enabled
-	return l
-}
-
 // AddRunFunction registers a function to run when we are the leader. These will be run asynchronously.
 // To avoid running when not a leader, functions should respect the stop channel.
 func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderElection {
@@ -201,13 +196,13 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
-func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
-	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, false, client)
+func NewLeaderElection(namespace, name, electionID, revision string, enabled bool, client kube.Client) *LeaderElection {
+	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, enabled, false, client)
 }
 
-func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
+func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, enabled, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
-	if features.PrioritizedLeaderElection {
+	if enabled && features.PrioritizedLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
 	}
 	if name == "" {
@@ -220,10 +215,10 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 		client:         client.Kube(),
 		electionID:     electionID,
 		revision:       revision,
+		enabled:        enabled,
 		remote:         remote,
 		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,
-		enabled:        true,
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,
 		cycle: atomic.NewInt32(0),
