@@ -43,9 +43,7 @@ func NewFilteredSharedIndexInformer(
 	_ = sharedIndexInformer.SetTransform(kube.StripUnusedFields)
 	// no filter specified
 	if filterFunc == nil {
-		filterFunc = func(obj any) bool {
-			return true
-		}
+		return sharedIndexInformer
 	}
 	return &filteredSharedIndexInformer{
 		filterFunc:          filterFunc,
