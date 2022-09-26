@@ -290,7 +290,7 @@ type deploymentInput struct {
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
-	http := string(protocol.HTTP)
+	http := strings.ToLower(string(protocol.HTTP))
 	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
@@ -308,7 +308,7 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 			// Should not happen since name is required, but in case an invalid resource gets in...
 			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
 		}
-		appProtocol := string(l.Protocol)
+		appProtocol := strings.ToLower(string(l.Protocol))
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
 			Port:        int32(l.Port),

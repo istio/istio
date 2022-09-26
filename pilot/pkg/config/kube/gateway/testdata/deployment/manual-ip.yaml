@@ -14,7 +14,8 @@ metadata:
 spec:
   loadBalancerIP: 1.2.3.4
   ports:
-  - name: status-port
+  - appProtocol: http
+    name: status-port
     port: 15021
     protocol: TCP
   selector:
