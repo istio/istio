@@ -48,7 +48,7 @@ spec:
         args:
         - /bin/sh
         - -c
-        - touch /tmp/healthy; sleep 3600
+        - touch /tmp/healthy; sleep infinity
         livenessProbe:
           exec:
             command:
