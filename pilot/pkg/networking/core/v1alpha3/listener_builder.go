@@ -35,6 +35,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	model2 "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
@@ -567,6 +568,20 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 				filterChain.Filters = append(opt.filterChain.TCP, filter)
 			} else {
 				filterChain.Filters = append(opt.filterChain.TCP, opt.networkFilters...)
+			}
+			// Swap the RBAC network filter with metadata exchange filter if it comes before mx filter.
+			rbacNetworkFilterIndex := -1
+			for idx, filter := range filterChain.Filters {
+				if filter.GetName() == model2.RBACTCPFilterName {
+					rbacNetworkFilterIndex = idx
+				} else if filter.GetName() == xdsfilters.MxFilterName && rbacNetworkFilterIndex != -1 {
+					temp := filterChain.Filters[rbacNetworkFilterIndex]
+					filterChain.Filters[rbacNetworkFilterIndex] = filter
+					filterChain.Filters[idx] = temp
+				} else if filter.GetName() == xdsfilters.MxFilterName {
+					// If no RBAC filter exists before mx filter, simply break.
+					break
+				}
 			}
 			port := int(opt.match.DestinationPort.GetValue())
 			inspector := inspectors[port]

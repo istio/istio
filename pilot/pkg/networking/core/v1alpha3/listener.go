@@ -1302,12 +1302,13 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
 
-	filters := make([]*hcm.HttpFilter, len(httpFilters))
-	copy(filters, httpFilters)
+	var filters []*hcm.HttpFilter
 
 	if features.MetadataExchange && util.CheckProxyVerionForMX(listenerOpts.push, listenerOpts.proxy.IstioVersion) {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
+
+	filters = append(filters, httpFilters...)
 
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, xdsfilters.GrpcWeb)
