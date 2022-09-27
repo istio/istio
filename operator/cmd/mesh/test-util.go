@@ -123,18 +123,6 @@ func (o *ObjectSet) kind(kind string) *ObjectSet {
 	return ret
 }
 
-// namespace returns a subset of o where namespace matches the given value or fails if it's not found in objs.
-func (o *ObjectSet) namespace(namespace string) *ObjectSet {
-	ret := &ObjectSet{}
-	for k, v := range o.objMap {
-		_, objNamespace, _ := object.FromHash(k)
-		if objNamespace == namespace {
-			ret.append(v)
-		}
-	}
-	return ret
-}
-
 // labels returns a subset of o where the object's labels match all the given labels.
 func (o *ObjectSet) labels(labels ...string) *ObjectSet {
 	ret := &ObjectSet{}

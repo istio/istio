@@ -415,7 +415,14 @@ var (
 	)
 
 	TrustedGatewayCIDR = func() []string {
-		return strings.Split(trustedGatewayCIDR.Get(), ",")
+		cidr := trustedGatewayCIDR.Get()
+
+		// splitting the empty string will result [""]
+		if cidr == "" {
+			return []string{}
+		}
+
+		return strings.Split(cidr, ",")
 	}()
 
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
@@ -650,6 +657,10 @@ var (
 	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", false,
 		"If enabled, meshConfig.discoverySelectors will also limit the configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
 			"that can be processed by pilot.").Get()
+
+	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
+		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
+			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

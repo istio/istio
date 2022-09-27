@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	//  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/kube"
@@ -27,8 +28,8 @@ const (
 	defaultTimeoutDurationStr = "10m"
 )
 
-// New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
-func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Clientset, error) {
+// New creates a rest.Config and Clientset from the given kubeconfig path and Context.
+func New(kubeconfig, kubeContext string, qpsLimit int) (*rest.Config, *kubernetes.Clientset, error) {
 	clientConfig := kube.BuildClientCmd(kubeconfig, kubeContext, func(co *clientcmd.ConfigOverrides) {
 		co.Timeout = defaultTimeoutDurationStr
 	})
@@ -36,10 +37,15 @@ func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Cl
 	if err != nil {
 		return nil, nil, err
 	}
+	if qpsLimit > 0 {
+		restConfig.QPS = float32(qpsLimit)
+		restConfig.Burst = qpsLimit * 2
+	}
+
 	clientset, err := kubernetes.NewForConfig(kube.SetRestDefaults(restConfig))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return clientConfig, clientset, nil
+	return restConfig, clientset, nil
 }

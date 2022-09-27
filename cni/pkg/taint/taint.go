@@ -96,19 +96,6 @@ func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	}
 }
 
-// only pod with NodeReadiness Tolerance with effect no schedule or
-// a generalized tolerance with noschedule effect can be considered
-func (ts *Setter) validTolerance(pod v1.Pod) bool {
-	for _, toleration := range pod.Spec.Tolerations {
-		if (toleration.Key == TaintName || toleration.Key == "") &&
-			toleration.Operator == v1.TolerationOpExists &&
-			toleration.Effect == v1.TaintEffectNoSchedule {
-			return true
-		}
-	}
-	return false
-}
-
 // check whether current node have readiness
 func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
 	ts.mutex.RLock()

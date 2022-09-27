@@ -1,0 +1,18 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    ingressGateways:
+    - enabled: true
+      k8s:
+        hpaSpec:
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 70
+            type: Resource
+      name: istio-ingressgateway
+  values:
+    pilot:
+      cpu:
+        targetAverageUtilization: 90

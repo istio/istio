@@ -86,6 +86,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
+	c.started.Store(true)
 	c.monitor.Run(stop)
 }
 
