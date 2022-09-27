@@ -36,10 +36,17 @@ func TestIsTrustedAddress(t *testing.T) {
 		trusted bool
 	}{
 		{
-			name:    "localhost client",
+			name:    "localhost client with port",
+			cidr:    "",
+			peer:    "127.0.0.1:9901",
+			trusted: true,
+		},
+		{
+			// Should never happen, added test case for testing it.
+			name:    "localhost client without port",
 			cidr:    "",
 			peer:    "127.0.0.1",
-			trusted: true,
+			trusted: false,
 		},
 		{
 			name:    "external client without trusted cidr",
