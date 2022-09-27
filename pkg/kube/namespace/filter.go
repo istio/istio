@@ -73,6 +73,7 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	if len(d.discoverySelectors) == 0 {
 		return true
 	}
+
 	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
 	object, ok := obj.(metav1.Object)
 	if !ok {

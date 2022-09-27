@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+   - |
+     **Updated** `meshConfig.discoverySelectors` to dynamically restrict the set of namespaces where istiod create istio-ca-root-cert configmap.
+docs:
+   - https://docs.google.com/document/d/1y4liRJbQW0NCMeQtqMma46flVqs-izV1/

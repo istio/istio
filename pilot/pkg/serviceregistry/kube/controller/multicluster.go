@@ -271,7 +271,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
-					nc := NewNamespaceController(client, m.caBundleWatcher)
+					nc := NewNamespaceController(client, m.caBundleWatcher, kubeRegistry.opts.DiscoveryNamespacesFilter)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
