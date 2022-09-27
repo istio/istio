@@ -58,13 +58,13 @@ func TestIsTrustedAddress(t *testing.T) {
 		{
 			name:    "cidr in range",
 			cidr:    "172.17.0.0/16,192.17.0.0/16",
-			peer:    "172.17.0.2",
+			peer:    "172.17.0.2:9901",
 			trusted: true,
 		},
 		{
 			name:    "cidr in range with both ipv6 and ipv4",
 			cidr:    "172.17.0.0/16,2001:db8:1234:1a00::/56",
-			peer:    "2001:0db8:1234:1aff:ffff:ffff:ffff:ffff",
+			peer:    "[2001:0db8:1234:1a00:0000:0000:0000:0000]:80",
 			trusted: true,
 		},
 		{

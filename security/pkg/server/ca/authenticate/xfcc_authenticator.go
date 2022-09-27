@@ -93,17 +93,17 @@ func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 }
 
 func isTrustedAddress(addr string, trustedCidrs []string) bool {
-	for _, cidr := range trustedCidrs {
-		if isInRange(addr, cidr) {
-			return true
-		}
-	}
-	// Always trust local host addresses.
 	ip, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		log.Warnf("peer address %s can not be split in to proper host and port", addr)
 		return false
 	}
+	for _, cidr := range trustedCidrs {
+		if isInRange(ip, cidr) {
+			return true
+		}
+	}
+	// Always trust local host addresses.
 	return net.ParseIP(ip).IsLoopback()
 }
 
