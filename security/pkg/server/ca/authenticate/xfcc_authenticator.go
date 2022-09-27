@@ -101,7 +101,7 @@ func isTrustedAddress(addr string, trustedCidrs []string) bool {
 	// Always trust local host addresses.
 	ip, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		log.Warnf("peer address %s can not be split in to proper host and port")
+		log.Warnf("peer address %s can not be split in to proper host and port", addr)
 		return false
 	}
 	return net.ParseIP(ip).IsLoopback()
