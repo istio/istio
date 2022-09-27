@@ -16,6 +16,7 @@ package authenticate
 
 import (
 	"net"
+	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -137,7 +138,8 @@ func TestXfccAuthenticator(t *testing.T) {
 			if len(tt.xfccHeader) > 0 {
 				md.Append(xfccparser.ForwardedClientCertHeader, tt.xfccHeader)
 			}
-			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP("127.0.0.1").To4()}})
+			addr := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:2301"))
+			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: addr})
 			ctx = metadata.NewIncomingContext(ctx, md)
 			result, err := auth.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tt.authenticateErrMsg) > 0 {
