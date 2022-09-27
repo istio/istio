@@ -3700,7 +3700,7 @@ func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Valid
 		}
 		if l.Filter != nil {
 			if len(l.Providers) == 0 {
-				v = appendWarningf(v, "filter will be ignored if default logging provider is empty.")
+				v = appendWarningf(v, "filter will be ignored if default logging provider is empty")
 			}
 			v = appendValidation(v, validateTelemetryFilter(l.Filter))
 		}

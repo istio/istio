@@ -7725,7 +7725,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				},
 			},
-			"", "filter with empty providers will be ignored",
+			"", "filter will be ignored if default logging provider is empty",
 		},
 	}
 	for _, tt := range tests {
