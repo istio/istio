@@ -15,8 +15,6 @@
 package util
 
 import (
-	"strings"
-
 	apps_v1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -68,9 +66,9 @@ func inMesh(annos, labels map[string]string, namespace resource.Namespace, conta
 // getPodSidecarInjectionStatus returns two booleans: enabled and ok.
 // enabled is true when deployment d PodSpec has either the label/annotation 'sidecar.istio.io/inject: "true"'
 // ok is true when the PodSpec doesn't have the 'sidecar.istio.io/inject' label/annotation present.
-func getPodSidecarInjectionStatus(annos map[string]string) (enabled bool, ok bool) {
-	v, ok := annos[label.SidecarInject.Name]
-	return strings.EqualFold(v, "true"), ok
+func getPodSidecarInjectionStatus(metadata map[string]string) (enabled bool, ok bool) {
+	v, ok := metadata[label.SidecarInject.Name]
+	return v == "true", ok
 }
 
 // autoInjectionEnabled returns two booleans: enabled and ok.
