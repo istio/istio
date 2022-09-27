@@ -75,7 +75,7 @@ func TestAPIGen(t *testing.T) {
 		store := memory.Make(collections.Pilot)
 
 		configController := memory.NewController(store)
-		adscConn.Store = model.MakeIstioStore(configController)
+		adscConn.Store = configController
 		err = adscConn.Run()
 		if err != nil {
 			t.Fatal("ADSC: failed running ", err)

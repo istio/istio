@@ -38,6 +38,7 @@ var (
 	apps      deployment.SingleNamespaceView
 	jwtServer jwt.Server
 	echoNS    namespace.Instance
+	systemNs  namespace.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -46,20 +47,19 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Label("CustomSetup").
 		Setup(istio.Setup(&ist, setupConfig)).
-		Setup(namespace.Setup(&echoNS, namespace.Config{Prefix: "echo1", Inject: true})).
 		Setup(func(ctx resource.Context) error {
-			systemNs, err := istio.ClaimSystemNamespace(ctx)
-			if err != nil {
-				return err
-			}
-			jwt.Setup(&jwtServer, namespace.Future(&systemNs))
-			return nil
+			var err error
+			systemNs, err = istio.ClaimSystemNamespace(ctx)
+			return err
 		}).
-		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
-			Namespaces: []namespace.Getter{
-				namespace.Future(&echoNS),
-			},
-		})).
+		Setup(namespace.Setup(&echoNS, namespace.Config{Prefix: "echo1", Inject: true})).
+		SetupParallel(
+			jwt.Setup(&jwtServer, namespace.Future(&systemNs)),
+			deployment.SetupSingleNamespace(&apps, deployment.Config{
+				Namespaces: []namespace.Getter{
+					namespace.Future(&echoNS),
+				},
+			})).
 		Run()
 }
 
@@ -84,4 +84,5 @@ values:
       PILOT_JWT_ENABLE_REMOTE_JWKS: false
 meshConfig:
   accessLogFile: /dev/stdout`, map[string]string{"pem": rootCaCert})
+	cfg.ConfigClusterValues = cfg.ControlPlaneValues
 }

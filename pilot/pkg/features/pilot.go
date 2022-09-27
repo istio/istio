@@ -415,7 +415,14 @@ var (
 	)
 
 	TrustedGatewayCIDR = func() []string {
-		return strings.Split(trustedGatewayCIDR.Get(), ",")
+		cidr := trustedGatewayCIDR.Get()
+
+		// splitting the empty string will result [""]
+		if cidr == "" {
+			return []string{}
+		}
+
+		return strings.Split(cidr, ",")
 	}()
 
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
@@ -646,6 +653,10 @@ var (
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
 	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
+
+	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
+		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
+			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

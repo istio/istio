@@ -110,7 +110,7 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 		}
 	}
 
-	if err := ctx.ConfigKube(ctx.Clusters()...).
+	if err := ctx.ConfigKube(ctx.AllClusters()...).
 		YAML(s.ns.Name(), yamlText).
 		Apply(apply.CleanupConditionally); err != nil {
 		return err
@@ -118,7 +118,7 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 
 	// Wait for the endpoints to be ready.
 	var g multierror.Group
-	for _, c := range ctx.Clusters() {
+	for _, c := range ctx.AllClusters() {
 		c := c
 		g.Go(func() error {
 			fetchFn := kube.NewPodFetch(c, s.ns.Name(), "app=jwt-server")

@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -610,12 +611,20 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	wasmCfgs, err := s.getExtensionConfiguration(con)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+	writeJSON(w, wasmCfgs, req)
+}
+
+func (s *DiscoveryServer) getExtensionConfiguration(con *Connection) ([]proto.Message, error) {
 	if s.Generators[v3.ExtensionConfigurationType] != nil {
 		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
 		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("no watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
-			return
+			return nil, fmt.Errorf("no watched ExtensionConfigurationType found, proxyID: %s", con.proxy.ID)
 		}
 
 		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, &model.PushRequest{
@@ -623,12 +632,10 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			Push: con.proxy.LastPushContext,
 		})
 		if len(resource) == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
-			return
+			return nil, fmt.Errorf("no ExtensionConfigurationType found, proxyID: %s", con.proxy.ID)
 		}
 
-		wasmCfgs := make([]any, 0, len(resource))
+		wasmCfgs := make([]proto.Message, 0, len(resource))
 		for _, rr := range resource {
 			if w, err := unmarshalToWasm(rr); err != nil {
 				istiolog.Warnf("failed to unmarshal wasm: %v", err)
@@ -637,11 +644,13 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		writeJSON(w, wasmCfgs, req)
+		return wasmCfgs, nil
 	}
+
+	return nil, nil
 }
 
-func unmarshalToWasm(r *discovery.Resource) (any, error) {
+func unmarshalToWasm(r *discovery.Resource) (proto.Message, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
 		return nil, err
@@ -675,6 +684,12 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		s.errorHandler(w, proxyID, con)
 		return
 	}
+	if ts := s.getResourceTypes(req); len(ts) != 0 {
+		dump := s.getConfigDumpByResourceType(con, ts)
+		writeJSON(w, dump, req)
+		return
+	}
+
 	includeEds := req.URL.Query().Get("include_eds") == "true"
 	dump, err := s.configDump(con, includeEds)
 	if err != nil {
@@ -682,6 +697,35 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeJSON(w, dump, req)
+}
+
+func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
+	if shortTypes := req.URL.Query().Get("types"); shortTypes != "" {
+		ts := strings.Split(shortTypes, ",")
+
+		resourceTypes := sets.New[string]()
+		for _, t := range ts {
+			resourceTypes.Insert(v3.GetResourceType(t))
+		}
+
+		return resourceTypes.UnsortedList()
+	}
+	return nil
+}
+
+func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) map[string][]proto.Message {
+	dumps := make(map[string][]proto.Message)
+
+	for _, resourceType := range ts {
+		switch resourceType {
+		case v3.ExtensionConfigurationType:
+			if cfgs, err := s.getExtensionConfiguration(conn); err == nil {
+				dumps[v3.ExtensionConfigurationType] = cfgs
+			}
+		}
+	}
+
+	return dumps
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
