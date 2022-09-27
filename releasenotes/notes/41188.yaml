@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+releaseNotes:
+  - |
+    **Fixed** add validation for AccessLogging filter with empty provider.
