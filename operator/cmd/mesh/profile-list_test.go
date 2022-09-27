@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
@@ -49,21 +50,18 @@ func TestProfileList(t *testing.T) {
 
 func TestProfileListByurl(t *testing.T) {
 	g := gomega.NewWithT(t)
-	tempChars, err := os.MkdirTemp("/tmp/", "profilelist-*")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tempChars := t.TempDir()
 	defer os.RemoveAll(tempChars)
 	manifestsPath := filepath.Join(tempChars, "istio", "istio-1.15.0", "manifests")
 	mkCmd := exec.Command("mkdir", "-p", manifestsPath)
-	if err = mkCmd.Run(); err != nil {
+	if err := mkCmd.Run(); err != nil {
 		t.Fatal(err)
 	}
 	cpCmd := exec.Command("cp", "-r", string(liveCharts), manifestsPath)
-	if err = cpCmd.Run(); err != nil {
+	if err := cpCmd.Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err = tgz.Create(filepath.Join(tempChars, "istio"), filepath.Join(tempChars, "istio-1.15.0-linux.tar.gz")); err != nil {
+	if err := tgz.Create(filepath.Join(tempChars, "istio"), filepath.Join(tempChars, "istio-1.15.0-linux.tar.gz")); err != nil {
 		t.Fatal(err)
 	}
 	svr := httpserver.NewServer(tempChars)
@@ -75,8 +73,7 @@ func TestProfileListByurl(t *testing.T) {
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
 
-	err = rootCmd.Execute()
-	if err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("failed to execute istioctl profile command: %v", err)
 	}
 	output := out.String()
