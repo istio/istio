@@ -398,9 +398,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				bind:       bind,
 				port:       listenPort,
 				bindToPort: bindToPort,
-			}
-			if len(extraBind) > 0 {
-				listenerOpts.extraBind = append(listenerOpts.extraBind, extraBind...)
+				extraBind:  extraBind,
 			}
 
 			for _, service := range services {

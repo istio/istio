@@ -59,7 +59,7 @@ func NewHostAddresses(ipMode model.IPMode) HostAddresses {
 		wcLh.localHostIPv4 = LocalhostAddress
 		wcLh.localHostIPv6 = LocalhostIPv6Address
 	default:
-		panic("Unknow IP mode")
+		panic("Unknown IP mode")
 	}
 	return wcLh
 }

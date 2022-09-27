@@ -187,7 +187,6 @@ func BuildExtraAddresses(extrAddresses []string, listenPort uint32, ll *listener
 		}
 		return
 	}
-	log.Warnf("warning: No extra addresses need to be added to listener [%s]", ll.Name)
 }
 
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
