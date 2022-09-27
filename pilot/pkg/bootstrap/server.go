@@ -560,7 +560,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-// A single container can't have two readiness probes. Make this readiness probe a generic one
+// istiodReadyHandler A single container can't have two readiness probes. Make this readiness probe a generic one
 // that can handle all istiod related readiness checks including webhook, gRPC etc.
 // The "http" portion of the readiness check is satisfied by the fact we've started listening on
 // this handler and everything has already initialized.
@@ -642,7 +642,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 
 // initDiscoveryService initializes discovery server on plain text port.
 func (s *Server) initDiscoveryService() {
-	log.Infof("starting discovery service")
+	log.Infof("Starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		log.Infof("Starting ADS server")
@@ -651,7 +651,7 @@ func (s *Server) initDiscoveryService() {
 	})
 }
 
-// Wait for the stop, and do cleanups
+// waitForShutdown Wait for the stop, and do cleanups
 func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
@@ -723,7 +723,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	reflection.Register(s.grpcServer)
 }
 
-// initialize secureGRPCServer.
+// initSecureDiscoveryService initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
 		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
@@ -787,7 +787,7 @@ func (s *Server) addStartFunc(fn server.Component) {
 	s.server.RunComponent(fn)
 }
 
-// adds a readiness probe for Istiod Server.
+// addReadinessProbe adds a readiness probe for Istiod Server.
 func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
 	s.readinessProbes[name] = fn
 }
