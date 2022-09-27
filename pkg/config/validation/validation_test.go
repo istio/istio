@@ -7714,6 +7714,19 @@ func TestValidateTelemetry(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"empty-providers-with-filter",
+			&telemetry.Telemetry{
+				AccessLogging: []*telemetry.AccessLogging{
+					{
+						Filter: &telemetry.AccessLogging_Filter{
+							Expression: "response.code>=400",
+						},
+					},
+				},
+			},
+			"", "filter with empty providers will be ignored",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

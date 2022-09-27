@@ -3699,6 +3699,9 @@ func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Valid
 			continue
 		}
 		if l.Filter != nil {
+			if len(l.Providers) == 0 {
+				v = appendWarningf(v, "filter with empty providers will be ignored")
+			}
 			v = appendValidation(v, validateTelemetryFilter(l.Filter))
 		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
