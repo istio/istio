@@ -16,15 +16,11 @@ package mesh
 
 import (
 	"bytes"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/operator/pkg/util/httpserver"
-	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -43,41 +39,6 @@ func TestProfileList(t *testing.T) {
 	}
 	output := out.String()
 	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "remote", "external"}
-	for _, prof := range expectedProfiles {
-		g.Expect(output).To(gomega.ContainSubstring(prof))
-	}
-}
-
-func TestProfileListByurl(t *testing.T) {
-	g := gomega.NewWithT(t)
-	tempChars := t.TempDir()
-	defer os.RemoveAll(tempChars)
-	manifestsPath := filepath.Join(tempChars, "istio", "istio-1.15.0", "manifests")
-	mkCmd := exec.Command("mkdir", "-p", manifestsPath)
-	if err := mkCmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-	cpCmd := exec.Command("cp", "-r", string(liveCharts), manifestsPath)
-	if err := cpCmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := tgz.Create(filepath.Join(tempChars, "istio"), filepath.Join(tempChars, "istio-1.15.0-linux.tar.gz")); err != nil {
-		t.Fatal(err)
-	}
-	svr := httpserver.NewServer(tempChars)
-	defer svr.Close()
-	args := []string{"profile", "list", "--dry-run", "--manifests", svr.URL() + "/" + "istio-1.15.0-linux.tar.gz"}
-
-	rootCmd := GetRootCmd(args)
-	var out bytes.Buffer
-	rootCmd.SetOut(&out)
-	rootCmd.SetErr(&out)
-
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatalf("failed to execute istioctl profile command: %v", err)
-	}
-	output := out.String()
-	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "external"}
 	for _, prof := range expectedProfiles {
 		g.Expect(output).To(gomega.ContainSubstring(prof))
 	}
