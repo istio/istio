@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -88,7 +89,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		}
 
 		// Register callbacks for events.
-		c.registerHandlers(ec.informer, "ServiceExports", ec.onServiceExportEvent, nil)
+		c.registerHandlers(informer.NewFilteredSharedIndexInformer(nil, ec.informer), "ServiceExports", ec.onServiceExportEvent, nil)
 		return ec
 	}
 

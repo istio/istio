@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -80,7 +81,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		c.opts.MeshServiceController.AppendServiceHandlerForCluster(c.Cluster(), sic.onServiceEvent)
 
 		// Register callbacks for ServiceImport events in this cluster only.
-		c.registerHandlers(sic.informer, "ServiceImports", sic.onServiceImportEvent, nil)
+		c.registerHandlers(informer.NewFilteredSharedIndexInformer(nil, sic.informer), "ServiceImports", sic.onServiceImportEvent, nil)
 		return sic
 	}
 
