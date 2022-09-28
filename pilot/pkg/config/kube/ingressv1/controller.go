@@ -131,11 +131,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	c.queue = controllers.NewQueue("ingress",
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
-	if options.DiscoveryNamespacesFilter != nil {
-		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
-	} else {
-		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(nil, ingressInformer.Informer())
-	}
+	c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
 	c.filteredIngressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
 }
