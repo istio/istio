@@ -35,7 +35,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	model2 "istio.io/istio/pilot/pkg/security/authz/model"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
@@ -569,20 +569,11 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			} else {
 				filterChain.Filters = append(opt.filterChain.TCP, opt.networkFilters...)
 			}
-			// Swap the RBAC network filter with metadata exchange filter if it comes before mx filter.
-			rbacNetworkFilterIndex := -1
-			for idx, filter := range filterChain.Filters {
-				if filter.GetName() == model2.RBACTCPFilterName {
-					rbacNetworkFilterIndex = idx
-				} else if filter.GetName() == xdsfilters.MxFilterName && rbacNetworkFilterIndex != -1 {
-					temp := filterChain.Filters[rbacNetworkFilterIndex]
-					filterChain.Filters[rbacNetworkFilterIndex] = filter
-					filterChain.Filters[idx] = temp
-				} else if filter.GetName() == xdsfilters.MxFilterName {
-					// If no RBAC filter exists before mx filter, simply break.
-					break
-				}
-			}
+
+			// We need to ensure that metadata exchange filter comes before RBAC filter in the list of network filters.
+			// This is needed for https://github.com/tetrateio/tetrate/issues/13093.
+			EnsureMxFilterComesBeforeRBACFilter(filterChain.Filters)
+
 			port := int(opt.match.DestinationPort.GetValue())
 			inspector := inspectors[port]
 			if opt.tlsContext != nil {
@@ -737,5 +728,22 @@ func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.
 				})},
 			},
 		),
+	}
+}
+
+func EnsureMxFilterComesBeforeRBACFilter(filters []*listener.Filter) {
+	// Swap the RBAC network filter with metadata exchange filter if it comes before mx filter.
+	rbacNetworkFilterIndex := -1
+	for idx, filter := range filters {
+		if filter.GetName() == authzmodel.RBACTCPFilterName {
+			rbacNetworkFilterIndex = idx
+		} else if filter.GetName() == xdsfilters.MxFilterName && rbacNetworkFilterIndex != -1 {
+			temp := filters[rbacNetworkFilterIndex]
+			filters[rbacNetworkFilterIndex] = filter
+			filters[idx] = temp
+		} else if filter.GetName() == xdsfilters.MxFilterName {
+			// If no RBAC filter exists before mx filter, simply break.
+			break
+		}
 	}
 }

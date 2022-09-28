@@ -22,7 +22,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -692,6 +694,53 @@ func TestInboundListenerFilters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEnsureMxFilterComesBeforeRBACFilter(t *testing.T) {
+	services := []*model.Service{
+		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
+	}
+	instances := make([]*model.ServiceInstance, 0, len(services))
+	for _, s := range services {
+		instances = append(instances, &model.ServiceInstance{
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: uint32(s.Ports[0].Port),
+				Address:      "1.1.1.1",
+			},
+			ServicePort: s.Ports[0],
+		})
+	}
+	t.Run("mx-filter-before-rbac-filter", func(t *testing.T) {
+		cg := NewConfigGenTest(t, TestOptions{
+			Services:  services,
+			Instances: instances,
+		})
+		listeners := cg.Listeners(cg.SetupProxy(nil))
+		virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+		filters := xdstest.ExtractFilterChain("virtualInbound", virtualInbound).GetFilters()
+		rbac := &rbac_tcp_filter.RBAC{
+			Rules:                 nil,
+			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
+			ShadowRules:           nil,
+			ShadowRulesStatPrefix: "istio_dry_run_allow_",
+		}
+		rbacNetworkFilter := &listener.Filter{
+			Name:       authzmodel.RBACTCPFilterName,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+		}
+		// injecting RBAC filter before metadata exchange filter
+		filters = append([]*listener.Filter{rbacNetworkFilter}, filters...)
+		EnsureMxFilterComesBeforeRBACFilter(filters)
+		rbacFilterFound := false
+		for _, filter := range filters {
+			if rbacFilterFound && filter.GetName() == xdsfilters.MxFilterName {
+				t.Fatalf("unexpected: found %v filter before %v filter", authzmodel.RBACTCPFilterName, xdsfilters.MxFilterName)
+			} else if filter.GetName() == authzmodel.RBACTCPFilterName {
+				rbacFilterFound = true
+			}
+		}
+	})
 }
 
 func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {

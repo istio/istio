@@ -1304,6 +1304,9 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	var filters []*hcm.HttpFilter
 
+	// Metadata exchange filter needs to be added before any other http filters are added. This is done to
+	// ensure that mx filter comes before HTTP RBAC filter (present in httpFilters object). This is related to
+	// https://github.com/tetrateio/tetrate/issues/13093
 	if features.MetadataExchange && util.CheckProxyVerionForMX(listenerOpts.push, listenerOpts.proxy.IstioVersion) {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
