@@ -15,6 +15,7 @@
 package crdclient
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
@@ -33,6 +34,7 @@ import (
 type cacheHandler struct {
 	client   *Client
 	informer informer.FilteredSharedIndexInformer
+	lister   func(namespace string) cache.GenericNamespaceLister
 	schema   collection.Schema
 }
 
@@ -83,6 +85,14 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		client:   cl,
 		schema:   schema,
 		informer: informer.NewFilteredSharedIndexInformer(cl.namespacesFilter, i.Informer()),
+	}
+
+	h.lister = func(namespace string) cache.GenericNamespaceLister {
+		gr := schema.Resource().GroupVersionResource().GroupResource()
+		if schema.Resource().IsClusterScoped() || namespace == metav1.NamespaceAll {
+			return cache.NewGenericLister(h.informer.GetIndexer(), gr)
+		}
+		return cache.NewGenericLister(h.informer.GetIndexer(), gr).ByNamespace(namespace)
 	}
 
 	kind := schema.Resource().Kind()

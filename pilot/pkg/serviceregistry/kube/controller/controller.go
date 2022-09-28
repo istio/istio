@@ -370,7 +370,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
 	_ = c.nodeInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
+	nodeInformer := informer.NewFilteredSharedIndexInformer(nil, c.nodeInformer)
+	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
 
 	podInformer := informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
@@ -802,7 +803,7 @@ func (c *Controller) syncNodes() error {
 
 func (c *Controller) syncServices() error {
 	var err *multierror.Error
-	services := c.serviceInformer.GetIndexer().List()
+	services, _ := c.serviceInformer.List("")
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
@@ -812,7 +813,7 @@ func (c *Controller) syncServices() error {
 
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
-	pods := c.pods.informer.GetIndexer().List()
+	pods, _ := c.pods.informer.List("")
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))

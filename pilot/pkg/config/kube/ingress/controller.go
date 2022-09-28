@@ -362,15 +362,9 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 		return nil, errUnsupportedOp
 	}
 
-	var list []any
-	var err error
-	if namespace == model.NamespaceAll {
-		list = c.filteredIngressInformer.GetIndexer().List()
-	} else {
-		list, err = c.filteredIngressInformer.GetIndexer().ByIndex("namespace", namespace)
-		if err != nil {
-			return nil, err
-		}
+	list, err := c.filteredIngressInformer.List(namespace)
+	if err != nil {
+		return nil, err
 	}
 
 	out := make([]config.Config, 0)

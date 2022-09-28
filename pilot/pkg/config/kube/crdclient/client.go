@@ -36,6 +36,7 @@ import (
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -318,14 +319,14 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-	item, _, err := h.informer.GetIndexer().GetByKey(KeyFunc(namespace, name))
-	if item == nil || err != nil {
+	obj, err := h.lister(namespace).Get(name)
+	if err != nil {
 		// TODO we should be returning errors not logging
-		cl.logger.Warnf("couldn't find %q in informer index", KeyFunc(namespace, name))
+		cl.logger.Warnf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
-	cfg := TranslateObject(item.(runtime.Object), typ, cl.domainSuffix)
+	cfg := TranslateObject(obj, typ, cl.domainSuffix)
 	if !cl.objectInRevision(&cfg) {
 		return nil
 	}
@@ -395,19 +396,14 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 		return nil, nil
 	}
 
-	var list []any
-	var err error
-	if namespace == model.NamespaceAll {
-		list = h.informer.GetIndexer().List()
-	} else {
-		list, err = h.informer.GetIndexer().ByIndex("namespace", namespace)
-		if err != nil {
-			return nil, err
-		}
+	list, err := h.lister(namespace).List(klabels.Everything())
+	if err != nil {
+		return nil, err
 	}
+
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
-		cfg := TranslateObject(item.(runtime.Object), kind, cl.domainSuffix)
+		cfg := TranslateObject(item, kind, cl.domainSuffix)
 		if cl.objectInRevision(&cfg) {
 			out = append(out, cfg)
 		}
@@ -559,14 +555,4 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 
 type starter interface {
 	Start(stopCh <-chan struct{})
-}
-
-// TODO: move to a common place, maybe pkg/kube
-// KeyFunc is the internal API key function that returns "namespace"/"name" or
-// "name" if "namespace" is empty
-func KeyFunc(namespace, name string) string {
-	if len(namespace) == 0 {
-		return name
-	}
-	return namespace + "/" + name
 }
