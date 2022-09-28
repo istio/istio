@@ -20,6 +20,7 @@ spec:
   - name: {{ $val.Name | quote }}
     port: {{ $val.Port }}
     protocol: TCP
+    appProtocol: {{ $val.AppProtocol }}
   {{- end }}
   selector:
     istio.io/gateway-name: {{.Name}}
