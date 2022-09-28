@@ -105,7 +105,6 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 type serviceExportCacheImpl struct {
 	*Controller
 
-	informer         cache.SharedIndexInformer
 	filteredInformer informer.FilteredSharedIndexInformer
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
