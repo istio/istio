@@ -75,12 +75,12 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			// This is a change to a configmap we don't watch, ignore it
 			return false
 		}
-		if features.EnableEnhancedResourceScoping && !c.DiscoveryNamespacesFilter.Filter(o.GetNamespace()) {
-			// This is a change to a configmap we don't watch, ignore it
-			return false
-		}
 		if inject.IgnoredNamespaces.Contains(o.GetNamespace()) {
 			// skip special kubernetes system namespaces
+			return false
+		}
+		if features.EnableEnhancedResourceScoping && !c.DiscoveryNamespacesFilter.Filter(o) {
+			// This is a change to a configmap we don't watch, ignore it
 			return false
 		}
 		return true
@@ -90,7 +90,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			// skip special kubernetes system namespaces
 			return false
 		}
-		if features.EnableEnhancedResourceScoping && !c.DiscoveryNamespacesFilter.Filter(o.GetName()) {
+		if features.EnableEnhancedResourceScoping && !c.DiscoveryNamespacesFilter.FilterNamespace(o.GetName()) {
 			// This is a change to a namespace we don't watch, ignore it
 			return false
 		}

@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	v1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -97,7 +96,8 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 					"discovery-selectors": "enabled",
 				},
 			},
-		}})
+		},
+	})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		client.KubeInformer().Core().V1().Namespaces().Lister(),
 		meshWatcher.Mesh().DiscoverySelectors,
@@ -118,8 +118,8 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 
 	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
 	createNamespace(t, client.Kube(), nsB, map[string]string{})
-	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metaV1.GetOptions{})
-	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metaV1.GetOptions{})
+	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metav1.GetOptions{})
+	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metav1.GetOptions{})
 	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
 	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
 	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsA, expectedData)
