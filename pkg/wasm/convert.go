@@ -151,7 +151,10 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
-	if httpURI == nil {
+	if httpURI == nil || len(httpURI.GetUri()) == 0 {
+		// If the required fields are not set, do not send ECDS push to Envoy,
+		// because Envoy will reject it in the protocol validation.
+		sendNack = true
 		status = missRemoteFetchHint
 		wasmLog.Errorf("wasm remote fetch %+v does not have httpUri specified", remote)
 		return
@@ -168,6 +171,14 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	}
 	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, wasmHTTPFilterConfig.Config.Name, resourceVersion, timeout, pullSecret, pullPolicy)
 	if err != nil {
+		if remote.GetHttpUri().HttpUpstreamType == nil ||
+			len(remote.GetHttpUri().GetCluster()) == 0 ||
+			remote.GetHttpUri().Timeout == nil ||
+			len(remote.GetSha256()) == 0 {
+			// If the required fields are not set, do not send ECDS push to Envoy,
+			// because Envoy will reject it in the protocol validation.
+			sendNack = true
+		}
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)
 		return
