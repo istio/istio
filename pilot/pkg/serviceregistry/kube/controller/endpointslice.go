@@ -231,9 +231,12 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
+		draining := e.Conditions.Ready != nil && e.Conditions.Serving != nil &&
+			*e.Conditions.Serving && !*e.Conditions.Ready
 		if !features.SendUnhealthyEndpoints.Load() {
-			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
-				// Ignore not ready endpoints
+			if !draining && e.Conditions.Ready != nil && !*e.Conditions.Ready {
+				// Ignore not ready endpoints. Draining endpoints are tracked, but not returned
+				// except for persistent-session clusters.
 				continue
 			}
 		}
@@ -258,6 +261,8 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy)
 				if ready {
 					istioEndpoint.HealthStatus = model.Healthy
+				} else if draining {
+					istioEndpoint.HealthStatus = model.Draining
 				} else {
 					istioEndpoint.HealthStatus = model.UnHealthy
 				}

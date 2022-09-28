@@ -263,6 +263,15 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
+			// Draining endpoints are only sent to 'persistent session' clusters.
+			draining := ep.HealthStatus == model.Draining ||
+				features.DrainingLabel.String() != "" && ep.Labels[features.DrainingLabel.String()] != ""
+			if draining {
+				persistentSession := b.service.Attributes.Labels[features.PersistentSessionLabel.String()] != ""
+				if !persistentSession {
+					continue
+				}
+			}
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
@@ -339,8 +348,15 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := core.HealthStatus_HEALTHY
+	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
 	if e.HealthStatus == model.UnHealthy {
 		healthStatus = core.HealthStatus_UNHEALTHY
+	}
+	if e.HealthStatus == model.Draining {
+		healthStatus = core.HealthStatus_DRAINING
+	}
+	if features.DrainingLabel.String() != "" && e.Labels[features.DrainingLabel.String()] != "" {
+		healthStatus = core.HealthStatus_DRAINING
 	}
 
 	ep := &endpoint.LbEndpoint{

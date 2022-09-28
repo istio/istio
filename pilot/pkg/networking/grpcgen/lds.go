@@ -33,6 +33,7 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	durationpb "github.com/golang/protobuf/ptypes/duration"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"istio.io/istio/pilot/pkg/features"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
@@ -248,7 +249,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 // nolint: unparam
 func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
-		a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
 ) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
@@ -287,7 +288,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					continue
 				}
 				filters := supportedFilters
-				sessionCookie := sv.Attributes.Labels["x-session-cookie"]
+				sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel.String()]
 				if sessionCookie != "" {
 					filters = append(filters, &hcm.HttpFilter{
 						Name: "envoy.filters.http.stateful_session", // TODO: wellknown.

@@ -113,6 +113,18 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
+	PersistentSessionLabel = atomic.NewString(env.Register(
+		"PILOT_PERSISTENT_SESSION_LABEL",
+		"persistent-session",
+		"If not empty, services with this label will use persistent sessions",
+	).Get())
+
+	DrainingLabel = atomic.NewString(env.Register(
+		"PILOT_DRAINING_LABEL",
+		"x-draining",
+		"If not empty, endpoints with the label value present will be sent with status DRAINING.",
+	).Get())
+
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.Register(
 		"PILOT_HTTP10",
