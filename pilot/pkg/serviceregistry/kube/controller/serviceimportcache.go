@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
@@ -73,15 +72,17 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		_ = dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
 		sic := &serviceImportCacheImpl{
 			Controller: c,
-			informer:   dInformer.Informer(),
-			lister:     dInformer.Lister(),
 		}
-
+		if c.opts.DiscoveryNamespacesFilter != nil {
+			sic.filteredInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
+		} else {
+			sic.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
+		}
 		// Register callbacks for Service events anywhere in the mesh.
 		c.opts.MeshServiceController.AppendServiceHandlerForCluster(c.Cluster(), sic.onServiceEvent)
 
 		// Register callbacks for ServiceImport events in this cluster only.
-		c.registerHandlers(informer.NewFilteredSharedIndexInformer(nil, sic.informer), "ServiceImports", sic.onServiceImportEvent, nil)
+		c.registerHandlers(sic.filteredInformer, "ServiceImports", sic.onServiceImportEvent, nil)
 		return sic
 	}
 
@@ -92,8 +93,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 // serviceImportCacheImpl reads ServiceImport resources for a single cluster.
 type serviceImportCacheImpl struct {
 	*Controller
-	informer cache.SharedIndexInformer
-	lister   cache.GenericLister
+	filteredInformer informer.FilteredSharedIndexInformer
 }
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
@@ -260,14 +260,15 @@ func (ic *serviceImportCacheImpl) genMCSService(realService *model.Service, mcsH
 }
 
 func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []string {
-	if si, err := ic.lister.ByNamespace(name.Namespace).Get(name.Name); err == nil {
+	si, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
+	if si != nil {
 		return GetServiceImportIPs(si.(*unstructured.Unstructured))
 	}
 	return nil
 }
 
 func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
-	sis, err := ic.lister.List(klabels.Everything())
+	sis, err := ic.filteredInformer.List("")
 	if err != nil {
 		return make([]importedService, 0)
 	}
@@ -299,7 +300,7 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 }
 
 func (ic *serviceImportCacheImpl) HasSynced() bool {
-	return ic.informer.HasSynced()
+	return ic.filteredInformer.HasSynced()
 }
 
 type disabledServiceImportCache struct{}

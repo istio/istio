@@ -175,7 +175,11 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		serviceLister:   serviceInformer.Lister(),
 	}
 
-	c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
+	if options.DiscoveryNamespacesFilter != nil {
+		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
+	} else {
+		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(nil, ingressInformer.Informer())
+	}
 	c.queue = controllers.NewQueue("ingress",
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
