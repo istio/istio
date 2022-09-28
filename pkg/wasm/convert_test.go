@@ -30,6 +30,7 @@ import (
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -115,6 +116,16 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail-open"],
 			},
 			wantNack: false,
+		},
+		{
+			name: "remote load fail open without required fields",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-fail-open-without-required-fields"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-fail-open-without-required-fields"],
+			},
+			wantNack: true,
 		},
 		{
 			name: "no typed struct",
@@ -302,6 +313,25 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 		},
 	}),
 	"remote-load-fail-open": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+						Remote: &core.RemoteDataSource{
+							HttpUri: &core.HttpUri{
+								Uri:              "http://test?module=test.wasm&error=download-error",
+								HttpUpstreamType: &core.HttpUri_Cluster{Cluster: "_"},
+								Timeout:          durationpb.New(time.Second * 15),
+							},
+							Sha256: "1234567890abcdef1234567890abcdef",
+						},
+					}},
+				},
+			},
+			FailOpen: true,
+		},
+	}),
+	"remote-load-fail-open-without-required-fields": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
 				VmConfig: &v3.VmConfig{
