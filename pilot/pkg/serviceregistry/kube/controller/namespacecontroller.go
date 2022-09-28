@@ -56,7 +56,8 @@ type NamespaceController struct {
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
 func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) *NamespaceController {
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
+) *NamespaceController {
 	c := &NamespaceController{
 		client:                    kubeClient.Kube().CoreV1(),
 		caBundleWatcher:           caBundleWatcher,
