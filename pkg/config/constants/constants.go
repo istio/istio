@@ -141,4 +141,16 @@ const (
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
+
+	// WildcardAddress binds to all IP addresses
+	WildcardAddress = "0.0.0.0"
+
+	// WildcardIPv6Address binds to all IPv6 addresses
+	WildcardIPv6Address = "::"
+
+	// LocalhostAddress for local binding
+	LocalhostAddress = "127.0.0.1"
+
+	// LocalhostIPv6Address for local binding
+	LocalhostIPv6Address = "::1"
 )
