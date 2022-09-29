@@ -15,6 +15,7 @@
 package crdclient
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
@@ -24,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/log"
 )
 
@@ -31,9 +33,9 @@ import (
 // and will be invoked on each informer event.
 type cacheHandler struct {
 	client   *Client
-	informer cache.SharedIndexInformer
-	schema   collection.Schema
+	informer informer.FilteredSharedIndexInformer
 	lister   func(namespace string) cache.GenericNamespaceLister
+	schema   collection.Schema
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
@@ -82,16 +84,19 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: i.Informer(),
+		informer: informer.NewFilteredSharedIndexInformer(cl.namespacesFilter, i.Informer()),
 	}
+
 	h.lister = func(namespace string) cache.GenericNamespaceLister {
-		if schema.Resource().IsClusterScoped() {
-			return i.Lister()
+		gr := schema.Resource().GroupVersionResource().GroupResource()
+		if schema.Resource().IsClusterScoped() || namespace == metav1.NamespaceAll {
+			return cache.NewGenericLister(h.informer.GetIndexer(), gr)
 		}
-		return i.Lister().ByNamespace(namespace)
+		return cache.NewGenericLister(h.informer.GetIndexer(), gr).ByNamespace(namespace)
 	}
+
 	kind := schema.Resource().Kind()
-	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	h.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
 			if !cl.beginSync.Load() {

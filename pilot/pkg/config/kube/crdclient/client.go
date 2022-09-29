@@ -95,16 +95,26 @@ type Client struct {
 	client              kube.Client
 	crdMetadataInformer cache.SharedIndexInformer
 	logger              *log.Scope
+
+	// namespacesFilter is only used to initiate filtered informer.
+	namespacesFilter func(obj interface{}) bool
+}
+
+type Option struct {
+	Revision         string
+	DomainSuffix     string
+	Identifier       string
+	NamespacesFilter func(obj interface{}) bool
 }
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix, identifier string) (model.ConfigStoreController, error) {
+func New(client kube.Client, opts Option) (model.ConfigStoreController, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
 	}
-	return NewForSchemas(client, revision, domainSuffix, identifier, schemas)
+	return NewForSchemas(client, opts, schemas)
 }
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
@@ -141,7 +151,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string, schemas collection.Schemas) (model.ConfigStoreController, error) {
+func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) (model.ConfigStoreController, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -149,10 +159,10 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 		schemasByCRDName[name] = s
 	}
 	out := &Client{
-		domainSuffix:     domainSuffix,
+		domainSuffix:     opts.DomainSuffix,
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
-		revision:         revision,
+		revision:         opts.Revision,
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
@@ -161,9 +171,10 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 		gatewayAPIClient: client.GatewayAPI(),
 		crdMetadataInformer: client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
 			GroupVersionResource()).Informer(),
-		beginSync:   atomic.NewBool(false),
-		initialSync: atomic.NewBool(false),
-		logger:      scope.WithLabels("controller", identifier),
+		beginSync:        atomic.NewBool(false),
+		initialSync:      atomic.NewBool(false),
+		logger:           scope.WithLabels("controller", opts.Identifier),
+		namespacesFilter: opts.NamespacesFilter,
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
@@ -188,7 +199,6 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 			}
 		}
 	}
-
 	return out, nil
 }
 
@@ -309,11 +319,10 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-
 	obj, err := h.lister(namespace).Get(name)
 	if err != nil {
 		// TODO we should be returning errors not logging
-		cl.logger.Warnf("error on get %v/%v: %v", name, namespace, err)
+		cl.logger.Warnf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
@@ -391,6 +400,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
@@ -399,7 +409,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 		}
 	}
 
-	return out, err
+	return out, nil
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {

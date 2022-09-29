@@ -67,6 +67,9 @@ type KubeSource struct {
 	versionCtr int64
 	shas       map[kubeResourceKey]resourceSha
 	byFile     map[string]map[kubeResourceKey]config.GroupVersionKind
+
+	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
+	namespacesFilter func(obj interface{}) bool
 }
 
 func (s *KubeSource) Schemas() collection.Schemas {
@@ -78,7 +81,20 @@ func (s *KubeSource) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	return s.inner.List(typ, namespace)
+	configs, err := s.inner.List(typ, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if s.namespacesFilter != nil {
+		var out []config.Config
+		for _, config := range configs {
+			if s.namespacesFilter(config) {
+				out = append(out, config)
+			}
+		}
+		return out, err
+	}
+	return configs, nil
 }
 
 func (s *KubeSource) Create(config config.Config) (revision string, err error) {
