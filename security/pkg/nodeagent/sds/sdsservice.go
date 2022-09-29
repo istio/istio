@@ -58,6 +58,7 @@ var _ model.XdsResourceGenerator = &sdsservice{}
 
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
 	s := xds.NewXDS(stop)
+	s.DiscoveryServer.SdsServer = true
 	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,
 	}

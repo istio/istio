@@ -147,11 +147,19 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
+				if s.SdsServer {
+					log.Infof("ADS: connection terminated for secrets:%v", req.ResourceNames)
+				} else {
+					log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
+				}
 				return
 			}
 			con.errorChan <- err
-			log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
+			if s.SdsServer {
+				log.Infof("ADS:connection terminated for secrets %v, with error:%v", req.ResourceNames, err)
+			} else {
+				log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
+			}
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -172,7 +180,11 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			log.Infof("ADS: new connection for node:%s", con.conID)
+			if s.SdsServer {
+				log.Infof("ADS: new connection for secrets:%v", req.ResourceNames)
+			} else {
+				log.Infof("ADS: new connection for node:%s", con.conID)
+			}
 		}
 
 		select {
@@ -264,9 +276,12 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		peerAddr = peerInfo.Addr.String()
 	}
 
-	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
-		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
-		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
+	// Do not apply rate limit when this server is run as Sds Server.
+	if !s.SdsServer {
+		if err := s.WaitForRequestLimit(stream.Context()); err != nil {
+			log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+			return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
+		}
 	}
 
 	ids, err := s.authenticate(ctx)

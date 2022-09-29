@@ -154,6 +154,9 @@ type DiscoveryServer struct {
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
+
+	// Indicates this is running as an Sds Server.
+	SdsServer bool
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
