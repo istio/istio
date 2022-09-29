@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
@@ -101,7 +102,7 @@ func (c *coloredTableWriter) Flush() {
 			if i == len(row)-1 {
 				_, _ = fmt.Fprint(c.writer, "\n")
 			} else {
-				padAmount := sep[i] - len(col.Value) + 2
+				padAmount := sep[i] - utf8.RuneCount([]byte(col.Value)) + 2
 				_, _ = fmt.Fprint(c.writer, strings.Repeat(" ", padAmount))
 			}
 		}

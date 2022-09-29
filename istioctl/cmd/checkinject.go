@@ -42,16 +42,16 @@ func checkInjectCommand() *cobra.Command {
 		Long: `
 Checks associated resources of the given resource, and running webhooks to examine whether the pod can be or will be injected or not.`,
 		Example: `	# Check the injection status of a pod
-	istioctl check-inject details-v1-fcff6c49c-kqnfk.test
+	istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
 	
 	# Check the injection status of a pod under a deployment
-	istioctl check-inject deployment/details-v1
+	istioctl x check-inject deployment/details-v1
 
 	# Check the injection status of a pod under a deployment in namespace test
-	istioctl check-inject deployment/details-v1 -n test
+	istioctl x check-inject deployment/details-v1 -n test
 
    # Check the injection status of label pairs in a specific namespace before actual injection 
-	istioctl check-inject -n test -l app=helloworld,version=v1
+	istioctl x check-inject -n test -l app=helloworld,version=v1
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && labelPairs == "" || len(args) > 1 {
@@ -135,7 +135,6 @@ func printCheckInjectorResults(writer io.Writer, was []webhookAnalysis) error {
 	w.AddHeader("WEBHOOK", "REVISION", "INJECTED", "REASON")
 	injectedTotal := 0
 	for _, ws := range was {
-		// TODO investigate to use colors for mark and x chars, tabwriter format will be messed up using color package
 		if ws.Injected {
 			injectedTotal++
 		}
