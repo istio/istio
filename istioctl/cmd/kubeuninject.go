@@ -34,7 +34,7 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
@@ -237,7 +237,7 @@ func handleLabels(labels map[string]string) map[string]string {
 	if labels == nil {
 		labels = make(map[string]string)
 	}
-	labels[annotation.SidecarInject.Name] = "false"
+	labels[label.SidecarInject.Name] = "false"
 	return labels
 }
 

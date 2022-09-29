@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -92,7 +93,7 @@ outer:
 		}
 
 		if annotationDef.Deprecated {
-			if _, f := r.Metadata.Labels[annotation.SidecarInject.Name]; f && ann == annotation.SidecarInject.Name {
+			if _, f := r.Metadata.Labels[label.SidecarInject.Name]; f && ann == annotation.SidecarInject.Name {
 				// Skip to avoid noise; the user has the deprecated annotation but they also have the replacement
 				// This means they are likely aware its deprecated, but are keeping both variants around for maximum
 				// compatibility

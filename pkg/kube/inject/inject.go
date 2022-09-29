@@ -210,7 +210,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	var inject bool
 
 	objectSelector := annos[annotation.SidecarInject.Name]
-	if lbl, labelPresent := metadata.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+	if lbl, labelPresent := metadata.GetLabels()[label.SidecarInject.Name]; labelPresent {
 		// The label is the new API; if both are present we prefer the label
 		objectSelector = lbl
 	}
