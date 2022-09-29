@@ -158,5 +158,9 @@ func (nc *NamespaceController) syncNamespace(ns string) {
 	if inject.IgnoredNamespaces.Contains(ns) {
 		return
 	}
+	// skip namespaces we don't watch
+	if features.EnableEnhancedResourceScoping && !nc.DiscoveryNamespacesFilter.FilterNamespace(ns) {
+		return
+	}
 	nc.queue.Add(types.NamespacedName{Name: ns})
 }
