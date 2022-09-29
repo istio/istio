@@ -16,6 +16,7 @@ package authenticate
 
 import (
 	"net"
+	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -36,10 +37,17 @@ func TestIsTrustedAddress(t *testing.T) {
 		trusted bool
 	}{
 		{
-			name:    "localhost client",
+			name:    "localhost client with port",
+			cidr:    "",
+			peer:    "127.0.0.1:9901",
+			trusted: true,
+		},
+		{
+			// Should never happen, added test case for testing it.
+			name:    "localhost client without port",
 			cidr:    "",
 			peer:    "127.0.0.1",
-			trusted: true,
+			trusted: false,
 		},
 		{
 			name:    "external client without trusted cidr",
@@ -50,13 +58,13 @@ func TestIsTrustedAddress(t *testing.T) {
 		{
 			name:    "cidr in range",
 			cidr:    "172.17.0.0/16,192.17.0.0/16",
-			peer:    "172.17.0.2",
+			peer:    "172.17.0.2:9901",
 			trusted: true,
 		},
 		{
 			name:    "cidr in range with both ipv6 and ipv4",
 			cidr:    "172.17.0.0/16,2001:db8:1234:1a00::/56",
-			peer:    "2001:0db8:1234:1aff:ffff:ffff:ffff:ffff",
+			peer:    "[2001:0db8:1234:1a00:0000:0000:0000:0000]:80",
 			trusted: true,
 		},
 		{
@@ -130,7 +138,8 @@ func TestXfccAuthenticator(t *testing.T) {
 			if len(tt.xfccHeader) > 0 {
 				md.Append(xfccparser.ForwardedClientCertHeader, tt.xfccHeader)
 			}
-			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: &net.IPAddr{IP: net.ParseIP("127.0.0.1").To4()}})
+			addr := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:2301"))
+			ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: addr})
 			ctx = metadata.NewIncomingContext(ctx, md)
 			result, err := auth.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tt.authenticateErrMsg) > 0 {

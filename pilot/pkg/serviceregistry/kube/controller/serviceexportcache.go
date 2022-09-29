@@ -20,7 +20,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -58,8 +58,11 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
 		ec := &serviceExportCacheImpl{
 			Controller: c,
-			informer:   dInformer.Informer(),
-			lister:     dInformer.Lister(),
+		}
+		if c.opts.DiscoveryNamespacesFilter != nil {
+			ec.filteredInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
+		} else {
+			ec.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
 		}
 
 		// Set the discoverability policy for the clusterset.local host.
@@ -88,7 +91,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		}
 
 		// Register callbacks for events.
-		c.registerHandlers(ec.informer, "ServiceExports", ec.onServiceExportEvent, nil)
+		c.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
 		return ec
 	}
 
@@ -102,8 +105,7 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 type serviceExportCacheImpl struct {
 	*Controller
 
-	informer cache.SharedIndexInformer
-	lister   cache.GenericLister
+	filteredInformer informer.FilteredSharedIndexInformer
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
 	clusterLocalPolicySelector discoverabilityPolicySelector
@@ -158,13 +160,13 @@ func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Servi
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
-	_, err := ec.lister.ByNamespace(name.Namespace).Get(name.Name)
-	return err == nil
+	item, _, _ := ec.filteredInformer.GetIndexer().GetByKey(name.String())
+	return item != nil
 }
 
 func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	// List all exports in this cluster.
-	exports, err := ec.lister.List(klabels.Everything())
+	exports, err := ec.filteredInformer.List("")
 	if err != nil {
 		return make([]exportedService, 0)
 	}
@@ -197,7 +199,7 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 }
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	return ec.informer.HasSynced()
+	return ec.filteredInformer.HasSynced()
 }
 
 type disabledServiceExportCache struct{}

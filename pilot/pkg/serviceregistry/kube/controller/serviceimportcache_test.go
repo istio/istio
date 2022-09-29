@@ -501,8 +501,8 @@ func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
-	_, err := ic.lister.ByNamespace(name.Namespace).Get(name.Name)
-	return err == nil
+	item, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
+	return item != nil
 }
 
 func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {
