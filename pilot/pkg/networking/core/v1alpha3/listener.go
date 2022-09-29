@@ -1263,7 +1263,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			ConnectionBalanceConfig: connectionBalance,
 		}
 		// add extra addresses for the listener
-		util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
+		res.AdditionalAddresses = util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), opts.proxy)
 
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
@@ -1292,7 +1292,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			EnableReusePort: proto.BoolTrue,
 		}
 		// add extra addresses for the listener
-		util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), res, opts.proxy)
+		res.AdditionalAddresses = util.BuildExtraAddresses(opts.extraBind, uint32(opts.port.Port), opts.proxy)
 	}
 
 	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res, opts.class)

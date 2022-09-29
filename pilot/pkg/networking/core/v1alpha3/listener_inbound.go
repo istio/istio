@@ -230,7 +230,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	}
 	if len(addresses) > 1 {
 		// add extra addresses for the listener
-		util.BuildExtraAddresses(addresses[1:], tPort, l, lb.node)
+		l.AdditionalAddresses = util.BuildExtraAddresses(addresses[1:], tPort, lb.node)
 	}
 	if lb.node.Metadata.InboundListenerExactBalance {
 		l.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{

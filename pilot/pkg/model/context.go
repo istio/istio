@@ -911,17 +911,11 @@ func (node *Proxy) DiscoverIPMode() {
 
 // Wildcards returns the wildCard IP addresses for current proxy
 func (node *Proxy) Wildcards() []string {
-	if len(node.wildCardIPs) == 0 {
-		node.DiscoverIPMode()
-	}
 	return node.wildCardIPs
 }
 
 // localHostIPs returns the localhost IP addresses for current proxy
 func (node *Proxy) Localhosts() []string {
-	if len(node.localHostIPs) == 0 {
-		node.DiscoverIPMode()
-	}
 	return node.localHostIPs
 }
 
