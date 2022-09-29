@@ -12,17 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filter
+package informer
 
 import (
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 )
 
 type FilteredSharedIndexInformer interface {
 	AddEventHandler(handler cache.ResourceEventHandler)
 	GetIndexer() cache.Indexer
+	List(namespace string) ([]any, error)
+	SetWatchErrorHandler(handler cache.WatchErrorHandler) error
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
 }
@@ -51,19 +54,19 @@ func NewFilteredSharedIndexInformer(
 func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
 	w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
-			if !w.filterFunc(obj) {
+			if w.filterFunc != nil && !w.filterFunc(obj) {
 				return
 			}
 			handler.OnAdd(obj)
 		},
 		UpdateFunc: func(old, new any) {
-			if !w.filterFunc(new) {
+			if w.filterFunc != nil && !w.filterFunc(new) {
 				return
 			}
 			handler.OnUpdate(old, new)
 		},
 		DeleteFunc: func(obj any) {
-			if !w.filterFunc(obj) {
+			if w.filterFunc != nil && !w.filterFunc(obj) {
 				return
 			}
 			handler.OnDelete(obj)
@@ -84,6 +87,18 @@ func (w *filteredSharedIndexInformer) GetIndexer() cache.Indexer {
 	return w.filteredIndexer
 }
 
+func (w *filteredSharedIndexInformer) List(namespace string) ([]any, error) {
+	if namespace == model.NamespaceAll {
+		return w.filteredIndexer.List(), nil
+	}
+	return w.filteredIndexer.ByIndex("namespace", namespace)
+}
+
+func (w *filteredSharedIndexInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
+	_ = w.SharedIndexInformer.SetWatchErrorHandler(handler)
+	return nil
+}
+
 type filteredIndexer struct {
 	filterFunc func(obj any) bool
 	cache.Indexer
@@ -101,6 +116,9 @@ func newFilteredIndexer(
 
 func (w filteredIndexer) List() []any {
 	unfiltered := w.Indexer.List()
+	if w.filterFunc == nil {
+		return unfiltered
+	}
 	var filtered []any
 	for _, obj := range unfiltered {
 		if w.filterFunc(obj) {
@@ -115,8 +133,25 @@ func (w filteredIndexer) GetByKey(key string) (item any, exists bool, err error)
 	if !exists || err != nil {
 		return nil, exists, err
 	}
-	if w.filterFunc(item) {
+	if w.filterFunc == nil || w.filterFunc(item) {
 		return item, true, nil
 	}
 	return nil, false, nil
+}
+
+func (w filteredIndexer) ByIndex(indexName, indexedValue string) ([]interface{}, error) {
+	unfiltered, err := w.Indexer.ByIndex(indexName, indexedValue)
+	if err != nil {
+		return nil, err
+	}
+	if w.filterFunc == nil {
+		return unfiltered, nil
+	}
+	var filtered []any
+	for _, obj := range unfiltered {
+		if w.filterFunc(obj) {
+			filtered = append(filtered, obj)
+		}
+	}
+	return filtered, nil
 }

@@ -78,7 +78,7 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *Multicluster) {
-	sc := multicluster.NewController(client, ns, "cluster-1")
+	sc := multicluster.NewController(client, ns, "cluster-1", mesh.NewFixedWatcher(nil))
 	sc.AddHandler(mc)
 	_ = sc.Run(stop)
 	kube.WaitForCacheSync(stop, sc.HasSynced)
@@ -100,7 +100,7 @@ func Test_KubeSecretController(t *testing.T) {
 			DomainSuffix:          DomainSuffix,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, nil, "default", false, nil, s)
+		}, nil, nil, nil, "default", false, nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
@@ -150,7 +150,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 			DomainSuffix:          DomainSuffix,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, certWatcher, "default", false, nil, s)
+		}, nil, nil, certWatcher, "default", false, nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)

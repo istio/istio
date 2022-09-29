@@ -22,9 +22,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	filter "istio.io/istio/pkg/kube/namespace"
 )
 
 // initialize handlers for discovery selection scoping

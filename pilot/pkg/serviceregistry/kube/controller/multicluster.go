@@ -68,6 +68,7 @@ type Multicluster struct {
 	closing bool
 
 	serviceEntryController *serviceentry.Controller
+	configController       model.ConfigStoreController
 	XDSUpdater             model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
@@ -89,6 +90,7 @@ func NewMulticluster(
 	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
+	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	startNsController bool,
@@ -100,6 +102,7 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
+		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
@@ -124,14 +127,14 @@ func (m *Multicluster) close() (err error) {
 	m.m.Lock()
 	m.closing = true
 
-	// Gather all of the member clusters.
+	// Gather all the member clusters.
 	var clusterIDs []cluster.ID
 	for clusterID := range m.remoteKubeControllers {
 		clusterIDs = append(clusterIDs, clusterID)
 	}
 	m.m.Unlock()
 
-	// Remove all of the clusters.
+	// Remove all the clusters.
 	g, _ := errgroup.WithContext(context.Background())
 	for _, clusterID := range clusterIDs {
 		clusterID := clusterID
@@ -202,6 +205,12 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *
 	options.EndpointMode = DetectEndpointMode(client)
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
+	}
+	// config cluster's DiscoveryNamespacesFilter is shared by both configController and serviceController
+	// it is initiated in bootstrap initMulticluster function, pass to service controller to update it.
+	// For other clusters, it should filter by its own cluster's namespace.
+	if !configCluster {
+		options.DiscoveryNamespacesFilter = nil
 	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
@@ -373,5 +382,6 @@ func createWleConfigStore(client kubelib.Client, revision string, opts Options) 
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, "mc-workload-entry-controller", workloadEntriesSchemas)
+	crdOpts := crdclient.Option{Revision: revision, DomainSuffix: opts.DomainSuffix, Identifier: "mc-workload-entry-controller"}
+	return crdclient.NewForSchemas(client, crdOpts, workloadEntriesSchemas)
 }
