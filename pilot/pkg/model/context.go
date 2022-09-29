@@ -309,7 +309,7 @@ type Proxy struct {
 	// wildCardIPs contains the wildcard host IPs, including IPv4 and IPv6
 	wildCardIPs []string
 
-	// localHostIPs contains the wildcard host IPs, including IPv4 and IPv6
+	// localHostIPs contains the local host IPs, including IPv4 and IPv6
 	localHostIPs []string
 
 	// GlobalUnicastIP stores the global unicast IP if available, otherwise nil

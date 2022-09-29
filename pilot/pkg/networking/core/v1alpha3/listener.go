@@ -378,11 +378,15 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			bind := egressListener.IstioListener.Bind
 			if bind == "" {
 				if bindToPort {
+					// the first local host would be the binding address and
+					// the rest would be the additional addresses
 					bind = actualLocalHosts[0]
 					if len(actualLocalHosts) > 1 {
 						extraBind = actualLocalHosts[1:]
 					}
 				} else {
+					// the first wildcard address would be the binding address and
+					// the rest would be the additional addresses
 					bind = actualWildcards[0]
 					if len(actualWildcards) > 1 {
 						extraBind = actualWildcards[1:]
