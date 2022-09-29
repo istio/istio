@@ -23,15 +23,15 @@ import (
 	"github.com/fatih/color"
 )
 
-type coloredTableWriter struct {
+type ColoredTableWriter struct {
 	writer     io.Writer
 	header     Row
 	rows       []Row
 	addRowFunc func(obj interface{}) Row
 }
 
-func NewStyleWriter(writer io.Writer) *coloredTableWriter {
-	return &coloredTableWriter{
+func NewStyleWriter(writer io.Writer) *ColoredTableWriter {
+	return &ColoredTableWriter{
 		writer: writer,
 		rows:   make([]Row, 0),
 		header: Row{},
@@ -63,7 +63,7 @@ func (cell Cell) String() string {
 	return s.Sprintf("%s", cell.Value)
 }
 
-func (c *coloredTableWriter) getTableOutput(allRows []Row) [][]Cell {
+func (c *ColoredTableWriter) getTableOutput(allRows []Row) [][]Cell {
 	output := [][]Cell{}
 	if len(c.header.Cells) != 0 {
 		output = append(output, c.header.Cells)
@@ -74,11 +74,11 @@ func (c *coloredTableWriter) getTableOutput(allRows []Row) [][]Cell {
 	return output
 }
 
-func (c *coloredTableWriter) SetAddRowFunc(f func(obj interface{}) Row) {
+func (c *ColoredTableWriter) SetAddRowFunc(f func(obj interface{}) Row) {
 	c.addRowFunc = f
 }
 
-func (c *coloredTableWriter) AddHeader(names ...string) {
+func (c *ColoredTableWriter) AddHeader(names ...string) {
 	cells := make([]Cell, 0)
 	for _, name := range names {
 		cells = append(cells, NewCell(name))
@@ -86,11 +86,11 @@ func (c *coloredTableWriter) AddHeader(names ...string) {
 	c.header = Row{Cells: cells}
 }
 
-func (c *coloredTableWriter) AddRow(obj interface{}) {
+func (c *ColoredTableWriter) AddRow(obj interface{}) {
 	c.rows = append(c.rows, c.addRowFunc(obj))
 }
 
-func (c *coloredTableWriter) Flush() {
+func (c *ColoredTableWriter) Flush() {
 	output := c.getTableOutput(c.rows)
 	if len(output) == 0 {
 		return
