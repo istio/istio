@@ -36,6 +36,11 @@ const (
 	InboundPassthroughBindIpv6 = "::6"
 )
 
+var (
+	wildCards  map[model.IPMode][]string
+	localHosts map[model.IPMode][]string
+)
+
 // TODO: getActualWildcardAndLocalHost would be removed once the dual stack support in Istio
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
 // depending on value of proxy's IPAddresses.
@@ -61,6 +66,24 @@ func getSidecarInboundBindIPs(node *model.Proxy) []string {
 	if len(node.GlobalUnicastIP) > 0 {
 		return []string{node.GlobalUnicastIP}
 	}
-	defaultInboundIPs := node.Wildcards()
+	defaultInboundIPs, _ := getWildcardsAndLocalHostForDualStack(node.GetIPMode())
 	return defaultInboundIPs
+}
+
+func getWildcardsAndLocalHostForDualStack(ipMode model.IPMode) ([]string, []string) {
+	return wildCards[ipMode], localHosts[ipMode]
+}
+
+func init() {
+	// maintain 2 maps to return wildCards and localHosts according to IP mode of proxy
+	wildCards = make(map[model.IPMode][]string)
+	localHosts = make(map[model.IPMode][]string)
+
+	wildCards[model.IPv4] = []string{WildcardAddress}
+	wildCards[model.IPv6] = []string{WildcardIPv6Address}
+	wildCards[model.Dual] = []string{WildcardAddress, WildcardIPv6Address}
+
+	localHosts[model.IPv4] = []string{LocalhostAddress}
+	localHosts[model.IPv6] = []string{LocalhostIPv6Address}
+	localHosts[model.Dual] = []string{LocalhostAddress, LocalhostIPv6Address}
 }

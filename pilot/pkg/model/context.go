@@ -306,12 +306,6 @@ type Proxy struct {
 	// IPMode of proxy.
 	ipMode IPMode
 
-	// wildCardIPs contains the wildcard host IPs, including IPv4 and IPv6
-	wildCardIPs []string
-
-	// localHostIPs contains the local host IPs, including IPv4 and IPv6
-	localHostIPs []string
-
 	// GlobalUnicastIP stores the global unicast IP if available, otherwise nil
 	GlobalUnicastIP string
 
@@ -890,33 +884,14 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
 func (node *Proxy) DiscoverIPMode() {
-	var wildCardIPs, localHostIPs []string
 	if networkutil.AllIPv4(node.IPAddresses) {
 		node.ipMode = IPv4
-		wildCardIPs = append(wildCardIPs, constants.WildcardAddress)
-		localHostIPs = append(localHostIPs, constants.LocalhostAddress)
 	} else if networkutil.AllIPv6(node.IPAddresses) {
 		node.ipMode = IPv6
-		wildCardIPs = append(wildCardIPs, constants.WildcardIPv6Address)
-		localHostIPs = append(localHostIPs, constants.LocalhostIPv6Address)
 	} else {
 		node.ipMode = Dual
-		wildCardIPs = append(wildCardIPs, []string{constants.WildcardAddress, constants.WildcardIPv6Address}...)
-		localHostIPs = append(localHostIPs, []string{constants.LocalhostAddress, constants.LocalhostIPv6Address}...)
 	}
 	node.GlobalUnicastIP = networkutil.GlobalUnicastIP(node.IPAddresses)
-	node.wildCardIPs = wildCardIPs
-	node.localHostIPs = localHostIPs
-}
-
-// Wildcards returns the wildCard IP addresses for current proxy
-func (node *Proxy) Wildcards() []string {
-	return node.wildCardIPs
-}
-
-// localHostIPs returns the localhost IP addresses for current proxy
-func (node *Proxy) Localhosts() []string {
-	return node.localHostIPs
 }
 
 // SupportsIPv4 returns true if proxy supports IPv4 addresses.
