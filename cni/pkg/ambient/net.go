@@ -177,10 +177,7 @@ func (s *Server) routesAdd(routes []*netlink.Route) error {
 }
 
 func getDeviceWithDestinationOf(ip string) (string, error) {
-	routes, err := netlink.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{Dst: &net.IPNet{IP: net.ParseIP(ip), Mask: net.CIDRMask(32, 32)}},
-		netlink.RT_FILTER_DST)
+	routes, err := netlink.RouteGet(net.ParseIP(ip))
 	if err != nil {
 		return "", err
 	}
