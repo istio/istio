@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -268,7 +270,7 @@ func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []
 }
 
 func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
-	sis, err := ic.filteredInformer.List("")
+	sis, err := ic.filteredInformer.List(metav1.NamespaceAll)
 	if err != nil {
 		return make([]importedService, 0)
 	}

@@ -803,7 +803,7 @@ func (c *Controller) syncNodes() error {
 
 func (c *Controller) syncServices() error {
 	var err *multierror.Error
-	services, _ := c.serviceInformer.List("")
+	services, _ := c.serviceInformer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
@@ -813,7 +813,7 @@ func (c *Controller) syncServices() error {
 
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
-	pods, _ := c.pods.informer.List("")
+	pods, _ := c.pods.informer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
