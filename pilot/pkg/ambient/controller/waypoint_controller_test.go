@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -38,6 +39,52 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 )
+
+func TestRenderImagePullPolicy(t *testing.T) {
+	policy := corev1.PullIfNotPresent
+	vc, err := inject.NewValuesConfig(fmt.Sprintf(`
+global:
+  hub: test
+  imagePullPolicy: %s
+  tag: test`, policy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmplPath := filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")
+	tmplStr := file.AsStringOrFail(t, tmplPath)
+	tmpl, err := inject.ParseTemplates(map[string]string{"waypoint": tmplStr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := kube.NewFakeClient(
+		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "sa-1", Namespace: "test"}},
+		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "sa-2", Namespace: "test"}},
+		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "sa-3", Namespace: "cross-namespace"}},
+	)
+	cc := NewWaypointProxyController(c, "test", func() inject.WebhookConfig {
+		return inject.WebhookConfig{
+			Templates: tmpl,
+			Values:    vc,
+		}
+	})
+	input := MergedInput{
+		Namespace:      "default",
+		GatewayName:    "gateway",
+		UID:            "uuid",
+		ServiceAccount: "sa",
+		Cluster:        "cluster1",
+	}
+	deploy, err := cc.RenderDeploymentMerged(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range deploy.Spec.Template.Spec.Containers {
+		if c.ImagePullPolicy != policy {
+			t.Fatal(err)
+		}
+	}
+}
 
 func TestWaypointProxyController(t *testing.T) {
 	vc, err := inject.NewValuesConfig(`

@@ -41,21 +41,6 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-type ProxySpecifier struct {
-	Namespace      string `json:"namespace,omitempty"`
-	ServiceAccount string `json:"serviceAccount,omitempty"`
-	// TODO: "config set" determined by workload labels
-}
-
-func (i ProxySpecifier) MarshalText() (text []byte, err error) {
-	return []byte(i.Namespace + "/" + i.ServiceAccount), nil
-}
-
-type Proxy struct {
-	Name string `json:"name,omitempty"`
-	IP   string `json:"ip,omitempty"`
-}
-
 type WaypointProxyController struct {
 	client          kubelib.Client
 	queue           controllers.Queue
@@ -70,10 +55,6 @@ type WaypointProxyController struct {
 }
 
 var waypointLog = istiolog.RegisterScope("waypoint proxy", "", 0)
-
-func init() {
-	waypointLog.SetOutputLevel(istiolog.DebugLevel)
-}
 
 func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig) *WaypointProxyController {
 	rc := &WaypointProxyController{
@@ -282,10 +263,12 @@ func (rc *WaypointProxyController) RenderDeploymentMerged(input MergedInput) (*a
 		return nil, fmt.Errorf("no waypoint template defined")
 	}
 	input.Image = inject.ProxyImage(cfg.Values.Struct(), cfg.MeshConfig.GetDefaultConfig().GetImage(), nil)
+	input.ImagePullPolicy = cfg.Values.Struct().Global.GetImagePullPolicy()
 	waypointBytes, err := tmpl.Execute(podTemplate, input)
 	if err != nil {
 		return nil, err
 	}
+
 	proxyPod, err := unmarshalDeploy([]byte(waypointBytes))
 	if err != nil {
 		return nil, fmt.Errorf("render: %v\n%v", err, waypointBytes)
@@ -319,9 +302,10 @@ func unmarshalDeploy(dyaml []byte) (*appsv1.Deployment, error) {
 type MergedInput struct {
 	GatewayName string
 
-	Namespace      string
-	UID            string
-	ServiceAccount string
-	Cluster        string
-	Image          string
+	Namespace       string
+	UID             string
+	ServiceAccount  string
+	Cluster         string
+	Image           string
+	ImagePullPolicy string
 }

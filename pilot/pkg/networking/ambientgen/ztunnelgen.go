@@ -176,7 +176,7 @@ func (g *ZTunnelConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.P
 	for sa := range workloads.ByIdentity {
 		for _, svc := range services {
 			for _, port := range svc.Ports {
-				c := g.waypointOutboundCluster(proxy, push, sa, svc, port.Name)
+				c := g.serviceOutboundCluster(proxy, push, sa, svc, port.Name)
 				if c == nil {
 					continue
 				}
@@ -400,7 +400,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 					chain = clientWaypointChain
 				} else {
 					// No waypoint proxy
-					name := waypointOutboundClusterName(sourceWl.Identity(), port.Name, svc.Hostname.String())
+					name := outboundServiceClusterName(sourceWl.Identity(), port.Name, svc.Hostname.String())
 					chain = &listener.FilterChain{
 						Name: name,
 						Filters: []*listener.Filter{{
@@ -454,7 +454,6 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 				// TODO2: this is still broken even with custom orig_dst. the listener sets the orig_src mark
 				// If we
 
-				name := sourceWl.Identity() + "_to_" + wl.PodIP
 				tunnel := &tcp.TcpProxy_TunnelingConfig{
 					Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 					HeadersToAdd: []*core.HeaderValueOption{
@@ -474,6 +473,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 					tunnel = nil
 				}
 
+				name := "fc-" + cluster
 				chain = &listener.FilterChain{
 					Name: name,
 					Filters: []*listener.Filter{
@@ -627,12 +627,12 @@ func passthroughFilterChain() *listener.FilterChain {
 	}
 }
 
-func (g *ZTunnelConfigGenerator) waypointOutboundCluster(
+func (g *ZTunnelConfigGenerator) serviceOutboundCluster(
 	proxy *model.Proxy, push *model.PushContext, sa string, svc *model.Service, port string,
 ) *cluster.Cluster {
 	discoveryType := convertResolution(proxy.Type, svc)
 	c := &cluster.Cluster{
-		Name:                 waypointOutboundClusterName(sa, port, svc.Hostname.String()),
+		Name:                 outboundServiceClusterName(sa, port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 
 		TransportSocketMatches: v1alpha3.InternalUpstreamSocketMatch,
@@ -674,11 +674,11 @@ func (g *ZTunnelConfigGenerator) waypointOutboundCluster(
 	return c
 }
 
-func waypointOutboundClusterName(sa, port string, hostname string) string {
+func outboundServiceClusterName(sa, port string, hostname string) string {
 	return fmt.Sprintf("%s_to_%s_%s_outbound_internal", sa, port, hostname)
 }
 
-func parseWaypointOutboundClusterName(clusterName string) (sa, port string, hostname string, ok bool) {
+func parseServiceOutboundClusterName(clusterName string) (sa, port string, hostname string, ok bool) {
 	p := strings.Split(clusterName, "_")
 	if !strings.HasSuffix(clusterName, "_outbound_internal") || len(p) < 3 {
 		return "", "", "", false
@@ -782,7 +782,7 @@ func (g *ZTunnelConfigGenerator) BuildEndpoints(proxy *model.Proxy, push *model.
 	// ztunnel outbound to upstream
 	for _, clusterName := range names {
 		// sa here is already our "envoy friendly" one
-		sa, port, hostname, ok := parseWaypointOutboundClusterName(clusterName)
+		sa, port, hostname, ok := parseServiceOutboundClusterName(clusterName)
 		if !ok {
 			continue
 		}
@@ -1036,7 +1036,7 @@ func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa st
 		CleanupInterval:      durationpb.New(60 * time.Second),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-				UpstreamPortOverride: ZTunnelInboundCapturePort,
+				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundCapturePort),
 			},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -1060,7 +1060,7 @@ func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, 
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UseHttpHeader:        true,
-				UpstreamPortOverride: ZTunnelInboundNodeLocalCapturePort,
+				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundNodeLocalCapturePort),
 			},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -1141,6 +1141,11 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 	}
 
 	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+		// Skip workloads in the host network
+		if workload.HostNetwork {
+			continue
+		}
+
 		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
 			dummy := &model.Proxy{
 				ConfigNamespace: workload.Namespace,
@@ -1366,6 +1371,11 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 	}
 
 	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+		// Skip workloads in the host network
+		if workload.HostNetwork {
+			continue
+		}
+
 		dummy := &model.Proxy{
 			ConfigNamespace: workload.Namespace,
 			Labels:          workload.Labels,
@@ -1378,7 +1388,7 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
+					StatPrefix:       "virtual_inbound_plaintext",
 					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "virtual_inbound"},
 				}),
 			},
@@ -1482,7 +1492,7 @@ func (g *ZTunnelConfigGenerator) buildVirtualInboundClusterHBONE() *discovery.Re
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UseHttpHeader:        true,
-				UpstreamPortOverride: ZTunnelInboundCapturePort,
+				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundCapturePort),
 			},
 		},
 	}

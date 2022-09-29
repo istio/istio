@@ -24,7 +24,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -67,10 +66,6 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 }
 
 func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, p.webhookInformer.HasSynced) {
-		log.Errorf("failed to sync default watcher")
-		return
-	}
 	p.queue.Run(stopCh)
 }
 
