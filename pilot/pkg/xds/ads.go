@@ -148,7 +148,11 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
 				if s.SdsServer {
-					log.Infof("ADS: connection terminated for secrets:%v", req.ResourceNames)
+					secrets := ""
+					if req != nil {
+						secrets = strings.Join(req.ResourceNames, ",")
+					}
+					log.Infof("ADS: connection terminated for secrets:%v", secrets)
 				} else {
 					log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				}
@@ -156,7 +160,11 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 			}
 			con.errorChan <- err
 			if s.SdsServer {
-				log.Infof("ADS:connection terminated for secrets %v, with error:%v", req.ResourceNames, err)
+				secrets := ""
+				if req != nil {
+					secrets = strings.Join(req.ResourceNames, ",")
+				}
+				log.Infof("ADS:connection terminated for secrets %v, with error:%v", secrets, err)
 			} else {
 				log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
 			}
