@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/security"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -92,13 +93,18 @@ func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 }
 
 func isTrustedAddress(addr string, trustedCidrs []string) bool {
+	ip, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		log.Warnf("peer address %s can not be split in to proper host and port", addr)
+		return false
+	}
 	for _, cidr := range trustedCidrs {
-		if isInRange(addr, cidr) {
+		if isInRange(ip, cidr) {
 			return true
 		}
 	}
 	// Always trust local host addresses.
-	return net.ParseIP(addr).IsLoopback()
+	return net.ParseIP(ip).IsLoopback()
 }
 
 func isInRange(addr, cidr string) bool {
