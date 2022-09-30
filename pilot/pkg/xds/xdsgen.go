@@ -92,8 +92,17 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	if w == nil {
 		return nil
 	}
+
+	if features.FilterGatewayClusterConfig && w.TypeUrl == v3.RouteType {
+		for !con.gotAckForLastResponse(v3.ClusterType) {
+			log.Infof("Last sent cds not acked yet. Hold rds push")
+			time.Sleep(time.Millisecond * 500)
+		}
+	}
 	gen := s.findGenerator(w.TypeUrl, con)
 	if gen == nil {
+		log.Warnf("%s: pushXds for node:%s returning. no generator",
+			v3.GetShortType(w.TypeUrl), con.proxy.ID)
 		return nil
 	}
 

@@ -188,7 +188,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	resources = cb.normalizeClusters(resources)
+	resources = cb.normalizeClusters(resources, proxy)
 
 	if cacheStats.empty() {
 		return resources, model.DefaultXdsLogDetails

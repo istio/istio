@@ -1172,7 +1172,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 
 // normalizeClusters normalizes clusters to avoid duplicate clusters. This should be called
 // at the end before adding the cluster to list of clusters.
-func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
+func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource, proxy *model.Proxy) []*discovery.Resource {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
 	have := sets.String{}
@@ -1185,6 +1185,19 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
 		}
 	}
+	if !features.FilterGatewayClusterConfig {
+		return out
+	}
+	lastPushed := proxy.LastPushedCDS
+	proxy.LastPushedCDS = out
+
+	for _, c := range lastPushed {
+		if !have.InsertContains(c.Name) {
+			out = append(out, c)
+			log.Debugf("Adding cluster %s to CDS from last pushed CDS", c.Name)
+		}
+	}
+
 	return out
 }
 

@@ -427,6 +427,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
+	con.proxy.WatchedResources[request.TypeUrl].VersionAcked = request.VersionInfo
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
 	alwaysRespond := previousInfo.AlwaysRespond
 	previousInfo.AlwaysRespond = false
@@ -914,6 +915,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
@@ -941,6 +943,18 @@ func (conn *Connection) NonceSent(typeUrl string) string {
 		return conn.proxy.WatchedResources[typeUrl].NonceSent
 	}
 	return ""
+}
+
+// nolint
+func (conn *Connection) gotAckForLastResponse(typeUrl string) bool {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
+		if conn.proxy.WatchedResources[typeUrl].VersionAcked == conn.proxy.WatchedResources[typeUrl].VersionSent {
+			return true
+		}
+	}
+	return false
 }
 
 func (conn *Connection) Clusters() []string {

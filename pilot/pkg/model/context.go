@@ -332,6 +332,8 @@ type Proxy struct {
 	// LastPushContext; the XDS cache depends on knowing the time of the PushContext to determine if a
 	// key is stale or not.
 	LastPushTime time.Time
+
+	LastPushedCDS []*discovery.Resource
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -352,6 +354,9 @@ type WatchedResource struct {
 
 	// NonceAcked is the last acked message.
 	NonceAcked string
+
+	VersionSent  string
+	VersionAcked string
 
 	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
 	// ACK, it will be responded to. This typically happens when a proxy reconnects to another instance of
