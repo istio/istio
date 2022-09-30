@@ -1,0 +1,130 @@
+# `name` value will appear "as is" in the badge.
+# See https://docs.github.com/en/actions/configuring-and-managing-workflows/configuring-a-workflow#adding-a-workflow-status-badge-to-your-repository
+name: "build"
+
+on:
+  push:
+    branches:
+    - tcc-1.15
+    tags:
+    - '**'
+  pull_request:
+    branches:
+    - '**'
+
+jobs:
+
+  config:
+    runs-on: ubuntu-latest
+
+    outputs:
+      image: ${{ steps.config.outputs.image }}
+      tag: ${{ steps.git.outputs.tag }}
+
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+
+    - id: config
+      run: |
+        source common/scripts/setup_env.sh
+        echo "::set-output name=image::${IMG}" # ISTIO_BUILD_TOOLS
+
+    - id: git
+      run: |
+        TAG=
+        if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+          TAG=$( echo "${GITHUB_REF}" | tail -c +11 )
+        fi
+        echo "::set-output name=tag::${TAG}"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 # fetch all history for all tags and branches
+
+    - run: make -e T=-v build binaries-test
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+
+    - run: make -e T="-v -count=1" init racetest
+
+  release:
+    needs: config
+    runs-on: [self-hosted, linux, x64, medium] # we use a self-host runner here to get more disk space
+
+    container:
+      image: ${{ needs.config.outputs.image }} # ISTIO_BUILD_TOOLS
+      env:
+        BUILD_WITH_CONTAINER: "0"
+        GOOGLE_APPLICATION_CREDENTIALS: /gcs.key.json
+
+    steps:
+    - name: "Install latest `git`"
+      run: |
+        apt-get purge git -y
+        add-apt-repository ppa:git-core/ppa -y
+        apt-get update && apt-get install -y --no-install-recommends \
+            git \
+         && apt-get clean \
+         && rm -rf /var/lib/apt/lists/*
+
+    - name: "Checkout"
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 # fetch all history for all tags and branches
+
+    - name: "Fix git commands failing with 'fatal: unsafe repository (... is owned by someone else)'"
+      # see https://github.com/actions/checkout/issues/766
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: "Docker login"
+      env:
+        DOCKER_HUB_USER: ${{ secrets.TETRATE_CI_DOCKER_HUB_USER }}
+        DOCKER_HUB_PASSWORD: ${{ secrets.TETRATE_CI_DOCKER_HUB_PASSWORD }}
+      run: docker login --username "${DOCKER_HUB_USER}" --password "${DOCKER_HUB_PASSWORD}"
+
+    - name: "GCS Credentials"
+      env:
+        GCS_CREDENTIALS: ${{ secrets.TETRATE_CI_GCS_CREDENTIALS }}
+      run: |
+        echo "${GCS_CREDENTIALS}" | base64 -d > ${GOOGLE_APPLICATION_CREDENTIALS}
+        gcloud auth activate-service-account --key-file ${GOOGLE_APPLICATION_CREDENTIALS}
+
+    - env:
+        DOCKER_HUB: ${{ secrets.TETRATE_CI_DOCKER_HUB }}
+        GCS_BUCKET: ${{ secrets.TETRATE_CI_GCS_BUCKET }}
+        PUBLISH_GCS_ALIASES: "0" # don't publish aliases to GCS
+        VERSION: ${{ needs.config.outputs.tag }}
+      run: prow/release-commit.sh
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+
+    - run: make lint
+
+  gencheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+
+    - run: make gen-check
+
+  analyze-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v2
+
+    - run: make test.integration.analyze
