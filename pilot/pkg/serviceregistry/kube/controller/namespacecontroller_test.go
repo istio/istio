@@ -39,6 +39,9 @@ import (
 )
 
 func TestNamespaceController(t *testing.T) {
+	// Cannot use t.SetForTest() here as it results in DATA RACE.
+	// Need to wait for https://github.com/kubernetes/kubernetes/pull/112200
+	features.EnableEnhancedResourceScoping = false
 	client := kube.NewFakeClient()
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
@@ -85,7 +88,9 @@ func TestNamespaceController(t *testing.T) {
 }
 
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
+	// Cannot use t.SetForTest() here as it results in DATA RACE.
+	// Need to wait for https://github.com/kubernetes/kubernetes/pull/112200
+	features.EnableEnhancedResourceScoping = true
 	client := kube.NewFakeClient()
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
@@ -117,13 +122,17 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	nsA := "nsA"
 	nsB := "nsB"
 
+	// Create a namespace with discovery selector enabled
 	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
+	// Create a namespace without discovery selector enabled
 	createNamespace(t, client.Kube(), nsB, map[string]string{})
 	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metav1.GetOptions{})
 	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metav1.GetOptions{})
 	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
 	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
+	// config map should be created for discovery selector enabled namespace
 	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsA, expectedData)
+	// config map should not be created for discovery selector disabled namespace
 	expectConfigMapNotExist(t, nc.configmapLister, nsB)
 }
 
