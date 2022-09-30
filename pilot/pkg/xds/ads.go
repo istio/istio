@@ -147,24 +147,16 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				if s.SdsServer {
-					secrets := ""
-					if req != nil {
-						secrets = strings.Join(req.ResourceNames, ",")
-					}
-					log.Infof("ADS: connection terminated for secrets:%v", secrets)
+				if req != nil && req.TypeUrl == v3.SecretType {
+					log.Infof("ADS: connection terminated for secrets:%v", strings.Join(req.ResourceNames, ","))
 				} else {
 					log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				}
 				return
 			}
 			con.errorChan <- err
-			if s.SdsServer {
-				secrets := ""
-				if req != nil {
-					secrets = strings.Join(req.ResourceNames, ",")
-				}
-				log.Infof("ADS:connection terminated for secrets %v, with error:%v", secrets, err)
+			if req != nil && req.TypeUrl == v3.SecretType {
+				log.Infof("ADS:connection terminated for secrets %v, with error:%v", strings.Join(req.ResourceNames, ","), err)
 			} else {
 				log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
 			}
@@ -188,8 +180,8 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			if s.SdsServer {
-				log.Infof("ADS: new connection for secrets:%v", req.ResourceNames)
+			if req != nil && req.TypeUrl == v3.SecretType {
+				log.Infof("ADS: new connection for secrets:%v", strings.Join(req.ResourceNames, ","))
 			} else {
 				log.Infof("ADS: new connection for node:%s", con.conID)
 			}
@@ -284,12 +276,9 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		peerAddr = peerInfo.Addr.String()
 	}
 
-	// Do not apply rate limit when this server is run as Sds Server.
-	if !s.SdsServer {
-		if err := s.WaitForRequestLimit(stream.Context()); err != nil {
-			log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
-			return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
-		}
+	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
+		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
 	ids, err := s.authenticate(ctx)
