@@ -27,6 +27,9 @@ import (
 )
 
 var (
+	IdentityIPVar = env.RegisterStringVar("IDENTITY_IP", "",
+		"IP address that uniquely identifies that proxy to the control plane, "+
+			"even though the proxy might not be able to bind to it (e.g., External IP of an AWS EC2 instance)")
 	InstanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	PodNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	PodNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")

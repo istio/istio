@@ -250,6 +250,11 @@ type Proxy struct {
 	// Type specifies the node type. First part of the ID.
 	Type NodeType
 
+	// ServiceNodeIP is an IP address encoded into the node ID.
+	// This IP uniquely identifies that proxy to the control plane,
+	// even though the proxy might not be able to bind to it (e.g., External IP of an AWS EC2 instance).
+	ServiceNodeIP string
+
 	// IPAddresses is the IP addresses of the proxy used to identify it and its
 	// co-located service instances. Example: "10.60.1.6". In some cases, the host
 	// where the proxy and service instances reside may have more than one IP address
@@ -786,14 +791,35 @@ func IsApplicationNodeType(nType NodeType) bool {
 	}
 }
 
+// IdentityIP returns an IP address that uniquely identifies given proxy to the control plane,
+// even though the proxy might not be able to bind to it (e.g., External IP of an AWS EC2 instance).
+func (node *Proxy) IdentityIP() string {
+	if node.ServiceNodeIP != "" {
+		return node.ServiceNodeIP
+	}
+	if len(node.IPAddresses) > 0 {
+		return node.IPAddresses[0]
+	}
+	return ""
+}
+
+// AllIPAddresses returns all IP addresses that identify a given proxy.
+func (node *Proxy) AllIPAddresses() []string {
+	if node.ServiceNodeIP == "" {
+		return node.IPAddresses
+	}
+	for _, address := range node.IPAddresses {
+		if address == node.ServiceNodeIP {
+			return node.IPAddresses
+		}
+	}
+	return append([]string{node.ServiceNodeIP}, node.IPAddresses...)
+}
+
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
 func (node *Proxy) ServiceNode() string {
-	ip := ""
-	if len(node.IPAddresses) > 0 {
-		ip = node.IPAddresses[0]
-	}
 	return strings.Join([]string{
-		string(node.Type), ip, node.ID, node.DNSDomain,
+		string(node.Type), node.IdentityIP(), node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
 }
 
@@ -920,6 +946,9 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", nodeID)
 	}
 	out.Type = NodeType(parts[0])
+	if isValidIPAddress(parts[1]) {
+		out.ServiceNodeIP = parts[1]
+	}
 
 	// Get all IP Addresses from Metadata
 	if hasValidIPAddresses(metadata.InstanceIPs) {

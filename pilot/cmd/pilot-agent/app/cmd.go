@@ -266,6 +266,7 @@ func initProxy(args []string) (*model.Proxy, error) {
 			return nil, fmt.Errorf("Invalid proxy Type: " + string(proxy.Type))
 		}
 	}
+	proxy.ServiceNodeIP = options.IdentityIPVar.Get()
 
 	podIP := net.ParseIP(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
 	if podIP != nil {

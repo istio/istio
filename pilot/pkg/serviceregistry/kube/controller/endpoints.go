@@ -83,7 +83,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 				}
 
 				// consider multiple IP scenarios
-				for _, ip := range proxy.IPAddresses {
+				for _, ip := range proxy.AllIPAddresses() {
 					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
 						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name, discoverabilityPolicy)
 						out = append(out, &model.ServiceInstance{

@@ -773,7 +773,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	out := make([]*model.ServiceInstance, 0)
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	for _, ip := range node.IPAddresses {
+	for _, ip := range node.AllIPAddresses() {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, i := range instances {
 			// Insert all instances for this IP for services within the same namespace This ensures we
@@ -791,7 +791,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	for _, ip := range proxy.IPAddresses {
+	for _, ip := range proxy.AllIPAddresses() {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, instance := range instances {
 			return instance.Endpoint.Labels

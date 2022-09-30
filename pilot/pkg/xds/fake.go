@@ -408,7 +408,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
 	}
 	adscConn, err := adsc.New("buffcon", &adsc.Config{
-		IP:                       p.IPAddresses[0],
+		IP:                       p.IdentityIP(),
 		NodeType:                 string(p.Type),
 		Meta:                     p.Metadata.ToStruct(),
 		Locality:                 p.Locality,

@@ -46,7 +46,7 @@ func InstanceNameForProxy(proxy *model.Proxy) types.NamespacedName {
 // GetInstanceForProxy returns a workload instance that
 // corresponds to a given proxy, if any.
 func GetInstanceForProxy(index Index, proxy *model.Proxy, proxyIP string) *model.WorkloadInstance {
-	if !slices.ContainsString(proxy.IPAddresses, proxyIP) {
+	if !slices.ContainsString(proxy.AllIPAddresses(), proxyIP) {
 		return nil
 	}
 	instances := index.GetByIP(proxyIP) // list is ordered by namespace/name
