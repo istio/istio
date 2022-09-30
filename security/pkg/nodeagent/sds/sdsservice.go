@@ -18,7 +18,6 @@ package sds
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
@@ -61,7 +60,7 @@ var _ model.XdsResourceGenerator = &sdsservice{}
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
 	s := xds.NewXDS(stop)
 	// No ratelimit for SDS calls in agent.
-	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(rate.Limit(math.MaxInt), 1)
+	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(rate.Inf, 1)
 	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,
 	}
