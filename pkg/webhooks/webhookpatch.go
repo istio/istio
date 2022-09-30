@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,8 +48,7 @@ type WebhookCertPatcher struct {
 	client kubernetes.Interface
 
 	// revision to patch webhooks for
-	revision    string
-	webhookName string
+	revision string
 
 	queue controllers.Queue
 
@@ -64,12 +62,12 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
+	revision string,
+	caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
 		revision:        revision,
-		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
 	}
 	p.queue = controllers.NewQueue("webhook patcher",
@@ -127,12 +125,6 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		return errNotFound
 	}
 	config := raw.(*v1.MutatingWebhookConfiguration)
-	// prevents a race condition between multiple istiods when the revision is changed or modified
-	v, ok := config.Labels[label.IoIstioRev.Name]
-	if v != w.revision || !ok {
-		reportWebhookPatchFailure(webhookConfigName, reasonWrongRevision)
-		return errWrongRevision
-	}
 
 	found := false
 	updated := false
@@ -142,14 +134,12 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		reportWebhookPatchFailure(webhookConfigName, reasonLoadCABundleFailure)
 		return err
 	}
-	for i, wh := range config.Webhooks {
-		if strings.HasSuffix(wh.Name, w.webhookName) {
-			if !bytes.Equal(caCertPem, config.Webhooks[i].ClientConfig.CABundle) {
-				updated = true
-			}
-			config.Webhooks[i].ClientConfig.CABundle = caCertPem
-			found = true
+	for i := range config.Webhooks {
+		if !bytes.Equal(caCertPem, config.Webhooks[i].ClientConfig.CABundle) {
+			updated = true
 		}
+		config.Webhooks[i].ClientConfig.CABundle = caCertPem
+		found = true
 	}
 	if !found {
 		reportWebhookPatchFailure(webhookConfigName, reasonWebhookEntryNotFound)

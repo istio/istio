@@ -42,11 +42,6 @@ import (
 	"istio.io/istio/pkg/webhooks"
 )
 
-const (
-	// Name of the webhook config in the config - no need to change it.
-	webhookName = "sidecar-injector.istio.io"
-)
-
 var _ multicluster.ClusterHandler = &Multicluster{}
 
 type kubeController struct {
@@ -292,13 +287,23 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" {
-			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
-			if err != nil {
-				log.Errorf("could not initialize webhook cert patcher: %v", err)
-			} else {
-				go patcher.Run(clusterStopCh)
-			}
+			leaderelection.
+				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.SidecarInjectorController, m.revision, true, client).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
+					patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, m.caBundleWatcher)
+					if err != nil {
+						log.Errorf("could not initialize webhook cert patcher: %v", err)
+					} else {
+						// Start informers again. This fixes the case where informers do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						client.RunAndWait(clusterStopCh)
+						patcher.Run(leaderStop)
+					}
+				})
 		}
 	}
 

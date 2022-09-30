@@ -57,20 +57,18 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	watcher := &keycertbundle.Watcher{}
 	watcher.SetAndNotify(nil, nil, caBundle0)
 	ts := []struct {
-		name        string
-		configs     admissionregistrationv1.MutatingWebhookConfigurationList
-		revision    string
-		configName  string
-		webhookName string
-		pemData     []byte
-		err         string
+		name       string
+		configs    admissionregistrationv1.MutatingWebhookConfigurationList
+		revision   string
+		configName string
+		pemData    []byte
+		err        string
 	}{
 		{
 			"WebhookConfigNotFound",
 			admissionregistrationv1.MutatingWebhookConfigurationList{},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			errNotFound.Error(),
 		},
@@ -88,7 +86,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			errNoWebhookWithName.Error(),
 		},
@@ -112,7 +109,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			"",
 		},
@@ -136,7 +132,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			"",
 		},
@@ -159,7 +154,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			errNotFound.Error(),
 		},
@@ -183,7 +177,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			errNotFound.Error(),
 		},
@@ -202,7 +195,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
 							},
 							{
-								Name:         "should not be changed",
+								Name:         "obj-webhook1",
 								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
 							},
 						},
@@ -211,7 +204,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			},
 			testRevision,
 			"config1",
-			"webhook1",
 			caBundle0,
 			"",
 		},
@@ -228,7 +220,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 
 			watcher := keycertbundle.NewWatcher()
 			watcher.SetAndNotify(nil, nil, tc.pemData)
-			whPatcher, err := NewWebhookCertPatcher(client, tc.revision, tc.webhookName, watcher)
+			whPatcher, err := NewWebhookCertPatcher(client, tc.revision, watcher)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -254,15 +246,8 @@ func TestMutatingWebhookPatch(t *testing.T) {
 					t.Fatal(err)
 				}
 				for _, w := range obj.Webhooks {
-					if strings.HasSuffix(w.Name, tc.webhookName) {
-						if !bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
-							t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, w.ClientConfig.CABundle)
-						}
-					}
-					if !strings.HasSuffix(w.Name, tc.webhookName) {
-						if bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
-							t.Fatalf("Non-matching webhook \"%s\" CA bundle updated to %v", w.Name, w.ClientConfig.CABundle)
-						}
+					if !bytes.Equal(w.ClientConfig.CABundle, tc.pemData) {
+						t.Fatalf("Incorrect CA bundle: expect %s got %s", tc.pemData, w.ClientConfig.CABundle)
 					}
 				}
 			}
