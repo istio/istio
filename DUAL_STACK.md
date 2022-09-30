@@ -7,6 +7,7 @@ In this README:
 
 - [Image building](#image-building)
 - [Installation](#installation)
+- [Who are using the feature](#who-are-using-the-feature)
 - [Others](#others)
 
 In addition, here are some other information you may wish to read:
@@ -48,6 +49,11 @@ There are 2 installation approaches will be introduced in this section:
 
 > Note: For environment variable PILOT_USE_ENDPOINT_SLICE, it will be true by default for some kubernetes version, such as 1.21+.  
 
+## Who are using the feature
+- **Ecloud**
+
+  As China Mobile's strategic platform, [Ecloud](https://ecloud.10086.cn/home/) is currently the fastest-growing public cloud in China.
+  As a mainstream project of service mesh, Istio has been widely used by public cloud products in Ecloud for canary release, network resilience and observability.
 
 ## Others
 
