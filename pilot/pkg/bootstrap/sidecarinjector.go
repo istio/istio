@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/env"
@@ -89,15 +90,16 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// operator or CI/CD
 	if features.InjectionWebhookConfigName != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			// No leader election - different istiod revisions will patch their own cert.
-			// update webhook configuration by watching the cabundle
-			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, s.istiodCertBundleWatcher)
-			if err != nil {
-				log.Errorf("failed to create webhook cert patcher: %v", err)
-				return nil
-			}
-
-			go patcher.Run(stop)
+			leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.SidecarInjectorController, args.Revision, s.kubeClient).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					// update webhook configuration by watching the cabundle
+					patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, s.istiodCertBundleWatcher)
+					if err != nil {
+						log.Errorf("failed to create webhook cert patcher: %v", err)
+						return
+					}
+					patcher.Run(leaderStop)
+				})
 			return nil
 		})
 	}
