@@ -43,7 +43,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 					log.Infof("Starting validation controller")
 					controller.NewValidatingWebhookController(
 						s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(leaderStop)
-				})
+				}).Run(stop)
 			return nil
 		})
 	}
