@@ -909,6 +909,11 @@ func (node *Proxy) IsIPv6() bool {
 	return node.ipMode == IPv6
 }
 
+// GetIPMode returns proxy's ipMode
+func (node *Proxy) GetIPMode() IPMode {
+	return node.ipMode
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
