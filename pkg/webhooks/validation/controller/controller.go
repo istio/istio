@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	admissioninformer "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -196,20 +196,9 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
-
-	webhookInformer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
-			},
-		},
-		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
-	)
+	webhookInformer := admissioninformer.NewFilteredValidatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+	})
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
 	c.webhookInformer = webhookInformer
 
@@ -317,15 +306,12 @@ func (c *Controller) updateAll() {
 func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	configuration, err := c.client.Kube().
-		AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
-	if err != nil {
-		if kubeErrors.IsNotFound(err) {
-			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
-			return false, nil
-		}
-		return false, err
+	obj, _, err := c.webhookInformer.GetStore().GetByKey(req.webhookName)
+	if obj == nil || err != nil {
+		scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
+		return false, nil
 	}
+	configuration := obj.(*kubeApiAdmission.ValidatingWebhookConfiguration)
 
 	scope.Debugf("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()

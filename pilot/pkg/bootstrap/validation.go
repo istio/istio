@@ -16,6 +16,7 @@ package bootstrap
 
 import (
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
@@ -23,10 +24,6 @@ import (
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
-	if s.kubeClient == nil {
-		return nil
-	}
-
 	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
@@ -39,11 +36,14 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return err
 	}
 
-	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
+	if features.ValidationWebhookConfigName != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			log.Infof("Starting validation controller")
-			go controller.NewValidatingWebhookController(
-				s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(stop)
+			leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, args.Revision, s.kubeClient).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting validation controller")
+					controller.NewValidatingWebhookController(
+						s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(leaderStop)
+				})
 			return nil
 		})
 	}

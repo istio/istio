@@ -50,6 +50,7 @@ const (
 	GatewayDeploymentController = "istio-gateway-deployment-leader"
 	StatusController            = "istio-status-leader"
 	AnalyzeController           = "istio-analyze-leader"
+	ValidationController        = "istio-validation-patcher-election"
 )
 
 // Leader election key prefix for remote istiod managed clusters
