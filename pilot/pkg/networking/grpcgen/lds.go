@@ -32,6 +32,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
@@ -110,6 +111,10 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
 		}
+		// add extra addresses for the listener
+		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
+		ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
+
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
 			Resource: protoconv.MessageToAny(ll),
@@ -311,6 +316,10 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						}),
 					},
 				}
+				// add extra addresses for the listener
+				extrAddresses := sv.GetExtraAddressesForProxy(node)
+				ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
+
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
 					Resource: protoconv.MessageToAny(ll),
