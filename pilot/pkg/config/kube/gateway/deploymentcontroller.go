@@ -290,12 +290,12 @@ type deploymentInput struct {
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
-	http := strings.ToLower(string(protocol.HTTP))
+	tcp := strings.ToLower(string(protocol.TCP))
 	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
 		Port:        int32(15021),
-		AppProtocol: &http,
+		AppProtocol: &tcp,
 	})
 	portNums := map[int32]struct{}{}
 	for i, l := range gw.Spec.Listeners {
