@@ -196,6 +196,7 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
+
 	webhookInformer := admissioninformer.NewFilteredValidatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
 	})
@@ -306,12 +307,15 @@ func (c *Controller) updateAll() {
 func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	obj, _, err := c.webhookInformer.GetStore().GetByKey(req.webhookName)
-	if obj == nil || err != nil {
-		scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
-		return false, nil
+	configuration, err := c.client.Kube().
+		AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
+	if err != nil {
+		if kubeErrors.IsNotFound(err) {
+			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
+			return false, nil
+		}
+		return false, err
 	}
-	configuration := obj.(*kubeApiAdmission.ValidatingWebhookConfiguration)
 
 	scope.Debugf("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
