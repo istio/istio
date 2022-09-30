@@ -133,7 +133,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	}
 	// add extra addresses for the listener
 	if len(actualWildcards) > 1 {
-		ipTablesListener.AdditionalAddresses = util.BuildExtraAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), lb.node)
+		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), lb.node)
 	}
 
 	class := model.OutboundListenerClass(lb.node.Type)

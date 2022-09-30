@@ -113,7 +113,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
-		ll.AdditionalAddresses = util.BuildExtraAddresses(extrAddresses, uint32(listenPort), node)
+		ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
 
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
@@ -318,7 +318,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
-				ll.AdditionalAddresses = util.BuildExtraAddresses(extrAddresses, uint32(p.Port), node)
+				ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
 
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
