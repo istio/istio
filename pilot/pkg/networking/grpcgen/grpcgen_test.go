@@ -241,11 +241,10 @@ func TestGRPC(t *testing.T) {
 
 		adscConn.WatchConfig()
 
-		_, err = adscConn.Wait(5*time.Second, v3.ListenerType)
+		msg, err := adscConn.WaitVersion(5*time.Second, v3.ListenerType, "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
-		msg := adscConn.Received[v3.ListenerType]
 		listeners := make([]*listener.Listener, 0, len(msg.Resources))
 		// Extract the cookie name from 4 layers of marshalling...
 		hcm := &hcm.HttpConnectionManager{}
