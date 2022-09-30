@@ -303,7 +303,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 						client.RunAndWait(clusterStopCh)
 						patcher.Run(leaderStop)
 					}
-				})
+				}).Run(clusterStopCh)
 		}
 	}
 
