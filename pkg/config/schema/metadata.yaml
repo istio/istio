@@ -157,15 +157,15 @@ collections:
     builtin: true
 
   - kind: "GatewayClass"
-    name: "k8s/gateway_api/v1alpha2/gatewayclasses"
+    name: "k8s/gateway_api/v1beta1/gatewayclasses"
     group: "gateway.networking.k8s.io"
 
   - kind: "Gateway"
-    name: "k8s/gateway_api/v1alpha2/gateways"
+    name: "k8s/gateway_api/v1beta1/gateways"
     group: "gateway.networking.k8s.io"
 
   - kind: "HTTPRoute"
-    name: "k8s/gateway_api/v1alpha2/httproutes"
+    name: "k8s/gateway_api/v1beta1/httproutes"
     group: "gateway.networking.k8s.io"
 
   - kind: "TCPRoute"
@@ -264,31 +264,37 @@ resources:
   - kind: "GatewayClass"
     plural: "gatewayclasses"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
+    version: "v1beta1"
+    versionAliases:
+    - "v1alpha2"
     clusterScoped: true
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 
   - kind: "Gateway"
     plural: "gateways"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1beta1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec"
     validate: "EmptyValidate"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 
   - kind: "HTTPRoute"
     plural: "httproutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1beta1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 
   - kind: "TCPRoute"
     plural: "tcproutes"
