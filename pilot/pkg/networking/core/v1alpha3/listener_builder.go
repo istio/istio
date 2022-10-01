@@ -194,7 +194,7 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 		listeners = append(listeners, lb.inboundListeners...)
 
 		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
-				"%d virtual outbound",
+			"%d virtual outbound",
 			nListener,
 			lb.node.ID,
 			nOutbound,
