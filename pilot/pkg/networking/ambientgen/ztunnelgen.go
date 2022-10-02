@@ -1097,6 +1097,11 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 	}
 
 	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+		// Skip workloads in the host network
+		if workload.HostNetwork {
+			continue
+		}
+
 		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
 			dummy := &model.Proxy{
 				ConfigNamespace: workload.Namespace,
@@ -1245,6 +1250,11 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 	}
 
 	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
+		// Skip workloads in the host network
+		if workload.HostNetwork {
+			continue
+		}
+
 		dummy := &model.Proxy{
 			ConfigNamespace: workload.Namespace,
 			Labels:          workload.Labels,
