@@ -1432,7 +1432,8 @@ data:
                 - name: ISTIO_META_MESH_ID
                   value: cluster.local
                 - name: PROXY_CONFIG
-                  value: {{.ProxyConfig}}
+                  value: |
+                         {{ protoToJSON .ProxyConfig }}
                 image: {{.Image}}
                 {{with .ImagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
                 name: istio-proxy

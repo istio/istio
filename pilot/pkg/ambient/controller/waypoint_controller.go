@@ -15,13 +15,9 @@
 package controller
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"strconv"
-	"text/template"
 
-	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -33,7 +29,7 @@ import (
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -188,21 +184,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			UID:            string(gw.UID),
 			ServiceAccount: k,
 			Cluster:        rc.cluster.String(),
+			ProxyConfig:    rc.injectConfig().MeshConfig.GetDefaultConfig(),
 		}
-
-		// Setting non-default mesh config (if set) as the proxy config for the waypoint
-		tmpl, _ := template.New("proxyConfigInject").Funcs(inject.InjectionFuncmap).Parse("{{protoToJSON .}}")
-		pc := proto.Clone(rc.injectConfig().MeshConfig.GetDefaultConfig()).(*meshconfig.ProxyConfig)
-		if pc != nil {
-			pc.ProxyMetadata = nil
-		}
-		buf := new(bytes.Buffer)
-		if err := tmpl.Execute(buf, pc); err == nil {
-			input.ProxyConfig = strconv.Quote(buf.String())
-		} else {
-			log.Errorf("failed to execute template function protoToJSON on default config: %v", err)
-		}
-
 		proxyDeploy, err := rc.RenderDeploymentMerged(input)
 		if err != nil {
 			return err
@@ -327,5 +310,5 @@ type MergedInput struct {
 	Cluster         string
 	Image           string
 	ImagePullPolicy string
-	ProxyConfig     string
+	ProxyConfig     *meshapi.ProxyConfig
 }
