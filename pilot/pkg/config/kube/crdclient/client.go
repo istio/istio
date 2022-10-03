@@ -54,8 +54,10 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -99,7 +101,7 @@ type Client struct {
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreController, error) {
+func New(client kube.Client, revision, domainSuffix string) (*Client, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
@@ -130,7 +132,7 @@ func newWaiter() *waiter {
 func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	ch, f := crdWatches[k]
 	if !f {
-		log.Warnf("waiting for CRD that is not registered")
+		log.Warnf("waiting for CRD %s that is not registered", k.String())
 		return false
 	}
 	select {
@@ -141,7 +143,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreController, error) {
+func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (*Client, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -178,10 +180,10 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			crd = false
 		}
 		if !crd {
-			handleCRDAdd(out, name, nil)
+			handleCRDAdd(out, name, nil, nil)
 		} else {
-			if _, f := known[name]; f {
-				handleCRDAdd(out, name, nil)
+			if knownVersions, f := known[name]; f {
+				handleCRDAdd(out, name, knownVersions, nil)
 			} else {
 				scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 			}
@@ -238,7 +240,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 				scope.Errorf("wrong type %T: %v", obj, obj)
 				return
 			}
-			handleCRDAdd(cl, crd.Name, stop)
+			handleCRDAdd(cl, crd.Name, nil, stop)
 		},
 		UpdateFunc: nil,
 		DeleteFunc: nil,
@@ -251,7 +253,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 func (cl *Client) informerSynced() bool {
 	for _, ctl := range cl.allKinds() {
 		if !ctl.informer.HasSynced() {
-			scope.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
+			scope.Infof("controller %q is syncing...", ctl.clusterGvk)
 			return false
 		}
 	}
@@ -271,7 +273,7 @@ func (cl *Client) SyncAll() {
 	cl.beginSync.Store(true)
 	wg := sync.WaitGroup{}
 	for _, h := range cl.allKinds() {
-		handlers := cl.handlers[h.schema.Resource().GroupVersionKind()]
+		handlers := cl.handlers[h.clusterGvk]
 		if len(handlers) == 0 {
 			continue
 		}
@@ -286,7 +288,7 @@ func (cl *Client) SyncAll() {
 					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
-				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				currConfig := TranslateObject(currItem, h.clusterGvk, h.client.domainSuffix)
 				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
 				}
@@ -328,6 +330,7 @@ func (cl *Client) Create(cfg config.Config) (string, error) {
 	if cfg.Spec == nil {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
+	cfg.GroupVersionKind = cl.ClusterVersionFor(cfg.GroupVersionKind)
 
 	meta, err := create(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
@@ -341,6 +344,7 @@ func (cl *Client) Update(cfg config.Config) (string, error) {
 	if cfg.Spec == nil {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
+	cfg.GroupVersionKind = cl.ClusterVersionFor(cfg.GroupVersionKind)
 
 	meta, err := update(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
@@ -353,6 +357,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 	if cfg.Status == nil {
 		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
 	}
+	cfg.GroupVersionKind = cl.ClusterVersionFor(cfg.GroupVersionKind)
 
 	meta, err := updateStatus(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
 	if err != nil {
@@ -364,6 +369,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
 func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
+	orig.GroupVersionKind = cl.ClusterVersionFor(orig.GroupVersionKind)
 	modified, patchType := patchFn(orig.DeepCopy())
 
 	meta, err := patch(cl.istioClient, cl.gatewayAPIClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
@@ -376,7 +382,21 @@ func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+	typ = cl.ClusterVersionFor(typ)
 	return delete(cl.istioClient, cl.gatewayAPIClient, typ, name, namespace, resourceVersion)
+}
+
+// ClusterVersionFor translates a preferred GVK to the cluster GVK. This allows users of
+// the client to call `crdclient.Create(PreferredGvk)`, and internally we will call
+// `k8sclient.Create(ClusterGVK)`.
+func (cl *Client) ClusterVersionFor(typ config.GroupVersionKind) config.GroupVersionKind {
+	k, f := cl.kind(typ)
+	if !f {
+		// We don't know this kind, nothing to translate
+		return typ
+	}
+	typ.Version = k.clusterGvk.Version
+	return typ
 }
 
 // List implements store interface
@@ -423,7 +443,7 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 }
 
 // knownCRDs returns all CRDs present in the cluster, with timeout and retries.
-func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
+func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]sets.Set, error) {
 	var res *crd.CustomResourceDefinitionList
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = time.Second
@@ -443,11 +463,21 @@ func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, er
 		return nil, err
 	}
 
-	mp := map[string]struct{}{}
+	mp := map[string]sets.Set{}
 	for _, r := range res.Items {
-		mp[r.Name] = struct{}{}
+		mp[r.Name] = extractCRDVersions(&r)
 	}
 	return mp, nil
+}
+
+func extractCRDVersions(r *crd.CustomResourceDefinition) sets.Set {
+	res := sets.New()
+	for _, v := range r.Spec.Versions {
+		if v.Served {
+			res.Insert(v.Name)
+		}
+	}
+	return res
 }
 
 func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) config.Config {
@@ -496,20 +526,21 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 	}
 }
 
-func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
+func handleCRDAdd(cl *Client, name string, knownVersions sets.Set, stop <-chan struct{}) {
 	scope.Debugf("adding CRD %q", name)
 	s, f := cl.schemasByCRDName[name]
 	if !f {
 		scope.Debugf("added resource that we are not watching: %v", name)
 		return
 	}
-	resourceGVK := s.Resource().GroupVersionKind()
+	preferredGvk := s.Resource().GroupVersionKind()
+	clusterGvk := preferredGvk
 	gvr := s.Resource().GroupVersionResource()
 
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
-	if _, f := cl.kinds[resourceGVK]; f {
-		scope.Debugf("added resource that already exists: %v", resourceGVK)
+	if _, f := cl.kinds[preferredGvk]; f {
+		scope.Debugf("added resource that already exists: %v", preferredGvk)
 		return
 	}
 	var i informers.GenericInformer
@@ -518,6 +549,26 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	switch s.Resource().Group() {
 	case gvk.KubernetesGateway.Group:
 		ifactory = cl.client.GatewayAPIInformer()
+
+		// Only Gateway has dual version logic. Supporting multiple versions depends on types being typecast-able.
+		if knownVersions == nil { // Not provided, fetch from the real cluster
+			knownVersions = fetchKnownVersions(cl, s.Resource())
+		}
+
+		// Find the version we will actually use.
+		var version string
+		// Go through all versions we known about. They are ordered by preference.
+		ss := s.Resource().GroupVersionAliasKinds()
+		for _, v := range ss {
+			if knownVersions.Contains(v.Version) {
+				version = v.Version
+				break
+			}
+		}
+
+		scope.Debugf("for %v, have versions %v, will use %v", s.Resource().Kind(), knownVersions.SortedList(), version)
+		gvr.Version = version
+		clusterGvk.Version = version
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
 	case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group:
 		ifactory = cl.client.KubeInformer()
@@ -532,14 +583,14 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 
 	if err != nil {
 		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v: %v", resourceGVK, err)
+		scope.Errorf("failed to create informer for %v: %v", preferredGvk, err)
 		return
 	}
 	_ = i.Informer().SetTransform(kube.StripUnusedFields)
 
-	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
-	if w, f := crdWatches[resourceGVK]; f {
-		scope.Infof("notifying watchers %v was created", resourceGVK)
+	cl.kinds[preferredGvk] = createCacheHandler(cl, i, preferredGvk, clusterGvk, s.Resource().IsClusterScoped())
+	if w, f := crdWatches[preferredGvk]; f {
+		scope.Infof("notifying watchers %v was created", preferredGvk)
 		w.once.Do(func() {
 			close(w.stop)
 		})
@@ -550,6 +601,17 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		// For dynamically added CRDs, we need to start immediately though
 		ifactory.Start(stop)
 	}
+}
+
+// fetchKnownVersions fetches the known versions of a resource rfom the cluster
+func fetchKnownVersions(cl *Client, r resource.Schema) sets.Set {
+	// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+	name := fmt.Sprintf("%s.%s", r.Plural(), r.Group())
+	c, err := cl.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil
+	}
+	return extractCRDVersions(c)
 }
 
 type starter interface {
