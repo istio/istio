@@ -64,6 +64,8 @@ type Controller struct {
 	// cache provides access to the underlying gateway-configs
 	cache model.ConfigStoreController
 
+	clusterVersionTranslator func(typ config.GroupVersionKind) config.GroupVersionKind
+
 	// Gateway-api types reference namespace labels directly, so we need access to these
 	namespaceLister   listerv1.NamespaceLister
 	namespaceInformer cache.SharedIndexInformer
@@ -84,17 +86,23 @@ type Controller struct {
 
 var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreController, options controller.Options) *Controller {
+func NewController(
+	client kube.Client,
+	c model.ConfigStoreController,
+	clusterVersionTranslator func(typ config.GroupVersionKind) config.GroupVersionKind,
+	options controller.Options,
+) *Controller {
 	var ctl *status.Controller
 
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
 	gatewayController := &Controller{
-		client:            client,
-		cache:             c,
-		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
-		namespaceInformer: nsInformer,
-		domain:            options.DomainSuffix,
-		statusController:  ctl,
+		client:                   client,
+		cache:                    c,
+		clusterVersionTranslator: clusterVersionTranslator,
+		namespaceLister:          client.KubeInformer().Core().V1().Namespaces().Lister(),
+		namespaceInformer:        nsInformer,
+		domain:                   options.DomainSuffix,
+		statusController:         ctl,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 	}
@@ -274,7 +282,7 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 func (c *Controller) Run(stop <-chan struct{}) {
 	go func() {
 		if crdclient.WaitForCRD(gvk.GatewayClass, stop) {
-			gcc := NewClassController(c.client)
+			gcc := NewClassController(c.client, c.clusterVersionTranslator(gvk.GatewayClass).Version)
 			c.client.RunAndWait(stop)
 			gcc.Run(stop)
 		}

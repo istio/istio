@@ -45,8 +45,9 @@ type ConfigData struct {
 	StatusKind      string
 
 	// Support gateway-api, which require a custom client and the Spec suffix
-	Client     string
-	TypeSuffix string
+	Client string
+
+	ClientType string
 
 	Readonly bool
 	NoSpec   bool
@@ -71,12 +72,16 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
 		StatusKind:      schema.Resource().StatusKind(),
 	}
+	out.ClientType = out.Kind
 	if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
 		out.Client = "sc"
-		out.TypeSuffix = "Spec"
+		out.ClientType += "Spec"
 	} else if _, f := NonIstioTypes.Find(schema.Name().String()); f {
-		out.TypeSuffix = "Spec"
+		out.ClientType += "Spec"
 		out.Readonly = true
+	}
+	if o, f := clientGoTypeOverrides[out.Kind]; f {
+		out.ClientType = o
 	}
 	if _, f := noSpec[schema.Resource().Plural()]; f {
 		out.NoSpec = true
@@ -93,6 +98,7 @@ var (
 		"istio.io/api/security/v1beta1":                            "securityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":                          "telemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2":                    "gatewayv1alpha2",
+		"sigs.k8s.io/gateway-api/apis/v1beta1":                     "gatewayv1beta1",
 		"istio.io/api/meta/v1alpha1":                               "metav1alpha1",
 		"istio.io/api/extensions/v1alpha1":                         "extensionsv1alpha1",
 		"k8s.io/api/admissionregistration/v1":                      "admissionregistrationv1",
@@ -108,6 +114,7 @@ var (
 		"istio.io/api/security/v1beta1":                            "clientsecurityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":                          "clienttelemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2":                    "gatewayv1alpha2",
+		"sigs.k8s.io/gateway-api/apis/v1beta1":                     "gatewayv1beta1",
 		"istio.io/api/extensions/v1alpha1":                         "clientextensionsv1alpha1",
 		"k8s.io/api/admissionregistration/v1":                      "admissionregistrationv1",
 		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
@@ -122,6 +129,7 @@ var (
 		"istio.io/api/security/v1beta1":                            "SecurityV1beta1",
 		"istio.io/api/telemetry/v1alpha1":                          "TelemetryV1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2":                    "GatewayV1alpha2",
+		"sigs.k8s.io/gateway-api/apis/v1beta1":                     "GatewayV1beta1",
 		"istio.io/api/extensions/v1alpha1":                         "ExtensionsV1alpha1",
 		"k8s.io/api/admissionregistration/v1":                      "admissionregistrationv1",
 		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
@@ -149,6 +157,7 @@ var (
 		"tcproutes":                     "TCPRoutes",
 		"tlsroutes":                     "TLSRoutes",
 		"referencepolicies":             "ReferencePolicies",
+		"referencegrants":               "ReferenceGrants",
 		"telemetries":                   "Telemetries",
 		"wasmplugins":                   "WasmPlugins",
 		"mutatingwebhookconfigurations": "MutatingWebhookConfigurations",
@@ -162,6 +171,9 @@ var (
 		"nodes":                         "Nodes",
 		"secrets":                       "Secrets",
 		"ingresses":                     "Ingresses",
+	}
+	clientGoTypeOverrides = map[string]string{
+		"ReferencePolicy": "ReferenceGrantSpec",
 	}
 
 	noSpec = map[string]struct{}{

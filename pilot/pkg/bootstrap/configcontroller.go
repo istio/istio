@@ -160,7 +160,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		gwc := gateway.NewController(s.kubeClient, configController, configController.ClusterVersionFor, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
@@ -189,7 +189,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-							controller := gateway.NewDeploymentController(s.kubeClient)
+							controller := gateway.NewDeploymentController(s.kubeClient, configController.ClusterVersionFor(gvk.KubernetesGateway).Version)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -342,7 +342,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
 	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix)
 }
 

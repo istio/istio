@@ -65,6 +65,11 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
+var skippedTests = map[string]string{
+	"GatewaySecretMissingReferencedSecret": "Not supported in this version of Istio",
+	"GatewayUnsupportedRouteKind":          "Not supported in this version of Istio",
+}
+
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -93,11 +98,11 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			opts := suite.Options{
-				Client:           c,
-				GatewayClassName: "istio",
-				Debug:            scopes.Framework.DebugEnabled(),
-				Cleanup:          gatewayConformanceInputs.Cleanup,
-				RoundTripper:     nil,
+				Client:               c,
+				GatewayClassName:     "istio",
+				Debug:                scopes.Framework.DebugEnabled(),
+				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
+				SupportedFeatures:    []suite.SupportedFeature{suite.SupportReferenceGrant},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
@@ -117,6 +122,9 @@ func TestGatewayConformance(t *testing.T) {
 
 			for _, ct := range tests.ConformanceTests {
 				t.Run(ct.ShortName, func(t *testing.T) {
+					if reason, f := skippedTests[ct.ShortName]; f {
+						t.Skip(reason)
+					}
 					ct.Run(t, csuite)
 				})
 			}
