@@ -506,7 +506,6 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	}
 	resourceGVK := s.Resource().GroupVersionKind()
 	gvr := s.Resource().GroupVersionResource()
-	log.Errorf("howardjohn: CRD %q: %v", name, gvr)
 
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
