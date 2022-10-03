@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -128,4 +127,50 @@ func (s *testSchemaImpl) Disable() collection.Schema {
 
 func (s *testSchemaImpl) Equal(o collection.Schema) bool {
 	panic("implement me")
+}
+
+func TestRemoveAnalyzers(t *testing.T) {
+	g := NewWithT(t)
+
+	col1 := newSchema("col1")
+	col2 := newSchema("col2")
+
+	cases := []struct {
+		analyzers        []Analyzer
+		removedAnalyzers []Analyzer
+		expected         []Analyzer
+	}{
+		{
+			analyzers: []Analyzer{
+				&analyzer{name: "a1", inputs: collection.Names{col1.Name()}},
+				&analyzer{name: "a2", inputs: collection.Names{col2.Name()}},
+			},
+			removedAnalyzers: []Analyzer{
+				&analyzer{name: "a1", inputs: collection.Names{col1.Name()}},
+			},
+			expected: []Analyzer{
+				&analyzer{name: "a2", inputs: collection.Names{col2.Name()}},
+			},
+		},
+		{
+			analyzers: []Analyzer{
+				&analyzer{name: "a1", inputs: collection.Names{col1.Name()}},
+				&analyzer{name: "a2", inputs: collection.Names{col2.Name()}},
+			},
+			removedAnalyzers: []Analyzer{
+				&analyzer{name: "a3", inputs: collection.Names{col1.Name()}},
+			},
+			expected: []Analyzer{
+				&analyzer{name: "a1", inputs: collection.Names{col1.Name()}},
+				&analyzer{name: "a2", inputs: collection.Names{col2.Name()}},
+			},
+		},
+	}
+	for _, c := range cases {
+		ca := CombinedAnalyzer{
+			analyzers: c.analyzers,
+		}
+		ca.RemoveAnalyzers(c.removedAnalyzers)
+		g.Expect(ca.analyzers).To(Equal(c.expected))
+	}
 }
