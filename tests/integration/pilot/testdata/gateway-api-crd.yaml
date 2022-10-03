@@ -1,4 +1,4 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=57cefb9268f6090bbdf2da59b131f7ba8c28c2f9"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=c664ae6012b09d474914a22ff6e854220c47749e"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -35,6 +35,9 @@ spec:
       name: Description
       priority: 1
       type: string
+    deprecated: true
+    deprecationWarning: The v1alpha2 version of GatewayClass has been deprecated and
+      will be removed in a future release of the API. Please upgrade to v1beta1.
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -218,7 +221,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -465,6 +468,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: The v1alpha2 version of Gateway has been deprecated and will
+      be removed in a future release of the API. Please upgrade to v1beta1.
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -1142,7 +1148,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -3122,6 +3128,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: The v1alpha2 version of HTTPRoute has been deprecated and
+      will be removed in a future release of the API. Please upgrade to v1beta1.
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -3174,7 +3183,13 @@ spec:
                   have specified hostnames, and none match with the criteria above,
                   then the HTTPRoute is not accepted. The implementation must raise
                   an 'Accepted' Condition with a status of `False` in the corresponding
-                  RouteParentStatus. \n Support: Core"
+                  RouteParentStatus. \n In the event that multiple HTTPRoutes specify
+                  intersecting hostnames (e.g. overlapping wildcard matching and exact
+                  matching hostnames), precedence must be given to rules from the
+                  HTTPRoute with the largest number of: \n * Characters in a matching
+                  non-wildcard hostname. * Characters in a matching hostname. \n If
+                  ties exist across multiple Routes, the matching precedence rules
+                  for HTTPRouteMatches takes over. \n Support: Core"
                 items:
                   description: "Hostname is the fully qualified domain name of a network
                     host. This matches the RFC 1123 definition of a hostname with
@@ -3680,6 +3695,115 @@ spec:
                                       - 302
                                       type: integer
                                   type: object
+                                responseHeaderModifier:
+                                  description: "ResponseHeaderModifier defines a schema
+                                    for a filter that modifies response headers. \n
+                                    Support: Extended \n <gateway:experimental>"
+                                  properties:
+                                    add:
+                                      description: "Add adds the given header(s) (name,
+                                        value) to the request before the action. It
+                                        appends to any existing values associated
+                                        with the header name. \n Input:   GET /foo
+                                        HTTP/1.1   my-header: foo \n Config:   add:
+                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \n Output:   GET /foo HTTP/1.1   my-header:
+                                        foo   my-header: bar"
+                                      items:
+                                        description: HTTPHeader represents an HTTP
+                                          Header name and value as defined by RFC
+                                          7230.
+                                        properties:
+                                          name:
+                                            description: "Name is the name of the
+                                              HTTP Header to be matched. Name matching
+                                              MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                              \n If multiple entries specify equivalent
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
+                                              Due to the case-insensitivity of header
+                                              names, \"foo\" and \"Foo\" are considered
+                                              equivalent."
+                                            maxLength: 256
+                                            minLength: 1
+                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                            type: string
+                                          value:
+                                            description: Value is the value of HTTP
+                                              Header to be matched.
+                                            maxLength: 4096
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      maxItems: 16
+                                      type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
+                                    remove:
+                                      description: "Remove the given header(s) from
+                                        the HTTP request before the action. The value
+                                        of Remove is a list of HTTP header names.
+                                        Note that the header names are case-insensitive
+                                        (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+                                        \n Input:   GET /foo HTTP/1.1   my-header1:
+                                        foo   my-header2: bar   my-header3: baz \n
+                                        Config:   remove: [\"my-header1\", \"my-header3\"]
+                                        \n Output:   GET /foo HTTP/1.1   my-header2:
+                                        bar"
+                                      items:
+                                        type: string
+                                      maxItems: 16
+                                      type: array
+                                    set:
+                                      description: "Set overwrites the request with
+                                        the given header (name, value) before the
+                                        action. \n Input:   GET /foo HTTP/1.1   my-header:
+                                        foo \n Config:   set:   - name: \"my-header\"
+                                        \    value: \"bar\" \n Output:   GET /foo
+                                        HTTP/1.1   my-header: bar"
+                                      items:
+                                        description: HTTPHeader represents an HTTP
+                                          Header name and value as defined by RFC
+                                          7230.
+                                        properties:
+                                          name:
+                                            description: "Name is the name of the
+                                              HTTP Header to be matched. Name matching
+                                              MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                              \n If multiple entries specify equivalent
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
+                                              Due to the case-insensitivity of header
+                                              names, \"foo\" and \"Foo\" are considered
+                                              equivalent."
+                                            maxLength: 256
+                                            minLength: 1
+                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                            type: string
+                                          value:
+                                            description: Value is the value of HTTP
+                                              Header to be matched.
+                                            maxLength: 4096
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      maxItems: 16
+                                      type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
+                                  type: object
                                 type:
                                   description: "Type identifies the type of filter
                                     to apply. As with other API fields, types are
@@ -3714,6 +3838,7 @@ spec:
                                     of `UnsupportedValue`. \n "
                                   enum:
                                   - RequestHeaderModifier
+                                  - ResponseHeaderModifier
                                   - RequestMirror
                                   - RequestRedirect
                                   - URLRewrite
@@ -4188,6 +4313,107 @@ spec:
                                 - 302
                                 type: integer
                             type: object
+                          responseHeaderModifier:
+                            description: "ResponseHeaderModifier defines a schema
+                              for a filter that modifies response headers. \n Support:
+                              Extended \n <gateway:experimental>"
+                            properties:
+                              add:
+                                description: "Add adds the given header(s) (name,
+                                  value) to the request before the action. It appends
+                                  to any existing values associated with the header
+                                  name. \n Input:   GET /foo HTTP/1.1   my-header:
+                                  foo \n Config:   add:   - name: \"my-header\"     value:
+                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo   my-header: bar"
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: "Name is the name of the HTTP Header
+                                        to be matched. Name matching MUST be case
+                                        insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                        \n If multiple entries specify equivalent
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
+                                        of header names, \"foo\" and \"Foo\" are considered
+                                        equivalent."
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: "Remove the given header(s) from the
+                                  HTTP request before the action. The value of Remove
+                                  is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+                                  \n Input:   GET /foo HTTP/1.1   my-header1: foo
+                                  \  my-header2: bar   my-header3: baz \n Config:
+                                  \  remove: [\"my-header1\", \"my-header3\"] \n Output:
+                                  \  GET /foo HTTP/1.1   my-header2: bar"
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                              set:
+                                description: "Set overwrites the request with the
+                                  given header (name, value) before the action. \n
+                                  Input:   GET /foo HTTP/1.1   my-header: foo \n Config:
+                                  \  set:   - name: \"my-header\"     value: \"bar\"
+                                  \n Output:   GET /foo HTTP/1.1   my-header: bar"
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: "Name is the name of the HTTP Header
+                                        to be matched. Name matching MUST be case
+                                        insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                        \n If multiple entries specify equivalent
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
+                                        of header names, \"foo\" and \"Foo\" are considered
+                                        equivalent."
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
                           type:
                             description: "Type identifies the type of filter to apply.
                               As with other API fields, types are classified into
@@ -4219,6 +4445,7 @@ spec:
                               False`, with a Reason of `UnsupportedValue`. \n "
                             enum:
                             - RequestHeaderModifier
+                            - ResponseHeaderModifier
                             - RequestMirror
                             - RequestRedirect
                             - URLRewrite
@@ -4305,22 +4532,21 @@ spec:
                         together. \n If no matches are specified, the default is a
                         prefix path match on \"/\", which has the effect of matching
                         every HTTP request. \n Proxy or Load Balancer routing configuration
-                        generated from HTTPRoutes MUST prioritize rules based on the
-                        following criteria, continuing on ties. Precedence must be
-                        given to the Rule with the largest number of: \n * Characters
-                        in a matching non-wildcard hostname. * Characters in a matching
-                        hostname. * Characters in a matching path. * Header matches.
-                        * Query param matches. \n If ties still exist across multiple
-                        Routes, matching precedence MUST be determined in order of
-                        the following criteria, continuing on ties: \n * The oldest
-                        Route based on creation timestamp. * The Route appearing first
-                        in alphabetical order by   \"{namespace}/{name}\". \n If ties
-                        still exist within the Route that has been given precedence,
-                        matching precedence MUST be granted to the FIRST matching
-                        rule (in list order) meeting the above criteria. \n When no
-                        rules matching a request have been successfully attached to
-                        the parent a request is coming from, a HTTP 404 status code
-                        MUST be returned."
+                        generated from HTTPRoutes MUST prioritize matches based on
+                        the following criteria, continuing on ties. Across all rules
+                        specified on applicable Routes, precedence must be given to
+                        the match with the largest number of: \n * Characters in a
+                        matching path. * Header matches. * Query param matches. \n
+                        If ties still exist across multiple Routes, matching precedence
+                        MUST be determined in order of the following criteria, continuing
+                        on ties: \n * The oldest Route based on creation timestamp.
+                        * The Route appearing first in alphabetical order by   \"{namespace}/{name}\".
+                        \n If ties still exist within an HTTPRoute, matching precedence
+                        MUST be granted to the FIRST matching rule (in list order)
+                        with a match meeting the above criteria. \n When no rules
+                        matching a request have been successfully attached to the
+                        parent a request is coming from, a HTTP 404 status code MUST
+                        be returned."
                       items:
                         description: "HTTPRouteMatch defines the predicate used to
                           match requests to a given action. Multiple match types are
@@ -4724,7 +4950,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -4787,7 +5013,13 @@ spec:
                   have specified hostnames, and none match with the criteria above,
                   then the HTTPRoute is not accepted. The implementation must raise
                   an 'Accepted' Condition with a status of `False` in the corresponding
-                  RouteParentStatus. \n Support: Core"
+                  RouteParentStatus. \n In the event that multiple HTTPRoutes specify
+                  intersecting hostnames (e.g. overlapping wildcard matching and exact
+                  matching hostnames), precedence must be given to rules from the
+                  HTTPRoute with the largest number of: \n * Characters in a matching
+                  non-wildcard hostname. * Characters in a matching hostname. \n If
+                  ties exist across multiple Routes, the matching precedence rules
+                  for HTTPRouteMatches takes over. \n Support: Core"
                 items:
                   description: "Hostname is the fully qualified domain name of a network
                     host. This matches the RFC 1123 definition of a hostname with
@@ -5293,6 +5525,115 @@ spec:
                                       - 302
                                       type: integer
                                   type: object
+                                responseHeaderModifier:
+                                  description: "ResponseHeaderModifier defines a schema
+                                    for a filter that modifies response headers. \n
+                                    Support: Extended \n <gateway:experimental>"
+                                  properties:
+                                    add:
+                                      description: "Add adds the given header(s) (name,
+                                        value) to the request before the action. It
+                                        appends to any existing values associated
+                                        with the header name. \n Input:   GET /foo
+                                        HTTP/1.1   my-header: foo \n Config:   add:
+                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \n Output:   GET /foo HTTP/1.1   my-header:
+                                        foo   my-header: bar"
+                                      items:
+                                        description: HTTPHeader represents an HTTP
+                                          Header name and value as defined by RFC
+                                          7230.
+                                        properties:
+                                          name:
+                                            description: "Name is the name of the
+                                              HTTP Header to be matched. Name matching
+                                              MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                              \n If multiple entries specify equivalent
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
+                                              Due to the case-insensitivity of header
+                                              names, \"foo\" and \"Foo\" are considered
+                                              equivalent."
+                                            maxLength: 256
+                                            minLength: 1
+                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                            type: string
+                                          value:
+                                            description: Value is the value of HTTP
+                                              Header to be matched.
+                                            maxLength: 4096
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      maxItems: 16
+                                      type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
+                                    remove:
+                                      description: "Remove the given header(s) from
+                                        the HTTP request before the action. The value
+                                        of Remove is a list of HTTP header names.
+                                        Note that the header names are case-insensitive
+                                        (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+                                        \n Input:   GET /foo HTTP/1.1   my-header1:
+                                        foo   my-header2: bar   my-header3: baz \n
+                                        Config:   remove: [\"my-header1\", \"my-header3\"]
+                                        \n Output:   GET /foo HTTP/1.1   my-header2:
+                                        bar"
+                                      items:
+                                        type: string
+                                      maxItems: 16
+                                      type: array
+                                    set:
+                                      description: "Set overwrites the request with
+                                        the given header (name, value) before the
+                                        action. \n Input:   GET /foo HTTP/1.1   my-header:
+                                        foo \n Config:   set:   - name: \"my-header\"
+                                        \    value: \"bar\" \n Output:   GET /foo
+                                        HTTP/1.1   my-header: bar"
+                                      items:
+                                        description: HTTPHeader represents an HTTP
+                                          Header name and value as defined by RFC
+                                          7230.
+                                        properties:
+                                          name:
+                                            description: "Name is the name of the
+                                              HTTP Header to be matched. Name matching
+                                              MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                              \n If multiple entries specify equivalent
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
+                                              Due to the case-insensitivity of header
+                                              names, \"foo\" and \"Foo\" are considered
+                                              equivalent."
+                                            maxLength: 256
+                                            minLength: 1
+                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                            type: string
+                                          value:
+                                            description: Value is the value of HTTP
+                                              Header to be matched.
+                                            maxLength: 4096
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      maxItems: 16
+                                      type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
+                                  type: object
                                 type:
                                   description: "Type identifies the type of filter
                                     to apply. As with other API fields, types are
@@ -5327,6 +5668,7 @@ spec:
                                     of `UnsupportedValue`. \n "
                                   enum:
                                   - RequestHeaderModifier
+                                  - ResponseHeaderModifier
                                   - RequestMirror
                                   - RequestRedirect
                                   - URLRewrite
@@ -5801,6 +6143,107 @@ spec:
                                 - 302
                                 type: integer
                             type: object
+                          responseHeaderModifier:
+                            description: "ResponseHeaderModifier defines a schema
+                              for a filter that modifies response headers. \n Support:
+                              Extended \n <gateway:experimental>"
+                            properties:
+                              add:
+                                description: "Add adds the given header(s) (name,
+                                  value) to the request before the action. It appends
+                                  to any existing values associated with the header
+                                  name. \n Input:   GET /foo HTTP/1.1   my-header:
+                                  foo \n Config:   add:   - name: \"my-header\"     value:
+                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo   my-header: bar"
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: "Name is the name of the HTTP Header
+                                        to be matched. Name matching MUST be case
+                                        insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                        \n If multiple entries specify equivalent
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
+                                        of header names, \"foo\" and \"Foo\" are considered
+                                        equivalent."
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: "Remove the given header(s) from the
+                                  HTTP request before the action. The value of Remove
+                                  is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+                                  \n Input:   GET /foo HTTP/1.1   my-header1: foo
+                                  \  my-header2: bar   my-header3: baz \n Config:
+                                  \  remove: [\"my-header1\", \"my-header3\"] \n Output:
+                                  \  GET /foo HTTP/1.1   my-header2: bar"
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                              set:
+                                description: "Set overwrites the request with the
+                                  given header (name, value) before the action. \n
+                                  Input:   GET /foo HTTP/1.1   my-header: foo \n Config:
+                                  \  set:   - name: \"my-header\"     value: \"bar\"
+                                  \n Output:   GET /foo HTTP/1.1   my-header: bar"
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: "Name is the name of the HTTP Header
+                                        to be matched. Name matching MUST be case
+                                        insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                        \n If multiple entries specify equivalent
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
+                                        of header names, \"foo\" and \"Foo\" are considered
+                                        equivalent."
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
                           type:
                             description: "Type identifies the type of filter to apply.
                               As with other API fields, types are classified into
@@ -5832,6 +6275,7 @@ spec:
                               False`, with a Reason of `UnsupportedValue`. \n "
                             enum:
                             - RequestHeaderModifier
+                            - ResponseHeaderModifier
                             - RequestMirror
                             - RequestRedirect
                             - URLRewrite
@@ -5918,22 +6362,21 @@ spec:
                         together. \n If no matches are specified, the default is a
                         prefix path match on \"/\", which has the effect of matching
                         every HTTP request. \n Proxy or Load Balancer routing configuration
-                        generated from HTTPRoutes MUST prioritize rules based on the
-                        following criteria, continuing on ties. Precedence must be
-                        given to the Rule with the largest number of: \n * Characters
-                        in a matching non-wildcard hostname. * Characters in a matching
-                        hostname. * Characters in a matching path. * Header matches.
-                        * Query param matches. \n If ties still exist across multiple
-                        Routes, matching precedence MUST be determined in order of
-                        the following criteria, continuing on ties: \n * The oldest
-                        Route based on creation timestamp. * The Route appearing first
-                        in alphabetical order by   \"{namespace}/{name}\". \n If ties
-                        still exist within the Route that has been given precedence,
-                        matching precedence MUST be granted to the FIRST matching
-                        rule (in list order) meeting the above criteria. \n When no
-                        rules matching a request have been successfully attached to
-                        the parent a request is coming from, a HTTP 404 status code
-                        MUST be returned."
+                        generated from HTTPRoutes MUST prioritize matches based on
+                        the following criteria, continuing on ties. Across all rules
+                        specified on applicable Routes, precedence must be given to
+                        the match with the largest number of: \n * Characters in a
+                        matching path. * Header matches. * Query param matches. \n
+                        If ties still exist across multiple Routes, matching precedence
+                        MUST be determined in order of the following criteria, continuing
+                        on ties: \n * The oldest Route based on creation timestamp.
+                        * The Route appearing first in alphabetical order by   \"{namespace}/{name}\".
+                        \n If ties still exist within an HTTPRoute, matching precedence
+                        MUST be granted to the FIRST matching rule (in list order)
+                        with a match meeting the above criteria. \n When no rules
+                        matching a request have been successfully attached to the
+                        parent a request is coming from, a HTTP 404 status code MUST
+                        be returned."
                       items:
                         description: "HTTPRouteMatch defines the predicate used to
                           match requests to a given action. Multiple match types are

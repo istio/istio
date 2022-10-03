@@ -50,7 +50,6 @@ import (
     	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
     	versionedclient "istio.io/client-go/pkg/clientset/versioned"
     	"istio.io/istio/pkg/config"
-    	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {

@@ -86,7 +86,12 @@ type Controller struct {
 
 var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreController, clusterVersionTranslator func(typ config.GroupVersionKind) config.GroupVersionKind, options controller.Options) *Controller {
+func NewController(
+	client kube.Client,
+	c model.ConfigStoreController,
+	clusterVersionTranslator func(typ config.GroupVersionKind) config.GroupVersionKind,
+	options controller.Options,
+) *Controller {
 	var ctl *status.Controller
 
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()

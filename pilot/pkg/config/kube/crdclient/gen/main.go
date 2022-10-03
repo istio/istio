@@ -73,10 +73,10 @@ var (
 // MakeConfigData prepare data for code generation for the given schema.
 func MakeConfigData(schema collection.Schema) []ConfigData {
 	res := []ConfigData{}
-	_, gatewayApi := GatewayAPITypes.Find(schema.Name().String())
+	_, gatewayAPI := GatewayAPITypes.Find(schema.Name().String())
 	primary := schema.Resource().GroupVersionKind()
 	gvks := []config.GroupVersionKind{primary}
-	if gatewayApi {
+	if gatewayAPI {
 		gvks = schema.Resource().GroupVersionAliasKinds()
 	}
 	for _, gvk := range gvks {
@@ -92,7 +92,7 @@ func MakeConfigData(schema collection.Schema) []ConfigData {
 			// MultiVersion relies on not only having two versions present, but those being typecast-able to one another.
 			// If we wanted to support, for example, Istio dual version types, we would need more robust (and expensive) conversion logic.
 			// However, there are no plans to remove Istio alpha types.
-			MultiVersion:    gatewayApi && len(schema.Resource().GroupVersionAliasKinds()) > 1,
+			MultiVersion:    gatewayAPI && len(schema.Resource().GroupVersionAliasKinds()) > 1,
 			TypeName:        strings.ReplaceAll(strings.ReplaceAll(gvk.String(), "/", "_"), ".", "_"),
 			Client:          "ic",
 			StatusAPIImport: apiImport[schema.Resource().StatusPackage()],

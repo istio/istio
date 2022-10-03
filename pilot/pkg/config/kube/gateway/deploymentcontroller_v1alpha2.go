@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"text/template"
 	"time"
 
@@ -184,7 +183,7 @@ func (d *DeploymentControllerV1Alpha2) configureIstioGateway(log *istiolog.Scope
 	}
 	log.Info("reconciling")
 
-	svc := serviceInputV1Alpha2{Gateway: &gw, Ports: extractServicePorts((gatewaybeta.Gateway)(gw))}
+	svc := serviceInputV1Alpha2{Gateway: &gw, Ports: extractServicePorts(gatewaybeta.Gateway(gw))}
 	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
@@ -270,29 +269,4 @@ type serviceInputV1Alpha2 struct {
 type deploymentInputV1Alpha2 struct {
 	*gateway.Gateway
 	KubeVersion122 bool
-}
-
-func extractServicePortsV1Alpha2(gw gateway.Gateway) []corev1.ServicePort {
-	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
-	svcPorts = append(svcPorts, corev1.ServicePort{
-		Name: "status-port",
-		Port: int32(15021),
-	})
-	portNums := map[int32]struct{}{}
-	for i, l := range gw.Spec.Listeners {
-		if _, f := portNums[int32(l.Port)]; f {
-			continue
-		}
-		portNums[int32(l.Port)] = struct{}{}
-		name := string(l.Name)
-		if name == "" {
-			// Should not happen since name is required, but in case an invalid resource gets in...
-			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
-		}
-		svcPorts = append(svcPorts, corev1.ServicePort{
-			Name: name,
-			Port: int32(l.Port),
-		})
-	}
-	return svcPorts
 }
