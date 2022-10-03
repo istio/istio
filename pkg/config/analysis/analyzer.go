@@ -92,6 +92,22 @@ mainloop:
 	return removedNames
 }
 
+// RemoveAnalyzers removes analyzers that will not be executed in this combined analyzer.
+func (c *CombinedAnalyzer) RemoveAnalyzers(analyzers []Analyzer) {
+	var filtered []Analyzer
+	set := map[string]bool{}
+	for _, a := range analyzers {
+		set[a.Metadata().Name] = true
+	}
+	for _, a := range c.analyzers {
+		if set[a.Metadata().Name] {
+			continue
+		}
+		filtered = append(filtered, a)
+	}
+	c.analyzers = filtered
+}
+
 // AnalyzerNames returns the names of analyzers in this combined analyzer
 func (c *CombinedAnalyzer) AnalyzerNames() []string {
 	var result []string

@@ -27,7 +27,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
@@ -47,7 +50,13 @@ type Controller struct {
 func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
 	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string,
 ) (*Controller, error) {
-	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(),
+	ac := analyzers.AllCombined()
+	// Filter out schema validation analyzers for status updating analysis.
+	var removedAnalyzers []analysis.Analyzer
+	removedAnalyzers = append(removedAnalyzers, &annotations.K8sAnalyzer{})
+	removedAnalyzers = append(removedAnalyzers, schema.AllValidationAnalyzers()...)
+	ac.RemoveAnalyzers(removedAnalyzers)
+	ia := local.NewIstiodAnalyzer(ac,
 		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
 	ia.AddSource(rwConfigStore)
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
