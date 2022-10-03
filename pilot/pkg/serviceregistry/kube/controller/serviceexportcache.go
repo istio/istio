@@ -166,7 +166,7 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 
 func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	// List all exports in this cluster.
-	exports, err := ec.filteredInformer.List("")
+	exports, err := ec.filteredInformer.List(metav1.NamespaceAll)
 	if err != nil {
 		return make([]exportedService, 0)
 	}

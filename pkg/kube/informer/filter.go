@@ -95,8 +95,7 @@ func (w *filteredSharedIndexInformer) List(namespace string) ([]any, error) {
 }
 
 func (w *filteredSharedIndexInformer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
-	_ = w.SharedIndexInformer.SetWatchErrorHandler(handler)
-	return nil
+	return w.SharedIndexInformer.SetWatchErrorHandler(handler)
 }
 
 type filteredIndexer struct {
