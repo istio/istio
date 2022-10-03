@@ -92,7 +92,7 @@ mainloop:
 	return removedNames
 }
 
-// RemoveAnalyzers removes analyzers that will not be executed in this combined analyzer.
+// RemoveAnalyzers removes some analyzers, which will not be executed in this combined analyzer.
 func (c *CombinedAnalyzer) RemoveAnalyzers(analyzers []Analyzer) {
 	var filtered []Analyzer
 	set := map[string]bool{}
