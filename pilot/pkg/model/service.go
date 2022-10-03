@@ -826,6 +826,10 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 			}
 		}
 	}
+
+	if s.DefaultAddress == constants.UnspecifiedIP {
+		return []string{constants.UnspecifiedIPv6}
+	}
 	return nil
 }
 

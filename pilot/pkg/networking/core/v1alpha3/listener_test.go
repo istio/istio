@@ -516,7 +516,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		numListenersOnServicePort int
 	}{
 		{
-			name: "gen a listener per IP instance",
+			name: "gen a listener for multiple IP instances",
 			instances: []*model.ServiceInstance{
 				// This instance is the proxy itself, will not gen a outbound listener for it.
 				buildServiceInstance(services[0], "1.1.1.1"),
@@ -525,7 +525,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
 			services:                  []*model.Service{svc},
-			numListenersOnServicePort: 3,
+			numListenersOnServicePort: 1,
 		},
 		{
 			name:                      "no listeners for empty services",
@@ -560,7 +560,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(extSvcSelector, "11.11.11.11"),
 			},
 			services:                  []*model.Service{extSvcSelector},
-			numListenersOnServicePort: 2,
+			numListenersOnServicePort: 1,
 		},
 		{
 			name:                      "no listeners for empty Kubernetes auto protocol",
@@ -569,13 +569,13 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			numListenersOnServicePort: 0,
 		},
 		{
-			name: "listeners per instance for Kubernetes auto protocol",
+			name: "listeners for multiple instances for Kubernetes auto protocol",
 			instances: []*model.ServiceInstance{
 				buildServiceInstance(autoSvc, "10.10.10.10"),
 				buildServiceInstance(autoSvc, "11.11.11.11"),
 			},
 			services:                  []*model.Service{autoSvc},
-			numListenersOnServicePort: 2,
+			numListenersOnServicePort: 1,
 		},
 	}
 	for _, tt := range tests {

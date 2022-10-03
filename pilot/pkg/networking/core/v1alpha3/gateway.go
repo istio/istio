@@ -64,7 +64,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	mergedGateway := builder.node.MergedGateway
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
+	actualWildcards, _ := getWildcardsAndLocalHostForDualStack(builder.node.GetIPMode())
 	errs := istiomultierror.New()
 	// Mutable objects keyed by listener name so that we can build listeners at the end.
 	mutableopts := make(map[string]mutableListenerOpts)
@@ -78,9 +78,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				port.Number, builder.node.ID)
 			continue
 		}
-		bind := actualWildcard
+		var extraBind []string
+		bind := actualWildcards[0]
+		if len(actualWildcards) > 1 {
+			extraBind = actualWildcards[1:]
+		}
 		if len(port.Bind) > 0 {
 			bind = port.Bind
+			extraBind = nil
 		}
 
 		// NOTE: There is no gating here to check for the value of the QUIC feature flag. However,
@@ -106,6 +111,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				push:       builder.push,
 				proxy:      builder.node,
 				bind:       bind,
+				extraBind:  extraBind,
 				port:       &model.Port{Port: int(port.Number)},
 				bindToPort: true,
 				class:      istionetworking.ListenerClassGateway,
