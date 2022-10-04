@@ -44,7 +44,7 @@ const (
 
 var (
 	fqdn, direction, subset string
-	port                    int
+	port, proxyAdminPort    int
 	verboseProxyConfig      bool
 
 	address, listenerType, statsType string
@@ -233,7 +233,7 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
 	path := "stats"
-	port := 15000
+	port := proxyAdminPort
 	if outputFormat == jsonOutput || outputFormat == yamlOutput {
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
@@ -500,6 +500,7 @@ func allConfigCmd() *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	allConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 
 	// cluster
 	allConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
