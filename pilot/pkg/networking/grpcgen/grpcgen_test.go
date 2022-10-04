@@ -245,8 +245,7 @@ func TestGRPC(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
-		listeners := make([]*listener.Listener, 0, len(msg.Resources))
-		// Extract the cookie name from 4 layers of marshalling...
+		// Extract the cookie name from 4 layers of marshaling...
 		hcm := &hcm.HttpConnectionManager{}
 		ss := &stateful_sessionv3.StatefulSession{}
 		sc := &cookiev3.CookieBasedSessionState{}
@@ -265,7 +264,6 @@ func TestGRPC(t *testing.T) {
 					}
 				}
 			}
-			listeners = append(listeners, ll)
 		}
 		if sc.Cookie == nil {
 			t.Fatal("Failed to find session cookie")
@@ -279,6 +277,9 @@ func TestGRPC(t *testing.T) {
 			ResourceNames: []string{clusterName},
 		})
 		_, err = adscConn.Wait(5*time.Second, v3.EndpointType)
+		if err != nil {
+			t.Fatal("Failed to receive endpoint", err)
+		}
 		ep := adscConn.GetEndpoints()[clusterName]
 		if ep == nil {
 			t.Fatal("Endpoints not found for persistent session cluster")
