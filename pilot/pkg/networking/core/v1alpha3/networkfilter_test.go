@@ -26,8 +26,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -103,6 +105,37 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test that the metadata exchange filter comes before RBAC network filter
+func TestInboundNetworkFilterOrder(t *testing.T) {
+	services := []*model.Service{
+		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+	t.Run("mx-filter-before-rbac-filter", func(t *testing.T) {
+		cg := NewConfigGenTest(t, TestOptions{
+			Services: services,
+		})
+
+		fcc := inboundChainConfig{
+			clusterName: "inbound|8888||",
+		}
+		push := cg.PushContext()
+		push.AuthzPolicies = getAuthorizationPolicies()
+		proxy := node(nil)
+		listenerFilters := NewListenerBuilder(proxy, push).buildInboundNetworkFilters(fcc)
+
+		rbacFilterFound := false
+		RBACTCPFilterName := "envoy.filters.network.rbac"
+
+		for _, filter := range listenerFilters {
+			if rbacFilterFound && filter.GetName() == xdsfilters.MxFilterName {
+				t.Fatalf("unexpected: found %v filter before %v filter", RBACTCPFilterName, xdsfilters.MxFilterName)
+			} else if filter.GetName() == RBACTCPFilterName {
+				rbacFilterFound = true
+			}
+		}
+	})
 }
 
 func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
@@ -670,5 +703,54 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 				t.Fatalf("Unexpected SourceIp hash policy. expected: %v, got: %v", tt.useSourceIP, hasSourceIP)
 			}
 		})
+	}
+}
+
+func getAuthorizationPolicies() *model.AuthorizationPolicies {
+	return &model.AuthorizationPolicies{
+		NamespaceToPolicies: map[string][]model.AuthorizationPolicy{
+			"foo": {
+				{
+					Name:      "httpbin-deny",
+					Namespace: "foo",
+					Spec: &v1beta1.AuthorizationPolicy{
+						Action: v1beta1.AuthorizationPolicy_ALLOW,
+						Rules: []*v1beta1.Rule{
+							{
+								From: []*v1beta1.Rule_From{
+									{
+										Source: &v1beta1.Source{
+											RequestPrincipals: []string{"id-1"},
+										},
+									},
+								},
+								To: []*v1beta1.Rule_To{
+									{
+										Operation: &v1beta1.Operation{
+											Methods: []string{"GET"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func node(version *model.IstioVersion) *model.Proxy {
+	httpbin := map[string]string{
+		"app":     "httpbin",
+		"version": "v1",
+	}
+	return &model.Proxy{
+		ID:              "test-node",
+		ConfigNamespace: "foo",
+		Metadata: &model.NodeMetadata{
+			Labels: httpbin,
+		},
+		IstioVersion: version,
 	}
 }
