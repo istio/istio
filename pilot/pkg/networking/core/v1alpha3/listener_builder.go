@@ -361,6 +361,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	})
+
+	// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
+	// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/tetrateio/tetrate/issues/13093
+	if features.MetadataExchange {
+		filters = append(filters, xdsfilters.HTTPMx)
+	}
+
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
@@ -371,10 +378,6 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-
-	if features.MetadataExchange {
-		filters = append(filters, xdsfilters.HTTPMx)
-	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
 		filters = append(filters, xdsfilters.GrpcWeb)
