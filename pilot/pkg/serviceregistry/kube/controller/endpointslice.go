@@ -32,10 +32,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	kubelib "istio.io/istio/pkg/kube"
+	filterinformer "istio.io/istio/pkg/kube/informer"
 )
 
 type endpointSliceController struct {
@@ -62,7 +62,7 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
 	}
 
-	filteredInformer := filter.NewFilteredSharedIndexInformer(
+	filteredInformer := filterinformer.NewFilteredSharedIndexInformer(
 		c.opts.DiscoveryNamespacesFilter.Filter,
 		informer,
 	)
@@ -83,7 +83,7 @@ func endpointSliceV1Available(client kubelib.Client) bool {
 	return client != nil && !kubelib.IsLessThanVersion(client, 21)
 }
 
-func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
+func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedIndexInformer {
 	return esc.informer
 }
 

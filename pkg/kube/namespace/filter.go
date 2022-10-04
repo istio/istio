@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filter
+package namespace
 
 import (
 	"sync"
@@ -73,7 +73,6 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	if len(d.discoverySelectors) == 0 {
 		return true
 	}
-
 	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
 	object, ok := obj.(metav1.Object)
 	if !ok {
@@ -97,9 +96,6 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 ) (selectedNamespaces []string, deselectedNamespaces []string) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-
-	oldDiscoveryNamespaces := d.discoveryNamespaces
-
 	var selectors []labels.Selector
 	newDiscoveryNamespaces := sets.New[string]()
 
@@ -134,6 +130,7 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 		}
 	}
 
+	oldDiscoveryNamespaces := d.discoveryNamespaces
 	selectedNamespaces = newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces).SortedList()
 	deselectedNamespaces = oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces).SortedList()
 
@@ -145,17 +142,15 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 }
 
 func (d *discoveryNamespacesFilter) SyncNamespaces() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	newDiscoveryNamespaces := sets.New[string]()
-
 	namespaceList, err := d.nsLister.List(labels.Everything())
 	if err != nil {
 		log.Errorf("error initializing discovery namespaces filter, failed to list namespaces: %v", err)
 		return err
 	}
 
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	newDiscoveryNamespaces := sets.New[string]()
 	// omitting discoverySelectors indicates discovering all namespaces
 	if len(d.discoverySelectors) == 0 {
 		for _, ns := range namespaceList {

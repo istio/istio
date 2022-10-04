@@ -43,28 +43,69 @@ import (
 	"istio.io/pkg/filewatcher"
 )
 
+func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
+	// create cert directories if not existing
+	if err := os.MkdirAll(filepath.Dir(t.testTLSCertFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testTLSCertFilePath, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(t.testTLSKeyFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testTLSKeyFilePath, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(t.testCaCertFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testCaCertFilePath, err)
+	}
+
+	// load key and cert files.
+	if err := os.WriteFile(t.testTLSCertFilePath, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSCertFilePath, err)
+	}
+	if err := os.WriteFile(t.testTLSKeyFilePath, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSKeyFilePath, err)
+	}
+	if err := os.WriteFile(t.testCaCertFilePath, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testCaCertFilePath, err)
+	}
+
+	return nil
+}
+
+func cleanupCertFileSystemFiles(t TLSFSLoadPaths) error {
+	if err := os.Remove(t.testTLSCertFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSCertFilePath)
+	}
+
+	if err := os.Remove(t.testTLSKeyFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSKeyFilePath)
+	}
+
+	if err := os.Remove(t.testCaCertFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testCaCertFilePath)
+	}
+	return nil
+}
+
+// This struct will indicate for each test case
+// where tls assets will be loaded on disk
+type TLSFSLoadPaths struct {
+	testTLSCertFilePath string
+	testTLSKeyFilePath  string
+	testCaCertFilePath  string
+}
+
 func TestNewServerCertInit(t *testing.T) {
 	configDir := t.TempDir()
 
-	certsDir := t.TempDir()
+	tlsArgCertsDir := t.TempDir()
 
-	certFile := filepath.Join(certsDir, "cert-file.pem")
-	keyFile := filepath.Join(certsDir, "key-file.pem")
-	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
-
-	// load key and cert files.
-	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
-	}
-	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
-	}
-	if err := os.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
-	}
+	tlsArgcertFile := filepath.Join(tlsArgCertsDir, "cert-file.pem")
+	tlsArgkeyFile := filepath.Join(tlsArgCertsDir, "key-file.pem")
+	tlsArgcaCertFile := filepath.Join(tlsArgCertsDir, "ca-cert.pem")
 
 	cases := []struct {
 		name         string
+		FSCertsPaths TLSFSLoadPaths
 		tlsOptions   *TLSOptions
 		enableCA     bool
 		certProvider string
@@ -73,11 +114,12 @@ func TestNewServerCertInit(t *testing.T) {
 		expKey       []byte
 	}{
 		{
-			name: "Load from existing DNS cert",
+			name:         "Load from existing DNS cert",
+			FSCertsPaths: TLSFSLoadPaths{tlsArgcertFile, tlsArgkeyFile, tlsArgcaCertFile},
 			tlsOptions: &TLSOptions{
-				CertFile:   certFile,
-				KeyFile:    keyFile,
-				CaCertFile: caCertFile,
+				CertFile:   tlsArgcertFile,
+				KeyFile:    tlsArgkeyFile,
+				CaCertFile: tlsArgcaCertFile,
 			},
 			enableCA:     false,
 			certProvider: constants.CertProviderKubernetes,
@@ -86,7 +128,8 @@ func TestNewServerCertInit(t *testing.T) {
 			expKey:       testcerts.ServerKey,
 		},
 		{
-			name: "Create new DNS cert using Istiod",
+			name:         "Create new DNS cert using Istiod",
+			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions: &TLSOptions{
 				CertFile:   "",
 				KeyFile:    "",
@@ -100,6 +143,7 @@ func TestNewServerCertInit(t *testing.T) {
 		},
 		{
 			name:         "No DNS cert created because CA is disabled",
+			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions:   &TLSOptions{},
 			enableCA:     false,
 			certProvider: constants.CertProviderIstiod,
@@ -108,7 +152,36 @@ func TestNewServerCertInit(t *testing.T) {
 			expKey:       []byte{},
 		},
 		{
+			name: "DNS cert loaded because it is in known even if CA is Disabled",
+			FSCertsPaths: TLSFSLoadPaths{
+				constants.DefaultPilotTLSCert,
+				constants.DefaultPilotTLSKey,
+				constants.DefaultPilotTLSCaCert,
+			},
+			tlsOptions:   &TLSOptions{},
+			enableCA:     false,
+			certProvider: constants.CertProviderNone,
+			expNewCert:   false,
+			expCert:      testcerts.ServerCert,
+			expKey:       testcerts.ServerKey,
+		},
+		{
+			name: "DNS cert loaded from known location, even if CA is Disabled, with a fallback CA path",
+			FSCertsPaths: TLSFSLoadPaths{
+				constants.DefaultPilotTLSCert,
+				constants.DefaultPilotTLSKey,
+				constants.DefaultPilotTLSCaCertAlternatePath,
+			},
+			tlsOptions:   &TLSOptions{},
+			enableCA:     false,
+			certProvider: constants.CertProviderNone,
+			expNewCert:   false,
+			expCert:      testcerts.ServerCert,
+			expKey:       testcerts.ServerKey,
+		},
+		{
 			name:         "No cert provider",
+			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions:   &TLSOptions{},
 			enableCA:     true,
 			certProvider: constants.CertProviderNone,
@@ -122,6 +195,17 @@ func TestNewServerCertInit(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
+
+			// check if we have some tls assets to write for test
+			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
+				err := loadCertFilesAtPaths(c.FSCertsPaths)
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+
+				defer cleanupCertFileSystemFiles(c.FSCertsPaths)
+			}
+
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{

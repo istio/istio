@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/env"
 )
 
@@ -88,10 +89,10 @@ type controller struct {
 	// processed ingresses
 	ingresses map[types.NamespacedName]*knetworking.Ingress
 
-	ingressInformer cache.SharedInformer
-	ingressLister   networkinglister.IngressLister
-	serviceInformer cache.SharedInformer
-	serviceLister   listerv1.ServiceLister
+	filteredIngressInformer informer.FilteredSharedIndexInformer
+	ingressLister           networkinglister.IngressLister
+	serviceInformer         cache.SharedInformer
+	serviceLister           listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
 	classes ingressinformer.IngressClassInformer
 
@@ -122,7 +123,6 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
 		ingresses:       make(map[types.NamespacedName]*knetworking.Ingress),
-		ingressInformer: ingressInformer.Informer(),
 		ingressLister:   ingressInformer.Lister(),
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
@@ -131,7 +131,12 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	c.queue = controllers.NewQueue("ingress",
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
-	c.ingressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+	if options.DiscoveryNamespacesFilter != nil {
+		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
+	} else {
+		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(nil, ingressInformer.Informer())
+	}
+	c.filteredIngressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
 }
 
@@ -253,7 +258,7 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
 		errs = multierror.Append(err, errs)
 	}
-	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
+	if err := c.filteredIngressInformer.SetWatchErrorHandler(handler); err != nil {
 		errs = multierror.Append(err, errs)
 	}
 	if err := c.classes.Informer().SetWatchErrorHandler(handler); err != nil {
@@ -268,7 +273,7 @@ func (c *controller) HasStarted() bool {
 
 func (c *controller) HasSynced() bool {
 	// TODO: add c.queue.HasSynced() once #36332 is ready, ensuring Run is called before HasSynced
-	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
+	return c.filteredIngressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
 		(c.classes == nil || c.classes.Informer().HasSynced())
 }
 
@@ -307,14 +312,14 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 		return nil, errUnsupportedOp
 	}
 
+	list, err := c.filteredIngressInformer.List(namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	out := make([]config.Config, 0)
-
 	ingressByHost := map[string]*config.Config{}
-
-	for _, ingress := range sortIngressByCreationTime(c.ingressInformer.GetStore().List()) {
-		if namespace != "" && namespace != ingress.Namespace {
-			continue
-		}
+	for _, ingress := range sortIngressByCreationTime(list) {
 		process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
 		if err != nil {
 			return nil, err
