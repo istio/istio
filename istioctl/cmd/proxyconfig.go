@@ -500,7 +500,6 @@ func allConfigCmd() *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	allConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 
 	// cluster
 	allConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
@@ -1229,6 +1228,7 @@ func proxyConfig() *cobra.Command {
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 
 	configCmd.AddCommand(clusterConfigCmd())
 	configCmd.AddCommand(allConfigCmd())
