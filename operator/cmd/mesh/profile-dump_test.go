@@ -17,10 +17,10 @@ package mesh
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/operator/pkg/util"
 )

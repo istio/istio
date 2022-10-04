@@ -15,10 +15,10 @@
 package yml
 
 import (
-	"regexp"
 	"strings"
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 	"sigs.k8s.io/yaml"
 )
 

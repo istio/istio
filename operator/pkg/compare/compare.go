@@ -19,11 +19,11 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/object"

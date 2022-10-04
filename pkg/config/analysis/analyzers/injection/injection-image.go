@@ -17,10 +17,10 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"

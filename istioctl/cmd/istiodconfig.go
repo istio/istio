@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"

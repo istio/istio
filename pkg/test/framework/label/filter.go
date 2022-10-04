@@ -16,8 +16,9 @@ package label
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/pkg/log"
 )

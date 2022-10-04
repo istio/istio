@@ -17,10 +17,10 @@ package util
 import (
 	"errors"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/pmezard/go-difflib/difflib"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test"

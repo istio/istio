@@ -16,7 +16,6 @@ package schema_test
 
 import (
 	"math/rand"
-	"regexp"
 	goruntime "runtime"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"regexp"
 
 	authentication "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"

@@ -15,9 +15,10 @@
 package resource
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 )
 
 // testFilter is a regex matcher on a test. It is split by / following go subtest format

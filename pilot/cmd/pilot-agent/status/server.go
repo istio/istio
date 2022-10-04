@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,6 +45,7 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"

@@ -20,12 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/client-go/util/jsonpath"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"

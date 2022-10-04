@@ -18,13 +18,13 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	name2 "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"

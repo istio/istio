@@ -22,7 +22,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"

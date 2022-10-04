@@ -17,7 +17,6 @@ package ingress
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"

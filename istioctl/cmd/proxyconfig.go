@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"

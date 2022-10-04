@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	any "google.golang.org/protobuf/types/known/anypb"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"

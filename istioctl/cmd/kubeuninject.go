@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -32,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 	"sigs.k8s.io/yaml"
 
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"

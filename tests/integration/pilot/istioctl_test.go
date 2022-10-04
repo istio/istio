@@ -23,13 +23,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/onsi/gomega"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
