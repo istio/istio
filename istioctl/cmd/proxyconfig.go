@@ -161,7 +161,7 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 	if eds {
 		path += "?include_eds=true"
 	}
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
@@ -220,7 +220,7 @@ func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat str
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -260,7 +260,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path)
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "POST", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -293,7 +293,7 @@ func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clust
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -389,6 +389,7 @@ func clusterConfigCmd() *cobra.Command {
 	}
 
 	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	clusterConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	clusterConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
 	clusterConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
 	clusterConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
@@ -500,6 +501,7 @@ func allConfigCmd() *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	allConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 
 	// cluster
 	allConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
@@ -581,6 +583,7 @@ func listenerConfigCmd() *cobra.Command {
 	}
 
 	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	listenerConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
@@ -862,6 +865,7 @@ func routeConfigCmd() *cobra.Command {
 	}
 
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	routeConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 	routeConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
@@ -938,6 +942,7 @@ func endpointConfigCmd() *cobra.Command {
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	endpointConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
@@ -1021,6 +1026,7 @@ func edsConfigCmd() *cobra.Command {
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	endpointConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
@@ -1087,6 +1093,7 @@ func bootstrapConfigCmd() *cobra.Command {
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
+	bootstrapConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -1141,6 +1148,7 @@ func secretConfigCmd() *cobra.Command {
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	secretConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", 15000, "Port on which Envoy listen for administrative commands")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
