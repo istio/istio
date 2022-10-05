@@ -218,8 +218,9 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
 		// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
 		// we may end up overriding active cache entries with stale ones.
-		Start: con.proxy.LastPushTime,
-		Delta: delta,
+		Start:       con.proxy.LastPushTime,
+		Delta:       delta,
+		VersionInfo: req.VersionInfo,
 	}
 
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
@@ -447,6 +448,11 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
 			return true, emptyResourceDelta
 		}
+		if features.FilterGatewayClusterConfig && con.proxy.Type == model.Router && request.TypeUrl == v3.ClusterType {
+			log.Infof("ADS:%s: FORCE RESPONSE %s for any pending rds because of cluster warming.",
+				stype, con.conID)
+			return true, emptyResourceDelta
+		}
 
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
@@ -648,6 +654,12 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	proxy.DiscoverIPMode()
 
 	proxy.WatchedResources = map[string]*model.WatchedResource{}
+	if proxy.LastPushedResources == nil {
+		proxy.LastPushedResources = map[string][]*discovery.Resource{}
+	}
+	if proxy.ResourceVersionWaitingForAck == nil {
+		proxy.ResourceVersionWaitingForAck = map[string]string{}
+	}
 	// Based on node metadata and version, we can associate a different generator.
 	if proxy.Metadata.Generator != "" {
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
@@ -916,6 +928,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.proxy.ResourceVersionWaitingForAck[res.TypeUrl] = res.VersionInfo
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
@@ -946,15 +959,23 @@ func (conn *Connection) NonceSent(typeUrl string) string {
 }
 
 // nolint
-func (conn *Connection) gotAckForLastResponse(typeUrl string) bool {
+func (conn *Connection) ClearResponseAckPending(typeUrl string) {
+	conn.proxy.Lock()
+	defer conn.proxy.Unlock()
+	delete(conn.proxy.ResourceVersionWaitingForAck, typeUrl)
+}
+
+// nolint
+func (conn *Connection) IsResponseAckPending(typeUrl string) bool {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
-		if conn.proxy.WatchedResources[typeUrl].VersionAcked == conn.proxy.WatchedResources[typeUrl].VersionSent {
-			return true
-		}
-	}
-	return false
+	return len(conn.proxy.ResourceVersionWaitingForAck[typeUrl]) != 0
+}
+
+func (conn *Connection) GetAckPendingVersion(typeUrl string) string {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	return conn.proxy.ResourceVersionWaitingForAck[typeUrl]
 }
 
 func (conn *Connection) Clusters() []string {

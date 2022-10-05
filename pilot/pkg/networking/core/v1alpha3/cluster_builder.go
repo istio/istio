@@ -1188,8 +1188,8 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource, prox
 	if !features.FilterGatewayClusterConfig {
 		return out
 	}
-	lastPushed := proxy.LastPushedCDS
-	proxy.LastPushedCDS = out
+	lastPushed := proxy.LastPushedResources[v3.ClusterType]
+	proxy.LastPushedResources[v3.ClusterType] = out
 
 	for _, c := range lastPushed {
 		if !have.InsertContains(c.Name) {

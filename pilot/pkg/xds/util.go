@@ -15,6 +15,10 @@
 package xds
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -40,4 +44,40 @@ func getSubSetLabels(dr *networkingapi.DestinationRule, subsetName string) label
 	}
 
 	return nil
+}
+
+func IsThisVersionOlderThanThat(this, that string) (bool, error) {
+	//format is "time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)"
+	thisParts := strings.Split(this, "/")
+	thatParts := strings.Split(this, "/")
+	thisTimeString := thisParts[0]
+	thisVersionNum := thisParts[1]
+
+	thatTimeString := thatParts[0]
+	thatVersionNum := thatParts[1]
+	thisTime, err := time.Parse(time.RFC3339, thisTimeString)
+	if err != nil {
+		return false, err
+	}
+	thatTime, err := time.Parse(time.RFC3339, thatTimeString)
+	if err != nil {
+		return false, err
+	}
+	if thisTime.Before(thatTime) {
+		return true, nil
+	}
+	if thisTime == thatTime {
+		thisVersionNumInt, err := strconv.Atoi(thisVersionNum)
+		if err != nil {
+			return false, err
+		}
+		thatVersionNumInt, err := strconv.Atoi(thatVersionNum)
+		if err != nil {
+			return false, err
+		}
+		if thisVersionNumInt < thatVersionNumInt {
+			return true, nil
+		}
+	}
+	return false, nil
 }

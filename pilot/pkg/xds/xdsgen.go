@@ -92,11 +92,31 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	if w == nil {
 		return nil
 	}
-
-	if features.FilterGatewayClusterConfig && w.TypeUrl == v3.RouteType {
-		for !con.gotAckForLastResponse(v3.ClusterType) {
-			log.Infof("Last sent cds not acked yet. Hold rds push")
-			time.Sleep(time.Millisecond * 500)
+	if features.FilterGatewayClusterConfig && con.proxy.Type == model.Router {
+		if w.TypeUrl == v3.ClusterType {
+			pendingVersion := con.GetAckPendingVersion(v3.ClusterType)
+			log.Debugf("%s: pending version: %s", con.conID, pendingVersion)
+			if pendingVersion != "" {
+				log.Debugf("%s: pending version: %s, received in request: %s", con.conID, pendingVersion, req.VersionInfo)
+				olderVersion, err := IsThisVersionOlderThanThat(req.VersionInfo, pendingVersion)
+				if err != nil {
+					// fail-open: make sure rds is not skipped. Clear the wait cache so that rds could proceed.
+					log.Errorf("%s: could not enforce rds push only after cds ack: %v", con.conID, err)
+					con.ClearResponseAckPending(v3.ClusterType)
+				}
+				// received cds version is ack for the cds response sent or response which was sent after the one that is there in wait cache.
+				if !olderVersion {
+					con.ClearResponseAckPending(v3.ClusterType)
+					log.Infof("%s: sending rds on receiving cds ack", con.conID)
+					w = con.Watched(v3.RouteType)
+				}
+			}
+		}
+		if w.TypeUrl == v3.RouteType {
+			if con.IsResponseAckPending(v3.ClusterType) {
+				log.Infof("%s: Last sent cds not acked yet. skip rds push", con.conID)
+				return nil
+			}
 		}
 	}
 	gen := s.findGenerator(w.TypeUrl, con)

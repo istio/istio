@@ -333,7 +333,13 @@ type Proxy struct {
 	// key is stale or not.
 	LastPushTime time.Time
 
-	LastPushedCDS []*discovery.Resource
+	// LastPushedResources contains the list of resources that were last time to the proxy,
+	// keyed by the DiscoveryRequest TypeUrl. Currently it is used only for CDS
+	LastPushedResources map[string][]*discovery.Resource
+
+	// ResourceVersionWaitingForAck holds the latest versions sent to the proxy for which ack is not received yet
+	// from the proxy. Keyed by the DiscoveryRequest TypeUrl.
+	ResourceVersionWaitingForAck map[string]string
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
