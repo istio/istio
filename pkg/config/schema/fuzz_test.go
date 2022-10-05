@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"regexp"
-
 	"github.com/gogo/protobuf/types"
 	fuzz "github.com/google/gofuzz"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
