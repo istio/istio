@@ -67,10 +67,14 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	"GatewaySecretMissingReferencedSecret": "Not supported in this version of Istio",
+	"GatewaySecretInvalidReferenceGrant":          "Not supported in this version of Istio",
+	"GatewaySecretReferenceGrantAllInNamespace":          "Not supported in this version of Istio",
+	"GatewaySecretReferenceGrantSpecific":          "Not supported in this version of Istio",
 	"GatewayUnsupportedRouteKind":          "Not supported in this version of Istio",
 }
 
 func TestGatewayConformance(t *testing.T) {
+	t.Skip("Gateway conformance is not supported on this version")
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
