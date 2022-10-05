@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pilot/pkg/util/sets"

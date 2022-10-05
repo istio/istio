@@ -15,11 +15,11 @@
 package matcher
 
 import (
-	"regexp"
 	"strings"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.

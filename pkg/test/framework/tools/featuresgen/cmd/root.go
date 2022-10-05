@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 )
 
 const (

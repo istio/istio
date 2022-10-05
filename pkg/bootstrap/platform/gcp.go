@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +28,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"

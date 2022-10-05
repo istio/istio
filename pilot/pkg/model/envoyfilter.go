@@ -15,10 +15,10 @@
 package model
 
 import (
-	"regexp"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"

@@ -16,7 +16,8 @@ package virtualservice
 
 import (
 	"fmt"
-	"regexp"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"

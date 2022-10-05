@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	apiannotation "istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"

@@ -17,7 +17,6 @@ package authz
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -28,6 +27,7 @@ import (
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/pkg/log"
 )

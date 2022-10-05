@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	kubeApiCore "k8s.io/api/core/v1"
@@ -34,6 +33,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	istioversion "istio.io/pkg/version"
 )

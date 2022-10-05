@@ -97,6 +97,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
 	k8s.io/kubectl v0.23.3
 	k8s.io/utils v0.0.0-20220127004650-9b3446523e65
+	rsc.io/xstd/go1.19.2 v0.1.0
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/gateway-api v0.4.1
 	sigs.k8s.io/mcs-api v0.1.0

@@ -26,12 +26,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/kylelemons/godebug/pretty"
 	"gopkg.in/yaml.v2"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 	yaml2 "sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"

@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"regexp"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 	"text/template"
 
 	"sigs.k8s.io/yaml"

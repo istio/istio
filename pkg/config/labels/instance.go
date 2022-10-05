@@ -17,10 +17,10 @@ package labels
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"sort"
 
 	"github.com/hashicorp/go-multierror"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 )
 
 const (

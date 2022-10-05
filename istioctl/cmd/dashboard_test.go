@@ -16,9 +16,10 @@ package cmd
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pkg/kube"
 )

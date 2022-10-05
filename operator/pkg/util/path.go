@@ -17,9 +17,10 @@ package util
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 )
 
 const (

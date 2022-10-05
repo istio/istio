@@ -20,7 +20,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	goruntime "runtime"
 	"strings"
 	"sync"
@@ -28,6 +27,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"

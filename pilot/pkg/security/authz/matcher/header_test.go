@@ -15,13 +15,13 @@
 package matcher
 
 import (
-	"regexp"
 	"testing"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 )
 
 func TestHeaderMatcher(t *testing.T) {

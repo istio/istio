@@ -16,12 +16,12 @@ package client
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -229,7 +229,8 @@ func (r ParsedResponses) clusterDistribution() map[string]int {
 
 // CheckReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
 // This can be used in combination with echo.Instances.Clusters(), for example:
-//     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
+//
+//	echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
 func (r ParsedResponses) CheckReachedClusters(clusters cluster.Clusters) error {
 	hits := r.clusterDistribution()
 	exp := map[string]struct{}{}

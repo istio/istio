@@ -16,9 +16,10 @@ package cmd
 
 import (
 	"bytes"
-	"regexp"
 	"strings"
 	"testing"
+
+	regexp "rsc.io/xstd/go1.19.2/regexp"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/test/util"
