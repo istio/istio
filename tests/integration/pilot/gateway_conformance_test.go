@@ -89,6 +89,9 @@ func TestGatewayConformance(t *testing.T) {
 			})
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
+			// Invalidate discovery so our new CRDs are picked up
+			dc, _ := gatewayConformanceInputs.Client.UtilFactory().ToDiscoveryClient()
+			dc.Invalidate()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
