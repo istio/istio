@@ -250,7 +250,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		return nil, err
 	}
 	if warn != nil {
-		log.Warnf("warnings ocurred during mesh validation: %v", warn)
+		log.Warnf("warnings occurred during mesh validation: %v", warn)
 	}
 
 	return defaultConfig, nil
