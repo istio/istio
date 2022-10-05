@@ -26,7 +26,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/log"
 )
 
 func GetLocalityLbSetting(
@@ -81,9 +80,6 @@ func ApplyLocalityLBSetting(
 			return
 		}
 		applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
-	} else if !enableFailover && (len(localityLB.FailoverPriority) > 0 || len(localityLB.Failover) > 0) {
-		// Warning for DestinationRule occurs during validation, but meshConfig.localityLbSettings could still be missed here 
-		log.Warnf("failover configuration not applied due to missing outlier detection")
 	}
 }
 
