@@ -1431,6 +1431,72 @@ func TestAuthz_Conditions(t *testing.T) {
 		})
 }
 
+func TestAuthz_PathCaseSensitivity(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.authorization.path-normalization").
+		Run(func(t framework.TestContext) {
+			from := apps.Ns1.A
+			fromMatch := match.ServiceName(from.NamespacedName())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1.All)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/path-case-insensitive.yaml.tmpl")).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					cases := []struct {
+						path  string
+						allow allowValue
+					}{
+						{
+							path:  "/public",
+							allow: true,
+						},
+						{
+							path:  "/public/actuallyprivate",
+							allow: false,
+						},
+						{
+							path:  "/PUBLIC",
+							allow: true,
+						},
+						{
+							path:  "/PUBLIC/ACTUALLYPRIVATE",
+							allow: false,
+						},
+						{
+							path:  "/PUBLIC/actuallyprivate",
+							allow: false,
+						},
+						{
+							path:  "/PuBlIc",
+							allow: true,
+						},
+					}
+
+					for _, c := range cases {
+						c := c
+						testName := fmt.Sprintf("%s(%s)/http", c.path, c.allow)
+						t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+							newAuthzTest().
+								From(from).
+								To(to).
+								PortName(ports.HTTP).
+								Path(c.path).
+								Allow(c.allow).
+								BuildAndRun(t)
+						})
+					}
+				})
+		})
+}
+
 func TestAuthz_PathNormalization(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.path-normalization").
@@ -1500,6 +1566,10 @@ func TestAuthz_PathNormalization(t *testing.T) {
 						},
 						{
 							path:  "/public/%2e%2e/%2e/private",
+							allow: false,
+						},
+						{
+							path:  "/PUBLIC",
 							allow: false,
 						},
 					}

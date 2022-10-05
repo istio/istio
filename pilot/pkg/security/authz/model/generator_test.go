@@ -27,12 +27,13 @@ import (
 
 func TestGenerator(t *testing.T) {
 	cases := []struct {
-		name   string
-		g      generator
-		key    string
-		value  string
-		forTCP bool
-		want   any
+		name          string
+		g             generator
+		key           string
+		value         string
+		forTCP        bool
+		caseInsensitive bool
+		want          any
 	}{
 		{
 			name:  "destIPGenerator",
@@ -255,12 +256,14 @@ func TestGenerator(t *testing.T) {
           name: :authority`),
 		},
 		{
-			name:  "pathGenerator",
-			g:     pathGenerator{},
-			value: "/abc",
+			name:          "pathGenerator",
+			g:             pathGenerator{},
+			value:         "/abc",
+			caseInsensitive: false,
 			want: yamlPermission(t, `
          urlPath:
           path:
+            ignoreCase: false
             exact: /abc`),
 		},
 		{
@@ -280,18 +283,18 @@ func TestGenerator(t *testing.T) {
 			var err error
 			// nolint: gocritic
 			if _, ok := tc.want.(*rbacpb.Permission); ok {
-				got, err = tc.g.permission(tc.key, tc.value, tc.forTCP)
+				got, err = tc.g.permission(tc.key, tc.value, tc.forTCP, tc.caseInsensitive)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
 				}
 			} else if _, ok := tc.want.(*rbacpb.Principal); ok {
-				got, err = tc.g.principal(tc.key, tc.value, tc.forTCP)
+				got, err = tc.g.principal(tc.key, tc.value, tc.forTCP, tc.caseInsensitive)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
 				}
 			} else {
-				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP)
-				_, err2 := tc.g.permission(tc.key, tc.value, tc.forTCP)
+				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP, tc.caseInsensitive)
+				_, err2 := tc.g.permission(tc.key, tc.value, tc.forTCP, tc.caseInsensitive)
 				if err1 == nil || err2 == nil {
 					t.Fatalf("wanted error")
 				}

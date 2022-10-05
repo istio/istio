@@ -53,10 +53,11 @@ const (
 )
 
 type rule struct {
-	key       string
-	values    []string
-	notValues []string
-	g         generator
+	key           string
+	values        []string
+	notValues     []string
+	caseInsensitive bool
+	g             generator
 }
 
 type ruleList struct {
@@ -82,31 +83,31 @@ func New(r *authzpb.Rule) (*Model, error) {
 		k := when.Key
 		switch {
 		case k == attrDestIP:
-			basePermission.appendLast(destIPGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(destIPGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrDestPort:
-			basePermission.appendLast(destPortGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(destPortGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrConnSNI:
-			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues, true)
 		case strings.HasPrefix(k, attrEnvoyFilter):
-			basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrSrcIP:
-			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrRemoteIP:
-			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrSrcNamespace:
-			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrSrcPrincipal:
-			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrRequestPrincipal:
-			basePrincipal.appendLast(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestPrincipalGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrRequestAudiences:
-			basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues, true)
 		case k == attrRequestPresenter:
-			basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues, true)
 		case strings.HasPrefix(k, attrRequestHeader):
-			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues, true)
 		case strings.HasPrefix(k, attrRequestClaims):
-			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues, true)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
@@ -115,11 +116,11 @@ func New(r *authzpb.Rule) (*Model, error) {
 	for _, from := range r.From {
 		merged := basePrincipal.copy()
 		if s := from.Source; s != nil {
-			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
-			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
-			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
-			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
+			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks, true)
+			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks, true)
+			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces, true)
+			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals, true)
+			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals, true)
 		}
 		m.principals = append(m.principals, merged)
 	}
@@ -130,10 +131,10 @@ func New(r *authzpb.Rule) (*Model, error) {
 	for _, to := range r.To {
 		merged := basePermission.copy()
 		if o := to.Operation; o != nil {
-			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
-			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths)
-			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
-			merged.insertFront(hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
+			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts, true)
+			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths, o.GetIgnorePathCase())
+			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods, false)
+			merged.insertFront(hostGenerator{}, hostHeader, o.Hosts, o.NotHosts, true)
 		}
 		m.permissions = append(m.permissions, merged)
 	}
@@ -226,7 +227,7 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 	var permissions []*rbacpb.Permission
 	var or []*rbacpb.Permission
 	for _, value := range r.values {
-		p, err := r.g.permission(r.key, value, forTCP)
+		p, err := r.g.permission(r.key, value, forTCP, r.caseInsensitive)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
@@ -240,7 +241,7 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 
 	or = nil
 	for _, notValue := range r.notValues {
-		p, err := r.g.permission(r.key, notValue, forTCP)
+		p, err := r.g.permission(r.key, notValue, forTCP, r.caseInsensitive)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
@@ -258,7 +259,7 @@ func (r rule) principal(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Princ
 	var principals []*rbacpb.Principal
 	var or []*rbacpb.Principal
 	for _, value := range r.values {
-		p, err := r.g.principal(r.key, value, forTCP)
+		p, err := r.g.principal(r.key, value, forTCP, r.caseInsensitive)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
@@ -272,7 +273,7 @@ func (r rule) principal(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Princ
 
 	or = nil
 	for _, notValue := range r.notValues {
-		p, err := r.g.principal(r.key, notValue, forTCP)
+		p, err := r.g.principal(r.key, notValue, forTCP, r.caseInsensitive)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
@@ -304,29 +305,31 @@ func (p *ruleList) copy() ruleList {
 	return r
 }
 
-func (p *ruleList) insertFront(g generator, key string, values, notValues []string) {
+func (p *ruleList) insertFront(g generator, key string, values, notValues []string, caseInsensitive bool) {
 	if len(values) == 0 && len(notValues) == 0 {
 		return
 	}
 	r := &rule{
-		key:       key,
-		values:    values,
-		notValues: notValues,
-		g:         g,
+		key:           key,
+		values:        values,
+		notValues:     notValues,
+		caseInsensitive: caseInsensitive,
+		g:             g,
 	}
 
 	p.rules = append([]*rule{r}, p.rules...)
 }
 
-func (p *ruleList) appendLast(g generator, key string, values, notValues []string) {
+func (p *ruleList) appendLast(g generator, key string, values, notValues []string, caseInsensitive bool) {
 	if len(values) == 0 && len(notValues) == 0 {
 		return
 	}
 	r := &rule{
-		key:       key,
-		values:    values,
-		notValues: notValues,
-		g:         g,
+		key:           key,
+		values:        values,
+		notValues:     notValues,
+		caseInsensitive: caseInsensitive,
+		g:             g,
 	}
 
 	p.rules = append(p.rules, r)
