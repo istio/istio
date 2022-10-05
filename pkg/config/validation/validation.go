@@ -1349,7 +1349,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 
 	return appendValidation(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
-		validateLoadBalancer(policy.LoadBalancer),
+		validateLoadBalancer(policy.LoadBalancer, policy.OutlierDetection),
 		validateTLS(policy.Tls),
 		validatePortTrafficPolicies(policy.PortLevelSettings),
 		validateTunnelSettings(policy.Tunnel))
@@ -1443,7 +1443,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return
 }
 
-func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Validation) {
+func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *networking.OutlierDetection) (errs Validation) {
 	if settings == nil {
 		return
 	}
@@ -1470,7 +1470,7 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Valid
 			errs = appendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
 	}
-	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting, outlier); err != nil {
 		errs = appendValidation(errs, err)
 	}
 	return
@@ -1526,7 +1526,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 		} else {
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
-				validateLoadBalancer(t.LoadBalancer),
+				validateLoadBalancer(t.LoadBalancer, t.OutlierDetection),
 				validateTLS(t.Tls))
 		}
 	}
@@ -1716,7 +1716,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
-	if err := validateLocalityLbSetting(mesh.LocalityLbSetting); err != nil {
+	if err := validateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -3472,7 +3472,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outlier *networking.OutlierDetection) error {
 	if lb == nil {
 		return nil
 	}
@@ -3503,6 +3503,10 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 
 	if err := validateLocalities(srcLocalities); err != nil {
 		return err
+	}
+
+	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
+		return fmt.Errorf("outlier detection poicy must be provided for failover")
 	}
 
 	for _, failover := range lb.GetFailover() {
