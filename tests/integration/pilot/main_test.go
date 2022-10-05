@@ -55,12 +55,6 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Setup(istio.Setup(&i, nil)).
 		Setup(deployment.SetupSingleNamespace(&apps)).
-		Setup(func(t resource.Context) error {
-			gatewayConformanceInputs.Client = t.Clusters().Default()
-			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
-
-			return nil
-		}).
 		Run()
 }
 
