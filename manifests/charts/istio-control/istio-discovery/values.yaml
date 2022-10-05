@@ -338,7 +338,7 @@ global:
     # Expected values are: trace|debug|info|warning|error|critical|off
     logLevel: warning
 
-    #If set to true, istio-proxy container will have privileged securityContext
+    # If set to true, istio-proxy container will have privileged securityContext
     privileged: false
 
     # The number of successive failed probes before indicating readiness failure.
@@ -358,6 +358,9 @@ global:
       limits:
         cpu: 2000m
         memory: 1024Mi
+
+    # Set to `type: RuntimeDefault` to use the default profile if available.
+    seccompProfile: {}
 
     # Default port for Pilot agent health checks. A value of 0 will disable health checking.
     statusPort: 15020
