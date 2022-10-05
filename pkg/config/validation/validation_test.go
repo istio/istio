@@ -6634,149 +6634,149 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		outlier *networking.OutlierDetection
 		valid   bool
 	}{
-		// {
-		// 	name:    "valid mesh config without LocalityLoadBalancerSetting",
-		// 	in:      nil,
-		// 	outlier: nil,
-		// 	valid:   true,
-		// },
+		{
+			name:    "valid mesh config without LocalityLoadBalancerSetting",
+			in:      nil,
+			outlier: nil,
+			valid:   true,
+		},
 
-		// {
-		// 	name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
-		// 			{
-		// 				From: "a/b/c",
-		// 				To: map[string]uint32{
-		// 					"a/b/c": 80,
-		// 					"a/b1":  25,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
-		// 			{
-		// 				From: "a/b/c",
-		// 				To: map[string]uint32{
-		// 					"a/b/c": 80,
-		// 					"a/b1":  15,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
-		// 			{
-		// 				From: "a/b/c",
-		// 				To: map[string]uint32{
-		// 					"a/b/c": 0,
-		// 					"a/b1":  100,
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
-		// 			{
-		// 				From: "a/b/c",
-		// 				To: map[string]uint32{
-		// 					"a/b/c": 80,
-		// 					"a/b1":  20,
-		// 				},
-		// 			},
-		// 		},
-		// 		Failover: []*networking.LocalityLoadBalancerSetting_Failover{
-		// 			{
-		// 				From: "region1",
-		// 				To:   "region2",
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  25,
+						},
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  15,
+						},
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 0,
+							"a/b1":  100,
+						},
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  20,
+						},
+					},
+				},
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
 
-		// {
-		// 	name: "invalid failover src and dst have same region",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Failover: []*networking.LocalityLoadBalancerSetting_Failover{
-		// 			{
-		// 				From: "region1",
-		// 				To:   "region1",
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid failover src contain '*' wildcard",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Failover: []*networking.LocalityLoadBalancerSetting_Failover{
-		// 			{
-		// 				From: "*",
-		// 				To:   "region2",
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid failover dst contain '*' wildcard",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Failover: []*networking.LocalityLoadBalancerSetting_Failover{
-		// 			{
-		// 				From: "region1",
-		// 				To:   "*",
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid failover src contain '/' separator",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Failover: []*networking.LocalityLoadBalancerSetting_Failover{
-		// 			{
-		// 				From: "region1/zone1",
-		// 				To:   "region2",
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
-		// {
-		// 	name: "invalid failover dst contain '/' separator",
-		// 	in: &networking.LocalityLoadBalancerSetting{
-		// 		Failover: []*networking.LocalityLoadBalancerSetting_Failover{
-		// 			{
-		// 				From: "region1",
-		// 				To:   "region2/zone1",
-		// 			},
-		// 		},
-		// 	},
-		// 	outlier: &networking.OutlierDetection{},
-		// 	valid:   false,
-		// },
+		{
+			name: "invalid failover src and dst have same region",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region1",
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid failover src contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "*",
+						To:   "region2",
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid failover dst contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "*",
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid failover src contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1/zone1",
+						To:   "region2",
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
+		{
+			name: "invalid failover dst contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2/zone1",
+					},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			valid:   false,
+		},
 		{
 			name: "failover priority provided without outlier detection policy",
 			in: &networking.LocalityLoadBalancerSetting{
