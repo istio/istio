@@ -103,6 +103,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+replace sigs.k8s.io/gateway-api => github.com/istio/gateway-api v0.0.0-20221006194514-510afb48c902
+
 require github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 
 require (

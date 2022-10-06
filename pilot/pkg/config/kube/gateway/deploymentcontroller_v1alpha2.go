@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/pkg/log"
@@ -103,7 +102,7 @@ func NewDeploymentControllerV1Alpha2(client kube.Client) *DeploymentControllerV1
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
 	// the Gateway to the queue and reconcile the state of the world.
-	handler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
+	handler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, KubernetesGateway))
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
@@ -197,8 +196,8 @@ func (d *DeploymentControllerV1Alpha2) configureIstioGateway(log *istiolog.Scope
 
 	gws := &gateway.Gateway{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       gvk.KubernetesGateway.Kind,
-			APIVersion: gvk.KubernetesGateway.Group + "/" + gvk.KubernetesGateway.Version,
+			Kind:       KubernetesGateway.Kind,
+			APIVersion: KubernetesGateway.Group + "/" + KubernetesGateway.Version,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gw.Name,
@@ -270,3 +269,5 @@ type deploymentInputV1Alpha2 struct {
 	*gateway.Gateway
 	KubeVersion122 bool
 }
+
+var KubernetesGateway = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "Gateway"}
