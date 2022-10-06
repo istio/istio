@@ -53,7 +53,7 @@ func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource
 		Version: gv.Version,
 		Kind:    u.GetKind(),
 	}
-	found, ok := collections.All.FindByGroupVersionKind(gk)
+	found, ok := collections.All.FindByGroupVersionAliasesKind(gk)
 	if !ok {
 		return res, fmt.Errorf("unknown gvk: %v", gk)
 	}
@@ -74,7 +74,7 @@ func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
 		Version: gvk.Version,
 		Kind:    gvk.Kind,
 	}
-	found, ok := collections.All.FindByGroupVersionKind(gk)
+	found, ok := collections.All.FindByGroupVersionAliasesKind(gk)
 	if !ok {
 		return schema.GroupVersionResource{}, fmt.Errorf("unknown gvk: %v", gk)
 	}
