@@ -34,8 +34,8 @@ import (
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
-	serviceapisclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	serviceapisinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	mcsapisclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
@@ -82,7 +82,7 @@ func (c MockClient) Istio() istioclient.Interface {
 	panic("not used in mock")
 }
 
-func (c MockClient) GatewayAPI() serviceapisclient.Interface {
+func (c MockClient) GatewayAPI() gatewayapiclient.Interface {
 	panic("not used in mock")
 }
 
@@ -94,7 +94,7 @@ func (c MockClient) IstioInformer() istioinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 
-func (c MockClient) GatewayAPIInformer() serviceapisinformer.SharedInformerFactory {
+func (c MockClient) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 	panic("not used in mock")
 }
 

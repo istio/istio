@@ -110,7 +110,7 @@ type AllowedReferences struct {
 func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]*AllowedReferences {
 	res := map[Reference]map[Reference]*AllowedReferences{}
 	for _, obj := range r.ReferencePolicy {
-		rp := obj.Spec.(*k8s.ReferencePolicySpec)
+		rp := obj.Spec.(*k8s.ReferenceGrantSpec)
 		for _, from := range rp.From {
 			fromKey := Reference{
 				Namespace: from.Namespace,
@@ -316,7 +316,7 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 	return res
 }
 
-func toInternalParentReference(p k8s.ParentRef, localNamespace string) (parentKey, error) {
+func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
 	empty := parentKey{}
 	grp := defaultIfNil((*string)(p.Group), gvk.KubernetesGateway.Group)
 	kind := defaultIfNil((*string)(p.Kind), gvk.KubernetesGateway.Kind)
@@ -396,7 +396,7 @@ func referenceAllowed(p *parentInfo, routeKind config.GroupVersionKind, parentKi
 	return nil
 }
 
-func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*parentInfo, routeRefs []k8s.ParentRef,
+func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*parentInfo, routeRefs []k8s.ParentReference,
 	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string) []routeParentReference {
 	parentRefs := []routeParentReference{}
 	for _, ref := range routeRefs {
@@ -949,7 +949,7 @@ var meshGVK = config.GroupVersionKind{
 }
 
 // parentKey holds info about a parentRef (ie route binding to a Gateway). This is a mirror of
-// k8s.ParentRef in a form that can be stored in a map
+// k8s.ParentReference in a form that can be stored in a map
 type parentKey struct {
 	Kind config.GroupVersionKind
 	// Name is the original name of the resource (ie Kubernetes Gateway name)
@@ -958,7 +958,7 @@ type parentKey struct {
 	Namespace string
 }
 
-// parentInfo holds info about a "parent" - something that can be referenced as a ParentRef in the API.
+// parentInfo holds info about a "parent" - something that can be referenced as a ParentReference in the API.
 // Today, this is just Gateway and Mesh.
 type parentInfo struct {
 	// InternalName refers to the internal name we can reference it by. For example, "mesh" or "my-ns/my-gateway"
@@ -986,7 +986,7 @@ type routeParentReference struct {
 	// DeniedReason, if present, indicates why the reference was not valid
 	DeniedReason error
 	// OriginalReference contains the original reference
-	OriginalReference k8s.ParentRef
+	OriginalReference k8s.ParentReference
 }
 
 // referencesToInternalNames converts valid parent references to names that can be used in VirtualService
@@ -1337,7 +1337,7 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string, isAutoPassthrough boo
 			// This is required in the API, should be rejected in validation
 			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
-		cred, err := buildSecretReference(*tls.CertificateRefs[0], namespace)
+		cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -1366,7 +1366,7 @@ func objectReferenceString(ref k8s.SecretObjectReference) string {
 		emptyIfNil((*string)(ref.Namespace)))
 }
 
-func parentRefString(ref k8s.ParentRef) string {
+func parentRefString(ref k8s.ParentReference) string {
 	return fmt.Sprintf("%s/%s/%s/%s.%s",
 		emptyIfNil((*string)(ref.Group)),
 		emptyIfNil((*string)(ref.Kind)),

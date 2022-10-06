@@ -33,9 +33,10 @@ spec:
   http:
   - match:
     - uri:
-        prefix: "/"
+        prefix: /
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
           number: 80
+---

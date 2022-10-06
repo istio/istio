@@ -68,9 +68,10 @@ import (
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
-	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
@@ -907,7 +908,8 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		return err
 	}
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewDryRunVerifier(c.dynamic, c.discoveryClient)
+	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
+	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamFieldValidation)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -939,7 +941,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
-	opts.Validator, err = c.clientFactory.Validator(true)
+	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict, opts.FieldValidationVerifier)
 	if err != nil {
 		return err
 	}
@@ -996,7 +998,7 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 		WaitForDeletion:   true,
 		WarnClusterScope:  enforceNamespace,
 		DynamicClient:     c.dynamic,
-		DryRunVerifier:    resource.NewDryRunVerifier(c.dynamic, c.discoveryClient),
+		DryRunVerifier:    resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun),
 		IOStreams:         streams,
 	}
 	if dryRun {
@@ -1076,6 +1078,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
