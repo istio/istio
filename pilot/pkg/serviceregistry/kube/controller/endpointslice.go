@@ -231,8 +231,13 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
-		draining := e.Conditions.Ready != nil && e.Conditions.Serving != nil &&
-			*e.Conditions.Serving && !*e.Conditions.Ready
+		// Draining tracking is only enabled if persistent sessions is enabled.
+		// If we start using them for other features, this can be adjusted.
+		draining := features.PersistentSessionLabel.String() != "" &&
+				e.Conditions.Ready != nil &&
+				e.Conditions.Serving != nil &&
+				*e.Conditions.Serving &&
+				!*e.Conditions.Ready
 		if !features.SendUnhealthyEndpoints.Load() {
 			if !draining && e.Conditions.Ready != nil && !*e.Conditions.Ready {
 				// Ignore not ready endpoints. Draining endpoints are tracked, but not returned
@@ -349,7 +354,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					}
 
 					if port.Name == nil ||
-						svcPort.Name == *port.Name {
+							svcPort.Name == *port.Name {
 						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name, discoverabilityPolicy)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,

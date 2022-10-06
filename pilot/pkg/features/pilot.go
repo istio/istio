@@ -115,13 +115,13 @@ var (
 
 	PersistentSessionLabel = atomic.NewString(env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
-		"persistent-session",
+		"istio.io/persistent-session",
 		"If not empty, services with this label will use persistent sessions",
 	).Get())
 
 	DrainingLabel = atomic.NewString(env.Register(
 		"PILOT_DRAINING_LABEL",
-		"x-draining",
+		"istio.io/draining",
 		"If not empty, endpoints with the label value present will be sent with status DRAINING.",
 	).Get())
 
