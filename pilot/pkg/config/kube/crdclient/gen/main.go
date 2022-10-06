@@ -25,8 +25,10 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"text/template"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/env"
@@ -44,12 +46,23 @@ type ConfigData struct {
 	StatusAPIImport string
 	StatusKind      string
 
+	Gvk config.GroupVersionKind
+
 	// Support gateway-api, which require a custom client and the Spec suffix
-	Client     string
-	TypeSuffix string
+	Client string
+
+	ClientType string
 
 	Readonly bool
 	NoSpec   bool
+	TypeName string
+
+	// MultiVersion indicates this type supports multiple different versions in the cluster.
+	MultiVersion bool
+	// PreferredClientImport, only present if MultiVersion, indicates the ClientImport of the preferred version.
+	PreferredClientImport string
+	// Versions, only present if MultiVersion, indicates all possible ClientImports.
+	Versions []string
 }
 
 var (
@@ -58,31 +71,61 @@ var (
 )
 
 // MakeConfigData prepare data for code generation for the given schema.
-func MakeConfigData(schema collection.Schema) ConfigData {
-	out := ConfigData{
-		Namespaced:      !schema.Resource().IsClusterScoped(),
-		VariableName:    schema.VariableName(),
-		APIImport:       apiImport[schema.Resource().ProtoPackage()],
-		ClientImport:    clientGoImport[schema.Resource().ProtoPackage()],
-		ClientGroupPath: clientGoAccessPath[schema.Resource().ProtoPackage()],
-		ClientTypePath:  clientGoTypePath[schema.Resource().Plural()],
-		Kind:            schema.Resource().Kind(),
-		Client:          "ic",
-		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
-		StatusKind:      schema.Resource().StatusKind(),
+func MakeConfigData(schema collection.Schema) []ConfigData {
+	res := []ConfigData{}
+	_, gatewayAPI := GatewayAPITypes.Find(schema.Name().String())
+	primary := schema.Resource().GroupVersionKind()
+	gvks := []config.GroupVersionKind{primary}
+	if gatewayAPI {
+		gvks = schema.Resource().GroupVersionAliasKinds()
 	}
-	if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
-		out.Client = "sc"
-		out.TypeSuffix = "Spec"
-	} else if _, f := NonIstioTypes.Find(schema.Name().String()); f {
-		out.TypeSuffix = "Spec"
-		out.Readonly = true
+	for _, gvk := range gvks {
+		out := ConfigData{
+			Namespaced:      !schema.Resource().IsClusterScoped(),
+			VariableName:    schema.VariableName(),
+			APIImport:       apiImport[schema.Resource().ProtoPackage()],
+			ClientImport:    clientGoImport[schema.Resource().ProtoPackage()],
+			ClientGroupPath: clientGoAccessPath[gvk.GroupVersion()],
+			ClientTypePath:  clientGoTypePath[schema.Resource().Plural()],
+			Kind:            schema.Resource().Kind(),
+			Gvk:             gvk,
+			// MultiVersion relies on not only having two versions present, but those being typecast-able to one another.
+			// If we wanted to support, for example, Istio dual version types, we would need more robust (and expensive) conversion logic.
+			// However, there are no plans to remove Istio alpha types.
+			MultiVersion:    gatewayAPI && len(schema.Resource().GroupVersionAliasKinds()) > 1,
+			TypeName:        strings.ReplaceAll(strings.ReplaceAll(gvk.String(), "/", "_"), ".", "_"),
+			Client:          "ic",
+			StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
+			StatusKind:      schema.Resource().StatusKind(),
+		}
+		if out.MultiVersion {
+			// If we are a MultiVersion we need some extra info to handle the type casts
+			out.PreferredClientImport = strings.ReplaceAll(out.ClientImport, primary.Version, gvk.Version)
+			for _, v := range schema.Resource().GroupVersionAliasKinds() {
+				out.Versions = append(out.Versions, strings.ReplaceAll(out.ClientImport, primary.Version, v.Version))
+			}
+		}
+		out.ClientType = out.Kind
+		if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
+			out.Client = "sc"
+			out.ClientType += "Spec"
+		} else if _, f := NonIstioTypes.Find(schema.Name().String()); f {
+			out.ClientType += "Spec"
+			out.Readonly = true
+		}
+		if o, f := clientGoTypeOverrides[out.Kind]; f {
+			out.ClientType = o
+		}
+		if _, f := noSpec[schema.Resource().Plural()]; f {
+			out.NoSpec = true
+		}
+		log.Printf("Generating Istio type %s for %s/%s CRD\n", out.VariableName, out.APIImport, out.Kind)
+		if out.ClientGroupPath == "" || out.ClientTypePath == "" || out.ClientImport == "" {
+			log.Fatalf("invalid config %+v", out)
+		}
+		res = append(res, out)
 	}
-	if _, f := noSpec[schema.Resource().Plural()]; f {
-		out.NoSpec = true
-	}
-	log.Printf("Generating Istio type %s for %s/%s CRD\n", out.VariableName, out.APIImport, out.Kind)
-	return out
+	return res
 }
 
 var (
@@ -93,6 +136,7 @@ var (
 		"istio.io/api/security/v1beta1":                            "securityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":                          "telemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2":                    "gatewayv1alpha2",
+		"sigs.k8s.io/gateway-api/apis/v1beta1":                     "gatewayv1beta1",
 		"istio.io/api/meta/v1alpha1":                               "metav1alpha1",
 		"istio.io/api/extensions/v1alpha1":                         "extensionsv1alpha1",
 		"k8s.io/api/admissionregistration/v1":                      "admissionregistrationv1",
@@ -108,6 +152,7 @@ var (
 		"istio.io/api/security/v1beta1":                            "clientsecurityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":                          "clienttelemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2":                    "gatewayv1alpha2",
+		"sigs.k8s.io/gateway-api/apis/v1beta1":                     "gatewayv1beta1",
 		"istio.io/api/extensions/v1alpha1":                         "clientextensionsv1alpha1",
 		"k8s.io/api/admissionregistration/v1":                      "admissionregistrationv1",
 		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
@@ -117,17 +162,18 @@ var (
 	}
 	// Translates an api import path to the top level path in client-go
 	clientGoAccessPath = map[string]string{
-		"istio.io/api/networking/v1alpha3":                         "NetworkingV1alpha3",
-		"istio.io/api/networking/v1beta1":                          "NetworkingV1beta1",
-		"istio.io/api/security/v1beta1":                            "SecurityV1beta1",
-		"istio.io/api/telemetry/v1alpha1":                          "TelemetryV1alpha1",
-		"sigs.k8s.io/gateway-api/apis/v1alpha2":                    "GatewayV1alpha2",
-		"istio.io/api/extensions/v1alpha1":                         "ExtensionsV1alpha1",
-		"k8s.io/api/admissionregistration/v1":                      "admissionregistrationv1",
-		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
-		"k8s.io/api/apps/v1":                                       "appsv1",
-		"k8s.io/api/core/v1":                                       "corev1",
-		"k8s.io/api/extensions/v1beta1":                            "extensionsv1beta1",
+		"networking.istio.io/v1alpha3":       "NetworkingV1alpha3",
+		"networking.istio.io/v1beta1":        "NetworkingV1beta1",
+		"security.istio.io/v1beta1":          "SecurityV1beta1",
+		"telemetry.istio.io/v1alpha1":        "TelemetryV1alpha1",
+		"extensions.istio.io/v1alpha1":       "ExtensionsV1alpha1",
+		"gateway.networking.k8s.io/v1alpha2": "GatewayV1alpha2",
+		"gateway.networking.k8s.io/v1beta1":  "GatewayV1beta1",
+		"admissionregistration.k8s.io/v1":    "admissionregistrationv1",
+		"apiextensions.k8s.io/v1":            "apiextensionsv1",
+		"apps/v1":                            "appsv1",
+		"v1":                                 "corev1",
+		"extensions/v1beta1":                 "extensionsv1beta1",
 	}
 	// Translates a plural type name to the type path in client-go
 	// TODO: can we automatically derive this? I don't think we can, its internal to the kubegen
@@ -149,6 +195,7 @@ var (
 		"tcproutes":                     "TCPRoutes",
 		"tlsroutes":                     "TLSRoutes",
 		"referencepolicies":             "ReferencePolicies",
+		"referencegrants":               "ReferenceGrants",
 		"telemetries":                   "Telemetries",
 		"wasmplugins":                   "WasmPlugins",
 		"mutatingwebhookconfigurations": "MutatingWebhookConfigurations",
@@ -162,6 +209,9 @@ var (
 		"nodes":                         "Nodes",
 		"secrets":                       "Secrets",
 		"ingresses":                     "Ingresses",
+	}
+	clientGoTypeOverrides = map[string]string{
+		"ReferencePolicy": "ReferenceGrantSpec",
 	}
 
 	noSpec = map[string]struct{}{
@@ -183,10 +233,7 @@ func main() {
 	typeList := []ConfigData{}
 	for _, s := range collections.PilotGatewayAPI.Union(collections.Kube).All() {
 		c := MakeConfigData(s)
-		if c.ClientGroupPath == "" || c.ClientTypePath == "" || c.ClientImport == "" {
-			log.Fatalf("invalid config %+v", c)
-		}
-		typeList = append(typeList, c)
+		typeList = append(typeList, c...)
 	}
 	var buffer bytes.Buffer
 	if err := tmpl.Execute(&buffer, typeList); err != nil {

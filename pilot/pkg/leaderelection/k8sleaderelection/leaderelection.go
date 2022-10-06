@@ -50,6 +50,7 @@ limitations under the License.
 // DISCLAIMER: this is an alpha API. This library will likely change significantly
 // or even be removed entirely in subsequent releases. Depend on this API at
 // your own risk.
+// nolint
 package k8sleaderelection
 
 import (
@@ -181,7 +182,7 @@ type LeaderElectionConfig struct {
 // lifecycle events of the LeaderElector. These are invoked asynchronously.
 //
 // possible future callbacks:
-//  * OnChallenge()
+//   - OnChallenge()
 type LeaderCallbacks struct {
 	// OnStartedLeading is called when a LeaderElector client starts leading
 	OnStartedLeading func(context.Context)

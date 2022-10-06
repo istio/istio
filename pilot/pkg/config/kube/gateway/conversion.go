@@ -118,7 +118,7 @@ type AllowedReferences struct {
 func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]*AllowedReferences {
 	res := map[Reference]map[Reference]*AllowedReferences{}
 	for _, obj := range r.ReferencePolicy {
-		rp := obj.Spec.(*k8s.ReferencePolicySpec)
+		rp := obj.Spec.(*k8s.ReferenceGrantSpec)
 		for _, from := range rp.From {
 			fromKey := Reference{
 				Namespace: from.Namespace,
@@ -1318,7 +1318,8 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 // Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
 // Mixed hostname and IP - doesn't make sense; user should define the IP in service
 // NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
-//   which users can add to the Gateway.
+//
+//	which users can add to the Gateway.
 func isManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true
@@ -1467,7 +1468,7 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string, isAutoPassthrough boo
 			// This is required in the API, should be rejected in validation
 			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
-		cred, err := buildSecretReference(*tls.CertificateRefs[0], namespace)
+		cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
 		if err != nil {
 			return nil, err
 		}

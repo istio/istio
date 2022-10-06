@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/test/util"
@@ -30,31 +30,31 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-func TestConfigureIstioGateway(t *testing.T) {
+func TestConfigureIstioGatewayV1Alpha2(t *testing.T) {
 	tests := []struct {
 		name string
-		gw   v1beta1.Gateway
+		gw   v1alpha2.Gateway
 	}{
 		{
 			"simple",
-			v1beta1.Gateway{
+			v1alpha2.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Spec: v1beta1.GatewaySpec{},
+				Spec: v1alpha2.GatewaySpec{},
 			},
 		},
 		{
 			"manual-ip",
-			v1beta1.Gateway{
+			v1alpha2.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Spec: v1beta1.GatewaySpec{
-					Addresses: []v1beta1.GatewayAddress{{
-						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
+				Spec: v1alpha2.GatewaySpec{
+					Addresses: []v1alpha2.GatewayAddress{{
+						Type:  func() *v1alpha2.AddressType { x := v1alpha2.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
 					}},
 				},
@@ -62,32 +62,32 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			"cluster-ip",
-			v1beta1.Gateway{
+			v1alpha2.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
 					Annotations: map[string]string{"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP)},
 				},
-				Spec: v1beta1.GatewaySpec{
-					Listeners: []v1beta1.Listener{{
+				Spec: v1alpha2.GatewaySpec{
+					Listeners: []v1alpha2.Listener{{
 						Name: "http",
-						Port: v1beta1.PortNumber(80),
+						Port: v1alpha2.PortNumber(80),
 					}},
 				},
 			},
 		},
 		{
 			"multinetwork",
-			v1beta1.Gateway{
+			v1alpha2.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 					Labels:    map[string]string{"topology.istio.io/network": "network-1"},
 				},
-				Spec: v1beta1.GatewaySpec{
-					Listeners: []v1beta1.Listener{{
+				Spec: v1alpha2.GatewaySpec{
+					Listeners: []v1alpha2.Listener{{
 						Name: "http",
-						Port: v1beta1.PortNumber(80),
+						Port: v1alpha2.PortNumber(80),
 					}},
 				},
 			},
@@ -96,7 +96,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
-			d := &DeploymentController{
+			d := &DeploymentControllerV1Alpha2{
 				client:    kube.NewFakeClient(),
 				templates: processTemplates(),
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {

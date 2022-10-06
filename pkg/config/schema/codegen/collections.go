@@ -68,6 +68,13 @@ var (
 			Kind: "{{ .Resource.Kind }}",
 			Plural: "{{ .Resource.Plural }}",
 			Version: "{{ .Resource.Version }}",
+			{{- if .Resource.VersionAliases }}
+            VersionAliases: []string{
+				{{- range $alias := .Resource.VersionAliases}}
+			        "{{$alias}}",
+		 	    {{- end}}
+			},
+			{{- end}}
 			Proto: "{{ .Resource.Proto }}",
 			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
 			ReflectType: {{ .Type }},
@@ -154,7 +161,7 @@ type colEntry struct {
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
 	customNames := map[string]string{
-		"k8s/gateway_api/v1alpha2/gateways": "KubernetesGateway",
+		"k8s/gateway_api/v1beta1/gateways": "KubernetesGateway",
 	}
 	for _, c := range m.Collections {
 		r := m.FindResourceForGroupKind(c.Group, c.Kind)
