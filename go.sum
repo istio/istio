@@ -1129,8 +1129,6 @@ github.com/hashicorp/serf v0.9.5/go.mod h1:UWDWwZeL5cuWDJdl0C6wrvrUwEqtQ4ZKBKKEN
 github.com/hashicorp/serf v0.9.6/go.mod h1:TXZNMjZQijwlDvp+r0b63xZ45H7JmCmgg4gpTwn9UV4=
 github.com/hashicorp/serf v0.9.7/go.mod h1:TXZNMjZQijwlDvp+r0b63xZ45H7JmCmgg4gpTwn9UV4=
 github.com/hashicorp/uuid v0.0.0-20160311170451-ebb0a03e909c/go.mod h1:fHzc09UnyJyqyW+bFuq864eh+wC7dj65aXmXLRe5to0=
-github.com/howardjohn/gateway-api v0.0.0-20221005154653-a3f8431575ae h1:QfFTsW5IeWsr4EDqEOPJDMCgeRWuqzQKitMVEoJxH2Y=
-github.com/howardjohn/gateway-api v0.0.0-20221005154653-a3f8431575ae/go.mod h1:W3V6rE55Qx6C+llroEEzsRkmDcmoPxgm+uwMCR2MUrs=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huandu/xstrings v1.0.0/go.mod h1:4qWG/gcEcfX4z/mBDHJ++3ReCw9ibxbsNJbcucJdbSo=
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
@@ -1148,6 +1146,8 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/intel/goresctrl v0.2.0/go.mod h1:+CZdzouYFn5EsxgqAQTEzMfwKwuc0fVdMrT9FCCAVRQ=
 github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
 github.com/ishidawataru/sctp v0.0.0-20210226210310-f2269e66cdee/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
+github.com/istio/gateway-api v0.0.0-20221006194514-510afb48c902 h1:HO3PWUQcKjEV7P8I9qufLXw0m8BvIcbOXAfJIRLba2Q=
+github.com/istio/gateway-api v0.0.0-20221006194514-510afb48c902/go.mod h1:W3V6rE55Qx6C+llroEEzsRkmDcmoPxgm+uwMCR2MUrs=
 github.com/j-keck/arping v0.0.0-20160618110441-2cf9dc699c56/go.mod h1:ymszkNOg6tORTn+6F6j+Jc8TOr5osrynvN6ivFWZ2GA=
 github.com/j-keck/arping v1.0.2/go.mod h1:aJbELhR92bSk7tp79AWM/ftfc90EfEi2bQJrbBFOsPw=
 github.com/jaguilar/vt100 v0.0.0-20150826170717-2703a27b14ea/go.mod h1:QMdK4dGB3YhEW2BmA1wgGpPYI3HZy/5gD705PXKUVSg=
