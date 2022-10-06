@@ -27,13 +27,13 @@ import (
 
 func TestGenerator(t *testing.T) {
 	cases := []struct {
-		name          string
-		g             generator
-		key           string
-		value         string
-		forTCP        bool
+		name            string
+		g               generator
+		key             string
+		value           string
+		forTCP          bool
 		caseInsensitive bool
-		want          any
+		want            any
 	}{
 		{
 			name:  "destIPGenerator",
@@ -256,9 +256,9 @@ func TestGenerator(t *testing.T) {
           name: :authority`),
 		},
 		{
-			name:          "pathGenerator",
-			g:             pathGenerator{},
-			value:         "/abc",
+			name:            "pathGenerator",
+			g:               pathGenerator{},
+			value:           "/abc",
 			caseInsensitive: false,
 			want: yamlPermission(t, `
          urlPath:

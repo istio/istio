@@ -6370,6 +6370,8 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                              ignorePathCase:
+                                type: boolean
                               methods:
                                 description: Optional.
                                 items:

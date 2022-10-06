@@ -53,11 +53,11 @@ const (
 )
 
 type rule struct {
-	key           string
-	values        []string
-	notValues     []string
+	key             string
+	values          []string
+	notValues       []string
 	caseInsensitive bool
-	g             generator
+	g               generator
 }
 
 type ruleList struct {
@@ -310,11 +310,11 @@ func (p *ruleList) insertFront(g generator, key string, values, notValues []stri
 		return
 	}
 	r := &rule{
-		key:           key,
-		values:        values,
-		notValues:     notValues,
+		key:             key,
+		values:          values,
+		notValues:       notValues,
 		caseInsensitive: caseInsensitive,
-		g:             g,
+		g:               g,
 	}
 
 	p.rules = append([]*rule{r}, p.rules...)
@@ -325,11 +325,11 @@ func (p *ruleList) appendLast(g generator, key string, values, notValues []strin
 		return
 	}
 	r := &rule{
-		key:           key,
-		values:        values,
-		notValues:     notValues,
+		key:             key,
+		values:          values,
+		notValues:       notValues,
 		caseInsensitive: caseInsensitive,
-		g:             g,
+		g:               g,
 	}
 
 	p.rules = append(p.rules, r)
