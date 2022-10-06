@@ -91,8 +91,8 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 	}
 	c := &cobra.Command{
 		Use:   "create-remote-secret",
-		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
-		Example: `  # Create a secret to access cluster c0's apiserver and install it in cluster c1.
+		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes api-servers",
+		Example: `  # Create a secret to access cluster c0's api-server and install it in cluster c1.
   istioctl --kubeconfig=c0.yaml create-remote-secret --name c0 \
     | kubectl --kubeconfig=c1.yaml apply -f -
 
@@ -715,7 +715,7 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient, env Envi
 	}
 	tokenSecret, err := getServiceAccountSecret(client, opt)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
+		return nil, nil, fmt.Errorf("could not get access token to read resources from local kube-api-server: %v", err)
 	}
 
 	var server string
@@ -752,7 +752,7 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient, env Envi
 }
 
 // CreateRemoteSecret creates a remote secret with credentials of the specified service account.
-// This is useful for providing a cluster access to a remote apiserver.
+// This is useful for providing a cluster access to a remote api server.
 func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, Warning, error) {
 	client, err := env.CreateClient(opt.Context)
 	if err != nil {
@@ -765,7 +765,7 @@ func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, Warni
 	}
 
 	// convert any binary data to the string equivalent for easier review. The
-	// kube-apiserver will convert this to binary before it persists it to storage.
+	// kube-api server will convert this to binary before it persists it to storage.
 	remoteSecret.StringData = make(map[string]string, len(remoteSecret.Data))
 	for k, v := range remoteSecret.Data {
 		remoteSecret.StringData[k] = string(v)

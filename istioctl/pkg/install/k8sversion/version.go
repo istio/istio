@@ -55,7 +55,7 @@ func extractKubernetesVersion(versionInfo *version.Info) (int, error) {
 }
 
 // IsK8VersionSupported checks minimum supported Kubernetes version for Istio.
-// If the K8s version is not atleast the `MinK8SVersion`, it logs a message warning the user that they
+// If the K8s version is not at least the `MinK8SVersion`, it logs a message warning the user that they
 // may experience problems if they proceed with the install.
 func IsK8VersionSupported(c kube.Client, l clog.Logger) error {
 	serverVersion, err := c.GetKubernetesVersion()
