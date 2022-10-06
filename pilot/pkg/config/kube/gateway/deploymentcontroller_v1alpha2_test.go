@@ -115,7 +115,7 @@ func TestConfigureIstioGatewayV1Alpha2(t *testing.T) {
 			}
 
 			resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
-			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
+			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", "alpha-"+tt.name+".yaml"))
 		})
 	}
 }
