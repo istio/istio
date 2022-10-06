@@ -28,6 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
@@ -125,16 +126,14 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 		proxy := node(nil)
 		listenerFilters := NewListenerBuilder(proxy, push).buildInboundNetworkFilters(fcc)
 
-		rbacFilterFound := false
 		RBACTCPFilterName := "envoy.filters.network.rbac"
-
-		for _, filter := range listenerFilters {
-			if rbacFilterFound && filter.GetName() == xdsfilters.MxFilterName {
-				t.Fatalf("unexpected: found %v filter before %v filter", RBACTCPFilterName, xdsfilters.MxFilterName)
-			} else if filter.GetName() == RBACTCPFilterName {
-				rbacFilterFound = true
-			}
+		listenerFilterChain := &listener.FilterChain{
+			Filters: listenerFilters,
 		}
+		listenertest.VerifyFilterChain(t, listenerFilterChain, listenertest.FilterChainTest{
+			NetworkFilters: []string{xdsfilters.MxFilterName, RBACTCPFilterName, wellknown.TCPProxy},
+			TotalMatch:     true,
+		})
 	})
 }
 
