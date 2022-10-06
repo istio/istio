@@ -286,13 +286,13 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		return
 	}
 
-	store, err = arbitraryclient.NewForSchemas(context.Background(), c, revision,
+	arbitraryStore, err := arbitraryclient.NewForSchemas(context.Background(), c, revision,
 		"cluster.local", sa.kubeResources.Remove(collections.PilotGatewayAPI.All()...))
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
 		return
 	}
-	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	err = arbitraryStore.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		// failed resources will never be synced, which causes the process to hang indefinitely.
 		// better to fail fast, and get a good idea for the failure.
 		scope.Analysis.Errorf("Failed to watch arbitrary resource for analysis: %s", err)
@@ -302,7 +302,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		return
 	}
 	sa.clientsToRun = append(sa.clientsToRun, c)
-	sa.stores = append(sa.stores, store)
+	sa.stores = append(sa.stores, arbitraryStore)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {

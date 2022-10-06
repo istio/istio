@@ -255,11 +255,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 	m := obj
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: config.GroupVersionKind{
-				Group:   m.GetObjectKind().GroupVersionKind().Group,
-				Version: m.GetObjectKind().GroupVersionKind().Version,
-				Kind:    m.GetObjectKind().GroupVersionKind().Kind,
-			},
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			UID:               string(m.GetUID()),
 			Name:              m.GetName(),
 			Namespace:         m.GetNamespace(),
