@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -252,6 +253,15 @@ func runCRUDTest(t *testing.T, c collection.Schema, store model.ConfigStoreContr
 		t.Fatal(err)
 	}
 
+	events := atomic.NewInt32(0)
+	gvk := c.Resource().GroupVersionKind()
+	store.RegisterEventHandler(gvk, func(c2 config.Config, c config.Config, event model.Event) {
+		if c.GroupVersionKind != gvk {
+			t.Fatalf("Unexpected GVK %v %v", c.GroupVersionKind, gvk)
+		}
+		events.Inc()
+	})
+
 	if _, err := store.Create(config.Config{
 		Meta: configMeta,
 		Spec: pb,
@@ -346,6 +356,10 @@ func runCRUDTest(t *testing.T, c collection.Schema, store model.ConfigStoreContr
 		}
 		return nil
 	}, timeout)
+
+	retry.UntilOrFail(t, func() bool {
+		return events.Load() > 2
+	})
 }
 
 func createCRD(t test.Failer, client kube.Client, r resource.Schema, versions sets.Set) {
