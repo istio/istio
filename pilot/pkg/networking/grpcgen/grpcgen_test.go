@@ -353,7 +353,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 		Attributes: model.ServiceAttributes{
 			Name:      svcname,
 			Namespace: ns,
-			Labels:    map[string]string{features.PersistentSessionLabel.String(): "test-cookie"},
+			Labels:    map[string]string{features.PersistentSessionLabel: "test-cookie"},
 		},
 		Hostname:       host.Name(hn),
 		DefaultAddress: "127.0.5.2",

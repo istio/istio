@@ -235,6 +235,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		draining := features.PersistentSessionLabel != "" &&
+			svc != nil &&
 			svc.Attributes.Labels != nil &&
 			svc.Attributes.Labels[features.PersistentSessionLabel] != "" &&
 			e.Conditions.Ready != nil &&
