@@ -293,25 +293,27 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					continue
 				}
 				filters := supportedFilters
-				sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel.String()]
-				if sessionCookie != "" {
-					filters = append(filters, &hcm.HttpFilter{
-						Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
-						ConfigType: &hcm.HttpFilter_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&stateful_sessionv3.StatefulSession{
-								SessionState: &core.TypedExtensionConfig{
-									Name: "envoy.http.stateful_session.cookie",
-									TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
-										Cookie: &httpv3.Cookie{
-											Path: "/",
-											Ttl:  &durationpb.Duration{Seconds: 120},
-											Name: sessionCookie,
-										},
-									}),
-								},
-							}),
-						},
-					})
+				if features.PersistentSessionLabel != "" {
+					sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel]
+					if sessionCookie != "" {
+						filters = append(filters, &hcm.HttpFilter{
+							Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
+							ConfigType: &hcm.HttpFilter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&stateful_sessionv3.StatefulSession{
+									SessionState: &core.TypedExtensionConfig{
+										Name: "envoy.http.stateful_session.cookie",
+										TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+											Cookie: &httpv3.Cookie{
+												Path: "/",
+												Ttl:  &durationpb.Duration{Seconds: 120},
+												Name: sessionCookie,
+											},
+										}),
+									},
+								}),
+							},
+						})
+					}
 				}
 
 				ll := &listener.Listener{
