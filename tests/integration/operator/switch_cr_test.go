@@ -126,6 +126,7 @@ func TestController(t *testing.T) {
 			scopes.Framework.Infof("checking operator remove command")
 			removeCmd := []string{
 				"operator", "remove",
+				"--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, removeCmd)
 
