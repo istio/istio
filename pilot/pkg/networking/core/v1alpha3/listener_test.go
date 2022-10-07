@@ -3001,13 +3001,12 @@ func TestFilterChainMatchEqual(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
-
 	const tcpPort = 79
 	services := []*model.Service{
 		{
-			CreationTime:         tnow.Add(1 * time.Second),
-			Hostname:             host.Name("test1.com"),
-			DefaultAddress:       wildcardIPv4,
+			CreationTime:             tnow.Add(1 * time.Second),
+			Hostname:                 host.Name("test1.com"),
+			DefaultAddress:           wildcardIPv4,
 			AutoAllocatedIPv4Address: "240.240.0.100",
 			Ports: model.PortList{
 				&model.Port{
@@ -3087,9 +3086,7 @@ func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			listeners := buildOutboundListeners(t, proxy, tt.sidecar, nil, services...)
-			t.Log(xdstest.DumpList(t, listeners))
 
 			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
@@ -3108,9 +3105,7 @@ func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
 						t.Errorf("Expected %d listeners on service port 79, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
 					}
 				}
-
 			}
 		})
 	}
 }
-
