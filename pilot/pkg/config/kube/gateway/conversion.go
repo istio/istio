@@ -1614,8 +1614,13 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 			out.Mode = istio.ServerTLSSettings_MUTUAL
 		}
 		if len(tls.CertificateRefs) != 1 {
-			// This is required in the API, should be rejected in validation
-			return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+			if out.Mode == istio.ServerTLSSettings_MUTUAL && tls.CertificateRefs == nil {
+				// No certs -> use gateway's certs (i.e., ISTIO_MUTUAL mode)
+				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
+			} else {
+				// This is required in the API, should be rejected in validation
+				return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+			}
 		}
 		cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
 		if err != nil {
