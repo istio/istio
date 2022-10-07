@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+issue:
+  - 39903
+
+releaseNotes:
+  - |
+    **Fixed** an issue that allow multiple regexes with same tag name.
