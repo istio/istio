@@ -185,6 +185,9 @@ type AgentOptions struct {
 	IstiodSAN string
 
 	WASMOptions wasm.Options
+
+	// Prevents the SDS Server socket from being created by Istio
+	DisableSdsServer bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -330,18 +333,22 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
-	socketExists, err := checkSocket(ctx, security.WorkloadIdentitySocketPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
-	}
-
-	if socketExists {
-		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
+	if a.cfg.DisableSdsServer {
+		log.Info("SDS Server disabled. Not starting Istio SDS Server.")
 	} else {
-		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
-		err = a.initSdsServer()
+		socketExists, err := checkSocket(ctx, security.WorkloadIdentitySocketPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to start SDS server: %v", err)
+			return nil, fmt.Errorf("failed to check SDS socket: %v", err)
+		}
+
+		if socketExists {
+			log.Info("Workload SDS socket found. Istio SDS Server won't be started")
+		} else {
+			log.Info("Workload SDS socket not found. Starting Istio SDS Server")
+			err = a.initSdsServer()
+			if err != nil {
+				return nil, fmt.Errorf("failed to start SDS server: %v", err)
+			}
 		}
 	}
 	a.xdsProxy, err = initXdsProxy(a)
