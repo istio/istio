@@ -273,7 +273,7 @@ func (cl *Client) SyncAll() {
 	cl.beginSync.Store(true)
 	wg := sync.WaitGroup{}
 	for _, h := range cl.allKinds() {
-		handlers := cl.handlers[h.clusterGvk]
+		handlers := cl.handlers[h.preferredGvk]
 		if len(handlers) == 0 {
 			continue
 		}
@@ -288,7 +288,7 @@ func (cl *Client) SyncAll() {
 					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
-				currConfig := TranslateObject(currItem, h.clusterGvk, h.client.domainSuffix)
+				currConfig := TranslateObject(currItem, h.preferredGvk, h.client.domainSuffix)
 				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
 				}
