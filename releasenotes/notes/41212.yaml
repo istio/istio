@@ -6,4 +6,4 @@ issue:
 - 38573
 releaseNotes:
 - |
-  **Fixed** an issue missing service name when configuration datadog with Telemetry API.
+  **Fixed** an issue with missing `service_name` in Telemetry API when configuring datadog tracing provider.
