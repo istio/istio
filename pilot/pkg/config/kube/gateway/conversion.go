@@ -1621,23 +1621,24 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 				// This is required in the API, should be rejected in validation
 				return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 			}
-		}
-		cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
-		if err != nil {
-			return nil, err
-		}
-		credNs := defaultIfNil((*string)(tls.CertificateRefs[0].Namespace), namespace)
-		sameNamespace := credNs == namespace
-		if !sameNamespace && !refs.SecretAllowed(credentials.ToResourceName(cred), namespace) {
-			return nil, &ConfigError{
-				Reason: InvalidListenerRefNotPermitted,
-				Message: fmt.Sprintf(
-					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-					tls.CertificateRefs[0].Name, credNs, namespace,
-				),
+		} else {
+			cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
+			if err != nil {
+				return nil, err
 			}
+			credNs := defaultIfNil((*string)(tls.CertificateRefs[0].Namespace), namespace)
+			sameNamespace := credNs == namespace
+			if !sameNamespace && !refs.SecretAllowed(credentials.ToResourceName(cred), namespace) {
+				return nil, &ConfigError{
+					Reason: InvalidListenerRefNotPermitted,
+					Message: fmt.Sprintf(
+						"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+						tls.CertificateRefs[0].Name, credNs, namespace,
+					),
+				}
+			}
+			out.CredentialName = cred
 		}
-		out.CredentialName = cred
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
