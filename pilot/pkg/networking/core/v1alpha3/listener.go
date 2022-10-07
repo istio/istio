@@ -116,7 +116,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	builder.patchListeners()
 	l := builder.getListeners()
-	if node.EnableHBONE() {
+	if node.EnableHBONE() && !node.IsWaypointProxy() {
 		l = append(l, outboundTunnelListener(push, node))
 	}
 	return l

@@ -109,6 +109,9 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/proxy
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: PROXY_CONFIG
+          value: |
+                 {{ protoToJSON .ProxyConfig }}
         image: {{.Image}}
         {{with .ImagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         name: istio-proxy

@@ -29,6 +29,7 @@ import (
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -183,6 +184,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			UID:            string(gw.UID),
 			ServiceAccount: k,
 			Cluster:        rc.cluster.String(),
+			ProxyConfig:    rc.injectConfig().MeshConfig.GetDefaultConfig(),
 		}
 		proxyDeploy, err := rc.RenderDeploymentMerged(input)
 		if err != nil {
@@ -308,4 +310,5 @@ type MergedInput struct {
 	Cluster         string
 	Image           string
 	ImagePullPolicy string
+	ProxyConfig     *meshapi.ProxyConfig
 }
