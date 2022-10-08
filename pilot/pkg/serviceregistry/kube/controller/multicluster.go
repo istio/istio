@@ -287,7 +287,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" {
-			leaderelection.
+			election := leaderelection.
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.SidecarInjectorController, m.revision, true, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
@@ -303,7 +303,8 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 						client.RunAndWait(clusterStopCh)
 						patcher.Run(leaderStop)
 					}
-				}).Run(clusterStopCh)
+				})
+			go election.Run(clusterStopCh)
 		}
 	}
 
