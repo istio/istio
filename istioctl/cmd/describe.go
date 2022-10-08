@@ -155,16 +155,14 @@ the configuration objects that affect that pod.`,
 			}
 
 			// render PeerAuthentication info
-
 			if !inMesh {
 				if !ignoreUnmeshed {
 					fmt.Fprintf(writer, "--------------------\n")
 					fmt.Fprintf(writer, "No other Istio configurations to be described since the pod is not in mesh.\n")
 				}
 				return nil
-			} else {
-				fmt.Fprintf(writer, "--------------------\n")
 			}
+			fmt.Fprintf(writer, "--------------------\n")
 
 			err = describePeerAuthentication(writer, kubeClient, configClient, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
@@ -1136,8 +1134,7 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod,
-	matchingServices []v1.Service, podsLabels []k8s_labels.Set, inMesh bool) error {
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set, inMesh bool) error { // nolint: lll
 	cd := configdump.Wrapper{}
 	if inMesh {
 		byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
