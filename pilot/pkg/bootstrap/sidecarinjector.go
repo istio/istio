@@ -90,7 +90,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// operator or CI/CD
 	if features.InjectionWebhookConfigName != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			elector := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.SidecarInjectorController, args.Revision, s.kubeClient).
+			electionID := leaderelection.SidecarInjectorController + "-" + args.Revision
+			elector := leaderelection.NewLeaderElection(args.Namespace, args.PodName, electionID, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					// update webhook configuration by watching the cabundle
 					patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, s.istiodCertBundleWatcher)
