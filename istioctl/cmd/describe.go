@@ -113,7 +113,7 @@ the configuration objects that affect that pod.`,
 			annotations := k8s_labels.Set(pod.ObjectMeta.Annotations)
 			opts.Revision = getRevisionFromPodAnnotation(annotations)
 
-			printPod(writer, pod, opts.Revision)
+			inMesh := printPod(writer, pod, opts.Revision)
 
 			svcs, err := client.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
@@ -149,13 +149,23 @@ the configuration objects that affect that pod.`,
 
 			podsLabels := []k8s_labels.Set{k8s_labels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels, inMesh)
 			if err != nil {
 				return err
 			}
 
 			// render PeerAuthentication info
-			fmt.Fprintf(writer, "--------------------\n")
+
+			if !inMesh {
+				if !ignoreUnmeshed {
+					fmt.Fprintf(writer, "--------------------\n")
+					fmt.Fprintf(writer, "No other Istio configurations to be described since the pod is not in mesh.\n")
+				}
+				return nil
+			} else {
+				fmt.Fprintf(writer, "--------------------\n")
+			}
+
 			err = describePeerAuthentication(writer, kubeClient, configClient, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
@@ -419,7 +429,7 @@ func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
 	return strings.TrimSpace(retval)
 }
 
-func printPod(writer io.Writer, pod *v1.Pod, revision string) {
+func printPod(writer io.Writer, pod *v1.Pod, revision string) (inMesh bool) {
 	ports := []string{}
 	UserID := int64(1337)
 	for _, container := range pod.Spec.Containers {
@@ -486,6 +496,7 @@ func printPod(writer io.Writer, pod *v1.Pod, revision string) {
 	if !ok || version == "" {
 		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
 	}
+	return true
 }
 
 func kname(meta metav1.ObjectMeta) string {
@@ -1107,7 +1118,8 @@ the configuration objects that affect that service.`,
 			// Only consider the service invoked with this command, not other services that might select the pod
 			svcs := []v1.Service{*svc}
 
-			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels)
+			// Only pod which has the ready istio-proxy container will be described.
+			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels, true)
 			if err != nil {
 				return err
 			}
@@ -1124,20 +1136,19 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
-	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
-	if err != nil {
-		if ignoreUnmeshed {
-			return nil
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod,
+	matchingServices []v1.Service, podsLabels []k8s_labels.Set, inMesh bool) error {
+	cd := configdump.Wrapper{}
+	if inMesh {
+		byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
+		if err != nil {
+			return fmt.Errorf("failed to execute command on sidecar: %v", err)
 		}
 
-		return fmt.Errorf("failed to execute command on sidecar: %v", err)
-	}
-
-	cd := configdump.Wrapper{}
-	err = cd.UnmarshalJSON(byConfigDump)
-	if err != nil {
-		return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
+		err = cd.UnmarshalJSON(byConfigDump)
+		if err != nil {
+			return fmt.Errorf("can't parse sidecar config_dump for %v: %v", err, pod.ObjectMeta.Name)
+		}
 	}
 
 	for row, svc := range matchingServices {
@@ -1145,6 +1156,13 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 			fmt.Fprintf(writer, "--------------------\n")
 		}
 		printService(writer, svc, pod)
+
+		if !ignoreUnmeshed {
+			fmt.Fprintf(writer, "WARNING: no Istio policies to describe since the pod is not in mesh\n")
+		}
+		if !inMesh {
+			continue
+		}
 
 		for _, port := range svc.Spec.Ports {
 			matchingSubsets := []string{}
