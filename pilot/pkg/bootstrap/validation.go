@@ -38,12 +38,13 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 
 	if features.ValidationWebhookConfigName != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, args.Revision, s.kubeClient).
+			elector := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting validation controller")
 					controller.NewValidatingWebhookController(
 						s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(leaderStop)
-				}).Run(stop)
+				})
+			go elector.Run(stop)
 			return nil
 		})
 	}
