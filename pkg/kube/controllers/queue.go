@@ -120,6 +120,12 @@ func (q Queue) Run(stop <-chan struct{}) {
 	q.log.Infof("stopped")
 }
 
+// ShutDown will cause q to ignore all new items added to it and
+// immediately instruct the worker goroutines to exit.
+func (q Queue) ShutDown() {
+	q.queue.ShutDown()
+}
+
 // syncSignal defines a dummy signal that is enqueued when .Run() is called. This allows us to detect
 // when we have processed all items added to the queue prior to Run().
 type syncSignal struct{}

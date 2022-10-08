@@ -67,6 +67,7 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 }
 
 func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
+	defer p.queue.ShutDown()
 	if !kube.WaitForCacheSync(stopCh, p.webhookInformer.HasSynced) {
 		log.Errorf("failed to sync default watcher")
 		return
