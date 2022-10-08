@@ -246,7 +246,7 @@ func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, podLabels, nsLab
 			podMatchedLabels = append(podMatchedLabels, extractMatchLabels(wh.ObjectSelector)...)
 		}
 		if isDeactived {
-			return fmt.Sprintf("The injection webhook is deactivated, and will never match labels.")
+			return "The injection webhook is deactivated, and will never match labels."
 		}
 		return fmt.Sprintf("No matching namespace labels (%s) "+
 			"or pod labels (%s)", strings.Join(nsMatchedLabels, ", "), strings.Join(podMatchedLabels, ", "))
