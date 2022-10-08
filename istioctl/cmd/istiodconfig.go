@@ -457,7 +457,8 @@ func istiodLogCmd() *cobra.Command {
 			return nil
 		},
 	}
-	logCmd.PersistentFlags().BoolVarP(&istiodReset, "reset", "r", istiodReset, "Reset levels to default value. (info)")
+	opts.AttachControlPlaneFlags(logCmd)
+	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset levels to default value. (info)")
 	logCmd.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	logCmd.PersistentFlags().StringVar(&outputLogLevel, "level", outputLogLevel,
 		"Comma-separated list of output logging level for scopes in format <scope>:<level>[,<scope>:<level>,...]"+
