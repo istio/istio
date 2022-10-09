@@ -44,6 +44,7 @@ var (
 	installerScope = log.RegisterScope("installer", "installer", 0)
 
 	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
+	// nolint: unused
 	testK8Interface *kubernetes.Clientset
 	testRestConfig  *rest.Config
 )
@@ -101,22 +102,23 @@ func kubeBuilderInstalled() bool {
 
 // confirm waits for a user to confirm with the supplied message.
 func confirm(msg string, writer io.Writer) bool {
-	_, _ = fmt.Fprintf(writer, "%s ", msg)
-
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		return false
+	for {
+		_, _ = fmt.Fprintf(writer, "%s ", msg)
+		var response string
+		_, err := fmt.Scanln(&response)
+		if err != nil {
+			return false
+		}
+		switch strings.ToUpper(response) {
+		case "Y", "YES":
+			return true
+		case "N", "NO":
+			return false
+		}
 	}
-	response = strings.ToUpper(response)
-	if response == "Y" || response == "YES" {
-		return true
-	}
-
-	return false
 }
 
-func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.ExtendedClient, client.Client, error) {
+func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.CLIClient, client.Client, error) {
 	rc, err := kube.DefaultRestConfig(kubeConfigPath, context, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
 		// Bumping this up greatly decreases install time
@@ -126,7 +128,7 @@ func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.Exte
 	if err != nil {
 		return nil, nil, err
 	}
-	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), "")
+	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("create Kubernetes client: %v", err)
 	}
@@ -200,11 +202,6 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 	customResource = string(b)
 	istioNamespace = mergedIOPS.Namespace
 	return
-}
-
-// createNamespace creates a namespace using the given k8s interface.
-func createNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
-	return helmreconciler.CreateNamespace(cs, namespace, network, dryRun)
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.

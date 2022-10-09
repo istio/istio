@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/40268
+releaseNotes:
+  - |
+    **Fixed** an issue that when there is Bind specified in the Gateway with same hosts, listeners are not generated correctly.
+

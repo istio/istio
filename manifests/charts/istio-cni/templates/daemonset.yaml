@@ -1,6 +1,11 @@
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
+{{- $defaultBinDir :=
+    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
+      "/home/kubernetes/bin"
+      "/opt/cni/bin"
+}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -59,7 +64,7 @@ spec:
 {{- if contains "/" .Values.cni.image }}
           image: "{{ .Values.cni.image }}"
 {{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
@@ -73,6 +78,10 @@ spec:
             runAsUser: 0
             runAsNonRoot: false
             privileged: {{ .Values.cni.privileged }}
+{{- if .Values.cni.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{- end }}
           command: ["install-cni"]
           args:
             {{- if .Values.global.logging.level }}
@@ -134,7 +143,7 @@ spec:
 {{- if contains "/" .Values.cni.image }}
           image: "{{ .Values.cni.image }}"
 {{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
@@ -144,6 +153,10 @@ spec:
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
+{{- if .Values.cni.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{- end }}
           env:
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
@@ -156,7 +169,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ default "/opt/cni/bin" .Values.cni.cniBinDir }}
+            path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}

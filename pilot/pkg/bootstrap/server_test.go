@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,6 +27,8 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -35,33 +37,75 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
 )
 
+func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
+	// create cert directories if not existing
+	if err := os.MkdirAll(filepath.Dir(t.testTLSCertFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testTLSCertFilePath, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(t.testTLSKeyFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testTLSKeyFilePath, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(t.testCaCertFilePath), os.ModePerm); err != nil {
+		return fmt.Errorf("Mkdirall(%v) failed: %v", t.testCaCertFilePath, err)
+	}
+
+	// load key and cert files.
+	if err := os.WriteFile(t.testTLSCertFilePath, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSCertFilePath, err)
+	}
+	if err := os.WriteFile(t.testTLSKeyFilePath, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSKeyFilePath, err)
+	}
+	if err := os.WriteFile(t.testCaCertFilePath, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+		return fmt.Errorf("WriteFile(%v) failed: %v", t.testCaCertFilePath, err)
+	}
+
+	return nil
+}
+
+func cleanupCertFileSystemFiles(t TLSFSLoadPaths) error {
+	if err := os.Remove(t.testTLSCertFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSCertFilePath)
+	}
+
+	if err := os.Remove(t.testTLSKeyFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testTLSKeyFilePath)
+	}
+
+	if err := os.Remove(t.testCaCertFilePath); err != nil {
+		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testCaCertFilePath)
+	}
+	return nil
+}
+
+// This struct will indicate for each test case
+// where tls assets will be loaded on disk
+type TLSFSLoadPaths struct {
+	testTLSCertFilePath string
+	testTLSKeyFilePath  string
+	testCaCertFilePath  string
+}
+
 func TestNewServerCertInit(t *testing.T) {
 	configDir := t.TempDir()
 
-	certsDir := t.TempDir()
+	tlsArgCertsDir := t.TempDir()
 
-	certFile := filepath.Join(certsDir, "cert-file.pem")
-	keyFile := filepath.Join(certsDir, "key-file.pem")
-	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
-
-	// load key and cert files.
-	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
-	}
-	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
-	}
-	if err := os.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
-		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
-	}
+	tlsArgcertFile := filepath.Join(tlsArgCertsDir, "cert-file.pem")
+	tlsArgkeyFile := filepath.Join(tlsArgCertsDir, "key-file.pem")
+	tlsArgcaCertFile := filepath.Join(tlsArgCertsDir, "ca-cert.pem")
 
 	cases := []struct {
 		name         string
+		FSCertsPaths TLSFSLoadPaths
 		tlsOptions   *TLSOptions
 		enableCA     bool
 		certProvider string
@@ -70,11 +114,12 @@ func TestNewServerCertInit(t *testing.T) {
 		expKey       []byte
 	}{
 		{
-			name: "Load from existing DNS cert",
+			name:         "Load from existing DNS cert",
+			FSCertsPaths: TLSFSLoadPaths{tlsArgcertFile, tlsArgkeyFile, tlsArgcaCertFile},
 			tlsOptions: &TLSOptions{
-				CertFile:   certFile,
-				KeyFile:    keyFile,
-				CaCertFile: caCertFile,
+				CertFile:   tlsArgcertFile,
+				KeyFile:    tlsArgkeyFile,
+				CaCertFile: tlsArgcaCertFile,
 			},
 			enableCA:     false,
 			certProvider: constants.CertProviderKubernetes,
@@ -83,7 +128,8 @@ func TestNewServerCertInit(t *testing.T) {
 			expKey:       testcerts.ServerKey,
 		},
 		{
-			name: "Create new DNS cert using Istiod",
+			name:         "Create new DNS cert using Istiod",
+			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions: &TLSOptions{
 				CertFile:   "",
 				KeyFile:    "",
@@ -97,6 +143,7 @@ func TestNewServerCertInit(t *testing.T) {
 		},
 		{
 			name:         "No DNS cert created because CA is disabled",
+			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions:   &TLSOptions{},
 			enableCA:     false,
 			certProvider: constants.CertProviderIstiod,
@@ -105,7 +152,36 @@ func TestNewServerCertInit(t *testing.T) {
 			expKey:       []byte{},
 		},
 		{
+			name: "DNS cert loaded because it is in known even if CA is Disabled",
+			FSCertsPaths: TLSFSLoadPaths{
+				constants.DefaultPilotTLSCert,
+				constants.DefaultPilotTLSKey,
+				constants.DefaultPilotTLSCaCert,
+			},
+			tlsOptions:   &TLSOptions{},
+			enableCA:     false,
+			certProvider: constants.CertProviderNone,
+			expNewCert:   false,
+			expCert:      testcerts.ServerCert,
+			expKey:       testcerts.ServerKey,
+		},
+		{
+			name: "DNS cert loaded from known location, even if CA is Disabled, with a fallback CA path",
+			FSCertsPaths: TLSFSLoadPaths{
+				constants.DefaultPilotTLSCert,
+				constants.DefaultPilotTLSKey,
+				constants.DefaultPilotTLSCaCertAlternatePath,
+			},
+			tlsOptions:   &TLSOptions{},
+			enableCA:     false,
+			certProvider: constants.CertProviderNone,
+			expNewCert:   false,
+			expCert:      testcerts.ServerCert,
+			expKey:       testcerts.ServerKey,
+		},
+		{
 			name:         "No cert provider",
+			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions:   &TLSOptions{},
 			enableCA:     true,
 			certProvider: constants.CertProviderNone,
@@ -117,8 +193,19 @@ func TestNewServerCertInit(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			test.SetStringForTest(t, &features.PilotCertProvider, c.certProvider)
-			test.SetBoolForTest(t, &features.EnableCAServer, c.enableCA)
+			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
+			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
+
+			// check if we have some tls assets to write for test
+			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
+				err := loadCertFilesAtPaths(c.FSCertsPaths)
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+
+				defer cleanupCertFileSystemFiles(c.FSCertsPaths)
+			}
+
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -329,6 +416,71 @@ func TestNewServer(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMultiplex(t *testing.T) {
+	configDir := t.TempDir()
+
+	var secureGRPCPort int
+	var err error
+
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       "",
+			SecureGRPCAddr: fmt.Sprintf(":%d", secureGRPCPort),
+		}
+		p.RegistryOptions = RegistryOptions{
+			FileDir: configDir,
+		}
+
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+	t.Run("h1", func(t *testing.T) {
+		c := http.Client{}
+		defer c.CloseIdleConnections()
+		resp, err := c.Get("http://" + s.httpAddr + "/validate")
+		assert.NoError(t, err)
+		// Validate returns 400 on no body; if we got this the request works
+		assert.Equal(t, resp.StatusCode, 400)
+		resp.Body.Close()
+	})
+	t.Run("h2", func(t *testing.T) {
+		c := http.Client{
+			Transport: &http2.Transport{
+				// Golang doesn't have first class support for h2c, so we provide some workarounds
+				// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
+				// So http2.Transport doesn't complain the URL scheme isn't 'https'
+				AllowHTTP: true,
+				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
+				DialTLSContext: func(_ context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+					return net.Dial(network, addr)
+				},
+			},
+		}
+		defer c.CloseIdleConnections()
+
+		resp, err := c.Get("http://" + s.httpAddr + "/validate")
+		assert.NoError(t, err)
+		// Validate returns 400 on no body; if we got this the request works
+		assert.Equal(t, resp.StatusCode, 400)
+		resp.Body.Close()
+	})
 }
 
 func TestIstiodCipherSuites(t *testing.T) {

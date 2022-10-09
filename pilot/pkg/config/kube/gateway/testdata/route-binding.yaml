@@ -30,6 +30,8 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
+      kinds:
+      - kind: HTTPRoute
   - name: same-namespace
     hostname: "*.same-namespace.example"
     port: 80

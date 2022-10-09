@@ -56,6 +56,7 @@ type Client struct {
 }
 
 func (validator *Validator) Run() error {
+	log.Infof("Starting iptables validation. This check verifies that iptables rules are properly established for the network.")
 	s := Service{
 		validator.Config,
 	}
@@ -83,7 +84,7 @@ func (validator *Validator) Run() error {
 		return fmt.Errorf("validation timeout")
 	case err := <-sError:
 		if err == nil {
-			log.Info("Validation passed")
+			log.Info("Validation passed, iptables rules established")
 		} else {
 			log.Errorf("Validation failed: %v", err)
 		}
@@ -101,7 +102,6 @@ func genListenerAddress(ip net.IP, ports []string) []string {
 }
 
 func NewValidator(config *config.Config, hostIP net.IP) *Validator {
-	log.Infof("in new validator: %v", hostIP.String())
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
 	// Connect to ::6       will redirect to ::1

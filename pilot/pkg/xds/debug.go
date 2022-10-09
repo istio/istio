@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -103,6 +104,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
+	Labels       map[string]string   `json:"labels"`
 	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
@@ -140,9 +142,12 @@ type SyncedVersions struct {
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
+func (s *DiscoveryServer) InitDebug(
+	mux *http.ServeMux,
+	sctl *aggregate.Controller,
+	enableProfiling bool,
 	fetchWebhook func() map[string]string,
-) {
+) *http.ServeMux {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.XdsUpdater = s
@@ -156,10 +161,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 	internalMux := http.NewServeMux()
 	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
-	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
-	if ok {
-		debugGen.DebugMux = internalMux
-	}
+	return internalMux
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
@@ -468,6 +470,9 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	configs := make([]kubernetesConfig, 0)
+	if s.Env == nil || s.Env.ConfigStore == nil {
+		return
+	}
 	s.Env.ConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.ConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
@@ -491,10 +496,13 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, req *http.Request) {
 	schemas := make([]config.GroupVersionKind, 0)
-	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
-		schemas = append(schemas, schema.Resource().GroupVersionKind())
-		return false
-	})
+
+	if s.Env != nil && s.Env.ConfigStore != nil {
+		s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
+			schemas = append(schemas, schema.Resource().GroupVersionKind())
+			return false
+		})
+	}
 
 	writeJSON(w, schemas, req)
 }
@@ -570,6 +578,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			ConnectionID: c.conID,
 			ConnectedAt:  c.connectedAt,
 			PeerAddress:  c.peerAddr,
+			Labels:       c.proxy.Labels,
 			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
@@ -602,12 +611,20 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	wasmCfgs, err := s.getExtensionConfiguration(con)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+	writeJSON(w, wasmCfgs, req)
+}
+
+func (s *DiscoveryServer) getExtensionConfiguration(con *Connection) ([]proto.Message, error) {
 	if s.Generators[v3.ExtensionConfigurationType] != nil {
 		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
 		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("no watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
-			return
+			return nil, fmt.Errorf("no watched ExtensionConfigurationType found, proxyID: %s", con.proxy.ID)
 		}
 
 		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, &model.PushRequest{
@@ -615,12 +632,10 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			Push: con.proxy.LastPushContext,
 		})
 		if len(resource) == 0 {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
-			return
+			return nil, fmt.Errorf("no ExtensionConfigurationType found, proxyID: %s", con.proxy.ID)
 		}
 
-		wasmCfgs := make([]any, 0, len(resource))
+		wasmCfgs := make([]proto.Message, 0, len(resource))
 		for _, rr := range resource {
 			if w, err := unmarshalToWasm(rr); err != nil {
 				istiolog.Warnf("failed to unmarshal wasm: %v", err)
@@ -629,11 +644,13 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		writeJSON(w, wasmCfgs, req)
+		return wasmCfgs, nil
 	}
+
+	return nil, nil
 }
 
-func unmarshalToWasm(r *discovery.Resource) (any, error) {
+func unmarshalToWasm(r *discovery.Resource) (proto.Message, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
 		return nil, err
@@ -667,6 +684,12 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		s.errorHandler(w, proxyID, con)
 		return
 	}
+	if ts := s.getResourceTypes(req); len(ts) != 0 {
+		dump := s.getConfigDumpByResourceType(con, ts)
+		writeJSON(w, dump, req)
+		return
+	}
+
 	includeEds := req.URL.Query().Get("include_eds") == "true"
 	dump, err := s.configDump(con, includeEds)
 	if err != nil {
@@ -674,6 +697,35 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeJSON(w, dump, req)
+}
+
+func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
+	if shortTypes := req.URL.Query().Get("types"); shortTypes != "" {
+		ts := strings.Split(shortTypes, ",")
+
+		resourceTypes := sets.New[string]()
+		for _, t := range ts {
+			resourceTypes.Insert(v3.GetResourceType(t))
+		}
+
+		return resourceTypes.UnsortedList()
+	}
+	return nil
+}
+
+func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) map[string][]proto.Message {
+	dumps := make(map[string][]proto.Message)
+
+	for _, resourceType := range ts {
+		switch resourceType {
+		case v3.ExtensionConfigurationType:
+			if cfgs, err := s.getExtensionConfiguration(conn); err == nil {
+				dumps[v3.ExtensionConfigurationType] = cfgs
+			}
+		}
+	}
+
+	return dumps
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -879,9 +931,14 @@ type PushContextDebug struct {
 
 // pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
-	push := PushContextDebug{
-		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
-		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
+	push := PushContextDebug{}
+	pc := s.globalPushContext()
+	if pc == nil {
+		return
+	}
+	push.AuthorizationPolicies = pc.AuthzPolicies
+	if pc.NetworkManager() != nil {
+		push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
 	}
 
 	writeJSON(w, push, req)
@@ -952,6 +1009,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	if s.Generators[v3.NameTableType] != nil {
 		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
 			Push: con.proxy.LastPushContext,
+			Full: true,
 		})
 		if len(nds) == 0 {
 			return
@@ -1037,6 +1095,9 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
+	if s.Env == nil || s.Env.NetworkManager == nil {
+		return
+	}
 	writeJSON(w, s.Env.NetworkManager.AllGateways(), req)
 }
 

@@ -21,15 +21,21 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
 var (
-	inst istio.Instance
-	apps = &util.EchoDeployments{}
+	inst         istio.Instance
+	apps         deployment.SingleNamespaceView
+	echo1NS      namespace.Instance
+	customConfig []echo.Config
 )
 
 func TestMain(m *testing.M) {
@@ -37,10 +43,24 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).
+		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
 		Setup(func(ctx resource.Context) error {
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,
 			// currently VM does not work in this test
-			return util.SetupApps(ctx, inst, apps, false)
+			err := util.SetupApps(ctx, &customConfig, false)
+			if err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
+			Namespaces: []namespace.Getter{
+				namespace.Future(&echo1NS),
+			},
+			Configs: echo.ConfigFuture(&customConfig),
+		})).
+		Setup(func(ctx resource.Context) error {
+			return reachability.CreateCustomInstances(&apps)
 		}).
 		Run()
 }

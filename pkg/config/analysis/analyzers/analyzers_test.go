@@ -68,7 +68,7 @@ type testCase struct {
 // * The resources in the input files don't necessarily need to be completely defined, just defined enough for the analyzer being tested.
 // * Please keep this list sorted alphabetically by the pkg.name of the analyzer for convenience
 // * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
-//     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
+//   - Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
 		name: "misannoted",
@@ -315,6 +315,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
 			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService default/reviews-2port-missing"},
 			{msg.ReferencedResourceNotFound, "VirtualService istio-system/cross-namespace-details"},
+			{msg.ReferencedResourceNotFound, "VirtualService hello/hello-export-to-bogus"},
 		},
 	},
 	{
@@ -832,7 +833,7 @@ func TestAnalyzersInAll(t *testing.T) {
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewWithT(t)
 
-	existingNames := sets.New()
+	existingNames := sets.New[string]()
 	for _, a := range All() {
 		n := a.Metadata().Name
 		// TODO (Nino-K): remove this condition once metadata is clean up

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -114,7 +114,10 @@ func TestServiceEntry(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+			proxy := &model.Proxy{
+				Labels:   map[string]string{"app": "foo"},
+				Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
+			}
 			runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 				name:   tt.name,
 				config: tt.config,

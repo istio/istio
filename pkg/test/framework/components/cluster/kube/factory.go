@@ -48,7 +48,7 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		return nil, err
 	}
 
-	var client istioKube.ExtendedClient
+	var client istioKube.CLIClient
 	if len(cfg.HTTPProxy) > 0 {
 		proxyURL, err := url.Parse(cfg.HTTPProxy)
 		if err != nil {
@@ -77,10 +77,10 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 	}
 
 	return &Cluster{
-		filename:       kubeconfigPath,
-		ExtendedClient: client,
-		vmSupport:      vmSupport,
-		Topology:       topology,
+		filename:  kubeconfigPath,
+		CLIClient: client,
+		vmSupport: vmSupport,
+		Topology:  topology,
 	}, nil
 }
 
@@ -92,7 +92,7 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 	return cfg, nil
 }
 
-func buildClient(kubeconfig string) (istioKube.ExtendedClient, error) {
+func buildClient(kubeconfig string) (istioKube.CLIClient, error) {
 	rc, err := istioKube.DefaultRestConfig(kubeconfig, "", func(config *rest.Config) {
 		config.QPS = 200
 		config.Burst = 400
@@ -100,10 +100,10 @@ func buildClient(kubeconfig string) (istioKube.ExtendedClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc), "")
 }
 
-func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.ExtendedClient, error) {
+func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.CLIClient, error) {
 	rc, err := istioKube.DefaultRestConfig(kubeconfig, "", func(config *rest.Config) {
 		config.QPS = 200
 		config.Burst = 400
@@ -112,5 +112,5 @@ func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.Exten
 		return nil, err
 	}
 	rc.Proxy = http.ProxyURL(proxyURL)
-	return istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc), "")
 }

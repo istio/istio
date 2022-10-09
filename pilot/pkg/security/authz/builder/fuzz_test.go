@@ -23,26 +23,22 @@ import (
 )
 
 func FuzzBuildHTTP(f *testing.F) {
-	fuzz.BaseCases(f)
-	f.Fuzz(func(t *testing.T, data []byte) {
-		fg := fuzz.New(t, data)
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		bundle := fuzz.Struct[trustdomain.Bundle](fg)
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.Labels)
+		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
 		option := fuzz.Struct[Option](fg)
 		New(bundle, push, policies, option).BuildHTTP()
 	})
 }
 
 func FuzzBuildTCP(f *testing.F) {
-	fuzz.BaseCases(f)
-	f.Fuzz(func(t *testing.T, data []byte) {
-		fg := fuzz.New(t, data)
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		bundle := fuzz.Struct[trustdomain.Bundle](fg)
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.Labels)
+		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
 		option := fuzz.Struct[Option](fg)
 		New(bundle, push, policies, option).BuildTCP()
 	})

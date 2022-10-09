@@ -30,12 +30,12 @@ type (
 //
 // For example, given apps a, b, and c in 2 clusters,
 // these tests would all run before the context is cleaned up:
-//     a/to_b/from_cluster-1
-//     a/to_b/from_cluster-2
-//     a/to_c/from_cluster-1
-//     a/to_c/from_cluster-2
-//     cleanup...
-//     b/to_a/from_cluster-1
+//   - a/to_b/from_cluster-1
+//   - a/to_b/from_cluster-2
+//   - a/to_c/from_cluster-1
+//   - a/to_c/from_cluster-2
+//   - cleanup...
+//   - b/to_a/from_cluster-1
 //     ...
 func (t *T) Setup(setupFn srcSetupFn) *T {
 	t.sourceDeploymentSetup = append(t.sourceDeploymentSetup, setupFn)
@@ -62,11 +62,11 @@ func (t *T) hasSourceSetup() bool {
 // destination service.
 //
 // Example of how long this setup lasts before the given context is cleaned up:
-//     a/to_b/from_cluster-1
-//     a/to_b/from_cluster-2
-//     cleanup...
-//     a/to_b/from_cluster-2
-//     ...
+//   - a/to_b/from_cluster-1
+//   - a/to_b/from_cluster-2
+//   - cleanup...
+//   - a/to_b/from_cluster-2
+//   - ...
 func (t *T) SetupForPair(setupFn func(ctx framework.TestContext, from echo.Callers, dsts echo.Instances) error) *T {
 	return t.SetupForServicePair(func(ctx framework.TestContext, from echo.Callers, dsts echo.Services) error {
 		return setupFn(ctx, from, dsts.Instances())

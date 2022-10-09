@@ -143,6 +143,10 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 			name: "region only",
 			ctl:  testController{},
 			proxy: &model.Proxy{
+				Labels: labels.Instance{
+					"k1":                       "v1",
+					label.TopologyNetwork.Name: "mynetwork",
+				},
 				Metadata: &model.NodeMetadata{
 					Labels: labels.Instance{
 						"k1":                       "v1",
@@ -163,6 +167,10 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 			name: "region and zone",
 			ctl:  testController{},
 			proxy: &model.Proxy{
+				Labels: labels.Instance{
+					"k1":                       "v1",
+					label.TopologyNetwork.Name: "mynetwork",
+				},
 				Metadata: &model.NodeMetadata{
 					Labels: labels.Instance{
 						"k1":                       "v1",
@@ -187,6 +195,10 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 				cluster: "mycluster",
 			},
 			proxy: &model.Proxy{
+				Labels: labels.Instance{
+					"k1":                       "v1",
+					label.TopologyNetwork.Name: "mynetwork",
+				},
 				Metadata: &model.NodeMetadata{
 					Labels: labels.Instance{
 						"k1":                       "v1",

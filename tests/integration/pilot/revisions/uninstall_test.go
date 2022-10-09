@@ -59,7 +59,7 @@ func TestUninstallByRevision(t *testing.T) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 				uninstallCmd := []string{
-					"x", "uninstall",
+					"uninstall",
 					"--revision=" + stableRevision, "--skip-confirmation",
 				}
 				out, _, err := istioCtl.Invoke(uninstallCmd)
@@ -81,7 +81,7 @@ func TestUninstallWithSetFlag(t *testing.T) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 				uninstallCmd := []string{
-					"x", "uninstall", "--set",
+					"uninstall", "--set",
 					"revision=" + stableRevision, "--skip-confirmation",
 				}
 				out, _, err := istioCtl.Invoke(uninstallCmd)
@@ -102,7 +102,7 @@ func TestUninstallPurge(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			uninstallCmd := []string{
-				"x", "uninstall",
+				"uninstall",
 				"--purge", "--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)

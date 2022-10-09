@@ -57,7 +57,7 @@ type suiteContext struct {
 	globalScope *scope
 
 	contextMu    sync.Mutex
-	contextNames sets.Set
+	contextNames sets.String
 
 	suiteLabels label.Set
 
@@ -82,7 +82,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		workDir:      workDir,
 		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
-		contextNames: sets.New(),
+		contextNames: sets.New[string](),
 		dumpCount:    atomic.NewUint64(0),
 	}
 
@@ -105,8 +105,7 @@ func (c *suiteContext) allocateContextID(prefix string) string {
 	candidate := prefix
 	discriminator := 0
 	for {
-		if !c.contextNames.Contains(candidate) {
-			c.contextNames.Insert(candidate)
+		if !c.contextNames.InsertContains(candidate) {
 			return candidate
 		}
 

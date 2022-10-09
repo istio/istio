@@ -90,10 +90,10 @@ func (t *T) Run(testFn oneToOneTest) {
 // destination instances. This can be used when we're not using echo workloads
 // as the source of traffic, such as from the ingress gateway. For example:
 //
-//    RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)) {
-//      ingr := ist.IngressFor(src)
-//      ingr.CallWithRetryOrFail(...)
-//    })
+//	RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)) {
+//	  ingr := ist.IngressFor(src)
+//	  ingr.CallWithRetryOrFail(...)
+//	})
 func (t *T) RunFromClusters(testFn oneClusterOneTest) {
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 		t.setupPair(ctx, nil, echo.Services{dstInstances})
@@ -122,11 +122,10 @@ func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 // may appear as a target in multiple subtests.
 //
 // Example: Given a as the only source, with a, b, c, d as destinationsand n = 3, we get the following subtests:
-//     a/to_a_b_c/from_cluster_1:
-//     a/to_a_b_c/from_cluster_2:
-//     a/to_b_c_d/from_cluster_1:
-//     a/to_b_c_d/from_cluster_2:
-//
+//   - a/to_a_b_c/from_cluster_1:
+//   - a/to_a_b_c/from_cluster_2:
+//   - a/to_b_c_d/from_cluster_1:
+//   - a/to_b_c_d/from_cluster_2:
 func (t *T) RunToN(n int, testFn oneToNTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, from echo.Instances) {
 		t.setup(ctx, from.Callers())

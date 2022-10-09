@@ -66,14 +66,14 @@ type Identity struct {
 
 func ParseIdentity(s string) (Identity, error) {
 	if !strings.HasPrefix(s, URIPrefix) {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	split := strings.Split(s[URIPrefixLen:], "/")
 	if len(split) != 5 {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	if split[1] != NamespaceSegment || split[3] != ServiceAccountSegment {
-		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	return Identity{
 		TrustDomain:    split[0],
@@ -135,8 +135,8 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 // ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
 //
 //	{"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
-func ExpandWithTrustDomains(spiffeIdentities sets.Set, trustDomainAliases []string) sets.Set {
-	out := sets.New()
+func ExpandWithTrustDomains(spiffeIdentities sets.String, trustDomainAliases []string) sets.String {
+	out := sets.New[string]()
 	for id := range spiffeIdentities {
 		out.Insert(id)
 		// Expand with aliases set.

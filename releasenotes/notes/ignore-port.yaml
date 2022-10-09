@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+- 40474
+releaseNotes:
+- |
+  **Fixed** an issue causing traffic to not match (and return a `404`) when using wildcard domain names and including an unexpected port in the `Host` header.
+- |
+  **Fixed** an issue causing traffic to match an unexpected route when using wildcard domain names and including an port in the `Host` header.
+- |
+  **Improved** sidecar `Host` header matching to ignore port numbers by default. This can be controlled by the `SIDECAR_IGNORE_PORT_IN_HOST_MATCH` environment variable.

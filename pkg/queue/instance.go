@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/pkg/log"
@@ -26,11 +25,6 @@ import (
 
 // Task to be performed.
 type Task func() error
-
-type BackoffTask struct {
-	task    Task
-	backoff *backoff.ExponentialBackOff
-}
 
 // Instance of work tickets processed using a rate-limiting loop
 type Instance interface {
@@ -44,27 +38,13 @@ type Instance interface {
 }
 
 type queueImpl struct {
-	delay        time.Duration
-	retryBackoff *backoff.ExponentialBackOff
-	tasks        []*BackoffTask
-	cond         *sync.Cond
-	closing      bool
-	closed       chan struct{}
-	closeOnce    *sync.Once
-	id           string
-}
-
-func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialBackOff {
-	if eb == nil {
-		return nil
-	}
-	teb := backoff.NewExponentialBackOff()
-	teb.InitialInterval = eb.InitialInterval
-	teb.MaxElapsedTime = eb.MaxElapsedTime
-	teb.MaxInterval = eb.MaxInterval
-	teb.Multiplier = eb.Multiplier
-	teb.RandomizationFactor = eb.RandomizationFactor
-	return teb
+	delay     time.Duration
+	tasks     []Task
+	cond      *sync.Cond
+	closing   bool
+	closed    chan struct{}
+	closeOnce *sync.Once
+	id        string
 }
 
 // NewQueue instantiates a queue with a processing function
@@ -75,7 +55,7 @@ func NewQueue(errorDelay time.Duration) Instance {
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	return &queueImpl{
 		delay:     errorDelay,
-		tasks:     make([]*BackoffTask, 0),
+		tasks:     make([]Task, 0),
 		closing:   false,
 		closed:    make(chan struct{}),
 		closeOnce: &sync.Once{},
@@ -84,27 +64,7 @@ func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	}
 }
 
-func NewBackOffQueue(backoff *backoff.ExponentialBackOff) Instance {
-	return &queueImpl{
-		retryBackoff: backoff,
-		tasks:        make([]*BackoffTask, 0),
-		closing:      false,
-		closed:       make(chan struct{}),
-		closeOnce:    &sync.Once{},
-		cond:         sync.NewCond(&sync.Mutex{}),
-	}
-}
-
 func (q *queueImpl) Push(item Task) {
-	q.cond.L.Lock()
-	defer q.cond.L.Unlock()
-	if !q.closing {
-		q.tasks = append(q.tasks, &BackoffTask{item, newExponentialBackOff(q.retryBackoff)})
-	}
-	q.cond.Signal()
-}
-
-func (q *queueImpl) pushRetryTask(item *BackoffTask) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	if !q.closing {
@@ -115,6 +75,45 @@ func (q *queueImpl) pushRetryTask(item *BackoffTask) {
 
 func (q *queueImpl) Closed() <-chan struct{} {
 	return q.closed
+}
+
+// get blocks until it can return a task to be processed. If shutdown = true,
+// the processing go routine should stop.
+func (q *queueImpl) get() (task Task, shutdown bool) {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	// wait for closing to be set, or a task to be pushed
+	for !q.closing && len(q.tasks) == 0 {
+		q.cond.Wait()
+	}
+
+	if q.closing {
+		// We must be shutting down.
+		return nil, true
+	}
+	task = q.tasks[0]
+	// Slicing will not free the underlying elements of the array, so explicitly clear them out here
+	q.tasks[0] = nil
+	q.tasks = q.tasks[1:]
+	return task, false
+}
+
+func (q *queueImpl) processNextItem() bool {
+	// Wait until there is a new item in the queue
+	task, shuttingdown := q.get()
+	if shuttingdown {
+		return false
+	}
+
+	// Run the task.
+	if err := task(); err != nil {
+		delay := q.delay
+		log.Infof("Work item handle failed (%v), retry after delay %v", err, delay)
+		time.AfterFunc(delay, func() {
+			q.Push(task)
+		})
+	}
+	return true
 }
 
 func (q *queueImpl) Run(stop <-chan struct{}) {
@@ -133,36 +132,6 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		q.cond.L.Unlock()
 	}()
 
-	for {
-		q.cond.L.Lock()
-
-		// wait for closing to be set, or a task to be pushed
-		for !q.closing && len(q.tasks) == 0 {
-			q.cond.Wait()
-		}
-
-		if q.closing {
-			q.cond.L.Unlock()
-			// We must be shutting down.
-			return
-		}
-
-		backoffTask := q.tasks[0]
-		// Slicing will not free the underlying elements of the array, so explicitly clear them out here
-		q.tasks[0] = nil
-		q.tasks = q.tasks[1:]
-
-		q.cond.L.Unlock()
-
-		if err := backoffTask.task(); err != nil {
-			delay := q.delay
-			if q.retryBackoff != nil {
-				delay = backoffTask.backoff.NextBackOff()
-			}
-			log.Infof("Work item handle failed (%v), retry after delay %v", err, delay)
-			time.AfterFunc(delay, func() {
-				q.pushRetryTask(backoffTask)
-			})
-		}
+	for q.processNextItem() {
 	}
 }

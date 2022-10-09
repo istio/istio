@@ -50,6 +50,8 @@ message CNIConfig {
 
   google.protobuf.Value tag = 3;
 
+  string variant = 29;
+
   string image = 4;
 
   string pullPolicy = 5;
@@ -79,6 +81,12 @@ message CNIConfig {
   Resources resources = 17;
 
   google.protobuf.BoolValue privileged = 18;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 19;
+
 }
 
 
@@ -392,6 +400,8 @@ message GlobalConfig {
   // Specifies the tag for the Istio docker images.
   google.protobuf.Value tag = 31;
 
+  string variant = 67;
+
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
 
@@ -426,7 +436,7 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
-  
+
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
@@ -438,7 +448,7 @@ message GlobalConfig {
   string caName = 65;
 
   google.protobuf.BoolValue autoscalingv2API = 66;
-  // The next available key is 67
+  // The next available key is 68
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -706,6 +716,13 @@ message PilotConfig {
   string hub = 34;
 
   google.protobuf.Value tag = 35;
+
+  string variant = 39;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 38;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

@@ -37,8 +37,10 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -46,6 +48,12 @@ import (
 
 const (
 	MultiClusterSecretLabel = "istio/multiCluster"
+	// maxRetries is the number of times a multicluster secret will be retried before it is dropped out of the queue.
+	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
+	// sequence of delays between successive queuings of a service.
+	//
+	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
+	maxRetries = 15
 )
 
 func init() {
@@ -85,13 +93,14 @@ type Controller struct {
 	queue               controllers.Queue
 	informer            cache.SharedIndexInformer
 
-	cs *ClusterStore
+	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	cs                        *ClusterStore
 
 	handlers []ClusterHandler
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID) *Controller {
+func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID, meshWatcher mesh.Watcher) *Controller {
 	informerClient := kubeclientset
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -140,7 +149,14 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		cs:                  newClustersStore(),
 		informer:            secretsInformer,
 	}
-	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
+
+	nsInformer := kubeclientset.KubeInformer().Core().V1().Namespaces().Informer()
+	_ = nsInformer.SetTransform(kube.StripUnusedFields)
+	nsLister := kubeclientset.KubeInformer().Core().V1().Namespaces().Lister()
+	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(nsLister, meshWatcher.Mesh().GetDiscoverySelectors())
+	controller.queue = controllers.NewQueue("multicluster secret",
+		controllers.WithMaxAttempts(maxRetries),
+		controllers.WithReconciler(controller.processItem))
 
 	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
@@ -206,11 +222,13 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
 	obj, exists, err := c.informer.GetIndexer().GetByKey(key.String())
 	if err != nil {
-		return fmt.Errorf("error fetching object %s error: %v", key, err)
+		return fmt.Errorf("error fetching object %s: %v", key, err)
 	}
 	if exists {
 		log.Debugf("secret %s exists in informer cache, processing it", key)
-		c.addSecret(key, obj.(*corev1.Secret))
+		if err := c.addSecret(key, obj.(*corev1.Secret)); err != nil {
+			return fmt.Errorf("error adding secret %s: %v", key, err)
+		}
 	} else {
 		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
 		c.deleteSecret(key.String())
@@ -250,7 +268,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 // sanitizeKubeConfig sanitizes a kubeconfig file to strip out insecure settings which may leak
 // confidential materials.
 // See https://github.com/kubernetes/kubectl/issues/697
-func sanitizeKubeConfig(config api.Config, allowlist sets.Set) error {
+func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 	for k, auths := range config.AuthInfos {
 		if ap := auths.AuthProvider; ap != nil {
 			// We currently are importing 5 authenticators: gcp, azure, exec, and openstack
@@ -323,7 +341,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	}, nil
 }
 
-func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
+func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) error {
 	secretKey := name.String()
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
@@ -333,9 +351,11 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 		}
 	}
 
+	var errs *multierror.Error
 	for clusterID, kubeConfig := range s.Data {
+		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
 		if cluster.ID(clusterID) == c.configClusterID {
-			log.Infof("ignoring cluster %v from secret %v as it would overwrite the config cluster", clusterID, secretKey)
+			logger.Infof("ignoring cluster as it would overwrite the config cluster")
 			continue
 		}
 
@@ -345,34 +365,39 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
+				logger.Infof("skipping update (kubeconfig are identical)")
 				continue
 			}
 			// stop previous remote cluster
 			prev.Stop()
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
-			log.Warnf("cluster %d from secret %s has already been registered", clusterID, secretKey)
+			logger.Warnf("cluster has already been registered")
 			continue
 		}
-		log.Infof("%s cluster %v from secret %v", action, clusterID, secretKey)
+		logger.Infof("%s cluster", action)
 
 		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
 		if err != nil {
-			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretKey, err)
+			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
+			errs = multierror.Append(errs, err)
 			continue
 		}
-		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
 			remoteCluster.Stop()
-			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
+			logger.Errorf("%s cluster: initialize cluster failed: %v", action, err)
+			c.cs.Delete(secretKey, remoteCluster.ID)
+			err = fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, clusterID, secretKey, err)
+			errs = multierror.Append(errs, err)
 			continue
 		}
-		log.Infof("finished callback for %s and starting to sync", clusterID)
+		logger.Infof("finished callback for cluster and starting to sync")
+		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		go remoteCluster.Run()
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
+	return errs.ErrorOrNil()
 }
 
 func (c *Controller) deleteSecret(secretKey string) {

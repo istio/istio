@@ -133,8 +133,8 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetBoolForTest(t, &features.EnableProtocolSniffingForOutbound, tt.sniffingEnabledForOutbound)
-			test.SetBoolForTest(t, &features.EnableProtocolSniffingForInbound, tt.sniffingEnabledForInbound)
+			test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, tt.sniffingEnabledForOutbound)
+			test.SetForTest(t, &features.EnableProtocolSniffingForInbound, tt.sniffingEnabledForInbound)
 			if got := ModelProtocolToListenerProtocol(tt.protocol, tt.direction); got != tt.want {
 				t.Errorf("ModelProtocolToListenerProtocol() = %v, want %v", got, tt.want)
 			}

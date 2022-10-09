@@ -39,6 +39,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/bootstrap"
@@ -523,6 +524,19 @@ func TestAgent(t *testing.T) {
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "bootstrap discovery", 15000)
 	})
+	t.Run("Envoy bootstrap retry", func(t *testing.T) {
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 15020
+			a.ProxyConfig.ProxyAdminPort = 15000
+			a.AgentConfig.EnvoyPrometheusPort = 15090
+			a.AgentConfig.EnvoyStatusPort = 15021
+			a.AgentConfig.EnableDynamicBootstrap = true
+			a.bootstrapGenerator = &FakeBootstrapGenerator{}
+			return a
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady(t, "bootstrap discovery", 15000)
+	})
 	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
 		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
 		a := Setup(t, func(a AgentTest) AgentTest {
@@ -603,6 +617,9 @@ type AgentTest struct {
 	XdsAuthenticator *security.FakeAuthenticator
 	CaAuthenticator  *security.FakeAuthenticator
 
+	// customize bootstrap generator
+	bootstrapGenerator model.XdsResourceGenerator
+
 	envoyEnable bool
 	enableSTS   bool
 
@@ -640,7 +657,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		IPAddresses: []string{"127.0.0.1"},
 	}
 	resp.ProxyConfig = mesh.DefaultProxyConfig()
-	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
+	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem(), resp.bootstrapGenerator)
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
 	resp.AgentConfig = AgentOptions{
 		ProxyXDSDebugViaAgent: true,
@@ -654,7 +671,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig.ProxyBootstrapTemplatePath = filepath.Join(env.IstioSrc, "./tools/packaging/common/envoy_bootstrap.json")
 	resp.ProxyConfig.ConfigPath = d
 	resp.ProxyConfig.BinaryPath = filepath.Join(env.LocalOut, "envoy")
-	if path, exists := pkgenv.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
+	if path, exists := pkgenv.Register("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
 		resp.ProxyConfig.BinaryPath = path
 	}
 	resp.ProxyConfig.TerminationDrainDuration = nil           // no need to be graceful in a test
@@ -908,7 +925,7 @@ func tlsOptions(t *testing.T, extraRoots ...[]byte) grpc.ServerOption {
 	}))
 }
 
-func setupDiscovery(t *testing.T, auth *security.FakeAuthenticator, certPem []byte) string {
+func setupDiscovery(t *testing.T, auth *security.FakeAuthenticator, certPem []byte, bootstrapGenerator model.XdsResourceGenerator) string {
 	t.Helper()
 
 	l, err := net.Listen("tcp", "localhost:0")
@@ -942,6 +959,9 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 `})
+	if bootstrapGenerator != nil {
+		ds.Discovery.Generators[v3.BootstrapType] = bootstrapGenerator
+	}
 	ds.Discovery.Authenticators = []security.Authenticator{auth}
 	grpcServer := grpc.NewServer(opt)
 	reflection.Register(grpcServer)

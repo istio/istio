@@ -42,6 +42,7 @@ const (
 	DefaultClassName             = "istio"
 	ControllerName               = "istio.io/gateway-controller"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
+	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 )
 
 // KubernetesResources stores all inputs to our conversion
@@ -101,7 +102,7 @@ type OutputResources struct {
 	AllowedReferences AllowedReferences
 	// ReferencedNamespaceKeys stores the label key of all namespace selections. This allows us to quickly
 	// determine if a namespace update could have impacted any Gateways. See namespaceEvent.
-	ReferencedNamespaceKeys sets.Set
+	ReferencedNamespaceKeys sets.String
 }
 
 // Reference stores a reference to a namespaced GVK, as used by ReferencePolicy
@@ -156,7 +157,7 @@ func convertResources(r KubernetesResources) OutputResources {
 
 type Grants struct {
 	AllowAll     bool
-	AllowedNames sets.Set
+	AllowedNames sets.String
 }
 
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
@@ -213,7 +214,7 @@ func convertReferencePolicies(r KubernetesResources) AllowedReferences {
 				}
 				if _, f := res[fromKey][toKey]; !f {
 					res[fromKey][toKey] = &Grants{
-						AllowedNames: sets.New(),
+						AllowedNames: sets.New[string](),
 					}
 				}
 				if to.Name != nil {
@@ -401,6 +402,9 @@ func buildHTTPVirtualServices(
 				// merge http routes
 				vs := cfg.Spec.(*istio.VirtualService)
 				vs.Http = append(vs.Http, httproutes...)
+				// append parents
+				cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
+					cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
 			} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				routeMap[routeKey][h] = &config.Config{
@@ -486,7 +490,7 @@ func parentMeta(obj config.Config, sectionName *k8s.SectionName) map[string]stri
 		name = fmt.Sprintf("%s/%s/%s.%s", obj.GroupVersionKind.Kind, obj.Name, *sectionName, obj.Namespace)
 	}
 	return map[string]string{
-		constants.InternalParentName: name,
+		constants.InternalParentNames: name,
 	}
 }
 
@@ -1261,14 +1265,14 @@ func referencesToInternalNames(parents []routeParentReference) []string {
 	return ret
 }
 
-func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.SectionName]*parentInfo, sets.Set) {
+func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.SectionName]*parentInfo, sets.String) {
 	// result stores our generated Istio Gateways
 	result := []config.Config{}
 	// gwMap stores an index to access parentInfo (which corresponds to a Kubernetes Gateway)
 	gwMap := map[parentKey]map[k8s.SectionName]*parentInfo{}
 	// namespaceLabelReferences keeps track of all namespace label keys referenced by Gateways. This is
 	// used to ensure we handle namespace updates for those keys.
-	namespaceLabelReferences := sets.New()
+	namespaceLabelReferences := sets.New[string]()
 	classes := getGatewayClasses(r.KubernetesResources)
 	for _, obj := range r.Gateway {
 		obj := obj
@@ -1337,9 +1341,10 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				gwMap[ref] = map[k8s.SectionName]*parentInfo{}
 			}
 
+			allowed, _ := generateSupportedKinds(l)
 			pri := &parentInfo{
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
-				AllowedKinds:     generateSupportedKinds(l),
+				AllowedKinds:     allowed,
 				Hostnames:        server.Hosts,
 				OriginalHostname: emptyIfNil((*string)(l.Hostname)),
 			}
@@ -1546,14 +1551,8 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	tls, err := buildTLS(r.AllowedReferences, l.TLS, obj.Namespace, isAutoPassthrough(obj, l))
 	if err != nil {
-		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
-			Reason:  string(k8s.ListenerReasonInvalid),
-			Message: err.Message,
-		}
-		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = &ConfigError{
-			Reason:  string(k8s.ListenerReasonInvalidCertificateRef),
-			Message: err.Message,
-		}
+		listenerConditions[string(k8s.ListenerConditionReady)].error = err
+		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		return nil, false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.KubernetesResources, l)
@@ -1611,9 +1610,12 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
+		if tls.Options != nil && tls.Options[gatewayTLSTerminateModeKey] == "MUTUAL" {
+			out.Mode = istio.ServerTLSSettings_MUTUAL
+		}
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
-			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+			return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
 		cred, err := buildSecretReference(tls.CertificateRefs[0], namespace)
 		if err != nil {
@@ -1623,7 +1625,7 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 		sameNamespace := credNs == namespace
 		if !sameNamespace && !refs.SecretAllowed(credentials.ToResourceName(cred), namespace) {
 			return nil, &ConfigError{
-				Reason: InvalidConfiguration,
+				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
 					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
 					tls.CertificateRefs[0].Name, credNs, namespace,

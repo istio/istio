@@ -62,7 +62,7 @@ type StatusVerifier struct {
 	iop              *v1alpha1.IstioOperator
 	successMarker    string
 	failureMarker    string
-	client           kube.ExtendedClient
+	client           kube.CLIClient
 }
 
 type StatusVerifierOptions func(*StatusVerifier)
@@ -85,7 +85,7 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
 	options ...StatusVerifierOptions,
 ) (*StatusVerifier, error) {
-	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, context), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}

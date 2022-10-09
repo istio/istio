@@ -33,7 +33,9 @@ function write_patch_file() {
       echo "WARNING: patch file was too large to persist ($(du -h "${PATCH_OUT}"))"
       return 0
     fi
-    echo "You can also try applying the patch file from the build artifacts."
+    outName="artifacts/${PATCH_OUT#"${ARTIFACTS}"/}"
+    patchFile="${PROW_ARTIFACTS_BASE:-https://gcsweb.istio.io/gcs/istio-prow}/pr-logs/pull/${REPO_OWNER}_${REPO_NAME}/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID}/${outName}"
+    echo "You can also try applying the patch file from the build artifacts: 'git apply <(curl -sL \"${patchFile}\")'"
 }
 
 if [[ -n $(git status --porcelain) ]]; then

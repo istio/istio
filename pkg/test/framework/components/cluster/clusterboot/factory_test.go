@@ -32,7 +32,7 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-primary", Network: "network-0"},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName: "auto-fill-primary",
 					ClusterKind: cluster.Fake,
@@ -47,7 +47,7 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-remote", PrimaryClusterName: "auto-fill-primary"},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName:        "auto-fill-remote",
 					ClusterKind:        cluster.Fake,
@@ -62,7 +62,7 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "external-istiod", ConfigClusterName: "remote-config"},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName:        "external-istiod",
 					ClusterKind:        cluster.Fake,
@@ -81,7 +81,7 @@ func TestBuild(t *testing.T) {
 				ConfigClusterName:  "remote-config",
 			},
 			cluster: cluster.FakeCluster{
-				ExtendedClient: kube.MockClient{},
+				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName: "remote-config",
 					ClusterKind: cluster.Fake,

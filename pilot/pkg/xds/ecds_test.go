@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -122,56 +122,56 @@ func TestECDSGenerate(t *testing.T) {
 		proxyNamespace   string
 		request          *model.PushRequest
 		watchedResources []string
-		wantExtensions   sets.Set
-		wantSecrets      sets.Set
+		wantExtensions   sets.String
+		wantSecrets      sets.String
 	}{
 		{
 			name:             "simple",
 			proxyNamespace:   "default",
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin"},
-			wantExtensions:   sets.Set{"default.default-plugin": {}},
-			wantSecrets:      sets.Set{},
+			wantExtensions:   sets.String{"default.default-plugin": {}},
+			wantSecrets:      sets.String{},
 		},
 		{
 			name:             "simple_with_secret",
 			proxyNamespace:   "default",
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin-with-sec"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"default-docker-credential": {}},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}},
 		},
 		{
 			name:             "miss_secret",
 			proxyNamespace:   "default",
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin-wrong-sec"},
-			wantExtensions:   sets.Set{"default.default-plugin-wrong-sec": {}},
-			wantSecrets:      sets.Set{},
+			wantExtensions:   sets.String{"default.default-plugin-wrong-sec": {}},
+			wantSecrets:      sets.String{},
 		},
 		{
 			name:             "wrong_secret_type",
 			proxyNamespace:   "default",
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin-wrong-sec-type"},
-			wantExtensions:   sets.Set{"default.default-plugin-wrong-sec-type": {}},
-			wantSecrets:      sets.Set{},
+			wantExtensions:   sets.String{"default.default-plugin-wrong-sec-type": {}},
+			wantSecrets:      sets.String{},
 		},
 		{
 			name:             "root_and_default",
 			proxyNamespace:   "default",
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
-			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 		{
 			name:             "only_root",
 			proxyNamespace:   "somenamespace",
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"istio-system.root-plugin"},
-			wantExtensions:   sets.Set{"istio-system.root-plugin": {}},
-			wantSecrets:      sets.Set{"root-docker-credential": {}},
+			wantExtensions:   sets.String{"istio-system.root-plugin": {}},
+			wantSecrets:      sets.String{"root-docker-credential": {}},
 		},
 		{
 			name:           "no_relevant_config_update",
@@ -183,8 +183,8 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
-			wantExtensions:   sets.Set{},
-			wantSecrets:      sets.Set{},
+			wantExtensions:   sets.String{},
+			wantSecrets:      sets.String{},
 		},
 		{
 			name:           "has_relevant_config_update",
@@ -197,8 +197,8 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"default-docker-credential": {}},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}},
 		},
 		{
 			name:           "non_relevant_secret_update",
@@ -211,8 +211,8 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
-			wantExtensions:   sets.Set{},
-			wantSecrets:      sets.Set{},
+			wantExtensions:   sets.String{},
+			wantSecrets:      sets.String{},
 		},
 		{
 			name:           "relevant_secret_update",
@@ -224,8 +224,8 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"default-docker-credential": {}},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}},
 		},
 		{
 			name:           "relevant_secret_update_non_full_push",
@@ -237,8 +237,8 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"default-docker-credential": {}},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}},
 		},
 		// All the credentials should be sent to istio-agent even if one of them is only updated,
 		// because `istio-agent` does not keep the credentials.
@@ -252,8 +252,8 @@ func TestECDSGenerate(t *testing.T) {
 				},
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
-			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
-			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 	}
 
@@ -277,8 +277,8 @@ func TestECDSGenerate(t *testing.T) {
 			tt.request.Push.Mesh.RootNamespace = "istio-system"
 			resources, _, _ := gen.Generate(s.SetupProxy(proxy),
 				&model.WatchedResource{ResourceNames: tt.watchedResources}, tt.request)
-			gotExtensions := sets.Set{}
-			gotSecrets := sets.Set{}
+			gotExtensions := sets.String{}
+			gotSecrets := sets.String{}
 			for _, res := range resources {
 				gotExtensions.Insert(res.Name)
 				ec := &corev3.TypedExtensionConfig{}

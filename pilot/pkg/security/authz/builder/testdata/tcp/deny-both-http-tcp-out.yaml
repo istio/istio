@@ -63,6 +63,34 @@ typedConfig:
             rules:
             - orRules:
                 rules:
+                - destinationPort: 8080
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      ns[foo]-policy[httpbin-deny]-rule[6]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 8080
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns-2/.*
+      ns[foo]-policy[httpbin-deny]-rule[7]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
                 - destinationPort: 80
         principals:
         - andIds:
@@ -74,7 +102,7 @@ typedConfig:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-1/.*
-      ns[foo]-policy[httpbin-deny]-rule[6]:
+      ns[foo]-policy[httpbin-deny]-rule[8]:
         permissions:
         - andRules:
             rules:
@@ -83,7 +111,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-deny]-rule[7]:
+      ns[foo]-policy[httpbin-deny]-rule[9]:
         permissions:
         - andRules:
             rules:
@@ -94,7 +122,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-deny]-rule[8]:
+      ns[foo]-policy[httpbin-deny]-rule[10]:
         permissions:
         - andRules:
             rules:

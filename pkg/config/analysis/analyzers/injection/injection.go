@@ -136,10 +136,14 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		// If a pod has injection explicitly disabled, no need to check further
 		inj := r.Metadata.Annotations[annotation.SidecarInject.Name]
-		if v, ok := r.Metadata.Labels[annotation.SidecarInject.Name]; ok {
+		if v, ok := r.Metadata.Labels[label.SidecarInject.Name]; ok {
 			inj = v
 		}
 		if strings.EqualFold(inj, "false") {
+			return true
+		}
+
+		if pod.HostNetwork {
 			return true
 		}
 

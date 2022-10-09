@@ -74,7 +74,7 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount strin
 
 // DialOptions constructs gRPC dial options from command line configuration
 func DialOptions(opts clioptions.CentralControlPlaneOptions,
-	ns, serviceAccount string, kubeClient kube.ExtendedClient,
+	ns, serviceAccount string, kubeClient kube.CLIClient,
 ) ([]grpc.DialOption, error) {
 	ctx := context.TODO()
 	// If we are using the insecure 15010 don't bother getting a token

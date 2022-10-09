@@ -441,6 +441,11 @@ func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Rout
 }
 
 func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host string) *route.VirtualHost {
+	if rc.GetIgnorePortInHostMatching() {
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+	}
 	// Exact match
 	for _, vh := range rc.VirtualHosts {
 		for _, d := range vh.Domains {

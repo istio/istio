@@ -139,9 +139,11 @@ func Check(t TestingTB) {
 
 // CheckMain asserts that no goroutines are leaked after a test package exits.
 // This can be used with the following code:
-//   func TestMain(m *testing.M) {
-//       leak.CheckMain(m)
-//   }
+//
+//	func TestMain(m *testing.M) {
+//	    leak.CheckMain(m)
+//	}
+//
 // Failures here are scoped to the package, not a specific test. To determine the source of the failure,
 // you can use the tool `go test -exec $PWD/tools/go-ordered-test ./my/package`. This runs each test individually.
 // If there are some tests that are leaky, you the Check method can be used on individual tests.

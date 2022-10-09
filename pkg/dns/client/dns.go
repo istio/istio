@@ -207,7 +207,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
 		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
-		var altHosts sets.Set
+		var altHosts sets.String
 		if ni.Registry == string(provider.Kubernetes) {
 			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
@@ -414,12 +414,12 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 // The overall approach of parallel resolution is likely not widespread, but there are already some widely used
 // clients support it:
 //
-// * dnsmasq: setting flag '--all-servers' forces dnsmasq to send all queries to all available servers. The reply from
-//   the server which answers first will be returned to the original requester.
-// * tailscale: will either proxy all DNS requests—in which case we query all nameservers in parallel and use the quickest
-//   response—or defer to the operating system, which we have no control over.
-// * systemd-resolved: which is used as a default resolver in many Linux distributions nowadays also performs parallel
-// 	 lookups for multiple DNS servers and returns the first successful response.
+//   - dnsmasq: setting flag '--all-servers' forces dnsmasq to send all queries to all available servers. The reply from
+//     the server which answers first will be returned to the original requester.
+//   - tailscale: will either proxy all DNS requests—in which case we query all nameservers in parallel and use the quickest
+//     response—or defer to the operating system, which we have no control over.
+//   - systemd-resolved: which is used as a default resolver in many Linux distributions nowadays also performs parallel
+//     lookups for multiple DNS servers and returns the first successful response.
 func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	// Guarantee that the ctx we use below is done when this function returns.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -492,8 +492,8 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 
 func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
 	proxyDomainParts []string,
-) sets.Set {
-	out := sets.New()
+) sets.String {
+	out := sets.New[string]()
 	out.Insert(hostname + ".")
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains

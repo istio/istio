@@ -35,12 +35,12 @@ import (
 )
 
 var (
-	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
+	envoyUserVar = env.Register(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
-	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
+	dnsCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
-	InvalidDropByIptables = env.RegisterBoolVar("INVALID_DROP", false,
+	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
 )
 
@@ -87,7 +87,14 @@ var rootCmd = &cobra.Command{
 			validator := validation.NewValidator(cfg, hostIP)
 
 			if err := validator.Run(); err != nil {
-				handleErrorWithCode(err, constants.ValidationErrorCode)
+				// nolint: revive, stylecheck
+				msg := fmt.Errorf(`iptables validation failed; workload is not ready for Istio.
+When using Istio CNI, this can occur if a pod is scheduled before the node is ready.
+
+If installed with 'cni.repair.deletePods=true', this pod should automatically be deleted and retry.
+Otherwise, this pod will need to be manually removed so that it is scheduled on a node with istio-cni running, allowing iptables rules to be established.
+`)
+				handleErrorWithCode(msg, constants.ValidationErrorCode)
 			}
 		}
 	},

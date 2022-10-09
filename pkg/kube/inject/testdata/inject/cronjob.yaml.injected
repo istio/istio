@@ -180,8 +180,6 @@ spec:
               runAsNonRoot: false
               runAsUser: 0
           restartPolicy: OnFailure
-          securityContext:
-            fsGroup: 1337
           volumes:
           - name: workload-socket
           - name: credential-socket

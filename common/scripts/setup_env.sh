@@ -73,7 +73,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-8108c85d77550c2292ebc3c522b9eea1c0977eb1
+  IMAGE_VERSION=master-6457dabf9a85edc7389051a10b1ab6595f24206a
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools
@@ -176,16 +176,13 @@ fi
 # This is used when we need to run a build artifact during tests or later as part of another
 # target.
 if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
-  LOCAL_OUT="${TARGET_OUT_LINUX}"
-else
-  LOCAL_OUT="${TARGET_OUT}"
-fi
-
-if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
   # Override variables with container specific
   TARGET_OUT=${CONTAINER_TARGET_OUT}
   TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
   REPO_ROOT=/work
+  LOCAL_OUT="${TARGET_OUT_LINUX}"
+else
+  LOCAL_OUT="${TARGET_OUT}"
 fi
 
 go_os_arch=${LOCAL_OUT##*/}

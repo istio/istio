@@ -53,6 +53,28 @@ func TestHeaderMatcher(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "prefix match",
+			K:    ":path",
+			V:    "/productpage*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
+					PrefixMatch: "/productpage",
+				},
+			},
+		},
+		{
+			Name: "* match",
+			K:    ":path",
+			V:    "*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
+					PresentMatch: true,
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

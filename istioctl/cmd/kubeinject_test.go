@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -70,6 +70,14 @@ func TestKubeInject(t *testing.T) {
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
+		},
+		{ // case 7
+			args: strings.Split(
+				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
+					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello-with-proxyconfig-anno.yaml"+
+					" --valuesFile testdata/inject-values.yaml",
+				" "),
+			goldenFilename: "testdata/deployment/hello-with-proxyconfig-anno.yaml.injected",
 		},
 	}
 

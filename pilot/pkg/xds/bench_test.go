@@ -142,7 +142,7 @@ func configureBenchmark(t test.Failer) {
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
-	test.SetBoolForTest(t, &features.EnableXDSCaching, false)
+	test.SetForTest(t, &features.EnableXDSCaching, false)
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
@@ -358,18 +358,23 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
+		Labels: map[string]string{
+			"istio.io/benchmark": "true",
+		},
 		Metadata: &model.NodeMetadata{
 			Namespace: "default",
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.15.0",
+			IstioVersion: "1.16.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 	}
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
+	// need to call DiscoverIPMode to check the ipMode of the proxy
+	proxy.DiscoverIPMode()
 
 	configs, k8sConfig := getConfigsWithCache(t, config)
 	m := mesh.DefaultMeshConfig()
@@ -472,7 +477,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
-var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
+var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
 var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
 
@@ -604,7 +609,7 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 
 func BenchmarkCache(b *testing.B) {
 	// Ensure cache doesn't grow too large
-	test.SetIntForTest(b, &features.XDSCacheMaxSize, 1_000)
+	test.SetForTest(b, &features.XDSCacheMaxSize, 1_000)
 	res := &discovery.Resource{Name: "test"}
 	zeroTime := time.Time{}
 	b.Run("key", func(b *testing.B) {

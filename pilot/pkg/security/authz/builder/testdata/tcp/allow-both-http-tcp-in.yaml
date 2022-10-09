@@ -17,4 +17,18 @@ spec:
             namespaces: ["ns-1"]
       to:
         - operation:
+            ports: ["8080"]
+            methods: ["GET"]
+    - from:
+        - source:
+            namespaces: ["ns-2"]
+            requestPrincipals: ["id-2"]
+      to:
+        - operation:
+            ports: ["9090"]
+    - from:
+        - source:
+            namespaces: ["ns-1"]
+      to:
+        - operation:
             ports: ["80"]

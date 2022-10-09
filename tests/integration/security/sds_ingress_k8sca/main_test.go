@@ -22,14 +22,18 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
-	inst istio.Instance
-	apps = &util.EchoDeployments{}
+	inst         istio.Instance
+	apps         deployment.SingleNamespaceView
+	echo1NS      namespace.Instance
+	customConfig []echo.Config
 )
 
 func TestMain(m *testing.M) {
@@ -41,11 +45,25 @@ func TestMain(m *testing.M) {
 		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
 		RequireMaxVersion(21).
 		Setup(istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
+		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
+		Setup(func(ctx resource.Context) error {
 			// Skip VM as eastwest gateway is disabled.
 			s := ctx.Settings()
 			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
-			return util.SetupTest(ctx, apps)
+			err := util.SetupTest(ctx, &customConfig, namespace.Future(&echo1NS))
+			if err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
+			Namespaces: []namespace.Getter{
+				namespace.Future(&echo1NS),
+			},
+			Configs: echo.ConfigFuture(&customConfig),
+		})).
+		Setup(func(ctx resource.Context) error {
+			return util.CreateCustomInstances(&apps)
 		}).
 		Run()
 }
@@ -67,7 +85,7 @@ func TestMtlsGatewaysK8sca(t *testing.T) {
 		Features("security.ingress.mtls.gateway").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				util.RunTestMultiMtlsGateways(t, inst, apps)
+				util.RunTestMultiMtlsGateways(t, inst, namespace.Future(&echo1NS))
 			})
 		})
 }
@@ -78,7 +96,7 @@ func TestTlsGatewaysK8sca(t *testing.T) {
 		Features("security.ingress.tls.gateway.K8sca").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				util.RunTestMultiTLSGateways(t, inst, apps)
+				util.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
 		})
 }

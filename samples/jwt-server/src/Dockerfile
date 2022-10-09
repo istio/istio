@@ -13,12 +13,12 @@
 #   limitations under the License.
 
 # build a jwt-server binary using the golang container
-FROM golang:1.15 as builder
+FROM golang:1.19 as builder
 WORKDIR /go/src/istio.io/jwt-server/
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o jwt-server main.go
 
-FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8ce5a38d1c9c0cb82403304b8718cde9 as distroless
+FROM gcr.io/distroless/static-debian11@sha256:21d3f84a4f37c36199fd07ad5544dcafecc17776e3f3628baf9a57c8c0181b3f as distroless
 
 WORKDIR /bin/
 # copy the jwt-server binary to a separate container based on BASE_DISTRIBUTION

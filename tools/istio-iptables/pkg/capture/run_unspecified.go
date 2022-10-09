@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
@@ -28,5 +29,9 @@ var ErrNotImplemented = errors.New("not implemented")
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
 // See https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/original_src_filter
 func configureTProxyRoutes(cfg *config.Config) error {
+	return ErrNotImplemented
+}
+
+func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 	return ErrNotImplemented
 }

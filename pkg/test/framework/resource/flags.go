@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/pkg/log"
 )
 
 var settingsFromCommandLine = DefaultSettings()
@@ -127,6 +128,7 @@ func validate(s *Settings) error {
 
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
+	log.EnableKlogWithGoFlag()
 	flag.StringVar(&settingsFromCommandLine.BaseDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
@@ -189,4 +191,7 @@ func init() {
 
 	flag.Uint64Var(&settingsFromCommandLine.MaxDumps, "istio.test.maxDumps", settingsFromCommandLine.MaxDumps,
 		"Maximum number of full test dumps that are allowed to occur within a test suite.")
+
+	flag.BoolVar(&settingsFromCommandLine.EnableDualStack, "istio.test.enableDualStack", settingsFromCommandLine.EnableDualStack,
+		"Deploy Istio with Dual Stack enabled.")
 }

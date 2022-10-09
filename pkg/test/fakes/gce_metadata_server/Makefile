@@ -16,17 +16,18 @@
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-IMG := gcr.io/istio-testing/fake-gce-metadata
+IMG ?= gcr.io/istio-testing/fake-gce-metadata
 
 # NOTE: TAG should be updated whenever changes are made in this directory
 # This should also be updated in dependent components
-TAG := 1.0
+TAG := 1.1
 
 all: build_and_push clean
 
 build_and_push:
-	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
-	docker buildx build $(MD_PATH) -t $(IMG):$(TAG) --push
+	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main-amd64 -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
+	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o main-arm64 -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
+	docker buildx build --platform=linux/amd64,linux/arm64  $(MD_PATH) -t $(IMG):$(TAG) --push
 
 clean:
-	rm $(MD_PATH)/main
+	rm $(MD_PATH)/main-*

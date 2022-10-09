@@ -65,7 +65,8 @@ func (ai mockAuthInfo) AuthType() string {
 	return ai.authType
 }
 
-/*This is a testing to send a request to the server using
+/*
+This is a testing to send a request to the server using
 the client cert authenticator instead of mock authenticator
 */
 func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {

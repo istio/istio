@@ -25,14 +25,14 @@ import (
 )
 
 // Equal
-func Equal(t test.Failer, a, b any, context ...string) {
+func Equal[T any](t test.Failer, a, b T, context ...string) {
 	t.Helper()
 	if !cmp.Equal(a, b, protocmp.Transform(), cmpopts.EquateEmpty()) {
 		cs := ""
 		if len(context) > 0 {
 			cs = " " + strings.Join(context, ", ") + ":"
 		}
-		t.Fatalf("found diff:%s %v", cs, cmp.Diff(a, b, protocmp.Transform()))
+		t.Fatalf("found diff:%s %v\nLeft: %v\nRight: %v", cs, cmp.Diff(a, b, protocmp.Transform()), a, b)
 	}
 }
 
@@ -46,6 +46,6 @@ func Error(t test.Failer, err error) {
 func NoError(t test.Failer, err error) {
 	t.Helper()
 	if err != nil {
-		t.Fatal("expected no error but got: %v", err)
+		t.Fatalf("expected no error but got: %v", err)
 	}
 }

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/40378
+
+releaseNotes:
+- |
+  **Fixed** an issue preventing the istio ingress/egress gateway from matching any nodes

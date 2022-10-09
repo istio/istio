@@ -25,13 +25,11 @@ import (
 )
 
 func FuzzKubeController(f *testing.F) {
-	fuzz.BaseCases(f)
-	f.Fuzz(func(t *testing.T, data []byte) {
-		fg := fuzz.New(t, data)
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		networkID := network.ID("fakeNetwork")
 		fco := fuzz.Struct[FakeControllerOptions](fg)
 		fco.SkipRun = true
-		controller, _ := NewFakeControllerWithOptions(t, fco)
+		controller, _ := NewFakeControllerWithOptions(fg.T(), fco)
 		controller.network = networkID
 
 		p := fuzz.Struct[*corev1.Pod](fg)

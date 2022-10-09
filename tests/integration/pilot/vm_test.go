@@ -37,15 +37,20 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
-func GetAdditionVMImages() []string {
+func GetAdditionVMImages(t framework.TestContext) []string {
 	var out []echo.VMDistro
-	for distro, image := range kube.VMImages {
+	imgs := kube.VMImages
+	if t.Environment().(*kubeenv.Environment).Settings().Architecture == kubeenv.ArchARM64 {
+		imgs = kube.ArmVMImages
+	}
+	for distro, image := range imgs {
 		if distro == echo.DefaultVMDistro {
 			continue
 		}
@@ -64,7 +69,7 @@ func TestVmOSPost(t *testing.T) {
 				t.Skip("VM tests are disabled")
 			}
 			b := deployment.New(t, t.Clusters().Primaries().Default())
-			images := GetAdditionVMImages()
+			images := GetAdditionVMImages(t)
 			for _, image := range images {
 				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),

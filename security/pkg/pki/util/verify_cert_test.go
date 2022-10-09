@@ -204,3 +204,30 @@ func TestVerifyCert(t *testing.T) {
 		}
 	}
 }
+
+func TestCertExpired(t *testing.T) {
+	testCases := map[string]struct {
+		filepath string
+		expected bool
+	}{
+		"Expired Cert": {
+			filepath: "../testdata/expired-cert.pem",
+			expected: true,
+		},
+		"Not Expired Cert": {
+			filepath: "../testdata/notexpired-cert.pem",
+			expected: false,
+		},
+	}
+	for id, tc := range testCases {
+		t.Run(id, func(t *testing.T) {
+			certExpired, err := IsCertExpired(tc.filepath)
+			if err != nil {
+				t.Fatalf("failed to check the cert, err is: %v", err)
+			}
+			if certExpired != tc.expected {
+				t.Errorf("isCertExpired: get %v, want %v", certExpired, tc.expected)
+			}
+		})
+	}
+}

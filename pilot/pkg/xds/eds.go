@@ -250,7 +250,7 @@ func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 // Note: it is not concurrent safe.
 func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, serviceName string) bool {
 	oldServiceAccount := shards.ServiceAccounts
-	serviceAccounts := sets.Set{}
+	serviceAccounts := sets.String{}
 	for _, epShards := range shards.Shards {
 		for _, ep := range epShards {
 			if ep.ServiceAccount != "" {
@@ -269,9 +269,7 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, ser
 	return false
 }
 
-// localityEndpointsForCluster return the endpoints for a cluster
-// Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests.
+// localityEndpointsForCluster returns the endpoints for a cluster
 func (s *DiscoveryServer) localityEndpointsForCluster(b EndpointBuilder) ([]*LocalityEndpoints, error) {
 	if b.service == nil {
 		// Shouldn't happen here
@@ -341,7 +339,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 				LocalityLbEndpoints: l.Endpoints[i],
 			}
 		}
-		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Metadata.Labels, lbSetting, enableFailover)
+		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
 	}
 	return l
 }

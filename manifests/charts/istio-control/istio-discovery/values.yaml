@@ -11,6 +11,7 @@ pilot:
 
   hub: ""
   tag: ""
+  variant: ""
 
   # Can be a full hub/image:tag
   image: pilot
@@ -21,6 +22,9 @@ pilot:
     requests:
       cpu: 500m
       memory: 2048Mi
+
+  # Set to `type: RuntimeDefault` to use the default profile if available.
+  seccompProfile: {}
 
   env: {}
 
@@ -42,7 +46,7 @@ pilot:
   jwksResolverExtraRootCA: ""
 
   # This is used to set the source of configuration for
-  # the associated address in configSource, if nothing is specificed
+  # the associated address in configSource, if nothing is specified
   # the default MCP is assumed.
   configSource:
     subscribedResources: []
@@ -236,6 +240,9 @@ global:
   hub: gcr.io/istio-testing
   # Default tag for Istio images.
   tag: latest
+  # Variant of the image to use.
+  # Currently supported are: [debug, distroless]
+  variant: ""
 
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent.

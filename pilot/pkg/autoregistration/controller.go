@@ -222,7 +222,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	c.mutex.Unlock()
 
 	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		return err
 	}
 	return nil
@@ -300,7 +300,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		origConTime: origConnect,
 	}
 	if err := c.unregisterWorkload(workload); err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		c.queue.Add(workload)
 	}
 }
@@ -572,8 +572,8 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if group.Metadata != nil && group.Metadata.Labels != nil {
 		entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels)
 	}
-	if proxy.Metadata != nil && proxy.Metadata.Labels != nil {
-		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
+	if proxy.Labels != nil {
+		entry.Labels = mergeLabels(entry.Labels, proxy.Labels)
 	}
 
 	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}

@@ -66,7 +66,7 @@ const (
 )
 
 type ExternalInjector struct {
-	client          kube.ExtendedClient
+	client          kube.CLIClient
 	clientConfig    *admissionregistration.WebhookClientConfig
 	injectorAddress string
 }
@@ -345,7 +345,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 
 func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
 	e := &ExternalInjector{}
-	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 	if err != nil {
 		return e, err
 	}
@@ -384,6 +384,23 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 	revision, injectorAddress string,
 ) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
+	// Get configs from IOP files firstly, and if not exists, get configs from files and configmaps.
+	values, meshConfig, err := getIOPConfigs()
+	if err != nil {
+		return nil, nil, err
+	}
+	if meshConfig == nil {
+		if meshConfigFile != "" {
+			if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
 		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
@@ -404,24 +421,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 		}
-		return injector, nil, nil
-	}
-
-	// Get configs from IOP files firstly, and if not exists, get configs from files and configmaps.
-	values, meshConfig, err := getIOPConfigs()
-	if err != nil {
-		return nil, nil, err
-	}
-	if meshConfig == nil {
-		if meshConfigFile != "" {
-			if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
-				return nil, nil, err
-			}
-		} else {
-			if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
-				return nil, nil, err
-			}
-		}
+		return injector, meshConfig, nil
 	}
 
 	if values != "" {

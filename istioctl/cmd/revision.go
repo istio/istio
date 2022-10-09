@@ -540,7 +540,7 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*Rev
 	return tw.Flush()
 }
 
-func getAllIstioOperatorCRs(client kube.ExtendedClient) ([]*iopv1alpha1.IstioOperator, error) {
+func getAllIstioOperatorCRs(client kube.CLIClient) ([]*iopv1alpha1.IstioOperator, error) {
 	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
 		List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
@@ -654,7 +654,7 @@ func annotateWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisi
 	return nil
 }
 
-func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
+func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.CLIClient) error {
 	ingressPods, err := getPodsForComponent(client, "IngressGateways")
 	if err != nil {
 		return fmt.Errorf("error while fetching ingress gateway pods: %v", err)
@@ -668,7 +668,7 @@ func annotateWithGatewayInfo(revDescription *RevisionDescription, client kube.Ex
 	return nil
 }
 
-func annotateWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.ExtendedClient) error {
+func annotateWithControlPlanePodInfo(revDescription *RevisionDescription, client kube.CLIClient) error {
 	controlPlanePods, err := getPodsForComponent(client, "Pilot")
 	if err != nil {
 		return fmt.Errorf("error while fetching control plane pods: %v", err)
@@ -980,7 +980,7 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 	return enabledComponents
 }
 
-func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod, error) {
+func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, error) {
 	return getPodsWithSelector(client, istioNamespace, &meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),
@@ -989,7 +989,7 @@ func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod
 	})
 }
 
-func getPodsWithSelector(client kube.ExtendedClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
+func getPodsWithSelector(client kube.CLIClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
 	labelSelector, err := meta_v1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return []v1.Pod{}, err

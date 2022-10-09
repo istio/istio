@@ -137,9 +137,9 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
-		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
 		config.QPS = 50
 		config.Burst = 100
@@ -147,16 +147,17 @@ func newKubeClientWithRevision(kubeconfig, configContext string, revision string
 	if err != nil {
 		return nil, err
 	}
-	return kube.NewExtendedClient(kube.NewClientConfigForRestConfig(rc), revision)
+	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
 	return newKubeClientWithRevision(kubeconfig, configContext, "")
 }
 
 func xdsStatusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
+	var multiXdsOpts multixds.Options
 
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
@@ -194,6 +195,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if err != nil {
 				return err
 			}
+			multiXdsOpts.MessageWriter = c.OutOrStdout()
 
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
@@ -217,7 +219,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
 					TypeUrl:       pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient, multiXdsOpts)
 				if err != nil {
 					return err
 				}
@@ -227,11 +229,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-
 			xdsRequest := xdsapi.DiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient, multiXdsOpts)
 			if err != nil {
 				return err
 			}
@@ -244,6 +245,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
+	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
+		"Access Istiod via the tap service of each agent")
+	statusCmd.PersistentFlags().IntVar(&multiXdsOpts.XdsViaAgentsLimit, "xds-via-agents-limit", 100,
+		"Maximum number of pods being visited by istioctl when `xds-via-agent` flag is true."+
+			"To iterate all the agent pods without limit, set to 0")
 
 	return statusCmd
 }

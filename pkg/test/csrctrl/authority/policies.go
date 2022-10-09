@@ -35,12 +35,12 @@ type SigningPolicy interface {
 // PermissiveSigningPolicy is the signing policy historically used by the local
 // signer.
 //
-//  * It forwards all SANs from the original signing request.
-//  * It sets allowed usages as configured in the policy.
-//  * It sets NotAfter based on the TTL configured in the policy.
-//  * It zeros all extensions.
-//  * It sets BasicConstraints to true.
-//  * It sets IsCA to false.
+//   - It forwards all SANs from the original signing request.
+//   - It sets allowed usages as configured in the policy.
+//   - It sets NotAfter based on the TTL configured in the policy.
+//   - It zeros all extensions.
+//   - It sets BasicConstraints to true.
+//   - It sets IsCA to false.
 type PermissiveSigningPolicy struct {
 	// TTL is the certificate TTL. It's used to calculate the NotAfter value of
 	// the certificate.

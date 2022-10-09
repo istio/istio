@@ -39,7 +39,7 @@ spec:
         app: gce-metadata
     spec:
       containers:
-      - image: gcr.io/istio-testing/fake-gce-metadata:1.0
+      - image: gcr.io/istio-testing/fake-gce-metadata:1.1
         imagePullPolicy: Always
         name: gce-metadata
         ports:

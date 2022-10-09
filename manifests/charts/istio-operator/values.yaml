@@ -27,6 +27,8 @@ operator:
     requests:
       cpu: 50m
       memory: 128Mi
+  # Set to `type: RuntimeDefault` to use the default profile if available.
+  seccompProfile: {}
 
 # Node labels for pod assignment
 nodeSelector: {}

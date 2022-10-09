@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+ - |
+   **Added** `PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES` feature back to Istio which was removed in 1.14.
+   Will persist until usecase is clarified and more permanent API added.

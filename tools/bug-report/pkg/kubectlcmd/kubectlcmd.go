@@ -34,31 +34,50 @@ import (
 
 const (
 	// maxRequestsPerSecond is the max rate of requests to the API server.
-	maxRequestsPerSecond = 10
-	// maxLogFetchConcurrency is the max number of logs to fetch simultaneously.
-	maxLogFetchConcurrency = 10
+	defaultMaxRequestsPerSecond = 10
 
 	// reportInterval controls how frequently to output progress reports on running tasks.
 	reportInterval = 30 * time.Second
 )
 
-var (
-	requestLimiter  = rate.NewLimiter(maxRequestsPerSecond, maxRequestsPerSecond)
-	logFetchLimitCh = make(chan struct{}, maxLogFetchConcurrency)
+type Runner struct {
+	Client kube.CLIClient
+
+	requestLimiter *rate.Limiter
+	// logFetchLimitCh limits the number of concurrent requests to fetch pod logs, this is separate
+	// to requestLimiter as these can be very large.
+	logFetchLimitCh chan struct{}
 
 	// runningTasks tracks the in-flight fetch operations for user feedback.
-	runningTasks   = sets.New()
+	runningTasks   sets.Set[string]
 	runningTasksMu sync.RWMutex
 
 	// runningTasksTicker is the report interval for running tasks.
-	runningTasksTicker = time.NewTicker(reportInterval)
-)
+	runningTasksTicker *time.Ticker
+}
 
-func ReportRunningTasks() {
+func NewRunner(rpsLimit int) *Runner {
+	if rpsLimit <= 0 {
+		rpsLimit = defaultMaxRequestsPerSecond
+	}
+	return &Runner{
+		requestLimiter:     rate.NewLimiter(rate.Limit(rpsLimit), rpsLimit),
+		logFetchLimitCh:    make(chan struct{}, rpsLimit),
+		runningTasks:       sets.New[string](),
+		runningTasksMu:     sync.RWMutex{},
+		runningTasksTicker: time.NewTicker(reportInterval),
+	}
+}
+
+func (r *Runner) SetClient(client kube.CLIClient) {
+	r.Client = client
+}
+
+func (r *Runner) ReportRunningTasks() {
 	go func() {
 		time.Sleep(reportInterval)
-		for range runningTasksTicker.C {
-			printRunningTasks()
+		for range r.runningTasksTicker.C {
+			r.printRunningTasks()
 		}
 	}()
 }
@@ -87,50 +106,50 @@ type Options struct {
 }
 
 // Logs returns the logs for the given namespace/pod/container.
-func Logs(client kube.ExtendedClient, namespace, pod, container string, previous, dryRun bool) (string, error) {
+func (r *Runner) Logs(namespace, pod, container string, previous, dryRun bool) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
 	// ignore cancellation errors since this is subject to global timeout.
-	_ = requestLimiter.Wait(context.TODO())
-	logFetchLimitCh <- struct{}{}
+	_ = r.requestLimiter.Wait(context.TODO())
+	r.logFetchLimitCh <- struct{}{}
 	defer func() {
-		<-logFetchLimitCh
+		<-r.logFetchLimitCh
 	}()
 	task := fmt.Sprintf("PodLogs %s/%s/%s", namespace, pod, container)
-	addRunningTask(task)
-	defer removeRunningTask(task)
-	return client.PodLogs(context.TODO(), pod, namespace, container, previous)
+	r.addRunningTask(task)
+	defer r.removeRunningTask(task)
+	return r.Client.PodLogs(context.TODO(), pod, namespace, container, previous)
 }
 
 // EnvoyGet sends a GET request for the URL in the Envoy container in the given namespace/pod and returns the result.
-func EnvoyGet(client kube.ExtendedClient, namespace, pod, url string, dryRun bool) (string, error) {
+func (r *Runner) EnvoyGet(namespace, pod, url string, dryRun bool) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.EnvoyDo(%s, %s, %s)", pod, namespace, url), nil
 	}
-	_ = requestLimiter.Wait(context.TODO())
+	_ = r.requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("ProxyGet %s/%s:%s", namespace, pod, url)
-	addRunningTask(task)
-	defer removeRunningTask(task)
-	out, err := client.EnvoyDo(context.TODO(), pod, namespace, "GET", url)
+	r.addRunningTask(task)
+	defer r.removeRunningTask(task)
+	out, err := r.Client.EnvoyDo(context.TODO(), pod, namespace, "GET", url)
 	return string(out), err
 }
 
 // Cat runs the cat command for the given path in the given namespace/pod/container.
-func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dryRun bool) (string, error) {
+func (r *Runner) Cat(namespace, pod, container, path string, dryRun bool) (string, error) {
 	cmdStr := "cat " + path
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	_ = requestLimiter.Wait(context.TODO())
-	logFetchLimitCh <- struct{}{}
+	_ = r.requestLimiter.Wait(context.TODO())
+	r.logFetchLimitCh <- struct{}{}
 	defer func() {
-		<-logFetchLimitCh
+		<-r.logFetchLimitCh
 	}()
 	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
-	addRunningTask(task)
-	defer removeRunningTask(task)
-	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
+	r.addRunningTask(task)
+	defer r.removeRunningTask(task)
+	stdout, stderr, err := r.Client.PodExec(pod, namespace, container, cmdStr)
 	if err != nil {
 		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
 			err, util.ConsolidateLog(stderr), stdout)
@@ -139,15 +158,15 @@ func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dry
 }
 
 // Exec runs exec for the given command in the given namespace/pod/container.
-func Exec(client kube.ExtendedClient, namespace, pod, container, cmdStr string, dryRun bool) (string, error) {
+func (r *Runner) Exec(namespace, pod, container, cmdStr string, dryRun bool) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	_ = requestLimiter.Wait(context.TODO())
+	_ = r.requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
-	addRunningTask(task)
-	defer removeRunningTask(task)
-	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
+	r.addRunningTask(task)
+	defer r.removeRunningTask(task)
+	stdout, stderr, err := r.Client.PodExec(pod, namespace, container, cmdStr)
 	if err != nil {
 		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
 			err, util.ConsolidateLog(stderr), stdout)
@@ -156,8 +175,8 @@ func Exec(client kube.ExtendedClient, namespace, pod, container, cmdStr string, 
 }
 
 // RunCmd runs the given command in kubectl, adding -n namespace if namespace is not empty.
-func RunCmd(command, namespace, kubeConfig, kubeContext string, dryRun bool) (string, error) {
-	return Run(strings.Split(command, " "),
+func (r *Runner) RunCmd(command, namespace, kubeConfig, kubeContext string, dryRun bool) (string, error) {
+	return r.Run(strings.Split(command, " "),
 		&Options{
 			Namespace:  namespace,
 			DryRun:     dryRun,
@@ -167,7 +186,7 @@ func RunCmd(command, namespace, kubeConfig, kubeContext string, dryRun bool) (st
 }
 
 // Run runs the kubectl command by specifying subcommands in subcmds with opts.
-func Run(subcmds []string, opts *Options) (string, error) {
+func (r *Runner) Run(subcmds []string, opts *Options) (string, error) {
 	args := subcmds
 	if opts.Kubeconfig != "" {
 		args = append(args, "--kubeconfig", opts.Kubeconfig)
@@ -195,10 +214,10 @@ func Run(subcmds []string, opts *Options) (string, error) {
 		return "", nil
 	}
 
-	_ = requestLimiter.Wait(context.TODO())
+	_ = r.requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("kubectl %s", cmdStr)
-	addRunningTask(task)
-	defer removeRunningTask(task)
+	r.addRunningTask(task)
+	defer r.removeRunningTask(task)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
 			err, util.ConsolidateLog(stderr.String()), stdout.String())
@@ -207,29 +226,29 @@ func Run(subcmds []string, opts *Options) (string, error) {
 	return stdout.String(), nil
 }
 
-func printRunningTasks() {
-	runningTasksMu.RLock()
-	defer runningTasksMu.RUnlock()
-	if runningTasks.IsEmpty() {
+func (r *Runner) printRunningTasks() {
+	r.runningTasksMu.RLock()
+	defer r.runningTasksMu.RUnlock()
+	if r.runningTasks.IsEmpty() {
 		return
 	}
 	common.LogAndPrintf("The following fetches are still running: \n")
-	for t := range runningTasks {
+	for t := range r.runningTasks {
 		common.LogAndPrintf("  %s\n", t)
 	}
 	common.LogAndPrintf("\n")
 }
 
-func addRunningTask(task string) {
-	runningTasksMu.Lock()
-	defer runningTasksMu.Unlock()
+func (r *Runner) addRunningTask(task string) {
+	r.runningTasksMu.Lock()
+	defer r.runningTasksMu.Unlock()
 	log.Infof("STARTING %s", task)
-	runningTasks.Insert(task)
+	r.runningTasks.Insert(task)
 }
 
-func removeRunningTask(task string) {
-	runningTasksMu.Lock()
-	defer runningTasksMu.Unlock()
+func (r *Runner) removeRunningTask(task string) {
+	r.runningTasksMu.Lock()
+	defer r.runningTasksMu.Unlock()
 	log.Infof("COMPLETED %s", task)
-	runningTasks.Delete(task)
+	r.runningTasks.Delete(task)
 }

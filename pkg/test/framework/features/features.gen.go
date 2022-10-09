@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//WARNING: THIS IS AN AUTO-GENERATED FILE, DO NOT EDIT.
+// WARNING: THIS IS AN AUTO-GENERATED FILE, DO NOT EDIT.
 
 package features
 

@@ -238,6 +238,13 @@ var VMImages = map[echo.VMDistro]string{
 	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
 }
 
+// ArmVMImages is the subset of images that work on arm64. These fail because Istio's arm64 build has a higher GLIBC requirement
+var ArmVMImages = map[echo.VMDistro]string{
+	echo.UbuntuJammy: "app_sidecar_ubuntu_jammy",
+	echo.Debian11:    "app_sidecar_debian_11",
+	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
+}
+
 var RevVMImages = func() map[string]echo.VMDistro {
 	r := map[string]echo.VMDistro{}
 	for k, v := range VMImages {

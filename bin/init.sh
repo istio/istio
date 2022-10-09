@@ -21,10 +21,52 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-if [[ "${ISTIO_ENVOY_LINUX_RELEASE_URL:-}" == "" ]]; then
-  echo "Envoy variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
+if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
+  echo "Environment variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
   exit 1
 fi
+
+# Setup arch suffix for envoy binary. For backwards compatibility, amd64 has no suffix.
+if [[ "${TARGET_ARCH}" == "amd64" ]]; then
+	ISTIO_ENVOY_ARCH_SUFFIX=""
+else
+	ISTIO_ENVOY_ARCH_SUFFIX="-${TARGET_ARCH}"
+fi
+
+# Populate the git version for istio/proxy (i.e. Envoy)
+PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
+
+# Envoy binary variables
+ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
+
+SIDECAR="${SIDECAR:-envoy}"
+
+# OS-neutral vars. These currently only work for linux.
+ISTIO_ENVOY_VERSION="${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}"
+ISTIO_ENVOY_DEBUG_URL="${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
+ISTIO_ENVOY_CENTOS_DEBUG_URL="${ISTIO_ENVOY_CENTOS_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-centos-debug-${ISTIO_ENVOY_VERSION}.tar.gz}"
+ISTIO_ENVOY_RELEASE_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
+ISTIO_ENVOY_CENTOS_RELEASE_URL="${ISTIO_ENVOY_CENTOS_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-centos-alpha-${ISTIO_ENVOY_VERSION}.tar.gz}"
+
+# Envoy Linux vars.
+ISTIO_ENVOY_LINUX_VERSION="${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}"
+ISTIO_ENVOY_LINUX_DEBUG_URL="${ISTIO_ENVOY_LINUX_DEBUG_URL:-${ISTIO_ENVOY_DEBUG_URL}}"
+ISTIO_ENVOY_LINUX_RELEASE_URL="${ISTIO_ENVOY_LINUX_RELEASE_URL:-${ISTIO_ENVOY_RELEASE_URL}}"
+# Variables for the extracted debug/release Envoy artifacts.
+ISTIO_ENVOY_LINUX_DEBUG_DIR="${ISTIO_ENVOY_LINUX_DEBUG_DIR:-${TARGET_OUT_LINUX}/debug}"
+ISTIO_ENVOY_LINUX_DEBUG_NAME="${ISTIO_ENVOY_LINUX_DEBUG_NAME:-envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}}"
+ISTIO_ENVOY_LINUX_DEBUG_PATH="${ISTIO_ENVOY_LINUX_DEBUG_PATH:-${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}}"
+ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME="${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME:-envoy-centos-debug-${ISTIO_ENVOY_LINUX_VERSION}}"
+ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH="${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH:-${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME}}"
+
+ISTIO_ENVOY_LINUX_RELEASE_DIR="${ISTIO_ENVOY_LINUX_RELEASE_DIR:-${TARGET_OUT_LINUX}/release}"
+ISTIO_ENVOY_LINUX_RELEASE_NAME="${ISTIO_ENVOY_LINUX_RELEASE_NAME:-${SIDECAR}-${ISTIO_ENVOY_VERSION}}"
+ISTIO_ENVOY_LINUX_RELEASE_PATH="${ISTIO_ENVOY_LINUX_RELEASE_PATH:-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}}"
+ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME="${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME:-envoy-centos-${ISTIO_ENVOY_LINUX_VERSION}}"
+ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH="${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH:-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME}}"
+
+# There is no longer an Istio built Envoy binary available for the Mac. Copy the Linux binary as the Mac binary was
+# very old and likely no one was really using it (at least temporarily).
 
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
 # docker images created by Dockerfile.proxyv2.
@@ -125,14 +167,7 @@ fi
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
 download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH" "${SIDECAR}-centos"
-
-if [[ "$GOOS_LOCAL" == "darwin" ]]; then
-  # Download and extract the Envoy macOS release binary
-  download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH" "${SIDECAR}"
-  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
-else
-  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
-fi
+ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 
 # Download WebAssembly plugin files
 WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}

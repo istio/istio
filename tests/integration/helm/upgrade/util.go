@@ -381,7 +381,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 }
 
 func checkVersion(t framework.TestContext, namespace, version string) error {
-	// func NewPodFetch(a istioKube.ExtendedClient, namespace string, selectors ...string) PodFetchFunc {
+	// func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
 	fetch := kubetest.NewPodFetch(t.Clusters().Default(), namespace)
 	pods, err := kubetest.CheckPodsAreReady(fetch)
 	if err != nil {

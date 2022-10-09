@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM mongo:4.0.19-xenial
+FROM mongo:5.0.10
 WORKDIR /app/data/
 COPY ratings_data.json /app/data/
 COPY script.sh /docker-entrypoint-initdb.d/

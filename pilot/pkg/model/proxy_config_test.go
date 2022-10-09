@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var now = time.Now()
@@ -199,6 +201,18 @@ func TestMergeWithPrecedence(t *testing.T) {
 					"b": "y",
 					"c": "d",
 				},
+			},
+		},
+		{
+			name: "terminationDrainDuration",
+			first: &meshconfig.ProxyConfig{
+				TerminationDrainDuration: durationpb.New(500 * time.Millisecond),
+			},
+			second: &meshconfig.ProxyConfig{
+				TerminationDrainDuration: durationpb.New(5 * time.Second),
+			},
+			expected: &meshconfig.ProxyConfig{
+				TerminationDrainDuration: durationpb.New(500 * time.Millisecond),
 			},
 		},
 	}
@@ -398,20 +412,18 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				RootNamespace: istioRootNamespace,
 				DefaultConfig: tc.defaultConfig,
 			}
+			original, _ := protomarshal.ToJSON(m)
 			pcs, err := GetProxyConfigs(store, m)
 			if err != nil {
 				t.Fatalf("failed to list proxyconfigs: %v", err)
 			}
-			merged := pcs.EffectiveProxyConfig(
-				tc.proxy,
-				&meshconfig.MeshConfig{
-					RootNamespace: istioRootNamespace,
-					DefaultConfig: tc.defaultConfig,
-				})
+			merged := pcs.EffectiveProxyConfig(tc.proxy, m)
 			pc := mesh.DefaultProxyConfig()
 			proto.Merge(pc, tc.expected)
 
 			assert.Equal(t, merged, pc)
+			after, _ := protomarshal.ToJSON(m)
+			assert.Equal(t, original, after, "mesh config should not be mutated")
 		})
 	}
 }
@@ -435,7 +447,7 @@ func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 		store.Create(cfg)
 	}
 
-	return MakeIstioStore(store)
+	return store
 }
 
 func setCreationTimestamp(c config.Config, t time.Time) config.Config {

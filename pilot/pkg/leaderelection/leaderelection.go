@@ -62,6 +62,12 @@ type LeaderElection struct {
 	client    kubernetes.Interface
 	ttl       time.Duration
 
+	// enabled sets whether leader election is enabled. Setting enabled=false
+	// before calling Run() bypasses leader election and assumes that we are
+	// always leader, avoiding unnecessary lease updates on single-node
+	// clusters.
+	enabled bool
+
 	// Criteria to determine leader priority.
 	revision       string
 	remote         bool
@@ -79,7 +85,16 @@ type LeaderElection struct {
 }
 
 // Run will start leader election, calling all runFns when we become the leader.
+// If leader election is disabled, it skips straight to the runFns.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
+	if !l.enabled {
+		log.Infof("bypassing leader election: %v", l.electionID)
+		for _, f := range l.runFns {
+			go f(stop)
+		}
+		<-stop
+		return
+	}
 	if l.prioritized && l.defaultWatcher != nil {
 		go l.defaultWatcher.Run(stop)
 	}
@@ -187,7 +202,7 @@ func NewLeaderElection(namespace, name, electionID, revision string, client kube
 
 func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
-	if features.PrioritizedLeaderElection {
+	if features.EnableLeaderElection && features.PrioritizedLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
 	}
 	if name == "" {
@@ -200,6 +215,7 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 		client:         client.Kube(),
 		electionID:     electionID,
 		revision:       revision,
+		enabled:        features.EnableLeaderElection,
 		remote:         remote,
 		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,
@@ -213,6 +229,9 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 func (l *LeaderElection) isLeader() bool {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	if !l.enabled {
+		return true
+	}
 	if l.le == nil {
 		return false
 	}

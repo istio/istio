@@ -68,6 +68,7 @@ type Multicluster struct {
 	closing bool
 
 	serviceEntryController *serviceentry.Controller
+	configController       model.ConfigStoreController
 	XDSUpdater             model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
@@ -89,6 +90,7 @@ func NewMulticluster(
 	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
+	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	startNsController bool,
@@ -100,6 +102,7 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
+		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
@@ -124,14 +127,14 @@ func (m *Multicluster) close() (err error) {
 	m.m.Lock()
 	m.closing = true
 
-	// Gather all of the member clusters.
+	// Gather all the member clusters.
 	var clusterIDs []cluster.ID
 	for clusterID := range m.remoteKubeControllers {
 		clusterIDs = append(clusterIDs, clusterID)
 	}
 	m.m.Unlock()
 
-	// Remove all of the clusters.
+	// Remove all the clusters.
 	g, _ := errgroup.WithContext(context.Background())
 	for _, clusterID := range clusterIDs {
 		clusterID := clusterID
@@ -203,6 +206,12 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
+	// config cluster's DiscoveryNamespacesFilter is shared by both configController and serviceController
+	// it is initiated in bootstrap initMulticluster function, pass to service controller to update it.
+	// For other clusters, it should filter by its own cluster's namespace.
+	if !configCluster {
+		options.DiscoveryNamespacesFilter = nil
+	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
@@ -223,24 +232,26 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeRegi
 	}
 
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-	if m.serviceEntryController != nil && configCluster {
-		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-		m.serviceEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-	} else if features.WorkloadEntryCrossCluster {
-		// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
-		if configStore, err := createWleConfigStore(client, m.revision, options); err == nil {
-			m.remoteKubeControllers[cluster.ID].workloadEntryController = serviceentry.NewWorkloadEntryController(
-				configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
-				serviceentry.WithClusterID(cluster.ID),
-				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
-			m.remoteKubeControllers[cluster.ID].workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-			// ServiceEntry selects WorkloadEntry from remote cluster
-			m.remoteKubeControllers[cluster.ID].workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
-			m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryController, clusterStopCh)
-			go configStore.Run(clusterStopCh)
-		} else {
-			return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
+	if features.EnableK8SServiceSelectWorkloadEntries {
+		if m.serviceEntryController != nil && configCluster {
+			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+			m.serviceEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+		} else if features.WorkloadEntryCrossCluster {
+			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
+			if configStore, err := createWleConfigStore(client, m.revision, options); err == nil {
+				m.remoteKubeControllers[cluster.ID].workloadEntryController = serviceentry.NewWorkloadEntryController(
+					configStore, options.XDSUpdater,
+					serviceentry.WithClusterID(cluster.ID),
+					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
+				m.remoteKubeControllers[cluster.ID].workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+				// ServiceEntry selects WorkloadEntry from remote cluster
+				m.remoteKubeControllers[cluster.ID].workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
+				m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryController, clusterStopCh)
+				go configStore.Run(clusterStopCh)
+			} else {
+				return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
+			}
 		}
 	}
 
@@ -371,5 +382,6 @@ func createWleConfigStore(client kubelib.Client, revision string, opts Options) 
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, workloadEntriesSchemas)
+	crdOpts := crdclient.Option{Revision: revision, DomainSuffix: opts.DomainSuffix, Identifier: "mc-workload-entry-controller"}
+	return crdclient.NewForSchemas(client, crdOpts, workloadEntriesSchemas)
 }

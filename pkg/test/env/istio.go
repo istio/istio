@@ -74,7 +74,7 @@ var (
 	LocalOut = verifyFile(LOCAL_OUT, LOCAL_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
 	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
-	OtelCollectorInstallFilePath = path.Join(IstioSrc, getInstallationFile("opentelemetry/opentelemetry-collector.yaml"))
+	OtelCollectorInstallFilePath = path.Join(IstioSrc, getSampleFile("open-telemetry/otel.yaml"))
 
 	// StackdriverInstallFilePath is the stackdriver installation file.
 	StackdriverInstallFilePath = path.Join(IstioSrc, getInstallationFile("stackdriver/stackdriver.yaml"))
@@ -96,6 +96,10 @@ var (
 
 func getDefaultIstioSrc() string {
 	return Root
+}
+
+func getSampleFile(p string) string {
+	return fmt.Sprintf("samples/%s", p)
 }
 
 func getInstallationFile(p string) string {

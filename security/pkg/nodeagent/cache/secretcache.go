@@ -17,6 +17,7 @@ package cache
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -26,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -64,12 +65,12 @@ const (
 // it serves.
 //
 // SecretManagerClient supports two modes of retrieving certificate (potentially at the same time):
-// * File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
-//   requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
-//   certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
-//   names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
-// * On demand CSRs. This is used only for the `default` certificate. When this resource is
-//   requested, a CSR will be sent to the configured caClient.
+//   - File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
+//     requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
+//     certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
+//     names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
+//   - On demand CSRs. This is used only for the `default` certificate. When this resource is
+//     requested, a CSR will be sent to the configured caClient.
 //
 // Callers are expected to only call GenerateSecret when a new certificate is required. Generally,
 // this should be done a single time at startup, then repeatedly when the certificate is near
@@ -323,18 +324,16 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
 		return
 	}
-	// Retry file watcher as some times it might fail to add and we will miss change
+	// RetryWithContext file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
 	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
-		b := backoff.NewExponentialBackOff()
-		for {
-			if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
-				break
-			}
-			time.Sleep(b.NextBackOff())
-		}
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		_ = b.RetryWithContext(context.TODO(), func() error {
+			err := sc.tryAddFileWatcher(file, resourceName)
+			return err
+		})
 	}()
 }
 
@@ -345,7 +344,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	defer sc.certMutex.Unlock()
 	file, err := filepath.Abs(file)
 	if err != nil {
-		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches [%s] %v", resourceName, file, err)
+		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches: %v", resourceName, file, err)
 		return err
 	}
 	key := FileCert{
@@ -361,7 +360,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for file, retrying watches [%s] %v", resourceName, file, err)
+		cacheLog.Errorf("%v: error adding watcher for file %v, retrying watches: %v", resourceName, file, err)
 		numFileWatcherFailures.Increment()
 		return err
 	}
@@ -414,17 +413,23 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
 	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = sc.configOptions.FileDebounceDuration
+	o := backoff.DefaultOption()
+	o.InitialInterval = sc.configOptions.FileDebounceDuration
+	b := backoff.NewExponentialBackOff(o)
+	var permanentErr error
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
 		if errors.Is(err, os.ErrNotExist) {
-			return backoff.Permanent(err)
+			permanentErr = err
+			return nil
 		}
 		return err
 	}
-	if err := backoff.Retry(secretValid, b); err != nil {
+	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
 		return nil, err
+	}
+	if permanentErr != nil {
+		return nil, permanentErr
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
@@ -760,7 +765,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 	sc.configTrustBundleMutex.RLock()
 	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
 	sc.configTrustBundleMutex.RUnlock()
-	anchors := sets.New()
+	anchors := sets.New[string]()
 	for _, cert := range existingCerts {
 		anchors.Insert(cert)
 	}

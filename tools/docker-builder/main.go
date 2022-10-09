@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -49,14 +50,14 @@ func main() {
 	rootCmd.Flags().StringVar(&globalArgs.Builder, "builder", globalArgs.Builder, "type of builder to use. options are crane or docker")
 	rootCmd.Flags().BoolVar(&version, "version", version, "show build version")
 
-	rootCmd.Flags().BoolVar(&globalArgs.KindLoad, "kind-load", globalArgs.KindLoad, "kind cluster to load into")
+	rootCmd.Flags().BoolVar(&globalArgs.SupportsEmulation, "qemu", globalArgs.SupportsEmulation, "if enable, allows building images that require emulation")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
 }
 
-var privilegedHubs = sets.New(
+var privilegedHubs = sets.New[string](
 	"docker.io/istio",
 	"istio",
 	"gcr.io/istio-release",
@@ -138,8 +139,8 @@ func ReadPlanTargets() ([]string, []string, error) {
 	if err := yaml.Unmarshal(by, &plan); err != nil {
 		return nil, nil, err
 	}
-	bases := sets.New()
-	nonBases := sets.New()
+	bases := sets.New[string]()
+	nonBases := sets.New[string]()
 	for _, i := range plan.Images {
 		if i.Base {
 			bases.Insert(i.Name)
@@ -149,6 +150,8 @@ func ReadPlanTargets() ([]string, []string, error) {
 	}
 	return bases.SortedList(), nonBases.SortedList(), nil
 }
+
+var LocalArch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 func ReadPlan(a Args) (Args, error) {
 	by, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
@@ -163,6 +166,11 @@ func ReadPlan(a Args) (Args, error) {
 		input := os.Expand(string(by), func(s string) string {
 			data := archToEnvMap(arch)
 			data["SIDECAR"] = "envoy"
+			if _, f := os.LookupEnv("DEBUG_IMAGE"); f {
+				data["RELEASE_MODE"] = "debug"
+			} else {
+				data["RELEASE_MODE"] = "release"
+			}
 			if r, f := data[s]; f {
 				return r
 			}
@@ -176,7 +184,7 @@ func ReadPlan(a Args) (Args, error) {
 
 		// Check targets are valid
 		tgt := sets.New(a.Targets...)
-		known := sets.New()
+		known := sets.New[string]()
 		for _, img := range plan.Images {
 			known.Insert(img.Name)
 		}
@@ -188,7 +196,12 @@ func ReadPlan(a Args) (Args, error) {
 		// This is not arch specific, so we can just let it run for each arch.
 		desiredImages := []ImagePlan{}
 		for _, i := range plan.Images {
+			canBuild := !i.EmulationRequired || (arch == LocalArch)
 			if tgt.Contains(i.Name) {
+				if !canBuild {
+					log.Infof("Skipping %s for %s as --qemu is not passed", i.Name, arch)
+					continue
+				}
 				desiredImages = append(desiredImages, i)
 			}
 		}
@@ -247,7 +260,9 @@ func RunMake(args Args, arch string, c ...string) error {
 	log.Infof("Running make for %v: %v", arch, strings.Join(shortArgs, " "))
 	env := StandardEnv(args)
 	env = append(env, archToGoFlags(arch)...)
-	cmd := exec.Command("make", c...)
+	makeArgs := []string{"--no-print-directory"}
+	makeArgs = append(makeArgs, c...)
+	cmd := exec.Command("make", makeArgs...)
 	log.Infof("env: %v", archToGoFlags(arch))
 	cmd.Env = env
 	cmd.Stderr = os.Stderr

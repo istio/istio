@@ -56,7 +56,7 @@ func FuzzValidateClusters(data []byte) int {
 		return 0
 	}
 	err = f.GenerateStruct(&proxy)
-	if err != nil {
+	if err != nil || !proxy.FuzzValidate() {
 		return 0
 	}
 	cg := v1alpha3.NewConfigGenTest(utils.NopTester{}, to)

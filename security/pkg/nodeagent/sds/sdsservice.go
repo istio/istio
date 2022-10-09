@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
@@ -111,32 +111,32 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	// configured, in which case this will fail; if it becomes noisy we should disable the entire SDS
 	// server in these cases.
 	go func() {
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 0
-		for {
+		// TODO: do we need max timeout for retry, seems meaningless to retry forever if it never succeed
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		// context for both timeout and channel, whichever stops first, the context will be done
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			select {
+			case <-ret.stop:
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+		defer cancel()
+		_ = b.RetryWithContext(ctx, func() error {
 			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
-			if err == nil {
-				break
+			if err != nil {
+				sdsServiceLog.Warnf("failed to warm certificate: %v", err)
+				return err
 			}
-			sdsServiceLog.Warnf("failed to warm certificate: %v", err)
-			select {
-			case <-ret.stop:
-				return
-			case <-time.After(b.NextBackOff()):
+			_, err = st.GenerateSecret(security.RootCertReqResourceName)
+			if err != nil {
+				sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
+				return err
 			}
-		}
-		for {
-			_, err := st.GenerateSecret(security.RootCertReqResourceName)
-			if err == nil {
-				break
-			}
-			sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
-			select {
-			case <-ret.stop:
-				return
-			case <-time.After(b.NextBackOff()):
-			}
-		}
+
+			return nil
+		})
 	}()
 
 	return ret

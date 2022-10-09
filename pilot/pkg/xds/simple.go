@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,10 +46,6 @@ type SimpleServer struct {
 	// PushContext.
 	DiscoveryServer *DiscoveryServer
 
-	// MemoryStore is an in-memory config store, part of the aggregate store
-	// used by the discovery server.
-	MemoryConfigStore model.ConfigStore
-
 	// GRPCListener is the listener used for GRPC. For agent it is
 	// an insecure port, bound to 127.0.0.1
 	GRPCListener net.Listener
@@ -61,7 +57,7 @@ type SimpleServer struct {
 	ConfigStoreCache model.ConfigStoreController
 }
 
-// Creates an basic, functional discovery server, using the same code as Istiod, but
+// NewXDS creates a basic, functional discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint stores.
 //
 // Can be used in tests, or as a minimal XDS discovery server with no dependency on K8S or
@@ -77,7 +73,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env.Init()
 
 	ds := NewDiscoveryServer(env, "istiod", map[string]string{})
-	ds.InitGenerators(env, "istio-system")
+	ds.InitGenerators(env, "istio-system", nil)
 	ds.CachesSynced()
 
 	// Config will have a fixed format:
@@ -95,12 +91,11 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
 	configController := memory.NewController(store)
-	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
 	serviceControllers := aggregate.NewController(aggregate.Options{})
 
-	serviceEntryController := serviceentry.NewController(configController, s.MemoryConfigStore, ds)
+	serviceEntryController := serviceentry.NewController(configController, ds)
 	serviceControllers.AddRegistry(serviceEntryController)
 
 	sd := controllermemory.NewServiceDiscovery()
@@ -116,16 +111,16 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	go configController.Run(stop)
 
 	// configStoreCache - with HasSync interface
-	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreController{
+	aggregateConfigController, err := configaggregate.MakeWriteableCache([]model.ConfigStoreController{
 		configController,
-	})
+	}, configController)
 	if err != nil {
 		log.Fatalf("Creating aggregate config: %v", err)
 	}
 
 	// TODO: fix the mess of store interfaces - most are too generic for their own good.
 	s.ConfigStoreCache = aggregateConfigController
-	env.ConfigStore = model.MakeIstioStore(aggregateConfigController)
+	env.ConfigStore = aggregateConfigController
 
 	return s
 }

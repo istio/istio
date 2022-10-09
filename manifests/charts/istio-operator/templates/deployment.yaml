@@ -38,6 +38,10 @@ spec:
             runAsGroup: 1337
             runAsUser: 1337
             runAsNonRoot: true
+{{- if .Values.operator.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.operator.seccompProfile | trim | indent 14 }}
+{{- end }}
           imagePullPolicy: IfNotPresent
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}

@@ -25,13 +25,13 @@ func extractTags(a Args, target, variant string, hasDoubleDefault bool) []string
 		for _, tg := range a.Tags {
 			if variant == DefaultVariant {
 				// For default, we have no suffix
-				tags = append(tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+				tags = append(tags, fmt.Sprintf("%s/%s:%s%s", h, target, tg, a.suffix))
 			} else {
 				// Otherwise, we have a suffix with the variant
-				tags = append(tags, fmt.Sprintf("%s/%s:%s-%s", h, target, tg, variant))
+				tags = append(tags, fmt.Sprintf("%s/%s:%s-%s%s", h, target, tg, variant, a.suffix))
 				// If we need a default as well, add it as a second tag for the same image to avoid building twice
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tags = append(tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+					tags = append(tags, fmt.Sprintf("%s/%s:%s%s", h, target, tg, a.suffix))
 				}
 			}
 		}

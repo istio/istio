@@ -133,8 +133,8 @@ func newServiceExport() *unstructured.Unstructured {
 func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
 	t.Helper()
 
-	istiotest.SetBoolForTest(t, &features.EnableMCSServiceDiscovery, true)
-	istiotest.SetBoolForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
+	istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
+	istiotest.SetForTest(t, &features.EnableMCSClusterLocal, clusterLocalMode == alwaysClusterLocal)
 
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
@@ -229,6 +229,10 @@ func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 		IPAddresses:     []string{serviceExportPodIP},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceExportNamespace,
+		Labels: map[string]string{
+			"app":                      "prod-app",
+			label.SecurityTlsMode.Name: "mutual",
+		},
 		Metadata: &model.NodeMetadata{
 			ServiceAccount: "account",
 			ClusterID:      ec.Cluster(),

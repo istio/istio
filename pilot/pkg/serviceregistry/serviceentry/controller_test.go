@@ -164,10 +164,8 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 		}
 	}()
 
-	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewController(configController, istioStore, xdsUpdater)
-
-	return istioStore, serviceController
+	serviceController := NewController(configController, xdsUpdater)
+	return configController, serviceController
 }
 
 func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event) {
@@ -182,12 +180,12 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 		Events: eventch,
 	}
 
-	istioStore := model.MakeIstioStore(configController)
+	istioStore := configController
 	var controller *Controller
 	if !workloadOnly {
-		controller = NewController(configController, istioStore, xdsUpdater, opts...)
+		controller = NewController(configController, xdsUpdater, opts...)
 	} else {
-		controller = NewWorkloadEntryController(configController, istioStore, xdsUpdater, opts...)
+		controller = NewWorkloadEntryController(configController, xdsUpdater, opts...)
 	}
 	go controller.Run(stop)
 	return istioStore, controller, eventch
@@ -886,13 +884,14 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		instances = []*model.ServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
 	})
 
 	t.Run("change label removing one", func(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*config.Config{wle}, store, t)
-		expectEvents(t, events,
+		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
 			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
 		)
 		// add a wle, expect this to be an add
@@ -942,7 +941,8 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "3.3.3.3")
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
 
@@ -1710,7 +1710,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	inServices := make([]*model.Service, 512)
 	for i := 0; i < 512; i++ {
 		temp := model.Service{
-			Hostname:       "foo.com",
+			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
 			DefaultAddress: constants.UnspecifiedIP,
 		}
@@ -1739,15 +1739,15 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
 
-	gotIPMap := make(map[string]bool)
+	gotIPMap := make(map[string]string)
 	for _, svc := range gotServices {
 		if svc.AutoAllocatedIPv4Address == "" || doNotWant[svc.AutoAllocatedIPv4Address] {
 			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedIPv4Address)
 		}
-		if gotIPMap[svc.AutoAllocatedIPv4Address] {
-			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedIPv4Address)
+		if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
+			t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
 		}
-		gotIPMap[svc.AutoAllocatedIPv4Address] = true
+		gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
 	}
 }
 

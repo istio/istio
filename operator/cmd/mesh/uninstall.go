@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/constants"
 	proxyinfo "istio.io/istio/pkg/proxy"
 	"istio.io/pkg/log"
 )
@@ -78,7 +79,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", istioDefaultNamespace,
+	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", constants.IstioSystemNamespace,
 		"The namespace of Istio Control Plane.")
 	cmd.PersistentFlags().StringVarP(&args.filename, "filename", "f", "",
 		"The filename of the IstioOperator CR.")
@@ -96,13 +97,13 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		Short: "Uninstall Istio from a cluster",
 		Long:  "The uninstall command uninstalls Istio from a cluster",
 		Example: `  # Uninstall a single control plane by revision
-  istioctl x uninstall --revision foo
+  istioctl uninstall --revision foo
 
   # Uninstall a single control plane by iop file
-  istioctl x uninstall -f iop.yaml
+  istioctl uninstall -f iop.yaml
   
   # Uninstall all control planes and shared resources
-  istioctl x uninstall --purge`,
+  istioctl uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")

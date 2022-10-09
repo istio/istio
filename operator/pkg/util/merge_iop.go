@@ -174,6 +174,7 @@ type (
 		Skywalking         struct{} `json:"skywalking"`
 		EnvoyHTTPAls       struct{} `json:"envoyHttpAls"`
 		EnvoyTCPAls        struct{} `json:"envoyTcpAls"`
+		OpenTelemetry      struct{} `json:"opentelemetry"`
 	}
 	clusterName struct {
 		ServiceCluster     *v1alpha13.ProxyConfig_ServiceCluster      `json:"serviceCluster,omitempty"`

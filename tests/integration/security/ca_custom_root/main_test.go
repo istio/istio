@@ -50,6 +50,7 @@ var (
 	serverNakedFooAlt echo.Instances
 	customConfig      []echo.Config
 	echo1NS           namespace.Instance
+	config            deployment.Config
 )
 
 func TestMain(m *testing.M) {
@@ -66,11 +67,24 @@ func TestMain(m *testing.M) {
 			}
 			return nil
 		}).
+		Setup(func(ctx resource.Context) error {
+			config = deployment.Config{
+				Namespaces: []namespace.Getter{
+					namespace.Future(&echo1NS),
+				},
+				Configs: echo.ConfigFuture(&customConfig),
+			}
+			err := addDefaultConfig(ctx, config, &customConfig)
+			if err != nil {
+				return err
+			}
+			return nil
+		}).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
 			Namespaces: []namespace.Getter{
 				namespace.Future(&echo1NS),
 			},
-			Custom: echo.CustomFuture(&customConfig),
+			Configs: echo.ConfigFuture(&customConfig),
 		})).
 		Setup(func(ctx resource.Context) error {
 			return createCustomInstances(&apps)
@@ -331,5 +345,16 @@ func generateCerts(tmpdir, ns string) error {
 	if err := command.Run(); err != nil {
 		return fmt.Errorf("failed to create testing certificates: %s", err)
 	}
+	return nil
+}
+
+func addDefaultConfig(ctx resource.Context, cfg deployment.Config, customCfg *[]echo.Config) error {
+	defaultConfigs := cfg.DefaultEchoConfigs(ctx)
+
+	if defaultConfigs == nil {
+		return fmt.Errorf("unable to create default config")
+	}
+
+	*customCfg = append(*customCfg, defaultConfigs...)
 	return nil
 }

@@ -38,15 +38,16 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -388,6 +389,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"1.1.1.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app":                      "prod-app",
+					label.SecurityTlsMode.Name: "mutual",
+				},
 				Metadata: &model.NodeMetadata{
 					ServiceAccount: "account",
 					ClusterID:      clusterID,
@@ -462,6 +467,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.1"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app": "prod-app",
+				},
 				Metadata: &model.NodeMetadata{
 					ServiceAccount: "account",
 					ClusterID:      clusterID,
@@ -530,6 +538,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				IPAddresses:     []string{"129.0.0.2"},
 				Locality:        &core.Locality{Region: "r", Zone: "z"},
 				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app": "prod-app",
+				},
 				Metadata: &model.NodeMetadata{
 					ServiceAccount: "account",
 					ClusterID:      clusterID,
@@ -1385,7 +1396,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 			// assert that namespace membership has been updated
 			eventually(t, func() bool {
 				members := discoveryNamespacesFilter.GetMembers()
-				return members.Has(nsA) && members.Has(nsB) && members.Has(nsC)
+				return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
 			})
 
 			// service event handlers should trigger for all svcs
@@ -2557,10 +2568,24 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 		"app": "prod-app",
 		"foo": "bar",
 	}
+	// set `K8SServiceSelectWorkloadEntries` to false temporarily
+	tmp := features.EnableK8SServiceSelectWorkloadEntries
+	features.EnableK8SServiceSelectWorkloadEntries = false
+	defer func() {
+		features.EnableK8SServiceSelectWorkloadEntries = tmp
+	}()
+	svc = updateService(controller, svc, t)
+	// don't update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is disabled
+	if ev := fx.Wait("eds cache"); ev != nil {
+		t.Fatal("Update eds cache unexpectedly")
+	}
+
+	features.EnableK8SServiceSelectWorkloadEntries = true
 	svc.Spec.Selector = map[string]string{
 		"app": "prod-app",
 	}
 	updateService(controller, svc, t)
+	// update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is enabled
 	if ev := fx.Wait("eds cache"); ev == nil {
 		t.Fatal("Timeout updating eds cache")
 	}

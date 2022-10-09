@@ -159,7 +159,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			ignored := sets.New(ignoredCRDs...)
-			recognized := sets.New()
+			recognized := sets.New[string]()
 
 			// TODO(jasonwzm) remove this after multi-version APIs are supported.
 			for _, r := range collections.Pilot.All() {
@@ -187,8 +187,8 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				recognized.Delete(gvk)
 			}
 
-			testedValid := sets.New()
-			testedInvalid := sets.New()
+			testedValid := sets.New[string]()
+			testedInvalid := sets.New[string]()
 			for _, te := range loadTestData(t) {
 				yamlBatch, err := te.load()
 				yamlParts := yml.SplitString(yamlBatch)

@@ -115,6 +115,7 @@ type Server struct {
 	serviceEntryController *serviceentry.Controller
 
 	httpServer       *http.Server // debug, monitoring and readiness Server.
+	httpAddr         string
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 
@@ -126,6 +127,8 @@ type Server struct {
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
 	monitoringMux *http.ServeMux
+	// internalDebugMux is a mux for *internal* calls to the debug interface. That is, authentication is disabled.
+	internalDebugMux *http.ServeMux
 
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
@@ -136,9 +139,6 @@ type Server struct {
 	// httpsMux listens on the httpsAddr(15017), handling webhooks
 	// If the address os empty, the webhooks will be set on the default httpPort.
 	httpsMux *http.ServeMux // webhooks
-
-	// MultiplexGRPC will serve gRPC and HTTP (1 or 2) over the HTTPListener, if enabled.
-	MultiplexGRPC bool
 
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
@@ -199,6 +199,21 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
+
+	// Used for readiness, monitoring and debug handlers.
+	var (
+		whMu sync.RWMutex
+		wh   *inject.Webhook
+	)
+	whc := func() map[string]string {
+		whMu.RLock()
+		defer whMu.RUnlock()
+		if wh != nil {
+			return wh.Config.RawTemplates
+		}
+		return map[string]string{}
+	}
+
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(s)
@@ -208,6 +223,18 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.XDSServer = xds.NewDiscoveryServer(e, args.PodName, args.RegistryOptions.KubeOptions.ClusterAliases)
 
 	prometheus.EnableHandlingTimeHistogram()
+
+	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
+	s.addReadinessProbe("discovery", func() (bool, error) {
+		return s.XDSServer.IsServerReady(), nil
+	})
+	s.initServers(args)
+	if err := s.initIstiodAdminServer(args, whc); err != nil {
+		return nil, fmt.Errorf("error initializing debug server: %v", err)
+	}
+	if err := s.serveHTTP(); err != nil {
+		return nil, fmt.Errorf("error serving http: %v", err)
+	}
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
@@ -248,7 +275,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace)
+	s.XDSServer.InitGenerators(e, args.Namespace, s.internalDebugMux)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -271,11 +298,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
-	var wh *inject.Webhook
 	// common https server for webhooks (e.g. injection, validation)
 	if s.kubeClient != nil {
 		s.initSecureWebhookServer(args)
+		whMu.Lock()
 		wh, err = s.initSidecarInjector(args)
+		whMu.Unlock()
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
@@ -284,21 +312,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		}
 	}
 
-	whc := func() map[string]string {
-		if wh != nil {
-			return wh.Config.RawTemplates
-		}
-		return map[string]string{}
-	}
-
-	// Used for readiness, monitoring and debug handlers.
-	if err := s.initIstiodAdminServer(args, whc); err != nil {
-		return nil, fmt.Errorf("error initializing debug server: %v", err)
-	}
 	// This should be called only after controllers are initialized.
 	s.initRegistryEventHandlers()
 
-	s.initDiscoveryService(args)
+	s.initDiscoveryService()
 
 	s.initSDSServer()
 
@@ -320,8 +337,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
-	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	if s.kubeClient != nil {
+		authenticators = append(authenticators,
+			kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+	}
 	if len(features.TrustedGatewayCIDR) > 0 {
 		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
 	}
@@ -345,10 +364,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 			return nil
 		})
 	}
-
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
 
 	return s, nil
 }
@@ -440,41 +455,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 			}
 		}()
 	}
-
-	if s.MultiplexGRPC {
-		log.Infof("multiplexing gRPC services with HTTP services")
-		h2s := &http2.Server{
-			MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
-		}
-		// In the past, we have tried using "cmux" to handle multiplexing. This only works if we have
-		// only HTTP/1.1 and gRPC on the same port. If we have gRPC and HTTP2, clients (envoy) may
-		// multiplex the connections. cmux works at the connection level, so if the first request is
-		// gRPC then all future non-GRPC HTTP2 requests will match the gRPC server and fail. The major
-		// downside of multiplexing by using gRPC's ServeHTTP is that we are using the golang HTTP2
-		// stack. This means a lot of features on the gRPC server (keepalives, etc) do not apply.
-		multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// If we detect gRPC, serve using grpcServer
-			if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
-				s.grpcServer.ServeHTTP(w, r)
-				return
-			}
-			// Otherwise, this is meant for the standard HTTP server
-			s.httpMux.ServeHTTP(w, r)
-		}), h2s)
-		s.httpServer.Handler = multiplexHandler
-	}
-
-	// At this point we are ready - start Http Listener so that it can respond to readiness events.
-	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
-	if err != nil {
-		return err
-	}
-	go func() {
-		log.Infof("starting HTTP service at %s", httpListener.Addr())
-		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
-			log.Errorf("error serving http server: %v", err)
-		}
-	}()
 
 	if s.httpsServer != nil {
 		httpsListener, err := net.Listen("tcp", s.httpsServer.Addr)
@@ -595,30 +575,57 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// initIstiodAdminServer initializes monitoring, debug and readiness end points.
-func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
+// initServers initializes http and grpc servers
+func (s *Server) initServers(args *PilotArgs) {
+	s.initGrpcServer(args.KeepaliveOptions)
+	multiplexGRPC := false
+	if args.ServerOptions.GRPCAddr != "" {
+		s.grpcAddress = args.ServerOptions.GRPCAddr
+	} else {
+		// This happens only if the GRPC port (15010) is disabled. We will multiplex
+		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
+		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
+		multiplexGRPC = true
+	}
+	h2s := &http2.Server{
+		MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
+	}
+	multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If we detect gRPC, serve using grpcServer
+		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
+			s.grpcServer.ServeHTTP(w, r)
+			return
+		}
+		// Otherwise, this is meant for the standard HTTP server
+		s.httpMux.ServeHTTP(w, r)
+	}), h2s)
 	s.httpServer = &http.Server{
 		Addr:        args.ServerOptions.HTTPAddr,
 		Handler:     s.httpMux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
 	}
+	if multiplexGRPC {
+		s.httpServer.Handler = multiplexHandler
+	}
 
-	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
-
-	if shouldMultiplex {
+	if args.ServerOptions.MonitoringAddr == "" {
 		s.monitoringMux = s.httpMux
 		log.Info("initializing Istiod admin server multiplexed on httpAddr ", s.httpServer.Addr)
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
+}
 
+// initIstiodAdminServer initializes monitoring, debug and readiness end points.
+func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
 	// Debug Server.
-	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	internalMux := s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	s.internalDebugMux = internalMux
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
-	if !shouldMultiplex {
+	if args.ServerOptions.MonitoringAddr != "" {
 		s.XDSServer.AddDebugHandlers(s.httpMux, nil, args.ServerOptions.EnableProfiling, whc)
 	}
 
@@ -634,7 +641,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 }
 
 // initDiscoveryService initializes discovery server on plain text port.
-func (s *Server) initDiscoveryService(args *PilotArgs) {
+func (s *Server) initDiscoveryService() {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -642,17 +649,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 		s.XDSServer.Start(stop)
 		return nil
 	})
-
-	s.initGrpcServer(args.KeepaliveOptions)
-
-	if args.ServerOptions.GRPCAddr != "" {
-		s.grpcAddress = args.ServerOptions.GRPCAddr
-	} else {
-		// This happens only if the GRPC port (15010) is disabled. We will multiplex
-		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
-		s.MultiplexGRPC = true
-	}
 }
 
 // Wait for the stop, and do cleanups
@@ -944,9 +940,14 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	var err error
 
 	s.dnsNames = getDNSNames(args, host)
-	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-		// Use the DNS certificate provided via args.
-		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
+	if hasCustomCertArgsOrWellKnown, tlsCertPath, tlsKeyPath, caCertPath := hasCustomTLSCerts(args.ServerOptions.TLSOptions); hasCustomCertArgsOrWellKnown {
+		// Use the DNS certificate provided via args or in well known location.
+		err = s.initCertificateWatches(TLSOptions{
+			CaCertFile: caCertPath,
+			KeyFile:    tlsKeyPath,
+			CertFile:   tlsCertPath,
+		})
+
 		if err != nil {
 			// Not crashing istiod - This typically happens if certs are missing and in tests.
 			log.Errorf("error initializing certificate watches: %v", err)
@@ -1056,8 +1057,44 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 	return peerCertVerifier, nil
 }
 
+func checkPathsExist(paths ...string) bool {
+	for _, path := range paths {
+		fInfo, err := os.Stat(path)
+
+		if err != nil || fInfo.IsDir() {
+			return false
+		}
+	}
+	return true
+}
+
+// hasCustomTLSCerts returns the tls cert paths, used both if custom TLS certificates are configured via args or by mounting in well known.
+// while tls args should still take precedence the aim is to encourage loading the DNS tls cert in the well known path locations.
+func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath, caCertPath string) {
+	// load from tls args as priority
+	if hasCustomTLSCertArgs(tlsOptions) {
+		return true, tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile
+	}
+
+	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCert); ok {
+		tlsCertPath = constants.DefaultPilotTLSCert
+		tlsKeyPath = constants.DefaultPilotTLSKey
+		caCertPath = constants.DefaultPilotTLSCaCert
+		return
+	}
+
+	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCertAlternatePath); ok {
+		tlsCertPath = constants.DefaultPilotTLSCert
+		tlsKeyPath = constants.DefaultPilotTLSKey
+		caCertPath = constants.DefaultPilotTLSCaCertAlternatePath
+		return
+	}
+
+	return
+}
+
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
-func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
+func hasCustomTLSCertArgs(tlsOptions TLSOptions) bool {
 	return tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != ""
 }
 
@@ -1080,6 +1117,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initCertController(args); err != nil {
 		return fmt.Errorf("error initializing certificate controller: %v", err)
 	}
+	if features.EnableEnhancedResourceScoping {
+		// setup namespace filter
+		args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
+	}
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}
@@ -1093,7 +1134,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID)
+	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher)
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		return s.multiclusterController.Run(stop)
@@ -1277,4 +1318,20 @@ func (s *Server) initStatusManager(_ *PilotArgs) {
 		s.statusManager.Start(stop)
 		return nil
 	})
+}
+
+func (s *Server) serveHTTP() error {
+	// At this point we are ready - start Http Listener so that it can respond to readiness events.
+	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return err
+	}
+	go func() {
+		log.Infof("starting HTTP service at %s", httpListener.Addr())
+		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
+			log.Errorf("error serving http server: %v", err)
+		}
+	}()
+	s.httpAddr = httpListener.Addr().String()
+	return nil
 }

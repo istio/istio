@@ -254,12 +254,10 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				Logger:          &AuthzLogger{},
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(tc.version)
-			defer option.Logger.Report(proxy)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
@@ -322,12 +320,10 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				Logger:          &AuthzLogger{},
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
-			defer option.Logger.Report(proxy)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.Labels)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
@@ -419,7 +415,7 @@ func convertTCP(in []*tcppb.Filter) []proto.Message {
 }
 
 func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.AuthorizationPolicies {
-	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	store := memory.Make(collections.Pilot)
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("newAuthzPolicies: %v", err)
@@ -455,6 +451,7 @@ func node(version *model.IstioVersion) *model.Proxy {
 	return &model.Proxy{
 		ID:              "test-node",
 		ConfigNamespace: "foo",
+		Labels:          httpbin,
 		Metadata: &model.NodeMetadata{
 			Labels: httpbin,
 		},

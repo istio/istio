@@ -20,8 +20,8 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"google.golang.org/protobuf/types/known/anypb"
 
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -85,10 +85,7 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		sort.Slice(route.VirtualHosts, func(i, j int) bool {
 			return route.VirtualHosts[i].Name < route.VirtualHosts[j].Name
 		})
-		drc[i].RouteConfig, err = anypb.New(route)
-		if err != nil {
-			return nil, err
-		}
+		drc[i].RouteConfig = protoconv.MessageToAny(route)
 	}
 
 	if stripVersions {

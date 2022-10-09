@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"sort"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -171,6 +173,23 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
+// BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+	var additionalAddresses []*listener.AdditionalAddress
+	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+		for _, exbd := range extrAddresses {
+			if exbd == "" {
+				continue
+			}
+			extraAddress := &listener.AdditionalAddress{
+				Address: BuildAddress(exbd, listenPort),
+			}
+			additionalAddresses = append(additionalAddresses, extraAddress)
+		}
+	}
+	return additionalAddresses
+}
+
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil
@@ -211,6 +230,12 @@ func IsIstioVersionGE114(version *model.IstioVersion) bool {
 func IsIstioVersionGE115(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
+func IsIstioVersionGE116(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -254,6 +279,18 @@ func LocalityToString(l *core.Locality) string {
 	}
 	resp += "/" + l.SubZone
 	return resp
+}
+
+// GetFailoverPriorityLabels returns a byte array which contains failover priorities of the proxy.
+func GetFailoverPriorityLabels(proxyLabels map[string]string, priorities []string) []byte {
+	var b bytes.Buffer
+	for _, key := range priorities {
+		b.WriteString(key)
+		b.WriteRune(':')
+		b.WriteString(proxyLabels[key])
+		b.WriteRune(' ')
+	}
+	return b.Bytes()
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
@@ -401,12 +438,9 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 	// Merge the two typed protos
 	merge.Merge(dstX, srcX)
-	var retVal *anypb.Any
 
 	// Convert the merged proto back to dst
-	if retVal, err = anypb.New(dstX); err != nil {
-		return nil, err
-	}
+	retVal := protoconv.MessageToAny(dstX)
 
 	return retVal, nil
 }

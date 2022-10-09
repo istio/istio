@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 40339
+
+releaseNotes:
+- |
+  **Promoted** `istioctl x uninstall` to `istioctl uninstall`.

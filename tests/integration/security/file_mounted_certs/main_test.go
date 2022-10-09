@@ -29,15 +29,25 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var inst istio.Instance
+var (
+	inst         istio.Instance
+	apps         deployment.SingleNamespaceView
+	client       echo.Instances
+	server       echo.Instances
+	echo1NS      namespace.Instance
+	customConfig []echo.Config
+)
 
 const (
 	PilotCertsPath  = "tests/testdata/certs/pilot"
@@ -65,6 +75,23 @@ func TestMain(m *testing.M) {
 		RequireMultiPrimary().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
+		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
+		Setup(func(ctx resource.Context) error {
+			err := setupApps(ctx, namespace.Future(&echo1NS), &customConfig)
+			if err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
+			Namespaces: []namespace.Getter{
+				namespace.Future(&echo1NS),
+			},
+			Configs: echo.ConfigFuture(&customConfig),
+		})).
+		Setup(func(ctx resource.Context) error {
+			return createCustomInstances(&apps)
+		}).
 		Run()
 }
 
@@ -174,7 +201,41 @@ values:
       #    no identities ([spiffe://cluster.local/ns/mounted-certs/sa/client client.mounted-certs.svc]) matched istio-fd-sds-1-4523/default
       XDS_AUTH: "false"
 `
-	cfg.DeployEastWestGW = false
+
+	cfg.EastWestGatewayValues = `
+components:
+  ingressGateways:
+  - enabled: true
+    name: istio-eastwestgateway
+    label:
+      istio: eastwestgateway
+      app: istio-eastwestgateway
+    k8s:
+      overlays:
+        - kind: Deployment
+          name: istio-eastwestgateway
+          patches:
+            - path: spec.template.spec.volumes[100]
+              value: |-
+                name: server-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.volumes[101]
+              value: |-
+                name: client-certs
+                secret:
+                  secretName: ` + PilotSecretName + `
+                  defaultMode: 420
+            - path: spec.template.spec.containers[0].volumeMounts[100]
+              value: |-
+                name: server-certs
+                mountPath: /server-certs
+            - path: spec.template.spec.containers[0].volumeMounts[101]
+              value: |-
+                name: client-certs
+                mountPath: /client-certs
+`
 }
 
 func CreateCustomIstiodSecret(ctx resource.Context) error {
@@ -236,4 +297,117 @@ func ReadCustomCertFromFile(certsPath string, f string) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]echo.Config) error {
+	appsNamespace := customNs.Get()
+
+	// Server certificate has "server.file-mounted.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
+	// This cert is going to be used as a server and "client" certificate on the "Echo Server"'s side
+	err := CreateCustomSecret(ctx, ServerSecretName, appsNamespace, ServerCertsPath)
+	if err != nil {
+		return fmt.Errorf("Unable to create server secret. %v", err)
+	}
+
+	// Pilot secret will be used for xds connections from echo-server & echo-client to the control plane.
+	err = CreateCustomSecret(ctx, PilotSecretName, appsNamespace, PilotCertsPath)
+	if err != nil {
+		return fmt.Errorf("Unable to create pilot secret. %v", err)
+	}
+
+	// Client secret will be used as a "server" and client certificate on the "Echo Client"'s side.
+	// ie. it is going to be used for connections from EchoClient to EchoServer
+	err = CreateCustomSecret(ctx, ClientSecretName, appsNamespace, ClientCertsPath)
+	if err != nil {
+		return fmt.Errorf("Unable to create client secret. %v", err)
+	}
+
+	clientSidecarVolumes := `
+		{
+			"server-certs": {"secret": {"secretName":"` + ClientSecretName + `"}},
+			"client-certs": {"secret": {"secretName":"` + ClientSecretName + `"}},
+			"workload-certs": {"secret": {"secretName": "` + ClientSecretName + `"}}
+		}
+	`
+
+	serverSidecarVolumes := `
+		{
+			"server-certs": {"secret": {"secretName":"` + ServerSecretName + `"}},
+			"client-certs": {"secret": {"secretName":"` + ServerSecretName + `"}},
+			"workload-certs": {"secret": {"secretName":"` + ServerSecretName + `"}}
+		}
+	`
+
+	// workload-certs are needed in order to load the "default" SDS resource, which
+	// will be used for the xds-grpc mTLS (tls_certificate_sds_secret_configs.name == "default")
+	sidecarVolumeMounts := `
+		{
+			"server-certs": {
+				"mountPath": "/server-certs"
+			},
+			"client-certs": {
+				"mountPath": "/client-certs"
+			},
+			"workload-certs": {
+				"mountPath": "/etc/certs"
+			}
+		}
+	`
+
+	var customConfig []echo.Config
+
+	client := echo.Config{
+		Service:   "client",
+		Namespace: appsNamespace,
+		Ports:     []echo.Port{},
+		Subsets: []echo.SubsetConfig{{
+			Version: "v1",
+			// Set up custom annotations to mount the certs.
+			Annotations: echo.NewAnnotations().
+				Set(echo.SidecarVolume, clientSidecarVolumes).
+				Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+				// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+				// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
+				Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+		}},
+	}
+
+	server := echo.Config{
+		Service:   "server",
+		Namespace: appsNamespace,
+		Ports: []echo.Port{
+			{
+				Name:         "http",
+				Protocol:     protocol.HTTP,
+				ServicePort:  8443,
+				WorkloadPort: 8443,
+				TLS:          false,
+			},
+		},
+		Subsets: []echo.SubsetConfig{{
+			Version: "v1",
+			// Set up custom annotations to mount the certs.
+			Annotations: echo.NewAnnotations().
+				Set(echo.SidecarVolume, serverSidecarVolumes).
+				Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+				// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
+				// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
+				Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+		}},
+	}
+	customConfig = append(customConfig, client, server)
+	*customCfg = customConfig
+	return nil
+}
+
+func createCustomInstances(apps *deployment.SingleNamespaceView) error {
+	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+		switch {
+		case namespacedName.Name == "client":
+			client = apps.EchoNamespace.All[index]
+		case namespacedName.Name == "server":
+			server = apps.EchoNamespace.All[index]
+		}
+	}
+	return nil
 }

@@ -64,7 +64,7 @@ func (nc *PathContext) String() string {
 }
 
 // GetPathContext returns the PathContext for the Node which has the given path from root.
-// It returns false and and no error if the given path is not found, or an error code in other error situations, like
+// It returns false and no error if the given path is not found, or an error code in other error situations, like
 // a malformed path.
 // It also creates a tree of PathContexts during the traversal so that Parent nodes can be updated if required. This is
 // required when (say) appending to a list, where the parent list itself must be updated.
@@ -167,7 +167,7 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 	}
 	ncNode := v.Interface()
 
-	// For list types, we need a key to identify the selected list item. This can be either a a value key of the
+	// For list types, we need a key to identify the selected list item. This can be either a value key of the
 	// form :matching_value in the case of a leaf list, or a matching key:value in the case of a non-leaf list.
 	if lst, ok := ncNode.([]any); ok {
 		scope.Debug("list type")

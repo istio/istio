@@ -80,7 +80,7 @@ spec:
 {{- if contains "/" .Values.pilot.image }}
           image: "{{ .Values.pilot.image }}"
 {{- else }}
-          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}"
+          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -149,6 +149,10 @@ spec:
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.GitVersion }}
+          - name: ENABLE_LEGACY_FSGROUP_INJECTION
+            value: "true"
+{{- end }}
 {{- if .Values.pilot.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
@@ -178,6 +182,10 @@ spec:
             capabilities:
               drop:
               - ALL
+{{- if .Values.pilot.seccompProfile }}
+            seccompProfile:
+{{ toYaml .Values.pilot.seccompProfile | trim | indent 14 }}
+{{- end }}
           volumeMounts:
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
@@ -196,6 +204,12 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+          - name: istio-csr-dns-cert
+            mountPath: /var/run/secrets/istiod/tls
+            readOnly: true
+          - name: istio-csr-ca-configmap
+            mountPath: /var/run/secrets/istiod/ca
+            readOnly: true
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -220,9 +234,20 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
+      # Optional: istio-csr dns pilot certs
+      - name: istio-csr-dns-cert
+        secret:
+          secretName: istiod-tls
+          optional: true
+      - name: istio-csr-ca-configmap
+        configMap:
+          name: istio-ca-root-cert
+          defaultMode: 420
+          optional: true
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
+
 ---

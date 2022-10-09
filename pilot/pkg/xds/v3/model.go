@@ -91,6 +91,31 @@ func GetMetricType(typeURL string) string {
 	}
 }
 
+// GetResourceType returns resource form of an abbreviated form
+func GetResourceType(shortType string) string {
+	s := strings.ToUpper(shortType)
+	switch s {
+	case "CDS":
+		return ClusterType
+	case "LDS":
+		return ListenerType
+	case "RDS":
+		return RouteType
+	case "EDS":
+		return EndpointType
+	case "SDS":
+		return SecretType
+	case "NDS":
+		return NameTableType
+	case "PCDS":
+		return ProxyConfigType
+	case "ECDS":
+		return ExtensionConfigurationType
+	default:
+		return shortType
+	}
+}
+
 // IsEnvoyType checks whether the typeURL is a valid Envoy type.
 func IsEnvoyType(typeURL string) bool {
 	return strings.HasPrefix(typeURL, envoyTypePrefix)

@@ -25,9 +25,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube/informer"
 )
 
 type endpointsController struct {
@@ -37,7 +37,7 @@ type endpointsController struct {
 var _ kubeEndpointsController = &endpointsController{}
 
 func newEndpointsController(c *Controller) *endpointsController {
-	informer := filter.NewFilteredSharedIndexInformer(
+	informer := informer.NewFilteredSharedIndexInformer(
 		c.opts.DiscoveryNamespacesFilter.Filter,
 		c.client.KubeInformer().Core().V1().Endpoints().Informer(),
 	)
@@ -134,7 +134,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	return out
 }
 
-func (e *endpointsController) getInformer() filter.FilteredSharedIndexInformer {
+func (e *endpointsController) getInformer() informer.FilteredSharedIndexInformer {
 	return e.informer
 }
 

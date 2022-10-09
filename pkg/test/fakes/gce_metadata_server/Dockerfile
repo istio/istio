@@ -1,4 +1,5 @@
 FROM scratch
-COPY ./main /gce-metadata-server
+ARG TARGETARCH
+COPY ./main-${TARGETARCH:-amd64}  /gce-metadata-server
 EXPOSE 8080
 CMD ["/gce-metadata-server"]

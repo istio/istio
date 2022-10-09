@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issues:
+- 40173
+releaseNotes:
+- |
+  **Added** support for ALPN negotiation to Istio [health checks](https://istio.io/latest/docs/ops/configuration/mesh/app-health-check/), mirroring
+  how Kubelet functions. This allows `HTTPS` type probes to use HTTP2. To revert to the old behavior, which always used HTTP/1.1, the `ISTIO_ENABLE_HTTP2_PROBING=false` variable can be set.

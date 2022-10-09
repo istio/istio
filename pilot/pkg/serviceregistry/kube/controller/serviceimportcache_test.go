@@ -203,7 +203,7 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 }
 
 func newTestServiceImportCache(t test.Failer, mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl) {
-	test.SetBoolForTest(t, &features.EnableMCSHost, true)
+	test.SetForTest(t, &features.EnableMCSHost, true)
 
 	c, _ = NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: serviceImportCluster,
@@ -340,6 +340,10 @@ func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 		IPAddresses:     []string{serviceImportPodIP},
 		Locality:        &envoyCore.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceImportNamespace,
+		Labels: map[string]string{
+			"app":                      "prod-app",
+			label.SecurityTlsMode.Name: "mutual",
+		},
 		Metadata: &model.NodeMetadata{
 			ServiceAccount: "account",
 			ClusterID:      ic.Cluster(),
@@ -497,8 +501,8 @@ func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
-	_, err := ic.lister.ByNamespace(name.Namespace).Get(name.Name)
-	return err == nil
+	item, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
+	return item != nil
 }
 
 func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {

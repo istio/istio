@@ -122,7 +122,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
 		locality:          proxy.Locality,
-		proxyLabels:       proxy.Metadata.Labels,
+		proxyLabels:       proxy.Labels,
 		proxyView:         proxy.GetView(),
 		proxyIPAddresses:  proxy.IPAddresses,
 		configNamespace:   proxy.ConfigNamespace,
@@ -1005,6 +1005,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -1044,6 +1045,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -1173,16 +1175,15 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
-	have := sets.Set{}
+	have := sets.String{}
 	out := make([]*discovery.Resource, 0, len(clusters))
 	for _, c := range clusters {
-		if !have.Contains(c.Name) {
+		if !have.InsertContains(c.Name) {
 			out = append(out, c)
 		} else {
 			cb.req.Push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxyID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
 		}
-		have.Insert(c.Name)
 	}
 	return out
 }

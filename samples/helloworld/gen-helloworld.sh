@@ -16,11 +16,25 @@
 
 set -euo pipefail
 
+display_usage() {
+    echo
+    echo "USAGE: ./gen-helloworld.sh [--version] [--includeService value] [--includeDeployment value]"
+    echo "    -h|--help: Prints usage information"
+    echo "    --version: Specifies the version that will be returned by the helloworld service, default: 'v1'"
+    echo "    --includeService: If 'true' the service will be included in the YAML, default: 'true'"
+    echo "    --includeDeployment: If 'true' the deployment will be included in the YAML, default: 'true'"
+}
+
 INCLUDE_SERVICE=${INCLUDE_SERVICE:-"true"}
 INCLUDE_DEPLOYMENT=${INCLUDE_DEPLOYMENT:-"true"}
 SERVICE_VERSION=${SERVICE_VERSION:-"v1"}
 while (( "$#" )); do
   case "$1" in
+    -h|--help)
+      display_usage
+      exit 0
+      ;;
+
     --version)
       SERVICE_VERSION=$2
       shift 2
@@ -38,6 +52,7 @@ while (( "$#" )); do
 
     *)
       echo "Error: Unsupported flag $1" >&2
+      display_usage
       exit 1
       ;;
   esac

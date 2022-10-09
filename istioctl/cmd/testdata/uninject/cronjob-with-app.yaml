@@ -6,11 +6,10 @@ metadata:
 spec:
   jobTemplate:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       creationTimestamp: null
       labels:
         app: hello
+        sidecar.istio.io/inject: "false"
     spec:
       template:
         metadata:

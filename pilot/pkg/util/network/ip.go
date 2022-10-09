@@ -20,6 +20,7 @@ import (
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/sleep"
 	"istio.io/pkg/log"
 )
 
@@ -52,7 +53,7 @@ func GetPrivateIPs(ctx context.Context) ([]string, bool) {
 			if ok {
 				return addr, true
 			}
-			time.Sleep(waitInterval)
+			sleep.UntilContext(ctx, waitInterval)
 		}
 	}
 }

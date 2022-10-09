@@ -26,9 +26,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -65,10 +63,9 @@ type EchoDeployments struct {
 	External      echo.Instances
 }
 
-func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
+func EchoConfig(name string, headless bool, annos echo.Annotations) echo.Config {
 	out := echo.Config{
 		Service:        name,
-		Namespace:      ns,
 		ServiceAccount: true,
 		Headless:       headless,
 		Subsets: []echo.SubsetConfig{
@@ -173,7 +170,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	return out
 }
 
-func MustReadCert(f string) string {
+func mustReadCert(f string) string {
 	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		panic(fmt.Sprintf("failed to read %v: %v", f, err))
@@ -181,132 +178,84 @@ func MustReadCert(f string) string {
 	return string(b)
 }
 
-func SetupApps(ctx resource.Context, _ istio.Instance, apps *EchoDeployments, buildVM bool) error {
+func SetupApps(ctx resource.Context, customCfg *[]echo.Config, buildVM bool) error {
 	if ctx.Settings().Skip(echo.VM) {
 		buildVM = false
 	}
-	var err error
-	apps.Namespace1, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns1",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
-	apps.Namespace2, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns2",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
-	apps.Namespace3, err = namespace.New(ctx, namespace.Config{
-		Prefix: "test-ns3",
-		Inject: true,
-	})
-	if err != nil {
-		return err
-	}
 
-	builder := deployment.New(ctx).
-		WithClusters(ctx.Clusters()...).
-		WithConfig(EchoConfig(ASvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil)).
-		WithConfig(func() echo.Config {
-			// Multi-version specific setup
-			multiVersionCfg := EchoConfig(MultiversionSvc, apps.Namespace1, false, nil)
-			multiVersionCfg.Subsets = []echo.SubsetConfig{
-				// Istio deployment, with sidecar.
-				{
-					Version: "vistio",
-				},
-				// Legacy deployment subset, does not have sidecar injected.
-				{
-					Version:     "vlegacy",
-					Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-				},
-			}
-			return multiVersionCfg
-		}()).
-		WithConfig(EchoConfig(NakedSvc, apps.Namespace1, false, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false))).
-		WithConfig(EchoConfig(BSvc, apps.Namespace2, false, nil)).
-		WithConfig(EchoConfig(CSvc, apps.Namespace2, false, nil)).
-		WithConfig(EchoConfig(ESvc, apps.Namespace2, false, nil)).
-		WithConfig(EchoConfig(CSvc, apps.Namespace3, false, nil)).
-		WithConfig(func() echo.Config {
-			// VM specific setup
-			vmCfg := EchoConfig(VMSvc, apps.Namespace1, false, nil)
-			// for test cases that have `buildVM` off, vm will function like a regular pod
-			vmCfg.DeployAsVM = buildVM
-			return vmCfg
-		}()).
-		WithConfig(echo.Config{
-			Service:   ExternalSvc,
-			Namespace: apps.Namespace1,
-			Ports: []echo.Port{
-				{
-					// Plain HTTP port only used to route request to egress gateway
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					ServicePort:  80,
-					WorkloadPort: 8080,
-				},
-				{
-					// HTTPS port
-					Name:         "https",
-					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
-					WorkloadPort: 8443,
-					TLS:          true,
-				},
+	var customConfig []echo.Config
+	a := EchoConfig(ASvc, false, nil)
+	b := EchoConfig(BSvc, false, nil)
+	c := EchoConfig(CSvc, false, nil)
+	d := EchoConfig(DSvc, false, nil)
+	e := EchoConfig(ESvc, false, nil)
+	multiversionCfg := func() echo.Config {
+		// Multi-version specific setup
+		multiVersionCfg := EchoConfig(MultiversionSvc, false, nil)
+		multiVersionCfg.Subsets = []echo.SubsetConfig{
+			// Istio deployment, with sidecar.
+			{
+				Version: "vistio",
 			},
-			// Set up TLS certs on the server. This will make the server listen with these credentials.
-			TLSSettings: &common.TLSSettings{
-				// Echo has these test certs baked into the docker image
-				RootCert:   MustReadCert("root-cert.pem"),
-				ClientCert: MustReadCert("cert-chain.pem"),
-				Key:        MustReadCert("key.pem"),
-				// Override hostname to match the SAN in the cert we are using
-				Hostname: "server.default.svc",
-			},
-			Subsets: []echo.SubsetConfig{{
-				Version:     "v1",
+			// Legacy deployment subset, does not have sidecar injected.
+			{
+				Version:     "vlegacy",
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-			}},
-		}).
-		WithConfig(EchoConfig(HeadlessSvc, apps.Namespace1, true, nil)).
-		WithConfig(EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false)))
-
-	echos, err := builder.Build()
-	if err != nil {
-		return err
-	}
-	apps.All = echos
-
-	anyNamespace := func(svcName string) match.Matcher {
-		return func(i echo.Instance) bool {
-			return i.Config().Service == svcName
+			},
 		}
+		return multiVersionCfg
+	}()
+	nakedSvc := EchoConfig(NakedSvc, false, echo.NewAnnotations().
+		SetBool(echo.SidecarInject, false))
+
+	vmCfg := func() echo.Config {
+		// VM specific setup
+		vmCfg := EchoConfig(VMSvc, false, nil)
+		// for test cases that have `buildVM` off, vm will function like a regular pod
+		vmCfg.DeployAsVM = buildVM
+		return vmCfg
+	}()
+
+	externalSvc := echo.Config{
+		Service: ExternalSvc,
+		// Namespace: appsNamespace,
+		Ports: []echo.Port{
+			{
+				// Plain HTTP port only used to route request to egress gateway
+				Name:         "http",
+				Protocol:     protocol.HTTP,
+				ServicePort:  80,
+				WorkloadPort: 8080,
+			},
+			{
+				// HTTPS port
+				Name:         "https",
+				Protocol:     protocol.HTTPS,
+				ServicePort:  443,
+				WorkloadPort: 8443,
+				TLS:          true,
+			},
+		},
+		// Set up TLS certs on the server. This will make the server listen with these credentials.
+		TLSSettings: &common.TLSSettings{
+			// Echo has these test certs baked into the docker image
+			RootCert:   mustReadCert("root-cert.pem"),
+			ClientCert: mustReadCert("cert-chain.pem"),
+			Key:        mustReadCert("key.pem"),
+			// Override hostname to match the SAN in the cert we are using
+			Hostname: "server.default.svc",
+		},
+		Subsets: []echo.SubsetConfig{{
+			Version:     "v1",
+			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+		}},
 	}
-	apps.A = anyNamespace(ASvc).GetMatches(echos)
-	apps.B = anyNamespace(BSvc).GetMatches(echos)
-	apps.C = anyNamespace(CSvc).GetMatches(echos)
-	apps.D = anyNamespace(DSvc).GetMatches(echos)
-	apps.E = anyNamespace(ESvc).GetMatches(echos)
 
-	apps.Multiversion = anyNamespace(MultiversionSvc).GetMatches(echos)
-	apps.Headless = anyNamespace(HeadlessSvc).GetMatches(echos)
-	apps.Naked = anyNamespace(NakedSvc).GetMatches(echos)
-	apps.VM = anyNamespace(VMSvc).GetMatches(echos)
-	apps.HeadlessNaked = anyNamespace(HeadlessNakedSvc).GetMatches(echos)
+	headlessSvc := EchoConfig(HeadlessSvc, true, nil)
+	headlessNakedSvc := EchoConfig(HeadlessNakedSvc, true, echo.NewAnnotations().SetBool(echo.SidecarInject, false))
 
-	apps.External = anyNamespace(ExternalSvc).GetMatches(echos)
-
+	customConfig = append(customConfig, a, b, c, d, e, multiversionCfg, nakedSvc, vmCfg, externalSvc, headlessSvc, headlessNakedSvc)
+	*customCfg = customConfig
 	return nil
 }
 

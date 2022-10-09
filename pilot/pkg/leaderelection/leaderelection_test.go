@@ -61,6 +61,7 @@ func createElectionMulticluster(t *testing.T,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
 		cycle:          atomic.NewInt32(0),
+		enabled:        true,
 	}
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
@@ -80,10 +81,6 @@ func createElectionMulticluster(t *testing.T,
 
 type fakeDefaultWatcher struct {
 	defaultRevision string
-}
-
-func (w *fakeDefaultWatcher) setDefaultRevision(r string) {
-	w.defaultRevision = r
 }
 
 func (w *fakeDefaultWatcher) Run(stop <-chan struct{}) {
@@ -316,4 +313,42 @@ func expectInt(t *testing.T, f func() int32, expected int32) {
 		}
 		return nil
 	}, retry.Timeout(time.Second))
+}
+
+func TestLeaderElectionDisabled(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{}
+	// Prevent LeaderElection from creating a lease, so that the runFn only runs
+	// if leader election is disabled.
+	client.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("nope, out of luck")
+	})
+
+	l := &LeaderElection{
+		namespace:      "ns",
+		name:           "disabled",
+		enabled:        false,
+		electionID:     testLock,
+		client:         client,
+		revision:       "",
+		prioritized:    true,
+		defaultWatcher: watcher,
+		ttl:            time.Second,
+		cycle:          atomic.NewInt32(0),
+	}
+	gotLeader := atomic.NewBool(false)
+	l.AddRunFunction(func(stop <-chan struct{}) {
+		gotLeader.Store(true)
+	})
+	stop := make(chan struct{})
+	go l.Run(stop)
+	t.Cleanup(func() {
+		close(stop)
+	})
+
+	// Need to retry until Run() starts to execute in the goroutine.
+	retry.UntilOrFail(t, gotLeader.Load, retry.Converge(5), retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10))
+	if !l.isLeader() {
+		t.Errorf("isLeader()=false, want true")
+	}
 }

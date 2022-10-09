@@ -304,7 +304,7 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
-			actual, found := model.MostSpecificHostMatch2(tt.needle, m)
+			actual, found := model.MostSpecificHostMatch(tt.needle, m)
 			if tt.want != "" && !found {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			} else if actual != tt.want {
@@ -351,7 +351,7 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				_, _ = model.MostSpecificHostMatch2(bm.needle, bm.hostsMap)
+				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
 			}
 		})
 	}

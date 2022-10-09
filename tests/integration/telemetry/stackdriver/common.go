@@ -355,14 +355,13 @@ func logDiff(t test.Failer, tp string, query map[string]string, entries []map[st
 		return
 	}
 	allMismatches := []map[string]string{}
-	seen := sets.New()
+	seen := sets.New[string]()
 	for _, s := range entries {
 		b, _ := json.Marshal(s)
 		ss := string(b)
-		if seen.Contains(ss) {
+		if seen.InsertContains(ss) {
 			continue
 		}
-		seen.Insert(ss)
 		misMatched := map[string]string{}
 		for k, want := range query {
 			got := s[k]

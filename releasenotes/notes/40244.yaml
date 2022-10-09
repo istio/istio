@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/39629
+releaseNotes:
+  - |
+    **Fixed** setting `exportTo` field and `networking.istio.io/exportTo` annotation lead to incorrect IST0101 message.
+  - |
+    **Fixed** setting `networking.istio.io/exportTo` annotation to services with multiple values lead to incorrect IST0101 message.

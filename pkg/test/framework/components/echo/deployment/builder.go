@@ -42,17 +42,17 @@ import (
 // Builder for a group of collaborating Echo Instances. Once built, all Instances in the
 // group:
 //
-//     1. Are ready to receive traffic, and
-//     2. Can call every other Instance in the group (i.e. have received Envoy config
-//        from Pilot).
+//  1. Are ready to receive traffic, and
+//  2. Can call every other Instance in the group (i.e. have received Envoy config
+//     from Pilot).
 //
 // If a test needs to verify that one Instance is NOT reachable from another, there are
 // a couple of options:
 //
-//     1. Build a group while all Instances ARE reachable. Then apply a policy
-//        disallowing the communication.
-//     2. Build the source and destination Instances in separate groups and then
-//        call `source.WaitUntilCallable(destination)`.
+//  1. Build a group while all Instances ARE reachable. Then apply a policy
+//     disallowing the communication.
+//  2. Build the source and destination Instances in separate groups and then
+//     call `source.WaitUntilCallable(destination)`.
 type Builder interface {
 	// With adds a new Echo configuration to the Builder. Once built, the instance
 	// pointer will be updated to point at the new Instance.
@@ -113,7 +113,7 @@ type builder struct {
 	// namesapces
 	namespaces map[string]namespace.Instance
 	// the set of injection templates for each cluster
-	templates map[string]sets.Set
+	templates map[string]sets.String
 	// errs contains a multierror for failed validation during With calls
 	errs error
 }
@@ -203,7 +203,7 @@ func (b builder) Build() (out echo.Instances, err error) {
 }
 
 // injectionTemplates lists the set of templates for each Kube cluster
-func (b builder) injectionTemplates() (map[string]sets.Set, error) {
+func (b builder) injectionTemplates() (map[string]sets.String, error) {
 	ns := "istio-system"
 	i, err := istio.Get(b.ctx)
 	if err != nil {
@@ -212,9 +212,9 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 		ns = i.Settings().SystemNamespace
 	}
 
-	out := map[string]sets.Set{}
+	out := map[string]sets.String{}
 	for _, c := range b.ctx.Clusters().Kube() {
-		out[c.Name()] = sets.New()
+		out[c.Name()] = sets.New[string]()
 		// TODO find a place to read revision(s) and avoid listing
 		cms, err := c.Kube().CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -222,7 +222,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 		}
 
 		// take the intersection of the templates available from each revision in this cluster
-		intersection := sets.New()
+		intersection := sets.New[string]()
 		for _, item := range cms.Items {
 			if !strings.HasPrefix(item.Name, "istio-sidecar-injector") {
 				continue
@@ -232,7 +232,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
 			}
 			if data.RawTemplates != nil {
-				t := sets.New()
+				t := sets.New[string]()
 				for name := range data.RawTemplates {
 					t.Insert(name)
 				}
@@ -390,7 +390,7 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 
 // validateTemplates returns true if the templates specified by inject.istio.io/templates on the config exist on c
 func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
-	expected := sets.New()
+	expected := sets.New[string]()
 	for _, subset := range config.Subsets {
 		expected.InsertAll(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}

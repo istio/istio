@@ -46,7 +46,7 @@ import (
 	"istio.io/pkg/version"
 )
 
-var _ ExtendedClient = MockClient{}
+var _ CLIClient = MockClient{}
 
 type MockPortForwarder struct{}
 
@@ -128,6 +128,10 @@ func (c MockClient) DynamicInformer() dynamicinformer.DynamicSharedInformerFacto
 }
 
 func (c MockClient) MetadataInformer() metadatainformer.SharedInformerFactory {
+	panic("not used in mock")
+}
+
+func (c MockClient) HasStarted() bool {
 	panic("not used in mock")
 }
 
@@ -254,6 +258,10 @@ func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
 
 func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]string) ([]v1.Pod, error) {
 	return nil, fmt.Errorf("TODO MockClient doesn't implement IstioPods")
+}
+
+func (c MockClient) GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error) {
+	return nil, fmt.Errorf("TODO MockClient doesn't implement GetProxyPods")
 }
 
 func (c MockClient) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error) {
