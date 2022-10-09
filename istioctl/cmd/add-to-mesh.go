@@ -322,7 +322,7 @@ func setupParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
 		*sidecarTemplate = injectConfig
-	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
+	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision, valuesConfig); err != nil {
 		return nil, err
 	}
 	if valuesFile != "" {

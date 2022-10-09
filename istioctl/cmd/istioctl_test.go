@@ -20,6 +20,12 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/clientcmd"
+
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
@@ -89,6 +95,48 @@ func verifyOutput(t *testing.T, c testCase) {
 
 	// Override the client factory used by main.go
 	configStoreFactory = mockClientFactoryGenerator()
+
+	// Override the kube factory with some necessary configs
+	interfaceFactory = func(kubeconfig string) (kubernetes.Interface, error) {
+		cli := fake.NewSimpleClientset(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      defaultInjectWebhookConfigName,
+				Namespace: istioNamespace,
+				Labels: map[string]string{
+					"app":   "sidecar-injector",
+					"istio": "sidecar-injector",
+				},
+			},
+			Data: map[string]string{
+				"values": `global:
+  suffix: test
+`,
+				"config": `templates:
+  sidecar: |-
+    spec:
+      initContainers:
+      - name: istio-init
+        image: docker.io/istio/proxy_init:unittest-{{.Values.global.suffix}}
+      containers:
+      - name: istio-proxy
+        image: docker.io/istio/proxy_debug:unittest
+`,
+			},
+		}, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "istio",
+				Namespace: istioNamespace,
+			},
+			Data: map[string]string{
+				"mesh": "",
+			},
+		})
+		return cli, nil
+	}
+
+	newCLIClient = func(clientConfig clientcmd.ClientConfig, revision string) (kube.CLIClient, error) {
+		return kube.NewFakeClient(), nil
+	}
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)

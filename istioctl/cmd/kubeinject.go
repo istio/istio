@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
 	"sigs.k8s.io/yaml"
@@ -311,7 +312,7 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTemplates, error) {
+func getInjectConfigFromConfigMap(kubeconfig, revision string, valuesConfig *string) (inject.RawTemplates, error) {
 	client, err := interfaceFactory(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -335,6 +336,11 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 			injectConfigMapKey, injectConfigMapName)
 	}
 	injectConfig, err := inject.UnmarshalConfig([]byte(injectData))
+	if valuesConfig == nil || *valuesConfig == "" {
+		if values, ok := meshConfigMap.Data[valuesConfigMapKey]; ok {
+			*valuesConfig = values
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert data from configmap %q: %v",
 			injectConfigMapName, err)
@@ -343,9 +349,14 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 	return injectConfig.RawTemplates, nil
 }
 
+var newCLIClient func(clientConfig clientcmd.ClientConfig, revision string) (kube.CLIClient, error)
+
 func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
 	e := &ExternalInjector{}
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	if newCLIClient == nil {
+		newCLIClient = kube.NewCLIClient
+	}
+	client, err := newCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 	if err != nil {
 		return e, err
 	}
@@ -401,21 +412,6 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 		}
 	}
 
-	if values != "" {
-		*valuesConfig = values
-	}
-	if valuesConfig == nil || *valuesConfig == "" {
-		if valuesFile != "" {
-			valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
-			if err != nil {
-				return nil, nil, err
-			}
-			*valuesConfig = string(valuesConfigBytes)
-		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
-			return nil, nil, err
-		}
-	}
-
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
 		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
@@ -432,11 +428,26 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 		if err != nil || injector.clientConfig == nil {
 			log.Warnf("failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
 				"get injection from the injection configmap %q : %v", whcName, defaultInjectWebhookConfigName, err)
-			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
+			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision, valuesConfig); err != nil {
 				return nil, nil, err
 			}
 		}
 		return injector, meshConfig, nil
+	}
+
+	if values != "" {
+		*valuesConfig = values
+	}
+	if valuesConfig == nil || *valuesConfig == "" {
+		if valuesFile != "" {
+			valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
+			if err != nil {
+				return nil, nil, err
+			}
+			*valuesConfig = string(valuesConfigBytes)
+		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+			return nil, nil, err
+		}
 	}
 	return injector, meshConfig, err
 }

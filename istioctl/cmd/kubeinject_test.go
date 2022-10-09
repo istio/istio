@@ -14,18 +14,10 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
 	"testing"
-
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-
-	"istio.io/istio/pilot/test/util"
 )
 
 func TestKubeInject(t *testing.T) {
@@ -87,6 +79,12 @@ func TestKubeInject(t *testing.T) {
 				" "),
 			goldenFilename: "testdata/deployment/hello-with-proxyconfig-anno.yaml.injected",
 		},
+		{ // case 8 without injectConfigFile, will use in-cluster injector configmap
+			args: strings.Split(
+				"kube-inject -f testdata/deployment/hello.yaml",
+				" "),
+			goldenFilename: "testdata/deployment/hello.yaml.injected",
+		},
 	}
 
 	for i, c := range cases {
@@ -94,60 +92,4 @@ func TestKubeInject(t *testing.T) {
 			verifyOutput(t, c)
 		})
 	}
-}
-
-func TestKubeInjectWithoutWebhook(t *testing.T) {
-	t.Helper()
-
-	args := strings.Split("kube-inject -f testdata/deployment/hello.yaml", " ")
-
-	interfaceFactory = func(kubeconfig string) (kubernetes.Interface, error) {
-		cli := fake.NewSimpleClientset(&v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      defaultInjectWebhookConfigName,
-				Namespace: istioNamespace,
-				Labels: map[string]string{
-					"app":   "sidecar-injector",
-					"istio": "sidecar-injector",
-				},
-			},
-			Data: map[string]string{
-				"values": `global:
-  suffix: test
-`,
-				"config": `templates:
-  sidecar: |-
-    spec:
-      initContainers:
-      - name: istio-init
-        image: docker.io/istio/proxy_init:unittest-{{.Values.global.suffix}}
-      containers:
-      - name: istio-proxy
-        image: docker.io/istio/proxy_debug:unittest
-`,
-			},
-		}, &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "istio",
-				Namespace: istioNamespace,
-			},
-			Data: map[string]string{
-				"mesh": "",
-			},
-		})
-		return cli, nil
-	}
-
-	var out bytes.Buffer
-	rootCmd := GetRootCmd(args)
-	rootCmd.SetOut(&out)
-	rootCmd.SetErr(&out)
-
-	// shouldn't have errors
-	if err := rootCmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	output := out.String()
-
-	util.CompareContent(t, []byte(output), "testdata/deployment/hello.yaml.injected")
 }
