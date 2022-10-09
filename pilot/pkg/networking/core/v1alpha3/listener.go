@@ -495,7 +495,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcards[0])
 							continue
 						}
-						var addresses []string
 						for _, instance := range instances {
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
@@ -509,11 +508,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if instance.Endpoint.Address == node.IPAddresses[0] {
 								continue
 							}
-							addresses = append(addresses, instance.Endpoint.Address)
-						}
-						if len(addresses) > 0 {
-							listenerOpts.bind = addresses[0]
-							listenerOpts.extraBind = addresses[1:]
+							listenerOpts.bind = instance.Endpoint.Address
 							lb.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcards[0])
 						}
 					} else {
