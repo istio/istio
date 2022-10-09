@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - 40876
+
+releaseNotes:
+  - |
+    **Fixed** an issue where wrong scheam configuration causing the Istio Operator to go into an error loop.
