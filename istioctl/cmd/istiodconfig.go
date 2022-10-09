@@ -30,7 +30,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/pkg/log"
@@ -411,6 +411,14 @@ func istiodLogCmd() *cobra.Command {
 
 			var podName, ns string
 			if len(args) == 0 {
+				if opts.Revision == "" {
+					opts.Revision = "default"
+				}
+				if len(istiodLabelSelector) > 0 {
+					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, opts.Revision)
+				} else {
+					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
+				}
 				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(istioNamespace, defaultNamespace), istiodLabelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", istiodLabelSelector, err)
