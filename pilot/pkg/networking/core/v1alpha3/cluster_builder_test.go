@@ -66,6 +66,11 @@ func TestApplyDestinationRule(t *testing.T) {
 			Port:     9090,
 			Protocol: protocol.Unsupported,
 		},
+		&model.Port{
+			Name:     "http2",
+			Port:     9191,
+			Protocol: protocol.HTTP2,
+		},
 	}
 	service := &model.Service{
 		Hostname:   host.Name("foo.default.svc.cluster.local"),
@@ -273,6 +278,27 @@ func TestApplyDestinationRule(t *testing.T) {
 						Http: &networking.ConnectionPoolSettings_HTTPSettings{
 							MaxRetries:               10,
 							MaxRequestsPerConnection: 10,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "destination rule with http2MaxRequests",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[2],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:               10,
+							MaxRequestsPerConnection: 10,
+							Http2MaxRequests:         1000,
 						},
 					},
 				},
@@ -553,6 +579,28 @@ func TestApplyDestinationRule(t *testing.T) {
 					t.Errorf("Unexpected max_requests_per_connection found")
 				}
 
+			}
+
+			// Validate that use client protocol configures cluster correctly.
+			if tt.port.Protocol.IsHTTP2() && tt.destRule != nil && tt.destRule.TrafficPolicy != nil &&
+				tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetHttp2MaxRequests() > 0 {
+				if ec.httpProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.UpstreamProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have common http2 protocol options but not found", tt.cluster.Name)
+				}
+				httpConfig := ec.httpProtocolOptions.UpstreamProtocolOptions.(*http.HttpProtocolOptions_ExplicitHttpConfig_)
+				if httpConfig == nil {
+					t.Errorf("Expected cluster %s to have common http2 protocol options but not found", tt.cluster.Name)
+				}
+				http2Options := httpConfig.ExplicitHttpConfig.ProtocolConfig.(*http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions)
+				if http2Options == nil {
+					t.Errorf("Expected cluster %s to have common http2 protocol options but not found", tt.cluster.Name)
+				}
+				if http2Options.Http2ProtocolOptions.MaxOutboundFrames.GetValue() != uint32(tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetHttp2MaxRequests()) {
+					t.Errorf("Unexpected max_outbound_frames found")
+				}
 			}
 
 			// Validate that ORIGINAL_DST cluster does not have load assignments
@@ -3497,6 +3545,7 @@ func TestApplyConnectionPool(t *testing.T) {
 						Seconds: 22,
 					},
 					MaxRequestsPerConnection: 22,
+					Http2MaxRequests:         10000,
 				},
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					MaxConnectionDuration: &durationpb.Duration{
