@@ -60,7 +60,7 @@ var _ model.XdsResourceGenerator = &sdsservice{}
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
 	s := xds.NewXDS(stop)
 	// No ratelimit for SDS calls in agent.
-	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(rate.Inf, 1)
+	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(0, 1)
 	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,
 	}
