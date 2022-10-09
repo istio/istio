@@ -242,7 +242,7 @@ func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 }
 
 func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconfig.MeshConfig, error) {
-	client, err := createInterface(kubeconfig)
+	client, err := interfaceFactory(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,7 @@ func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconf
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
 func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
-	client, err := createInterface(kubeconfig)
+	client, err := interfaceFactory(kubeconfig)
 	if err != nil {
 		return "", err
 	}
@@ -312,7 +312,7 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 }
 
 func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTemplates, error) {
-	client, err := createInterface(kubeconfig)
+	client, err := interfaceFactory(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -401,6 +401,21 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 		}
 	}
 
+	if values != "" {
+		*valuesConfig = values
+	}
+	if valuesConfig == nil || *valuesConfig == "" {
+		if valuesFile != "" {
+			valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
+			if err != nil {
+				return nil, nil, err
+			}
+			*valuesConfig = string(valuesConfigBytes)
+		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
 		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
@@ -422,21 +437,6 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 			}
 		}
 		return injector, meshConfig, nil
-	}
-
-	if values != "" {
-		*valuesConfig = values
-	}
-	if valuesConfig == nil || *valuesConfig == "" {
-		if valuesFile != "" {
-			valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
-			if err != nil {
-				return nil, nil, err
-			}
-			*valuesConfig = string(valuesConfigBytes)
-		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
-			return nil, nil, err
-		}
 	}
 	return injector, meshConfig, err
 }
