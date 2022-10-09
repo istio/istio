@@ -1761,7 +1761,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				mesh: push.Mesh,
 			}
 			if test.h2 {
-				cb.setH2Options(opts.mutable)
+				cb.setH2Options(opts.mutable, nil)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
@@ -2738,7 +2738,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			}
 			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
 			if tc.h2 {
-				cb.setH2Options(tc.opts.mutable)
+				cb.setH2Options(tc.opts.mutable, nil)
 			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
@@ -2769,7 +2769,7 @@ func newH2TestCluster() *MutableCluster {
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
-	cb.setH2Options(mc)
+	cb.setH2Options(mc, nil)
 	return mc
 }
 
@@ -2778,7 +2778,7 @@ func newDownstreamTestCluster() *MutableCluster {
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
-	cb.setUseDownstreamProtocol(mc)
+	cb.setUseDownstreamProtocol(mc, nil)
 	return mc
 }
 

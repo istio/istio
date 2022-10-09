@@ -64,7 +64,7 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
 			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
-			Http2ProtocolOptions: http2ProtocolOptions(),
+			Http2ProtocolOptions: http2ProtocolOptions(nil),
 		},
 	},
 })
@@ -404,7 +404,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		opts.meshExternal = service.MeshExternal
 	}
 
-	cb.setUpstreamProtocol(ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
 	return ec
@@ -650,7 +649,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 // applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
 func (cb *ClusterBuilder) applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
 	if cb.shouldH2Upgrade(opts.mutable.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
-		cb.setH2Options(opts.mutable)
+		cb.setH2Options(opts.mutable, connectionPool)
 	}
 }
 
@@ -692,7 +691,7 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
-func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
+func (cb *ClusterBuilder) setH2Options(mc *MutableCluster, connectionPool *networking.ConnectionPoolSettings) {
 	if mc == nil {
 		return
 	}
@@ -704,7 +703,7 @@ func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
 		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
 			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-					Http2ProtocolOptions: http2ProtocolOptions(),
+					Http2ProtocolOptions: http2ProtocolOptions(connectionPool),
 				},
 			},
 		}
@@ -717,6 +716,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	if connectionPool == nil {
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
+	cb.setUpstreamProtocol(opts.mutable, opts.port, opts.direction, connectionPool)
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts, connectionPool)
@@ -897,7 +897,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
-		cb.setUseDownstreamProtocol(mc)
+		cb.setUseDownstreamProtocol(mc, settings)
 	}
 }
 
@@ -1123,7 +1123,7 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls
 	}
 }
 
-func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
+func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster, connectionPool *networking.ConnectionPoolSettings) {
 	if mc.httpProtocolOptions == nil {
 		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 	}
@@ -1131,13 +1131,17 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
 	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
 			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
-			Http2ProtocolOptions: http2ProtocolOptions(),
+			Http2ProtocolOptions: http2ProtocolOptions(connectionPool),
 		},
 	}
 }
 
-func http2ProtocolOptions() *core.Http2ProtocolOptions {
-	return &core.Http2ProtocolOptions{}
+func http2ProtocolOptions(connectionPool *networking.ConnectionPoolSettings) *core.Http2ProtocolOptions {
+	http2ProtocolOptions := &core.Http2ProtocolOptions{}
+	if connectionPool != nil && connectionPool.Http.GetHttp2MaxRequests() != 0 {
+		http2ProtocolOptions.MaxOutboundFrames = wrappers.UInt32(uint32(connectionPool.Http.Http2MaxRequests))
+	}
+	return http2ProtocolOptions
 }
 
 // nolint
@@ -1147,9 +1151,12 @@ func (cb *ClusterBuilder) isHttp2Cluster(mc *MutableCluster) bool {
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
 
-func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Port, direction model.TrafficDirection) {
+func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster,
+	port *model.Port,
+	direction model.TrafficDirection,
+	connectionPool *networking.ConnectionPoolSettings) {
 	if port.Protocol.IsHTTP2() {
-		cb.setH2Options(mc)
+		cb.setH2Options(mc, connectionPool)
 		return
 	}
 
@@ -1166,7 +1173,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
-		cb.setUseDownstreamProtocol(mc)
+		cb.setUseDownstreamProtocol(mc, connectionPool)
 	}
 }
 
