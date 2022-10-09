@@ -354,8 +354,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 		var bind string
 		if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
 			bind = egressListener.IstioListener.Bind
-		}
-		if bindToPort && bind == "" {
+		} else if bindToPort {
 			bind = actualLocalHosts[0]
 		}
 
