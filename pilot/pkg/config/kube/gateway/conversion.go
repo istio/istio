@@ -42,6 +42,7 @@ const (
 	DefaultClassName             = "istio"
 	ControllerName               = "istio.io/gateway-controller"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
+	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 )
 
 // KubernetesResources stores all inputs to our conversion
@@ -1609,6 +1610,9 @@ func buildTLS(refs AllowedReferences, tls *k8s.GatewayTLSConfig, namespace strin
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
+		if tls.Options != nil && tls.Options[gatewayTLSTerminateModeKey] == "MUTUAL" {
+			out.Mode = istio.ServerTLSSettings_MUTUAL
+		}
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
 			return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}

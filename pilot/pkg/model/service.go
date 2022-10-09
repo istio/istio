@@ -390,10 +390,17 @@ type Locality struct {
 type HealthStatus int32
 
 const (
+	// TODO: change the value to 1,2 to match HealthStatus proto
+
 	// Healthy.
 	Healthy HealthStatus = 0
 	// Unhealthy.
 	UnHealthy HealthStatus = 1
+	// Draining - the constant matches envoy
+	Draining HealthStatus = 3
+	// Not used in Istio
+	Timeout  HealthStatus = 4
+	Degraded HealthStatus = 5
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the

@@ -22,9 +22,14 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	stateful_sessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,12 +40,16 @@ import (
 	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/status"
 	xdsgrpc "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -138,6 +147,7 @@ func TestGRPC(t *testing.T) {
 	// Echo service
 	// initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
 	initRBACTests(sd, ds.ConfigStoreCache, "echo-rbac-mtls", port, true)
+	initPersistent(sd)
 
 	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
 	if err != nil {
@@ -209,6 +219,80 @@ func TestGRPC(t *testing.T) {
 		})
 	})
 
+	t.Run("persistent", func(t *testing.T) {
+		adscConn, err := adsc.New(xdsAddr, &adsc.Config{
+			IP: "1.2.3.4",
+			Meta: model.NodeMetadata{
+				Generator: "grpc",
+			}.ToStruct(),
+		})
+		if err != nil {
+			t.Fatal("Error connecting ", err)
+		}
+
+		err = adscConn.Run()
+		if err != nil {
+			t.Fatal("Error connecting ", err)
+		}
+
+		adscConn.Send(&discovery.DiscoveryRequest{
+			TypeUrl: v3.ListenerType,
+		})
+
+		adscConn.WatchConfig()
+
+		msg, err := adscConn.WaitVersion(5*time.Second, v3.ListenerType, "")
+		if err != nil {
+			t.Fatal("Failed to receive lds", err)
+		}
+		// Extract the cookie name from 4 layers of marshaling...
+		hcm := &hcm.HttpConnectionManager{}
+		ss := &stateful_sessionv3.StatefulSession{}
+		sc := &cookiev3.CookieBasedSessionState{}
+		for _, rsc := range msg.Resources {
+			valBytes := rsc.Value
+			ll := &listener.Listener{}
+			_ = proto.Unmarshal(valBytes, ll)
+			if strings.HasPrefix(ll.Name, "echo-persistent.test.svc.cluster.local:") {
+				proto.Unmarshal(ll.ApiListener.ApiListener.Value, hcm)
+				for _, f := range hcm.HttpFilters {
+					if f.Name == "envoy.filters.http.stateful_session" {
+						proto.Unmarshal(f.GetTypedConfig().Value, ss)
+						if ss.GetSessionState().Name == "envoy.http.stateful_session.cookie" {
+							proto.Unmarshal(ss.GetSessionState().TypedConfig.Value, sc)
+						}
+					}
+				}
+			}
+		}
+		if sc.Cookie == nil {
+			t.Fatal("Failed to find session cookie")
+		}
+		if sc.Cookie.Name != "test-cookie" {
+			t.Fatal("Missing expected cookie name", sc.Cookie)
+		}
+		clusterName := "outbound|9999||echo-persistent.test.svc.cluster.local"
+		adscConn.Send(&discovery.DiscoveryRequest{
+			TypeUrl:       v3.EndpointType,
+			ResourceNames: []string{clusterName},
+		})
+		_, err = adscConn.Wait(5*time.Second, v3.EndpointType)
+		if err != nil {
+			t.Fatal("Failed to receive endpoint", err)
+		}
+		ep := adscConn.GetEndpoints()[clusterName]
+		if ep == nil {
+			t.Fatal("Endpoints not found for persistent session cluster")
+		}
+		if len(ep.GetEndpoints()) == 0 {
+			t.Fatal("No endpoint not found for persistent session cluster")
+		}
+		lbep1 := ep.GetEndpoints()[0]
+		if lbep1.LbEndpoints[0].HealthStatus.Number() != 3 {
+			t.Fatal("Draining status not included")
+		}
+	})
+
 	t.Run("gRPC-dial", func(t *testing.T) {
 		for _, host := range []string{
 			"istiod.istio-system.svc.cluster.local",
@@ -260,6 +344,38 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	})
 }
 
+// initPersistent creates echo-persistent.test:9999, type GRPC with one drained endpoint
+func initPersistent(sd *memory.ServiceDiscovery) {
+	ns := "test"
+	svcname := "echo-persistent"
+	hn := svcname + "." + ns + ".svc.cluster.local"
+	sd.AddService(&model.Service{
+		Attributes: model.ServiceAttributes{
+			Name:      svcname,
+			Namespace: ns,
+			Labels:    map[string]string{features.PersistentSessionLabel: "test-cookie"},
+		},
+		Hostname:       host.Name(hn),
+		DefaultAddress: "127.0.5.2",
+		Ports: model.PortList{
+			{
+				Name:     "grpc-main",
+				Port:     9999,
+				Protocol: protocol.GRPC,
+			},
+		},
+	})
+	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
+		{
+			Address:         "127.0.1.2",
+			EndpointPort:    uint32(9999),
+			ServicePortName: "grpc-main",
+			HealthStatus:    model.Draining,
+		},
+	})
+}
+
+// initRBACTests creates a service with RBAC configs, to be associated with the inbound listeners.
 func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname string, port int, mtls bool) {
 	ns := "test"
 	hn := svcname + "." + ns + ".svc.cluster.local"
