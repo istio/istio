@@ -62,7 +62,8 @@ type IstiodAnalyzer struct {
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
-	initializedStore model.ConfigStoreController
+	initializedStore         model.ConfigStoreController
+	analyzableResourcesStore *analyzableResourcesStore
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -125,7 +126,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 // ReAnalyze loads the sources and executes the analysis, assuming init is already called
 func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
-	store := sa.initializedStore
+	store := sa.analyzableResourcesStore.getStore()
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
 
@@ -202,6 +203,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	}
 	go store.Run(cancel)
 	sa.initializedStore = store
+	sa.analyzableResourcesStore = newAnalyzableResourcesCache(sa.initializedStore)
 	return nil
 }
 
