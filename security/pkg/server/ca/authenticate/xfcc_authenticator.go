@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/alecholmes/xfccparser"
@@ -104,19 +105,17 @@ func isTrustedAddress(addr string, trustedCidrs []string) bool {
 		}
 	}
 	// Always trust local host addresses.
-	return net.ParseIP(ip).IsLoopback()
+	return netip.MustParseAddr(ip).IsLoopback()
 }
 
 func isInRange(addr, cidr string) bool {
 	if strings.Contains(cidr, "/") {
-		ip, ipnet, err := net.ParseCIDR(cidr)
+		ipp, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			return false
 		}
-		if ip.To4() == nil && ip.To16() == nil {
-			return false
-		}
-		return ipnet.Contains(net.ParseIP(addr))
+
+		return ipp.Contains(netip.MustParseAddr(addr))
 	}
 	return false
 }
