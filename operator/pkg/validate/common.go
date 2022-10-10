@@ -16,7 +16,7 @@ package validate
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -186,8 +186,7 @@ func validateCIDR(path util.Path, val any) util.Errors {
 	if !util.IsString(val) {
 		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
 	} else {
-		_, _, err = net.ParseCIDR(val.(string))
-		if err != nil {
+		if _, err = netip.ParsePrefix(val.(string)); err != nil {
 			err = fmt.Errorf("%s %s", path, err)
 		}
 	}
