@@ -1132,7 +1132,6 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 }
 
 func (ps *PushContext) Cleanup() {
-
 	l := ps.ledger
 	// many tests run this code with no ledger.  don't bother cleaning them up.
 	if l != nil {
