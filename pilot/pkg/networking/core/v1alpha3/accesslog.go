@@ -71,9 +71,9 @@ type AccessLogBuilder struct {
 
 func newAccessLogBuilder() *AccessLogBuilder {
 	return &AccessLogBuilder{
-		tcpGrpcAccessLog:         tcpGrpcAccessLog(false),
+		tcpGrpcAccessLog:         tcpGrpcAccessLog(),
 		httpGrpcAccessLog:        httpGrpcAccessLog(),
-		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
+		tcpGrpcListenerAccessLog: tcpGrpcListenerAccessLog(),
 	}
 }
 
@@ -94,19 +94,37 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfgs, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs); len(al) != 0 {
 		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
 }
 
-func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
+func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig) []*accesslog.AccessLog {
+	als := make([]*accesslog.AccessLog, 0, len(cfgs))
+	for _, c := range cfgs {
+		filters := make([]*accesslog.AccessLogFilter, 0, 1)
+		if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
+			filters = append(filters, telFilter)
+		}
+
+		al := &accesslog.AccessLog{
+			Name:       c.AccessLog.Name,
+			ConfigType: c.AccessLog.ConfigType,
+			Filter:     buildAccessLogFilter(filters...),
+		}
+
+		als = append(als, al)
+	}
+	return als
+}
+
+func buildListenerAccessLogFromTelemetry(cfgs []model.LoggingConfig) []*accesslog.AccessLog {
 	als := make([]*accesslog.AccessLog, 0, len(cfgs))
 	for _, c := range cfgs {
 		filters := make([]*accesslog.AccessLogFilter, 0, 2)
-		if forListener {
-			filters = append(filters, addAccessLogFilter())
-		}
-
+		// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
+		// not get filter Access Logs like in cases like NR to upstream.
+		filters = append(filters, addNoRouteAccessLogFilter())
 		if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
 			filters = append(filters, telFilter)
 		}
@@ -159,7 +177,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfgs, false); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs); len(al) != 0 {
 		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 }
@@ -188,7 +206,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfgs, true); len(al) != 0 {
+	if al := buildListenerAccessLogFromTelemetry(cfgs); len(al) != 0 {
 		listener.AccessLog = append(listener.AccessLog, al...)
 	}
 }
@@ -208,7 +226,7 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 	return al
 }
 
-func addAccessLogFilter() *accesslog.AccessLogFilter {
+func addNoRouteAccessLogFilter() *accesslog.AccessLogFilter {
 	return &accesslog.AccessLogFilter{
 		FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
 			ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
@@ -243,7 +261,7 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
-	lal.Filter = addAccessLogFilter()
+	lal.Filter = addNoRouteAccessLogFilter()
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -264,14 +282,32 @@ func (b *AccessLogBuilder) cachedListenerFileAccessLog() *accesslog.AccessLog {
 	return b.listenerFileAccessLog
 }
 
-func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
-	accessLogFriendlyName := model.TCPEnvoyAccessLogFriendlyName
-	if isListener {
-		accessLogFriendlyName = listenerEnvoyAccessLogFriendlyName
+func tcpGrpcAccessLog() *accesslog.AccessLog {
+	return &accesslog.AccessLog{
+		Name: model.TCPEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(buildTcpGrpcAccessLogConfig(model.TCPEnvoyAccessLogFriendlyName)),
+		},
 	}
-	fl := &grpcaccesslog.TcpGrpcAccessLogConfig{
+}
+
+func tcpGrpcListenerAccessLog() *accesslog.AccessLog {
+	return &accesslog.AccessLog{
+		Name: model.TCPEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(buildTcpGrpcAccessLogConfig(listenerEnvoyAccessLogFriendlyName)),
+		},
+		// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
+		// not get filter Access Logs like in cases like NR to upstream.
+		Filter: addNoRouteAccessLogFilter(),
+	}
+}
+
+// nolint
+func buildTcpGrpcAccessLogConfig(fname string) *grpcaccesslog.TcpGrpcAccessLogConfig {
+	return &grpcaccesslog.TcpGrpcAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
-			LogName: accessLogFriendlyName,
+			LogName: fname,
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
@@ -282,16 +318,6 @@ func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
-	}
-
-	var filter *accesslog.AccessLogFilter
-	if isListener {
-		filter = addAccessLogFilter()
-	}
-	return &accesslog.AccessLog{
-		Name:       model.TCPEnvoyALSName,
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
-		Filter:     filter,
 	}
 }
 
