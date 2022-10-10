@@ -53,6 +53,11 @@ type instancesKey struct {
 	namespace string
 }
 
+type octetPair struct {
+	thirdOctet  int
+	fourthOctet int
+}
+
 func makeInstanceKey(i *model.ServiceInstance) instancesKey {
 	return instancesKey{i.Service.Hostname, i.Service.Attributes.Namespace}
 }
@@ -848,6 +853,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// So we bump X to 511, so that the resulting IP is 240.240.2.1
 	maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
 	x := 0
+	hnMap := make(map[string]octetPair)
+
 	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -856,20 +863,37 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			x++
-			if x%255 == 0 {
+			n := svc.Hostname.String()
+			if v, ok := hnMap[n]; ok {
+				log.Debugf("Reuse IP for domain %s", n)
+
+				setAutoAllocatedIPs(svc, v)
+			} else {
 				x++
+				if x%255 == 0 {
+					x++
+				}
+				if x >= maxIPs {
+					log.Errorf("out of IPs to allocate for service entries")
+					return services
+				}
+
+				pair := octetPair{x / 255, x % 255}
+
+				setAutoAllocatedIPs(svc, pair)
+
+				hnMap[n] = pair
 			}
-			if x >= maxIPs {
-				log.Errorf("out of IPs to allocate for service entries")
-				return services
-			}
-			thirdOctet := x / 255
-			fourthOctet := x % 255
-			svc.AutoAllocatedAddress = fmt.Sprintf("240.240.%d.%d", thirdOctet, fourthOctet)
 		}
 	}
 	return services
+}
+
+func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
+	a := octets.thirdOctet
+	b := octets.fourthOctet
+
+	svc.AutoAllocatedAddress = fmt.Sprintf("240.240.%d.%d", a, b)
 }
 
 func makeConfigKey(svc *model.Service) model.ConfigKey {
