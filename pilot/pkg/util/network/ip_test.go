@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"testing"
 )
@@ -42,18 +43,18 @@ func determineLocalHostIPString(t *testing.T) string {
 	return ret
 }
 
-func MockLookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
-	ret := []net.IPAddr{
-		{IP: net.ParseIP("2001:db8::68")},
-		{IP: net.IPv4(1, 2, 3, 4)},
-		{IP: net.IPv4(1, 2, 3, 5)},
+func MockLookupIPAddr(_ context.Context, _ string) ([]netip.Addr, error) {
+	ret := []netip.Addr{
+		netip.MustParseAddr("2001:db8::68"),
+		netip.MustParseAddr("1.2.3.4"),
+		netip.MustParseAddr("1.2.3.5"),
 	}
 	return ret, nil
 }
 
-func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]net.IPAddr, error) {
-	ret := []net.IPAddr{
-		{IP: net.ParseIP("2001:db8::68")},
+func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]netip.Addr, error) {
+	ret := []netip.Addr{
+		netip.MustParseAddr("2001:db8::68"),
 	}
 	return ret, nil
 }
@@ -66,7 +67,7 @@ func TestResolveAddr(t *testing.T) {
 		input    string
 		expected string
 		errStr   string
-		lookup   func(ctx context.Context, addr string) ([]net.IPAddr, error)
+		lookup   func(ctx context.Context, addr string) ([]netip.Addr, error)
 	}{
 		{
 			name:     "Host by name",

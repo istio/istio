@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"time"
 
 	"istio.io/istio/pkg/sleep"
@@ -30,7 +31,7 @@ const (
 	waitTimeout  = 2 * time.Minute
 )
 
-type lookupIPAddrType = func(ctx context.Context, addr string) ([]net.IPAddr, error)
+type lookupIPAddrType = func(ctx context.Context, addr string) ([]netip.Addr, error)
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
 // but no address was provided.
@@ -75,14 +76,11 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 		addrs, _ := iface.Addrs()
 
 		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
+			ip, err := netip.ParseAddr(addr.String())
+			if err != nil {
+				continue
 			}
-			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			if !ip.IsValid() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 				continue
 			}
 			if ip.IsUnspecified() {
@@ -106,22 +104,24 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	if addr == "" {
 		return "", ErrResolveNoAddress
 	}
-	host, port, err := net.SplitHostPort(addr)
+	addPort, err := netip.ParseAddrPort(addr)
 	if err != nil {
 		return "", err
 	}
+	host := addPort.Addr().String()
+	port := addPort.Port()
 	log.Infof("Attempting to lookup address: %s", host)
 	defer log.Infof("Finished lookup of address: %s", host)
 	// lookup the udp address with a timeout of 15 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	var addrs []net.IPAddr
+	var addrs []netip.Addr
 	var lookupErr error
 	if (len(lookupIPAddr) > 0) && (lookupIPAddr[0] != nil) {
 		// if there are more than one lookup function, ignore all but first
 		addrs, lookupErr = lookupIPAddr[0](ctx, host)
 	} else {
-		addrs, lookupErr = net.DefaultResolver.LookupIPAddr(ctx, host)
+		addrs, lookupErr = net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 	}
 
 	if lookupErr != nil || len(addrs) == 0 {
@@ -130,11 +130,9 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	var resolvedAddr string
 
 	for _, address := range addrs {
-		ip := address.IP
-		if ip.To4() == nil {
-			resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
-		} else {
-			resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
+		tmpAddPort := netip.AddrPortFrom(address, port)
+		resolvedAddr = tmpAddPort.String()
+		if address.Is4() {
 			break
 		}
 	}
@@ -146,13 +144,13 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 // are valid IPv6 address, for all other cases it returns false.
 func AllIPv6(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() != nil {
+		if addr.Is4() {
 			return false
 		}
 	}
@@ -163,13 +161,13 @@ func AllIPv6(ipAddrs []string) bool {
 // are valid IPv4 address, for all other cases it returns false.
 func AllIPv4(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() == nil && addr.To16() != nil {
+		if !addr.Is4() && addr.Is6() {
 			return false
 		}
 	}
@@ -179,8 +177,8 @@ func AllIPv4(ipAddrs []string) bool {
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.
 func GlobalUnicastIP(ipAddrs []string) string {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
