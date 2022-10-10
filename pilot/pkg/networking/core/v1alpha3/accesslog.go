@@ -103,17 +103,7 @@ func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig) []*accesslog.Access
 	als := make([]*accesslog.AccessLog, 0, len(cfgs))
 	for _, c := range cfgs {
 		filters := make([]*accesslog.AccessLogFilter, 0, 1)
-		if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
-			filters = append(filters, telFilter)
-		}
-
-		al := &accesslog.AccessLog{
-			Name:       c.AccessLog.Name,
-			ConfigType: c.AccessLog.ConfigType,
-			Filter:     buildAccessLogFilter(filters...),
-		}
-
-		als = append(als, al)
+		als = append(als, buildAccessLogForLoggingConfig(c, filters))
 	}
 	return als
 }
@@ -125,19 +115,21 @@ func buildListenerAccessLogFromTelemetry(cfgs []model.LoggingConfig) []*accesslo
 		// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 		// not get filter Access Logs like in cases like NR to upstream.
 		filters = append(filters, addNoRouteAccessLogFilter())
-		if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
-			filters = append(filters, telFilter)
-		}
-
-		al := &accesslog.AccessLog{
-			Name:       c.AccessLog.Name,
-			ConfigType: c.AccessLog.ConfigType,
-			Filter:     buildAccessLogFilter(filters...),
-		}
-
-		als = append(als, al)
+		als = append(als, buildAccessLogForLoggingConfig(c, filters))
 	}
 	return als
+}
+
+func buildAccessLogForLoggingConfig(c model.LoggingConfig, filters []*accesslog.AccessLogFilter) *accesslog.AccessLog {
+	if telFilter := buildAccessLogFilterFromTelemetry(c); telFilter != nil {
+		filters = append(filters, telFilter)
+	}
+
+	return &accesslog.AccessLog{
+		Name:       c.AccessLog.Name,
+		ConfigType: c.AccessLog.ConfigType,
+		Filter:     buildAccessLogFilter(filters...),
+	}
 }
 
 func buildAccessLogFilterFromTelemetry(spec model.LoggingConfig) *accesslog.AccessLogFilter {
