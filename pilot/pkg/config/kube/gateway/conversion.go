@@ -47,13 +47,12 @@ const (
 
 // KubernetesResources stores all inputs to our conversion
 type KubernetesResources struct {
-	GatewayClass    []config.Config
-	Gateway         []config.Config
-	HTTPRoute       []config.Config
-	TCPRoute        []config.Config
-	TLSRoute        []config.Config
-	ReferencePolicy []config.Config
-	ReferenceGrant  []config.Config
+	GatewayClass   []config.Config
+	Gateway        []config.Config
+	HTTPRoute      []config.Config
+	TCPRoute       []config.Config
+	TLSRoute       []config.Config
+	ReferenceGrant []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace
 
@@ -169,12 +168,8 @@ func convertReferencePolicies(r KubernetesResources) AllowedReferences {
 		Namespace string
 		Grant     *k8s.ReferenceGrantSpec
 	}
-	specs := make([]namespacedGrant, 0, len(r.ReferenceGrant)+len(r.ReferencePolicy))
+	specs := make([]namespacedGrant, 0, len(r.ReferenceGrant))
 
-	for _, obj := range r.ReferencePolicy {
-		rp := obj.Spec.(*k8s.ReferenceGrantSpec)
-		specs = append(specs, namespacedGrant{Namespace: obj.Namespace, Grant: rp})
-	}
 	for _, obj := range r.ReferenceGrant {
 		rp := obj.Spec.(*k8s.ReferenceGrantSpec)
 		specs = append(specs, namespacedGrant{Namespace: obj.Namespace, Grant: rp})
@@ -1042,7 +1037,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	return resp
 }
 
-func createHeadersFilter(filter *k8s.HTTPRequestHeaderFilter) *istio.Headers {
+func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
 	if filter == nil {
 		return nil
 	}
@@ -1775,11 +1770,6 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 func (kr KubernetesResources) FuzzValidate() bool {
 	for _, gwc := range kr.GatewayClass {
 		if gwc.Spec == nil {
-			return false
-		}
-	}
-	for _, rp := range kr.ReferencePolicy {
-		if rp.Spec == nil {
 			return false
 		}
 	}

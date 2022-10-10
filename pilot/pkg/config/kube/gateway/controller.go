@@ -184,25 +184,20 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type TLSRoute: %v", err)
 	}
-	referencePolicy, err := c.cache.List(gvk.ReferencePolicy, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
-	}
 	referenceGrant, err := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 	if err != nil {
 		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
 	}
 
 	input := KubernetesResources{
-		GatewayClass:    deepCopyStatus(gatewayClass),
-		Gateway:         deepCopyStatus(gateway),
-		HTTPRoute:       deepCopyStatus(httpRoute),
-		TCPRoute:        deepCopyStatus(tcpRoute),
-		TLSRoute:        deepCopyStatus(tlsRoute),
-		ReferencePolicy: referencePolicy,
-		ReferenceGrant:  referenceGrant,
-		Domain:          c.domain,
-		Context:         NewGatewayContext(ps),
+		GatewayClass:   deepCopyStatus(gatewayClass),
+		Gateway:        deepCopyStatus(gateway),
+		HTTPRoute:      deepCopyStatus(httpRoute),
+		TCPRoute:       deepCopyStatus(tcpRoute),
+		TLSRoute:       deepCopyStatus(tlsRoute),
+		ReferenceGrant: referenceGrant,
+		Domain:         c.domain,
+		Context:        NewGatewayContext(ps),
 	}
 
 	if !input.hasResources() {
@@ -400,5 +395,5 @@ func (kr KubernetesResources) hasResources() bool {
 		len(kr.HTTPRoute) > 0 ||
 		len(kr.TCPRoute) > 0 ||
 		len(kr.TLSRoute) > 0 ||
-		len(kr.ReferencePolicy) > 0
+		len(kr.ReferenceGrant) > 0
 }

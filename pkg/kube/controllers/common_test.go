@@ -70,8 +70,8 @@ func TestEnqueueForParentHandler(t *testing.T) {
 			Name:      "pod",
 			Namespace: "ns",
 			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: gvk.ReferencePolicy.GroupVersion(),
-				Kind:       gvk.ReferencePolicy.Kind,
+				APIVersion: gvk.ReferenceGrant.GroupVersion(),
+				Kind:       gvk.ReferenceGrant.Kind,
 				Name:       "wrong-type",
 				UID:        "1234",
 			}},
