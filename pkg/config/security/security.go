@@ -16,7 +16,7 @@ package security
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -153,11 +153,11 @@ func ValidateIPs(ips []string) error {
 	var errs *multierror.Error
 	for _, v := range ips {
 		if strings.Contains(v, "/") {
-			if _, _, err := net.ParseCIDR(v); err != nil {
+			if _, err := netip.ParsePrefix(v); err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("bad CIDR range (%s): %v", v, err))
 			}
 		} else {
-			if ip := net.ParseIP(v); ip == nil {
+			if _, err := netip.ParseAddr(v); err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("bad IP address (%s)", v))
 			}
 		}
