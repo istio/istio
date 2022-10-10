@@ -232,7 +232,7 @@ var (
 
 	EnableDistributionTracking = env.Register(
 		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
-		false,
+		true,
 		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
 			"users to interrogate which envoy has which config from the debug interface.",
 	).Get()
