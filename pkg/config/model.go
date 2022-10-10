@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"time"
 
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	gogoproto "github.com/gogo/protobuf/proto"
-	gogotypes "github.com/gogo/protobuf/types"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb" // nolint: depguard
+	gogoproto "github.com/gogo/protobuf/proto"   // nolint: depguard
+	gogotypes "github.com/gogo/protobuf/types"   // nolint: depguard
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"

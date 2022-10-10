@@ -17,15 +17,15 @@ package resource
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestInstance_IsEmpty_False(t *testing.T) {
 	g := NewWithT(t)
 
 	e := Instance{
-		Message: &types.Empty{},
+		Message: &emptypb.Empty{},
 	}
 
 	g.Expect(e.IsEmpty()).To(BeFalse())
@@ -50,7 +50,7 @@ func TestInstance_Clone_NonEmpty(t *testing.T) {
 	g := NewWithT(t)
 
 	e := &Instance{
-		Message: &types.Empty{},
+		Message: &emptypb.Empty{},
 	}
 
 	c := e.Clone()

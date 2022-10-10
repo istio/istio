@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
@@ -317,7 +317,7 @@ func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {
 		return nil, err
 	}
 	var trace cloudtrace.Trace
-	if err = proto.UnmarshalText(traceStr, &trace); err != nil {
+	if err = prototext.Unmarshal([]byte(traceStr), &trace); err != nil {
 		return nil, err
 	}
 
