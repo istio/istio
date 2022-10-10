@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/sleep"
@@ -104,12 +105,24 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	if addr == "" {
 		return "", ErrResolveNoAddress
 	}
+	var host string
+	var port uint16
 	addPort, err := netip.ParseAddrPort(addr)
 	if err != nil {
-		return "", err
+		oHost, oPort, oErr := net.SplitHostPort(addr)
+		if oErr != nil {
+			return "", oErr
+		}
+		host = oHost
+		pPort, pErr := strconv.ParseUint(oPort, 10, 16)
+		if pErr != nil {
+			return "", oErr
+		}
+		port = uint16(pPort)
+	} else {
+		host = addPort.Addr().String()
+		port = addPort.Port()
 	}
-	host := addPort.Addr().String()
-	port := addPort.Port()
 	log.Infof("Attempting to lookup address: %s", host)
 	defer log.Infof("Finished lookup of address: %s", host)
 	// lookup the udp address with a timeout of 15 seconds.

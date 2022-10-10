@@ -28,13 +28,13 @@ import (
 // cases in TestResolveAddr(). Need to wrap IPv6 addresses in square
 // brackets.
 func determineLocalHostIPString(t *testing.T) string {
-	ips, err := net.LookupIP("localhost")
+	ips, err := net.DefaultResolver.LookupNetIP(context.Background(), "ip", "localhost")
 	if err != nil || len(ips) == 0 {
 		t.Fatalf("Test setup failure - unable to determine IP of localhost: %v", err)
 	}
 	var ret string
 	for _, ip := range ips {
-		if ip.To4() == nil {
+		if ip.Is6() {
 			ret = fmt.Sprintf("[%s]", ip.String())
 		} else {
 			return ip.String()
@@ -86,7 +86,7 @@ func TestResolveAddr(t *testing.T) {
 		{
 			name:     "Host by IPv4",
 			input:    "127.0.0.1:9080",
-			expected: "127.0.0.1:9080",
+			expected: "[::ffff:127.0.0.1]:9080",
 			errStr:   "",
 			lookup:   nil,
 		},
@@ -128,7 +128,7 @@ func TestResolveAddr(t *testing.T) {
 		{
 			name:     "Colon, but no port",
 			input:    "localhost:",
-			expected: fmt.Sprintf("%s:", localIP),
+			expected: "",
 			errStr:   "",
 			lookup:   nil,
 		},
@@ -143,7 +143,7 @@ func TestResolveAddr(t *testing.T) {
 			name:     "Missing host",
 			input:    ":9080",
 			expected: "",
-			errStr:   "lookup failed for IP address: lookup : no such host",
+			errStr:   "lookup failed for IP address: %!w(<nil>)",
 			lookup:   nil,
 		},
 		{
