@@ -20,6 +20,7 @@ import (
 
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
@@ -416,6 +417,30 @@ var (
 
 	TrustedGatewayCIDR = func() []string {
 		return strings.Split(trustedGatewayCIDR.Get(), ",")
+	}()
+
+	CATrustedNodeAccounts = func() map[types.NamespacedName]struct{} {
+		accounts := env.Register(
+			"CA_TRUSTED_NODE_ACCOUNTS",
+			"istio-system/ztunnel,kube-system/ztunnel",
+			"If set, the list of service accounts that are allowed to use node authentication for CSRs. "+
+				"Node authentication allows an identity to create CSRs on behalf of other identities, but only if there is a pod "+
+				"running on the same node with that identity. "+
+				"This is intended for use with node proxies.",
+		).Get()
+		res := map[types.NamespacedName]struct{}{}
+		for _, v := range strings.Split(accounts, ",") {
+			ns, sa, valid := strings.Cut(v, "/")
+			if !valid {
+				log.Warnf("Invalid CA_TRUSTED_NODE_ACCOUNTS, ignoring: %v", v)
+				continue
+			}
+			res[types.NamespacedName{
+				Namespace: ns,
+				Name:      sa,
+			}] = struct{}{}
+		}
+		return res
 	}()
 
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
