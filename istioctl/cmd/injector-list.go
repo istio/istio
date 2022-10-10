@@ -177,7 +177,6 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 	return w.Flush()
 }
 
-
 func printHooks(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration, injectedImages map[string]string) error {
 	if len(hooks) == 0 {
 		fmt.Fprintf(writer, "No Istio injection hooks present.\n")
