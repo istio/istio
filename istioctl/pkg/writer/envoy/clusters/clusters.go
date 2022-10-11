@@ -70,6 +70,9 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	if addr != nil {
 		return addr.Address
 	}
+	if addr := host.Address.GetEnvoyInternalAddress(); addr != nil {
+		return addr.GetEndpointId()
+	}
 	return "unix://" + host.Address.GetPipe().Path
 }
 
