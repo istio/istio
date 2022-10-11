@@ -73,9 +73,8 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	if addr := host.Address.GetEnvoyInternalAddress(); addr != nil {
 		if eid := addr.GetEndpointId(); eid != "" {
 			return eid
-		} else {
-			return "listener:" + addr.GetServerListenerName()
 		}
+		return "listener:" + addr.GetServerListenerName()
 	}
 	return "unix://" + host.Address.GetPipe().Path
 }
