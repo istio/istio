@@ -371,7 +371,10 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance, cp clusterPatcher, enableSidecarServiceInboundListenerMerge bool) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
+	instances []*model.ServiceInstance, cp clusterPatcher,
+	enableSidecarServiceInboundListenerMerge bool,
+) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
 	clustersToBuild := make(map[int][]*model.ServiceInstance)

@@ -292,10 +292,11 @@ func samePortInSidecarIngressAndService(node *model.Proxy, port int) bool {
 		}
 	}
 	return false
-
 }
 
-func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]inboundChainConfig, enableSidecarServiceInboundListenerMerge bool) map[uint32]inboundChainConfig {
+func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]inboundChainConfig,
+	enableSidecarServiceInboundListenerMerge bool,
+) map[uint32]inboundChainConfig {
 	for _, i := range lb.node.ServiceInstances {
 		port := ServiceInstancePort{
 			Name:       i.ServicePort.Name,
@@ -347,61 +348,59 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			return nil
 		}
 		chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, false)
-	} else {
-		if lb.node.SidecarScope.HasIngressListener() {
-			// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
-			if features.EnableSidecarServiceInboundListenerMerge {
-				chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
+	} else if lb.node.SidecarScope.HasIngressListener() {
+		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
+		if features.EnableSidecarServiceInboundListenerMerge {
+			chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
+		}
+
+		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
+			port := ServiceInstancePort{
+				Name:       i.Port.Name,
+				Port:       i.Port.Number,
+				TargetPort: i.Port.Number, // No targetPort support in the API
+				Protocol:   protocol.Parse(i.Port.Protocol),
+			}
+			bindtoPort := getBindToPort(i.CaptureMode, lb.node)
+			// Skip ports we cannot bind to
+			if !lb.node.CanBindToPort(bindtoPort, port.TargetPort) {
+				log.Warnf("buildInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+					i.Port.Number, lb.node.ID)
+				continue
 			}
 
-			for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
-				port := ServiceInstancePort{
-					Name:       i.Port.Name,
-					Port:       i.Port.Number,
-					TargetPort: i.Port.Number, // No targetPort support in the API
-					Protocol:   protocol.Parse(i.Port.Protocol),
-				}
-				bindtoPort := getBindToPort(i.CaptureMode, lb.node)
-				// Skip ports we cannot bind to
-				if !lb.node.CanBindToPort(bindtoPort, port.TargetPort) {
-					log.Warnf("buildInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-						i.Port.Number, lb.node.ID)
-					continue
-				}
-
-				cc := inboundChainConfig{
-					// Sidecar config doesn't have a real hostname. In order to give some telemetry info, make a synthetic hostname.
-					telemetryMetadata: telemetry.FilterChainMetadata{
-						InstanceHostname: host.Name(lb.node.SidecarScope.Name + "." + lb.node.SidecarScope.Namespace),
-					},
-					port:        port,
-					clusterName: model.BuildInboundSubsetKey(int(port.TargetPort)),
-					bind:        i.Bind,
-					bindToPort:  bindtoPort,
-				}
-				if cc.bind == "" {
-					// If user didn't provide, pick one based on IP
-					actualWildcards := getSidecarInboundBindIPs(lb.node)
-					cc.bind = actualWildcards[0]
-					if len(actualWildcards) > 1 {
-						cc.extraBind = actualWildcards[1:]
-					}
-				}
-				// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
-				if old, f := chainsByPort[port.TargetPort]; f {
-					reportInboundConflict(lb, old, cc)
-					continue
-				}
-
-				if i.Tls != nil && features.EnableTLSOnSidecarIngress {
-					// User provided custom TLS settings
-					cc.tlsSettings = i.Tls.DeepCopy()
-					cc.tlsSettings.CipherSuites = filteredSidecarCipherSuites(cc.tlsSettings.CipherSuites)
-					cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
-				}
-
-				chainsByPort[port.TargetPort] = cc
+			cc := inboundChainConfig{
+				// Sidecar config doesn't have a real hostname. In order to give some telemetry info, make a synthetic hostname.
+				telemetryMetadata: telemetry.FilterChainMetadata{
+					InstanceHostname: host.Name(lb.node.SidecarScope.Name + "." + lb.node.SidecarScope.Namespace),
+				},
+				port:        port,
+				clusterName: model.BuildInboundSubsetKey(int(port.TargetPort)),
+				bind:        i.Bind,
+				bindToPort:  bindtoPort,
 			}
+			if cc.bind == "" {
+				// If user didn't provide, pick one based on IP
+				actualWildcards := getSidecarInboundBindIPs(lb.node)
+				cc.bind = actualWildcards[0]
+				if len(actualWildcards) > 1 {
+					cc.extraBind = actualWildcards[1:]
+				}
+			}
+			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
+			if old, f := chainsByPort[port.TargetPort]; f {
+				reportInboundConflict(lb, old, cc)
+				continue
+			}
+
+			if i.Tls != nil && features.EnableTLSOnSidecarIngress {
+				// User provided custom TLS settings
+				cc.tlsSettings = i.Tls.DeepCopy()
+				cc.tlsSettings.CipherSuites = filteredSidecarCipherSuites(cc.tlsSettings.CipherSuites)
+				cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
+			}
+
+			chainsByPort[port.TargetPort] = cc
 		}
 	}
 	chainConfigs := make([]inboundChainConfig, 0, len(chainsByPort))
