@@ -25,9 +25,11 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
@@ -670,6 +672,118 @@ func TestTranslateFault(t *testing.T) {
 			tf := translateFault(tt.fault)
 			if !reflect.DeepEqual(tf, tt.want) {
 				t.Errorf("Unexpected translate fault want %v, got %v", tt.want, tf)
+			}
+		})
+	}
+}
+
+func TestPortLevelSettingsConsistentHash(t *testing.T) {
+	hash := &networking.LoadBalancerSettings_ConsistentHash{
+		ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+			MinimumRingSize: uint64(1000),
+			HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+				HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+					Name: "hash-cookie",
+					Ttl:  &durationpb.Duration{Nanos: 100},
+				},
+			},
+		},
+	}
+	testCases := []struct {
+		name     string
+		dst      *networking.Destination
+		pls      []*networking.TrafficPolicy_PortTrafficPolicy
+		svc      *model.Service
+		expected *networking.LoadBalancerSettings_ConsistentHashLB
+	}{
+		{
+			name: "destination with port",
+			dst: &networking.Destination{
+				Host: "foo.svc.com",
+				Port: &networking.PortSelector{
+					Number: 8080,
+				},
+			},
+			pls: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 8080,
+					},
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: hash,
+					},
+				},
+			},
+			svc: &model.Service{
+				Ports: []*model.Port{
+					{
+						Port: 9090,
+					},
+					{
+						Port: 8080,
+					},
+				},
+			},
+			expected: hash.ConsistentHash,
+		},
+		{
+			name: "destination without port and service has multiple ports",
+			dst: &networking.Destination{
+				Host: "foo.svc.com",
+			},
+			pls: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 8080,
+					},
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: hash,
+					},
+				},
+			},
+			svc: &model.Service{
+				Ports: []*model.Port{
+					{
+						Port: 9090,
+					},
+					{
+						Port: 8080,
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "destination without port and service has single ports",
+			dst: &networking.Destination{
+				Host: "foo.svc.com",
+			},
+			pls: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					Port: &networking.PortSelector{
+						Number: 8080,
+					},
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: hash,
+					},
+				},
+			},
+			svc: &model.Service{
+				Ports: []*model.Port{
+					{
+						Port: 8080,
+					},
+				},
+			},
+			expected: hash.ConsistentHash,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := portLevelSettingsConsistentHash(tc.dst, tc.pls, tc.svc)
+			if !reflect.DeepEqual(tc.expected, got) {
+				t.Errorf("unexpected port level consistent hash settings. expected: %v, got: %v", tc.expected, got)
 			}
 		})
 	}

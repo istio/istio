@@ -107,7 +107,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
-		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
+		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService, serviceRegistry)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
 		out = append(out, wrappers...)
@@ -1174,17 +1174,25 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,
 	pls []*networking.TrafficPolicy_PortTrafficPolicy,
+	svc *model.Service,
 ) *networking.LoadBalancerSettings_ConsistentHashLB {
-	if dst.Port != nil {
-		portNumber := dst.GetPort().GetNumber()
+	var port uint32
+	if dst.Port == nil {
+		// if service only has one port defined, use that as the port.
+		if svc != nil && len(svc.Ports) == 1 {
+			port = uint32(svc.Ports[0].Port)
+		}
+	} else {
+		port = dst.GetPort().GetNumber()
+	}
+	if port > 0 {
 		for _, setting := range pls {
 			number := setting.GetPort().GetNumber()
-			if number == portNumber {
+			if number == port {
 				return setting.GetLoadBalancer().GetConsistentHash()
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -1265,12 +1273,14 @@ func hashForService(push *model.PushContext,
 func hashForVirtualService(push *model.PushContext,
 	node *model.Proxy,
 	virtualService config.Config,
+	serviceRegistry map[host.Name]*model.Service,
 ) (DestinationHashMap, []*model.ConsolidatedDestRule) {
 	hashByDestination := DestinationHashMap{}
 	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
-			hash, dr := hashForHTTPDestination(push, node, destination)
+			hostname := host.Name(destination.GetDestination().GetHost())
+			hash, dr := hashForHTTPDestination(push, node, destination, serviceRegistry[hostname])
 			if hash != nil {
 				hashByDestination[destination] = hash
 				destinationRules = append(destinationRules, dr)
@@ -1280,14 +1290,17 @@ func hashForVirtualService(push *model.PushContext,
 	return hashByDestination, destinationRules
 }
 
-func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy, virtualService config.Config) DestinationHashMap {
-	hashByDestination, _ := hashForVirtualService(push, node, virtualService)
+func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
+	virtualService config.Config, serviceRegistry map[host.Name]*model.Service,
+) DestinationHashMap {
+	hashByDestination, _ := hashForVirtualService(push, node, virtualService, serviceRegistry)
 	return hashByDestination
 }
 
 // hashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 	dst *networking.HTTPRouteDestination,
+	svc *model.Service,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
 		return nil, nil
@@ -1304,14 +1317,14 @@ func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 
 	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
 	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
-	plsHash := portLevelSettingsConsistentHash(destination, portLevelSettings)
+	plsHash := portLevelSettingsConsistentHash(destination, portLevelSettings, svc)
 
 	var subsetHash, subsetPLSHash *networking.LoadBalancerSettings_ConsistentHashLB
 	for _, subset := range rule.GetSubsets() {
 		if subset.GetName() == destination.GetSubset() {
 			subsetPortLevelSettings := subset.GetTrafficPolicy().GetPortLevelSettings()
 			subsetHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
-			subsetPLSHash = portLevelSettingsConsistentHash(destination, subsetPortLevelSettings)
+			subsetPLSHash = portLevelSettingsConsistentHash(destination, subsetPortLevelSettings, svc)
 			break
 		}
 	}
