@@ -494,7 +494,7 @@ func (g *ZTunnelConfigGenerator) maybeBuildServerWaypointChain(push *model.PushC
 			if wl.Namespace != svc.Attributes.Namespace {
 				continue
 			}
-			if !labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
+			if len(svc.Attributes.LabelSelectors) == 0 || !labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
 				continue
 			}
 			serviceWorkloads = append(serviceWorkloads, wl)
