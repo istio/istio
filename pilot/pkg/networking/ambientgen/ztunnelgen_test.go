@@ -81,6 +81,22 @@ spec:
     app: helloworld
 ---
 apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    component: apiserver
+  name: kubernetes
+  namespace: ns1
+spec:
+  clusterIP: 10.96.0.1
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 6443
+  type: ClusterIP
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: helloworld-pod-1
@@ -233,6 +249,15 @@ func TestServerWaypoint(t *testing.T) {
 
 	wantChain := "spiffe://cluster.local/ns/ns1/sa/sleep_to_server_waypoint_proxy_spiffe://cluster.local/ns/ns1/sa/default"
 	if chain := portMatch["5000"].GetAction().GetName(); chain != wantChain {
+		t.Fatalf("expected chain %q but got %q", wantChain, chain)
+	}
+
+	portMatch = dstIPMatch["10.96.0.1"].GetMatcher().GetMatcherTree().GetExactMatchMap().GetMap()
+	if portMatch == nil || portMatch["443"] == nil {
+		t.Fatal("no port match on kubernetes port")
+	}
+	wantChain = "spiffe://cluster.local/ns/ns1/sa/sleep_to_https_kubernetes.ns1.svc.cluster.local_outbound_internal"
+	if chain := portMatch["443"].GetAction().GetName(); chain != wantChain {
 		t.Fatalf("expected chain %q but got %q", wantChain, chain)
 	}
 }
