@@ -15,7 +15,7 @@
 package istio
 
 import (
-	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -92,7 +92,7 @@ type Instance interface {
 	// RemoteDiscoveryAddressFor returns the external address of the discovery server that controls
 	// the given cluster. This allows access to the discovery server from
 	// outside its cluster.
-	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error)
+	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.AddrPort, error)
 	// CreateRemoteSecret on the cluster with the given options.
 	CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, opts ...string) (string, error)
 	// Values returns the operator values for the installed control plane.
