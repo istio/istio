@@ -42,6 +42,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
@@ -367,7 +368,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			if i.Tls != nil && features.EnableTLSOnSidecarIngress {
 				// User provided custom TLS settings
 				cc.tlsSettings = i.Tls.DeepCopy()
-				cc.tlsSettings.CipherSuites = filteredSidecarCipherSuites(cc.tlsSettings.CipherSuites)
+				cc.tlsSettings.CipherSuites = security.FilterCipherSuites(cc.tlsSettings.CipherSuites)
 				cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			}
 

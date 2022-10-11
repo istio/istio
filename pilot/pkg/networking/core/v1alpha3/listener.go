@@ -43,10 +43,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -198,24 +196,6 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	}
 
 	return ctx
-}
-
-// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredSidecarCipherSuites(suites []string) []string {
-	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New[string]()
-	for _, s := range suites {
-		if security.IsValidCipherSuite(s) {
-			if !validCiphers.InsertContains(s) {
-				ret = append(ret, s)
-			} else if log.DebugEnabled() {
-				log.Debugf("ignoring duplicated cipherSuite: %q", s)
-			}
-		} else if log.DebugEnabled() {
-			log.Debugf("ignoring unsupported cipherSuite: %q", s)
-		}
-	}
-	return ret
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
