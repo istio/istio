@@ -93,7 +93,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 					if len(hintPort) > 0 {
 						warnings = append(warnings, fmt.Sprintf(
 							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
-							port, g, hintPort.SortedList()))
+							port, g, sets.SortedList(hintPort)))
 					} else {
 						warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
 					}
@@ -102,7 +102,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 		}
 	}
 	sort.Strings(warnings)
-	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
+	return sets.SortedList(foundInternal), sets.SortedList(foundExternal), warnings
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
