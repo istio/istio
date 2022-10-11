@@ -147,15 +147,11 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				if req != nil && req.TypeUrl != v3.SecretType {
-					log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
-				}
+				log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				return
 			}
 			con.errorChan <- err
-			if req != nil && req.TypeUrl != v3.SecretType {
-				log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
-			}
+			log.Errorf("ADS: %q %s terminated with error: %v", con.peerAddr, con.conID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -176,9 +172,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			if req != nil && req.TypeUrl != v3.SecretType {
-				log.Infof("ADS: new connection for node:%s", con.conID)
-			}
+			log.Infof("ADS: new connection for node:%s", con.conID)
 		}
 
 		select {
