@@ -32,7 +32,7 @@ func TestSchema_NewSchema(t *testing.T) {
 	}.Build()
 	g.Expect(err).To(BeNil())
 	g.Expect(s.Name()).To(Equal(collection.NewName("foo")))
-	g.Expect(s.Resource().ProtoPackage()).To(Equal("github.com/gogo/protobuf/types"))
+	g.Expect(s.Resource().ProtoPackage()).To(Equal("google.golang.org/protobuf/types/known/emptypb"))
 	g.Expect(s.Resource().Proto()).To(Equal("google.protobuf.Empty"))
 }
 
@@ -58,7 +58,7 @@ func TestSchema_MustNewSchema(t *testing.T) {
 		Resource: emptyResource,
 	}.MustBuild()
 	g.Expect(s.Name()).To(Equal(collection.NewName("foo")))
-	g.Expect(s.Resource().ProtoPackage()).To(Equal("github.com/gogo/protobuf/types"))
+	g.Expect(s.Resource().ProtoPackage()).To(Equal("google.golang.org/protobuf/types/known/emptypb"))
 	g.Expect(s.Resource().Proto()).To(Equal("google.protobuf.Empty"))
 }
 

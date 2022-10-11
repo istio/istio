@@ -17,7 +17,7 @@ package model
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
