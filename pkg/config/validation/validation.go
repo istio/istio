@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"path"
 	"regexp"
@@ -415,13 +416,10 @@ func ValidateIPSubnet(subnet string) error {
 	// E.g., a.b.c.d/xx form or just a.b.c.d or 2001:1::1/64
 	if strings.Count(subnet, "/") == 1 {
 		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx or 2001:1::1/64 form
-		ip, _, err := net.ParseCIDR(subnet)
-		if err != nil {
+		if _, err := netip.ParsePrefix(subnet); err != nil {
 			return fmt.Errorf("%v is not a valid CIDR block", subnet)
 		}
-		if ip.To4() == nil && ip.To16() == nil {
-			return fmt.Errorf("%v is not a valid IPv4 or IPv6 address", subnet)
-		}
+
 		return nil
 	}
 	return ValidateIPAddress(subnet)
@@ -429,8 +427,7 @@ func ValidateIPSubnet(subnet string) error {
 
 // ValidateIPAddress validates that a string in "CIDR notation" or "Dot-decimal notation"
 func ValidateIPAddress(addr string) error {
-	ip := net.ParseIP(addr)
-	if ip == nil {
+	if _, err := netip.ParseAddr(addr); err != nil {
 		return fmt.Errorf("%v is not a valid IP", addr)
 	}
 

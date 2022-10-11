@@ -16,7 +16,7 @@ package inject
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -148,7 +148,7 @@ func validateBool(value string) error {
 func validateCIDRList(cidrs string) error {
 	if len(cidrs) > 0 {
 		for _, cidr := range strings.Split(cidrs, ",") {
-			if _, _, err := net.ParseCIDR(cidr); err != nil {
+			if _, err := netip.ParsePrefix(cidr); err != nil {
 				return fmt.Errorf("failed parsing cidr '%s': %v", cidr, err)
 			}
 		}
