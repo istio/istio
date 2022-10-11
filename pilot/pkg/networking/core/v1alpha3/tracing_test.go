@@ -131,6 +131,14 @@ func TestConfigureTracing(t *testing.T) {
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
+			name:            "basic config (with datadog provider)",
+			inSpec:          fakeTracingSpec(fakeDatadog(), 99.999, false, true),
+			opts:            fakeOptsOnlyDatadogTelemetryAPI(),
+			want:            fakeTracingConfig(fakeDatadogProvider("fake-cluster", clusterName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx:       nil,
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
 			name:            "basic config (with skywalking provider)",
 			inSpec:          fakeTracingSpec(fakeSkywalking(), 99.999, false, false),
 			opts:            fakeOptsOnlySkywalkingTelemetryAPI(),
@@ -301,6 +309,49 @@ func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 			},
 		},
 	}
+}
+
+func fakeDatadog() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy.tracers.datadog",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Datadog{
+			Datadog: &meshconfig.MeshConfig_ExtensionProvider_DatadogTracingProvider{
+				Service:      "datadog",
+				Port:         8126,
+				MaxTagLength: 256,
+			},
+		},
+	}
+}
+
+func fakeOptsOnlyDatadogTelemetryAPI() buildListenerOpts {
+	var opts buildListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "datadog",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Datadog{
+						Datadog: &meshconfig.MeshConfig_ExtensionProvider_DatadogTracingProvider{
+							Service:      "datadog",
+							Port:         8126,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+		XdsNode: &envoy_config_core_v3.Node{
+			Cluster: "fake-cluster",
+		},
+	}
+
+	return opts
 }
 
 func fakeOptsMeshAndTelemetryAPI(enableTracing bool) buildListenerOpts {
@@ -538,5 +589,17 @@ func fakeSkywalkingProvider(expectClusterName, expectAuthority, expectProviderNa
 	return &tracingcfg.Tracing_Http{
 		Name:       expectProviderName,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeSkywalkingAny},
+	}
+}
+
+func fakeDatadogProvider(expectServcieName, expectClusterName string) *tracingcfg.Tracing_Http {
+	fakeDatadogProviderConfig := &tracingcfg.DatadogConfig{
+		CollectorCluster: expectClusterName,
+		ServiceName:      expectServcieName,
+	}
+	fakeAny, _ := anypb.New(fakeDatadogProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       "envoy.tracers.datadog",
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeAny},
 	}
 }
