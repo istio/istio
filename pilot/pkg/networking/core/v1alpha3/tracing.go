@@ -95,7 +95,7 @@ func configureTracingFromSpec(
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
 	if spec.Provider != nil {
-		tcfg, rfCtx, err := configureFromProviderConfig(push, proxy.Metadata, spec.Provider)
+		tcfg, rfCtx, err := configureFromProviderConfig(push, proxy, spec.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
 			return nil, nil
@@ -127,29 +127,37 @@ func configureTracingFromSpec(
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
-func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
+func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
 	tracing := &hpb.HttpConnectionManager_Tracing{}
-	var rfCtx *xdsfilters.RouterFilterContext
-	var err error
+	var (
+		rfCtx          *xdsfilters.RouterFilterContext
+		err            error
+		serviceCluster string
+		meta           = proxy.Metadata
+	)
+
+	if proxy.XdsNode != nil {
+		serviceCluster = proxy.XdsNode.Cluster
+	}
 
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.GetService(),
-			provider.Zipkin.GetPort(), provider.Zipkin.GetMaxTagLength(), zipkinConfigGen)
+			provider.Zipkin.GetPort(), provider.Zipkin.GetMaxTagLength(), zipkinConfigGen, serviceCluster)
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Datadog.GetService(),
-			provider.Datadog.GetPort(), provider.Datadog.GetMaxTagLength(), datadogConfigGen)
+			provider.Datadog.GetPort(), provider.Datadog.GetMaxTagLength(), datadogConfigGen, serviceCluster)
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Lightstep.GetService(),
 			provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
-			func(hostname, clusterName string) (*anypb.Any, error) {
+			func(_, hostname, clusterName string) (*anypb.Any, error) {
 				lc := &tracingcfg.LightstepConfig{
 					CollectorCluster: clusterName,
 					AccessTokenFile:  provider.Lightstep.GetAccessToken(),
 				}
 				return anypb.New(lc)
-			})
+			}, serviceCluster)
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Opencensus.GetMaxTagLength(), func() (*anypb.Any, error) {
@@ -167,7 +175,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.GetService(),
-			provider.Skywalking.GetPort(), 0, func(hostname, clusterName string) (*anypb.Any, error) {
+			provider.Skywalking.GetPort(), 0, func(_, hostname, clusterName string) (*anypb.Any, error) {
 				s := &tracingcfg.SkyWalkingConfig{
 					GrpcService: &envoy_config_core_v3.GrpcService{
 						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
@@ -180,7 +188,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				}
 
 				return anypb.New(s)
-			})
+			}, serviceCluster)
 
 		rfCtx = &xdsfilters.RouterFilterContext{
 			StartChildSpan: true,
@@ -282,9 +290,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 	return tracing, rfCtx, err
 }
 
-type typedConfigGenFromClusterFn func(hostname, clusterName string) (*anypb.Any, error)
+type typedConfigGenFromClusterFn func(serviceName, hostname, clusterName string) (*anypb.Any, error)
 
-func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
+func zipkinConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
@@ -296,9 +304,10 @@ func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
 	return anypb.New(zc)
 }
 
-func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
+func datadogConfigGen(serviceName, _, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
 		CollectorCluster: cluster,
+		ServiceName:      serviceName,
 	}
 	return anypb.New(dc)
 }
@@ -306,7 +315,9 @@ func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
 type typedConfigGenFn func() (*anypb.Any, error)
 
 func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32,
-	anyFn typedConfigGenFromClusterFn) (*hpb.HttpConnectionManager_Tracing, error) {
+	anyFn typedConfigGenFromClusterFn,
+	serviceCluster string,
+) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
 
 	hostname, cluster, err := clusterLookupFn(pushCtx, svc, int(port))
@@ -314,7 +325,7 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 		return config, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 	}
 
-	cfg, err := anyFn(hostname, cluster)
+	cfg, err := anyFn(serviceCluster, hostname, cluster)
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}
