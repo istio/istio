@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // JwksInfo provides values resulting from parsing a jwks URI.
@@ -214,4 +215,25 @@ func IsValidCipherSuite(cs string) bool {
 		return true
 	}
 	return ValidCipherSuites.Contains(cs)
+}
+
+// FilterCipherSuites filters out invalid cipher suites which would lead Envoy to NACKing.
+func FilterCipherSuites(suites []string) []string {
+	if len(suites) == 0 {
+		return nil
+	}
+	ret := make([]string, 0, len(suites))
+	validCiphers := sets.New[string]()
+	for _, s := range suites {
+		if IsValidCipherSuite(s) {
+			if !validCiphers.InsertContains(s) {
+				ret = append(ret, s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q", s)
+			}
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q", s)
+		}
+	}
+	return ret
 }
