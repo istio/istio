@@ -36,7 +36,7 @@ type uninstallTestCase struct {
 func TestUninstallCommand(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall").
+		Features("installation.istioctl.uninstall_revision").
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			testCases := []uninstallTestCase{
