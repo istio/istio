@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/security"
 )
 
+// nolint: lll
 // From https://github.com/kubernetes/kubernetes/blob/4f2faa2f1ce8f49983173ef29214156afdf405f9/staging/src/k8s.io/apiserver/pkg/authentication/serviceaccount/util.go#L41
 const (
 	// PodNameKey is the key used in a user's "extra" to specify the pod name of
