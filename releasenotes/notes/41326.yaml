@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** an issue that makes `kube-inject` not working as expected when there is no webhook exists.
+    **Fixed** an issue where `kube-inject` does not work as expected when no webhook exists.
