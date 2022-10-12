@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -276,27 +277,23 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 	return chains
 }
 
-func samePortInSidecarIngressAndService(node *model.Proxy, port int) bool {
-	// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
-	// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
-	// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
+func getSidecarIngressPortList(node *model.Proxy) sets.Set[int] {
 	sidecarScope := node.SidecarScope
-	if sidecarScope.HasIngressListener() {
-		ingressPortListMap := make(map[int]bool)
-		for _, ingressListener := range sidecarScope.Sidecar.Ingress {
-			ingressPortListMap[int(ingressListener.Port.Number)] = true
-		}
-		if _, ok := ingressPortListMap[port]; ok {
-			// port present in sidecarIngress listener so let sidecar take precedence
-			return true
-		}
+	ingressPortListSet := sets.New[int]()
+	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+		ingressPortListSet.Insert(int(ingressListener.Port.Number))
 	}
-	return false
+	return ingressPortListSet
 }
 
 func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]inboundChainConfig,
 	enableSidecarServiceInboundListenerMerge bool,
 ) map[uint32]inboundChainConfig {
+	ingressPortListSet := sets.New[int]()
+	sidecarScope := lb.node.SidecarScope
+	if sidecarScope.HasIngressListener() {
+		ingressPortListSet = getSidecarIngressPortList(lb.node)
+	}
 	for _, i := range lb.node.ServiceInstances {
 		port := ServiceInstancePort{
 			Name:       i.ServicePort.Name,
@@ -305,7 +302,12 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			Protocol:   i.ServicePort.Protocol,
 		}
 		actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
-		if enableSidecarServiceInboundListenerMerge && samePortInSidecarIngressAndService(lb.node, int(port.Port)) {
+		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
+			ingressPortListSet.Contains(int(port.Port)) {
+			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
+			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
+			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
+			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
 		cc := inboundChainConfig{

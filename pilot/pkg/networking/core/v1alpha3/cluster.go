@@ -378,6 +378,12 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 	clusters := make([]*cluster.Cluster, 0)
 	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
 	clustersToBuild := make(map[int][]*model.ServiceInstance)
+
+	ingressPortListSet := sets.New[int]()
+	sidecarScope := proxy.SidecarScope
+	if sidecarScope.HasIngressListener() {
+		ingressPortListSet = getSidecarIngressPortList(proxy)
+	}
 	for _, instance := range instances {
 		// For service instances with the same port,
 		// we still need to capture all the instances on this port, as its required to populate telemetry metadata
@@ -393,10 +399,12 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 	}
 	// For each workload port, we will construct a cluster
 	for epPort, instances := range clustersToBuild {
-		if enableSidecarServiceInboundListenerMerge && samePortInSidecarIngressAndService(proxy, int(instances[0].Endpoint.EndpointPort)) {
+		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
+			ingressPortListSet.Contains(int(instances[0].Endpoint.EndpointPort)) {
 			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
 			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
 			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
+			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
 		// The inbound cluster port equals to endpoint port.
