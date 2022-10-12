@@ -78,7 +78,7 @@ func listenOnUDS(uds string) (net.Listener, error) {
 	return ln, nil
 }
 
-func listenUdpAddress(ip string, port int) (net.PacketConn, int, error) {
+func listenUDPAddress(ip string, port int) (net.PacketConn, int, error) {
 	parsedIP := net.ParseIP(ip)
 	ipBind := "udp"
 	if parsedIP != nil {

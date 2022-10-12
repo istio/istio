@@ -53,7 +53,7 @@ func (s *udpInstance) Start(onReady OnReadyFunc) error {
 		return fmt.Errorf("TLS not supported for UDP")
 	}
 	// Listen on the given port and update the port if it changed from what was passed in.
-	listener, port, err = listenUdpAddress(s.ListenerIP, s.Port.Port)
+	listener, port, err = listenUDPAddress(s.ListenerIP, s.Port.Port)
 	// Store the actual listening port back to the argument.
 	s.Port.Port = port
 	if err != nil {
