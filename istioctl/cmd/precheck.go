@@ -304,7 +304,7 @@ func fromLegacyNetworkingVersion(pod v1.Pod) bool {
 	return false
 }
 
-// CheckListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
+// checkListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
 func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error) {
 	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods

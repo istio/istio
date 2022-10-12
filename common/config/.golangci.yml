@@ -36,6 +36,7 @@ linters:
   enable:
   - errcheck
   - exportloopref
+  - depguard
   - gocritic
   - gofumpt
   - goimports
@@ -233,7 +234,9 @@ linters-settings:
       # - unlabelStmt
       # - unnamedResult
       # - wrapperFunc
-
+  depguard:
+    packages-with-error-message:
+    - github.com/gogo/protobuf: "gogo/protobuf is deprecated, use golang/protobuf"
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
   # But independently from this option we use default exclude patterns,

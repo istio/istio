@@ -83,7 +83,7 @@ func operatorDump(args *RootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
 	l.Print(output)
 }
 
-// validateOutputFormatFlag validates if the output format is valid.
+// validateOperatorOutputFormatFlag validates if the output format is valid.
 func validateOperatorOutputFormatFlag(outputFormat string) error {
 	switch outputFormat {
 	case jsonOutput, yamlOutput:
