@@ -26,6 +26,16 @@ import (
 	"istio.io/istio/pkg/security"
 )
 
+// From https://github.com/kubernetes/kubernetes/blob/4f2faa2f1ce8f49983173ef29214156afdf405f9/staging/src/k8s.io/apiserver/pkg/authentication/serviceaccount/util.go#L41
+const (
+	// PodNameKey is the key used in a user's "extra" to specify the pod name of
+	// the authenticating request.
+	PodNameKey = "authentication.kubernetes.io/pod-name"
+	// PodUIDKey is the key used in a user's "extra" to specify the pod UID of
+	// the authenticating request.
+	PodUIDKey = "authentication.kubernetes.io/pod-uid"
+)
+
 // ValidateK8sJwt validates a k8s JWT at API server.
 // Return {<namespace>, <serviceaccountname>} in the targetToken when the validation passes.
 // Otherwise, return the error.
@@ -94,9 +104,9 @@ func getTokenReviewResult(tokenReview *k8sauth.TokenReview) (security.Kubernetes
 	}
 
 	return security.KubernetesInfo{
-		PodName:           extractExtra(tokenReview, "authentication.kubernetes.io/pod-name"),
+		PodName:           extractExtra(tokenReview, PodNameKey),
 		PodNamespace:      subStrings[2],
-		PodUID:            extractExtra(tokenReview, "authentication.kubernetes.io/pod-uid"),
+		PodUID:            extractExtra(tokenReview, PodUIDKey),
 		PodServiceAccount: subStrings[3],
 	}, nil
 }

@@ -377,6 +377,8 @@ type Caller struct {
 	KubernetesInfo KubernetesInfo
 }
 
+// KubernetesInfo defines Kubernetes specific information extracted from the caller.
+// This involves additional metadata about the caller beyond just its SPIFFE identity.
 type KubernetesInfo struct {
 	PodName           string
 	PodNamespace      string

@@ -111,6 +111,6 @@ func (na *NodeAuthorizer) authenticateImpersonation(caller security.KubernetesIn
 	if len(res) == 0 {
 		return fmt.Errorf("no instances of %q found on node %q", k.ServiceAccount, k.Node)
 	}
-	serverCaLog.Debugf("Node caller ")
+	serverCaLog.Debugf("Node caller %v impersonated %v", caller, requestedIdentityString)
 	return nil
 }
