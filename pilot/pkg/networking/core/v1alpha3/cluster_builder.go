@@ -963,10 +963,8 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 					defaultTransportSocketMatch(),
 				}
 			}
-		} else {
-			if cb.hbone {
-				opts.mutable.cluster.TransportSocketMatches = HboneOrPlaintextSocket
-			}
+		} else if cb.hbone {
+			opts.mutable.cluster.TransportSocketMatches = HboneOrPlaintextSocket
 		}
 	}
 }

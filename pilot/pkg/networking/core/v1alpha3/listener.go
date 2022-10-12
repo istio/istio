@@ -38,7 +38,6 @@ import (
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds/filters"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1675,7 +1674,7 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{filters.SetDstAddress},
+		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.SetDstAddress},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
 		}},
