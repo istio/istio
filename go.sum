@@ -1149,8 +1149,8 @@ github.com/tdakkota/asciicheck v0.0.0-20200416200610-e657995f937b/go.mod h1:yHp0
 github.com/tenntenn/modver v1.0.1/go.mod h1:bePIyQPb7UeioSRkw3Q0XeMhYZSMx9B8ePqg6SAMGH0=
 github.com/tenntenn/text/transform v0.0.0-20200319021203-7eef512accb3/go.mod h1:ON8b8w4BN/kE1EOhwT0o+d62W65a6aPw1nouo9LMgyY=
 github.com/tetafro/godot v1.4.11/go.mod h1:LR3CJpxDVGlYOWn3ZZg1PgNZdTUvzsZWu8xaEohUpn8=
-github.com/therealmitchconnors/pkg v0.0.0-20221011232910-8c2a69e36a86 h1:GxvwS7cNN3OCHvYJbdlBlT5wIsPYV+/ECXM/4K8PzY8=
-github.com/therealmitchconnors/pkg v0.0.0-20221011232910-8c2a69e36a86/go.mod h1:LxDv2BeUDWKUFyPqDL4kXeu+455RsgXDNsebbK5tWeY=
+github.com/therealmitchconnors/pkg v0.0.0-20221012220928-e774a287e09e h1:jTa5HGzWr/dWqdhAYdKfypuFt/4gwzokMKxAibhbkuI=
+github.com/therealmitchconnors/pkg v0.0.0-20221012220928-e774a287e09e/go.mod h1:LxDv2BeUDWKUFyPqDL4kXeu+455RsgXDNsebbK5tWeY=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/timakin/bodyclose v0.0.0-20200424151742-cb6215831a94/go.mod h1:Qimiffbc6q9tBWlVV6x0P9sat/ao1xEkREYPPj9hphk=
 github.com/tklauser/go-sysconf v0.3.9/go.mod h1:11DU/5sG7UexIrp/O6g35hrWzu0JxlwQ3LSFUzyeuhs=
@@ -1971,6 +1971,10 @@ istio.io/api v0.0.0-20221006165534-0d6e2d45f301 h1:/5zHaNwAurn3xLN61QgLWNU1aLPyw
 istio.io/api v0.0.0-20221006165534-0d6e2d45f301/go.mod h1:hQkF0Q19MCmfOTre/Sg4KvrwwETq45oaFplnBm2p4j8=
 istio.io/client-go v1.12.0-alpha.5.0.20221006165934-f96a41ba1d93 h1:aU+HBSslUEBJsY8At9Emwoanm8UPnzJwWUe3zFjPhco=
 istio.io/client-go v1.12.0-alpha.5.0.20221006165934-f96a41ba1d93/go.mod h1:4myzPrjNfu/A33CTatN6NO35qlBuvwBV8Igr0S9KZvE=
+istio.io/api v0.0.0-20221011131912-79e860da1b51 h1:72Ya4AL7KmGKY4tXTEhUQdLzNPULBfSbnoQNeC3DmnM=
+istio.io/api v0.0.0-20221011131912-79e860da1b51/go.mod h1:hQkF0Q19MCmfOTre/Sg4KvrwwETq45oaFplnBm2p4j8=
+istio.io/client-go v1.12.0-alpha.5.0.20221011132312-2f9a847193a6 h1:9oRAIAKosHIjIElNWpa9V9irIQ+cNOrqE+0z+ATn4eg=
+istio.io/client-go v1.12.0-alpha.5.0.20221011132312-2f9a847193a6/go.mod h1:EIjlJEyxM+TvwQRJvNvlEMmKElrZ9+Sh5TARHjfvcJk=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
