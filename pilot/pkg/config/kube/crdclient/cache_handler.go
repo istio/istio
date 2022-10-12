@@ -73,7 +73,7 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 	}
 
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
-	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
+	for _, f := range h.client.handlersForGVK(h.schema.Resource().GroupVersionKind()) {
 		f(oldConfig, currConfig, event)
 	}
 	return nil

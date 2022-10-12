@@ -17,9 +17,9 @@ package local
 import (
 	"strings"
 
-	gogoproto "github.com/gogo/protobuf/proto"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -37,8 +37,9 @@ func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *
 	a := &analyzableResourcesStore{
 		schemas: initializedStore.Schemas(),
 	}
-	a.resourcesStore = &dfCache{ConfigStore: memory.Make(a.schemas)}
-	for _, sch := range initializedStore.Schemas().All() {
+	combinedCache, _ := aggregate.MakeWriteableCache([]model.ConfigStoreController{initializedStore}, memory.Make(a.schemas))
+	a.resourcesStore = &dfCache{ConfigStore: combinedCache}
+	for _, sch := range a.schemas.All() {
 		initializedStore.RegisterEventHandler(sch.Resource().GroupVersionKind(), a.processConfigChanges)
 	}
 	return a
@@ -46,7 +47,6 @@ func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *
 
 func (a *analyzableResourcesStore) getStore() model.ConfigStoreController {
 	store := a.resourcesStore
-
 	// Empty the store for the next analysis run
 	a.resourcesStore = memory.Make(a.schemas)
 
@@ -63,16 +63,11 @@ func (a *analyzableResourcesStore) processConfigChanges(prev config.Config, curr
 		}
 		// We don't care about ResourceVersion, this is to avoid of update error of the in-memory store
 		curr.ResourceVersion = ""
-		cfg := a.resourcesStore.Get(curr.GroupVersionKind, curr.Name, curr.Namespace)
-		if cfg == nil {
-			_, err := a.resourcesStore.Create(curr)
+		_, err := a.resourcesStore.Update(curr)
+		if err != nil {
+			_, err = a.resourcesStore.Create(curr)
 			if err != nil {
 				scope.Analysis.Errorf("error create config : %v", err)
-			}
-		} else {
-			_, err := a.resourcesStore.Update(curr)
-			if err != nil {
-				scope.Analysis.Errorf("error update config: %v", err)
 			}
 		}
 	case model.EventDelete:
@@ -92,11 +87,6 @@ func needsReAnalyze(prev config.Config, curr config.Config) bool {
 	currspecProto, okProtoC := curr.Spec.(proto.Message)
 	if okProtoP && okProtoC {
 		return !proto.Equal(prevspecProto, currspecProto)
-	}
-	prevspecGogo, okGogoP := prev.Spec.(gogoproto.Message)
-	currspecGogo, okGogoC := curr.Spec.(gogoproto.Message)
-	if okGogoP && okGogoC {
-		return !gogoproto.Equal(prevspecGogo, currspecGogo)
 	}
 	return true
 }

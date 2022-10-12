@@ -79,7 +79,8 @@ type Client struct {
 	queue   queue.Instance
 
 	// handlers defines a list of event handlers per-type
-	handlers map[config.GroupVersionKind][]model.EventHandler
+	handlerMu sync.RWMutex
+	handlers  map[config.GroupVersionKind][]model.EventHandler
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -215,7 +216,9 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
+	cl.handlerMu.Lock()
 	cl.handlers[kind] = append(cl.handlers[kind], handler)
+	cl.handlerMu.Unlock()
 }
 
 func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -282,7 +285,9 @@ func (cl *Client) SyncAll() {
 	cl.beginSync.Store(true)
 	wg := sync.WaitGroup{}
 	for _, h := range cl.allKinds() {
+		cl.handlerMu.RLock()
 		handlers := cl.handlers[h.schema.Resource().GroupVersionKind()]
+		cl.handlerMu.RUnlock()
 		if len(handlers) == 0 {
 			continue
 		}
@@ -424,6 +429,12 @@ func (cl *Client) allKinds() []*cacheHandler {
 		ret = append(ret, k)
 	}
 	return ret
+}
+
+func (cl *Client) handlersForGVK(gvk config.GroupVersionKind) []model.EventHandler {
+	cl.handlerMu.RLock()
+	defer cl.handlerMu.RUnlock()
+	return cl.handlers[gvk]
 }
 
 func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {

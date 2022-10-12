@@ -118,7 +118,6 @@ func (s *KubeSource) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	panic("implement me")
 }
 
 func (s *KubeSource) Run(stop <-chan struct{}) {

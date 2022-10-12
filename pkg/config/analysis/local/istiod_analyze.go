@@ -213,7 +213,6 @@ type dfCache struct {
 }
 
 func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	return
 }
 
 func (d dfCache) HasStarted() bool {

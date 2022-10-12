@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/30200
+releaseNotes:
+  - |
+    **Improved** status analysis to run analyzers only on configs that are changed during analysis intervals. 
