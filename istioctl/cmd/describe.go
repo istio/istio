@@ -650,7 +650,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 	return nil, nil
 }
 
-// getIstioConfigNameForSvc returns name, namespace
+// getIstioVirtualServiceNameForSvc returns name, namespace
 func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
 	path, err := getIstioVirtualServicePathForSvcFromRoute(cd, svc, port)
 	if err != nil {
@@ -748,7 +748,7 @@ func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
 	return "", fmt.Errorf("no istio config")
 }
 
-// getIstioConfigNameForSvc returns name, namespace
+// getIstioDestinationRuleNameForSvc returns name, namespace
 func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
 	path, err := getIstioDestinationRulePathForSvc(cd, svc, port)
 	if err != nil || path == "" {
@@ -1276,7 +1276,7 @@ func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*
 	return cfgs
 }
 
-// printConfig prints the applied configs based on the member's type.
+// printConfigs prints the applied configs based on the member's type.
 // When there is the array is empty, caller should make sure the intended
 // log is handled in their methods.
 func printConfigs(writer io.Writer, configs []*config.Config) {
