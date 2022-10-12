@@ -27,35 +27,36 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-// analyzableResourcesStore is the cache to get resources that needs to be analyzed
-type analyzableResourcesStore struct {
-	schemas        collection.Schemas
-	resourcesStore model.ConfigStore
+// analyzableConfigStore is the store of configs that needs to be analyzed
+type analyzableConfigStore struct {
+	schemas collection.Schemas
+	// store is the store to save configs that needs to be analyzed
+	store model.ConfigStore
 }
 
-func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *analyzableResourcesStore {
-	a := &analyzableResourcesStore{
+func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *analyzableConfigStore {
+	acs := &analyzableConfigStore{
 		schemas: initializedStore.Schemas(),
 	}
-	combinedCache, _ := aggregate.MakeWriteableCache([]model.ConfigStoreController{initializedStore}, memory.Make(a.schemas))
-	a.resourcesStore = &dfCache{ConfigStore: combinedCache}
-	for _, sch := range a.schemas.All() {
-		initializedStore.RegisterEventHandler(sch.Resource().GroupVersionKind(), a.processConfigChanges)
+	combinedCache, _ := aggregate.MakeWriteableCache([]model.ConfigStoreController{initializedStore}, memory.Make(acs.schemas))
+	acs.store = &dfCache{ConfigStore: combinedCache}
+	for _, sch := range acs.schemas.All() {
+		initializedStore.RegisterEventHandler(sch.Resource().GroupVersionKind(), acs.processConfigChanges)
 	}
-	return a
+	return acs
 }
 
-func (a *analyzableResourcesStore) getStore() model.ConfigStoreController {
-	store := a.resourcesStore
+func (a *analyzableConfigStore) getStore() model.ConfigStoreController {
+	store := a.store
 	// Empty the store for the next analysis run
-	a.resourcesStore = memory.Make(a.schemas)
+	a.store = memory.Make(a.schemas)
 
 	return &dfCache{
 		ConfigStore: store,
 	}
 }
 
-func (a *analyzableResourcesStore) processConfigChanges(prev config.Config, curr config.Config, event model.Event) {
+func (a *analyzableConfigStore) processConfigChanges(prev config.Config, curr config.Config, event model.Event) {
 	switch event {
 	case model.EventAdd, model.EventUpdate:
 		if !needsReAnalyze(prev, curr) {
@@ -63,9 +64,9 @@ func (a *analyzableResourcesStore) processConfigChanges(prev config.Config, curr
 		}
 		// We don't care about ResourceVersion, this is to avoid of update error of the in-memory store
 		curr.ResourceVersion = ""
-		_, err := a.resourcesStore.Update(curr)
+		_, err := a.store.Update(curr)
 		if err != nil {
-			_, err = a.resourcesStore.Create(curr)
+			_, err = a.store.Create(curr)
 			if err != nil {
 				scope.Analysis.Errorf("error create config : %v", err)
 			}
@@ -83,10 +84,10 @@ func needsReAnalyze(prev config.Config, curr config.Config) bool {
 	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
 		return true
 	}
-	prevspecProto, okProtoP := prev.Spec.(proto.Message)
-	currspecProto, okProtoC := curr.Spec.(proto.Message)
+	prevSpecProto, okProtoP := prev.Spec.(proto.Message)
+	currSpecProto, okProtoC := curr.Spec.(proto.Message)
 	if okProtoP && okProtoC {
-		return !proto.Equal(prevspecProto, currspecProto)
+		return !proto.Equal(prevSpecProto, currSpecProto)
 	}
 	return true
 }
