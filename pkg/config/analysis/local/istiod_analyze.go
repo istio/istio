@@ -62,7 +62,8 @@ type IstiodAnalyzer struct {
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
-	initializedStore         model.ConfigStoreController
+	initializedStore model.ConfigStoreController
+	// analyzableResourcesStore is to store resources that are to be analyzed during analysis runs.
 	analyzableResourcesStore *analyzableResourcesStore
 
 	// List of code and resource suppressions to exclude messages on
@@ -212,7 +213,7 @@ type dfCache struct {
 }
 
 func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	panic("implement me")
+	return
 }
 
 func (d dfCache) HasStarted() bool {

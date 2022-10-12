@@ -15,13 +15,19 @@
 package local
 
 import (
+	"strings"
+
+	gogoproto "github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-// analyzableResourceCache is the cache to get resources that needs to be analyzed
+// analyzableResourcesStore is the cache to get resources that needs to be analyzed
 type analyzableResourcesStore struct {
 	schemas        collection.Schemas
 	resourcesStore model.ConfigStore
@@ -31,7 +37,7 @@ func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *
 	a := &analyzableResourcesStore{
 		schemas: initializedStore.Schemas(),
 	}
-	a.resourcesStore = memory.Make(a.schemas)
+	a.resourcesStore = &dfCache{ConfigStore: memory.Make(a.schemas)}
 	for _, sch := range initializedStore.Schemas().All() {
 		initializedStore.RegisterEventHandler(sch.Resource().GroupVersionKind(), a.processConfigChanges)
 	}
@@ -41,7 +47,7 @@ func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *
 func (a *analyzableResourcesStore) getStore() model.ConfigStoreController {
 	store := a.resourcesStore
 
-	// empty the store for the next analysis run
+	// Empty the store for the next analysis run
 	a.resourcesStore = memory.Make(a.schemas)
 
 	return &dfCache{
@@ -49,11 +55,48 @@ func (a *analyzableResourcesStore) getStore() model.ConfigStoreController {
 	}
 }
 
-func (a *analyzableResourcesStore) processConfigChanges(old config.Config, new config.Config, event model.Event) {
+func (a *analyzableResourcesStore) processConfigChanges(prev config.Config, curr config.Config, event model.Event) {
 	switch event {
 	case model.EventAdd, model.EventUpdate:
-		a.resourcesStore.Get(new.GroupVersionKind, new.Name, new.Namespace)
+		if !needsReAnalyze(prev, curr) {
+			return
+		}
+		// We don't care about ResourceVersion, this is to avoid of update error of the in-memory store
+		curr.ResourceVersion = ""
+		cfg := a.resourcesStore.Get(curr.GroupVersionKind, curr.Name, curr.Namespace)
+		if cfg == nil {
+			_, err := a.resourcesStore.Create(curr)
+			if err != nil {
+				scope.Analysis.Errorf("error create config : %v", err)
+			}
+		} else {
+			_, err := a.resourcesStore.Update(curr)
+			if err != nil {
+				scope.Analysis.Errorf("error update config: %v", err)
+			}
+		}
 	case model.EventDelete:
-		// do not analyze deleted resources
+		// Do not analyze deleted resources
 	}
+}
+
+func needsReAnalyze(prev config.Config, curr config.Config) bool {
+	if prev.GroupVersionKind != curr.GroupVersionKind {
+		// This should never happen.
+		return true
+	}
+	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
+		return true
+	}
+	prevspecProto, okProtoP := prev.Spec.(proto.Message)
+	currspecProto, okProtoC := curr.Spec.(proto.Message)
+	if okProtoP && okProtoC {
+		return !proto.Equal(prevspecProto, currspecProto)
+	}
+	prevspecGogo, okGogoP := prev.Spec.(gogoproto.Message)
+	currspecGogo, okGogoC := curr.Spec.(gogoproto.Message)
+	if okGogoP && okGogoC {
+		return !gogoproto.Equal(prevspecGogo, currspecGogo)
+	}
+	return true
 }
