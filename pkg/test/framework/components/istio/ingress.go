@@ -163,10 +163,6 @@ func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
 	if err != nil {
 		return netip.AddrPort{}
 	}
-	if !ip.IsValid() {
-		// TODO support hostname based discovery address
-		return netip.AddrPort{}
-	}
 	return netip.AddrPortFrom(ip, uint16(port))
 }
 
