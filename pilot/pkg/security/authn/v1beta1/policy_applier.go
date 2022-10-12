@@ -145,7 +145,12 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string, modeOverride model.MutualTLSMode) authn.MTLSSettings {
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(
+	endpointPort uint32,
+	node *model.Proxy,
+	trustDomainAliases []string,
+	modeOverride model.MutualTLSMode,
+) authn.MTLSSettings {
 	effectiveMTLSMode := modeOverride
 	if effectiveMTLSMode == model.MTLSUnknown {
 		effectiveMTLSMode = a.GetMutualTLSModeForPort(endpointPort)
