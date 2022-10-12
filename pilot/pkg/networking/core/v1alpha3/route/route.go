@@ -1280,7 +1280,11 @@ func hashForVirtualService(push *model.PushContext,
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
 			hostname := host.Name(destination.GetDestination().GetHost())
-			hash, dr := hashForHTTPDestination(push, node, destination, serviceRegistry[hostname])
+			var svc *model.Service
+			if serviceRegistry != nil {
+				svc = serviceRegistry[hostname]
+			}
+			hash, dr := hashForHTTPDestination(push, node, destination, svc)
 			if hash != nil {
 				hashByDestination[destination] = hash
 				destinationRules = append(destinationRules, dr)
