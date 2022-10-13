@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/util/grpc"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -1044,8 +1045,7 @@ func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs
 		}
 
 		// Gateway allows IP as the host string, as well
-		ipAddr := net.ParseIP(hostname)
-		if ipAddr == nil {
+		if !netutil.IsValidIPAddress(hostname) {
 			errs = appendErrors(errs, err)
 		}
 	}
@@ -1544,8 +1544,7 @@ func ValidateProxyAddress(hostAddr string) error {
 		return err
 	}
 	if err = ValidateFQDN(hostname); err != nil {
-		ip := net.ParseIP(hostname)
-		if ip == nil {
+		if !netutil.IsValidIPAddress(hostname) {
 			return fmt.Errorf("%q is not a valid hostname or an IP address", hostname)
 		}
 	}
@@ -2214,8 +2213,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		allHostsValid := true
 		for _, virtualHost := range virtualService.Hosts {
 			if err := ValidateWildcardDomain(virtualHost); err != nil {
-				ipAddr := net.ParseIP(virtualHost) // Could also be an IP
-				if ipAddr == nil {
+				if !netutil.IsValidIPAddress(virtualHost) {
 					errs = appendValidation(errs, err)
 					allHostsValid = false
 				}
@@ -2661,8 +2659,8 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 
 func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
-		ipAddr := net.ParseIP(sniHost) // Could also be an IP
-		if ipAddr != nil {
+		ipAddr, _ := netip.ParseAddr(sniHost) // Could also be an IP
+		if ipAddr.IsValid() {
 			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", ipAddr)))
 			return
 		}
@@ -3114,8 +3112,7 @@ func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
 		}
 	} else {
 		// This could be IP (in STATIC resolution) or DNS host name (for DNS).
-		ipAddr := net.ParseIP(we.Address)
-		if ipAddr == nil {
+		if !netutil.IsValidIPAddress(we.Address) {
 			if err := ValidateFQDN(we.Address); err != nil { // Otherwise could be an FQDN
 				errs = appendValidation(errs,
 					fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", we.Address))
@@ -3335,8 +3332,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
-				ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
-				if ipAddr == nil {
+				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
 							fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))

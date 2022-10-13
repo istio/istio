@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -213,7 +214,7 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 	hostnameGateways := map[string][]NetworkGateway{}
 	names := sets.New[string]()
 	for gw := range gatewaySet {
-		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
+		if netutil.IsValidIPAddress(gw.Addr) {
 			continue
 		}
 		delete(gatewaySet, gw)
