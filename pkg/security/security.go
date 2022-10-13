@@ -140,7 +140,8 @@ const (
 	K8sTokenPrefix = "Istio "
 
 	// CertSigner info
-	CertSigner = "CertSigner"
+	CertSigner           = "CertSigner"
+	ImpersonatedIdentity = "ImpersonatedIdentity"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -372,6 +373,21 @@ type AuthContext struct {
 type Caller struct {
 	AuthSource AuthSource
 	Identities []string
+
+	KubernetesInfo KubernetesInfo
+}
+
+// KubernetesInfo defines Kubernetes specific information extracted from the caller.
+// This involves additional metadata about the caller beyond just its SPIFFE identity.
+type KubernetesInfo struct {
+	PodName           string
+	PodNamespace      string
+	PodUID            string
+	PodServiceAccount string
+}
+
+func (k KubernetesInfo) String() string {
+	return fmt.Sprintf("Pod{Name: %s, Namespace: %s, UID: %s, ServiceAccount: %s}", k.PodName, k.PodNamespace, k.PodUID, k.PodServiceAccount)
 }
 
 // Authenticator determines the caller identity based on request context.

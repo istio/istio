@@ -24,15 +24,32 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
+var compareErrors = cmp.Comparer(func(x, y error) bool {
+	switch {
+	case x == nil && y == nil:
+		return true
+	case x != nil && y == nil:
+		return false
+	case x == nil && y != nil:
+		return false
+	case x != nil && y != nil:
+		return x.Error() == y.Error()
+	default:
+		panic("unreachable")
+	}
+})
+
+var cmpOpts = []cmp.Option{protocmp.Transform(), cmpopts.EquateEmpty(), compareErrors}
+
 // Equal
 func Equal[T any](t test.Failer, a, b T, context ...string) {
 	t.Helper()
-	if !cmp.Equal(a, b, protocmp.Transform(), cmpopts.EquateEmpty()) {
+	if !cmp.Equal(a, b, cmpOpts...) {
 		cs := ""
 		if len(context) > 0 {
 			cs = " " + strings.Join(context, ", ") + ":"
 		}
-		t.Fatalf("found diff:%s %v\nLeft: %v\nRight: %v", cs, cmp.Diff(a, b, protocmp.Transform()), a, b)
+		t.Fatalf("found diff:%s %v\nLeft: %v\nRight: %v", cs, cmp.Diff(a, b, cmpOpts...), a, b)
 	}
 }
 

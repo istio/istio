@@ -22,6 +22,19 @@ import (
 	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/security"
+)
+
+// nolint: lll
+// From https://github.com/kubernetes/kubernetes/blob/4f2faa2f1ce8f49983173ef29214156afdf405f9/staging/src/k8s.io/apiserver/pkg/authentication/serviceaccount/util.go#L41
+const (
+	// PodNameKey is the key used in a user's "extra" to specify the pod name of
+	// the authenticating request.
+	PodNameKey = "authentication.kubernetes.io/pod-name"
+	// PodUIDKey is the key used in a user's "extra" to specify the pod UID of
+	// the authenticating request.
+	PodUIDKey = "authentication.kubernetes.io/pod-uid"
 )
 
 // ValidateK8sJwt validates a k8s JWT at API server.
@@ -29,7 +42,7 @@ import (
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
 // aud: list of audiences to check. If empty 1st party tokens will be checked.
-func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken string, aud []string) ([]string, error) {
+func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken string, aud []string) (security.KubernetesInfo, error) {
 	tokenReview := &k8sauth.TokenReview{
 		Spec: k8sauth.TokenReviewSpec{
 			Token: targetToken,
@@ -40,15 +53,15 @@ func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken string, aud []s
 	}
 	reviewRes, err := kubeClient.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
 	if err != nil {
-		return nil, err
+		return security.KubernetesInfo{}, err
 	}
 
 	return getTokenReviewResult(reviewRes)
 }
 
-func getTokenReviewResult(tokenReview *k8sauth.TokenReview) ([]string, error) {
+func getTokenReviewResult(tokenReview *k8sauth.TokenReview) (security.KubernetesInfo, error) {
 	if tokenReview.Status.Error != "" {
-		return nil, fmt.Errorf("the service account authentication returns an error: %v",
+		return security.KubernetesInfo{}, fmt.Errorf("the service account authentication returns an error: %v",
 			tokenReview.Status.Error)
 	}
 	// An example SA token:
@@ -72,7 +85,7 @@ func getTokenReviewResult(tokenReview *k8sauth.TokenReview) ([]string, error) {
 	// }
 
 	if !tokenReview.Status.Authenticated {
-		return nil, fmt.Errorf("the token is not authenticated")
+		return security.KubernetesInfo{}, fmt.Errorf("the token is not authenticated")
 	}
 	inServiceAccountGroup := false
 	for _, group := range tokenReview.Status.User.Groups {
@@ -82,15 +95,27 @@ func getTokenReviewResult(tokenReview *k8sauth.TokenReview) ([]string, error) {
 		}
 	}
 	if !inServiceAccountGroup {
-		return nil, fmt.Errorf("the token is not a service account")
+		return security.KubernetesInfo{}, fmt.Errorf("the token is not a service account")
 	}
 	// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
 	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
 	subStrings := strings.Split(tokenReview.Status.User.Username, ":")
 	if len(subStrings) != 4 {
-		return nil, fmt.Errorf("invalid username field in the token review result")
+		return security.KubernetesInfo{}, fmt.Errorf("invalid username field in the token review result")
 	}
-	namespace := subStrings[2]
-	saName := subStrings[3]
-	return []string{namespace, saName}, nil
+
+	return security.KubernetesInfo{
+		PodName:           extractExtra(tokenReview, PodNameKey),
+		PodNamespace:      subStrings[2],
+		PodUID:            extractExtra(tokenReview, PodUIDKey),
+		PodServiceAccount: subStrings[3],
+	}, nil
+}
+
+func extractExtra(review *k8sauth.TokenReview, s string) string {
+	values, ok := review.Status.User.Extra[s]
+	if !ok || len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }
