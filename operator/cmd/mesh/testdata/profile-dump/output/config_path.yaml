@@ -12,4 +12,6 @@ istiodRemote:
   enabled: false
 pilot:
   enabled: false
+ztunnel:
+  enabled: false
 

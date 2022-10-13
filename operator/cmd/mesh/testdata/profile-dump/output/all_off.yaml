@@ -16,6 +16,8 @@ spec:
       enabled: false
     pilot:
       enabled: false
+    ztunnel:
+      enabled: false
   hub: gcr.io/istio-testing
 
   meshConfig:

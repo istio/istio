@@ -6,3 +6,4 @@ ingressGateways[0].enabled=true
 ingressGateways[0].name="istio-ingressgateway"
 istiodRemote.enabled=false
 pilot.enabled=false
+ztunnel.enabled=false

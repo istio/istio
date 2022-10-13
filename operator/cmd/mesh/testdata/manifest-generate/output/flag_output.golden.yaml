@@ -61,6 +61,7 @@ spec:
             periodSeconds: 3
             timeoutSeconds: 5
           env:
+          # TODO: dynamically turn autolabel on/off based on meshconfig api
           - name: REVISION
             value: "default"
           - name: JWT_POLICY
