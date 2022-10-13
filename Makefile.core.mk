@@ -269,12 +269,15 @@ go-gen:
 	@mkdir -p /tmp/bin
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
-refresh-goldens:
+refresh-goldens: update-operator-snapshots
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
 		./pilot/pkg/security/authz/builder/... \
 		./cni/pkg/plugin/...
+
+update-operator-snapshots:
+	operator/scripts/run_update_golden_snapshots.sh
 
 update-golden: refresh-goldens
 

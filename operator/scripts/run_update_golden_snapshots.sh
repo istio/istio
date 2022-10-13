@@ -34,6 +34,7 @@ rm -Rf "${CHARTS_SNAPSHOT:?}/data-snapshot.tar.gz"
 cd "$(mktemp -d)"
 cp -Rf "${MANIFESTS_DIR}" ./
 rm -f ./**/*.md
-tar cfz data-snapshot.tar.gz manifests
+tar --sort=name --owner=root:0 --group=root:0 --mtime='2022-10-13T08:00:00Z' -cf data-snapshot.tar manifests
+gzip -n data-snapshot.tar
 cp data-snapshot.tar.gz "${CHARTS_SNAPSHOT}"
 rm -r "${PWD}"
