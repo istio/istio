@@ -141,6 +141,8 @@ spec:
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds
+          - name: credential-socket
+            mountPath: /var/run/secrets/credential-uds
           - name: workload-certs
             mountPath: /var/run/secrets/workload-spiffe-credentials
           - name: istio-envoy
@@ -165,6 +167,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: workload-socket
+      - emptyDir: {}
+        name: credential-socket
       - emptyDir: {}
         name: workload-certs
       - name: istiod-ca-cert
@@ -205,42 +209,5 @@ spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "amd64"
-                  - "arm64"
-                  - "ppc64le"
-                  - "s390x"
           preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "amd64"
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "arm64"
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "ppc64le"
-            - weight: 2
-              preference:
-                matchExpressions:
-                - key: kubernetes.io/arch
-                  operator: In
-                  values:
-                  - "s390x"
 ---
