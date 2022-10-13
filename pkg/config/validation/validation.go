@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/util/grpc"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -1044,8 +1045,7 @@ func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs
 		}
 
 		// Gateway allows IP as the host string, as well
-		ipAddr := net.ParseIP(hostname)
-		if ipAddr == nil {
+		if !netutil.IsValidIPAddress(hostname) {
 			errs = appendErrors(errs, err)
 		}
 	}
@@ -1543,8 +1543,7 @@ func ValidateProxyAddress(hostAddr string) error {
 		return err
 	}
 	if err = ValidateFQDN(hostname); err != nil {
-		ip := net.ParseIP(hostname)
-		if ip == nil {
+		if !netutil.IsValidIPAddress(hostname) {
 			return fmt.Errorf("%q is not a valid hostname or an IP address", hostname)
 		}
 	}
@@ -2206,8 +2205,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		allHostsValid := true
 		for _, virtualHost := range virtualService.Hosts {
 			if err := ValidateWildcardDomain(virtualHost); err != nil {
-				ipAddr := net.ParseIP(virtualHost) // Could also be an IP
-				if ipAddr == nil {
+				if !netutil.IsValidIPAddress(virtualHost) {
 					errs = appendValidation(errs, err)
 					allHostsValid = false
 				}
@@ -2653,8 +2651,8 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 
 func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
-		ipAddr := net.ParseIP(sniHost) // Could also be an IP
-		if ipAddr != nil {
+		ipAddr, _ := netip.ParseAddr(sniHost) // Could also be an IP
+		if ipAddr.IsValid() {
 			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", ipAddr)))
 			return
 		}
@@ -3091,27 +3089,23 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 	})
 
 func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
-	errs := Validation{}
-	if we.Address == "" {
+	addr := we.Address
+	if addr == "" {
 		return nil, fmt.Errorf("address must be set")
 	}
+
 	// Since we don't know if its meant to be DNS or STATIC type without association with a ServiceEntry,
 	// check based on content and try validations.
-	addr := we.Address
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
-	if strings.HasPrefix(we.Address, UnixAddressPrefix) {
+	errs := Validation{}
+	if strings.HasPrefix(addr, UnixAddressPrefix) {
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
-			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", we.Address))
+			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
-	} else {
-		// This could be IP (in STATIC resolution) or DNS host name (for DNS).
-		ipAddr := net.ParseIP(we.Address)
-		if ipAddr == nil {
-			if err := ValidateFQDN(we.Address); err != nil { // Otherwise could be an FQDN
-				errs = appendValidation(errs,
-					fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", we.Address))
-			}
+	} else if !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
+		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
+			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}
 	}
 
@@ -3327,8 +3321,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
-				ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
-				if ipAddr == nil {
+				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
 							fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
