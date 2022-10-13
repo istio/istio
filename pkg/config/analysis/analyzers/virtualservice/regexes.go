@@ -45,7 +45,7 @@ func (a *RegexAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *RegexAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx)
 		return true
 	})

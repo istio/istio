@@ -59,7 +59,7 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 }
 
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
+	c.ForEachNeedsAnalyze(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
 		if util.DeploymentInMesh(r, c) {
 			s.analyzeDeploymentPortProtocol(r, c)
 			s.analyzeDeploymentTargetPorts(r, c)

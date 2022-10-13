@@ -46,11 +46,11 @@ func (appUID *ApplicationUIDAnalyzer) Metadata() analysis.Metadata {
 }
 
 func (appUID *ApplicationUIDAnalyzer) Analyze(context analysis.Context) {
-	context.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
+	context.ForEachNeedsAnalyze(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
 		appUID.analyzeAppUIDForPod(resource, context)
 		return true
 	})
-	context.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
+	context.ForEachNeedsAnalyze(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
 		appUID.analyzeAppUIDForDeployment(resource, context)
 		return true
 	})

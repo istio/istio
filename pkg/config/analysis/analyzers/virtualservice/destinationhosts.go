@@ -55,7 +55,7 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
 	virtualServiceDestinations := initVirtualServiceDestinations(ctx)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		a.analyzeSubset(r, ctx, virtualServiceDestinations)
 		return true

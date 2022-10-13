@@ -37,6 +37,9 @@ type Context interface {
 	// ForEach iterates over all the entries of a given collection.
 	ForEach(c collection.Name, fn IteratorFn)
 
+	// ForEachNeedsAnalyze iterates over all the entries which are needs to be analyzed of a given collection.
+	ForEachNeedsAnalyze(c collection.Name, fn IteratorFn)
+
 	// Canceled indicates that the context has been canceled. The analyzer should stop executing as soon as possible.
 	Canceled() bool
 }

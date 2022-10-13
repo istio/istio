@@ -63,7 +63,7 @@ func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		s.analyze(r, c, requestAuthNByNamespace)
 		return true
 	})

@@ -55,7 +55,7 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 		return true
 	})
 
-	context.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
+	context.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
 		serviceEntry.analyzeProtocolAddresses(resource, context, autoAllocated)
 		return true
 	})

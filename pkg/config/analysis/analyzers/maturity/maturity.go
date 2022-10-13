@@ -51,19 +51,19 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (fa *AlphaAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Namespaces.Name())
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Services.Name())
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Pods.Name())
 		return true
 	})
-	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, collections.K8SAppsV1Deployments.Name())
 		return true
 	})

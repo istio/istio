@@ -41,7 +41,7 @@ func (*CertificateAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (gateway *CertificateAnalyzer) Analyze(context analysis.Context) {
-	context.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(resource *resource.Instance) bool {
+	context.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(resource *resource.Instance) bool {
 		gateway.analyzeDuplicateCertificate(resource, context, features.ScopeGatewayToNamespace)
 		return true
 	})

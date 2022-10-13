@@ -63,7 +63,7 @@ func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 	c := a.s.Name()
 
-	ctx.ForEach(c, func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(c, func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.Namespace
 		name := r.Metadata.FullName.Name
 

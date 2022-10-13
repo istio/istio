@@ -50,11 +50,19 @@ func (*ConflictingGatewayAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
-	gwConflictingMap := initGatewaysMap(c)
-	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
-		s.analyzeGateway(r, c, gwConflictingMap)
-		return true
+	var hasConfigChange bool
+	// hold the filter names that have a proxyVersion set
+	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+		hasConfigChange = true
+		return false
 	})
+	if hasConfigChange {
+		gwConflictingMap := initGatewaysMap(c)
+		c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+			s.analyzeGateway(r, c, gwConflictingMap)
+			return true
+		})
+	}
 }
 
 func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context,

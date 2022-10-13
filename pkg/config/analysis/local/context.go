@@ -33,24 +33,26 @@ import (
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(store, analysisConfigStore model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
-		store:              store,
-		cancelCh:           cancelCh,
-		messages:           diag.Messages{},
-		collectionReporter: collectionReporter,
-		found:              map[key]*resource.Instance{},
-		foundCollections:   map[collection.Name]map[resource.FullName]*resource.Instance{},
+		store:               store,
+		needsToAnalyzeStore: analysisConfigStore,
+		cancelCh:            cancelCh,
+		messages:            diag.Messages{},
+		collectionReporter:  collectionReporter,
+		found:               map[key]*resource.Instance{},
+		foundCollections:    map[collection.Name]map[resource.FullName]*resource.Instance{},
 	}
 }
 
 type istiodContext struct {
-	store              model.ConfigStore
-	cancelCh           <-chan struct{}
-	messages           diag.Messages
-	collectionReporter CollectionReporterFn
-	found              map[key]*resource.Instance
-	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
+	store               model.ConfigStore
+	needsToAnalyzeStore model.ConfigStore
+	cancelCh            <-chan struct{}
+	messages            diag.Messages
+	collectionReporter  CollectionReporterFn
+	found               map[key]*resource.Instance
+	foundCollections    map[collection.Name]map[resource.FullName]*resource.Instance
 }
 
 type key struct {
@@ -98,6 +100,10 @@ func (i *istiodContext) Exists(col collection.Name, name resource.FullName) bool
 }
 
 func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
+	i.forEachWithConfigFilter(col, fn, nil)
+}
+
+func (i *istiodContext) forEachWithConfigFilter(col collection.Name, fn analysis.IteratorFn, filter func(c config.Config) bool) {
 	i.collectionReporter(col)
 	if cached, ok := i.foundCollections[col]; ok {
 		for _, res := range cached {
@@ -120,6 +126,16 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 		log.Errorf("collection %s could not be listed: %s", col.String(), err)
 		return
 	}
+	if filter != nil {
+		filtered := make([]config.Config, 0)
+		for _, cfg := range cfgs {
+			if filter(cfg) {
+				filtered = append(filtered, cfg)
+			}
+		}
+		cfgs = filtered
+	}
+
 	broken := false
 	cache := map[resource.FullName]*resource.Instance{}
 	for _, cfg := range cfgs {
@@ -151,6 +167,19 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 	if len(cache) > 0 {
 		i.foundCollections[col] = cache
 	}
+}
+
+func (i *istiodContext) ForEachNeedsAnalyze(c collection.Name, fn analysis.IteratorFn) {
+	i.forEachWithConfigFilter(c, fn, func(c config.Config) bool {
+		if i.needsToAnalyzeStore != nil {
+			ncfg := i.needsToAnalyzeStore.Get(c.GroupVersionKind, c.Name, c.Namespace)
+			if ncfg == nil {
+				// config is not in the need-to-be-analyzed list, skip analyze it
+				return false
+			}
+		}
+		return true
+	})
 }
 
 func (i *istiodContext) Canceled() bool {

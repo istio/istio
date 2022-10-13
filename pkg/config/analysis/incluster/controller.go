@@ -78,7 +78,6 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 // Run is blocking
 func (c *Controller) Run(stop <-chan struct{}) {
 	t := time.NewTicker(features.AnalysisInterval)
-	oldmsgs := diag.Messages{}
 	for {
 		select {
 		case <-t.C:
@@ -93,16 +92,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 				key := status.ResourceFromMetadata(m.Resource.Metadata)
 				index[key] = append(index[key], m)
 			}
-			// if we previously had a message that has been removed, ensure it is removed
-			// TODO: this creates a state destruction problem when istiod crashes
-			// in that old messages may not be removed.  Not sure how to fix this
-			// other than write every object's status every loop.
-			for _, m := range oldmsgs {
-				key := status.ResourceFromMetadata(m.Resource.Metadata)
-				if _, ok := index[key]; !ok {
-					index[key] = diag.Messages{}
-				}
-			}
 			for r, m := range index {
 				// don't try to write status for non-istio types
 				if strings.HasSuffix(r.Group, "istio.io") {
@@ -110,7 +99,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 					c.statusctl.EnqueueStatusUpdateResource(m, r)
 				}
 			}
-			oldmsgs = res.Messages
 			log.Debugf("finished enqueueing all statuses")
 		case <-stop:
 			t.Stop()

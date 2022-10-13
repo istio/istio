@@ -48,7 +48,7 @@ func (a *SecretAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
 		gw := r.Message.(*v1alpha3.Gateway)
 
 		gwNs := getGatewayNamespace(ctx, gw)

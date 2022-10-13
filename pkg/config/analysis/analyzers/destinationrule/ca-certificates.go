@@ -42,7 +42,7 @@ func (c *CaCertificateAnalyzer) Metadata() analysis.Metadata {
 }
 
 func (c *CaCertificateAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
+	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
 		c.analyzeDestinationRule(r, ctx)
 		return true
 	})

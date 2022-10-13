@@ -27,15 +27,15 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-// analyzableConfigStore is the store of configs that needs to be analyzed
-type analyzableConfigStore struct {
+// analysisConfigStore is the store with configs that needs to be analyzed
+type analysisConfigStore struct {
 	schemas collection.Schemas
 	// store is the store to save configs that needs to be analyzed
 	store model.ConfigStore
 }
 
-func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *analyzableConfigStore {
-	acs := &analyzableConfigStore{
+func newAnalysisConfigStore(initializedStore model.ConfigStoreController) *analysisConfigStore {
+	acs := &analysisConfigStore{
 		schemas: initializedStore.Schemas(),
 	}
 	combinedCache, _ := aggregate.MakeWriteableCache([]model.ConfigStoreController{initializedStore}, memory.Make(acs.schemas))
@@ -46,7 +46,7 @@ func newAnalyzableResourcesCache(initializedStore model.ConfigStoreController) *
 	return acs
 }
 
-func (a *analyzableConfigStore) getStore() model.ConfigStoreController {
+func (a *analysisConfigStore) getStore() model.ConfigStoreController {
 	store := a.store
 	// Empty the store for the next analysis run
 	a.store = memory.Make(a.schemas)
@@ -56,7 +56,7 @@ func (a *analyzableConfigStore) getStore() model.ConfigStoreController {
 	}
 }
 
-func (a *analyzableConfigStore) processConfigChanges(prev config.Config, curr config.Config, event model.Event) {
+func (a *analysisConfigStore) processConfigChanges(prev config.Config, curr config.Config, event model.Event) {
 	switch event {
 	case model.EventAdd, model.EventUpdate:
 		if !needsReAnalyze(prev, curr) {

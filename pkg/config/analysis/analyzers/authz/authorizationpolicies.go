@@ -54,7 +54,7 @@ func (a *AuthorizationPoliciesAnalyzer) Metadata() analysis.Metadata {
 func (a *AuthorizationPoliciesAnalyzer) Analyze(c analysis.Context) {
 	podLabelsMap := initPodLabelsMap(c)
 
-	c.ForEach(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), func(r *resource.Instance) bool {
+	c.ForEachNeedsAnalyze(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), func(r *resource.Instance) bool {
 		a.analyzeNoMatchingWorkloads(r, c, podLabelsMap)
 		a.analyzeNamespaceNotFound(r, c)
 		return true
