@@ -254,6 +254,7 @@ func (s *Instance) validate() error {
 	for _, port := range s.Ports {
 		switch port.Protocol {
 		case protocol.TCP:
+		case protocol.UDP:
 		case protocol.HTTP:
 		case protocol.HTTPS:
 		case protocol.HTTP2:
