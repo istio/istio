@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	buildversion "istio.io/pkg/version"
 )
 
@@ -51,6 +52,12 @@ func operatorDumpCmd(rootArgs *RootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 		Short: "Dumps the Istio operator controller manifest.",
 		Long:  "The dump subcommand dumps the Istio operator controller manifest.",
 		Args:  cobra.ExactArgs(0),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if !labels.IsDNS1123Label(odArgs.common.revision) && cmd.PersistentFlags().Changed("revision") {
+				return fmt.Errorf("invalid revision specified: %v", odArgs.common.revision)
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			operatorDump(rootArgs, odArgs, l)
@@ -76,7 +83,7 @@ func operatorDump(args *RootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
 	l.Print(output)
 }
 
-// validateOutputFormatFlag validates if the output format is valid.
+// validateOperatorOutputFormatFlag validates if the output format is valid.
 func validateOperatorOutputFormatFlag(outputFormat string) error {
 	switch outputFormat {
 	case jsonOutput, yamlOutput:
