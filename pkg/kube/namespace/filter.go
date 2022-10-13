@@ -131,8 +131,8 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	}
 
 	oldDiscoveryNamespaces := d.discoveryNamespaces
-	selectedNamespaces = newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces).SortedList()
-	deselectedNamespaces = oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces).SortedList()
+	selectedNamespaces = sets.SortedList(newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces))
+	deselectedNamespaces = sets.SortedList(oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces))
 
 	// update filter state
 	d.discoveryNamespaces = newDiscoveryNamespaces

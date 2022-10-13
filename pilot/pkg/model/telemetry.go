@@ -487,7 +487,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 
 	m := make([]telemetryFilterConfig, 0, len(allKeys))
-	for _, k := range allKeys.SortedList() {
+	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
 		if p == nil {
 			continue

@@ -584,11 +584,11 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	if len(invalidCiphers) > 0 {
-		v = appendWarningf(v, "ignoring invalid cipher suites: %v", invalidCiphers.SortedList())
+		v = appendWarningf(v, "ignoring invalid cipher suites: %v", sets.SortedList(invalidCiphers))
 	}
 
 	if len(duplicateCiphers) > 0 {
-		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList())
+		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", sets.SortedList(duplicateCiphers))
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {

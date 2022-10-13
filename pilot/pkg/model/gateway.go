@@ -403,7 +403,7 @@ func GetSNIHostsForServer(server *networking.Server) []string {
 		// do not add hosts, that have already been added
 		sniHosts.Insert(h)
 	}
-	return sniHosts.SortedList()
+	return sets.SortedList(sniHosts)
 }
 
 // CheckDuplicates returns all of the hosts provided that are already known
