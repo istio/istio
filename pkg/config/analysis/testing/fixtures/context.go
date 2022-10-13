@@ -47,5 +47,12 @@ func (ctx *Context) ForEach(_ collection.Name, fn analysis.IteratorFn) {
 	}
 }
 
+// ForEachNeedsAnalyze implements analysis.Context
+func (ctx *Context) ForEachNeedsAnalyze(c collection.Name, fn analysis.IteratorFn) {
+	for _, r := range ctx.Resources {
+		fn(r)
+	}
+}
+
 // Canceled implements analysis.Context
 func (ctx *Context) Canceled() bool { return false }

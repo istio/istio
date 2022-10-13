@@ -59,7 +59,6 @@ func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
 			return true
 		})
 	}
-
 }
 
 func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, priority int32, patchFilterNames []string, instanceName string) {

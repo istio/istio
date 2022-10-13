@@ -50,6 +50,7 @@ func (ctx *context) Report(collection.Name, diag.Message)                       
 func (ctx *context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
 func (ctx *context) Exists(collection.Name, resource.FullName) bool             { return false }
 func (ctx *context) ForEach(collection.Name, IteratorFn)                        {}
+func (ctx *context) ForEachNeedsAnalyze(collection.Name, IteratorFn)            {}
 func (ctx *context) Canceled() bool                                             { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {
