@@ -255,10 +255,10 @@ func ignoreExists(err error) error {
 
 func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	for _, i := range ips {
-		parsed := net.ParseIP(i)
-		if parsed.To4() != nil {
+		parsed, _ := netip.ParseAddr(i)
+		if parsed.Is4() {
 			ipv4 = append(ipv4, i)
-		} else {
+		} else if parsed.Is6() {
 			ipv6 = append(ipv6, i)
 		}
 	}

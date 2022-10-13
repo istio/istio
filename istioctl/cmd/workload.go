@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sort"
@@ -576,7 +576,7 @@ func createHosts(kubeClient kube.CLIClient, ingressIP, dir string, revision stri
 	}
 
 	var hosts string
-	if net.ParseIP(ingressIP) != nil {
+	if ipa, _ := netip.ParseAddr(ingressIP); ipa.IsValid() {
 		hosts = fmt.Sprintf("%s %s\n", ingressIP, IstiodHost(istioNamespace, revision))
 	} else {
 		log.Warnf("Could not auto-detect IP for %s/%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",

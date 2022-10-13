@@ -18,7 +18,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 
 	"istio.io/istio/pkg/spiffe"
@@ -76,10 +76,12 @@ type Identity struct {
 func BuildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
 	ids := []Identity{}
 	for _, host := range strings.Split(hosts, ",") {
-		if ip := net.ParseIP(host); ip != nil {
+		if ipa, _ := netip.ParseAddr(host); ipa.IsValid() {
 			// Use the 4-byte representation of the IP address when possible.
-			if eip := ip.To4(); eip != nil {
-				ip = eip
+			ip := ipa.AsSlice()
+			if ipa.Is4In6() {
+				eip := ipa.As4()
+				ip = eip[:]
 			}
 			ids = append(ids, Identity{Type: TypeIP, Value: ip})
 		} else if strings.HasPrefix(host, spiffe.URIPrefix) {
