@@ -1311,7 +1311,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 
 	return appendValidation(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
-		validateLoadBalancer(policy.LoadBalancer),
+		validateLoadBalancer(policy.LoadBalancer, policy.OutlierDetection),
 		validateTLS(policy.Tls),
 		validatePortTrafficPolicies(policy.PortLevelSettings))
 }
@@ -1383,7 +1383,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return
 }
 
-func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error) {
+func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *networking.OutlierDetection) (errs Validation) {
 	if settings == nil {
 		return
 	}
@@ -1395,16 +1395,15 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 		httpCookie := consistentHash.GetHttpCookie()
 		if httpCookie != nil {
 			if httpCookie.Name == "" {
-				errs = appendErrors(errs, fmt.Errorf("name required for HttpCookie"))
+				errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 			}
 			if httpCookie.Ttl == nil {
-				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
+				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
 	}
-	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
-		errs = multierror.Append(errs, err)
-	}
+
+	errs = appendValidation(errs, validateLocalityLbSetting(settings.LocalityLbSetting, outlier))
 	return
 }
 
@@ -1458,7 +1457,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 		} else {
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
-				validateLoadBalancer(t.LoadBalancer),
+				validateLoadBalancer(t.LoadBalancer, t.OutlierDetection),
 				validateTLS(t.Tls))
 		}
 	}
@@ -1629,42 +1628,35 @@ func IsNegativeDuration(in time.Duration) error {
 }
 
 // ValidateMeshConfig checks that the mesh config is well-formed
-func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
+func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
+	v := Validation{}
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
+		v = appendValidation(v, multierror.Prefix(err, "invalid proxy listen port:"))
 	}
 
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
+		v = appendValidation(v, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 
 	if err := ValidateProtocolDetectionTimeout(mesh.ProtocolDetectionTimeout); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid protocol detection timeout:"))
+		v = appendValidation(v, multierror.Prefix(err, "invalid protocol detection timeout:"))
 	}
 
 	if mesh.DefaultConfig == nil {
-		errs = multierror.Append(errs, errors.New("missing default config"))
-	} else if err := ValidateMeshConfigProxyConfig(mesh.DefaultConfig); err != nil {
-		errs = multierror.Append(errs, err)
+		v = appendValidation(v, errors.New("missing default config"))
+	} else {
+		v = appendValidation(v, ValidateMeshConfigProxyConfig(mesh.DefaultConfig))
 	}
 
-	if err := validateLocalityLbSetting(mesh.LocalityLbSetting); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if err := validateServiceSettings(mesh); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if err := validateTrustDomainConfig(mesh); err != nil {
-		errs = multierror.Append(errs, err)
-	}
+	v = appendValidation(v, validateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}))
+	v = appendValidation(v, validateServiceSettings(mesh))
+	v = appendValidation(v, validateTrustDomainConfig(mesh))
 
 	if err := validateExtensionProvider(mesh); err != nil {
 		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
 	}
 
-	return
+	return v.Unwrap()
 }
 
 func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
@@ -3351,13 +3343,14 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outlier *networking.OutlierDetection) (errs Validation) {
 	if lb == nil {
-		return nil
+		return
 	}
 
 	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
-		return fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'")
+		errs = appendValidation(errs, fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'"))
+		return
 	}
 
 	srcLocalities := make([]string, 0, len(lb.GetDistribute()))
@@ -3368,35 +3361,37 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		for loc, weight := range locality.To {
 			destLocalities = append(destLocalities, loc)
 			if weight <= 0 || weight > 100 {
-				return fmt.Errorf("locality weight must be in range [1, 100]")
+				errs = appendValidation(errs, fmt.Errorf("locality weight must be in range [1, 100]"))
+				return
 			}
 			totalWeight += weight
 		}
 		if totalWeight != 100 {
-			return fmt.Errorf("total locality weight %v != 100", totalWeight)
+			errs = appendValidation(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
+			return
 		}
-		if err := validateLocalities(destLocalities); err != nil {
-			return err
-		}
+		errs = appendValidation(errs, validateLocalities(destLocalities))
 	}
 
-	if err := validateLocalities(srcLocalities); err != nil {
-		return err
+	errs = appendValidation(errs, validateLocalities(srcLocalities))
+
+	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
+		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection poicy must be provided for failover")))
 	}
 
 	for _, failover := range lb.GetFailover() {
 		if failover.From == failover.To {
-			return fmt.Errorf("locality lb failover settings must specify different regions")
+			errs = appendValidation(errs, fmt.Errorf("locality lb failover settings must specify different regions"))
 		}
 		if strings.Contains(failover.From, "/") || strings.Contains(failover.To, "/") {
-			return fmt.Errorf("locality lb failover only specify region")
+			errs = appendValidation(errs, fmt.Errorf("locality lb failover only specify region"))
 		}
 		if strings.Contains(failover.To, "*") || strings.Contains(failover.From, "*") {
-			return fmt.Errorf("locality lb failover region should not contain '*' wildcard")
+			errs = appendValidation(errs, fmt.Errorf("locality lb failover region should not contain '*' wildcard"))
 		}
 	}
 
-	return nil
+	return
 }
 
 func validateLocalities(localities []string) error {
