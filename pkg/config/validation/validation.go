@@ -3097,26 +3097,23 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 	})
 
 func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
-	errs := Validation{}
-	if we.Address == "" {
+	addr := we.Address
+	if addr == "" {
 		return nil, fmt.Errorf("address must be set")
 	}
+
 	// Since we don't know if its meant to be DNS or STATIC type without association with a ServiceEntry,
 	// check based on content and try validations.
-	addr := we.Address
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
-	if strings.HasPrefix(we.Address, UnixAddressPrefix) {
+	errs := Validation{}
+	if strings.HasPrefix(addr, UnixAddressPrefix) {
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
-			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", we.Address))
+			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
-	} else {
-		// This could be IP (in STATIC resolution) or DNS host name (for DNS).
-		if !netutil.IsValidIPAddress(we.Address) {
-			if err := ValidateFQDN(we.Address); err != nil { // Otherwise could be an FQDN
-				errs = appendValidation(errs,
-					fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", we.Address))
-			}
+	} else if !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
+		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
+			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}
 	}
 
