@@ -16,7 +16,7 @@ package controller
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
@@ -238,7 +238,7 @@ func GetServiceImportIPs(si *unstructured.Unstructured) []string {
 		if rawIPs, ok := spec["ips"].([]any); ok {
 			for _, rawIP := range rawIPs {
 				ip := rawIP.(string)
-				if net.ParseIP(ip) != nil {
+				if ipa, _ := netip.ParseAddr(ip); ipa.IsValid() {
 					ips = append(ips, ip)
 				}
 			}
