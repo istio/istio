@@ -99,7 +99,8 @@ const (
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
 
-	CNIComponentName ComponentName = "Cni"
+	CNIComponentName     ComponentName = "Cni"
+	ZtunnelComponentName ComponentName = "Ztunnel"
 
 	// istiod remote component
 	IstiodRemoteComponentName ComponentName = "IstiodRemote"
@@ -124,6 +125,7 @@ var (
 		PilotComponentName,
 		CNIComponentName,
 		IstiodRemoteComponentName,
+		ZtunnelComponentName,
 	}
 
 	// AllComponentNames is a list of all Istio components.
@@ -145,6 +147,7 @@ var (
 		IstioBaseComponentName:          "Istio core",
 		PilotComponentName:              "Istiod",
 		CNIComponentName:                "CNI",
+		ZtunnelComponentName:            "Ztunnel",
 		IngressComponentName:            "Ingress gateways",
 		EgressComponentName:             "Egress gateways",
 		IstioOperatorComponentName:      "Istio operator",
