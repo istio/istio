@@ -267,9 +267,9 @@ func mergeShards(responses map[string]*xdsapi.DiscoveryResponse) (*xdsapi.Discov
 
 func makeSan(istioNamespace, revision string) string {
 	if revision == "" {
-		return fmt.Sprintf("istiod.%s.svc", istioNamespace)
+		return fmt.Sprintf("istiod.%s", istioNamespace)
 	}
-	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
+	return fmt.Sprintf("istiod-%s.%s", revision, istioNamespace)
 }
 
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers

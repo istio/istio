@@ -243,7 +243,7 @@ func SetupApps(ctx resource.Context, customCfg *[]echo.Config, buildVM bool) err
 			ClientCert: mustReadCert("cert-chain.pem"),
 			Key:        mustReadCert("key.pem"),
 			// Override hostname to match the SAN in the cert we are using
-			Hostname: "server.default.svc",
+			Hostname: "server.default",
 		},
 		Subsets: []echo.SubsetConfig{{
 			Version:     "v1",

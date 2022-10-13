@@ -11,7 +11,7 @@
     "metadata": {
       "INSTANCE_IPS": "127.0.1.1",
       "PILOT_SAN": [
-        "istiod.istio-system.svc"
+        "istiod.istio-system"
       ],
       "GENERATOR": "grpc",
       "NAMESPACE": "test"

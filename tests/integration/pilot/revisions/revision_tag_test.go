@@ -137,7 +137,7 @@ func verifyRevision(t framework.TestContext, i istioctl.Instance, podName, podNa
 	t.Helper()
 	pcArgs := []string{"pc", "bootstrap", podName, "-n", podNamespace}
 	bootstrapConfig, _ := i.InvokeOrFail(t, pcArgs)
-	expected := fmt.Sprintf("\"discoveryAddress\": \"istiod-%s.istio-system.svc:15012\"", revision)
+	expected := fmt.Sprintf("\"discoveryAddress\": \"istiod-%s.istio-system:15012\"", revision)
 	if !strings.Contains(bootstrapConfig, expected) {
 		t.Errorf("expected revision %q in bootstrap config, did not find", revision)
 	}

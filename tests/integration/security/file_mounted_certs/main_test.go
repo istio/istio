@@ -302,7 +302,7 @@ func ReadCustomCertFromFile(certsPath string, f string) ([]byte, error) {
 func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]echo.Config) error {
 	appsNamespace := customNs.Get()
 
-	// Server certificate has "server.file-mounted.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
+	// Server certificate has "server.file-mounted" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
 	// This cert is going to be used as a server and "client" certificate on the "Echo Server"'s side
 	err := CreateCustomSecret(ctx, ServerSecretName, appsNamespace, ServerCertsPath)
 	if err != nil {

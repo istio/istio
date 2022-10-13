@@ -48,7 +48,7 @@ data:
 
   mesh: |-
     defaultConfig:
-      discoveryAddress: istiod.istio-system.svc:15012
+      discoveryAddress: istiod.istio-system:15012
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
@@ -440,7 +440,7 @@ data:
             {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
             {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15012
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -756,7 +756,7 @@ data:
             {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
             {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15012
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -964,7 +964,7 @@ data:
                 - "-c"
                 - |-
                   NODE_ID="sidecar~${INSTANCE_IP}~${POD_NAME}.${POD_NAMESPACE}~cluster.local"
-                  SERVER_URI="dns:///istiod.${ISTIO_NAMESPACE}.svc:15010"
+                  SERVER_URI="dns:///istiod.${ISTIO_NAMESPACE}:15010"
                   echo '
                   {
                     "xds_servers": [
@@ -1093,7 +1093,7 @@ data:
             {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
             {{- else }}
-              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15012
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -1703,7 +1703,7 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "true"
           - name: ISTIOD_ADDR
-            value: istiod.istio-system.svc:15012
+            value: istiod.istio-system:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID

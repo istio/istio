@@ -594,7 +594,7 @@ func IstiodHost(ns string, revision string) string {
 	if isRevisioned(revision) {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	return fmt.Sprintf("%s.%s.svc", istiod, ns)
+	return fmt.Sprintf("%s.%s", istiod, ns)
 }
 
 func IstiodAddr(ns, revision string) string {

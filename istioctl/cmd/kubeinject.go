@@ -135,7 +135,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 				f.WaitForStop()
 			}()
 		}
-		tlsClientConfig.ServerName = fmt.Sprintf("%s.%s.%s", cc.Service.Name, cc.Service.Namespace, "svc")
+		tlsClientConfig.ServerName = fmt.Sprintf("%s.%s", cc.Service.Name, cc.Service.Namespace)
 	} else if isMCPAddr(address) {
 		var err error
 		client.Transport, err = mcpTransport(context.TODO(), client.Transport)

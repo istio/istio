@@ -19,7 +19,7 @@ data:
     exporters:
       zipkin:
         # Export to zipkin for easy querying
-        endpoint: http://zipkin.istio-system.svc:9411/api/v2/spans
+        endpoint: http://zipkin.istio-system:9411/api/v2/spans
       logging:
         loglevel: debug
     extensions:

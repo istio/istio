@@ -9,7 +9,7 @@ kubeadmConfigPatches:
   apiServer:
     extraArgs:
       # Trustworthy JWT for SDS
-      "service-account-issuer": "kubernetes.default.svc"
+      "service-account-issuer": "kubernetes.default"
       "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
 
       "feature-gates": "EndpointSlice=true"

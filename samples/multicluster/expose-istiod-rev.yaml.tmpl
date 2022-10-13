@@ -36,6 +36,7 @@ spec:
   - match:
     - port: 15012
       sniHosts:
+      - "istiod-{{.Revision}}.istio-system"
       - "istiod-{{.Revision}}.istio-system.svc"
       - "istiod-{{.Revision}}.istio-system.svc.cluster.local"
     route:
@@ -46,6 +47,7 @@ spec:
   - match:
     - port: 15017
       sniHosts:
+      - "istiod-{{.Revision}}.istio-system"
       - "istiod-{{.Revision}}.istio-system.svc"
       - "istiod-{{.Revision}}.istio-system.svc.cluster.local"
     route:

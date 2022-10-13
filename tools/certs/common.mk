@@ -14,7 +14,7 @@ INTERMEDIATE_DAYS ?= 730
 INTERMEDIATE_KEYSZ ?= 4096
 INTERMEDIATE_ORG ?= Istio
 INTERMEDIATE_CN ?= Intermediate CA
-INTERMEDIATE_SAN_DNS ?= istiod.istio-system.svc
+INTERMEDIATE_SAN_DNS ?= istiod.istio-system
 # Additional variables are defined in %/intermediate.conf target below.
 
 #------------------------------------------------------------------------

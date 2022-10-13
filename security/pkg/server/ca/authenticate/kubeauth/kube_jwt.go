@@ -80,7 +80,7 @@ func isAllowedKubernetesAudience(a string) bool {
 	// We do not use url.Parse() as it *requires* the protocol.
 	a = strings.TrimPrefix(a, "https://")
 	a = strings.TrimPrefix(a, "http://")
-	return strings.HasPrefix(a, "kubernetes.default.svc")
+	return strings.HasPrefix(a, "kubernetes.default")
 }
 
 // Authenticate authenticates the call using the K8s JWT from the context.

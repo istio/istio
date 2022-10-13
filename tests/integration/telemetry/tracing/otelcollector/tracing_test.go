@@ -141,7 +141,7 @@ meshConfig:
   defaultConfig:
     tracing:
       openCensusAgent:
-        address: "dns:opentelemetry-collector.istio-system.svc:55678"
+        address: "dns:opentelemetry-collector.istio-system:55678"
         context: [B3]
   extensionProviders:
   - name: test-otel

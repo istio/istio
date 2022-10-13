@@ -734,7 +734,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	// For debugging on localhost (with port forward)
 	// This matches the logic for the CA; this code should eventually be shared
 	if strings.Contains(config.ServerName, "localhost") {
-		config.ServerName = "istiod.istio-system.svc"
+		config.ServerName = "istiod.istio-system"
 	}
 
 	if p.istiodSAN != "" {

@@ -157,7 +157,7 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// For debugging on localhost (with port forward)
 	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
 	if strings.Contains(c.opts.CAEndpoint, "localhost") {
-		config.ServerName = "istiod.istio-system.svc"
+		config.ServerName = "istiod.istio-system"
 	}
 	if c.opts.CAEndpointSAN != "" {
 		config.ServerName = c.opts.CAEndpointSAN

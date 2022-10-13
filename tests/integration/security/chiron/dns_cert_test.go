@@ -38,9 +38,9 @@ const (
 	// Specifies how long we wait before a secret becomes existent.
 	secretWaitTime            = 20 * time.Second
 	galleySecretName          = "dns.istio-galley-service-account"
-	galleyDNSName             = "istio-galley.istio-system.svc"
+	galleyDNSName             = "istio-galley.istio-system"
 	sidecarInjectorSecretName = "dns.istio-sidecar-injector-service-account"
-	sidecarInjectorDNSName    = "istio-sidecar-injector.istio-system.svc"
+	sidecarInjectorDNSName    = "istio-sidecar-injector.istio-system"
 
 	// This example certificate can be generated through
 	// the following command:
@@ -66,7 +66,7 @@ V6g5gZlqSoRhICK09tpc
 -----END CERTIFICATE-----`
 	// This example certificate can be generated through
 	// the following command:
-	// go run security/tools/generate_cert/main.go -host="istio-galley.istio-system.svc" \
+	// go run security/tools/generate_cert/main.go -host="istio-galley.istio-system" \
 	// --mode=signer -signer-priv=root.key -signer-cert=root.pem --duration="1s"
 	certExpired = `-----BEGIN CERTIFICATE-----
 MIIDoDCCAoigAwIBAgIQSSLgQiNvMz7M42865LvUADANBgkqhkiG9w0BAQsFADCB

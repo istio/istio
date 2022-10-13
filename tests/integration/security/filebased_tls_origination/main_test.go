@@ -164,7 +164,7 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 			ClientCert: mustReadCert("cert-chain.pem"),
 			Key:        mustReadCert("key.pem"),
 			// Override hostname to match the SAN in the cert we are using
-			Hostname: "server.default.svc",
+			Hostname: "server.default",
 		},
 		// Do not inject, as we are testing non-Istio TLS here
 		Subsets: []echo.SubsetConfig{{
@@ -211,7 +211,7 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 			ClientCert: mustReadCert("cert-chain.pem"),
 			Key:        mustReadCert("key.pem"),
 			// Override hostname to match the SAN in the cert we are using
-			Hostname: "external-service.default.svc",
+			Hostname: "external-service.default",
 		},
 		Subsets: []echo.SubsetConfig{{
 			Version:     "v1",

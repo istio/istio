@@ -55,7 +55,7 @@ func (e External) build(b deployment.Builder) deployment.Builder {
 			Key:        file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 			// Override hostname to match the SAN in the cert we are using
 			// TODO(nmittler): We should probably make this the same as ExternalHostname
-			Hostname: "server.default.svc",
+			Hostname: "server.default",
 		},
 		Subsets: []echo.SubsetConfig{
 			{

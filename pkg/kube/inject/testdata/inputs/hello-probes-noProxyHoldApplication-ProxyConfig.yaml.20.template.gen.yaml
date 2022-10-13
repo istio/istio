@@ -245,7 +245,7 @@ templates:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -561,7 +561,7 @@ templates:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -769,7 +769,7 @@ templates:
             - "-c"
             - |-
               NODE_ID="sidecar~${INSTANCE_IP}~${POD_NAME}.${POD_NAMESPACE}~cluster.local"
-              SERVER_URI="dns:///istiod.${ISTIO_NAMESPACE}.svc:15010"
+              SERVER_URI="dns:///istiod.${ISTIO_NAMESPACE}:15010"
               echo '
               {
                 "xds_servers": [
@@ -898,7 +898,7 @@ templates:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:

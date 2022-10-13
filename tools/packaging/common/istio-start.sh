@@ -97,10 +97,10 @@ fi
 
 # The default matches the default istio.yaml - use sidecar.env to override ISTIO_PILOT_PORT or CA_ADDR if you
 # enable auth. This requires node-agent to be running.
-DEFAULT_PILOT_ADDRESS="istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:15012"
+DEFAULT_PILOT_ADDRESS="istiod.${ISTIO_SYSTEM_NAMESPACE}:15012"
 CUSTOM_PILOT_ADDRESS="${PILOT_ADDRESS:-}"
 if [ -z "${CUSTOM_PILOT_ADDRESS}" ] && [ -n "${ISTIO_PILOT_PORT:-}" ]; then
-  CUSTOM_PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
+  CUSTOM_PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT}
 fi
 
 # CA_ADDR > PILOT_ADDRESS > ISTIO_PILOT_PORT

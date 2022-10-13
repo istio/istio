@@ -995,7 +995,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 	}
 
 	for _, altName := range knownHosts {
-		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
+		name := fmt.Sprintf("%v.%v", altName, args.Namespace)
 		exist := false
 		for _, cHost := range cHosts {
 			if name == host || name == cHost {

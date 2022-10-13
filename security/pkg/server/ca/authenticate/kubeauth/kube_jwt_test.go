@@ -200,12 +200,17 @@ func TestIsAllowedKubernetesAudience(t *testing.T) {
 		in   string
 		want bool
 	}{
+		{"kubernetes.default", true},
 		{"kubernetes.default.svc", true},
 		{"kubernetes.default.svc.cluster.local", true},
+		{"https://kubernetes.default", true},
 		{"https://kubernetes.default.svc", true},
 		{"https://kubernetes.default.svc.cluster.local", true},
+		{"foo.default", false},
 		{"foo.default.svc", false},
+		{"foo.default:80", false},
 		{"foo.default.svc:80", false},
+		{"https://foo.default:80", false},
 		{"https://foo.default.svc:80", false},
 	}
 	for _, tt := range tests {

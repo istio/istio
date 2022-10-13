@@ -299,7 +299,7 @@ func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
 		{
 			name: "otel normal",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-				Service: "otel.istio-syste.svc",
+				Service: "otel.istio-system",
 				Port:    4000,
 			},
 			valid: true,
@@ -307,7 +307,7 @@ func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
 		{
 			name: "otel service with namespace",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-				Service: "namespace/otel.istio-syste.svc",
+				Service: "namespace/otel.istio-system",
 				Port:    4000,
 			},
 			valid: true,
@@ -315,7 +315,7 @@ func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
 		{
 			name: "otel service with invalid namespace",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-				Service: "name/space/otel.istio-syste.svc",
+				Service: "name/space/otel.istio-system",
 				Port:    4000,
 			},
 			valid: false,
@@ -323,7 +323,7 @@ func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
 		{
 			name: "otel service with port",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-				Service: "otel.istio-syste.svc:4000",
+				Service: "otel.istio-system:4000",
 				Port:    4000,
 			},
 			valid: false,
@@ -331,7 +331,7 @@ func TestValidateExtensionProviderEnvoyOtelAls(t *testing.T) {
 		{
 			name: "otel missing port",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
-				Service: "otel.istio-syste.svc",
+				Service: "otel.istio-system",
 			},
 			valid: false,
 		},
@@ -356,7 +356,7 @@ func TestValidateExtensionProviderEnvoyHTTPAls(t *testing.T) {
 		{
 			name: "normal",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-				Service: "grpc-als.istio-syste.svc",
+				Service: "grpc-als.istio-system",
 				Port:    4000,
 			},
 			valid: true,
@@ -364,7 +364,7 @@ func TestValidateExtensionProviderEnvoyHTTPAls(t *testing.T) {
 		{
 			name: "service with namespace",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-				Service: "namespace/grpc-als.istio-syste.svc",
+				Service: "namespace/grpc-als.istio-system",
 				Port:    4000,
 			},
 			valid: true,
@@ -372,7 +372,7 @@ func TestValidateExtensionProviderEnvoyHTTPAls(t *testing.T) {
 		{
 			name: "service with invalid namespace",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-				Service: "name/space/grpc-als.istio-syste.svc",
+				Service: "name/space/grpc-als.istio-system",
 				Port:    4000,
 			},
 			valid: false,
@@ -380,7 +380,7 @@ func TestValidateExtensionProviderEnvoyHTTPAls(t *testing.T) {
 		{
 			name: "service with port",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-				Service: "grpc-als.istio-syste.svc:4000",
+				Service: "grpc-als.istio-system:4000",
 				Port:    4000,
 			},
 			valid: false,
@@ -388,7 +388,7 @@ func TestValidateExtensionProviderEnvoyHTTPAls(t *testing.T) {
 		{
 			name: "missing port",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-				Service: "grpc-als.istio-syste.svc",
+				Service: "grpc-als.istio-system",
 			},
 			valid: false,
 		},
@@ -413,7 +413,7 @@ func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
 		{
 			name: "normal",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-				Service: "grpc-als.istio-syste.svc",
+				Service: "grpc-als.istio-system",
 				Port:    4000,
 			},
 			valid: true,
@@ -421,7 +421,7 @@ func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
 		{
 			name: "service with namespace",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-				Service: "namespace/grpc-als.istio-syste.svc",
+				Service: "namespace/grpc-als.istio-system",
 				Port:    4000,
 			},
 			valid: true,
@@ -429,7 +429,7 @@ func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
 		{
 			name: "service with invalid namespace",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-				Service: "name/space/grpc-als.istio-syste.svc",
+				Service: "name/space/grpc-als.istio-system",
 				Port:    4000,
 			},
 			valid: false,
@@ -437,7 +437,7 @@ func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
 		{
 			name: "service with port",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-				Service: "grpc-als.istio-syste.svc:4000",
+				Service: "grpc-als.istio-system:4000",
 				Port:    4000,
 			},
 			valid: false,
@@ -445,7 +445,7 @@ func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
 		{
 			name: "missing port",
 			provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
-				Service: "grpc-als.istio-syste.svc",
+				Service: "grpc-als.istio-system",
 			},
 			valid: false,
 		},

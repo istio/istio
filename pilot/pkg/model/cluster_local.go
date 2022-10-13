@@ -23,7 +23,7 @@ import (
 
 var (
 	defaultClusterLocalNamespaces = []string{"kube-system"}
-	defaultClusterLocalServices   = []string{"kubernetes.default.svc"}
+	defaultClusterLocalServices   = []string{"kubernetes.default"}
 )
 
 // ClusterLocalHosts is a map of host names or wildcard patterns which should only

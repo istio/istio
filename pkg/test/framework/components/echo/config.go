@@ -222,12 +222,12 @@ func (c Config) String() string {
 func (c Config) ClusterLocalFQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
-		out += "." + c.Namespace.Name() + ".svc"
+		out += "." + c.Namespace.Name()
 	} else {
-		out += ".default.svc"
+		out += ".default"
 	}
 	if c.Domain != "" {
-		out += "." + c.Domain
+		out += ".svc." + c.Domain
 	}
 	return out
 }
@@ -237,11 +237,11 @@ func (c Config) ClusterLocalFQDN() string {
 func (c Config) ClusterSetLocalFQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
-		out += "." + c.Namespace.Name() + ".svc"
+		out += "." + c.Namespace.Name()
 	} else {
-		out += ".default.svc"
+		out += ".default"
 	}
-	out += "." + constants.DefaultClusterSetLocalDomain
+	out += ".svc." + constants.DefaultClusterSetLocalDomain
 	return out
 }
 
