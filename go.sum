@@ -1149,8 +1149,8 @@ github.com/tdakkota/asciicheck v0.0.0-20200416200610-e657995f937b/go.mod h1:yHp0
 github.com/tenntenn/modver v1.0.1/go.mod h1:bePIyQPb7UeioSRkw3Q0XeMhYZSMx9B8ePqg6SAMGH0=
 github.com/tenntenn/text/transform v0.0.0-20200319021203-7eef512accb3/go.mod h1:ON8b8w4BN/kE1EOhwT0o+d62W65a6aPw1nouo9LMgyY=
 github.com/tetafro/godot v1.4.11/go.mod h1:LR3CJpxDVGlYOWn3ZZg1PgNZdTUvzsZWu8xaEohUpn8=
-github.com/therealmitchconnors/pkg v0.0.0-20221012220928-e774a287e09e h1:jTa5HGzWr/dWqdhAYdKfypuFt/4gwzokMKxAibhbkuI=
-github.com/therealmitchconnors/pkg v0.0.0-20221012220928-e774a287e09e/go.mod h1:LxDv2BeUDWKUFyPqDL4kXeu+455RsgXDNsebbK5tWeY=
+github.com/therealmitchconnors/pkg v0.0.0-20221013162036-accf84210cc3 h1:tBwGKV+jECPmd7p119c5NyVIX4Tva4cvf9r7anmA+/s=
+github.com/therealmitchconnors/pkg v0.0.0-20221013162036-accf84210cc3/go.mod h1:LxDv2BeUDWKUFyPqDL4kXeu+455RsgXDNsebbK5tWeY=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/timakin/bodyclose v0.0.0-20200424151742-cb6215831a94/go.mod h1:Qimiffbc6q9tBWlVV6x0P9sat/ao1xEkREYPPj9hphk=
 github.com/tklauser/go-sysconf v0.3.9/go.mod h1:11DU/5sG7UexIrp/O6g35hrWzu0JxlwQ3LSFUzyeuhs=
