@@ -120,8 +120,8 @@ func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 			return "", 0, err
 		}
 		return host, mappedPort, nil
-	case net.TCPAddr:
-		return v.IP.String(), v.Port, nil
+	case netip.AddrPort:
+		return v.Addr().String(), int(v.Port()), nil
 	}
 
 	return "", 0, fmt.Errorf("failed to get address for port %v", port)
