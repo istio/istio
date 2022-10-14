@@ -20,7 +20,10 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -29,6 +32,33 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/xds"
 )
+
+var allowRBAC *anypb.Any
+var denyRBAC *anypb.Any
+
+func init() {
+	var err error
+	allowRBAC, err = anypb.New(&rbac.RBAC{})
+	if err != nil {
+		panic(err)
+	}
+	denyRBAC, err = anypb.New(&rbac.RBAC{Rules: &rbacv3.RBAC{}})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func createFallbackFilter(name string, denyAllTraffic bool) (*anypb.Any, error) {
+	tc := allowRBAC
+	if denyAllTraffic {
+		tc = denyRBAC
+	}
+	ec := &core.TypedExtensionConfig{
+		Name:        name,
+		TypedConfig: tc,
+	}
+	return anypb.New(ec)
+}
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
@@ -61,7 +91,15 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 
 func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
-	newExtensionConfig = resource
+	defer func() {
+		if newExtensionConfig == nil {
+			var err error
+			newExtensionConfig, err = createFallbackFilter(ec.GetName(), false)
+			if err != nil {
+				sendNack = true
+			}
+		}
+	}()
 	sendNack = false
 	status := noRemoteLoad
 	defer func() {
