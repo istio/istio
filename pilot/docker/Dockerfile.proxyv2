@@ -45,5 +45,11 @@ COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
 COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm
 COPY metadata-exchange-filter.compiled.wasm /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
 
+RUN set -eux; \
+    \
+    apt-get update; \
+    apt-get install -qqy --no-install-recommends \
+        libc++-dev;
+
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
