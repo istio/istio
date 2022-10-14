@@ -28,7 +28,7 @@ func init() {
 		"Specifies the timeout for individual ForwardEcho calls.")
 }
 
-var DefaultRequestTimeout = 5 * time.Second
+var DefaultRequestTimeout = 60 * time.Second
 
 const (
 	ConnectionTimeout = 2 * time.Second

@@ -108,7 +108,7 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 	}
 
 	hostPort := net.JoinHostPort(localHostAddr, strconv.Itoa(int(adminPort)))
-	stats, err := http.DoHTTPGet(fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex))
+	stats, err := http.DoHTTPGetWithTimeout(fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex), 1*time.Minute)
 	if err != nil {
 		return nil, err
 	}

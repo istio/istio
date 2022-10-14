@@ -979,7 +979,7 @@ func autoPassthroughCases(t TrafficContext) {
 							Alpn:       al,
 						},
 						Check:   check.Error(),
-						Timeout: 5 * time.Second,
+						Timeout: 50 * time.Second,
 					},
 				},
 				)

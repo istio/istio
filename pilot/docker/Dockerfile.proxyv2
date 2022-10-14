@@ -17,7 +17,7 @@ FROM gcr.io/istio-release/iptables@sha256:4be99c4dbc0a158fc4404d66198bf18f321292
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION:-debug}
+FROM debug
 
 WORKDIR /
 
@@ -45,6 +45,12 @@ COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
 COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
 COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm
 COPY metadata-exchange-filter.compiled.wasm /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
+
+RUN set -eux; \
+    \
+    apt-get update; \
+    apt-get install -qqy --no-install-recommends \
+        libc++-dev;
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
