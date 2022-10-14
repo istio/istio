@@ -17,7 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -271,10 +271,12 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	istioRevision := getIstioRevision(cfg.Namespace)
 	istioHost = istioctlcmd.IstiodHost(istioNS, istioRevision)
 
-	istioIP = ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddress().IP.String()
-	if istioIP == "<nil>" {
+	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddress().Addr()
+	if !istioIPAddr.IsValid() {
 		log.Warnf("VM config failed to get east-west gateway IP for %s", cfg.Cluster.Name())
 		istioHost, istioIP = "", ""
+	} else {
+		istioIP = istioIPAddr.String()
 	}
 	return
 }
@@ -477,7 +479,7 @@ spec:
 		}
 		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
-			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
+			cmd = append(cmd, "--ingressIP", istiodAddr.Addr().String())
 		}
 		if rev := getIstioRevision(cfg.Namespace); len(rev) > 0 {
 			cmd = append(cmd, "--revision", rev)
@@ -658,7 +660,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	return containerPorts
 }
 
-func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) error {
+func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr netip.AddrPort) error {
 	f, err := os.OpenFile(clusterEnv, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		return fmt.Errorf("failed opening %s: %v", clusterEnv, err)
@@ -676,7 +678,7 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 	}
 	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 		// customize cluster.env with NodePort mapping
-		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
+		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port())))
 		if err != nil {
 			return err
 		}
