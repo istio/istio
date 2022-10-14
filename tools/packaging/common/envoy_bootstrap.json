@@ -139,6 +139,9 @@
           {{- end }}
           {
           "prefix": "component"
+          },
+          {
+          "prefix": "istio"
           }
         ]
       }
