@@ -154,5 +154,5 @@ var (
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
 
 	disableSdsServerEnv = env.Register("DISABLE_SDS_SERVER", false,
-		"Disables the creation of the SDS server.").Get()
+		"Disables the creation of the SDS server when another application (SPIRE) will satisfy the spiffe requests on the socket.").Get()
 )
