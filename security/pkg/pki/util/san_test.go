@@ -17,7 +17,7 @@ package util
 import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"net"
+	"net/netip"
 	"reflect"
 	"testing"
 )
@@ -32,7 +32,7 @@ func getSANExtension(identites []Identity, t *testing.T) *pkix.Extension {
 
 func TestBuildSubjectAltNameExtension(t *testing.T) {
 	uriIdentity := Identity{Type: TypeURI, Value: []byte("spiffe://test.domain.com/ns/default/sa/default")}
-	ipIdentity := Identity{Type: TypeIP, Value: net.ParseIP("10.0.0.1").To4()}
+	ipIdentity := Identity{Type: TypeIP, Value: netip.MustParseAddr("10.0.0.1").AsSlice()}
 	dnsIdentity := Identity{Type: TypeDNS, Value: []byte("test.domain.com")}
 
 	testCases := map[string]struct {
