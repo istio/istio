@@ -94,7 +94,7 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	ec := &core.TypedExtensionConfig{}
 	denyAll := false
 	defer func() {
-		if newExtensionConfig == nil {
+		if newExtensionConfig == nil && !sendNack {
 			var err error
 			newExtensionConfig, err = createFallbackFilter(ec.GetName(), denyAll)
 			if err != nil {
