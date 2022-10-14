@@ -133,7 +133,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	kubelib.WaitForCacheSync(cancel, store.HasSynced)
 
-	ctx := NewContext(store, sa.analysisStore.getStore(), cancel, sa.collectionReporter)
+	ctx := NewContext(store, sa.analysisStore.getStore(), sa.analyzer, cancel, sa.collectionReporter)
 
 	sa.analyzer.Analyze(ctx)
 

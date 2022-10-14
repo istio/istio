@@ -45,20 +45,12 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
-	var hasConfigChange bool
-	// hold the filter names that have a proxyVersion set
-	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-		hasConfigChange = true
-		return false
+	patchFilterNames := make([]string, 0)
+	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
+		names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)
+		patchFilterNames = names
+		return true
 	})
-	if hasConfigChange {
-		patchFilterNames := make([]string, 0)
-		c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
-			names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)
-			patchFilterNames = names
-			return true
-		})
-	}
 }
 
 func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, priority int32, patchFilterNames []string, instanceName string) {

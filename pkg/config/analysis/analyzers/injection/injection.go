@@ -62,7 +62,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	enableNamespacesByDefault := false
 	injectedNamespaces := make(map[string]bool)
 
-	c.ForEachNeedsAnalyze(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 		if r.Metadata.FullName.String() == constants.IstioSystemNamespace {
 			return true
 		}
@@ -127,7 +127,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEachNeedsAnalyze(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		pod := r.Message.(*v1.PodSpec)
 
 		if !injectedNamespaces[r.Metadata.FullName.Namespace.String()] {

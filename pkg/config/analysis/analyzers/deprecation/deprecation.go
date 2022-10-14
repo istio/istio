@@ -72,20 +72,20 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
-	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
 		fa.analyzeSidecar(r, ctx)
 		return true
 	})
-	ctx.ForEachNeedsAnalyze(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
 		fa.analyzeCRD(r, ctx)
 		return true
 	})
 	for _, name := range collections.Deprecated.CollectionNames() {
-		ctx.ForEachNeedsAnalyze(name, func(r *resource.Instance) bool {
+		ctx.ForEach(name, func(r *resource.Instance) bool {
 			ctx.Report(name,
 				msg.NewDeprecated(r, crDeprecatedMessage(name.String())))
 			return true

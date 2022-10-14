@@ -67,7 +67,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	// only one meshnetworks config should exist.
-	c.ForEachNeedsAnalyze(collections.IstioMeshV1Alpha1MeshNetworks.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.IstioMeshV1Alpha1MeshNetworks.Name(), func(r *resource.Instance) bool {
 		mn := r.Message.(*v1alpha1.MeshNetworks)
 		for i, n := range mn.Networks {
 			for j, e := range n.Endpoints {

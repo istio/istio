@@ -47,7 +47,7 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
-	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})

@@ -54,7 +54,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
 	// We can match a label to a selector, but we can't generate a selector from a label.
-	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(rs *resource.Instance) bool {
+	c.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(rs *resource.Instance) bool {
 		s := rs.Message.(*v1alpha3.Sidecar)
 
 		// For this analysis, ignore Sidecars with no workload selectors specified at all.

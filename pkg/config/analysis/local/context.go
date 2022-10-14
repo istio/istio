@@ -29,11 +29,13 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(store, analysisConfigStore model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(store, analysisConfigStore model.ConfigStore, analyzers *analysis.CombinedAnalyzer,
+	cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
 		store:               store,
 		needsToAnalyzeStore: analysisConfigStore,
@@ -169,7 +171,7 @@ func (i *istiodContext) forEachWithConfigFilter(col collection.Name, fn analysis
 	}
 }
 
-func (i *istiodContext) ForEachNeedsAnalyze(c collection.Name, fn analysis.IteratorFn) {
+func (i *istiodContext) forEachNeedsAnalyze(c collection.Name, fn analysis.IteratorFn) {
 	i.forEachWithConfigFilter(c, fn, func(c config.Config) bool {
 		if i.needsToAnalyzeStore != nil {
 			ncfg := i.needsToAnalyzeStore.Get(c.GroupVersionKind, c.Name, c.Namespace)
@@ -182,6 +184,20 @@ func (i *istiodContext) ForEachNeedsAnalyze(c collection.Name, fn analysis.Itera
 	})
 }
 
+func (i *istiodContext) typeChange(inputs collection.Names) bool {
+	for _, c := range inputs {
+		var changed bool
+		i.forEachNeedsAnalyze(c, func(r *resource.Instance) bool {
+			changed = true
+			return false
+		})
+		if changed {
+			return true
+		}
+	}
+	return false
+}
+
 func (i *istiodContext) Canceled() bool {
 	select {
 	case <-i.cancelCh:
@@ -190,6 +206,8 @@ func (i *istiodContext) Canceled() bool {
 		return false
 	}
 }
+
+func buildTypeInteractionMap(analyzers *analysis.CombinedAnalyzer) map[collection.Name]sets.Set[collection.Name]
 
 func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.Schema) (*resource.Instance, error) {
 	res := resource.PilotConfigToInstance(&cfg, colschema.Resource())

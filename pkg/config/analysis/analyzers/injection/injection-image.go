@@ -100,7 +100,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEachNeedsAnalyze(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		var injectionCMName string
 		pod := r.Message.(*v1.PodSpec)
 

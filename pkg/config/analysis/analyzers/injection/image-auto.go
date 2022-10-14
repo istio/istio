@@ -66,7 +66,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		}
 		return true
 	})
-	c.ForEachNeedsAnalyze(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
 		p := resource.Message.(*v1.PodSpec)
 		// If a pod has `image: auto` it is broken whether the webhooks match or not
 		if !hasAutoImage(p) {
@@ -76,7 +76,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		c.Report(collections.K8SCoreV1Pods.Name(), m)
 		return true
 	})
-	c.ForEachNeedsAnalyze(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
+	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
 		d := resource.Message.(*apps_v1.DeploymentSpec)
 		if !hasAutoImage(&d.Template.Spec) {
 			return true

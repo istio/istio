@@ -48,7 +48,7 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
-	ctx.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		d.analyzeVirtualService(r, ctx, destHostsAndSubsets)
 		return true
 	})

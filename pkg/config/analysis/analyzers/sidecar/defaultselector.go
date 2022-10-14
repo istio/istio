@@ -43,33 +43,25 @@ func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
-	var hasConfigChange bool
-	// hold the filter names that have a proxyVersion set
-	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
-		hasConfigChange = true
-		return false
+	nsToSidecars := make(map[resource.Namespace][]*resource.Instance)
+
+	c.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+		s := r.Message.(*v1alpha3.Sidecar)
+
+		ns := r.Metadata.FullName.Namespace
+
+		if s.WorkloadSelector == nil {
+			nsToSidecars[ns] = append(nsToSidecars[ns], r)
+		}
+		return true
 	})
-	if hasConfigChange {
-		nsToSidecars := make(map[resource.Namespace][]*resource.Instance)
 
-		c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
-			s := r.Message.(*v1alpha3.Sidecar)
-
-			ns := r.Metadata.FullName.Namespace
-
-			if s.WorkloadSelector == nil {
-				nsToSidecars[ns] = append(nsToSidecars[ns], r)
-			}
-			return true
-		})
-
-		// Check for more than one selector-less sidecar instance, per namespace
-		for ns, sList := range nsToSidecars {
-			if len(sList) > 1 {
-				sNames := getNames(sList)
-				for _, r := range sList {
-					c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name(), msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
-				}
+	// Check for more than one selector-less sidecar instance, per namespace
+	for ns, sList := range nsToSidecars {
+		if len(sList) > 1 {
+			sNames := getNames(sList)
+			for _, r := range sList {
+				c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name(), msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
 			}
 		}
 	}

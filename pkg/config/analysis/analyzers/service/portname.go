@@ -46,7 +46,7 @@ func (s *PortNameAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
-	c.ForEachNeedsAnalyze(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		svcNs := r.Metadata.FullName.Namespace
 
 		// Skip system namespaces entirely

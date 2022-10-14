@@ -50,7 +50,7 @@ func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (s *IngressGatewayPortAnalyzer) Analyze(c analysis.Context) {
-	c.ForEachNeedsAnalyze(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
 		s.analyzeGateway(r, c)
 		return true
 	})
