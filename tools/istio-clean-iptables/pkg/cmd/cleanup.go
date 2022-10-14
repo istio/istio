@@ -69,7 +69,12 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	chains := []string{constants.ISTIOOUTPUT, constants.ISTIOINBOUND}
 	flushAndDeleteChains(ext, cmd, constants.NAT, chains)
 	// Flush and delete the istio chains from MANGLE table.
-	chains = []string{constants.ISTIOINBOUND, constants.ISTIODIVERT, constants.ISTIOTPROXY}
+	if cfg.InboundInterceptionMode == constants.TPROXY {
+		chains = []string{constants.ISTIOINBOUND, constants.ISTIODIVERT, constants.ISTIOTPROXY, constants.OUTPUT, constants.PREROUTING}
+	} else {
+		chains = []string{constants.ISTIOINBOUND, constants.ISTIODIVERT, constants.ISTIOTPROXY}
+	}
+
 	flushAndDeleteChains(ext, cmd, constants.MANGLE, chains)
 
 	// Must be last, the others refer to it
