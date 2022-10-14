@@ -196,7 +196,7 @@ func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_
 			keys.Insert(patch.Key())
 		}
 	}
-	return keys.SortedList()
+	return sets.SortedList(keys)
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
