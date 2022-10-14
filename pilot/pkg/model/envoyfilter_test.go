@@ -15,6 +15,7 @@
 package model
 
 import (
+	"reflect"
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -131,5 +132,87 @@ func TestConvertEnvoyFilter(t *testing.T) {
 	})
 	if cfilter.Name != "test" && cfilter.Namespace != "testns" {
 		t.Errorf("expected name %s got %s and namespace %s got %s", "test", cfilter.Name, "testns", cfilter.Namespace)
+	}
+}
+
+func TestKeysApplyingTo(t *testing.T) {
+	e := &EnvoyFilterWrapper{
+		Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
+			networking.EnvoyFilter_HTTP_FILTER: {
+				{
+					Name:      "http",
+					Namespace: "ns",
+				},
+			},
+			networking.EnvoyFilter_NETWORK_FILTER: {
+				{
+					Name:      "b",
+					Namespace: "ns",
+				},
+				{
+					Name:      "c",
+					Namespace: "ns",
+				},
+				{
+					Name:      "a",
+					Namespace: "ns",
+				},
+				{
+					Name:      "a",
+					Namespace: "ns",
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name    string
+		efw     *EnvoyFilterWrapper
+		applyTo []networking.EnvoyFilter_ApplyTo
+		want    []string
+	}{
+		{
+			name:    "http filters",
+			efw:     e,
+			applyTo: []networking.EnvoyFilter_ApplyTo{networking.EnvoyFilter_HTTP_FILTER},
+			want:    []string{"ns/http"},
+		},
+		{
+			name:    "network filters",
+			efw:     e,
+			applyTo: []networking.EnvoyFilter_ApplyTo{networking.EnvoyFilter_NETWORK_FILTER},
+			want:    []string{"ns/a", "ns/b", "ns/c"},
+		},
+		{
+			name:    "cluster filters",
+			efw:     e,
+			applyTo: []networking.EnvoyFilter_ApplyTo{networking.EnvoyFilter_CLUSTER},
+			want:    []string{},
+		},
+		{
+			name: "route filters",
+			efw:  e,
+			applyTo: []networking.EnvoyFilter_ApplyTo{
+				networking.EnvoyFilter_ROUTE_CONFIGURATION,
+				networking.EnvoyFilter_VIRTUAL_HOST,
+				networking.EnvoyFilter_HTTP_ROUTE,
+			},
+			want: []string{},
+		},
+		{
+			name: "http and network filters",
+			efw:  e,
+			applyTo: []networking.EnvoyFilter_ApplyTo{
+				networking.EnvoyFilter_HTTP_FILTER,
+				networking.EnvoyFilter_NETWORK_FILTER,
+			},
+			want: []string{"ns/a", "ns/b", "ns/c", "ns/http"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.efw.KeysApplyingTo(tt.applyTo...); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
