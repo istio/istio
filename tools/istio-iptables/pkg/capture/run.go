@@ -253,18 +253,6 @@ func ignoreExists(err error) error {
 	return err
 }
 
-func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
-	for _, i := range ips {
-		parsed, _ := netip.ParseAddr(i)
-		if parsed.Is4() {
-			ipv4 = append(ipv4, i)
-		} else if parsed.Is6() {
-			ipv6 = append(ipv6, i)
-		}
-	}
-	return
-}
-
 // configureIPv6Addresses sets up a new IP address on local interface. This is used as the source IP
 // for inbound traffic to distinguish traffic we want to capture vs traffic we do not. This is needed
 // for IPv6 but not IPv4, as IPv4 defaults to `netmask 255.0.0.0`, which allows binding to addresses
