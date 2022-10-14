@@ -836,7 +836,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			statsCfg := generateStatsConfig(class, cfg)
 			f := &hcm.HttpFilter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(statsCfg)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
 			}
 			res = append(res, f)
 
@@ -872,21 +872,9 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 			cfg := generateStatsConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = "tcp_" + root
-
-			wasmConfig := &wasmfilter.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: cfg,
-				},
-			}
-
 			f := &listener.Filter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
