@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -540,12 +541,16 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
 		nt := a.localDNSServer.NameTable()
 		nt = proto.Clone(nt).(*dnsProto.NameTable)
-		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []string, ipv6 []string, _ []string) {
+		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {
 					addresses := make([]string, len(ipv4)+len(ipv6))
-					addresses = append(addresses, ipv4...)
-					addresses = append(addresses, ipv6...)
+					for _, addr := range ipv4 {
+						addresses = append(addresses, addr.String())
+					}
+					for _, addr := range ipv6 {
+						addresses = append(addresses, addr.String())
+					}
 					nt.Table[host] = &dnsProto.NameTable_NameInfo{
 						Ips:      addresses,
 						Registry: "Kubernetes",

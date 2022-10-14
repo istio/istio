@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -147,7 +148,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	if addr == "" {
 		addr = "localhost:15053"
 	}
-	v4, v6 := netutil.IPsSplitV4V6(dnsConfig.Servers)
+	v4, v6 := netutil.ParseIPsSplitToV4V6(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("dns address must be a valid host:port")
@@ -201,7 +202,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
 // calls the passed in function with the built alternate hosts.
 func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
-	apply func(map[string]struct{}, []string, []string, []string),
+	apply func(map[string]struct{}, []netip.Addr, []netip.Addr, []string),
 ) {
 	for hostname, ni := range nt.Table {
 		// Given a host
@@ -217,7 +218,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 			}
 			altHosts = sets.New(hostname)
 		}
-		ipv4, ipv6 := netutil.IPsSplitV4V6(ni.Ips)
+		ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {
 			// malformed ips
 			continue
@@ -592,7 +593,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 // in the lookup table with a CNAME record as the DNS response. This technique eliminates the need
 // to do string parsing, memory allocations, etc. at query time at the cost of Nx number of entries (i.e. memory) to store
 // the lookup table, where N is number of search namespaces.
-func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4, ipv6, searchNamespaces []string) {
+func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, searchNamespaces []string) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
 		table.allHosts[h] = struct{}{}
@@ -626,25 +627,25 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4, ip
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hosts.go
-// a takes a slice of net.IPs and returns a slice of A RRs.
-func a(host string, ips []string) []dns.RR {
+// a takes a slice of ip string and returns a slice of A RRs.
+func a(host string, ips []netip.Addr) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.A)
 		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
-		r.A = net.ParseIP(ip).To4()
+		r.A = ip.AsSlice()
 		answers[i] = r
 	}
 	return answers
 }
 
-// aaaa takes a slice of net.IPs and returns a slice of AAAA RRs.
-func aaaa(host string, ips []string) []dns.RR {
+// aaaa takes a slice of ip string and returns a slice of AAAA RRs.
+func aaaa(host string, ips []netip.Addr) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.AAAA)
 		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
-		r.AAAA = net.ParseIP(ip).To16()
+		r.AAAA = ip.AsSlice()
 		answers[i] = r
 	}
 	return answers

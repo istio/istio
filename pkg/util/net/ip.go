@@ -38,6 +38,7 @@ func IsIPv4Address(ip string) bool {
 	return ipa.Is4()
 }
 
+// IPsSplitV4V6 returns two slice of ipv4 and ipv6 string slice.
 func IPsSplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	for _, i := range ips {
 		ip, _ := netip.ParseAddr(i)
@@ -45,6 +46,21 @@ func IPsSplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 			ipv4 = append(ipv4, ip.String())
 		} else if ip.Is6() {
 			ipv6 = append(ipv6, ip.String())
+		} else {
+			log.Debugf("ignoring un-parsable IP address: %v", ip)
+		}
+	}
+	return
+}
+
+// ParseIPsSplitToV4V6 returns two slice of ipv4 and ipv6 netip.Addr.
+func ParseIPsSplitToV4V6(ips []string) (ipv4 []netip.Addr, ipv6 []netip.Addr) {
+	for _, i := range ips {
+		ip, _ := netip.ParseAddr(i)
+		if ip.Is4() {
+			ipv4 = append(ipv4, ip)
+		} else if ip.Is6() {
+			ipv6 = append(ipv6, ip)
 		} else {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)
 		}
