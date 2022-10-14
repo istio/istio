@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** an issue that allow multiple regexes with same tag name.
+    **Fixed** an issue to allow multiple regular expressions with the same tag name.
