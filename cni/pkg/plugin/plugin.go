@@ -227,7 +227,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		log.Infof("ambientConf.Mode: %s", ambientConf.Mode)
 		log.Infof("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
 		added := false
-		if ambientConf.Mode != ambient.AmbientMeshOff.String() && ambientConf.ZTunnelReady {
+		if !excludePod && ambientConf.Mode != ambient.AmbientMeshOff.String() && ambientConf.ZTunnelReady {
 			podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
 			if err != nil {
 				log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)
