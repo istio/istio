@@ -58,7 +58,11 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{xds.WasmHTTPFilterType},
+				TypeUrls: []string{
+					xds.WasmHTTPFilterType,
+					// For fallback when Wasm module download fails
+					xds.RBACHTTPFilterType,
+				},
 			},
 		},
 	}
