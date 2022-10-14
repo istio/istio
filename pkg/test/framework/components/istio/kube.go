@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
+	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -153,8 +153,8 @@ func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.Namespaced
 	return i.ingress[c.Name()][labelSelector]
 }
 
-func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error) {
-	var addr net.TCPAddr
+func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.AddrPort, error) {
+	var addr netip.AddrPort
 	primary := cluster.Primary()
 	if !primary.IsConfig() {
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
@@ -164,15 +164,15 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPA
 				istiodSvcName, discoveryPort)
 		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
-			return net.TCPAddr{}, err
+			return netip.AddrPort{}, err
 		}
-		addr = address.(net.TCPAddr)
+		addr = address.(netip.AddrPort)
 	} else {
 		name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
 		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
 	}
-	if addr.IP.String() == "<nil>" {
-		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
+	if !addr.IsValid() {
+		return netip.AddrPort{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
 	}
 	return addr, nil
 }
@@ -483,7 +483,7 @@ func (i *istioImpl) installRemoteCommon(c cluster.Cluster, defaultsIOPFile, iopF
 		if err != nil {
 			return err
 		}
-		args.AppendSet("values.global.remotePilotAddress", remoteIstiodAddress.IP.String())
+		args.AppendSet("values.global.remotePilotAddress", remoteIstiodAddress.Addr().String())
 	}
 
 	if i.externalControlPlane || i.cfg.IstiodlessRemotes {
