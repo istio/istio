@@ -1043,9 +1043,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 		}
 		cfg.Metrics = append(cfg.Metrics, mc)
 	}
-	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
-	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+	return protoconv.MessageToAny(&cfg)
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {
