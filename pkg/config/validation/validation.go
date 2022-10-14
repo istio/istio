@@ -570,6 +570,11 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		// no tls config at all is valid
 		return
 	}
+	if tls.MinProtocolVersion == networking.ServerTLSSettings_TLSV1_0 || tls.MinProtocolVersion == networking.ServerTLSSettings_TLSV1_1 {
+		if len(tls.CipherSuites) == 0 {
+			v = appendWarningf(v, "TLS version below TLSV1_2 require setting compatible ciphers as by default they no longer include compatible ciphers.")
+		}
+	}
 
 	invalidCiphers := sets.New[string]()
 	validCiphers := sets.New[string]()
