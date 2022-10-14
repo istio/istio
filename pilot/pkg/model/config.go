@@ -17,7 +17,6 @@ package model
 import (
 	"crypto/md5"
 	"encoding/binary"
-	"net"
 	"sort"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -224,7 +224,7 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	}
 
 	// if the hostname is a valid ipv4 or ipv6 address, do not append domain or namespace
-	if net.ParseIP(hostname) != nil {
+	if netutil.IsValidIPAddress(hostname) {
 		return host.Name(out)
 	}
 

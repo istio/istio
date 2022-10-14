@@ -19,18 +19,18 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-type Set[T constraints.Ordered] map[T]struct{}
+type Set[T comparable] map[T]struct{}
 
 type String = Set[string]
 
 // NewWithLength returns an empty Set with the given capacity.
 // It's only a hint, not a limitation.
-func NewWithLength[T constraints.Ordered](l int) Set[T] {
+func NewWithLength[T comparable](l int) Set[T] {
 	return make(Set[T], l)
 }
 
 // New creates a new Set with the given items.
-func New[T constraints.Ordered](items ...T) Set[T] {
+func New[T comparable](items ...T) Set[T] {
 	s := NewWithLength[T](len(items))
 	return s.InsertAll(items...)
 }
@@ -149,7 +149,7 @@ func (s Set[T]) UnsortedList() []T {
 }
 
 // SortedList returns the slice with contents sorted.
-func (s Set[T]) SortedList() []T {
+func SortedList[T constraints.Ordered](s Set[T]) []T {
 	res := s.UnsortedList()
 	slices.Sort(res)
 	return res

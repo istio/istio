@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -316,6 +316,28 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			}
 		}
 
+		// If capture mode is NONE i.e., bindToPort is true, and
+		// Bind IP + Port is specified, we will bind to the specified IP and Port.
+		// This specified IP is ideally expected to be a loopback IP.
+		//
+		// If capture mode is NONE i.e., bindToPort is true, and
+		// only Port is specified, we will bind to the default loopback IP
+		// 127.0.0.1 and the specified Port.
+		//
+		// If capture mode is NONE, i.e., bindToPort is true, and
+		// only Bind IP is specified, we will bind to the specified IP
+		// for each port as defined in the service registry.
+		//
+		// If captureMode is not NONE, i.e., bindToPort is false, then
+		// we will bind to user specified IP (if any) or to the VIPs of services in
+		// this egress listener.
+		var bind string
+		if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
+			bind = egressListener.IstioListener.Bind
+		} else if bindToPort {
+			bind = actualLocalHosts[0]
+		}
+
 		if egressListener.IstioListener != nil &&
 			egressListener.IstioListener.Port != nil {
 			// We have a non catch all listener on some user specified port
@@ -338,35 +360,17 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
-			// If capture mode is NONE i.e., bindToPort is true, and
-			// Bind IP + Port is specified, we will bind to the specified IP and Port.
-			// This specified IP is ideally expected to be a loopback IP.
-			//
-			// If capture mode is NONE i.e., bindToPort is true, and
-			// only Port is specified, we will bind to the default loopback IP
-			// 127.0.0.1 and the specified Port.
-			//
-			// If capture mode is NONE, i.e., bindToPort is true, and
-			// only Bind IP is specified, we will bind to the specified IP
-			// for each port as defined in the service registry.
-			//
-			// If captureMode is not NONE, i.e., bindToPort is false, then
-			// we will bind to user specified IP (if any) or to the VIPs of services in
-			// this egress listener.
 			var extraBind []string
-			bind := egressListener.IstioListener.Bind
-			if bind == "" {
+			if egressListener.IstioListener.Bind == "" {
 				if bindToPort {
 					// the first local host would be the binding address and
 					// the rest would be the additional addresses
-					bind = actualLocalHosts[0]
 					if len(actualLocalHosts) > 1 {
 						extraBind = actualLocalHosts[1:]
 					}
 				} else {
 					// the first wildcard address would be the binding address and
 					// the rest would be the additional addresses
-					bind = actualWildcards[0]
 					if len(actualWildcards) > 1 {
 						extraBind = actualWildcards[1:]
 					}
@@ -411,14 +415,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			// with locked bit set to true
 			for _, e := range listenerMap {
 				e.locked = true
-			}
-
-			var bind string
-			if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
-				bind = egressListener.IstioListener.Bind
-			}
-			if bindToPort && bind == "" {
-				bind = actualLocalHosts[0]
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
@@ -479,7 +475,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).
-							if net.ParseIP(instance.Endpoint.Address) == nil {
+							if !netutil.IsValidIPAddress(instance.Endpoint.Address) {
 								continue
 							}
 							// Skip build outbound listener to the node itself,

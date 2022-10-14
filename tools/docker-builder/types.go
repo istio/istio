@@ -135,7 +135,7 @@ func (p BuildPlan) Targets() []string {
 	for _, img := range p.Images {
 		tgts.InsertAll(img.Targets...)
 	}
-	return tgts.SortedList()
+	return sets.SortedList(tgts)
 }
 
 func (p BuildPlan) Find(n string) *ImagePlan {
@@ -198,7 +198,7 @@ func DefaultArgs() Args {
 		// In the new builder, we automagically detect this. So just insert the 'default' variant
 		cur := sets.New(variants...)
 		cur.Insert(DefaultVariant)
-		variants = cur.SortedList()
+		variants = sets.SortedList(cur)
 	}
 
 	arch := []string{"linux/amd64"}

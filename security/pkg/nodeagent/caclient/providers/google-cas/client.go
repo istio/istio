@@ -136,7 +136,7 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 		rootCertSet.Insert(rootCert)
 	}
 
-	return rootCertSet.SortedList(), nil
+	return sets.SortedList(rootCertSet), nil
 }
 
 func (r *GoogleCASClient) Close() {

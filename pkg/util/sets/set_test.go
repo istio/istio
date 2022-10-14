@@ -104,13 +104,13 @@ func TestSupersetOf(t *testing.T) {
 	s2 := New(elements2...)
 
 	if !s1.SupersetOf(s2) {
-		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
+		t.Errorf("%v should be superset of %v", SortedList(s1), SortedList(s2))
 	}
 
 	s3 := New[string]()
 	if !New[string]().SupersetOf(s3) {
-		fmt.Printf("%q\n", s3.SortedList()[0])
-		t.Errorf("%v should be superset of empty set", s1.SortedList())
+		fmt.Printf("%q\n", SortedList(s3)[0])
+		t.Errorf("%v should be superset of empty set", SortedList(s1))
 	}
 }
 
@@ -179,7 +179,7 @@ func TestMerge(t *testing.T) {
 
 	for _, tc := range cases {
 		got := tc.s1.Merge(tc.s2)
-		assert.Equal(t, tc.expected, got.SortedList())
+		assert.Equal(t, tc.expected, SortedList(got))
 	}
 }
 
@@ -249,7 +249,7 @@ func BenchmarkSet(b *testing.B) {
 			b.StopTimer()
 			s := New(sortOrder...)
 			b.StartTimer()
-			s.SortedList()
+			SortedList(s)
 		}
 	})
 }

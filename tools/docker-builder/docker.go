@@ -270,7 +270,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			allGroups.Insert(variant)
 		}
 	}
-	groups["all"] = Group{allGroups.SortedList()}
+	groups["all"] = Group{sets.SortedList(allGroups)}
 	bf := BakeFile{
 		Target: targets,
 		Group:  groups,
@@ -284,7 +284,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 
 	if a.NoClobber {
 		e := errgroup.Group{}
-		for _, i := range allDestinations.SortedList() {
+		for _, i := range sets.SortedList(allDestinations) {
 			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
 				continue
 			}
