@@ -834,23 +834,12 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 				continue
 			}
 			statsCfg := generateStatsConfig(class, cfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = root
-
-			wasmConfig := &httpwasm.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: statsCfg,
-				},
-			}
-
 			f := &hcm.HttpFilter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(statsCfg)},
 			}
 			res = append(res, f)
+
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
