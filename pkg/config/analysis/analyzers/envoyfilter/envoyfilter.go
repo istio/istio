@@ -45,6 +45,7 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
+	// hold the filter names that have a proxyVersion set
 	patchFilterNames := make([]string, 0)
 	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
 		names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)

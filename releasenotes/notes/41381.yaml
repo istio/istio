@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/istio/issues/30200
 releaseNotes:
   - |
-    **Improved** status analysis to run analyzers only on configs that are changed during analysis intervals. 
+    **Improved** status analysis to run analyzers only on required collections during analysis intervals. 

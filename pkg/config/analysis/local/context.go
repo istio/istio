@@ -34,8 +34,7 @@ import (
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(store, analysisConfigStore model.ConfigStore, analyzers *analysis.CombinedAnalyzer,
-	cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(store, analysisConfigStore model.ConfigStore, analyzers *analysis.CombinedAnalyzer, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	ic := &istiodContext{
 		store:               store,
 		needsToAnalyzeStore: analysisConfigStore,
@@ -105,6 +104,9 @@ func (i *istiodContext) Exists(col collection.Name, name resource.FullName) bool
 }
 
 func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
+	if !i.typesToAnalyze.Contains(col) {
+		return
+	}
 	i.forEachWithConfigFilter(col, fn, nil)
 }
 
@@ -174,19 +176,6 @@ func (i *istiodContext) forEachWithConfigFilter(col collection.Name, fn analysis
 	}
 }
 
-func (i *istiodContext) forEachNeedsAnalyze(c collection.Name, fn analysis.IteratorFn) {
-	i.forEachWithConfigFilter(c, fn, func(c config.Config) bool {
-		if i.needsToAnalyzeStore != nil {
-			ncfg := i.needsToAnalyzeStore.Get(c.GroupVersionKind, c.Name, c.Namespace)
-			if ncfg == nil {
-				// config is not in the need-to-be-analyzed list, skip analyze it
-				return false
-			}
-		}
-		return true
-	})
-}
-
 func (i *istiodContext) typeChange(c collection.Name) bool {
 	var changed bool
 	i.forEachWithConfigFilter(c,
@@ -204,10 +193,7 @@ func (i *istiodContext) typeChange(c collection.Name) bool {
 			}
 			return true
 		})
-	if changed {
-		return true
-	}
-	return false
+	return changed
 }
 
 func (i *istiodContext) Canceled() bool {

@@ -102,11 +102,7 @@ func (c *CombinedAnalyzer) AnalyzerNames() []string {
 }
 
 func (c *CombinedAnalyzer) Analyzers() []Analyzer {
-	var result []Analyzer
-	for _, a := range c.analyzers {
-		result = append(result, a)
-	}
-	return result
+	return c.analyzers
 }
 
 func combineInputs(analyzers []Analyzer) collection.Names {
