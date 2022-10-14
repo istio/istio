@@ -170,7 +170,7 @@ func TestWasmCache(t *testing.T) {
 			requestTimeout:         time.Second * 10,
 			wantCachedModules:      map[moduleKey]*cacheEntry{},
 			wantCachedChecksums:    map[string]*checksumEntry{},
-			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\": Service Unavailable",
+			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\"",
 			wantVisitServer:        false,
 		},
 		{
@@ -717,7 +717,7 @@ func TestWasmCache(t *testing.T) {
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
 					t.Errorf("Wasm module cache lookup got no error, want error prefix `%v`", c.wantErrorMsgPrefix)
-				} else if !strings.HasPrefix(gotErr.Error(), c.wantErrorMsgPrefix) {
+				} else if !strings.Contains(gotErr.Error(), c.wantErrorMsgPrefix) {
 					t.Errorf("Wasm module cache lookup got error `%v`, want error prefix `%v`", gotErr, c.wantErrorMsgPrefix)
 				}
 			} else if gotFilePath != wantFilePath {
