@@ -36,7 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
@@ -2651,9 +2651,9 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 
 func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
-		ipAddr, _ := netip.ParseAddr(sniHost) // Could also be an IP
-		if ipAddr.IsValid() {
-			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", ipAddr)))
+		// Could also be an IP
+		if netutil.IsValidIPAddress(sniHost) {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", sniHost)))
 			return
 		}
 		return appendValidation(errs, err)
