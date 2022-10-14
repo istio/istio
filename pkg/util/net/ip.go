@@ -14,7 +14,11 @@
 
 package net
 
-import "net/netip"
+import (
+	"net/netip"
+
+	"istio.io/pkg/log"
+)
 
 // IsValidIPAddress Tell whether the given IP address is valid or not
 func IsValidIPAddress(ip string) bool {
@@ -32,4 +36,18 @@ func IsIPv6Address(ip string) bool {
 func IsIPv4Address(ip string) bool {
 	ipa, _ := netip.ParseAddr(ip)
 	return ipa.Is4()
+}
+
+func IPsSplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
+	for _, i := range ips {
+		ip, _ := netip.ParseAddr(i)
+		if ip.Is4() {
+			ipv4 = append(ipv4, ip.String())
+		} else if ip.Is6() {
+			ipv6 = append(ipv6, ip.String())
+		} else {
+			log.Debugf("ignoring un-parsable IP address: %v", ip)
+		}
+	}
+	return
 }
