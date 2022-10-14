@@ -64,7 +64,7 @@ type IstiodAnalyzer struct {
 
 	initializedStore model.ConfigStoreController
 	// analyzableConfigStore is to store resources that are to be analyzed during analysis runs.
-	analysisStore *analysisConfigStore
+	configTypeWatcher *configTypeWatcher
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -133,7 +133,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	kubelib.WaitForCacheSync(cancel, store.HasSynced)
 
-	ctx := NewContext(store, sa.analysisStore.getStore(), sa.analyzer, cancel, sa.collectionReporter)
+	ctx := NewContext(store, cancel, sa.collectionReporter, sa.configTypeWatcher, sa.analyzer)
 
 	sa.analyzer.Analyze(ctx)
 
@@ -204,7 +204,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	}
 	go store.Run(cancel)
 	sa.initializedStore = store
-	sa.analysisStore = newAnalysisConfigStore(sa.initializedStore)
+	sa.configTypeWatcher = newConfigTypeWatcher(sa.initializedStore)
 	return nil
 }
 

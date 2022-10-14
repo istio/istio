@@ -92,7 +92,8 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 
 		return false
 	})
-	ctx := local.NewContext(store, nil, AllCombined(), make(chan struct{}), func(name collection.Name) {})
+
+	ctx := local.NewContext(store, make(chan struct{}), func(name collection.Name) {}, nil, AllCombined())
 
 	b.ResetTimer()
 	for _, a := range All() {

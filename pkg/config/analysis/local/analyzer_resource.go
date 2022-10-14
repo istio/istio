@@ -16,64 +16,56 @@ package local
 
 import (
 	"strings"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/util/sets"
 )
 
-// analysisConfigStore is the store with configs that needs to be analyzed
-type analysisConfigStore struct {
+// ConfigTypeWatcher is to watch config types that has changed during the analysis interval
+type configTypeWatcher struct {
 	schemas collection.Schemas
-	// store is the store to save configs that needs to be analyzed
-	store model.ConfigStore
+
+	lock         sync.Mutex
+	changedTypes sets.Set[config.GroupVersionKind]
 }
 
-func newAnalysisConfigStore(initializedStore model.ConfigStoreController) *analysisConfigStore {
-	acs := &analysisConfigStore{
-		schemas: initializedStore.Schemas(),
+func newConfigTypeWatcher(store model.ConfigStoreController) *configTypeWatcher {
+	w := &configTypeWatcher{
+		schemas:      store.Schemas(),
+		changedTypes: sets.New[config.GroupVersionKind](),
 	}
-	combinedCache, _ := aggregate.MakeWriteableCache([]model.ConfigStoreController{initializedStore}, memory.Make(acs.schemas))
-	acs.store = &dfCache{ConfigStore: combinedCache}
-	for _, sch := range acs.schemas.All() {
-		initializedStore.RegisterEventHandler(sch.Resource().GroupVersionKind(), acs.processConfigChanges)
+	for _, sch := range w.schemas.All() {
+		// add all types to analyze for the first time
+		w.changedTypes.Insert(sch.Resource().GroupVersionKind())
+		store.RegisterEventHandler(sch.Resource().GroupVersionKind(), w.watchTypeChange)
 	}
-	return acs
+	return w
 }
 
-func (a *analysisConfigStore) getStore() model.ConfigStoreController {
-	store := a.store
+func (a *configTypeWatcher) TypesChange() sets.Set[config.GroupVersionKind] {
+	a.lock.Lock()
+	ct := a.changedTypes
 	// Empty the store for the next analysis run
-	a.store = memory.Make(a.schemas)
-
-	return &dfCache{
-		ConfigStore: store,
-	}
+	a.changedTypes = sets.New[config.GroupVersionKind]()
+	a.lock.Unlock()
+	return ct
 }
 
-func (a *analysisConfigStore) processConfigChanges(prev config.Config, curr config.Config, event model.Event) {
+func (a *configTypeWatcher) watchTypeChange(prev config.Config, curr config.Config, event model.Event) {
 	switch event {
-	case model.EventAdd, model.EventUpdate:
+	case model.EventUpdate:
 		if !needsReAnalyze(prev, curr) {
 			return
 		}
-		// We don't care about ResourceVersion, this is to avoid of update error of the in-memory store
-		curr.ResourceVersion = ""
-		_, err := a.store.Update(curr)
-		if err != nil {
-			_, err = a.store.Create(curr)
-			if err != nil {
-				scope.Analysis.Errorf("error create config : %v", err)
-			}
-		}
-	case model.EventDelete:
-		// Do not analyze deleted resources
 	}
+	a.lock.Lock()
+	a.changedTypes.Insert(curr.GroupVersionKind)
+	a.lock.Unlock()
 }
 
 func needsReAnalyze(prev config.Config, curr config.Config) bool {

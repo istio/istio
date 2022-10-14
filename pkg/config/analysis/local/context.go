@@ -34,29 +34,32 @@ import (
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(store, analysisConfigStore model.ConfigStore, analyzers *analysis.CombinedAnalyzer, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn,
+	watcher *configTypeWatcher, analyzers *analysis.CombinedAnalyzer) analysis.Context {
 	ic := &istiodContext{
-		store:               store,
-		needsToAnalyzeStore: analysisConfigStore,
-		cancelCh:            cancelCh,
-		messages:            diag.Messages{},
-		collectionReporter:  collectionReporter,
-		found:               map[key]*resource.Instance{},
-		foundCollections:    map[collection.Name]map[resource.FullName]*resource.Instance{},
+		store:              store,
+		watcher:            watcher,
+		cancelCh:           cancelCh,
+		messages:           diag.Messages{},
+		collectionReporter: collectionReporter,
+		found:              map[key]*resource.Instance{},
+		foundCollections:   map[collection.Name]map[resource.FullName]*resource.Instance{},
 	}
-	ic.typesToAnalyze = ic.findTypesToAnalyze(analyzers)
+	if watcher != nil {
+		ic.typesToAnalyze = ic.findTypesToAnalyze(watcher.TypesChange(), analyzers)
+	}
 	return ic
 }
 
 type istiodContext struct {
-	store               model.ConfigStore
-	needsToAnalyzeStore model.ConfigStore
-	typesToAnalyze      sets.Set[collection.Name]
-	cancelCh            <-chan struct{}
-	messages            diag.Messages
-	collectionReporter  CollectionReporterFn
-	found               map[key]*resource.Instance
-	foundCollections    map[collection.Name]map[resource.FullName]*resource.Instance
+	store              model.ConfigStore
+	watcher            *configTypeWatcher
+	typesToAnalyze     sets.Set[collection.Name]
+	cancelCh           <-chan struct{}
+	messages           diag.Messages
+	collectionReporter CollectionReporterFn
+	found              map[key]*resource.Instance
+	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
 }
 
 type key struct {
@@ -104,13 +107,9 @@ func (i *istiodContext) Exists(col collection.Name, name resource.FullName) bool
 }
 
 func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
-	if !i.typesToAnalyze.Contains(col) {
+	if i.watcher != nil && !i.typesToAnalyze.Contains(col) {
 		return
 	}
-	i.forEachWithConfigFilter(col, fn, nil)
-}
-
-func (i *istiodContext) forEachWithConfigFilter(col collection.Name, fn analysis.IteratorFn, filter func(c config.Config) bool) {
 	i.collectionReporter(col)
 	if cached, ok := i.foundCollections[col]; ok {
 		for _, res := range cached {
@@ -132,15 +131,6 @@ func (i *istiodContext) forEachWithConfigFilter(col collection.Name, fn analysis
 		// TODO: demote this log before merging
 		log.Errorf("collection %s could not be listed: %s", col.String(), err)
 		return
-	}
-	if filter != nil {
-		filtered := make([]config.Config, 0)
-		for _, cfg := range cfgs {
-			if filter(cfg) {
-				filtered = append(filtered, cfg)
-			}
-		}
-		cfgs = filtered
 	}
 
 	broken := false
@@ -176,26 +166,6 @@ func (i *istiodContext) forEachWithConfigFilter(col collection.Name, fn analysis
 	}
 }
 
-func (i *istiodContext) typeChange(c collection.Name) bool {
-	var changed bool
-	i.forEachWithConfigFilter(c,
-		func(r *resource.Instance) bool {
-			changed = true
-			return false
-		},
-		func(c config.Config) bool {
-			if i.needsToAnalyzeStore != nil {
-				ncfg := i.needsToAnalyzeStore.Get(c.GroupVersionKind, c.Name, c.Namespace)
-				if ncfg == nil {
-					// config is not in the need-to-be-analyzed list, skip analyze it
-					return false
-				}
-			}
-			return true
-		})
-	return changed
-}
-
 func (i *istiodContext) Canceled() bool {
 	select {
 	case <-i.cancelCh:
@@ -205,13 +175,15 @@ func (i *istiodContext) Canceled() bool {
 	}
 }
 
-func (i *istiodContext) findTypesToAnalyze(analyzers *analysis.CombinedAnalyzer) sets.Set[collection.Name] {
+func (i *istiodContext) findTypesToAnalyze(typesChange sets.Set[config.GroupVersionKind], analyzers *analysis.CombinedAnalyzer) sets.Set[collection.Name] {
 	ts := sets.New[collection.Name]()
 	m := buildTypeInteractionMap(analyzers)
 	for t := range m {
-		if i.typeChange(t) {
-			ts.Insert(t)
-			ts.InsertAll(m[t].UnsortedList()...)
+		for _, s := range collections.All.All() {
+			if s.Name() == t && typesChange.Contains(s.Resource().GroupVersionKind()) {
+				ts.Insert(t)
+				ts.InsertAll(m[t].UnsortedList()...)
+			}
 		}
 	}
 	return ts
