@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -363,7 +364,7 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 					fmt.Println("failed to get parse state: ", err)
 					continue
 				}
-				ip := net.ParseIP(bind)
+				ip, _ := netip.ParseAddr(bind)
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]

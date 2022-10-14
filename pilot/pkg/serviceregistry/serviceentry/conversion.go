@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 func convertPort(port *networking.Port) *model.Port {
@@ -184,7 +185,7 @@ func convertServices(cfg config.Config) []*model.Service {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
 				// Check if address is an IP first because that is the most common case.
-				if ipa, _ := netip.ParseAddr(address); ipa.IsValid() {
+				if netutil.IsValidIPAddress(address) {
 					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
 				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
@@ -412,7 +413,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		// k8s can't use uds for service objects
 		dnsServiceEntryOnly = true
 	}
-	if ipa, _ := netip.ParseAddr(addr); !ipa.IsValid() {
+	if !netutil.IsValidIPAddress(addr) {
 		// k8s can't use workloads with hostnames in the address field.
 		dnsServiceEntryOnly = true
 	}
