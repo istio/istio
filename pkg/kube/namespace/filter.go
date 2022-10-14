@@ -32,7 +32,7 @@ type DiscoveryNamespacesFilter interface {
 	// Filter returns true if the input object resides in a namespace selected for discovery
 	Filter(obj any) bool
 	// FilterNamespace returns true if the input namespace is a namespace selected for discovery
-	FilterNamespace(namespace string) bool
+	FilterNamespace(nsMeta metav1.ObjectMeta) bool
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector) (selectedNamespaces []string, deselectedNamespaces []string)
 	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
@@ -93,16 +93,8 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	return d.discoveryNamespaces.Contains(object.GetNamespace())
 }
 
-func (d *discoveryNamespacesFilter) FilterNamespace(namespace string) bool {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-
-	// permit all namespaces if discovery selectors are not specified
-	if len(d.discoverySelectors) == 0 {
-		return true
-	}
-
-	return d.discoveryNamespaces.Contains(namespace)
+func (d *discoveryNamespacesFilter) FilterNamespace(nsMeta metav1.ObjectMeta) bool {
+	return d.isSelected(nsMeta.Labels)
 }
 
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces

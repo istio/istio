@@ -23,7 +23,6 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -80,7 +79,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			// skip special kubernetes system namespaces
 			return false
 		}
-		if features.EnableEnhancedResourceScoping && !c.DiscoveryNamespacesFilter.Filter(o) {
+		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.Filter(o) {
 			// This is a change to a configmap we don't watch, ignore it
 			return false
 		}
@@ -91,7 +90,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			// skip special kubernetes system namespaces
 			return false
 		}
-		if features.EnableEnhancedResourceScoping && !c.DiscoveryNamespacesFilter.FilterNamespace(o.GetName()) {
+		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.FilterNamespace(o.(*v1.Namespace).ObjectMeta) {
 			// This is a change to a namespace we don't watch, ignore it
 			return false
 		}
@@ -149,18 +148,18 @@ func (nc *NamespaceController) insertDataForNamespace(o types.NamespacedName) er
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
 	if ns.Status.Phase != v1.NamespaceTerminating {
-		nc.syncNamespace(ns.Name)
+		nc.syncNamespace(ns)
 	}
 }
 
-func (nc *NamespaceController) syncNamespace(ns string) {
+func (nc *NamespaceController) syncNamespace(ns *v1.Namespace) {
 	// skip special kubernetes system namespaces
-	if inject.IgnoredNamespaces.Contains(ns) {
+	if inject.IgnoredNamespaces.Contains(ns.Name) {
 		return
 	}
 	// skip namespaces we don't watch
-	if features.EnableEnhancedResourceScoping && !nc.DiscoveryNamespacesFilter.FilterNamespace(ns) {
+	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.FilterNamespace(ns.ObjectMeta) {
 		return
 	}
-	nc.queue.Add(types.NamespacedName{Name: ns})
+	nc.queue.Add(types.NamespacedName{Name: ns.Name})
 }
