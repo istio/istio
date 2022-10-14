@@ -291,14 +291,14 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 
 		finalizers.Delete(finalizer)
-		iop.SetFinalizers(finalizers.SortedList())
+		iop.SetFinalizers(sets.SortedList(finalizers))
 		finalizerError := r.client.Update(context.TODO(), iop)
 		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			scope.Info("API server conflict during finalizer removal, retrying.")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, iop)
 			finalizers = sets.New(iop.GetFinalizers()...)
 			finalizers.Delete(finalizer)
-			iop.SetFinalizers(finalizers.SortedList())
+			iop.SetFinalizers(sets.SortedList(finalizers))
 			finalizerError = r.client.Update(context.TODO(), iop)
 		}
 		if finalizerError != nil {
@@ -317,7 +317,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	} else if !finalizers.Contains(finalizer) {
 		log.Infof("Adding finalizer %v to %v", finalizer, request)
 		finalizers.Insert(finalizer)
-		iop.SetFinalizers(finalizers.SortedList())
+		iop.SetFinalizers(sets.SortedList(finalizers))
 		err := r.client.Update(context.TODO(), iop)
 		if err != nil {
 			if errors.IsNotFound(err) {

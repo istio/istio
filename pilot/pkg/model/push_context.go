@@ -1463,7 +1463,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				if len(svc.ServiceAccounts) > 0 {
 					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
 				}
-				sa := spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases).SortedList()
+				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
 				key := serviceAccountKey{
 					hostname:  svc.Hostname,
 					namespace: svc.Attributes.Namespace,

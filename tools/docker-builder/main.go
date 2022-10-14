@@ -148,7 +148,7 @@ func ReadPlanTargets() ([]string, []string, error) {
 			nonBases.Insert(i.Name)
 		}
 	}
-	return bases.SortedList(), nonBases.SortedList(), nil
+	return sets.SortedList(bases), sets.SortedList(nonBases), nil
 }
 
 var LocalArch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
@@ -188,7 +188,7 @@ func ReadPlan(a Args) (Args, error) {
 		for _, img := range plan.Images {
 			known.Insert(img.Name)
 		}
-		if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
+		if unknown := sets.SortedList(tgt.Difference(known)); len(unknown) > 0 {
 			return a, fmt.Errorf("unknown targets: %v", unknown)
 		}
 

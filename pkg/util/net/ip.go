@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telemetryapi
+package net
 
-import (
-	"testing"
+import "net/netip"
 
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-)
+// IsValidIPAddress Tell whether the given IP address is valid or not
+func IsValidIPAddress(ip string) bool {
+	ipa, _ := netip.ParseAddr(ip)
+	return ipa.IsValid()
+}
 
-func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer
-	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
+// IsIPv6Address returns if ip is IPv6.
+func IsIPv6Address(ip string) bool {
+	ipa, _ := netip.ParseAddr(ip)
+	return ipa.Is6()
+}
+
+// IsIPv4Address returns if ip is IPv4.
+func IsIPv4Address(ip string) bool {
+	ipa, _ := netip.ParseAddr(ip)
+	return ipa.Is4()
 }

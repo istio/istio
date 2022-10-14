@@ -1174,7 +1174,7 @@ spec:
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
 			// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
 			// and control plane should filter our invalid one.
-			return templateParams(protocol.HTTPS, src, dests, append(security.ValidCipherSuites.SortedList(), "fake"))
+			return templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
 		},
 		setupOpts: fqdnHostHeader,
 		opts: echo.CallOptions{
@@ -2125,7 +2125,7 @@ var ConsistentHostChecker echo.Checker = func(result echo.CallResult, _ error) e
 		hostnames[i] = r.Hostname
 	}
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
-	unique := sets.New(hostnames...).SortedList()
+	unique := sets.SortedList(sets.New(hostnames...))
 	if len(unique) != 1 {
 		return fmt.Errorf("expected only one destination, got: %v", unique)
 	}

@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -475,7 +475,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).
-							if net.ParseIP(instance.Endpoint.Address) == nil {
+							if !netutil.IsValidIPAddress(instance.Endpoint.Address) {
 								continue
 							}
 							// Skip build outbound listener to the node itself,

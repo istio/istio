@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -2641,7 +2642,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
 	got := getHostsFromMeshConfig(ps)
-	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, got.SortedList())
+	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
 // TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
