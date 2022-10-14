@@ -60,7 +60,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 tmpfile=$(mktemp)
-cat <<EOF >> ${tmpfile}
+cat <<EOF >> "${tmpfile}"
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -75,7 +75,7 @@ else
   kind create cluster "${K8SRELEASE}" --name "${CLUSTERNAME}" --config="${tmpfile}" --wait 5m
 fi
 
-rm ${tmpfile}
+rm "${tmpfile}"
 
 # Setup cluster context
 # kubectl cluster-info --context "kind-${CLUSTERNAME}"
@@ -116,20 +116,17 @@ elif [[ "${IPFAMILY}" == "dual" ]]; then
 fi
 
 
-ipaddresspool=$(cat <<EOF 
-apiVersion: metallb.io/v1beta1
+tmpfile=$(mktemp)
+printf \
+"apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
   name: default
   namespace: metallb-system
 spec:
   addresses:
-${addresses}
-EOF
-)
+%b" "${addresses}" >> "${tmpfile}"
 
-tmpfile=$(mktemp)
-printf "${ipaddresspool}" >> "${tmpfile}"
 kubectl apply -f "${tmpfile}"
 rm "${tmpfile}"
 
