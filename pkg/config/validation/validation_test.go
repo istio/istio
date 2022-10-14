@@ -423,7 +423,7 @@ func TestValidateProtocolDetectionTimeout(t *testing.T) {
 }
 
 func TestValidateMeshConfig(t *testing.T) {
-	if ValidateMeshConfig(&meshconfig.MeshConfig{}) == nil {
+	if _, err := ValidateMeshConfig(&meshconfig.MeshConfig{}); err == nil {
 		t.Error("expected an error on an empty mesh config")
 	}
 
@@ -446,7 +446,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		},
 	}
 
-	err := ValidateMeshConfig(invalid)
+	_, err := ValidateMeshConfig(invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -3909,9 +3909,9 @@ func TestValidateLoadBalancer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := validateLoadBalancer(c.in); (got == nil) != c.valid {
+		if got := validateLoadBalancer(c.in, nil); (got.Err == nil) != c.valid {
 			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+				c.name, got.Err == nil, c.valid, got)
 		}
 	}
 }
@@ -6629,14 +6629,18 @@ func TestValidateSidecar(t *testing.T) {
 
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    *networking.LocalityLoadBalancerSetting
-		valid bool
+		name    string
+		in      *networking.LocalityLoadBalancerSetting
+		outlier *networking.OutlierDetection
+		err     bool
+		warn    bool
 	}{
 		{
-			name:  "valid mesh config without LocalityLoadBalancerSetting",
-			in:    nil,
-			valid: true,
+			name:    "valid mesh config without LocalityLoadBalancerSetting",
+			in:      nil,
+			outlier: nil,
+			err:     false,
+			warn:    false,
 		},
 
 		{
@@ -6652,7 +6656,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
@@ -6667,7 +6673,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
@@ -6682,7 +6690,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
@@ -6703,7 +6713,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 
 		{
@@ -6716,7 +6728,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid failover src contain '*' wildcard",
@@ -6728,7 +6742,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid failover dst contain '*' wildcard",
@@ -6740,7 +6756,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid failover src contain '/' separator",
@@ -6752,7 +6770,9 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 		{
 			name: "invalid failover dst contain '/' separator",
@@ -6764,14 +6784,54 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
+		},
+		{
+			name: "failover priority provided without outlier detection policy",
+			in: &networking.LocalityLoadBalancerSetting{
+				FailoverPriority: []string{
+					"topology.istio.io/network",
+					"topology.kubernetes.io/region",
+					"topology.kubernetes.io/zone",
+					"topology.istio.io/subzone",
+				},
+			},
+			outlier: nil,
+			err:     false,
+			warn:    true,
+		},
+		{
+			name: "failover provided without outlier detection policy",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "us-east",
+						To:   "eu-west",
+					},
+					{
+						From: "us-west",
+						To:   "eu-east",
+					},
+				},
+			},
+			outlier: nil,
+			err:     false,
+			warn:    true,
 		},
 	}
 
 	for _, c := range cases {
-		if got := validateLocalityLbSetting(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateLocalityLbSetting failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
+		v := validateLocalityLbSetting(c.in, c.outlier)
+		warn, err := v.Unwrap()
+		if (err != nil) != c.err {
+			t.Errorf("ValidateLocalityLbSetting failed on %v: got err=%v but wanted err=%v: %v",
+				c.name, err != nil, c.err, err)
+		}
+		if (warn != nil) != c.warn {
+			t.Errorf("ValidateLocalityLbSetting failed on %v: got warn=%v but wanted warn=%v: %v",
+				c.name, warn != nil, c.warn, warn)
 		}
 	}
 }
