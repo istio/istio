@@ -32,6 +32,16 @@ global:
   # Currently supported are: [debug, distroless]
   variant: ""
 
+  multiCluster:
+    # Set to true to connect two kubernetes clusters via their respective
+    # ingressgateway services when pods in each cluster cannot directly
+    # talk to one another. All clusters should be using Istio mTLS and must
+    # have a shared root CA for this model to work.
+    enabled: false
+    # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
+    # to properly label proxies
+    clusterName: ""
+
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent.
   imagePullPolicy: ""
@@ -42,6 +52,9 @@ revision: ""
 # meshConfig defines runtime configuration of components, including Istiod and istio-agent behavior
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
 meshConfig:
+  defaultConfig:
+    proxyMetadata: {}
+
   enablePrometheusMerge: true
   # Config for the default ProxyConfig.
   # Initially using directly the proxy metadata - can also be activated using annotations
