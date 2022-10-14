@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config/analysis/diag"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 )
@@ -49,7 +50,9 @@ var fieldMap = map[string]int{
 func TestExtractLabelFromSelectorString(t *testing.T) {
 	g := NewWithT(t)
 	s := "label=test"
+	snoequality := "label"
 	g.Expect(ExtractLabelFromSelectorString(s)).To(Equal("label"))
+	g.Expect(ExtractLabelFromSelectorString(snoequality)).To(Equal(""))
 }
 
 func TestErrorLine(t *testing.T) {
@@ -90,5 +93,49 @@ func TestConstants(t *testing.T) {
 
 	for _, v := range constantsPath {
 		g.Expect(fieldMap[v]).To(Equal(1))
+	}
+}
+
+func TestAddLineNumber(t *testing.T) {
+	r := &resource.Instance{Origin: &kube2.Origin{FieldsMap: fieldMap}}
+	type args struct {
+		r   *resource.Instance
+		ann string
+		m   diag.Message
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Test AddLine Number return true",
+			args: args{
+				ann: "test",
+				r:   r,
+				m: diag.Message{
+					Line: 11,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Test AddLine Number return false",
+			args: args{
+				ann: "test-false",
+				r:   r,
+				m: diag.Message{
+					Line: 11,
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AddLineNumber(tt.args.r, tt.args.ann, tt.args.m); got != tt.want {
+				t.Errorf("AddLineNumber() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
