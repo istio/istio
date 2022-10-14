@@ -24,6 +24,8 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -107,12 +109,22 @@ func TestWasmConvert(t *testing.T) {
 			wantNack: true,
 		},
 		{
-			name: "remote load fail open",
+			name: "remote load fail open with allowing all traffic",
 			input: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-fail-open"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail-open"],
+				extensionConfigMap["remote-load-rbac-allow"],
+			},
+			wantNack: false,
+		},
+		{
+			name: "remote load fail open with denying all traffic",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-fail-open-with-deny-all"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-rbac-deny"],
 			},
 			wantNack: false,
 		},
@@ -209,10 +221,10 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	}
 }
 
-func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
+func buildWasmExtensionConfig(name string, msg proto.Message) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: protoconv.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(msg),
 	}
 }
 
@@ -317,6 +329,27 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
+	"remote-load-fail-open-with-deny-all": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+						Remote: &core.RemoteDataSource{
+							HttpUri: &core.HttpUri{
+								Uri: "http://test?module=test.wasm&error=download-error",
+							},
+						},
+					}},
+					EnvironmentVariables: &v3.EnvironmentVariables{
+						KeyValues: map[string]string{model.WasmDenyTrafficOnDownloadFailureEnv: "true"},
+					},
+				},
+			},
+			FailOpen: true,
+		},
+	}),
+	"remote-load-rbac-allow": buildWasmExtensionConfig("remote-load-fail", &rbac.RBAC{}),
+	"remote-load-rbac-deny":  buildWasmExtensionConfig("remote-load-fail", &rbac.RBAC{Rules: &rbacv3.RBAC{}}),
 	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{

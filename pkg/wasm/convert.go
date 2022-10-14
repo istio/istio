@@ -24,7 +24,6 @@ import (
 	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -34,8 +33,10 @@ import (
 	"istio.io/istio/pkg/config/xds"
 )
 
-var allowRBAC *anypb.Any
-var denyRBAC *anypb.Any
+var (
+	allowRBAC *anypb.Any
+	denyRBAC  *anypb.Any
+)
 
 func init() {
 	var err error
@@ -92,22 +93,23 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 
 func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
+	newExtensionConfig = resource
 	denyAll := false
-	defer func() {
-		if newExtensionConfig == nil && !sendNack {
-			var err error
-			newExtensionConfig, err = createFallbackFilter(ec.GetName(), denyAll)
-			if err != nil {
-				sendNack = true
-			}
-		}
-	}()
 	sendNack = false
 	status := noRemoteLoad
 	defer func() {
 		wasmConfigConversionCount.
 			With(resultTag.Value(status)).
 			Increment()
+
+		if newExtensionConfig == resource && !sendNack && status != noRemoteLoad {
+			var err error
+			newExtensionConfig, err = createFallbackFilter(ec.GetName(), denyAll)
+			if err != nil {
+				// If the fallback is failing, send the Nack regardless of fail_open.
+				sendNack = true
+			}
+		}
 	}()
 	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
@@ -189,8 +191,9 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 
 		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
 
-		if fallbackPolicy, found := envs.KeyValues[model.WasmDownloadFallbackPolicyEnv]; found {
-			denyAll = strings.ToLower(fallbackPolicy) == "denyall"
+		if value, found := envs.KeyValues[model.WasmDenyTrafficOnDownloadFailureEnv]; found {
+			value = strings.ToLower(value)
+			denyAll = value == "true" || value == "yes"
 		}
 	}
 	remote := vm.GetCode().GetRemote()
