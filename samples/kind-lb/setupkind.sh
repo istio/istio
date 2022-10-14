@@ -78,7 +78,7 @@ fi
 rm "${tmpfile}"
 
 # Setup cluster context
-# kubectl cluster-info --context "kind-${CLUSTERNAME}"
+kubectl cluster-info --context "kind-${CLUSTERNAME}"
 
 # Setup metallb using v0.13.6.
 if [[ "${IPFAMILY}" == "ipv4" ]];
