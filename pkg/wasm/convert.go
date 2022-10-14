@@ -15,6 +15,7 @@
 package wasm
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -91,10 +92,11 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 
 func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
+	denyAll := false
 	defer func() {
 		if newExtensionConfig == nil {
 			var err error
-			newExtensionConfig, err = createFallbackFilter(ec.GetName(), false)
+			newExtensionConfig, err = createFallbackFilter(ec.GetName(), denyAll)
 			if err != nil {
 				sendNack = true
 			}
@@ -186,6 +188,10 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		}
 
 		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
+
+		if fallbackPolicy, found := envs.KeyValues[model.WasmDownloadFallbackPolicyEnv]; found {
+			denyAll = strings.ToLower(fallbackPolicy) == "denyall"
+		}
 	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()

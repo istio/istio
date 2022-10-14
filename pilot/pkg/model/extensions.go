@@ -47,6 +47,8 @@ const (
 	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
 	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
+	// name of fallback policy for the download failure case
+	WasmDownloadFallbackPolicyEnv = "ISTIO_META_WASM_DOWNLOAD_FALLBACK_POLICY"
 )
 
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
