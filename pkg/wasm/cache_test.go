@@ -170,7 +170,7 @@ func TestWasmCache(t *testing.T) {
 			requestTimeout:         time.Second * 10,
 			wantCachedModules:      map[moduleKey]*cacheEntry{},
 			wantCachedChecksums:    map[string]*checksumEntry{},
-			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\"",
+			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\": Service Unavailable",
 			wantVisitServer:        false,
 		},
 		{
