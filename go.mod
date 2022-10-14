@@ -10,7 +10,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 replace github.com/ionos-cloud/sdk-go/v6 => github.com/ionos-cloud/sdk-go/v6 v6.1.1
 
-replace istio.io/pkg => github.com/therealmitchconnors/pkg v0.0.0-20221014162635-f0d6c07d3898
+replace istio.io/pkg => github.com/therealmitchconnors/pkg v0.0.0-20221014210503-19bae6e49023
 
 require (
 	cloud.google.com/go/compute v1.10.0
