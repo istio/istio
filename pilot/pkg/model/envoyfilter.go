@@ -182,7 +182,7 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 			keys.Insert(patch.Key())
 		}
 	}
-	return keys.SortedList()
+	return sets.SortedList(keys)
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {

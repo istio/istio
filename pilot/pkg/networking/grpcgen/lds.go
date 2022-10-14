@@ -286,7 +286,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 			continue
 		}
 		// we must duplicate the listener for every requested host - grpc may have watches for both foo and foo.ns
-		for _, matchedHost := range match.RequestedNames.SortedList() {
+		for _, matchedHost := range sets.SortedList(match.RequestedNames) {
 			for _, p := range sv.Ports {
 				sPort := strconv.Itoa(p.Port)
 				if !match.includesPort(sPort) {

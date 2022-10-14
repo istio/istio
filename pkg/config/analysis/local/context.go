@@ -36,7 +36,7 @@ import (
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
 func NewContext(store, analysisConfigStore model.ConfigStore, analyzers *analysis.CombinedAnalyzer,
 	cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
-	return &istiodContext{
+	ic := &istiodContext{
 		store:               store,
 		needsToAnalyzeStore: analysisConfigStore,
 		cancelCh:            cancelCh,
@@ -45,11 +45,14 @@ func NewContext(store, analysisConfigStore model.ConfigStore, analyzers *analysi
 		found:               map[key]*resource.Instance{},
 		foundCollections:    map[collection.Name]map[resource.FullName]*resource.Instance{},
 	}
+	ic.typesToAnalyze = ic.findTypesToAnalyze(analyzers)
+	return ic
 }
 
 type istiodContext struct {
 	store               model.ConfigStore
 	needsToAnalyzeStore model.ConfigStore
+	typesToAnalyze      sets.Set[collection.Name]
 	cancelCh            <-chan struct{}
 	messages            diag.Messages
 	collectionReporter  CollectionReporterFn
@@ -184,16 +187,25 @@ func (i *istiodContext) forEachNeedsAnalyze(c collection.Name, fn analysis.Itera
 	})
 }
 
-func (i *istiodContext) typeChange(inputs collection.Names) bool {
-	for _, c := range inputs {
-		var changed bool
-		i.forEachNeedsAnalyze(c, func(r *resource.Instance) bool {
+func (i *istiodContext) typeChange(c collection.Name) bool {
+	var changed bool
+	i.forEachWithConfigFilter(c,
+		func(r *resource.Instance) bool {
 			changed = true
 			return false
-		})
-		if changed {
+		},
+		func(c config.Config) bool {
+			if i.needsToAnalyzeStore != nil {
+				ncfg := i.needsToAnalyzeStore.Get(c.GroupVersionKind, c.Name, c.Namespace)
+				if ncfg == nil {
+					// config is not in the need-to-be-analyzed list, skip analyze it
+					return false
+				}
+			}
 			return true
-		}
+		})
+	if changed {
+		return true
 	}
 	return false
 }
@@ -207,7 +219,35 @@ func (i *istiodContext) Canceled() bool {
 	}
 }
 
-func buildTypeInteractionMap(analyzers *analysis.CombinedAnalyzer) map[collection.Name]sets.Set[collection.Name]
+func (i *istiodContext) findTypesToAnalyze(analyzers *analysis.CombinedAnalyzer) sets.Set[collection.Name] {
+	ts := sets.New[collection.Name]()
+	m := buildTypeInteractionMap(analyzers)
+	for t := range m {
+		if i.typeChange(t) {
+			ts.Insert(t)
+			ts.InsertAll(m[t].UnsortedList()...)
+		}
+	}
+	return ts
+}
+
+// buildTypeInteractionMap builds a map that indicate types that depends on each other during the analysis.
+func buildTypeInteractionMap(analyzers *analysis.CombinedAnalyzer) map[collection.Name]sets.Set[collection.Name] {
+	m := map[collection.Name]sets.Set[collection.Name]{}
+	for _, a := range analyzers.Analyzers() {
+		for _, v := range a.Metadata().Inputs {
+			if _, ok := m[v]; !ok {
+				m[v] = sets.New[collection.Name](a.Metadata().Inputs...)
+			} else {
+				m[v].InsertAll(a.Metadata().Inputs...)
+			}
+		}
+	}
+	for k := range m {
+		m[k].Delete(k)
+	}
+	return m
+}
 
 func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.Schema) (*resource.Instance, error) {
 	res := resource.PilotConfigToInstance(&cfg, colschema.Resource())

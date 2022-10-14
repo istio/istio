@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/discovery/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/fuzz"
@@ -36,7 +37,12 @@ func FuzzKubeController(f *testing.F) {
 		controller.pods.onEvent(p, model.EventAdd)
 		s := fuzz.Struct[*corev1.Service](fg)
 		controller.onServiceEvent(s, model.EventAdd)
-		e := fuzz.Struct[*corev1.Endpoints](fg)
-		controller.endpoints.onEvent(e, model.EventAdd)
+		if fco.Mode == EndpointsOnly {
+			e := fuzz.Struct[*corev1.Endpoints](fg)
+			controller.endpoints.onEvent(e, model.EventAdd)
+		} else {
+			e := fuzz.Struct[*v1.EndpointSlice](fg)
+			controller.endpoints.onEvent(e, model.EventAdd)
+		}
 	})
 }

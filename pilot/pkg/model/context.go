@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
@@ -965,7 +966,7 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 	// Get all IP Addresses from Metadata
 	if hasValidIPAddresses(metadata.InstanceIPs) {
 		out.IPAddresses = metadata.InstanceIPs
-	} else if isValidIPAddress(parts[1]) {
+	} else if netutil.IsValidIPAddress(parts[1]) {
 		// Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
@@ -1064,16 +1065,11 @@ func hasValidIPAddresses(ipAddresses []string) bool {
 		return false
 	}
 	for _, ipAddress := range ipAddresses {
-		if !isValidIPAddress(ipAddress) {
+		if !netutil.IsValidIPAddress(ipAddress) {
 			return false
 		}
 	}
 	return true
-}
-
-// Tell whether the given IP address is valid or not
-func isValidIPAddress(ip string) bool {
-	return net.ParseIP(ip) != nil
 }
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

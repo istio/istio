@@ -32,7 +32,7 @@ func GetMatchingPaths(config *config.BugReportConfig, cluster *cluster2.Resource
 	if err != nil {
 		return nil, err
 	}
-	return paths.SortedList(), nil
+	return sets.SortedList(paths), nil
 }
 
 func getMatchingPathsForSpec(config *config.BugReportConfig, cluster *cluster2.Resources) (sets.String, error) {

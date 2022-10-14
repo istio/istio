@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -304,7 +305,7 @@ func fromLegacyNetworkingVersion(pod v1.Pod) bool {
 	return false
 }
 
-// CheckListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
+// checkListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
 func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error) {
 	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods
@@ -363,7 +364,7 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 					fmt.Println("failed to get parse state: ", err)
 					continue
 				}
-				ip := net.ParseIP(bind)
+				ip, _ := netip.ParseAddr(bind)
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]

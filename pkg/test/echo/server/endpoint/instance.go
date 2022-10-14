@@ -62,6 +62,8 @@ func New(cfg Config) (Instance, error) {
 			return newGRPC(cfg), nil
 		case protocol.TCP:
 			return newTCP(cfg), nil
+		case protocol.UDP:
+			return newUDP(cfg), nil
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", cfg.Port.Protocol)
 		}

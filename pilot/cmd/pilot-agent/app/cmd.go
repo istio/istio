@@ -17,7 +17,7 @@ package app
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"os/exec"
 	"strings"
 
@@ -227,8 +227,8 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 	} else {
 		// if not ipv6-only, it can be ipv4-only or dual-stack
 		// let InstanceIP decide the localhost
-		netIP := net.ParseIP(options.InstanceIPVar.Get())
-		if netIP.To4() == nil && netIP.To16() != nil && !netIP.IsLinkLocalUnicast() {
+		netIP, _ := netip.ParseAddr(options.InstanceIPVar.Get())
+		if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
 			localHostAddr = localHostIPv6
 		}
 	}
@@ -267,8 +267,8 @@ func initProxy(args []string) (*model.Proxy, error) {
 		}
 	}
 
-	podIP := net.ParseIP(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
-	if podIP != nil {
+	podIP, _ := netip.ParseAddr(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
+	if podIP.IsValid() {
 		proxy.IPAddresses = []string{podIP.String()}
 	}
 

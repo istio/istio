@@ -16,7 +16,6 @@ package ingress
 
 import (
 	"context"
-	"net"
 	"sort"
 	"strings"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/pkg/log"
 )
 
@@ -229,7 +229,7 @@ func addressInSlice(addr string, list []string) bool {
 func sliceToStatus(endpoints []string) []coreV1.LoadBalancerIngress {
 	lbi := make([]coreV1.LoadBalancerIngress, 0, len(endpoints))
 	for _, ep := range endpoints {
-		if net.ParseIP(ep) == nil {
+		if !netutil.IsValidIPAddress(ep) {
 			lbi = append(lbi, coreV1.LoadBalancerIngress{Hostname: ep})
 		} else {
 			lbi = append(lbi, coreV1.LoadBalancerIngress{IP: ep})

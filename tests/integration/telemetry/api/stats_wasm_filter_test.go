@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wasm
+package api
 
 import (
 	"testing"
@@ -24,16 +24,16 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
-// TestWasmStatsFilter verifies the stats filter could emit expected client and server side
-// metrics when running with Wasm runtime.
+// TestTelemetryAPIStats verifies the stats filter could emit expected client and server side
+// metrics when configured with the Telemetry API (with EnvoyFilters disabled)
 // This test focuses on stats filter and metadata exchange filter could work coherently with
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
-func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.wasm")
+func TestTelemetryAPIStats(t *testing.T) {
+	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.nullvm")
 }
 
 func TestMain(m *testing.M) {
@@ -41,16 +41,29 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			i, err := istio.Get(ctx)
+			if err != nil {
+				return err
+			}
+			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: mesh-default
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+`).Apply()
+		}).
 		Setup(common.TestSetup).
-		Setup(testSetup).
 		Run()
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
+func setupConfig(c resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	// enable telemetry v2 with Wasm
-	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
+	cfg.Values["telemetry.v2.enabled"] = "false"
 }

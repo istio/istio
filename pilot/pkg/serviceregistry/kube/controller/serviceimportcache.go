@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strings"
 
@@ -36,6 +35,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 const (
@@ -238,7 +238,7 @@ func GetServiceImportIPs(si *unstructured.Unstructured) []string {
 		if rawIPs, ok := spec["ips"].([]any); ok {
 			for _, rawIP := range rawIPs {
 				ip := rawIP.(string)
-				if net.ParseIP(ip) != nil {
+				if netutil.IsValidIPAddress(ip) {
 					ips = append(ips, ip)
 				}
 			}

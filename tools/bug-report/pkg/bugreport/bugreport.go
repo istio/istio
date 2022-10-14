@@ -55,7 +55,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(inject.IgnoredNamespaces.SortedList(), ",")}
+	bugReportDefaultExclude        = []string{strings.Join(sets.SortedList(inject.IgnoredNamespaces), ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -220,7 +220,7 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 			}
 		}
 	}
-	return revMap.SortedList()
+	return sets.SortedList(revMap)
 }
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
