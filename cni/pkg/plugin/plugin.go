@@ -239,7 +239,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 				log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
 			}
 		}
-		if !added && !excludePod {
+		if !added {
 			client, err := newKubeClient(*conf)
 			if err != nil {
 				return err
