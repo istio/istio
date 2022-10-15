@@ -99,7 +99,7 @@ type virtualServiceIndex struct {
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
-	destinationsByGateway map[string]sets.Set[string]
+	destinationsByGateway map[string]sets.String
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -110,7 +110,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		delegates:                    map[ConfigKey][]ConfigKey{},
 	}
 	if features.FilterGatewayClusterConfig {
-		out.destinationsByGateway = make(map[string]sets.Set[string])
+		out.destinationsByGateway = make(map[string]sets.String)
 	}
 	return out
 }
@@ -772,21 +772,19 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		return nil
 	}
 
-	if log.DebugEnabled() {
-		// host set.
-		hostsFromGateways := sets.New[string]()
-		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
-		}
-		log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
+	// host set.
+	hostsFromGateways := sets.String{}
+	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 	}
+	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
 	gwSvcs := make([]*Service, 0, len(svcs))
 
 	for _, s := range svcs {
 		svcHost := string(s.Hostname)
 
-		if ps.ServiceAttachedToGateway(svcHost, proxy) {
+		if _, ok := hostsFromGateways[svcHost]; ok {
 			gwSvcs = append(gwSvcs, s)
 		}
 	}
@@ -809,7 +807,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func addHostsFromMeshConfig(ps *PushContext, hosts sets.Set[string]) {
+func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
@@ -1494,7 +1492,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
 
 	if features.FilterGatewayClusterConfig {
-		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.Set[string])
+		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
 	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
