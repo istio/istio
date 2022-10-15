@@ -166,9 +166,11 @@ var (
 
 	operatorPredicates = predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
+			metrics.IncrementReconcileRequest("create")
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
+			metrics.IncrementReconcileRequest("delete")
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -182,11 +184,20 @@ var (
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
 			}
-			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) ||
-				oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() ||
-				oldIOP.GetGeneration() != newIOP.GetGeneration() {
+
+			if oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() {
+				metrics.IncrementReconcileRequest("update_deletion_timestamp")
 				return true
 			}
+			if oldIOP.GetGeneration() != newIOP.GetGeneration() {
+				metrics.IncrementReconcileRequest("update_generation")
+				return true
+			}
+			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) {
+				metrics.IncrementReconcileRequest("update_spec")
+				return true
+			}
+
 			return false
 		},
 	}
