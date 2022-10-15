@@ -107,7 +107,7 @@ func TestWasmConvert(t *testing.T) {
 			wantNack: true,
 		},
 		{
-			name: "remote load fail open with allowing all traffic",
+			name: "remote load fail open",
 			input: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-fail-open"],
 			},

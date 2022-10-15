@@ -55,7 +55,7 @@ var (
 	allowTypedConfig = protoconv.MessageToAny(allowWasmHTTPFilter)
 )
 
-func createAllowAll(name string) (*anypb.Any, error) {
+func createAllowAllFilter(name string) (*anypb.Any, error) {
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
 		TypedConfig: allowTypedConfig,
@@ -70,9 +70,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 	numResources := len(resources)
 	wg.Add(numResources)
 	sendNack := atomic.NewBool(false)
-
 	startTime := time.Now()
-
 	defer func() {
 		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
 	}()
@@ -80,6 +78,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 	for i := 0; i < numResources; i++ {
 		go func(i int) {
 			defer wg.Done()
+
 			newExtensionConfig, nack := convert(resources[i], cache)
 			if nack {
 				sendNack.Store(true)
@@ -102,6 +101,15 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		wasmConfigConversionCount.
 			With(resultTag.Value(status)).
 			Increment()
+
+		if newExtensionConfig == resource && !sendNack && status != noRemoteLoad {
+			var err error
+			newExtensionConfig, err = createAllowAllFilter(ec.GetName())
+			if err != nil {
+				// If the fallback is failing, send the Nack regardless of fail_open.
+				sendNack = true
+			}
+		}
 	}()
 	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
@@ -138,48 +146,18 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		}
 	}
 
-	if wasmHTTPFilterConfig.GetConfig().GetVmConfig().GetCode().GetRemote() == nil {
+	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
 		wasmLog.Debugf("no remote load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
 		return
 	}
 
 	// Wasm plugin configuration has remote load. From this point, any failure should result as a Nack,
 	// unless the plugin is marked as fail open.
-	failOpen := wasmHTTPFilterConfig.GetConfig().GetFailOpen()
+	failOpen := wasmHTTPFilterConfig.Config.GetFailOpen()
 	sendNack = !failOpen
 	status = conversionSuccess
 
-	defer func() {
-		if newExtensionConfig == resource && status != noRemoteLoad {
-			var err error
-			if sendNack {
-				// By setting code = nil instead of not-sending ECDS,
-				// we can avoid long-wait in Envoy boostrapping for the failure case.
-				wasmHTTPFilterConfig.Config.GetVmConfig().Code = nil
-				wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
-				if err != nil {
-					// If error, do not send ECDS
-					newExtensionConfig = nil
-					return
-				}
-				ec.TypedConfig = wasmTypedConfig
-				newExtensionConfig, err = anypb.New(ec)
-				if err != nil {
-					// If error, do not send ECDS
-					newExtensionConfig = nil
-					return
-				}
-			} else {
-				newExtensionConfig, err = createAllowAll(ec.GetName())
-				if err != nil {
-					// If the fallback is failing, send the Nack regardless of fail_open.
-					sendNack = true
-				}
-			}
-		}
-	}()
-
-	vm := wasmHTTPFilterConfig.GetConfig().GetVmConfig()
+	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
 	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
