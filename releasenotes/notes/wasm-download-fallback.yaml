@@ -5,6 +5,4 @@ issue: []
 releaseNotes:
   - |
     **Improved** When Wasm module downloading fails and fail_open is true, attributegen wasm filter allowing all the traffics is passed to Envoy instead of the original Wasm filter.
-    Previously, Wasm filter was passed to Envoy in the case, but it may cause the errors because some fields of Wasm configuration are optional in Istio, but not in Envoy.
-    In addition, to improve the behavior on fail_open = false, the code field in Wasm filter is set to null to make fail-fast in Envoy, which is helpful to enhance bootup speed of Envoy 
-    when there are Wasm download failure.
+    Previously, the given wasm filter itself was passed to Envoy in the case, but it may cause the errors because some fields of Wasm configuration are optional in Istio, but not in Envoy.

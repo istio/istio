@@ -23,6 +23,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"go.uber.org/atomic"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -64,14 +65,14 @@ func createAllowAll(name string) (*anypb.Any, error) {
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) ([]*anypb.Any, bool) {
+func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 	var wg sync.WaitGroup
 	numResources := len(resources)
 	wg.Add(numResources)
-	sendNack := false
-	var mutex sync.Mutex
+	sendNack := atomic.NewBool(false)
+
 	startTime := time.Now()
-	convertedResources := make([]*anypb.Any, 0, numResources)
+
 	defer func() {
 		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
 	}()
@@ -80,18 +81,16 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) ([]*an
 		go func(i int) {
 			defer wg.Done()
 			newExtensionConfig, nack := convert(resources[i], cache)
-			mutex.Lock()
-			if newExtensionConfig != nil {
-				convertedResources = append(convertedResources, newExtensionConfig)
+			if nack {
+				sendNack.Store(true)
+				return
 			}
 			resources[i] = newExtensionConfig
-			sendNack = sendNack || nack
-			mutex.Unlock()
 		}(i)
 	}
 
 	wg.Wait()
-	return convertedResources, sendNack
+	return sendNack.Load()
 }
 
 func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {

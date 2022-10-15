@@ -90,7 +90,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-empty-code"],
+				extensionConfigMap["remote-load-fail"],
 			},
 			wantNack: true,
 		},
@@ -101,7 +101,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-success"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-empty-code"],
+				extensionConfigMap["remote-load-fail"],
 				extensionConfigMap["remote-load-success-local-file"],
 			},
 			wantNack: true,
@@ -152,7 +152,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["no-http-uri"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-empty-code-no-remote-load"],
+				extensionConfigMap["no-http-uri"],
 			},
 			wantNack: true,
 		},
@@ -175,9 +175,9 @@ func TestWasmConvert(t *testing.T) {
 				resources = append(resources, protoconv.MessageToAny(i))
 			}
 			mc := &mockCache{}
-			convertedResource, gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
+			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
 			if len(resources) != len(c.wantOutput) {
-				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(convertedResource), len(c.wantOutput))
+				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(resources), len(c.wantOutput))
 			}
 			for i, output := range resources {
 				ec := &core.TypedExtensionConfig{}
@@ -209,10 +209,10 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	}
 }
 
-func buildWasmExtensionConfig(name string, msg proto.Message) *core.TypedExtensionConfig {
+func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: protoconv.MessageToAny(msg),
+		TypedConfig: protoconv.MessageToAny(wasm),
 	}
 }
 
@@ -315,20 +315,6 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 				},
 			},
 			FailOpen: true,
-		},
-	}),
-	"remote-load-empty-code": buildWasmExtensionConfig("remote-load-fail", &wasm.Wasm{
-		Config: &v3.PluginConfig{
-			Vm: &v3.PluginConfig_VmConfig{
-				VmConfig: &v3.VmConfig{},
-			},
-		},
-	}),
-	"remote-load-empty-code-no-remote-load": buildWasmExtensionConfig("no-remote-load", &wasm.Wasm{
-		Config: &v3.PluginConfig{
-			Vm: &v3.PluginConfig_VmConfig{
-				VmConfig: &v3.VmConfig{},
-			},
 		},
 	}),
 	"remote-load-allow": buildWasmExtensionConfig("remote-load-fail", allowWasmHTTPFilter),
