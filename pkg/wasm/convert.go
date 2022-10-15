@@ -15,61 +15,63 @@
 package wasm
 
 import (
-	"strings"
 	"sync"
 	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"go.uber.org/atomic"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
 )
 
 var (
-	allowRBAC *anypb.Any
-	denyRBAC  *anypb.Any
+	allowWasmHTTPFilter = &wasm.Wasm{
+		Config: &wasmv3.PluginConfig{
+			// Do nothing, just bypass traffics.
+			Configuration: protoconv.MessageToAny(&wrapperspb.StringValue{Value: "{}"}),
+			Vm: &wasmv3.PluginConfig_VmConfig{
+				VmConfig: &wasmv3.VmConfig{
+					Code: &core.AsyncDataSource{
+						Specifier: &core.AsyncDataSource_Local{
+							Local: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{InlineString: "envoy.wasm.attributegen"},
+							},
+						},
+					},
+					Runtime: "envoy.wasm.runtime.null",
+				},
+			},
+		},
+	}
+	allowTypedConfig = protoconv.MessageToAny(allowWasmHTTPFilter)
 )
 
-func init() {
-	var err error
-	allowRBAC, err = anypb.New(&rbac.RBAC{})
-	if err != nil {
-		panic(err)
-	}
-	denyRBAC, err = anypb.New(&rbac.RBAC{Rules: &rbacv3.RBAC{}})
-	if err != nil {
-		panic(err)
-	}
-}
-
-func createFallbackFilter(name string, denyAllTraffic bool) (*anypb.Any, error) {
-	tc := allowRBAC
-	if denyAllTraffic {
-		tc = denyRBAC
-	}
+func createAllowAll(name string) (*anypb.Any, error) {
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: tc,
+		TypedConfig: allowTypedConfig,
 	}
 	return anypb.New(ec)
 }
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
+func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) ([]*anypb.Any, bool) {
 	var wg sync.WaitGroup
 	numResources := len(resources)
 	wg.Add(numResources)
-	sendNack := atomic.NewBool(false)
+	sendNack := false
+	var mutex sync.Mutex
 	startTime := time.Now()
+	convertedResources := make([]*anypb.Any, 0, numResources)
 	defer func() {
 		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
 	}()
@@ -77,39 +79,30 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 	for i := 0; i < numResources; i++ {
 		go func(i int) {
 			defer wg.Done()
-
 			newExtensionConfig, nack := convert(resources[i], cache)
-			if nack {
-				sendNack.Store(true)
-				return
+			mutex.Lock()
+			if newExtensionConfig != nil {
+				convertedResources = append(convertedResources, newExtensionConfig)
 			}
 			resources[i] = newExtensionConfig
+			sendNack = sendNack || nack
+			mutex.Unlock()
 		}(i)
 	}
 
 	wg.Wait()
-	return sendNack.Load()
+	return convertedResources, sendNack
 }
 
 func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
-	denyAll := false
 	sendNack = false
 	status := noRemoteLoad
 	defer func() {
 		wasmConfigConversionCount.
 			With(resultTag.Value(status)).
 			Increment()
-
-		if newExtensionConfig == resource && !sendNack && status != noRemoteLoad {
-			var err error
-			newExtensionConfig, err = createFallbackFilter(ec.GetName(), denyAll)
-			if err != nil {
-				// If the fallback is failing, send the Nack regardless of fail_open.
-				sendNack = true
-			}
-		}
 	}()
 	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
@@ -146,18 +139,48 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		}
 	}
 
-	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
+	if wasmHTTPFilterConfig.GetConfig().GetVmConfig().GetCode().GetRemote() == nil {
 		wasmLog.Debugf("no remote load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
 		return
 	}
 
 	// Wasm plugin configuration has remote load. From this point, any failure should result as a Nack,
 	// unless the plugin is marked as fail open.
-	failOpen := wasmHTTPFilterConfig.Config.GetFailOpen()
+	failOpen := wasmHTTPFilterConfig.GetConfig().GetFailOpen()
 	sendNack = !failOpen
 	status = conversionSuccess
 
-	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
+	defer func() {
+		if newExtensionConfig == resource && status != noRemoteLoad {
+			var err error
+			if sendNack {
+				// By setting code = nil instead of not-sending ECDS,
+				// we can avoid long-wait in Envoy boostrapping for the failure case.
+				wasmHTTPFilterConfig.Config.GetVmConfig().Code = nil
+				wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
+				if err != nil {
+					// If error, do not send ECDS
+					newExtensionConfig = nil
+					return
+				}
+				ec.TypedConfig = wasmTypedConfig
+				newExtensionConfig, err = anypb.New(ec)
+				if err != nil {
+					// If error, do not send ECDS
+					newExtensionConfig = nil
+					return
+				}
+			} else {
+				newExtensionConfig, err = createAllowAll(ec.GetName())
+				if err != nil {
+					// If the fallback is failing, send the Nack regardless of fail_open.
+					sendNack = true
+				}
+			}
+		}
+	}()
+
+	vm := wasmHTTPFilterConfig.GetConfig().GetVmConfig()
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
 	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
@@ -190,11 +213,6 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		}
 
 		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
-
-		if value, found := envs.KeyValues[model.WasmDenyTrafficOnDownloadFailureEnv]; found {
-			value = strings.ToLower(value)
-			denyAll = value == "true" || value == "yes"
-		}
 	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()

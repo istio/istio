@@ -24,8 +24,6 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -92,7 +90,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail"],
+				extensionConfigMap["remote-load-empty-code"],
 			},
 			wantNack: true,
 		},
@@ -103,7 +101,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-success"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail"],
+				extensionConfigMap["remote-load-empty-code"],
 				extensionConfigMap["remote-load-success-local-file"],
 			},
 			wantNack: true,
@@ -114,17 +112,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail-open"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-rbac-allow"],
-			},
-			wantNack: false,
-		},
-		{
-			name: "remote load fail open with denying all traffic",
-			input: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail-open-with-deny-all"],
-			},
-			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-rbac-deny"],
+				extensionConfigMap["remote-load-allow"],
 			},
 			wantNack: false,
 		},
@@ -164,7 +152,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["no-http-uri"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["no-http-uri"],
+				extensionConfigMap["remote-load-empty-code-no-remote-load"],
 			},
 			wantNack: true,
 		},
@@ -187,9 +175,9 @@ func TestWasmConvert(t *testing.T) {
 				resources = append(resources, protoconv.MessageToAny(i))
 			}
 			mc := &mockCache{}
-			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
+			convertedResource, gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
 			if len(resources) != len(c.wantOutput) {
-				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(resources), len(c.wantOutput))
+				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(convertedResource), len(c.wantOutput))
 			}
 			for i, output := range resources {
 				ec := &core.TypedExtensionConfig{}
@@ -329,27 +317,21 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
-	"remote-load-fail-open-with-deny-all": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
+	"remote-load-empty-code": buildWasmExtensionConfig("remote-load-fail", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
-				VmConfig: &v3.VmConfig{
-					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
-						Remote: &core.RemoteDataSource{
-							HttpUri: &core.HttpUri{
-								Uri: "http://test?module=test.wasm&error=download-error",
-							},
-						},
-					}},
-					EnvironmentVariables: &v3.EnvironmentVariables{
-						KeyValues: map[string]string{model.WasmDenyTrafficOnDownloadFailureEnv: "true"},
-					},
-				},
+				VmConfig: &v3.VmConfig{},
 			},
-			FailOpen: true,
 		},
 	}),
-	"remote-load-rbac-allow": buildWasmExtensionConfig("remote-load-fail", &rbac.RBAC{}),
-	"remote-load-rbac-deny":  buildWasmExtensionConfig("remote-load-fail", &rbac.RBAC{Rules: &rbacv3.RBAC{}}),
+	"remote-load-empty-code-no-remote-load": buildWasmExtensionConfig("no-remote-load", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{},
+			},
+		},
+	}),
+	"remote-load-allow": buildWasmExtensionConfig("remote-load-fail", allowWasmHTTPFilter),
 	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{

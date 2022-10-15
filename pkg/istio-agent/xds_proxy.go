@@ -567,7 +567,8 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse, forward func(resp *discovery.DiscoveryResponse)) {
-	sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
+	convertedResources, sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
+	resp.Resources = convertedResources
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendRequest(&discovery.DiscoveryRequest{
@@ -579,6 +580,9 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 				Message: "failed to fetch wasm module",
 			},
 		})
+		if len(resp.Resources) > 0 {
+			forward(resp)
+		}
 		return
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)

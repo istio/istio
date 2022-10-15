@@ -284,7 +284,8 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 	for i := range resp.Resources {
 		resources = append(resources, resp.Resources[i].Resource)
 	}
-	sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
+	_, sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
+	// TODO(igsong): with delta xDS, rewrite does not happen.
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
