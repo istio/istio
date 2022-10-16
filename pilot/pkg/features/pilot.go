@@ -101,8 +101,7 @@ var (
 	SidecarScopeConvertThrottle = env.Register(
 		"PILOT_SIDECARSCOPE_CONVERT_THROTTLE",
 		1,
-		"Limits the number of concurrent SidecarScope convert allowed. "+
-			"On larger machines this can be increased for faster pushes",
+		"Limits the number of concurrent SidecarScope convert allowed. When there are a large number of `Sidecar`, this value can be increased to speed up the push.",
 	).Get()
 
 	EnableEDSDebounce = env.Register(
