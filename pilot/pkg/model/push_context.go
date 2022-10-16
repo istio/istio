@@ -70,6 +70,11 @@ type serviceIndex struct {
 	instancesByPort map[string]map[int][]*ServiceInstance
 }
 
+type sidecarScopePair struct {
+	key   string
+	value *SidecarScope
+}
+
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
 		public:               []*Service{},
@@ -1660,14 +1665,41 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
 	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+
+	configCount := atomic.NewInt64(int64(len(sidecarConfigs)))
+	resPairCh := make(chan sidecarScopePair, features.SidecarScopeConvertThrottle)
+	limitCh := make(chan struct{}, features.SidecarScopeConvertThrottle)
+	var wg sync.WaitGroup
+
+	go func() {
+		for configCount.Load() > 0 {
+			select {
+			case pair := <-resPairCh:
+				ps.sidecarIndex.sidecarsByNamespace[pair.key] = append(ps.sidecarIndex.sidecarsByNamespace[pair.key], pair.value)
+				<-limitCh
+				configCount.Dec()
+				wg.Done()
+			}
+		}
+	}()
+
 	for i, sidecarConfig := range sidecarConfigs {
-		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
 		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 			rootNSConfig = &sidecarConfigs[i]
 		}
+
+		limitCh <- struct{}{}
+		wg.Add(1)
+		go func(sidecarConfig config.Config) {
+			resPairCh <- sidecarScopePair{
+				key:   sidecarConfig.Namespace,
+				value: ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace),
+			}
+		}(sidecarConfig)
 	}
+
+	wg.Wait()
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
 
 	return nil
