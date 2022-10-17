@@ -2641,7 +2641,8 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
-	got := getHostsFromMeshConfig(ps)
+	got := sets.String{}
+	addHostsFromMeshConfig(ps, got)
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
