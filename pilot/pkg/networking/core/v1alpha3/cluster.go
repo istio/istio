@@ -216,7 +216,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	services []*model.Service,
 ) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
-	efKeys := cp.efw.Keys()
+	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
 		for _, port := range service.Ports {

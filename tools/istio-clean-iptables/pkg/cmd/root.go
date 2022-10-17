@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
-	common "istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -90,7 +90,7 @@ func constructConfig() *config.Config {
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
 		}
-		cfg.DNSServersV4, cfg.DNSServersV6 = common.SplitV4V6(dnsConfig.Servers)
+		cfg.DNSServersV4, cfg.DNSServersV6 = netutil.IPsSplitV4V6(dnsConfig.Servers)
 	}
 
 	return cfg

@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/url"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
 	"istio.io/pkg/log"
@@ -576,7 +576,7 @@ func createHosts(kubeClient kube.CLIClient, ingressIP, dir string, revision stri
 	}
 
 	var hosts string
-	if net.ParseIP(ingressIP) != nil {
+	if netutil.IsIPv4Address(ingressIP) {
 		hosts = fmt.Sprintf("%s %s\n", ingressIP, IstiodHost(istioNamespace, revision))
 	} else {
 		log.Warnf("Could not auto-detect IP for %s/%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
