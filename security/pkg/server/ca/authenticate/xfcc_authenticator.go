@@ -45,17 +45,31 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 
 // Authenticate extracts identities from Xfcc Header.
 func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
-	peerInfo, _ := peer.FromContext(ctx.GrpcContext)
-	// First check if client is trusted client so that we can "trust" the Xfcc Header.
-	if !isTrustedAddress(peerInfo.Addr.String(), features.TrustedGatewayCIDR) {
-		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
-	}
-	meta, ok := metadata.FromIncomingContext(ctx.GrpcContext)
+	var xfccHeader, remoteAddr string
+	switch {
+	case ctx.GrpcContext != nil:
+		peerInfo, _ := peer.FromContext(ctx.GrpcContext)
+		remoteAddr = peerInfo.Addr.String()
+		meta, ok := metadata.FromIncomingContext(ctx.GrpcContext)
 
-	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
-		return nil, nil
+		if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
+			return nil, nil
+		}
+		xfccHeader = meta.Get(xfccparser.ForwardedClientCertHeader)[0]
+	case ctx.Request != nil:
+		remoteAddr = ctx.Request.RemoteAddr
+		xfccHeader = ctx.Request.Header[http.CanonicalHeaderKey(xfccparser.ForwardedClientCertHeader)][0]
+		if len(xfccHeader) == 0 {
+			return nil, nil
+		}
+	default:
+		return nil, fmt.Errorf("neither http or gRPC context exists in AuthContext")
 	}
-	xfccHeader := meta.Get(xfccparser.ForwardedClientCertHeader)[0]
+	// First check if client is trusted client so that we can "trust" the Xfcc Header.
+	if !isTrustedAddress(remoteAddr, features.TrustedGatewayCIDR) {
+		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", remoteAddr)
+	}
+
 	return buildSecurityCaller(xfccHeader)
 }
 
