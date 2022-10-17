@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -132,6 +134,17 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		l.LogAndFatal(err)
 	}
+
+	if uiArgs.revision != "" {
+		revisions, err := tag.ListRevisionDescriptions(kubeClient)
+		if err != nil {
+			return fmt.Errorf("could not list revisions: %s", err)
+		}
+		if _, exists := revisions[uiArgs.revision]; !exists {
+			return errors.New("could not find target revision")
+		}
+	}
+
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.DryRun, Log: l, ProgressLog: progress.NewLog()}
 	var h *helmreconciler.HelmReconciler
