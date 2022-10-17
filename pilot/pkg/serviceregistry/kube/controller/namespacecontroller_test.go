@@ -26,20 +26,32 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNamespaceController(t *testing.T) {
+	// Cannot use t.SetForTest() here as it results in DATA RACE.
+	// Need to wait for https://github.com/kubernetes/kubernetes/pull/112200
+	features.EnableEnhancedResourceScoping = false
 	client := kube.NewFakeClient()
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
-	nc := NewNamespaceController(client, watcher)
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		client.KubeInformer().Core().V1().Namespaces().Lister(),
+		meshWatcher.MeshConfig.DiscoverySelectors,
+	)
+	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
@@ -73,6 +85,55 @@ func TestNamespaceController(t *testing.T) {
 		createConfigMap(t, client.Kube(), "not-root", namespace, "k")
 		expectConfigMapNotExist(t, nc.configmapLister, namespace)
 	}
+}
+
+func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
+	// Cannot use t.SetForTest() here as it results in DATA RACE.
+	// Need to wait for https://github.com/kubernetes/kubernetes/pull/112200
+	features.EnableEnhancedResourceScoping = true
+	client := kube.NewFakeClient()
+	watcher := keycertbundle.NewWatcher()
+	caBundle := []byte("caBundle")
+	watcher.SetAndNotify(nil, nil, caBundle)
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metav1.LabelSelector{
+			{
+				MatchLabels: map[string]string{
+					"discovery-selectors": "enabled",
+				},
+			},
+		},
+	})
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		client.KubeInformer().Core().V1().Namespaces().Lister(),
+		meshWatcher.Mesh().DiscoverySelectors,
+	)
+	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
+	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
+
+	nsA := "nsA"
+	nsB := "nsB"
+
+	// Create a namespace with discovery selector enabled
+	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
+	// Create a namespace without discovery selector enabled
+	createNamespace(t, client.Kube(), nsB, map[string]string{})
+	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metav1.GetOptions{})
+	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metav1.GetOptions{})
+	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
+	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
+	// config map should be created for discovery selector enabled namespace
+	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsA, expectedData)
+	// config map should not be created for discovery selector disabled namespace
+	expectConfigMapNotExist(t, nc.configmapLister, nsB)
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
