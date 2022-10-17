@@ -96,15 +96,23 @@ type virtualServiceIndex struct {
 	publicByGateway map[string][]config.Config
 	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
 	delegates map[ConfigKey][]ConfigKey
+
+	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
+	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
+	destinationsByGateway map[string]sets.String
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
-	return virtualServiceIndex{
+	out := virtualServiceIndex{
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
 	}
+	if features.FilterGatewayClusterConfig {
+		out.destinationsByGateway = make(map[string]sets.String)
+	}
+	return out
 }
 
 // destinationRuleIndex is the index of destination rules by various fields.
@@ -765,24 +773,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := sets.New[string]()
+	hostsFromGateways := sets.String{}
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
-			vs, ok := vsConfig.Spec.(*networking.VirtualService)
-			if !ok { // should never happen
-				log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
-				return svcs
-			}
-
-			for host := range virtualServiceDestinations(vs) {
-				hostsFromGateways.Insert(host)
-			}
-		}
+		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 	}
-
-	hostsFromMeshConfig := getHostsFromMeshConfig(ps)
-	hostsFromGateways.Merge(hostsFromMeshConfig)
-
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
 	gwSvcs := make([]*Service, 0, len(svcs))
@@ -800,36 +794,44 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
+func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
+			if hosts.Contains(hostname) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func getHostsFromMeshConfig(ps *PushContext) sets.String {
-	hostsFromMeshConfig := sets.New[string]()
-
+func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzHttp.Service)
+			hosts.Insert(p.EnvoyExtAuthzHttp.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzGrpc.Service)
+			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-			hostsFromMeshConfig.Insert(p.Zipkin.Service)
+			hosts.Insert(p.Zipkin.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-			hostsFromMeshConfig.Insert(p.Lightstep.Service)
+			hosts.Insert(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-			hostsFromMeshConfig.Insert(p.Datadog.Service)
+			hosts.Insert(p.Datadog.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-			hostsFromMeshConfig.Insert(p.Opencensus.Service)
+			hosts.Insert(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-			hostsFromMeshConfig.Insert(p.Skywalking.Service)
+			hosts.Insert(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			hostsFromMeshConfig.Insert(p.EnvoyHttpAls.Service)
+			hosts.Insert(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			hostsFromMeshConfig.Insert(p.EnvoyTcpAls.Service)
+			hosts.Insert(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			hostsFromMeshConfig.Insert(p.EnvoyOtelAls.Service)
+			hosts.Insert(p.EnvoyOtelAls.Service)
 		}
 	}
-	return hostsFromMeshConfig
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -1489,6 +1491,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
 
+	if features.FilterGatewayClusterConfig {
+		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
+	}
+
 	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
 	if err != nil {
 		return err
@@ -1570,6 +1576,21 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 						}
 					}
 				}
+			}
+		}
+
+		if features.FilterGatewayClusterConfig {
+			for _, gw := range gwNames {
+				if gw == constants.IstioMeshGateway {
+					continue
+				}
+				if _, f := ps.virtualServiceIndex.destinationsByGateway[gw]; !f {
+					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.New[string]()
+				}
+				for host := range virtualServiceDestinations(rule) {
+					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
+				}
+				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 			}
 		}
 	}
