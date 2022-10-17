@@ -673,6 +673,12 @@ var (
 	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
 		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
 			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
+
+	EnableSidecarServiceInboundListenerMerge = env.Register(
+		"PILOT_ALLOW_SIDECAR_SERVICE_INBOUND_LISTENER_MERGE",
+		false,
+		"If set, it allows creating inbound listeners for service ports and sidecar ingress listeners ",
+	).Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
