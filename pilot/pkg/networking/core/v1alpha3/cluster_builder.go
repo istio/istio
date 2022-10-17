@@ -59,7 +59,7 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 
 var hboneTransportSocketMatch = &structpb.Struct{
 	Fields: map[string]*structpb.Value{
-		model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
+		model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
 	},
 }
 
