@@ -1655,8 +1655,6 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: `%DYNAMIC_METADATA(["tunnel", "destination"])%`}},
-
 				{Header: &core.HeaderValue{
 					Key: "baggage",
 					Value: fmt.Sprintf(baggageFormat,
@@ -1678,10 +1676,6 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
 		}},
-	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarOutbound)
-	for _, a := range l.AccessLog {
-		a.Filter = nil
 	}
 	return l
 }
