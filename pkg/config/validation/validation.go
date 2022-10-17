@@ -36,7 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/util/grpc"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -570,6 +571,11 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		// no tls config at all is valid
 		return
 	}
+	if tls.MinProtocolVersion == networking.ServerTLSSettings_TLSV1_0 || tls.MinProtocolVersion == networking.ServerTLSSettings_TLSV1_1 {
+		if len(tls.CipherSuites) == 0 {
+			v = appendWarningf(v, "TLS version below TLSV1_2 require setting compatible ciphers as by default they no longer include compatible ciphers.")
+		}
+	}
 
 	invalidCiphers := sets.New[string]()
 	validCiphers := sets.New[string]()
@@ -583,11 +589,11 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	if len(invalidCiphers) > 0 {
-		v = appendWarningf(v, "ignoring invalid cipher suites: %v", invalidCiphers.SortedList())
+		v = appendWarningf(v, "ignoring invalid cipher suites: %v", sets.SortedList(invalidCiphers))
 	}
 
 	if len(duplicateCiphers) > 0 {
-		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList())
+		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", sets.SortedList(duplicateCiphers))
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
@@ -1044,8 +1050,7 @@ func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs
 		}
 
 		// Gateway allows IP as the host string, as well
-		ipAddr := net.ParseIP(hostname)
-		if ipAddr == nil {
+		if !netutil.IsValidIPAddress(hostname) {
 			errs = appendErrors(errs, err)
 		}
 	}
@@ -1346,7 +1351,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 
 	return appendValidation(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
-		validateLoadBalancer(policy.LoadBalancer),
+		validateLoadBalancer(policy.LoadBalancer, policy.OutlierDetection),
 		validateTLS(policy.Tls),
 		validatePortTrafficPolicies(policy.PortLevelSettings),
 		validateTunnelSettings(policy.Tunnel))
@@ -1440,7 +1445,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 	return
 }
 
-func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Validation) {
+func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *networking.OutlierDetection) (errs Validation) {
 	if settings == nil {
 		return
 	}
@@ -1467,9 +1472,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs Valid
 			errs = appendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
 	}
-	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
-		errs = appendValidation(errs, err)
-	}
+
+	errs = appendValidation(errs, validateLocalityLbSetting(settings.LocalityLbSetting, outlier))
 	return
 }
 
@@ -1523,7 +1527,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 		} else {
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
-				validateLoadBalancer(t.LoadBalancer),
+				validateLoadBalancer(t.LoadBalancer, t.OutlierDetection),
 				validateTLS(t.Tls))
 		}
 	}
@@ -1544,8 +1548,7 @@ func ValidateProxyAddress(hostAddr string) error {
 		return err
 	}
 	if err = ValidateFQDN(hostname); err != nil {
-		ip := net.ParseIP(hostname)
-		if ip == nil {
+		if !netutil.IsValidIPAddress(hostname) {
 			return fmt.Errorf("%q is not a valid hostname or an IP address", hostname)
 		}
 	}
@@ -1694,42 +1697,35 @@ func IsNegativeDuration(in time.Duration) error {
 }
 
 // ValidateMeshConfig checks that the mesh config is well-formed
-func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
+func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
+	v := Validation{}
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
+		v = appendValidation(v, multierror.Prefix(err, "invalid proxy listen port:"))
 	}
 
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
+		v = appendValidation(v, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 
 	if err := ValidateProtocolDetectionTimeout(mesh.ProtocolDetectionTimeout); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid protocol detection timeout:"))
+		v = appendValidation(v, multierror.Prefix(err, "invalid protocol detection timeout:"))
 	}
 
 	if mesh.DefaultConfig == nil {
-		errs = multierror.Append(errs, errors.New("missing default config"))
-	} else if err := ValidateMeshConfigProxyConfig(mesh.DefaultConfig); err != nil {
-		errs = multierror.Append(errs, err)
+		v = appendValidation(v, errors.New("missing default config"))
+	} else {
+		v = appendValidation(v, ValidateMeshConfigProxyConfig(mesh.DefaultConfig))
 	}
 
-	if err := validateLocalityLbSetting(mesh.LocalityLbSetting); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if err := validateServiceSettings(mesh); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if err := validateTrustDomainConfig(mesh); err != nil {
-		errs = multierror.Append(errs, err)
-	}
+	v = appendValidation(v, validateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}))
+	v = appendValidation(v, validateServiceSettings(mesh))
+	v = appendValidation(v, validateTrustDomainConfig(mesh))
 
 	if err := validateExtensionProvider(mesh); err != nil {
 		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
 	}
 
-	return
+	return v.Unwrap()
 }
 
 func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
@@ -2214,8 +2210,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		allHostsValid := true
 		for _, virtualHost := range virtualService.Hosts {
 			if err := ValidateWildcardDomain(virtualHost); err != nil {
-				ipAddr := net.ParseIP(virtualHost) // Could also be an IP
-				if ipAddr == nil {
+				if !netutil.IsValidIPAddress(virtualHost) {
 					errs = appendValidation(errs, err)
 					allHostsValid = false
 				}
@@ -2661,9 +2656,9 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 
 func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
-		ipAddr := net.ParseIP(sniHost) // Could also be an IP
-		if ipAddr != nil {
-			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", ipAddr)))
+		// Could also be an IP
+		if netutil.IsValidIPAddress(sniHost) {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", sniHost)))
 			return
 		}
 		return appendValidation(errs, err)
@@ -3099,27 +3094,23 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 	})
 
 func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
-	errs := Validation{}
-	if we.Address == "" {
+	addr := we.Address
+	if addr == "" {
 		return nil, fmt.Errorf("address must be set")
 	}
+
 	// Since we don't know if its meant to be DNS or STATIC type without association with a ServiceEntry,
 	// check based on content and try validations.
-	addr := we.Address
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
-	if strings.HasPrefix(we.Address, UnixAddressPrefix) {
+	errs := Validation{}
+	if strings.HasPrefix(addr, UnixAddressPrefix) {
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
-			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", we.Address))
+			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
-	} else {
-		// This could be IP (in STATIC resolution) or DNS host name (for DNS).
-		ipAddr := net.ParseIP(we.Address)
-		if ipAddr == nil {
-			if err := ValidateFQDN(we.Address); err != nil { // Otherwise could be an FQDN
-				errs = appendValidation(errs,
-					fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", we.Address))
-			}
+	} else if !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
+		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
+			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}
 	}
 
@@ -3335,8 +3326,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
-				ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
-				if ipAddr == nil {
+				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
 							fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
@@ -3469,13 +3459,14 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outlier *networking.OutlierDetection) (errs Validation) {
 	if lb == nil {
-		return nil
+		return
 	}
 
 	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
-		return fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'")
+		errs = appendValidation(errs, fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'"))
+		return
 	}
 
 	srcLocalities := make([]string, 0, len(lb.GetDistribute()))
@@ -3486,35 +3477,37 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		for loc, weight := range locality.To {
 			destLocalities = append(destLocalities, loc)
 			if weight <= 0 || weight > 100 {
-				return fmt.Errorf("locality weight must be in range [1, 100]")
+				errs = appendValidation(errs, fmt.Errorf("locality weight must be in range [1, 100]"))
+				return
 			}
 			totalWeight += weight
 		}
 		if totalWeight != 100 {
-			return fmt.Errorf("total locality weight %v != 100", totalWeight)
+			errs = appendValidation(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
+			return
 		}
-		if err := validateLocalities(destLocalities); err != nil {
-			return err
-		}
+		errs = appendValidation(errs, validateLocalities(destLocalities))
 	}
 
-	if err := validateLocalities(srcLocalities); err != nil {
-		return err
+	errs = appendValidation(errs, validateLocalities(srcLocalities))
+
+	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
+		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection poicy must be provided for failover")))
 	}
 
 	for _, failover := range lb.GetFailover() {
 		if failover.From == failover.To {
-			return fmt.Errorf("locality lb failover settings must specify different regions")
+			errs = appendValidation(errs, fmt.Errorf("locality lb failover settings must specify different regions"))
 		}
 		if strings.Contains(failover.From, "/") || strings.Contains(failover.To, "/") {
-			return fmt.Errorf("locality lb failover only specify region")
+			errs = appendValidation(errs, fmt.Errorf("locality lb failover only specify region"))
 		}
 		if strings.Contains(failover.To, "*") || strings.Contains(failover.From, "*") {
-			return fmt.Errorf("locality lb failover region should not contain '*' wildcard")
+			errs = appendValidation(errs, fmt.Errorf("locality lb failover region should not contain '*' wildcard"))
 		}
 	}
 
-	return nil
+	return
 }
 
 func validateLocalities(localities []string) error {

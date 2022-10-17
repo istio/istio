@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -271,7 +272,7 @@ func isRequestFromLocalhost(r *http.Request) bool {
 		return false
 	}
 
-	userIP := net.ParseIP(ip)
+	userIP, _ := netip.ParseAddr(ip)
 	return userIP.IsLoopback()
 }
 

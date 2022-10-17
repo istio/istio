@@ -65,5 +65,5 @@ func (v *proxyViewImpl) IsVisible(ep *IstioEndpoint) bool {
 }
 
 func (v *proxyViewImpl) String() string {
-	return strings.Join(v.visible.SortedList(), ",")
+	return strings.Join(sets.SortedList(v.visible), ",")
 }

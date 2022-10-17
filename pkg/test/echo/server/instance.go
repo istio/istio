@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"strings"
 	"sync"
@@ -148,12 +148,12 @@ func getBindAddresses(ip string) []string {
 		return []string{ip}
 	}
 	for _, ip := range ipAddrs {
-		addr := net.ParseIP(ip)
-		if addr == nil {
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
 			// Should not happen
 			continue
 		}
-		if addr.To4() != nil {
+		if addr.Is4() {
 			v4 = true
 		} else {
 			v6 = true
@@ -254,6 +254,7 @@ func (s *Instance) validate() error {
 	for _, port := range s.Ports {
 		switch port.Protocol {
 		case protocol.TCP:
+		case protocol.UDP:
 		case protocol.HTTP:
 		case protocol.HTTPS:
 		case protocol.HTTP2:

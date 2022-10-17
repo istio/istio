@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -215,7 +216,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	services []*model.Service,
 ) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
-	efKeys := cp.efw.Keys()
+	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
 		for _, port := range service.Ports {
@@ -453,10 +454,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 				continue
 			}
 			if hostIP == model.PodIPAddressPrefix {
-				for _, proxyIPaddr := range cb.proxyIPAddresses {
-					edAddr := net.ParseIP(proxyIPaddr)
-					if edAddr.To4() != nil {
-						endpointAddress = proxyIPaddr
+				for _, proxyIPAddr := range cb.proxyIPAddresses {
+					if netutil.IsIPv4Address(proxyIPAddr) {
+						endpointAddress = proxyIPAddr
 						break
 					}
 				}
@@ -465,13 +465,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 					endpointAddress = model.LocalhostAddressPrefix
 				}
 			} else if hostIP == model.PodIPv6AddressPrefix {
-				for _, proxyIPaddr := range cb.proxyIPAddresses {
-					edAddr := net.ParseIP(proxyIPaddr)
-					if edAddr.To4() == nil {
-						if edAddr.To16() != nil {
-							endpointAddress = proxyIPaddr
-							break
-						}
+				for _, proxyIPAddr := range cb.proxyIPAddresses {
+					if netutil.IsIPv6Address(proxyIPAddr) {
+						endpointAddress = proxyIPAddr
+						break
 					}
 				}
 				// if there is no any IPv6 address in proxyIPAddresses
@@ -835,8 +832,8 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 		// 1024 is the default value for envoy.
 		minRingSize := &wrappers.UInt64Value{Value: 1024}
 
-		if consistentHash.MinimumRingSize != 0 { //nolint: staticcheck
-			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} //nolint: staticcheck
+		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
+			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} // nolint: staticcheck
 		}
 		c.LbPolicy = cluster.Cluster_RING_HASH
 		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{

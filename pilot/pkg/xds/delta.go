@@ -480,7 +480,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		// similar to sotw
 		subscribed := sets.New(w.ResourceNames...)
 		subscribed.DeleteAll(currentResources...)
-		resp.RemovedResources = subscribed.SortedList()
+		resp.RemovedResources = sets.SortedList(subscribed)
 	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
@@ -563,7 +563,7 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
-	return res.SortedList()
+	return sets.SortedList(res)
 }
 
 func extractNames(res []*discovery.Resource) []string {
