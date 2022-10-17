@@ -156,6 +156,12 @@ func NewTranslator() *Translator {
 				ToHelmValuesTreeRoot: "global",
 				SkipReverseTranslate: true,
 			},
+			name.ZtunnelComponentName: {
+				ResourceType:         "DaemonSet",
+				ResourceName:         "ztunnel",
+				HelmSubdir:           "ztunnel",
+				ToHelmValuesTreeRoot: "ztunnel",
+			},
 		},
 		// nolint: lll
 		KubernetesMapping: map[string]*Translation{

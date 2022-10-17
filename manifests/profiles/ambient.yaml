@@ -19,6 +19,8 @@ spec:
   components:
     cni:
       enabled: true
+    ztunnel:
+      enabled: true
 
   values:
     pilot:

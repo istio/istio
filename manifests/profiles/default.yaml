@@ -33,7 +33,10 @@ spec:
     # Istio CNI feature
     cni:
       enabled: false
-    
+
+    ztunnel:
+      enabled: false
+
     # Remote and config cluster configuration for an external istiod
     istiodRemote:
       enabled: false

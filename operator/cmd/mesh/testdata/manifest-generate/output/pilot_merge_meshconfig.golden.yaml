@@ -19,6 +19,8 @@ data:
       {
         "key": "val"
       }
+    ambientMesh:
+      mode: "OFF"
     defaultConfig:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
