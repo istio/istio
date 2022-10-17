@@ -1087,9 +1087,6 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:       durationpb.New(2 * time.Second),
 		CleanupInterval:      durationpb.New(60 * time.Second),
-		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
-			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{UseHttpHeader: true},
-		},
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
