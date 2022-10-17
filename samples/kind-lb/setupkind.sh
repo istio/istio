@@ -134,8 +134,8 @@ fi
 # Setup cluster context
 kubectl cluster-info --context "kind-${CLUSTERNAME}"
 
-# Setup metallb using v0.13.5
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.5/config/manifests/metallb-native.yaml
+# Setup metallb using v0.13.6
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.6/config/manifests/metallb-native.yaml
 
 addrName="IPAddress"
 ipv4Prefix=""
