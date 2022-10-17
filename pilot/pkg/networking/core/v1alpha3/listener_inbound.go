@@ -158,7 +158,8 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		Name:    "connect",
 		Domains: []string{"*"},
 	}
-	for _, cc := range lb.buildInboundChainConfigs() {
+	inboundChainConfigs := lb.buildInboundChainConfigs()
+	for _, cc := range inboundChainConfigs {
 		// TODO passthrough
 		p := cc.port.TargetPort
 		name := fmt.Sprintf("inbound-hbone|%d", p)
@@ -184,7 +185,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		Address: util.BuildAddress("0.0.0.0", 15008),
 		FilterChains: []*listener.FilterChain{
 			{
-				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForPort(15008).TCP),
+				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
 				Filters: []*listener.Filter{
 					xdsfilters.CaptureTLS,
 					{
@@ -221,7 +222,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	listeners = append(listeners, l)
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
-	for _, cc := range lb.buildInboundChainConfigs() {
+	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 		// Internal chain has no mTLS

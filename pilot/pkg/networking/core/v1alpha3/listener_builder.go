@@ -98,6 +98,9 @@ func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
 	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	if lb.node.EnableHBONE() {
+		lb.outboundListeners = append(lb.outboundListeners, outboundTunnelListener(lb.push, lb.node))
+	}
 	return lb
 }
 
