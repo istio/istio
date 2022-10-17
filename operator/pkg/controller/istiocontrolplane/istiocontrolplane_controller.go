@@ -190,41 +190,13 @@ var (
 				metrics.IncrementReconcileRequest("update_deletion_timestamp")
 				return true
 			}
+
 			if oldIOP.GetGeneration() != newIOP.GetGeneration() {
 				metrics.IncrementReconcileRequest("update_generation")
 				return true
 			}
-			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) {
-				// hach for configuration like following:
-				//   apiVersion: install.istio.io/v1alpha1
-				//   kind: IstioOperator
-				//   metadata:
-				//     name: istio
-				//     namespace: istio-system
-				//   spec:
-				//     meshConfig:
-				//       defaultConfig:
-				//         proxyMetadata: {}
-				// reflect.DeepEqual always return false even there's no changes in spec
-				oldSpecJSON, err := oldIOP.Spec.MarshalJSON()
-				if err != nil {
-					scope.Error("failed to marshal IstioOperator")
-					return false
-				}
-				newSpecJSON, err := newIOP.Spec.MarshalJSON()
-				if err != nil {
-					scope.Error("failed to marshal IstioOperator")
-					return false
-				}
 
-				if bytes.Equal(oldSpecJSON, newSpecJSON) {
-					return false
-				}
-
-				metrics.IncrementReconcileRequest("update_spec")
-				return true
-			}
-
+			// if generation unchanged, spec also unchanged
 			return false
 		},
 	}
