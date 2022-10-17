@@ -390,7 +390,9 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 
 	supportsTunnel := false
 	// Otherwise supports tunnel
-	if tm := e.Labels[model.TunnelLabel]; tm == model.TunnelH2 {
+	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
+	// need to pick the right one based on our support overlap.
+	if e.SupportsTunnel(model.TunnelHTTP) {
 		supportsTunnel = true
 	}
 	if proxyless {
@@ -409,7 +411,7 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
 			},
 		}
 	}
