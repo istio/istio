@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: enhancement
+area: security
+
+issue:
+- 41308
+
+releaseNotes:
+- |
+  **Added** An optional environment variable DISABLE_AGENT_SDS that inhibits the startup of the SDS server inside the agent
+  even when the well-known /var/run/secrets/workload-spiffe-uds/socket does not exist. This is useful when the SPIRE agent
+  will be used to implement SDS on that socket instead but might not have started yet.
