@@ -129,7 +129,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 				credNameGeneric    = "mtls-credential-generic"
 				credNameNotGeneric = "mtls-credential-not-generic"
 				fakeCredNameA      = "fake-mtls-credential-a"
-				fakeCredNameB      = "fake-mtls-credential-b"
 				credNameMissing    = "mtls-credential-not-created"
 				simpleCredName     = "tls-credential-simple-cacert"
 			)
@@ -152,13 +151,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, fakeCredNameA, ingressutil.Mtls, ingressutil.IngressCredential{
 				Certificate: sdstlsutil.FakeCert,
 				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
-			}, false)
-
-			// Configured with an invalid ClientCert and PrivateKey
-			ingressutil.CreateIngressKubeSecret(t, fakeCredNameB, ingressutil.Mtls, ingressutil.IngressCredential{
-				Certificate: sdstlsutil.FakeCert,
-				PrivateKey:  sdstlsutil.FakeKey,
 				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
 			}, false)
 
