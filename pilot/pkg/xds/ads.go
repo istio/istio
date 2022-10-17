@@ -535,11 +535,11 @@ func connectionID(node string) string {
 func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
-		return nil, err
+		return nil, status.New(codes.InvalidArgument, err.Error()).Err()
 	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
-		return nil, err
+		return nil, status.New(codes.InvalidArgument, err.Error()).Err()
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
