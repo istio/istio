@@ -186,8 +186,8 @@ type AgentOptions struct {
 
 	WASMOptions wasm.Options
 
-	// Prevents the SDS Server socket from being created by Istio
-	DisableSdsServer bool
+	// Prevents the SDS Server socket from being created by the agent
+	DisableAgentSds bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -333,7 +333,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
-	if a.cfg.DisableSdsServer {
+	if a.cfg.DisableAgentSds {
 		log.Info("SDS Server disabled. Not starting Istio SDS Server.")
 	} else {
 		socketExists, err := checkSocket(ctx, security.WorkloadIdentitySocketPath)
