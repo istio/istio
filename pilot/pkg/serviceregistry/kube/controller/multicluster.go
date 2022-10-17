@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/webhooks"
 )
 
@@ -256,6 +257,12 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		}
 	}
 
+	// namespacecontroller requires discoverySelectors only if EnableEnhancedResourceScoping feature flag is set.
+	discoveryNamespacesFilter := namespace.DiscoveryNamespacesFilter(nil)
+	if features.EnableEnhancedResourceScoping {
+		discoveryNamespacesFilter = kubeRegistry.opts.DiscoveryNamespacesFilter
+	}
+
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
@@ -271,7 +278,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
-					nc := NewNamespaceController(client, m.caBundleWatcher)
+					nc := NewNamespaceController(client, m.caBundleWatcher, discoveryNamespacesFilter)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are

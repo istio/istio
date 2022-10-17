@@ -667,8 +667,8 @@ var (
 	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
 
 	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", false,
-		"If enabled, meshConfig.discoverySelectors will also limit the configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
-			"that can be processed by pilot.").Get()
+		"If enabled, meshConfig.discoverySelectors will limit the CustomResource configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
+			"that can be processed by pilot. This will also restrict the root-ca certificate distribution.").Get()
 
 	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
 		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
