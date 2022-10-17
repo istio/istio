@@ -15,11 +15,9 @@
 package istiocontrolplane
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
