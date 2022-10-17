@@ -1023,10 +1023,13 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 		return nil
 	}
 	clusters := make([]*cluster.Cluster, 0)
+	names := sets.New[string]()
 	for _, i := range instances {
 		p := i.Endpoint.EndpointPort
 		name := fmt.Sprintf("inbound-hbone|%d", p)
-		clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
+		if !names.InsertContains(name) {
+			clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
+		}
 	}
 	return clusters
 }
@@ -1082,10 +1085,10 @@ var InternalUpstreamSocket = &core.TransportSocket{
 
 func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	return &cluster.Cluster{
-		Name:                 "tunnel",
+		Name:                 "outbound-tunnel",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       durationpb.New(2 * time.Second),
+		ConnectTimeout:       push.Mesh.ConnectTimeout,
 		CleanupInterval:      durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
@@ -1111,7 +1114,7 @@ func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext, inb
 	ctx := &tls.CommonTlsContext{}
 	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
 
-	ctx.AlpnProtocols = []string{"h2"}
+	ctx.AlpnProtocols = util.ALPNH2Only
 
 	ctx.TlsParams = &tls.TlsParameters{
 		// Ensure TLS 1.3 is used everywhere for HBONE

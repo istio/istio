@@ -114,11 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	}
 
 	builder.patchListeners()
-	l := builder.getListeners()
-	if node.EnableHBONE() {
-		l = append(l, outboundTunnelListener(push, node))
-	}
-	return l
+	return builder.getListeners()
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
@@ -1642,11 +1638,9 @@ func listenerKey(bind string, port int) string {
 
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
-// outboundTunnelListener is built for each ServiceAccount from pods on the node.
-// This listener adds the original destination headers from the dynamic EDS metadata pass through.
-// We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
+// outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
 func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := "tunnel"
+	name := "outbound-tunnel"
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
 	p := &tcp.TcpProxy{
