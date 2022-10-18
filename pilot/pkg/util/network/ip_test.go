@@ -34,10 +34,12 @@ func determineLocalHostIPString(t *testing.T) string {
 	}
 	var ret string
 	for _, ip := range ips {
-		if ip.Is6() {
-			ret = fmt.Sprintf("[%s]", ip.String())
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapIP := ip.Unmap()
+		if unwrapIP.Is6() {
+			ret = fmt.Sprintf("[%s]", unwrapIP.String())
 		} else {
-			return ip.String()
+			return unwrapIP.String()
 		}
 	}
 	return ret
@@ -86,7 +88,7 @@ func TestResolveAddr(t *testing.T) {
 		{
 			name:     "Host by IPv4",
 			input:    "127.0.0.1:9080",
-			expected: "[::ffff:127.0.0.1]:9080",
+			expected: "127.0.0.1:9080",
 			errStr:   "",
 			lookup:   nil,
 		},
