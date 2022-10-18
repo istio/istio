@@ -28,8 +28,8 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
-	label2 "istio.io/api/label"
 
+	label2 "istio.io/api/label"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
