@@ -142,10 +142,12 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	}
 	var resolvedAddr string
 
-	for _, address := range addrs {
-		tmpAddPort := netip.AddrPortFrom(address, port)
+	for _, addr := range addrs {
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := addr.Unmap()
+		tmpAddPort := netip.AddrPortFrom(unwrapAddr, port)
 		resolvedAddr = tmpAddPort.String()
-		if address.Is4() {
+		if unwrapAddr.Is4() {
 			break
 		}
 	}
@@ -163,7 +165,9 @@ func AllIPv6(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.Is4() {
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := addr.Unmap()
+		if unwrapAddr.Is4() {
 			return false
 		}
 	}
@@ -180,7 +184,9 @@ func AllIPv4(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-		if !addr.Is4() && addr.Is6() {
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := addr.Unmap()
+		if !unwrapAddr.Is4() && unwrapAddr.Is6() {
 			return false
 		}
 	}
