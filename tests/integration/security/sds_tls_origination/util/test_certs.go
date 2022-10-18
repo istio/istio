@@ -17,6 +17,20 @@
 
 package sdstlsutil
 
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/util/retry"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
 const (
 	FakeRoot = `-----BEGIN CERTIFICATE-----
 MIIDEzCCAfugAwIBAgIUFN9C752sxgbtG2/66BsCrNKstmswDQYJKoZIhvcNAQEL
@@ -84,3 +98,119 @@ AcCmGiv5+fUBaa/AgMDBD3YKxFRkEEx8ns2C/R2EGtSoNbLmoVxPqsc13/rVcR2b
 pNCxV9Zp0EA6qmvtb5A+tBo4BTRIZbAZ1jOZcjP4lOl+cA7FoNk6f9OE
 -----END RSA PRIVATE KEY-----`
 )
+
+// CreateRoleForSecretAccessInNamespace creates Roles in given namespace for listing secrets
+func CreateRoleForSecretAccessInNamespace(t framework.TestContext, roleName string, namespace string, clusters ...cluster.Cluster,
+) {
+	t.Helper()
+
+	// Create Kubernetes role for secret access
+	wg := multierror.Group{}
+	if len(clusters) == 0 {
+		clusters = t.Clusters()
+	}
+	for _, c := range clusters {
+		c := c
+		wg.Go(func() error {
+			role := &rbacv1.Role{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Role",
+					APIVersion: "rbac.authorization.k8s.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      roleName,
+					Namespace: namespace,
+				},
+				Rules: []rbacv1.PolicyRule{
+					rbacv1.PolicyRule{
+						Verbs:     []string{"list"},
+						Resources: []string{"secrets"},
+						APIGroups: []string{""},
+					},
+				},
+			}
+			_, err := c.Kube().RbacV1().Roles(namespace).Create(context.TODO(), role, metav1.CreateOptions{})
+			if err != nil {
+				if errors.IsAlreadyExists(err) {
+					if _, err := c.Kube().RbacV1().Roles(namespace).Update(context.TODO(), role, metav1.UpdateOptions{}); err != nil {
+						return fmt.Errorf("failed to update roles (error: %s)", err)
+					}
+				} else {
+					return fmt.Errorf("failed to update roles (error: %s)", err)
+				}
+			}
+			// Check if Kubernetes role is ready
+			return retry.UntilSuccess(func() error {
+				_, err := c.Kube().RbacV1().Roles(namespace).Get(context.TODO(), "test", metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("role %v not found: %v", "test", err)
+				}
+				return nil
+			}, retry.Timeout(time.Second*5))
+		})
+	}
+	if err := wg.Wait().ErrorOrNil(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// CreateRoleForSecretAccessInNamespace creates RoleBindings in given namespace for
+// authorizing specific serviceAccounts to list secrets in the namespace.
+func CreateRoleBindingForSecretAccessInNamespace(t framework.TestContext, roleName string, namespace string, subject string, clusters ...cluster.Cluster,
+) {
+	t.Helper()
+
+	// Create Kubernetes role for secret access
+	wg := multierror.Group{}
+	if len(clusters) == 0 {
+		clusters = t.Clusters()
+	}
+	for _, c := range clusters {
+		c := c
+		wg.Go(func() error {
+			roleBinding := &rbacv1.RoleBinding{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RoleBinding",
+					APIVersion: "rbac.authorization.k8s.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      roleName,
+					Namespace: namespace,
+				},
+				Subjects: []rbacv1.Subject{
+					rbacv1.Subject{
+						Kind:      "ServiceAccount",
+						Namespace: namespace,
+						Name:      subject,
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "Role",
+					Name:     roleName,
+				},
+			}
+			_, err := c.Kube().RbacV1().RoleBindings(namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{})
+			if err != nil {
+				if errors.IsAlreadyExists(err) {
+					if _, err := c.Kube().RbacV1().RoleBindings(namespace).Update(context.TODO(), roleBinding, metav1.UpdateOptions{}); err != nil {
+						return fmt.Errorf("failed to update rolebindings (error: %s)", err)
+					}
+				} else {
+					return fmt.Errorf("failed to update rolebindings (error: %s)", err)
+				}
+			}
+			// Check if Kubernetes role is ready
+			return retry.UntilSuccess(func() error {
+				_, err := c.Kube().RbacV1().RoleBindings(namespace).Get(context.TODO(), "test", metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("rolebinding %v not found: %v", "test", err)
+				}
+				return nil
+			}, retry.Timeout(time.Second*5))
+		})
+	}
+	if err := wg.Wait().ErrorOrNil(); err != nil {
+		t.Fatal(err)
+	}
+}
