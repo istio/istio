@@ -107,6 +107,7 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 			newExtensionConfig, err = createAllowAllFilter(ec.GetName())
 			if err != nil {
 				// If the fallback is failing, send the Nack regardless of fail_open.
+				wasmLog.Infof("failed to create allow-all filter as a fallback of %s Wasm Module.", ec.GetName())
 				sendNack = true
 			}
 		}
