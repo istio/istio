@@ -267,7 +267,7 @@ func initProxy(args []string) (*model.Proxy, error) {
 		}
 	}
 
-	addrIP, _ := netip.ParseAddr(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
+	podIP, _ := netip.ParseAddr(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
 	if podIP.IsValid() {
 		// unwrap the IPv4-mapped IPv6 address
 		unwrapAddr := podIP.Unmap()
