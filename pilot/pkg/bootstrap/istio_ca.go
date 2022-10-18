@@ -270,7 +270,7 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 	}
 
 	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
-		context.TODO(), "cacerts", metav1.GetOptions{})
+		context.TODO(), ca.ExternalCASecret, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
