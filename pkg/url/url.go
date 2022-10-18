@@ -18,15 +18,18 @@ import (
 	"fmt"
 
 	"istio.io/istio/operator/version"
+	buildversion "istio.io/pkg/version"
 )
 
 var (
 	v            = version.OperatorBinaryVersion
 	baseVersion  = v.MinorVersion.String()
 	patchVersion = v.PatchVersion.String()
+	buildArch    = buildversion.DockerInfo.Arch
 
 	// ReleaseTar is a URL to download latest istio version from Github release
-	ReleaseTar = `https://github.com/istio/istio/releases/download/` + patchVersion + `/istio-` + patchVersion + `-linux-amd64.tar.gz`
+	ReleaseTar = `https://github.com/istio/istio/releases/download/` + patchVersion + `/istio-` + patchVersion +
+		`-linux-` + buildArch + `.tar.gz`
 )
 
 // istio.io related URLs
