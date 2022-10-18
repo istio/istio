@@ -139,7 +139,7 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	} else {
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
 		// this matches Istio log format
-		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%# %v thread=%t")
+		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v thread=%t")
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
