@@ -20,12 +20,11 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	anypb "google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -34,25 +33,8 @@ import (
 )
 
 var (
-	allowWasmHTTPFilter = &wasm.Wasm{
-		Config: &wasmv3.PluginConfig{
-			// Do nothing, just bypass traffics.
-			Configuration: protoconv.MessageToAny(&wrapperspb.StringValue{Value: "{}"}),
-			Vm: &wasmv3.PluginConfig_VmConfig{
-				VmConfig: &wasmv3.VmConfig{
-					Code: &core.AsyncDataSource{
-						Specifier: &core.AsyncDataSource_Local{
-							Local: &core.DataSource{
-								Specifier: &core.DataSource_InlineString{InlineString: "envoy.wasm.attributegen"},
-							},
-						},
-					},
-					Runtime: "envoy.wasm.runtime.null",
-				},
-			},
-		},
-	}
-	allowTypedConfig = protoconv.MessageToAny(allowWasmHTTPFilter)
+	allowWasmHTTPFilter = &rbac.RBAC{}
+	allowTypedConfig    = protoconv.MessageToAny(allowWasmHTTPFilter)
 )
 
 func createAllowAllFilter(name string) (*anypb.Any, error) {

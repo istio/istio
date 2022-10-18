@@ -209,10 +209,10 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	}
 }
 
-func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
+func buildAnyExtensionConfig(name string, msg proto.Message) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: protoconv.MessageToAny(wasm),
+		TypedConfig: protoconv.MessageToAny(msg),
 	}
 }
 
@@ -271,7 +271,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			},
 		},
 	}),
-	"remote-load-success-local-file": buildWasmExtensionConfig("remote-load-success", &wasm.Wasm{
+	"remote-load-success-local-file": buildAnyExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
 				VmConfig: &v3.VmConfig{
@@ -317,7 +317,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
-	"remote-load-allow": buildWasmExtensionConfig("remote-load-fail", allowWasmHTTPFilter),
+	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", allowWasmHTTPFilter),
 	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
