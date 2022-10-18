@@ -131,6 +131,7 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	cidr, err := AddrStrToCidrRange(addr)
 	if err != nil {
 		log.Errorf("failed to convert address %s to CidrRange: %v", addr, err)
+		return nil
 	}
 
 	return cidr
