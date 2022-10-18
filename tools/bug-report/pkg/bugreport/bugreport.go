@@ -29,6 +29,7 @@ import (
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 
+	label2 "istio.io/api/label"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -49,7 +50,6 @@ import (
 
 const (
 	bugReportDefaultTimeout = 30 * time.Minute
-	istioRevisionLabel      = "istio.io/rev"
 )
 
 var (
@@ -215,7 +215,7 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 	revMap := sets.New[string]()
 	for _, podLabels := range resources.Labels {
 		for label, value := range podLabels {
-			if label == istioRevisionLabel {
+			if label == label2.IoIstioRev.Name {
 				revMap.Insert(value)
 			}
 		}
