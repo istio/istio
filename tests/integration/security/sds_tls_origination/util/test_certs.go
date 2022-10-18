@@ -23,12 +23,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/util/retry"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -122,7 +123,7 @@ func CreateRoleForSecretAccessInNamespace(t framework.TestContext, roleName stri
 					Namespace: namespace,
 				},
 				Rules: []rbacv1.PolicyRule{
-					rbacv1.PolicyRule{
+					{
 						Verbs:     []string{"list"},
 						Resources: []string{"secrets"},
 						APIGroups: []string{""},
@@ -178,7 +179,7 @@ func CreateRoleBindingForSecretAccessInNamespace(t framework.TestContext, roleNa
 					Namespace: namespace,
 				},
 				Subjects: []rbacv1.Subject{
-					rbacv1.Subject{
+					{
 						Kind:      "ServiceAccount",
 						Namespace: namespace,
 						Name:      subject,

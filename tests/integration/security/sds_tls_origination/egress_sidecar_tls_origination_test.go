@@ -117,7 +117,8 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 }
 
 func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string,
-	workloadSelector string, credentialName string, clientNamespace namespace.Instance) {
+	workloadSelector string, credentialName string, clientNamespace namespace.Instance,
+) {
 	args := map[string]any{
 		"to":               to,
 		"Mode":             destinationRuleMode,
