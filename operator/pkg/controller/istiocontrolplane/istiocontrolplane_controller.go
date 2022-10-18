@@ -365,9 +365,11 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, helmReconcilerOptions)
 	if err != nil {
+		scope.Errorf("Error during reconcile. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 	if err := reconciler.SetStatusBegin(); err != nil {
+		scope.Errorf("Error during reconcile, failed to update status to Begin. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 	status, err := reconciler.Reconcile()
@@ -375,6 +377,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		scope.Errorf("Error during reconcile: %s", err)
 	}
 	if err := reconciler.SetStatusComplete(status); err != nil {
+		scope.Errorf("Error during reconcile, failed to update status to Complete. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 
