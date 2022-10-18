@@ -216,7 +216,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	services []*model.Service,
 ) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
-	efKeys := cp.efw.Keys()
+	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
 		for _, port := range service.Ports {
@@ -372,6 +372,54 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
+func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
+	instances []*model.ServiceInstance, cp clusterPatcher,
+	enableSidecarServiceInboundListenerMerge bool,
+) []*cluster.Cluster {
+	clusters := make([]*cluster.Cluster, 0)
+	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
+	clustersToBuild := make(map[int][]*model.ServiceInstance)
+
+	ingressPortListSet := sets.New[int]()
+	sidecarScope := proxy.SidecarScope
+	if sidecarScope.HasIngressListener() {
+		ingressPortListSet = getSidecarIngressPortList(proxy)
+	}
+	for _, instance := range instances {
+		// For service instances with the same port,
+		// we still need to capture all the instances on this port, as its required to populate telemetry metadata
+		// The first instance will be used as the "primary" instance; this means if we have an conflicts between
+		// Services the first one wins
+		ep := int(instance.Endpoint.EndpointPort)
+		clustersToBuild[ep] = append(clustersToBuild[ep], instance)
+	}
+
+	bind := actualLocalHost
+	if features.EnableInboundPassthrough {
+		bind = ""
+	}
+	// For each workload port, we will construct a cluster
+	for epPort, instances := range clustersToBuild {
+		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
+			ingressPortListSet.Contains(int(instances[0].Endpoint.EndpointPort)) {
+			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
+			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
+			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
+			// port present in sidecarIngress listener so let sidecar take precedence
+			continue
+		}
+		// The inbound cluster port equals to endpoint port.
+		localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, instances[0], instances)
+		// If inbound cluster match has service, we should see if it matches with any host name across all instances.
+		hosts := make([]host.Name, 0, len(instances))
+		for _, si := range instances {
+			hosts = append(hosts, si.Service.Hostname)
+		}
+		clusters = cp.conditionallyAppend(clusters, hosts, localCluster.build())
+	}
+	return clusters
+}
+
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance,
 	cp clusterPatcher,
 ) []*cluster.Cluster {
@@ -395,35 +443,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		if noneMode {
 			return nil
 		}
-
-		clustersToBuild := make(map[int][]*model.ServiceInstance)
-		for _, instance := range instances {
-			// For service instances with the same port,
-			// we still need to capture all the instances on this port, as its required to populate telemetry metadata
-			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
-			// Services the first one wins
-			ep := int(instance.Endpoint.EndpointPort)
-			clustersToBuild[ep] = append(clustersToBuild[ep], instance)
-		}
-
-		bind := actualLocalHost
-		if features.EnableInboundPassthrough {
-			bind = ""
-		}
-		// For each workload port, we will construct a cluster
-		for epPort, instances := range clustersToBuild {
-			// The inbound cluster port equals to endpoint port.
-			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, instances[0], instances)
-			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
-			hosts := make([]host.Name, 0, len(instances))
-			for _, si := range instances {
-				hosts = append(hosts, si.Service.Hostname)
-			}
-			clusters = cp.conditionallyAppend(clusters, hosts, localCluster.build())
-		}
+		clusters = configgen.buildClustersFromServiceInstances(cb, proxy, instances, cp, false)
 		return clusters
 	}
 
+	if features.EnableSidecarServiceInboundListenerMerge {
+		// only allow to merge inbound listeners if sidecar has ingress listener and pilot has env EnableSidecarServiceInboundListenerMerge set
+		clusters = configgen.buildClustersFromServiceInstances(cb, proxy, instances, cp, true)
+	}
 	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
 		// LDS would have setup the inbound clusters
 		// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
@@ -479,7 +506,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 				endpointAddress = actualLocalHost
 			}
 		}
-
 		// Find the service instance that corresponds to this ingress listener by looking
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
@@ -492,7 +518,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, instance, nil)
 		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster.build())
 	}
-
 	return clusters
 }
 

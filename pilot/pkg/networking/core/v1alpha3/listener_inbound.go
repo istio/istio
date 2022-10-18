@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -277,6 +278,66 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 	return chains
 }
 
+func getSidecarIngressPortList(node *model.Proxy) sets.Set[int] {
+	sidecarScope := node.SidecarScope
+	ingressPortListSet := sets.New[int]()
+	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+		ingressPortListSet.Insert(int(ingressListener.Port.Number))
+	}
+	return ingressPortListSet
+}
+
+func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]inboundChainConfig,
+	enableSidecarServiceInboundListenerMerge bool,
+) map[uint32]inboundChainConfig {
+	ingressPortListSet := sets.New[int]()
+	sidecarScope := lb.node.SidecarScope
+	if sidecarScope.HasIngressListener() {
+		ingressPortListSet = getSidecarIngressPortList(lb.node)
+	}
+	for _, i := range lb.node.ServiceInstances {
+		port := ServiceInstancePort{
+			Name:       i.ServicePort.Name,
+			Port:       uint32(i.ServicePort.Port),
+			TargetPort: i.Endpoint.EndpointPort,
+			Protocol:   i.ServicePort.Protocol,
+		}
+		actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
+		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
+			ingressPortListSet.Contains(int(port.Port)) {
+			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
+			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
+			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
+			// port present in sidecarIngress listener so let sidecar take precedence
+			continue
+		}
+		cc := inboundChainConfig{
+			telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},
+			port:              port,
+			clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
+			bind:              actualWildcards[0],
+			bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
+		}
+		// add extra binding addresses
+		if len(actualWildcards) > 1 {
+			cc.extraBind = actualWildcards[1:]
+		}
+		if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
+			cc.telemetryMetadata.KubernetesServiceNamespace = i.Service.Attributes.Namespace
+			cc.telemetryMetadata.KubernetesServiceName = i.Service.Attributes.Name
+		}
+		// First, make sure there is a distinct instance used per port.
+		// The Service is *almost* not relevant, but some Telemetry is per-service.
+		// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
+		if old, f := chainsByPort[port.TargetPort]; f {
+			reportInboundConflict(lb, old, cc)
+			continue
+		}
+		chainsByPort[port.TargetPort] = cc
+	}
+	return chainsByPort
+}
+
 // buildInboundChainConfigs builds all the application chain configs.
 func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 	chainsByPort := make(map[uint32]inboundChainConfig)
@@ -289,43 +350,13 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		if lb.node.GetInterceptionMode() == model.InterceptionNone {
 			return nil
 		}
-
-		// We will look at all Services that apply to this proxy and build chains for each distinct port.
-		// Note: this does mean that we may have multiple Services applying to the same port, which introduces a conflict
-		for _, i := range lb.node.ServiceInstances {
-			port := ServiceInstancePort{
-				Name:       i.ServicePort.Name,
-				Port:       uint32(i.ServicePort.Port),
-				TargetPort: i.Endpoint.EndpointPort,
-				Protocol:   i.ServicePort.Protocol,
-			}
-
-			actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
-			cc := inboundChainConfig{
-				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: i.Service.Hostname},
-				port:              port,
-				clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
-				bind:              actualWildcards[0],
-				bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
-			}
-			// add extra binding addresses
-			if len(actualWildcards) > 1 {
-				cc.extraBind = actualWildcards[1:]
-			}
-			if i.Service.Attributes.ServiceRegistry == provider.Kubernetes {
-				cc.telemetryMetadata.KubernetesServiceNamespace = i.Service.Attributes.Namespace
-				cc.telemetryMetadata.KubernetesServiceName = i.Service.Attributes.Name
-			}
-			// First, make sure there is a distinct instance used per port.
-			// The Service is *almost* not relevant, but some Telemetry is per-service.
-			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
-			if old, f := chainsByPort[port.TargetPort]; f {
-				reportInboundConflict(lb, old, cc)
-				continue
-			}
-			chainsByPort[port.TargetPort] = cc
+		chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, false)
+	} else if lb.node.SidecarScope.HasIngressListener() {
+		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
+		if features.EnableSidecarServiceInboundListenerMerge {
+			chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
 		}
-	} else {
+
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
 			port := ServiceInstancePort{
 				Name:       i.Port.Name,
@@ -375,7 +406,6 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			chainsByPort[port.TargetPort] = cc
 		}
 	}
-
 	chainConfigs := make([]inboundChainConfig, 0, len(chainsByPort))
 	for _, cc := range chainsByPort {
 		chainConfigs = append(chainConfigs, cc)

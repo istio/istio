@@ -166,6 +166,17 @@ func TestInboundListenerConfig(t *testing.T) {
 		testInboundListenerConfigWithGrpc(t, getProxy(),
 			buildService("test1.com", wildcardIPv4, protocol.GRPC, tnow.Add(1*time.Second)))
 	})
+
+	t.Run("merge sidecar ingress ports and service ports", func(t *testing.T) {
+		features.EnableSidecarServiceInboundListenerMerge = true
+		testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t, getProxy(),
+			buildService("test1.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second)))
+	})
+	t.Run("merge sidecar ingress and service ports, same port in both sidecar and service", func(t *testing.T) {
+		features.EnableSidecarServiceInboundListenerMerge = true
+		testInboundListenerConfigWithSidecar(t, getProxy(),
+			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
+	})
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
@@ -1433,6 +1444,48 @@ func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, service
 			},
 		},
 	})
+}
+
+func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	sidecarConfig := config.Config{
+		Meta: config.Meta{
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8083,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:8083",
+				},
+				{
+					Port: &networking.Port{
+						Number:   8084,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:8084",
+				},
+			},
+		},
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services: services,
+		Configs:  []config.Config{sidecarConfig},
+	}, proxy)
+	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+	if len(l.FilterChains) != 12 {
+		t.Fatalf("expected %d listener filter chains, found %d", 12, len(l.FilterChains))
+	}
+	verifyFilterChainMatch(t, l)
 }
 
 func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {

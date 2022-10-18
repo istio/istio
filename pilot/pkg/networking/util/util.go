@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -116,16 +117,6 @@ var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 // RegexEngine is the default google RE2 regex engine.
 var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
-func getMaxCidrPrefix(addr string) uint32 {
-	ip := net.ParseIP(addr)
-	if ip.To4() == nil {
-		// ipv6 address
-		return 128
-	}
-	// ipv4 address
-	return 32
-}
-
 func ListContains(haystack []string, needle string) bool {
 	for _, n := range haystack {
 		if needle == n {
@@ -137,24 +128,48 @@ func ListContains(haystack []string, needle string) bool {
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
-	if len(addr) == 0 {
-		return nil
+	cidr, err := AddrStrToCidrRange(addr)
+	if err != nil {
+		log.Errorf("failed to convert address %s to CidrRange: %v", addr, err)
 	}
 
-	cidr := &core.CidrRange{
-		AddressPrefix: addr,
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: getMaxCidrPrefix(addr),
-		},
+	return cidr
+}
+
+// AddrStrToCidrRange converts from string to CIDR proto
+func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
+	if len(addr) == 0 {
+		return nil, fmt.Errorf("empty address")
 	}
+
+	var (
+		ipAddr        netip.Addr
+		maxCidrPrefix int
+	)
 
 	if strings.Contains(addr, "/") {
-		parts := strings.Split(addr, "/")
-		cidr.AddressPrefix = parts[0]
-		prefix, _ := strconv.Atoi(parts[1])
-		cidr.PrefixLen.Value = uint32(prefix)
+		ipp, err := netip.ParsePrefix(addr)
+		if err != nil {
+			return nil, err
+		}
+		ipAddr = ipp.Addr()
+		maxCidrPrefix = ipp.Bits()
+	} else {
+		ipa, err := netip.ParseAddr(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		ipAddr = ipa
+		maxCidrPrefix = ipAddr.BitLen()
 	}
-	return cidr
+
+	return &core.CidrRange{
+		AddressPrefix: ipAddr.String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(maxCidrPrefix),
+		},
+	}, nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -637,15 +652,15 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	}
 
 	for i := range a {
-		netA, err := toIPNet(a[i])
+		netA, err := toMaskedPrefix(a[i])
 		if err != nil {
 			return false
 		}
-		netB, err := toIPNet(b[i])
+		netB, err := toMaskedPrefix(b[i])
 		if err != nil {
 			return false
 		}
-		if netA.IP.String() != netB.IP.String() {
+		if netA.Addr().String() != netB.Addr().String() {
 			return false
 		}
 	}
@@ -653,12 +668,13 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	return true
 }
 
-func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
-	_, cA, err := net.ParseCIDR(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
+func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
+	ipp, err := netip.ParsePrefix(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
 	if err != nil {
 		log.Errorf("failed to parse CidrRange %v as IPNet: %v", c, err)
 	}
-	return cA, err
+
+	return ipp.Masked(), err
 }
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1

@@ -61,7 +61,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
-		envoyfilterKeys := efw.Keys()
+		envoyfilterKeys := efw.KeysApplyingTo(
+			networking.EnvoyFilter_ROUTE_CONFIGURATION,
+			networking.EnvoyFilter_VIRTUAL_HOST,
+			networking.EnvoyFilter_HTTP_ROUTE,
+		)
 		for _, routeName := range routeNames {
 			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
