@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/40605
+releaseNotes:
+  - |
+    **Added** multi-arch detection for manifest URL path.
