@@ -57,7 +57,7 @@ const (
 	TLSSecretRootCertFile = "ca.crt"
 	// The standard key size to use when generating an RSA private key
 	rsaKeySize = 2048
-	//ExternalCASecret stores the key/cert of self-signed CA from external Istiod.
+	// ExternalCASecret stores the key/cert of self-signed CA from external Istiod.
 	ExternalCASecret = "cacerts"
 )
 
