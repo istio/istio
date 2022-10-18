@@ -450,7 +450,7 @@ func newPortForward(c cluster.Cluster, pod corev1.Pod, port int) (kube.PortForwa
 	// add a retry loop since sometimes reserving a port fails
 	err := retry.UntilSuccess(func() error {
 		var err error
-		fw, err = c.NewPortForwarder(pod.Name, pod.Namespace, "127.0.0.1", 0, port)
+		fw, err = c.NewPortForwarder(pod.Name, pod.Namespace, "", 0, port)
 		if err != nil {
 			return err
 		}

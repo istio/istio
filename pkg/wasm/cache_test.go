@@ -714,7 +714,7 @@ func TestWasmCache(t *testing.T) {
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
 					t.Errorf("Wasm module cache lookup got no error, want error prefix `%v`", c.wantErrorMsgPrefix)
-				} else if !strings.HasPrefix(gotErr.Error(), c.wantErrorMsgPrefix) {
+				} else if !strings.Contains(gotErr.Error(), c.wantErrorMsgPrefix) {
 					t.Errorf("Wasm module cache lookup got error `%v`, want error prefix `%v`", gotErr, c.wantErrorMsgPrefix)
 				}
 			} else if gotFilePath != wantFilePath {

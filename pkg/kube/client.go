@@ -802,7 +802,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
+	fw, err := c.NewPortForwarder(podName, podNamespace, "", 0, port)
 	if err != nil {
 		return nil, err
 	}
