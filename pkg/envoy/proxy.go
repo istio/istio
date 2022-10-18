@@ -134,8 +134,12 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,
 			"--log-format",
-			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j"}`,
+			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j","loc":"%g:%#","tid":"%t"}`,
 		)
+	} else {
+		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
+		// this matches Istio log format
+		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n:%t\t[%g:%#] %v")
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
