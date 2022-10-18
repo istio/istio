@@ -37,7 +37,7 @@ func getRootCmd(args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(serverCmd())
+	rootCmd.AddCommand(serverCmd(run))
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Operator",

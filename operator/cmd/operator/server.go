@@ -59,7 +59,7 @@ func addServerFlags(cmd *cobra.Command, args *serverArgs) {
 	cmd.PersistentFlags().IntVar(&args.maxConcurrentReconciles, "max-concurrent-reconciles", 1, root.MaxConcurrentReconcilesFlagHelpStr)
 }
 
-func serverCmd() *cobra.Command {
+func serverCmd(run func(sArgs *serverArgs)) *cobra.Command {
 	loggingOptions := log.DefaultOptions()
 	introspectionOptions := ctrlz.DefaultOptions()
 	sArgs := &serverArgs{}

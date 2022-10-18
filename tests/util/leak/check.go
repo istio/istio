@@ -83,7 +83,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 	var err error
 	delay := time.Duration(0)
 	for time.Now().Before(deadline) {
-		leaked, err = interestingGoroutines()
+		leaked, err = InterestingGoroutines()
 		if err != nil {
 			return fmt.Errorf("failed to fetch post-test goroutines: %v", err)
 		}
@@ -111,7 +111,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 // cause all future tests to fail. However, it is still possible another test influences the result when t.Parallel is used.
 // Where possible, CheckMain is preferred.
 func Check(t TestingTB) {
-	existingRaw, err := interestingGoroutines()
+	existingRaw, err := InterestingGoroutines()
 	if err != nil {
 		t.Errorf("failed to fetch pre-test goroutines: %v", err)
 		return
@@ -217,9 +217,9 @@ func interestingGoroutine(g string) (*goroutine, error) {
 	return &goroutine{id: id, stack: strings.TrimSpace(g)}, nil
 }
 
-// interestingGoroutines returns all goroutines we care about for the purpose
+// InterestingGoroutines returns all goroutines we care about for the purpose
 // of leak checking. It excludes testing or runtime ones.
-func interestingGoroutines() ([]*goroutine, error) {
+func InterestingGoroutines() ([]*goroutine, error) {
 	buf := make([]byte, 2<<20)
 	buf = buf[:runtime.Stack(buf, true)]
 	var gs []*goroutine
