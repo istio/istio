@@ -1660,24 +1660,46 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
 	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
 
+	startInitSidecarScopes(ps, sidecarConfigs, sidecarNum)
+
+	return nil
+}
+
+func startInitSidecarScopes(ps *PushContext, sidecarConfigs []config.Config, sidecarNum int) {
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
 	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
 
-	configCount := atomic.NewInt64(int64(len(sidecarConfigs)))
-	resPairCh := make(chan sidecarScopePair, features.SidecarScopeConvertThrottle)
-	limitCh := make(chan struct{}, features.SidecarScopeConvertThrottle)
+	throttle := features.SidecarScopeConvertThrottle
+	if throttle <= 1 {
+		for i, sidecarConfig := range sidecarConfigs {
+			ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
+				ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+			if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
+				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
+				rootNSConfig = &sidecarConfigs[i]
+			}
+		}
+		ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
+		return
+	}
+
+	sidecarCount := atomic.NewInt64(int64(sidecarNum))
+	sidecarScopePairs := make(chan sidecarScopePair, throttle)
+	limit := make(chan struct{}, throttle)
 	var wg sync.WaitGroup
+	wg.Add(sidecarNum)
 
 	go func() {
-		for configCount.Load() > 0 {
+		for sidecarCount.Load() > 0 {
 			select {
-			case pair := <-resPairCh:
-				ps.sidecarIndex.sidecarsByNamespace[pair.key] = append(ps.sidecarIndex.sidecarsByNamespace[pair.key], pair.value)
-				<-limitCh
-				configCount.Dec()
+			case pair := <-sidecarScopePairs:
+				ps.sidecarIndex.sidecarsByNamespace[pair.key] =
+					append(ps.sidecarIndex.sidecarsByNamespace[pair.key], pair.value)
+				<-limit
+				sidecarCount.Dec()
 				wg.Done()
 			}
 		}
@@ -1689,10 +1711,9 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 			rootNSConfig = &sidecarConfigs[i]
 		}
 
-		limitCh <- struct{}{}
-		wg.Add(1)
+		limit <- struct{}{}
 		go func(sidecarConfig config.Config) {
-			resPairCh <- sidecarScopePair{
+			sidecarScopePairs <- sidecarScopePair{
 				key:   sidecarConfig.Namespace,
 				value: ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace),
 			}
@@ -1701,8 +1722,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	wg.Wait()
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
-
-	return nil
+	return
 }
 
 // Split out of DestinationRule expensive conversions - once per push.
