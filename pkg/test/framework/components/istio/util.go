@@ -121,7 +121,9 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		if err != nil {
 			return nil, false, err
 		}
-		return netip.AddrPortFrom(ipAddr, uint16(nodePort)), true, nil
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := ipAddr.Unmap()
+		return netip.AddrPortFrom(unwrapAddr, uint16(nodePort)), true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -142,7 +144,9 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		if err != nil {
 			return nil, false, err
 		}
-		return netip.AddrPortFrom(ipaddr, uint16(port)), true, nil
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := ipaddr.Unmap()
+		return netip.AddrPortFrom(unwrapAddr, uint16(port)), true, nil
 	}
 	return net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)), true, nil
 }
