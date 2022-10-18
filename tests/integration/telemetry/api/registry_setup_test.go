@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wasm
+package api
 
 import (
 	"encoding/base64"
@@ -34,7 +34,7 @@ const (
 	registryPasswd = "passwd"
 )
 
-func testSetup(ctx resource.Context) (err error) {
+func testRegistrySetup(ctx resource.Context) (err error) {
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
 		Cluster: ctx.AllClusters().Default(),
 	})
