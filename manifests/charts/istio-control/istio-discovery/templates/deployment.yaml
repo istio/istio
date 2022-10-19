@@ -122,6 +122,8 @@ spec:
           env:
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
+          - name: MESH_ID
+            value: "{{ .Values.global.meshID }}"
           - name: JWT_POLICY
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER

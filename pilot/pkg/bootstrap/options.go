@@ -51,6 +51,7 @@ type RegistryOptions struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
+	MeshID             string
 	ServerOptions      DiscoveryServerOptions
 	InjectionOptions   InjectionOptions
 	PodName            string
@@ -117,9 +118,13 @@ var (
 		"The JWT rule used by istiod authentication").Get()
 )
 
-// Revision is the value of the Istio control plane revision, e.g. "canary",
-// and is the value used by the "istio.io/rev" label.
-var Revision = env.Register("REVISION", "", "").Get()
+var (
+	// Revision is the value of the Istio control plane revision, e.g. "canary",
+	// and is the value used by the "istio.io/rev" label.
+	Revision = env.Register("REVISION", "", "").Get()
+	// MeshID is the id of the mesh.
+	MeshID = env.Register("MESH_ID", "", "").Get()
+)
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
@@ -138,6 +143,7 @@ func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 
 // Apply default value to PilotArgs
 func (p *PilotArgs) applyDefaults() {
+	p.MeshID = MeshID
 	p.Namespace = PodNamespace
 	p.PodName = PodName
 	p.Revision = Revision
