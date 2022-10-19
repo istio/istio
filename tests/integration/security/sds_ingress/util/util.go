@@ -181,7 +181,7 @@ func deleteKubeSecret(ctx framework.TestContext, credName string) {
 	istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
 	systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
 
-	// Create Kubernetes secret for ingress gateway
+	// Delete Kubernetes secret for ingress gateway
 	c := ctx.Clusters().Default()
 	var immediate int64
 	err := c.Kube().CoreV1().Secrets(systemNS.Name()).Delete(context.TODO(), credName,
