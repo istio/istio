@@ -190,7 +190,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 					xdsfilters.CaptureTLS,
 					{
 						// TODO: use standard builder
-						Name: "envoy.filters.network.http_connection_manager",
+						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
 							TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 								StatPrefix: "inbound-hbone",
