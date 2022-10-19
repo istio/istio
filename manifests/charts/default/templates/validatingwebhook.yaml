@@ -7,6 +7,9 @@ metadata:
     istio: istiod
     istio.io/rev: {{ .Values.revision | default "default" }}
     istio.io/tag: "default"
+    {{ - if .Values.global.meshID }}
+    istio.io/mesh-id: "{{ .Values.global.meshID }}"
+    {{ - end }}
     # Required to make sure this resource is removed
     # when purging Istio resources
     operator.istio.io/component: Pilot

@@ -34,6 +34,9 @@ metadata:
   labels:
     istio.io/tag: "default"
     istio.io/rev: {{ .Values.revision | default "default" }}
+    {{- if .Values.global.meshID }}
+    istio.io/mesh-id: "{{ .Values.global.meshID }}"
+    {{- end }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector

@@ -9,6 +9,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: istiod
     istio.io/rev: {{ .Values.revision | default "default" }}
+    {{- if .Values.global.meshID }}
+    istio.io/mesh-id: "{{ .Values.global.meshID }}"
+    {{- end }}
 webhooks:
   # Webhook handling per-revision validation. Mostly here so we can determine whether webhooks
   # are rejecting invalid configs on a per-revision basis.
