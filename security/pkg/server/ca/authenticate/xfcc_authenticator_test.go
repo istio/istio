@@ -131,7 +131,31 @@ func TestXfccAuthenticator(t *testing.T) {
 			},
 		},
 		{
-			name: "Xfcc Header with http",
+			name:           "No xfcc header with http",
+			xfccHeader:     "",
+			caller:         nil,
+			useHttpRequest: true,
+		},
+		{
+			name:               "junk xfcc header with http",
+			xfccHeader:         `junk xfcc header`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
+			useHttpRequest:     true,
+		},
+		{
+			name: "Xfcc Header single hop with http",
+			// nolint lll
+			xfccHeader: `Hash=meshclient;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
+			caller: &security.Caller{
+				AuthSource: security.AuthSourceClientCertificate,
+				Identities: []string{
+					"spiffe://mesh.example.com/ns/otherns/sa/othersa",
+				},
+			},
+			useHttpRequest: true,
+		},
+		{
+			name: "Xfcc Header multiple hops with http",
 			// nolint lll
 			xfccHeader: `Hash=hash;Cert="-----BEGIN%20CERTIFICATE-----%0cert%0A-----END%20CERTIFICATE-----%0A";Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=spiffe://mesh.example.com/ns/firstns/sa/firstsa;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
@@ -156,9 +180,11 @@ func TestXfccAuthenticator(t *testing.T) {
 			if tt.useHttpRequest {
 				httpRequest := http.Request{
 					RemoteAddr: "127.0.0.1:2301",
-					Header: map[string][]string{
+				}
+				if len(tt.xfccHeader) > 0 {
+					httpRequest.Header = map[string][]string{
 						xfccparser.ForwardedClientCertHeader: {tt.xfccHeader},
-					},
+					}
 				}
 				authContext = security.AuthContext{Request: &httpRequest}
 			} else {
