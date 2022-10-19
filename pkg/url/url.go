@@ -85,6 +85,10 @@ var (
 	// https://istio.io/v1.7/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
 	ConfigureSAToken = fmt.Sprintf("%s%s", OpsURL, "best-practices/security/#configure-third-party-service-account-tokens")
 
+	// ProtocolSelection should generate
+	// https://istio.io/v1.15/docs/ops/configuration/traffic-management/protocol-selection/
+	ProtocolSelection = fmt.Sprintf("%s%s", OpsURL, "configuration/traffic-management/protocol-selection/")
+
 	// #####################################
 	// Reference related URLs for istio.io
 	// #####################################
