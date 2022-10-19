@@ -73,6 +73,25 @@ func TestAccessLogsFilter(t *testing.T) {
 		})
 }
 
+func TestAccessLogsMode(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.logging.match.mode").
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("client").Run(func(t framework.TestContext) {
+				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-client.yaml").ApplyOrFail(t)
+				runAccessLogModeTests(t, true, false)
+			})
+			t.NewSubTest("server").Run(func(t framework.TestContext) {
+				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-server.yaml").ApplyOrFail(t)
+				runAccessLogModeTests(t, false, false)
+			})
+			t.NewSubTest("client-and-server").Run(func(t framework.TestContext) {
+				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-clientserver.yaml").ApplyOrFail(t)
+				runAccessLogModeTests(t, true, true)
+			})
+		})
+}
+
 func TestAccessLogsDefaultProvider(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.logging.defaultprovider").
@@ -89,25 +108,6 @@ defaultProviders:
 				ist := *(common.GetIstioInstance())
 				ist.PatchMeshConfigOrFail(t, t, cfg)
 				runAccessLogsTests(t, true)
-			})
-		})
-}
-
-func TestAccessLogsMode(t *testing.T) {
-	framework.NewTest(t).
-		Features("observability.telemetry.logging.match.mode").
-		Run(func(t framework.TestContext) {
-			t.NewSubTest("client").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-client.yaml").ApplyOrFail(t)
-				runAccessLogModeTests(t, true, false)
-			})
-			t.NewSubTest("server").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-server.yaml").ApplyOrFail(t)
-				runAccessLogModeTests(t, false, false)
-			})
-			t.NewSubTest("client-and-server").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-clientserver.yaml").ApplyOrFail(t)
-				runAccessLogModeTests(t, true, true)
 			})
 		})
 }
