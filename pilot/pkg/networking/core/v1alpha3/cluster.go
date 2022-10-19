@@ -26,12 +26,12 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -49,6 +49,7 @@ import (
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -1076,10 +1077,7 @@ var InternalUpstreamSocket = &core.TransportSocket{
 				Name: "istio",
 			},
 		},
-		TransportSocket: &core.TransportSocket{
-			Name:       "envoy.transport_sockets.raw_buffer",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-		},
+		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	})},
 }
 
@@ -1102,7 +1100,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 			}),
 		},
 		TransportSocket: &core.TransportSocket{
-			Name: "envoy.transport_sockets.tls",
+			Name: wellknown.TransportSocketTls,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: buildHBONECommonTLSContext(proxy, push, false),
 			})},
