@@ -22,6 +22,7 @@ import (
 )
 
 func main() {
+	// None
 	log.EnableKlogWithCobra()
 	rootCmd := app.NewRootCommand()
 	if err := rootCmd.Execute(); err != nil {
