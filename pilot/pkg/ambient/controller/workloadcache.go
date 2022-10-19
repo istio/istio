@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/listers/core/v1"
@@ -22,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
 )
 
@@ -54,7 +56,19 @@ func initWorkloadCache(opts Options) *workloadCache {
 		_, hasType := o.GetLabels()[ambient.LabelType]
 		return hasType
 	})
-
+	if features.IncludeLocalWorkload {
+		wc.indexes[ambient.TypeWorkload].Insert(ambient.Workload{
+			UID:              "",
+			Name:             "local",
+			Namespace:        "default",
+			Labels:           map[string]string{ambient.LabelType: ambient.TypeWorkload},
+			ServiceAccount:   "default",
+			NodeName:         "local",
+			PodIP:            "127.0.0.1",
+			PodIPs:           nil,
+			WorkloadMetadata: ambient.WorkloadMetadata{},
+		})
+	}
 	opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(proxyHandler)
 
 	go queue.Run(opts.Stop)
@@ -66,8 +80,12 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 	if kubeErrors.IsNotFound(err) {
 		wc.removeFromAll(key)
 		wc.xds.ConfigUpdate(&model.PushRequest{
-			// TODO scope our updates
-			Full:   true,
+			Full: false,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      kind.Pod,
+				Name:      key.Name,
+				Namespace: key.Namespace,
+			}: {}},
 			Reason: []model.TriggerReason{model.AmbientUpdate},
 		})
 		return nil
@@ -77,18 +95,29 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 
 	w := ambientpod.WorkloadFromPod(pod)
 	index, ok := wc.indexes[pod.Labels[ambient.LabelType]]
+	update := true
 	if ok && wc.validate(w) {
+		cur := index.ByNamespacedName[key]
+		if cur.Equals(w) {
+			update = false
+		}
 		// known type, cache it
 		index.Insert(w)
 	} else {
 		// if this Pod went from valid -> empty/invalid we need to remove it from every index
 		wc.removeFromAll(key)
 	}
-	wc.xds.ConfigUpdate(&model.PushRequest{
-		// TODO scope our updates
-		Full:   true,
-		Reason: []model.TriggerReason{model.AmbientUpdate},
-	})
+	if update {
+		wc.xds.ConfigUpdate(&model.PushRequest{
+			Full: false,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      kind.Pod,
+				Name:      key.Name,
+				Namespace: key.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.AmbientUpdate},
+		})
+	}
 	return nil
 }
 

@@ -182,8 +182,6 @@ type AgentOptions struct {
 	DisableEnvoy          bool
 	DownstreamGrpcOptions []grpc.ServerOption
 
-	ZTunnel bool
-
 	IstiodSAN string
 
 	WASMOptions wasm.Options

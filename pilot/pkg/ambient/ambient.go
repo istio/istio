@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/spiffe"
@@ -52,6 +54,51 @@ type Workload struct {
 // Identity generates SecureNamingSAN but for Workload instead of Pod
 func (w Workload) Identity() string {
 	return spiffe.MustGenSpiffeURI(w.Namespace, w.ServiceAccount)
+}
+
+func (w Workload) Equals(w2 Workload) bool {
+	if w.UID != w2.UID {
+		return false
+	}
+	if w.Name != w2.Name {
+		return false
+	}
+	if w.Namespace != w2.Namespace {
+		return false
+	}
+
+	if w.ServiceAccount != w2.ServiceAccount {
+		return false
+	}
+	if w.NodeName != w2.NodeName {
+		return false
+	}
+	if w.PodIP != w2.PodIP {
+		return false
+	}
+	if !w.CreationTimestamp.Equal(w2.CreationTimestamp) {
+		return false
+	}
+	if !maps.Equal(w.Labels, w2.Labels) {
+		return false
+	}
+	if !slices.Equal(w.PodIPs, w2.PodIPs) {
+		return false
+	}
+	if !slices.Equal(w.WorkloadMetadata.Containers, w2.WorkloadMetadata.Containers) {
+		return false
+	}
+	if w.WorkloadMetadata.GenerateName != w2.WorkloadMetadata.GenerateName {
+		return false
+	}
+	if w.WorkloadMetadata.ControllerName != w2.WorkloadMetadata.ControllerName {
+		return false
+	}
+	if w.WorkloadMetadata.ControllerKind != w2.WorkloadMetadata.ControllerKind {
+		return false
+	}
+
+	return true
 }
 
 type NodeType = string

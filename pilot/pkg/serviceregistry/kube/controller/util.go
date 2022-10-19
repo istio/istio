@@ -135,8 +135,7 @@ func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error
 			// services with nil selectors match nothing, not everything.
 			continue
 		}
-		selector := klabels.Set(service.Spec.Selector).AsSelectorPreValidated()
-		if selector.Matches(klabels.Set(pod.Labels)) {
+		if labels.Instance(service.Spec.Selector).SubsetOf(pod.Labels) {
 			services = append(services, service)
 		}
 	}

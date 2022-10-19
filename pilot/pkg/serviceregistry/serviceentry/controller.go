@@ -108,6 +108,10 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
+func (s *Controller) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
+	return nil, nil
+}
+
 type Option func(*Controller)
 
 func WithClusterID(clusterID cluster.ID) Option {

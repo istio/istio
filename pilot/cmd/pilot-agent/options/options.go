@@ -136,9 +136,6 @@ var (
 	disableEnvoyEnv = env.Register("DISABLE_ENVOY", false,
 		"Disables all Envoy agent features.").Get()
 
-	ztunnelEnv = env.Register("ZTUNNEL", true,
-		"Use ztunnel, instead of Envoy").Get()
-
 	// certSigner is cert signer for workload cert
 	certSigner = env.Register("ISTIO_META_CERT_SIGNER", "",
 		"The cert signer info for workload cert")
