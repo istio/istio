@@ -63,6 +63,16 @@ func TestAccessLogs(t *testing.T) {
 		})
 }
 
+func TestAccessLogsFilter(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.logging.filter").
+		Run(func(t framework.TestContext) {
+			runAccessLogFilterTests(t, false)
+			t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog-filter.yaml").ApplyOrFail(t)
+			runAccessLogFilterTests(t, true)
+		})
+}
+
 func TestAccessLogsDefaultProvider(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.logging.defaultprovider").
@@ -79,17 +89,6 @@ defaultProviders:
 				ist := *(common.GetIstioInstance())
 				ist.PatchMeshConfigOrFail(t, t, cfg)
 				runAccessLogsTests(t, true)
-			})
-		})
-}
-
-func TestAccessLogsFilter(t *testing.T) {
-	framework.NewTest(t).
-		Features("observability.telemetry.logging.filter").
-		Run(func(t framework.TestContext) {
-			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog-filter.yaml").ApplyOrFail(t)
-				runAccessLogFilterTests(t)
 			})
 		})
 }
@@ -193,52 +192,55 @@ func logCount(t test.Failer, to echo.Target, testID string) float64 {
 	return total
 }
 
-func runAccessLogFilterTests(t framework.TestContext) {
+func runAccessLogFilterTests(t framework.TestContext, expectLogs bool) {
 	to := common.GetTarget()
 	from := common.GetClientInstances()[0]
-	// For positive test, we use the same path in Telemetry API and repeatedly send requests and check the count
-	// Retry a bit to get the logs. There is some delay before they are output(MeshConfig will not take effect immediately),
-	// so they may not be immediately ready. If not ready, we retry sending a call again.
-	err := retry.UntilSuccess(func() error {
-		from.CallOrFail(t, echo.CallOptions{
-			To: to,
-			Port: echo.Port{
-				Name: "http",
-			},
-			HTTP: echo.HTTP{
-				Path: "/filter-test",
-			},
-		})
-		count := logCount(t, to, "filter-test")
-		if count == 0 {
-			return fmt.Errorf("expected logs but got nothing")
+	if expectLogs {
+		// For positive test, we use the same path in Telemetry API and repeatedly send requests and check the count
+		// Retry a bit to get the logs. There is some delay before they are output(MeshConfig will not take effect immediately),
+		// so they may not be immediately ready. If not ready, we retry sending a call again.
+		err := retry.UntilSuccess(func() error {
+			from.CallOrFail(t, echo.CallOptions{
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+				HTTP: echo.HTTP{
+					Path: "/filter-test",
+				},
+			})
+			count := logCount(t, to, "filter-test")
+			if count > 0 != expectLogs {
+				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
+			}
+			return nil
+		}, retry.Timeout(time.Second*10))
+		if err != nil {
+			t.Fatalf("expected logs but got nil, err: %v", err)
 		}
-		return nil
-	}, retry.Timeout(time.Second*10))
-	if err != nil {
-		t.Fatalf("expected logs but got err: %v", err)
+	} else {
+		// For negative case, we retry with a new ID each time. This ensures that a previous failure
+		// (due to hitting old code path with logs still enabled) doesn't stop us from succeeding later
+		// once we stop logging.
+		retry.UntilSuccessOrFail(t, func() error {
+			testID := rand.String(16)
+			from.CallOrFail(t, echo.CallOptions{
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+				HTTP: echo.HTTP{
+					Path: "/" + testID,
+				},
+			})
+			// This is a negative test; there isn't much we can do other than wait a few seconds and ensure we didn't emit logs
+			// Logs should flush every 1s, so 2s should be plenty of time for logs to be emitted
+			time.Sleep(time.Second * 2)
+			count := logCount(t, to, testID)
+			if count > 0 != expectLogs {
+				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
+			}
+			return nil
+		})
 	}
-
-	// For negative case, we retry with a path not in Telemetry API. This ensures that a previous failure
-	// (due to hitting old code path with logs still enabled) doesn't stop us from succeeding later
-	// once we stop logging.
-	retry.UntilSuccessOrFail(t, func() error {
-		from.CallOrFail(t, echo.CallOptions{
-			To: to,
-			Port: echo.Port{
-				Name: "http",
-			},
-			HTTP: echo.HTTP{
-				Path: "/filter-fail-test",
-			},
-		})
-		// This is a negative test; there isn't much we can do other than wait a few seconds and ensure we didn't emit logs
-		// Logs should flush every 1s, so 2s should be plenty of time for logs to be emitted
-		time.Sleep(time.Second * 2)
-		count := logCount(t, to, "/filter-fail-test")
-		if count > 0 {
-			return fmt.Errorf("expected no logs, got %v", count)
-		}
-		return nil
-	})
 }
