@@ -68,7 +68,6 @@ func TestAccessLogsDefaultProvider(t *testing.T) {
 		Features("observability.telemetry.logging.defaultprovider").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
-				ist := *(common.GetIstioInstance())
 				runAccessLogsTests(t, false)
 			})
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
