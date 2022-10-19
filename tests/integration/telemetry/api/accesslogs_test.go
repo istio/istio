@@ -219,7 +219,7 @@ func runAccessLogFilterTests(t framework.TestContext) {
 		t.Fatalf("expected logs but got err: %v", err)
 	}
 
-	// For negative case, we retry with a new ID each time. This ensures that a previous failure
+	// For negative case, we retry with a path not in Telemetry API. This ensures that a previous failure
 	// (due to hitting old code path with logs still enabled) doesn't stop us from succeeding later
 	// once we stop logging.
 	retry.UntilSuccessOrFail(t, func() error {
