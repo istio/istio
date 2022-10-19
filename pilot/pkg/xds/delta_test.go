@@ -24,7 +24,9 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestDeltaAds(t *testing.T) {
@@ -136,5 +138,87 @@ func TestDeltaEDS(t *testing.T) {
 	}
 	if len(resp.Resources) != 0 {
 		t.Fatalf("received unexpected eds resource %v", resp.Resources)
+	}
+}
+
+func TestDeltaReconnectRequests(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{
+			{
+				Hostname:       "adsupdate.example.com",
+				DefaultAddress: "10.11.0.1",
+				Ports: []*model.Port{
+					{
+						Name:     "http-main",
+						Port:     2080,
+						Protocol: protocol.HTTP,
+					},
+				},
+				Attributes: model.ServiceAttributes{
+					Name:      "adsupdate",
+					Namespace: "default",
+				},
+			},
+			{
+				Hostname:       "adsstatic.example.com",
+				DefaultAddress: "10.11.0.2",
+				Ports: []*model.Port{
+					{
+						Name:     "http-main",
+						Port:     2080,
+						Protocol: protocol.HTTP,
+					},
+				},
+				Attributes: model.ServiceAttributes{
+					Name:      "adsstatic",
+					Namespace: "default",
+				},
+			},
+		},
+	})
+
+	const updateCluster = "outbound|2080||adsupdate.example.com"
+	const staticCluster = "outbound|2080||adsstatic.example.com"
+	ads := s.ConnectDeltaADS()
+	// Send initial request
+	res := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ClusterType})
+	// we must get the cluster back
+	if resn := xdstest.ExtractResource(res.Resources); !resn.Contains(updateCluster) || !resn.Contains(staticCluster) {
+		t.Fatalf("unexpected resources: %v", resn)
+	}
+
+	// A push should get a response
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	ads.ExpectResponse()
+
+	// Close the connection
+	ads.Cleanup()
+
+	// Service is removed while connection is closed
+	s.MemRegistry.RemoveService("adsupdate.example.com")
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
+		Kind:      kind.ServiceEntry,
+		Name:      "adsupdate.example.com",
+		Namespace: "default",
+	}: {}}})
+	s.EnsureSynced(t)
+
+	ads = s.ConnectDeltaADS()
+	// Send initial request
+	res = ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		TypeUrl: v3.ClusterType,
+		InitialResourceVersions: map[string]string{
+			// This time we include the version map, since it is a reconnect
+			staticCluster: "",
+			updateCluster: "",
+		},
+	})
+	// we must NOT get the cluster back
+	if resn := xdstest.ExtractResource(res.Resources); resn.Contains(updateCluster) || !resn.Contains(staticCluster) {
+		t.Fatalf("unexpected resources: %v", resn)
+	}
+	// It should be removed
+	if resn := sets.New(res.RemovedResources...); !resn.Contains(updateCluster) {
+		t.Fatalf("unexpected remove resources: %v", resn)
 	}
 }

@@ -335,8 +335,11 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
-		// TODO: can we distinguish init and reconnect? Do we care?
-		deltaLog.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
+		if len(request.InitialResourceVersions) > 0 {
+			deltaLog.Debugf("ADS:%s: RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
+		} else {
+			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
+		}
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
@@ -562,6 +565,10 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
+	// Set only on first request
+	for k := range request.InitialResourceVersions {
+		res.Insert(k)
+	}
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	return sets.SortedList(res)
 }
