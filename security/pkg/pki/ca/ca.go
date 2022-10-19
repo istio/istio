@@ -57,7 +57,7 @@ const (
 	TLSSecretRootCertFile = "ca.crt"
 	// The standard key size to use when generating an RSA private key
 	rsaKeySize = 2048
-	// ExternalCASecret stores the key/cert of self-signed CA from external Istiod.
+	// ExternalCASecret stores the plugin CA certificates, in external istiod scenario, the secret can be in the config cluster.
 	ExternalCASecret = "cacerts"
 )
 
