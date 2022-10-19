@@ -1165,6 +1165,204 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
+// go test -bench="^BenchmarkInitSidecarScopes" -benchtime=3s .
+// go test -bench="^BenchmarkInitSidecarScopes" -benchtime=1x .
+// go test -bench="^BenchmarkInitSidecarScopes" -benchtime=3s -cpuprofile=cpu.pprof .
+func BenchmarkInitSidecarScopesService10Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 10, 1)
+}
+func BenchmarkInitSidecarScopesService10Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 10, 4)
+}
+
+func BenchmarkInitSidecarScopesService50Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 50, 1)
+}
+func BenchmarkInitSidecarScopesService50Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 50, 4)
+}
+
+func BenchmarkInitSidecarScopesService100Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 100, 1)
+}
+func BenchmarkInitSidecarScopesService100Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 100, 4)
+}
+
+func BenchmarkInitSidecarScopesService200Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 200, 1)
+}
+func BenchmarkInitSidecarScopesService200Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 200, 4)
+}
+
+func BenchmarkInitSidecarScopesService300Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 300, 1)
+}
+func BenchmarkInitSidecarScopesService300Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 300, 4)
+}
+
+func BenchmarkInitSidecarScopesService400Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 400, 1)
+}
+func BenchmarkInitSidecarScopesService400Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 400, 4)
+}
+
+func BenchmarkInitSidecarScopesService500Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 500, 1)
+}
+func BenchmarkInitSidecarScopesService500Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 500, 4)
+}
+
+func BenchmarkInitSidecarScopesService1000Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1000, 1)
+}
+func BenchmarkInitSidecarScopesService1000Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1000, 4)
+}
+
+func BenchmarkInitSidecarScopesService1500Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1500, 1)
+}
+func BenchmarkInitSidecarScopesService1500Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1500, 4)
+}
+
+func BenchmarkInitSidecarScopesService2000Throttle1(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 2000, 1)
+}
+func BenchmarkInitSidecarScopesService2000Throttle4(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 2000, 4)
+}
+
+func benchmarkInitSidecarScopes(b *testing.B, serviceNumber int, throttle int) {
+	svcNameFunc := func(idx int) string {
+		return fmt.Sprintf("foo-%d", idx)
+	}
+	hostNameFunc := func(idx int) string {
+		return fmt.Sprintf("foo-%d.com", idx)
+	}
+	egressHostFunc := func(idx int) string {
+		return fmt.Sprintf("./foo-%d.com", idx)
+	}
+
+	// service
+	var services []*Service
+	for i := 0; i < serviceNumber; i++ {
+		service := &Service{
+			Hostname: host.Name(hostNameFunc(i)),
+			Attributes: ServiceAttributes{
+				Name:      svcNameFunc(i),
+				Namespace: "default",
+				ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+			},
+		}
+		services = append(services, service)
+	}
+
+	configStore := NewFakeStore()
+
+	// dr
+	for i := 0; i < serviceNumber; i++ {
+		dr := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				Name:             svcNameFunc(i),
+				Namespace:        "default",
+			},
+			Spec: &networking.DestinationRule{
+				ExportTo: []string{"."},
+				Host:     hostNameFunc(i),
+				Subsets:  []*networking.Subset{{Name: "http-default"}},
+			},
+		}
+		_, _ = configStore.Create(dr)
+	}
+
+	// vs
+	for i := 0; i < serviceNumber; i++ {
+		vs := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             svcNameFunc(i),
+				Namespace:        "default",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{"."},
+				Hosts:    []string{hostNameFunc(i)},
+				Http: []*networking.HTTPRoute{{
+					Match: []*networking.HTTPMatchRequest{{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+						},
+					}},
+					Name: svcNameFunc(i),
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{
+							Host:   hostNameFunc(i),
+							Subset: "http-default",
+						},
+					}},
+				}},
+			},
+		}
+		_, _ = configStore.Create(vs)
+	}
+
+	// sidecar
+	for i := 0; i < serviceNumber; i++ {
+		sidecarA := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+				Name:             svcNameFunc(i),
+				Namespace:        "default",
+			},
+			Spec: &networking.Sidecar{
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{"app": svcNameFunc(i)},
+				},
+				Egress: []*networking.IstioEgressListener{{
+					Hosts: []string{
+						egressHostFunc(1),
+						egressHostFunc(2),
+						egressHostFunc(3),
+						egressHostFunc(4),
+					},
+				}},
+			},
+		}
+		_, _ = configStore.Create(sidecarA)
+	}
+
+	env := &Environment{
+		ConfigStore:      configStore,
+		ServiceDiscovery: &localServiceDiscovery{services: services},
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
+	}
+
+	// set SidecarScopeConvertThrottle
+	test.SetForTest(b, &features.SidecarScopeConvertThrottle, throttle)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+
+		ps := NewPushContext()
+		ps.Mesh = env.Mesh()
+		ps.initDefaultExportMaps()
+		_ = ps.initServiceRegistry(env)
+		_ = ps.initVirtualServices(env)
+		_ = ps.initDestinationRules(env)
+
+		b.StartTimer()
+
+		_ = ps.initSidecarScopes(env)
+	}
+}
+
 func TestRootSidecarScopePropagation(t *testing.T) {
 	rootNS := "istio-system"
 	defaultNS := "default"
