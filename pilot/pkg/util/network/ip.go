@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/sleep"
@@ -108,27 +109,36 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	}
 	var host string
 	var port uint16
+	var addrs []netip.Addr
+	var lookupErr error
 	addPort, err := netip.ParseAddrPort(addr)
 	if err != nil {
-		host = addr
+		oHost, oPort, oErr := net.SplitHostPort(addr)
+		if oErr != nil {
+			return "", oErr
+		}
+		host = oHost
+		pPort, pErr := strconv.ParseUint(oPort, 10, 16)
+		if pErr != nil {
+			return "", oErr
+		}
+		port = uint16(pPort)
 	} else {
 		host = addPort.Addr().String()
+		port = addPort.Port()
 	}
-	port = addPort.Port()
+
 	log.Infof("Attempting to lookup address: %s", host)
 	defer log.Infof("Finished lookup of address: %s", host)
 	// lookup the udp address with a timeout of 15 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	var addrs []netip.Addr
-	var lookupErr error
 	if (len(lookupIPAddr) > 0) && (lookupIPAddr[0] != nil) {
 		// if there are more than one lookup function, ignore all but first
 		addrs, lookupErr = lookupIPAddr[0](ctx, host)
 	} else {
 		addrs, lookupErr = net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 	}
-
 	if lookupErr != nil || len(addrs) == 0 {
 		return "", fmt.Errorf("lookup failed for IP address: %w", lookupErr)
 	}
