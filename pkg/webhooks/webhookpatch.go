@@ -18,12 +18,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	admissioninformer "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
@@ -64,7 +64,8 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
+	meshID, revision, webhookName string,
+	caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
@@ -76,7 +77,11 @@ func NewWebhookCertPatcher(
 		controllers.WithReconciler(p.webhookPatchTask),
 		controllers.WithMaxAttempts(5))
 	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
-		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
+		labelSelector := map[string]string{label.IoIstioRev.Name: revision}
+		if meshID != "" {
+			labelSelector["istio.io/mesh-id"] = meshID
+		}
+		options.LabelSelector = labels.Set(labelSelector).AsSelector().String()
 	})
 	p.informer = informer
 	informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))

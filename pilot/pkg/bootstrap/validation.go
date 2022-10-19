@@ -43,7 +43,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("Starting validation controller")
 			go controller.NewValidatingWebhookController(
-				s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(stop)
+				s.kubeClient, args.MeshID, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(stop)
 			return nil
 		})
 	}

@@ -78,6 +78,7 @@ type Multicluster struct {
 
 	startNsController bool
 	caBundleWatcher   *keycertbundle.Watcher
+	meshID            string
 	revision          string
 
 	// secretNamespace where we get cluster-access secrets
@@ -93,6 +94,7 @@ func NewMulticluster(
 	serviceEntryController *serviceentry.Controller,
 	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
+	meshID string,
 	revision string,
 	startNsController bool,
 	clusterLocal model.ClusterLocalProvider,
@@ -106,6 +108,7 @@ func NewMulticluster(
 		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
+		meshID:                 meshID,
 		revision:               revision,
 		XDSUpdater:             opts.XDSUpdater,
 		remoteKubeControllers:  remoteKubeController,
@@ -301,7 +304,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" {
 			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(client, m.meshID, m.revision, webhookName, m.caBundleWatcher)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {

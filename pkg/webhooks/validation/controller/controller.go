@@ -29,6 +29,7 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -57,6 +58,8 @@ type Options struct {
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
 	CABundleWatcher *keycertbundle.Watcher
+
+	MeshID string
 
 	// Revision for control plane performing patching on the validating webhook.
 	Revision string
@@ -100,11 +103,12 @@ type Controller struct {
 
 // NewValidatingWebhookController creates a new Controller.
 func NewValidatingWebhookController(client kube.Client,
-	revision, ns string, caBundleWatcher *keycertbundle.Watcher,
+	meshID, revision, ns string, caBundleWatcher *keycertbundle.Watcher,
 ) *Controller {
 	o := Options{
 		WatchedNamespace: ns,
 		CABundleWatcher:  caBundleWatcher,
+		MeshID:           meshID,
 		Revision:         revision,
 		ServiceName:      "istiod",
 	}
@@ -196,15 +200,19 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
-
+	selector := map[string]string{label.IoIstioRev.Name: o.Revision}
+	if o.MeshID != "" {
+		selector["istio.io/mesh-id"] = o.MeshID
+	}
+	labelSelector := klabels.Set(selector).AsSelector().String()
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				opts.LabelSelector = labelSelector
 				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				opts.LabelSelector = labelSelector
 				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
