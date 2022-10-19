@@ -1165,80 +1165,70 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
-// go test -bench="^BenchmarkInitSidecarScopes" -benchtime=3s .
-// go test -bench="^BenchmarkInitSidecarScopes" -benchtime=1x .
-// go test -bench="^BenchmarkInitSidecarScopes" -benchtime=3s -cpuprofile=cpu.pprof .
-func BenchmarkInitSidecarScopesService10Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 10, 1)
+func BenchmarkInitSidecarScopesThrottle1Service10(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 10)
 }
-func BenchmarkInitSidecarScopesService10Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 10, 4)
+func BenchmarkInitSidecarScopesThrottle4Service10(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 10)
 }
 
-func BenchmarkInitSidecarScopesService50Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 50, 1)
+func BenchmarkInitSidecarScopesThrottle1Service30(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 30)
 }
-func BenchmarkInitSidecarScopesService50Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 50, 4)
-}
-
-func BenchmarkInitSidecarScopesService100Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 100, 1)
-}
-func BenchmarkInitSidecarScopesService100Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 100, 4)
+func BenchmarkInitSidecarScopesThrottle4Service30(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 30)
 }
 
-func BenchmarkInitSidecarScopesService200Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 200, 1)
+func BenchmarkInitSidecarScopesThrottle1Service50(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 50)
 }
-func BenchmarkInitSidecarScopesService200Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 200, 4)
-}
-
-func BenchmarkInitSidecarScopesService300Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 300, 1)
-}
-func BenchmarkInitSidecarScopesService300Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 300, 4)
+func BenchmarkInitSidecarScopesThrottle4Service50(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 50)
 }
 
-func BenchmarkInitSidecarScopesService400Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 400, 1)
+func BenchmarkInitSidecarScopesThrottle1Service100(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 100)
 }
-func BenchmarkInitSidecarScopesService400Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 400, 4)
-}
-
-func BenchmarkInitSidecarScopesService500Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 500, 1)
-}
-func BenchmarkInitSidecarScopesService500Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 500, 4)
+func BenchmarkInitSidecarScopesThrottle4Service100(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 100)
 }
 
-func BenchmarkInitSidecarScopesService1000Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 1000, 1)
+func BenchmarkInitSidecarScopesThrottle1Service200(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 200)
 }
-func BenchmarkInitSidecarScopesService1000Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 1000, 4)
-}
-
-func BenchmarkInitSidecarScopesService1500Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 1500, 1)
-}
-func BenchmarkInitSidecarScopesService1500Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 1500, 4)
+func BenchmarkInitSidecarScopesThrottle4Service200(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 200)
 }
 
-func BenchmarkInitSidecarScopesService2000Throttle1(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 2000, 1)
+func BenchmarkInitSidecarScopesThrottle1Service300(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 300)
 }
-func BenchmarkInitSidecarScopesService2000Throttle4(b *testing.B) {
-	benchmarkInitSidecarScopes(b, 2000, 4)
+func BenchmarkInitSidecarScopesThrottle4Service300(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 300)
 }
 
-func benchmarkInitSidecarScopes(b *testing.B, serviceNumber int, throttle int) {
+func BenchmarkInitSidecarScopesThrottle1Service400(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 400)
+}
+func BenchmarkInitSidecarScopesThrottle4Service400(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 400)
+}
+
+func BenchmarkInitSidecarScopesThrottle1Service500(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 500)
+}
+func BenchmarkInitSidecarScopesThrottle4Service500(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 500)
+}
+
+func BenchmarkInitSidecarScopesThrottle1Service1000(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 1, 1000)
+}
+func BenchmarkInitSidecarScopesThrottle4Service1000(b *testing.B) {
+	benchmarkInitSidecarScopes(b, 4, 1000)
+}
+
+func benchmarkInitSidecarScopes(b *testing.B, throttle int, serviceNumber int) {
 	svcNameFunc := func(idx int) string {
 		return fmt.Sprintf("foo-%d", idx)
 	}
