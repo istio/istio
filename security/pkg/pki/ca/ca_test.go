@@ -99,7 +99,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
+		maxCertTTL, org, false, caNamespace, client.CoreV1(),
 		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
@@ -158,7 +158,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := k8ssecret.BuildSecret("", CASecret, "default",
+	initSecret := k8ssecret.BuildSecret(CASecret, "default",
 		nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), initSecret, metav1.CreateOptions{})
 	if err != nil {
@@ -176,7 +176,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, false, caNamespace, -1, client.CoreV1(),
+		org, false, caNamespace, client.CoreV1(),
 		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
@@ -211,11 +211,6 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 }
 
 func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
-	rootCertPem := cert1Pem
-	// Use the same signing cert and root cert for self-signed CA.
-	signingCertPem := []byte(cert1Pem)
-	signingKeyPem := []byte(key1Pem)
-
 	caCertTTL := time.Hour
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
@@ -227,32 +222,28 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	client := fake.NewSimpleClientset()
 
-	// Should abort with timeout.
-	expectedErr := "secret waiting thread is terminated"
+	// succeed creating a self-signed cert
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
-	if err == nil {
-		t.Errorf("Expected error, but succeeded.")
-	} else if err.Error() != expectedErr {
-		t.Errorf("Unexpected error message: %s VS (expected) %s", err.Error(), expectedErr)
-		return
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+	if err != nil {
+		t.Errorf("Got unexpected error: %v", err)
 	}
 
-	// Should succeed once secret is ready.
-	secret := k8ssecret.BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
-	_, err = client.CoreV1().Secrets("default").Create(context.TODO(), secret, metav1.CreateOptions{})
+	// Using existing CASecret.
+	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Failed to create secret (error: %s)", err)
+		t.Errorf("Got unexpected error %v", err)
 	}
+	signingCertPem := secret.Data[CACertFile]
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -270,18 +261,12 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
 
-	signingCertFromCA, _, certChainBytesFromCA, rootCertBytesFromCA := ca.GetCAKeyCertBundle().GetAll()
-
+	signingCertFromCA, _, _, rootCertBytesFromCA := ca.GetCAKeyCertBundle().GetAll()
 	if !signingCert.Equal(signingCertFromCA) {
 		t.Error("Signing cert does not match")
 	}
-
-	if !bytes.Equal(rootCertBytesFromCA, []byte(rootCertPem)) {
+	if !bytes.Equal(rootCertBytesFromCA, secret.Data[CACertFile]) {
 		t.Error("Root cert does not match")
-	}
-
-	if len(certChainBytesFromCA) != 0 {
-		t.Errorf("Cert chain should be empty")
 	}
 }
 

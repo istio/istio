@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -114,27 +115,31 @@ type IstioCAOptions struct {
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
-	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
+	maxCertTTL time.Duration, org string, dualUse bool, namespace string, client corev1.CoreV1Interface,
 	rootCertFile string, enableJitter bool, caRSAKeySize int,
 ) (caOpts *IstioCAOptions, err error) {
+Retry:
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
-	if scrtErr != nil && readCertRetryInterval > time.Duration(0) {
-		pkiCaLog.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
-		ticker := time.NewTicker(readCertRetryInterval)
-		defer ticker.Stop()
-		for scrtErr != nil {
-			select {
-			case <-ticker.C:
-				if caSecret, scrtErr = client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{}); scrtErr == nil {
-					pkiCaLog.Infof("Citadel successfully loaded the secret.")
+	if scrtErr != nil {
+		if !apierror.IsNotFound(scrtErr) {
+			pkiCaLog.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+			for scrtErr != nil {
+				select {
+				case <-ticker.C:
+					if caSecret, scrtErr = client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{}); scrtErr == nil {
+						pkiCaLog.Infof("Citadel successfully loaded the secret.")
+					} else {
+						pkiCaLog.Error("Citadel failed loaded the secret.", scrtErr)
+					}
+				case <-ctx.Done():
+					pkiCaLog.Errorf("Secret waiting thread is terminated.")
+					return nil, fmt.Errorf("secret waiting thread is terminated")
 				}
-			case <-ctx.Done():
-				pkiCaLog.Errorf("Secret waiting thread is terminated.")
-				return nil, fmt.Errorf("secret waiting thread is terminated")
 			}
 		}
 	}
@@ -177,14 +182,16 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}
-
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 
 		// Write the key/cert back to secret so they will be persistent when CA restarts.
-		secret := k8ssecret.BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+		secret := k8ssecret.BuildSecret(CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 		if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			if !apierror.IsAlreadyExists(err) {
+				goto Retry
+			}
 			pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 			return nil, fmt.Errorf("failed to create CA due to secret write error")
 		}
