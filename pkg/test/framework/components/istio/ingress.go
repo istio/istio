@@ -163,9 +163,7 @@ func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
 	if err != nil {
 		return netip.AddrPort{}
 	}
-	// unwrap the IPv4-mapped IPv6 address
-	unwrapAddr := ip.Unmap()
-	return netip.AddrPortFrom(unwrapAddr, uint16(port))
+	return netip.AddrPortFrom(ip, uint16(port))
 }
 
 func (c *ingressImpl) Call(options echo.CallOptions) (echo.CallResult, error) {

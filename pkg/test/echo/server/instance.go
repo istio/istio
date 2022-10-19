@@ -147,15 +147,13 @@ func getBindAddresses(ip string) []string {
 	if !ok {
 		return []string{ip}
 	}
-	for _, ipAddr := range ipAddrs {
-		addr, err := netip.ParseAddr(ipAddr)
-		// unwrap the IPv4-mapped IPv6 address
-		unwrapAddr := addr.Unmap()
+	for _, ip := range ipAddrs {
+		addr, err := netip.ParseAddr(ip)
 		if err != nil {
 			// Should not happen
 			continue
 		}
-		if unwrapAddr.Is4() {
+		if addr.Is4() {
 			v4 = true
 		} else {
 			v6 = true
