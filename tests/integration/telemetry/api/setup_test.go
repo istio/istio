@@ -57,5 +57,6 @@ func setupConfig(c resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	cfg.Values["meshConfig.accessLogFile"] = "" // disabled accesslog, will enabled by TelemetryAPI later
 	cfg.Values["telemetry.v2.enabled"] = "false"
 }
