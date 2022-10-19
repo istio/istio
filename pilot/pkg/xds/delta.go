@@ -531,7 +531,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 			// Add additional information to logs when debug mode enabled.
 			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
 		}
-		deltaLog.Infof("%s: %s%s for node:%s resources:%d removed:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), len(resp.RemovedResources),
+		deltaLog.Infof("%s: %s%s for node:%s resources:%d removed:%d size:%v%s%s",
+			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), len(resp.RemovedResources),
 			util.ByteCount(ResourceSize(res)), info, debug)
 	}
 

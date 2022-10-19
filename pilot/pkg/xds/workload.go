@@ -36,7 +36,11 @@ var (
 	_ model.XdsDeltaResourceGenerator = &WorkloadGenerator{}
 )
 
-func (e WorkloadGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest, w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+func (e WorkloadGenerator) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	// TODO: wdsNeedsPush
 	resources := make(model.Resources, 0)
 	// Workload consists of two dependencies: Pod and Service

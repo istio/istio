@@ -15,13 +15,13 @@
 package controller
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
