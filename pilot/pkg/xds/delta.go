@@ -565,7 +565,8 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
-	// Set only on first request
+	// This is set by Envoy on first request on reconnection so that we are aware of what Envoy knows
+	// and can continue the xDS session properly.
 	for k := range request.InitialResourceVersions {
 		res.Insert(k)
 	}
