@@ -180,11 +180,10 @@ func TestXfccAuthenticator(t *testing.T) {
 			if tt.useHttpRequest {
 				httpRequest := http.Request{
 					RemoteAddr: "127.0.0.1:2301",
+					Header:     map[string][]string{},
 				}
 				if len(tt.xfccHeader) > 0 {
-					httpRequest.Header = map[string][]string{
-						xfccparser.ForwardedClientCertHeader: {tt.xfccHeader},
-					}
+					httpRequest.Header.Add(xfccparser.ForwardedClientCertHeader, tt.xfccHeader)
 				}
 				authContext = security.AuthContext{Request: &httpRequest}
 			} else {
