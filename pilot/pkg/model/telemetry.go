@@ -815,15 +815,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
-func statsRootIDForClass(class networking.ListenerClass) string {
-	switch class {
-	case networking.ListenerClassSidecarInbound:
-		return "stats_inbound"
-	default:
-		return "stats_outbound"
-	}
-}
-
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
 	for _, cfg := range metricsCfg {
