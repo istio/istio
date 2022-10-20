@@ -291,6 +291,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/network/socket_interface/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/path/match/uri_template/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/path/rewrite/uri_template/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_id_generator/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/crypto_stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/proof_source/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rate_limit_descriptors/expr/v3"
