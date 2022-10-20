@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -267,6 +268,56 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	}
 	if !bytes.Equal(rootCertBytesFromCA, secret.Data[CACertFile]) {
 		t.Error("Root cert does not match")
+	}
+}
+
+func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
+	caCertTTL := time.Hour
+	defaultCertTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "test.ca.Org"
+	caNamespace := "default"
+	const rootCertFile = ""
+	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
+
+	client := fake.NewSimpleClientset()
+
+	parallel := 10
+	wg := sync.WaitGroup{}
+	wg.Add(parallel)
+	rootCertCh := make(chan []byte, parallel)
+
+	for i := 0; i < parallel; i++ {
+		go func() {
+			defer wg.Done()
+			// succeed creating a self-signed cert
+			ctx0, cancel0 := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel0()
+			caOpts, err := NewSelfSignedIstioCAOptions(ctx0, 0,
+				caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
+				caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+			if err != nil {
+				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
+			}
+			rootCertCh <- caOpts.KeyCertBundle.GetRootCertPem()
+		}()
+	}
+	wg.Wait()
+	var rootCert []byte
+	for {
+		select {
+		case current := <-rootCertCh:
+			if rootCert == nil {
+				rootCert = current
+			} else {
+				if !bytes.Equal(rootCert, current) {
+					t.Error("Root cert does not match")
+				}
+			}
+		default:
+			return
+		}
 	}
 }
 
