@@ -72,22 +72,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 			Resource: protoconv.MessageToAny(wl),
 		})
 	}
-	if !usedDelta {
-		// Add a local resource for testing purposes
-		resources = append(resources, &discovery.Resource{
-			Name: "local",
-			Resource: protoconv.MessageToAny(model.WorkloadInfo{
-				Workload: &workloadapi.Workload{
-					Name:      "local",
-					Namespace: "local",
-					Address:   "127.0.0.1",
-					Protocol:  workloadapi.Protocol_HTTP2CONNECT,
-					Node:      proxy.Metadata.NodeName,
-				},
-				Labels: nil,
-			}),
-		})
-	}
 	return resources, removed, model.XdsLogDetails{}, usedDelta, nil
 }
 

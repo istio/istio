@@ -584,9 +584,6 @@ var (
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()
 
-	IncludeLocalWorkload = env.Register("UNSAFE_INCLUDE_LOCAL_WORKLOAD", false,
-		"If set, 127.0.0.1 is seen as a workload. This makes local development a bit easier.").Get()
-
 	EnableLegacyIstioMutualCredentialName = env.Register("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+

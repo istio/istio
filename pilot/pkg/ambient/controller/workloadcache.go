@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
@@ -56,19 +55,6 @@ func initWorkloadCache(opts Options) *workloadCache {
 		_, hasType := o.GetLabels()[ambient.LabelType]
 		return hasType
 	})
-	if features.IncludeLocalWorkload {
-		wc.indexes[ambient.TypeWorkload].Insert(ambient.Workload{
-			UID:              "",
-			Name:             "local",
-			Namespace:        "default",
-			Labels:           map[string]string{ambient.LabelType: ambient.TypeWorkload},
-			ServiceAccount:   "default",
-			NodeName:         "local",
-			PodIP:            "127.0.0.1",
-			PodIPs:           nil,
-			WorkloadMetadata: ambient.WorkloadMetadata{},
-		})
-	}
 	opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(proxyHandler)
 
 	go queue.Run(opts.Stop)
