@@ -384,7 +384,7 @@ func (ac *AuthContext) Header(header string) []string {
 			return meta.Get(header)
 		}
 	} else if ac.Request != nil {
-		return ac.Request.Header[header]
+		return ac.Request.Header.Values(header)
 	}
 	return nil
 }
