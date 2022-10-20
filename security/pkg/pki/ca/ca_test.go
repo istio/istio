@@ -310,10 +310,8 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 		case current := <-rootCertCh:
 			if rootCert == nil {
 				rootCert = current
-			} else {
-				if !bytes.Equal(rootCert, current) {
-					t.Error("Root cert does not match")
-				}
+			} else if !bytes.Equal(rootCert, current) {
+				t.Error("Root cert does not match")
 			}
 		default:
 			return
