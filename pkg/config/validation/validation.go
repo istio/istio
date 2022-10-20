@@ -1209,7 +1209,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[egress.Port.Number]; found {
+					if _, found := portMap[egress.Port.Number]; found || len(egress.Hosts) > 1 {
 						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
 					portMap[egress.Port.Number] = struct{}{}

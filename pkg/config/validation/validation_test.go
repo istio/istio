@@ -6052,6 +6052,18 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"egress multiple hosts for single port", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"ns1/foo.com", "ns1/bar.com"},
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "tcp",
+					},
+				},
+			},
+		}, false, false},
 		{"ingress without port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
