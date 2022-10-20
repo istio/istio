@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.13-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.13-2022-10-18T19-02-31
+BASE_VERSION ?= 1.13-2022-10-20T19-02-56
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
