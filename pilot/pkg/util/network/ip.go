@@ -80,7 +80,7 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 			var ipAddr netip.Addr
 			ipPort, iErr := netip.ParseAddrPort(addr.String())
 			if iErr != nil {
-				ip, aErr = netip.ParseAddr(addr.String())
+				ip, aErr := netip.ParseAddr(addr.String())
 				if aErr != nil {
 					continue
 				}
