@@ -175,6 +175,9 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				if gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && parse.Namespace == proxy.VerifiedIdentity.Namespace {
 					// Same namespace is always allowed
 					verifiedCertificateReferences.Insert(rn)
+					if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+						verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+					}
 				} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
 					// Explicitly allowed by some policy
 					verifiedCertificateReferences.Insert(rn)
