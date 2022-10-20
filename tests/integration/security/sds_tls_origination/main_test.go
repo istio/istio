@@ -21,34 +21,14 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
-var (
-	// Namespaces
-	echo1NS    namespace.Instance
-	externalNS namespace.Instance
-
-	// Servers
-	apps deployment.SingleNamespaceView
-)
+var inst istio.Instance
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, nil)).
-		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.
-		SetupParallel(
-			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true}),
-			namespace.Setup(&externalNS, namespace.Config{Prefix: "external", Inject: false})).
-		SetupParallel(
-			deployment.SetupSingleNamespace(&apps, deployment.Config{
-				Namespaces: []namespace.Getter{
-					namespace.Future(&echo1NS),
-				},
-				ExternalNamespace: namespace.Future(&externalNS),
-			})).
+		Setup(istio.Setup(&inst, nil)).
 		Run()
 }

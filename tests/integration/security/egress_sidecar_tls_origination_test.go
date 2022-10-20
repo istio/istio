@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sdstlsorigination
+package security
 
 import (
 	"net/http"
@@ -53,20 +53,19 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
 				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
-			}, true, apps.EchoNamespace.Namespace.Name())
+			}, true, apps.Ns1.Namespace.Name())
 
 			// Authorize only one of the sidecars in the namespace with secret listing permissions.
-			sdstlsutil.CreateRoleForSecretAccessInNamespace(t, "test", apps.EchoNamespace.Namespace.Name())
-			serviceAccount := apps.EchoNamespace.A.Config().ServiceAccountName()
+			serviceAccount := apps.Ns1.A.Config().ServiceAccountName()
 			serviceAccountName := serviceAccount[strings.LastIndex(serviceAccount, "/")+1:]
-			sdstlsutil.CreateRoleBindingForSecretAccessInNamespace(t, "test", apps.EchoNamespace.Namespace.Name(), serviceAccountName)
+			authorizeSidecar(t, apps.Ns1.Namespace, serviceAccountName)
 
 			// Create a kubernetes secret with an invalid ClientCert
 			ingressutil.CreateIngressKubeSecretInNamespace(t, fakeCredName, ingressutil.Mtls, ingressutil.IngressCredential{
 				Certificate: sdstlsutil.FakeCert,
 				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
-			}, false, apps.EchoNamespace.Namespace.Name())
+			}, false, apps.Ns1.Namespace.Name())
 
 			// Set up Host Namespace
 			host := apps.External.All.Config().ClusterLocalFQDN()
@@ -83,7 +82,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					name:            "authorized sidecar",
 					statusCode:      http.StatusOK,
 					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
-					from:            apps.EchoNamespace.A,
+					from:            apps.Ns1.A,
 					drSelector:      "a",
 				},
 				// Mutual TLS origination from an unauthorized sidecar to https endpoint
@@ -92,7 +91,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					name:            "unauthorized sidecar",
 					statusCode:      http.StatusBadRequest,
 					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
-					from:            apps.EchoNamespace.B,
+					from:            apps.Ns1.B,
 					drSelector:      "b",
 				},
 				// Mutual TLS origination using an invalid client certificate
@@ -101,22 +100,59 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					name:            "invalid client cert",
 					statusCode:      http.StatusBadRequest,
 					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
-					from:            apps.EchoNamespace.C,
+					from:            apps.Ns1.C,
 					drSelector:      "c",
 				},
 			}
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					newTLSGatewayDestinationRule(t, apps.External.All, "MUTUAL", tc.drSelector, tc.credentialToUse,
-						apps.EchoNamespace.Namespace)
-					callOpt := newTLSGatewayCallOpts(apps.External.All[0], host, tc.statusCode)
+					newTLSSidecarDestinationRule(t, apps.External.All, "MUTUAL", tc.drSelector, tc.credentialToUse,
+						apps.Ns1.Namespace)
+					callOpt := newTLSSidecarCallOpts(apps.External.All[0], host, tc.statusCode)
 					tc.from[0].CallOrFail(t, callOpt)
 				})
 			}
 		})
 }
 
-func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string,
+func authorizeSidecar(t framework.TestContext, clientNamespace namespace.Instance, serviceAccountName string) {
+	args := map[string]any{
+		"ServiceAccount": serviceAccountName,
+		"Namespace":      clientNamespace.Name(),
+	}
+
+	role := `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: allow-list-secrets
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+`
+
+	rolebinding := `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: allow-list-secrets-to-{{ .ServiceAccount }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: allow-list-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .ServiceAccount }}
+  namespace: {{ .Namespace }}
+`
+	t.ConfigIstio().Eval(clientNamespace.Name(), args, role, rolebinding).ApplyOrFail(t, apply.NoCleanup)
+}
+
+func newTLSSidecarDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string,
 	workloadSelector string, credentialName string, clientNamespace namespace.Instance,
 ) {
 	args := map[string]any{
@@ -150,7 +186,7 @@ spec:
 	t.ConfigIstio().Eval(clientNamespace.Name(), args, dr).ApplyOrFail(t, apply.NoCleanup)
 }
 
-func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int) echo.CallOptions {
+func newTLSSidecarCallOpts(to echo.Target, host string, statusCode int) echo.CallOptions {
 	return echo.CallOptions{
 		To: to,
 		Port: echo.Port{
