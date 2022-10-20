@@ -23,6 +23,15 @@ import (
 	"istio.io/istio/tests/integration/telemetry/common"
 )
 
+// TestTelemetryAPIStats verifies the stats filter could emit expected client and server side
+// metrics when configured with the Telemetry API (with EnvoyFilters disabled)
+// This test focuses on stats filter and metadata exchange filter could work coherently with
+// proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
+// of metrics, which should be covered by integration test in proxy repo.
+func TestTelemetryAPIStats(t *testing.T) {
+	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.nullvm")
+}
+
 func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer
 	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

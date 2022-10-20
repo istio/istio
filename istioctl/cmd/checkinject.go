@@ -42,16 +42,16 @@ func checkInjectCommand() *cobra.Command {
 		Long: `
 Checks associated resources of the given resource, and running webhooks to examine whether the pod can be or will be injected or not.`,
 		Example: `	# Check the injection status of a pod
-	istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
+  istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
 	
-	# Check the injection status of a pod under a deployment
-	istioctl x check-inject deployment/details-v1
+  # Check the injection status of a pod under a deployment
+  istioctl x check-inject deployment/details-v1
 
-	# Check the injection status of a pod under a deployment in namespace test
-	istioctl x check-inject deployment/details-v1 -n test
+  # Check the injection status of a pod under a deployment in namespace test
+  istioctl x check-inject deployment/details-v1 -n test
 
-   # Check the injection status of label pairs in a specific namespace before actual injection 
-	istioctl x check-inject -n test -l app=helloworld,version=v1
+  # Check the injection status of label pairs in a specific namespace before actual injection 
+  istioctl x check-inject -n test -l app=helloworld,version=v1
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && labelPairs == "" || len(args) > 1 {

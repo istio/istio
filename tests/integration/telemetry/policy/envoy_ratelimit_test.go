@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
@@ -46,6 +47,7 @@ var (
 	ing         ingress.Instance
 	srv         echo.Instance
 	clt         echo.Instance
+	prom        prometheus.Instance
 )
 
 func TestRateLimiting(t *testing.T) {
@@ -99,7 +101,13 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
 		Setup(testSetup).
+		Setup(setupPrometheus).
 		Run()
+}
+
+func setupPrometheus(ctx resource.Context) (err error) {
+	prom, err = prometheus.New(ctx, prometheus.Config{})
+	return err
 }
 
 func testSetup(ctx resource.Context) (err error) {

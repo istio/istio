@@ -1,7 +1,7 @@
 //go:build integ
 // +build integ
 
-// Copyright Istio Authors
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,31 +15,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package outboundtrafficpolicy
+package api
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/telemetry/common"
 )
 
-var prom prometheus.Instance
-
 func TestMain(m *testing.M) {
-	var ist istio.Instance
-	// nolint: staticcheck
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, nil)).
-		Setup(setupPrometheus).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
+		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			i, err := istio.Get(ctx)
+			if err != nil {
+				return err
+			}
+			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: mesh-default
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+`).Apply()
+		}).
+		Setup(common.TestSetup).
+		Setup(testRegistrySetup).
 		Run()
 }
 
-func setupPrometheus(ctx resource.Context) (err error) {
-	prom, err = prometheus.New(ctx, prometheus.Config{})
-	return err
+func setupConfig(c resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.Values["meshConfig.accessLogFile"] = "" // disabled accesslog, will enabled by TelemetryAPI later
+	cfg.Values["telemetry.v2.enabled"] = "false"
 }
