@@ -33,6 +33,8 @@ const (
 	// BuiltinGatewaySecretType is the name of a SDS secret that uses the workloads own mTLS certificate
 	BuiltinGatewaySecretType    = "builtin"
 	BuiltinGatewaySecretTypeURI = BuiltinGatewaySecretType + "://"
+	// SdsCaSuffix is the suffix of the sds resource name for root CA.
+	SdsCaSuffix = "-cacert"
 )
 
 // SecretResource defines a reference to a secret
