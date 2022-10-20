@@ -9,6 +9,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: istiod
     istio.io/rev: {{ .Values.defaultRevision }}
+    {{- if .Values.global.meshID }}
+    istio.io/mesh-id: "{{ .Values.global.meshID }}"
+    {{- end }}
 webhooks:
   - name: validation.istio.io
     clientConfig:
