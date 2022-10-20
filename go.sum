@@ -675,6 +675,8 @@ github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/huandu/xstrings v1.3.2 h1:L18LIDzqlW6xN2rEkpdV8+oL/IXWJ1APd+vsdYy4Wdw=
 github.com/huandu/xstrings v1.3.2/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
+github.com/hzxuzhonghu/api v0.0.0-20221020093912-9796c339c40a h1:CDN/lmQ6XeXXY9O2F44hM5vjnWTkuC0ncnO/Tb2I8Jw=
+github.com/hzxuzhonghu/api v0.0.0-20221020093912-9796c339c40a/go.mod h1:hQkF0Q19MCmfOTre/Sg4KvrwwETq45oaFplnBm2p4j8=
 github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
@@ -1966,6 +1968,16 @@ istio.io/client-go v1.12.0-alpha.5.0.20221028105456-7d62bbd2ef75 h1:IKxon7LvEb1w
 istio.io/client-go v1.12.0-alpha.5.0.20221028105456-7d62bbd2ef75/go.mod h1:BBHpuSha7BNy1xkOA/6UlKK9tqSeH9NZP3EApEntjjA=
 istio.io/pkg v0.0.0-20221021173746-562ca5333a70 h1:xB9Zn7qKEGtmMWP5jJTH5l7v6JgSgsCWu92uYx2FYvw=
 istio.io/pkg v0.0.0-20221021173746-562ca5333a70/go.mod h1:Hjx3Q5OCIfitqy5AYKG1+1UB60PP16NP09w+K6U9y8c=
+istio.io/api v0.0.0-20221020080242-902325bb8e23 h1:oUgxk1WQFgTVOrWS8eqQ3RG1V4LZsGBfvZhgwx5z1gk=
+istio.io/api v0.0.0-20221020080242-902325bb8e23/go.mod h1:hQkF0Q19MCmfOTre/Sg4KvrwwETq45oaFplnBm2p4j8=
+istio.io/client-go v1.12.0-alpha.5.0.20221020080643-69ded5dcbead h1:MZZaoVZYf0R430aE31ASEv6MhbvT/rGe2q8zyA8FhsQ=
+istio.io/client-go v1.12.0-alpha.5.0.20221020080643-69ded5dcbead/go.mod h1:JPJHQZX0YdFfzo3CIE1xPVVRhspEQ0fbPnzV0C3Ws8E=
+istio.io/pkg v0.0.0-20221019141052-ef8dffdea424 h1:t4yZ0GJn4kTaVVqcdnMCPFD+npoHIYgPUZUKSfWWV5s=
+istio.io/pkg v0.0.0-20221019141052-ef8dffdea424/go.mod h1:Rom8KLVw76XZdvGZet+54VPZswL/XqX8x4MBH6khECw=
+istio.io/client-go v1.12.0-alpha.5.0.20221017185110-774fb0277244 h1:bxi4WxyqrE6BzWt+c8T4sDgRrM5Hqe82mXytm4v24RA=
+istio.io/client-go v1.12.0-alpha.5.0.20221017185110-774fb0277244/go.mod h1:74n6hsxbHGWRrJFwo7zoDckyMrscALU03QMQnHHAuLw=
+istio.io/pkg v0.0.0-20221010145513-84f7e761c2b8 h1:bSaEMofjP1uhha3StLnI/KjqKOpaCCygrhONhBDdLQQ=
+istio.io/pkg v0.0.0-20221010145513-84f7e761c2b8/go.mod h1:Rom8KLVw76XZdvGZet+54VPZswL/XqX8x4MBH6khECw=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=

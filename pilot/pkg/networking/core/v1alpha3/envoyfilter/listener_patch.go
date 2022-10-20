@@ -126,7 +126,121 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 			merge.Merge(listener, lp.Value)
 		}
 	}
+	patchListenerFilters(patchContext, patches[networking.EnvoyFilter_LISTENER_FILTER], listener)
 	patchFilterChains(patchContext, patches, listener)
+}
+
+// patchListenerFilters patches passed in filter if it is MERGE operation.
+// The return value indicates whether the filter has been removed for REMOVE operations.
+func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
+	patches []*model.EnvoyFilterConfigPatchWrapper,
+	listener *xdslistener.Listener,
+) {
+	removedFilters := sets.New[string]()
+	for _, lp := range patches {
+		if !commonConditionMatch(patchContext, lp) ||
+			!listenerMatch(listener, lp) {
+			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
+			continue
+		}
+		applied := false
+		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
+			listener.ListenerFilters = append(listener.ListenerFilters, proto.Clone(lp.Value).(*xdslistener.ListenerFilter))
+			applied = true
+		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			listener.ListenerFilters = append([]*xdslistener.ListenerFilter{proto.Clone(lp.Value).(*xdslistener.ListenerFilter)}, listener.ListenerFilters...)
+			applied = true
+		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+			// Insert after without a filter match is same as ADD in the end
+			if !hasListenerFilterMatch(lp) {
+				listener.ListenerFilters = append(listener.ListenerFilters, proto.Clone(lp.Value).(*xdslistener.ListenerFilter))
+				applied = true
+				continue
+			}
+
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(listener.ListenerFilters); i++ {
+				if listenerFilterMatch(listener.ListenerFilters[i], lp) {
+					insertPosition = i + 1
+					break
+				}
+			}
+
+			if insertPosition == -1 {
+				continue
+			}
+			applied = true
+			clonedVal := proto.Clone(lp.Value).(*xdslistener.ListenerFilter)
+			listener.ListenerFilters = append(listener.ListenerFilters, clonedVal)
+			if insertPosition < len(listener.ListenerFilters)-1 {
+				copy(listener.ListenerFilters[insertPosition+1:], listener.ListenerFilters[insertPosition:])
+				listener.ListenerFilters[insertPosition] = clonedVal
+			}
+		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			// insert before without a filter match is same as insert in the beginning
+			if !hasListenerFilterMatch(lp) {
+				listener.ListenerFilters = append([]*xdslistener.ListenerFilter{proto.Clone(lp.Value).(*xdslistener.ListenerFilter)}, listener.ListenerFilters...)
+				continue
+			}
+			// find the matching filter first
+			insertPosition := -1
+			for i := 0; i < len(listener.ListenerFilters); i++ {
+				if listenerFilterMatch(listener.ListenerFilters[i], lp) {
+					insertPosition = i
+					break
+				}
+			}
+
+			// If matching filter is not found, then don't insert and continue.
+			if insertPosition == -1 {
+				continue
+			}
+			applied = true
+			clonedVal := proto.Clone(lp.Value).(*xdslistener.ListenerFilter)
+			listener.ListenerFilters = append(listener.ListenerFilters, clonedVal)
+			copy(listener.ListenerFilters[insertPosition+1:], listener.ListenerFilters[insertPosition:])
+			listener.ListenerFilters[insertPosition] = clonedVal
+		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
+			if !hasListenerFilterMatch(lp) {
+				continue
+			}
+			// find the matching filter first
+			replacePosition := -1
+			for i := 0; i < len(listener.ListenerFilters); i++ {
+				if listenerFilterMatch(listener.ListenerFilters[i], lp) {
+					replacePosition = i
+					break
+				}
+			}
+			if replacePosition == -1 {
+				continue
+			}
+			applied = true
+			listener.ListenerFilters[replacePosition] = proto.Clone(lp.Value).(*xdslistener.ListenerFilter)
+		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+			if !hasListenerFilterMatch(lp) {
+				continue
+			}
+			for i := 0; i < len(listener.ListenerFilters); i++ {
+				if listenerFilterMatch(listener.ListenerFilters[i], lp) {
+					removedFilters.Insert(listener.ListenerFilters[i].Name)
+					break
+				}
+			}
+		}
+		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
+	}
+	if len(removedFilters) > 0 {
+		tempArray := make([]*xdslistener.ListenerFilter, 0, len(listener.ListenerFilters)-len(removedFilters))
+		for _, filter := range listener.ListenerFilters {
+			if removedFilters.Contains(filter.Name) {
+				continue
+			}
+			tempArray = append(tempArray, filter)
+		}
+		listener.ListenerFilters = tempArray
+	}
 }
 
 func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
@@ -620,7 +734,6 @@ func listenerMatch(listener *xdslistener.Listener, lp *model.EnvoyFilterConfigPa
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -678,6 +791,24 @@ func filterChainMatch(listener *xdslistener.Listener, fc *xdslistener.FilterChai
 		}
 	}
 	return true
+}
+
+func hasListenerFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
+	lMatch := lp.Match.GetListener()
+	if lMatch == nil {
+		return false
+	}
+
+	return lMatch.ListenerFilter != ""
+}
+
+// We assume that the parent listener has already been matched
+func listenerFilterMatch(filter *xdslistener.ListenerFilter, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if !hasListenerFilterMatch(cp) {
+		return true
+	}
+
+	return nameMatches(cp.Match.GetListener().ListenerFilter, filter.Name)
 }
 
 func hasNetworkFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {

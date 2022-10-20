@@ -55,6 +55,7 @@ import (
 	istio_proto "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/pkg/log"
 )
 
 var testMesh = &meshconfig.MeshConfig{
@@ -68,7 +69,7 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	store := memory.Make(collections.Pilot)
 
 	for i, cp := range configPatches {
-		store.Create(config.Config{
+		_, err := store.Create(config.Config{
 			Meta: config.Meta{
 				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
 				Namespace:        "not-default",
@@ -78,6 +79,9 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
 			},
 		})
+		if err != nil {
+			log.Errorf("create envoyfilter failed %v", err)
+		}
 	}
 	return store
 }
@@ -893,6 +897,53 @@ func TestApplyListenerPatches(t *testing.T) {
 								"alpn_protocols": [ "h2-6380", "http/1.1-6380" ]}}}}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"envoy.filters.listener.proxy_protocol"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     12345,
+						ListenerFilter: "envoy.filters.listener.proxy_protocol",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+				Value:     buildPatchStruct(`{"name":"before proxy_protocol"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     12345,
+						ListenerFilter: "envoy.filters.listener.proxy_protocol",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_AFTER,
+				Value:     buildPatchStruct(`{"name":"after proxy_protocol"}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -1156,6 +1207,17 @@ func TestApplyListenerPatches(t *testing.T) {
 						{Name: "filter0"},
 						{Name: "filter1"},
 					},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: "before proxy_protocol",
+				},
+				{
+					Name: "envoy.filters.listener.proxy_protocol",
+				},
+				{
+					Name: "after proxy_protocol",
 				},
 			},
 		},
