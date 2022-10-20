@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -53,8 +54,8 @@ import (
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/spiffe"
 	workloadapi "istio.io/istio/pkg/workloadapi"
-	wmpb "istio.io/istio/pkg/workloadmetadata/proto"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -381,31 +382,21 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []*v1.Pod) *worklo
 	wl := &workloadapi.Workload{
 		Name:           pod.Name,
 		Namespace:      pod.Namespace,
-		Address:        pod.Status.PodIP,
-		Identity:       kube.SecureNamingSAN(pod),
-		GatewayAddress: "",
-		VirtualIps:     vips,
-		Uid:            string(pod.UID),
+		Address:        netip.MustParseAddr(pod.Status.PodIP).AsSlice(),
+		Network:        c.network.String(),
+		ServiceAccount: pod.Spec.ServiceAccountName,
 		Node:           pod.Spec.NodeName,
 	}
-
-	name, workloadType := workloadNameAndType(pod)
-	switch workloadType {
-	case wmpb.WorkloadMetadataResource_KUBERNETES_DEPLOYMENT:
-		wl.WorkloadType = "deployment"
-	case wmpb.WorkloadMetadataResource_KUBERNETES_CRONJOB:
-		wl.WorkloadType = "cronjob"
-	case wmpb.WorkloadMetadataResource_KUBERNETES_POD:
-		wl.WorkloadType = "pod"
-	case wmpb.WorkloadMetadataResource_KUBERNETES_JOB:
-		wl.WorkloadType = "job"
+	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
+		wl.TrustDomain = td
 	}
-	wl.WorkloadName = name
-	wl.CanonicalName, wl.CanonicalRevision = kubelabels.CanonicalService(pod.Labels, name)
+
+	wl.WorkloadName, wl.WorkloadType = workloadNameAndType(pod)
+	wl.CanonicalName, wl.CanonicalRevision = kubelabels.CanonicalService(pod.Labels, wl.WorkloadName)
 	// If we are not a remote proxy, and we have a remote proxy, configure it
 	if remote := c.proxiesForWorkload(pod, waypoints); len(remote) > 0 {
 		// TODO support multiple
-		wl.RemoteProxy = remote[0]
+		wl.WaypointAddress = netip.MustParseAddr(remote[0]).AsSlice()
 	}
 
 	// In node mode, we can assume all of the cluster uses h2 connect
@@ -413,11 +404,11 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []*v1.Pod) *worklo
 	// wl.Protocol = workloadapi.Protocol_HTTP2CONNECT
 	if c.AmbientEnabled(pod) {
 		// Configured for override
-		wl.Protocol = workloadapi.Protocol_HTTP2CONNECT
+		wl.Protocol = workloadapi.Protocol_HTTP
 	}
 	// Otherwise supports tunnel directly
 	if pod.Labels[model.TunnelLabel] == model.TunnelH2 {
-		wl.Protocol = workloadapi.Protocol_HTTP2CONNECT
+		wl.Protocol = workloadapi.Protocol_HTTP
 		wl.NativeHbone = true
 	}
 	return wl
@@ -1621,10 +1612,9 @@ func (c *Controller) proxiesForWorkload(pod *v1.Pod, waypoints []*v1.Pod) []stri
 	return ips
 }
 
-// total hack
-func workloadNameAndType(pod *v1.Pod) (string, wmpb.WorkloadMetadataResource_WorkloadType) {
+func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
 	if len(pod.GenerateName) == 0 {
-		return pod.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
+		return pod.Name, workloadapi.WorkloadType_POD
 	}
 
 	// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
@@ -1639,24 +1629,24 @@ func workloadNameAndType(pod *v1.Pod) (string, wmpb.WorkloadMetadataResource_Wor
 	}
 
 	if !controllerFound {
-		return pod.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
+		return pod.Name, workloadapi.WorkloadType_POD
 	}
 
 	// heuristic for deployment detection
 	if controllerRef.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
 		name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
-		return name, wmpb.WorkloadMetadataResource_KUBERNETES_DEPLOYMENT
+		return name, workloadapi.WorkloadType_DEPLOYMENT
 	}
 
 	if controllerRef.Kind == "Job" {
 		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, wmpb.WorkloadMetadataResource_KUBERNETES_JOB
+		return controllerRef.Name, workloadapi.WorkloadType_JOB
 	}
 
 	if controllerRef.Kind == "CronJob" {
 		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, wmpb.WorkloadMetadataResource_KUBERNETES_CRONJOB
+		return controllerRef.Name, workloadapi.WorkloadType_CRONJOB
 	}
 
-	return pod.Name, wmpb.WorkloadMetadataResource_KUBERNETES_POD
+	return pod.Name, workloadapi.WorkloadType_POD
 }

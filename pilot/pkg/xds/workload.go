@@ -63,8 +63,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 			if rbac == nil {
 				rbac = &workloadapi.Authorization{}
 			}
-			rbac.EnforceTLS = true
-			wl.Enforce = true
+			rbac.EnforceMTLS = true
 		}
 		wl.Rbac = rbac
 		resources = append(resources, &discovery.Resource{
@@ -91,11 +90,7 @@ func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource
 	return res, log, err
 }
 
-// Hacky solution to create a condition that """never""" occurs.
-// DO NOT SHIP TO PROD
-var conditionNever = &workloadapi.AuthCondition{
-	Port: 99999,
-}
+var conditionNever = &workloadapi.AuthCondition{}
 
 func reduceAuthz(policies model.AuthorizationPoliciesResult) *workloadapi.Authorization {
 	if len(policies.Deny) == 0 && len(policies.Allow) == 0 {
