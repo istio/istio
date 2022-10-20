@@ -77,7 +77,7 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 		addrs, _ := iface.Addrs()
 
 		for _, addr := range addrs {
-			ip, err := netip.ParseAddr(addr.String())
+			ip, err := netip.ParseAddr(addr.IP.String())
 			if err != nil {
 				continue
 			}
