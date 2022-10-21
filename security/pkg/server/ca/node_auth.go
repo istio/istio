@@ -20,9 +20,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -33,7 +33,7 @@ import (
 // valid identities which run on that node (rather than arbitrary ones).
 type NodeAuthorizer struct {
 	podLister           listerv1.PodLister
-	podIndexer          cache.Indexer
+	podIndexer          *controllers.Index[*v1.Pod, SaNode]
 	trustedNodeAccounts map[types.NamespacedName]struct{}
 }
 
@@ -41,38 +41,25 @@ const NodeSaIndex = "node+sa"
 
 func NewNodeAuthorizer(client kube.Client, trustedNodeAccounts map[types.NamespacedName]struct{}) (*NodeAuthorizer, error) {
 	pods := client.KubeInformer().Core().V1().Pods()
-
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.
-	if err := pods.Informer().AddIndexers(map[string]cache.IndexFunc{
-		NodeSaIndex: func(obj interface{}) ([]string, error) {
-			pod, ok := obj.(*v1.Pod)
-			if !ok {
-				return nil, nil
-			}
-			if len(pod.Spec.NodeName) == 0 {
-				return nil, nil
-			}
-			if len(pod.Spec.ServiceAccountName) == 0 {
-				return nil, nil
-			}
-			return []string{SaNode{
-				ServiceAccount: types.NamespacedName{
-					Namespace: pod.Namespace,
-					Name:      pod.Spec.ServiceAccountName,
-				},
-				Node: pod.Spec.NodeName,
-			}.String()}, nil
-		},
-	}); err != nil {
-		// This should only happen if the informer has already started.
-		// This can only happen if a component started before the CA already registers the informer *and* starts it.
-		// This should not happen; if it does, the CA will not function properly, and its likely a programming error, so returning
-		// an error here (which will ultimately exit the process) is appropriate.
-		return nil, fmt.Errorf("failed to add indexer: %v", err)
-	}
+	index := controllers.CreateIndex[*v1.Pod, SaNode](pods.Informer(), func(pod *v1.Pod) []SaNode {
+		if len(pod.Spec.NodeName) == 0 {
+			return nil
+		}
+		if len(pod.Spec.ServiceAccountName) == 0 {
+			return nil
+		}
+		return []SaNode{{
+			ServiceAccount: types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      pod.Spec.ServiceAccountName,
+			},
+			Node: pod.Spec.NodeName,
+		}}
+	})
 	return &NodeAuthorizer{
 		podLister:           pods.Lister(),
-		podIndexer:          pods.Informer().GetIndexer(),
+		podIndexer:          index,
 		trustedNodeAccounts: trustedNodeAccounts,
 	}, nil
 }
@@ -115,11 +102,7 @@ func (na *NodeAuthorizer) authenticateImpersonation(caller security.KubernetesIn
 	}
 	// TODO: this is currently single cluster; we will need to take the cluster of the proxy into account
 	// to support multi-cluster properly.
-	res, err := na.podIndexer.ByIndex(NodeSaIndex, k.String())
-	if err != nil {
-		// This should never happen (only possible if the index doesn't exist)
-		return fmt.Errorf("failed to find node local service accounts: %v", err)
-	}
+	res := na.podIndexer.Lookup(k)
 	// We don't care what pods are part of the index, only that there is at least one. If there is one,
 	// it is appropriate for the caller to request this identity.
 	if len(res) == 0 {
