@@ -70,6 +70,8 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	"GatewaySecretMissingReferencedSecret": "https://github.com/istio/istio/issues/40714",
+	// Broken upstream
+	"HTTPRouteResponseHeaderModifier": "https://github.com/kubernetes-sigs/gateway-api/pull/1472",
 }
 
 func TestGatewayConformance(t *testing.T) {

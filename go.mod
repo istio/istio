@@ -98,10 +98,12 @@ require (
 	k8s.io/kubectl v0.25.3
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85
 	sigs.k8s.io/controller-runtime v0.13.0
-	sigs.k8s.io/gateway-api v0.5.1-0.20221010202521-f533a1e7637a
+	sigs.k8s.io/gateway-api v0.5.1-0.20221021174151-21bba43681b3
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
+
+replace sigs.k8s.io/gateway-api => ../../sigs.k8s.io/gateway-api
 
 require (
 	cloud.google.com/go v0.104.0 // indirect

@@ -307,7 +307,23 @@ func buildHTTPVirtualServices(
 		for _, filter := range r.Filters {
 			switch filter.Type {
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
-				vs.Headers = createHeadersFilter(filter.RequestHeaderModifier)
+				h := createHeadersFilter(filter.RequestHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if vs.Headers == nil {
+					vs.Headers = &istio.Headers{}
+				}
+				vs.Headers.Request = h
+			case k8sbeta.HTTPRouteFilterResponseHeaderModifier:
+				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if vs.Headers == nil {
+					vs.Headers = &istio.Headers{}
+				}
+				vs.Headers.Response = h
 			case k8s.HTTPRouteFilterRequestRedirect:
 				vs.Redirect = createRedirectFilter(filter.RequestRedirect)
 			case k8s.HTTPRouteFilterRequestMirror:
@@ -863,7 +879,23 @@ func buildHTTPDestination(
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
-				rd.Headers = createHeadersFilter(filter.RequestHeaderModifier)
+				h := createHeadersFilter(filter.RequestHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if rd.Headers == nil {
+					rd.Headers = &istio.Headers{}
+				}
+				rd.Headers.Request = h
+			case k8sbeta.HTTPRouteFilterResponseHeaderModifier:
+				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if rd.Headers == nil {
+					rd.Headers = &istio.Headers{}
+				}
+				rd.Headers.Response = h
 			default:
 				return nil, &ConfigError{Reason: InvalidFilter, Message: fmt.Sprintf("unsupported filter type %q", filter.Type)}
 			}
@@ -1037,16 +1069,14 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	return resp
 }
 
-func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
+func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers_HeaderOperations {
 	if filter == nil {
 		return nil
 	}
-	return &istio.Headers{
-		Request: &istio.Headers_HeaderOperations{
-			Add:    headerListToMap(filter.Add),
-			Remove: filter.Remove,
-			Set:    headerListToMap(filter.Set),
-		},
+	return &istio.Headers_HeaderOperations{
+		Add:    headerListToMap(filter.Add),
+		Remove: filter.Remove,
+		Set:    headerListToMap(filter.Set),
 	}
 }
 
