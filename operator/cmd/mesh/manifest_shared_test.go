@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -78,6 +79,8 @@ var (
 	// CRDs are not in the prune list, but must be considered for tests.
 	allClusterGVKs = append(helmreconciler.ClusterResources,
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"})
+
+	testRestConfig *rest.Config
 )
 
 func init() {
@@ -106,7 +109,7 @@ func recreateTestEnv() error {
 		return err
 	}
 
-	testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
+	_, err = kubernetes.NewForConfig(testRestConfig)
 	testRestConfig.QPS = 50
 	testRestConfig.Burst = 100
 	if err != nil {
