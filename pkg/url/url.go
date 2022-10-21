@@ -26,10 +26,11 @@ var (
 	baseVersion  = v.MinorVersion.String()
 	patchVersion = v.PatchVersion.String()
 	buildArch    = buildversion.DockerInfo.Arch
+	buildOS      = buildversion.DockerInfo.OS
 
 	// ReleaseTar is a URL to download latest istio version from Github release
-	ReleaseTar = `https://github.com/istio/istio/releases/download/` + patchVersion + `/istio-` + patchVersion +
-		`-linux-` + buildArch + `.tar.gz`
+	ReleaseTar = fmt.Sprintf("https://github.com/istio/istio/releases/download/%s/istio-%s-%s-%s.tar.gz",
+		patchVersion, patchVersion, buildOS, buildArch)
 )
 
 // istio.io related URLs

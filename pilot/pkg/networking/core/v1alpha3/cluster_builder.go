@@ -57,6 +57,12 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
+var hboneTransportSocketMatch = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+	},
+}
+
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
@@ -99,6 +105,7 @@ type ClusterBuilder struct {
 	passThroughBindIP string                   // Passthrough IP to be used while building clusters.
 	supportsIPv4      bool                     // Whether Proxy IPs has IPv4 address.
 	supportsIPv6      bool                     // Whether Proxy IPs has IPv6 address.
+	hbone             bool                     // Does the proxy support HBONE
 	locality          *core.Locality           // Locality information of proxy.
 	proxyLabels       map[string]string        // Proxy labels.
 	proxyView         model.ProxyView          // Proxy view of endpoints.
@@ -121,6 +128,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		passThroughBindIP: getPassthroughBindIP(proxy),
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
+		hbone:             proxy.EnableHBONE(),
 		locality:          proxy.Locality,
 		proxyLabels:       proxy.Labels,
 		proxyView:         proxy.GetView(),
@@ -903,6 +911,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 
 func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
 	if tls == nil {
+		if cb.hbone {
+			opts.mutable.cluster.TransportSocketMatches = HboneOrPlaintextSocket
+		}
 		return
 	}
 
@@ -928,14 +939,32 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
 			transportSocket := c.cluster.TransportSocket
 			c.cluster.TransportSocket = nil
-			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				{
-					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match:           istioMtlsTransportSocketMatch,
-					TransportSocket: transportSocket,
-				},
-				defaultTransportSocketMatch(),
+			if cb.hbone {
+				c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					{
+						Name:            "hbone",
+						Match:           hboneTransportSocketMatch,
+						TransportSocket: InternalUpstreamSocket,
+					},
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						Match:           istioMtlsTransportSocketMatch,
+						TransportSocket: transportSocket,
+					},
+					defaultTransportSocketMatch(),
+				}
+			} else {
+				c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						Match:           istioMtlsTransportSocketMatch,
+						TransportSocket: transportSocket,
+					},
+					defaultTransportSocketMatch(),
+				}
 			}
+		} else if cb.hbone {
+			opts.mutable.cluster.TransportSocketMatches = HboneOrPlaintextSocket
 		}
 	}
 }
@@ -1300,6 +1329,14 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			},
 		},
 	}
+	options := &http.HttpProtocolOptions{}
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+		ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+			ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+				Http2ProtocolOptions: http2ProtocolOptions(),
+			},
+		},
+	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
@@ -1311,6 +1348,9 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 					LbEndpoints: []*endpoint.LbEndpoint{ep},
 				},
 			},
+		},
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
 	return c

@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
-kind: feature
+kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Added** multi-arch detection for manifest URL path.
+    **Fixed** manifest URL path displays `amd64` package for arm users.

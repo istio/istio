@@ -367,6 +367,28 @@ type AuthContext struct {
 	Request *http.Request
 }
 
+// RemoteAddress returns the authenticated remote address from AuthContext.
+func (ac *AuthContext) RemoteAddress() string {
+	if ac.GrpcContext != nil {
+		return GetConnectionAddress(ac.GrpcContext)
+	} else if ac.Request != nil {
+		return ac.Request.RemoteAddr
+	}
+	return ""
+}
+
+// Header returns the authenticated remote address from AuthContext.
+func (ac *AuthContext) Header(header string) []string {
+	if ac.GrpcContext != nil {
+		if meta, ok := metadata.FromIncomingContext(ac.GrpcContext); ok {
+			return meta.Get(header)
+		}
+	} else if ac.Request != nil {
+		return ac.Request.Header.Values(header)
+	}
+	return nil
+}
+
 // Caller carries the identity and authentication source of a caller.
 type Caller struct {
 	AuthSource AuthSource

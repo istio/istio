@@ -41,6 +41,9 @@ var (
 	// ResourceKindLabel indicates the kind of resource owned
 	// or created or updated or deleted or pruned by operator.
 	ResourceKindLabel = monitoring.MustCreateLabel("kind")
+
+	// ReconcileRequestReasonLabel describes reason of reconcile request.
+	ReconcileRequestReasonLabel = monitoring.MustCreateLabel("reason")
 )
 
 // MergeErrorType describes the class of errors that could
@@ -99,6 +102,12 @@ var (
 		"version",
 		"Version of operator binary",
 		monitoring.WithLabels(OperatorVersionLabel),
+	)
+
+	ReconcileRequestTotal = monitoring.NewSum(
+		"reconcile_request_total",
+		"Number of times requesting Reconcile",
+		monitoring.WithLabels(ReconcileRequestReasonLabel),
 	)
 
 	// GetCRErrorTotal counts the number of times fetching
@@ -225,7 +234,13 @@ func init() {
 		ManifestRenderErrorTotal,
 		LegacyPathTranslationTotal,
 		CacheFlushTotal,
+
+		ReconcileRequestTotal,
 	)
 
 	initOperatorCrdResourceMetrics()
+}
+
+func IncrementReconcileRequest(reason string) {
+	ReconcileRequestTotal.With(ReconcileRequestReasonLabel.Value(reason)).Increment()
 }

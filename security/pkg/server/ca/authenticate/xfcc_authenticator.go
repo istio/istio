@@ -17,13 +17,10 @@ package authenticate
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"net/netip"
 	"strings"
 
 	"github.com/alecholmes/xfccparser"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/security"
@@ -45,27 +42,17 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 
 // Authenticate extracts identities from Xfcc Header.
 func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
-	peerInfo, _ := peer.FromContext(ctx.GrpcContext)
+	remoteAddr := ctx.RemoteAddress()
+	xfccHeader := ctx.Header(xfccparser.ForwardedClientCertHeader)
+	if len(remoteAddr) == 0 || len(xfccHeader) == 0 {
+		return nil, nil
+	}
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
-	if !isTrustedAddress(peerInfo.Addr.String(), features.TrustedGatewayCIDR) {
-		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
+	if !isTrustedAddress(remoteAddr, features.TrustedGatewayCIDR) {
+		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", remoteAddr)
 	}
-	meta, ok := metadata.FromIncomingContext(ctx.GrpcContext)
 
-	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
-		return nil, nil
-	}
-	xfccHeader := meta.Get(xfccparser.ForwardedClientCertHeader)[0]
-	return buildSecurityCaller(xfccHeader)
-}
-
-// AuthenticateRequest validates Xfcc Header.
-func (xff XfccAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	xfccHeader := req.Header.Get(xfccparser.ForwardedClientCertHeader)
-	if len(xfccHeader) == 0 {
-		return nil, nil
-	}
-	return buildSecurityCaller(xfccHeader)
+	return buildSecurityCaller(xfccHeader[0])
 }
 
 func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {

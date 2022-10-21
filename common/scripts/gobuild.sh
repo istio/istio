@@ -37,8 +37,8 @@ shift
 
 set -e
 
-BUILD_GOOS=${GOOS:-linux}
-BUILD_GOARCH=${GOARCH:-amd64}
+export BUILD_GOOS=${GOOS:-linux}
+export BUILD_GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
@@ -69,6 +69,9 @@ LD_EXTRAFLAGS=""
 while read -r line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
+
+echo "ld flags:"
+echo "${LD_EXTRAFLAGS}"
 
 OPTIMIZATION_FLAGS=(-trimpath)
 if [ "${DEBUG}" == "1" ]; then
