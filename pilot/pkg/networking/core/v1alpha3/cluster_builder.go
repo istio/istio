@@ -1300,6 +1300,14 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			},
 		},
 	}
+	options := &http.HttpProtocolOptions{}
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+		ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+			ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+				Http2ProtocolOptions: http2ProtocolOptions(),
+			},
+		},
+	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
@@ -1311,6 +1319,9 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 					LbEndpoints: []*endpoint.LbEndpoint{ep},
 				},
 			},
+		},
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
 	return c
