@@ -287,6 +287,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(parallel)
 	rootCertCh := make(chan []byte, parallel)
+	privateKeyCh := make(chan []byte, parallel)
 
 	for i := 0; i < parallel; i++ {
 		go func() {
@@ -300,18 +301,35 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 			if err != nil {
 				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
 			}
-			rootCertCh <- caOpts.KeyCertBundle.GetRootCertPem()
+			cert, privateKey, certChain, rootCert := caOpts.KeyCertBundle.GetAllPem()
+			if !bytes.Equal(cert, rootCert) {
+				t.Error("Root cert and cert do not match")
+			}
+			// self signed certs do not contain cert chain
+			if len(certChain) > 0 {
+				t.Error("Cert chain should not exist")
+			}
+			rootCertCh <- rootCert
+			privateKeyCh <- privateKey
 		}()
 	}
 	wg.Wait()
-	var rootCert []byte
+	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("failed getting ca secret %v", err)
+	}
+	rootCert := caSecret.Data[CACertFile]
+	privateKey := caSecret.Data[CAPrivateKeyFile]
+
 	for {
 		select {
 		case current := <-rootCertCh:
-			if rootCert == nil {
-				rootCert = current
-			} else if !bytes.Equal(rootCert, current) {
+			if !bytes.Equal(rootCert, current) {
 				t.Error("Root cert does not match")
+			}
+		case current := <-privateKeyCh:
+			if !bytes.Equal(privateKey, current) {
+				t.Error("Private key does not match", string(privateKey), "\n", string(current))
 			}
 		default:
 			return
