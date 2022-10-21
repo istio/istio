@@ -436,6 +436,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},
 		{
+			desc:       "autoscaling_ingress_v2",
+			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
+			fileSelect: []string{"templates/autoscale.yaml"},
+		},
+		{
 			desc:       "autoscaling_v2beta1_k8s_and_values",
 			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
 			fileSelect: []string{"templates/autoscale.yaml"},
