@@ -87,7 +87,7 @@ func (c *CitadelClient) Close() {
 }
 
 func getImpersonatedIdentity(ctx context.Context) string {
-	i, ok := ctx.Value(security.ImpersonatedIdentity).(spiffe.Identity)
+	i, ok := ctx.Value(security.ImpersonatedIdentityContextKey{}).(spiffe.Identity)
 	if !ok {
 		return ""
 	}

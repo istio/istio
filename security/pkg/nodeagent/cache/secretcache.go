@@ -583,7 +583,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	if override, err := spiffe.ParseIdentity(resourceName); err == nil {
 		// resource name is a direct spiffe identity, so we should use that and impersonate
 		csrHostName = override
-		ctx = context.WithValue(ctx, security.ImpersonatedIdentity, override)
+		ctx = context.WithValue(ctx, security.ImpersonatedIdentityContextKey{}, override)
 	}
 
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())

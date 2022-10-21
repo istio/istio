@@ -144,6 +144,8 @@ const (
 	ImpersonatedIdentity = "ImpersonatedIdentity"
 )
 
+type ImpersonatedIdentityContextKey struct{}
+
 // Options provides all of the configuration parameters for secret discovery service
 // and CA configuration. Used in both Istiod and Agent.
 // TODO: ProxyConfig should have most of those, and be passed to all components
