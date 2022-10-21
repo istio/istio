@@ -33,12 +33,21 @@ import (
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
+
+func ExtractResource(res model.Resources) sets.String {
+	s := sets.New[string]()
+	for _, v := range res {
+		s.Insert(v.Name)
+	}
+	return s
+}
 
 func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 	routes := []string{}
