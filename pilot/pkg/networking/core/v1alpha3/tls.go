@@ -202,9 +202,13 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
 			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
+		var destinationCIDRs []string
+		if destinationCIDR != "" {
+			destinationCIDRs = []string{destinationCIDR}
+		}
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
-			destinationCIDRs: []string{destinationCIDR},
+			destinationCIDRs: destinationCIDRs,
 			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "",
 				listenPort, destinationRule, tunnelingconfig.Apply),
 		})
@@ -311,8 +315,12 @@ TcpLoop:
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
 		}
+		var destinationCIDRs []string
+		if destinationCIDR != "" {
+			destinationCIDRs = []string{destinationCIDR}
+		}
 		out = append(out, &filterChainOpts{
-			destinationCIDRs: []string{destinationCIDR},
+			destinationCIDRs: destinationCIDRs,
 			networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "",
 				listenPort, destinationRule, tunnelingconfig.Apply),
 		})
