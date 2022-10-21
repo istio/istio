@@ -38,10 +38,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	// installerScope is the scope for all commands in the mesh package.
-	installerScope = log.RegisterScope("installer", "installer", 0)
-)
+// installerScope is the scope for all commands in the mesh package.
+var installerScope = log.RegisterScope("installer", "installer", 0)
 
 type Printer interface {
 	Printf(format string, a ...any)
