@@ -103,8 +103,6 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-replace sigs.k8s.io/gateway-api => ../../sigs.k8s.io/gateway-api
-
 require (
 	cloud.google.com/go v0.104.0 // indirect
 	cloud.google.com/go/logging v1.5.0 // indirect
