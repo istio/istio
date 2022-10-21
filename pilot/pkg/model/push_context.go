@@ -1721,6 +1721,9 @@ func startInitSidecarScopes(ps *PushContext, sidecarConfigs []config.Config, sid
 	}
 
 	wg.Wait()
+	close(limit)
+	close(sidecarScopePairs)
+
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
 	return
 }
