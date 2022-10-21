@@ -66,9 +66,6 @@ message Workload {
   // Typically these represent Service ClusterIPs.
   // The key is an IP address.
   map<string, PortList> virtual_ips = 15;
-
-  // RBAC rules for the workload.
-  Authorization rbac = 16;
 }
 
 enum WorkloadType {
@@ -76,32 +73,6 @@ enum WorkloadType {
   CRONJOB = 1;
   POD = 2;
   JOB = 3;
-}
-
-message Authorization {
-  // If true, mTLS will be required
-  bool enforceMTLS = 1;
-  // Allow policies
-  repeated Policy allow = 2;
-  // Deny policies
-  repeated Policy deny = 3;
-}
-
-message Policy {
-  repeated AuthRule rule = 1;
-  repeated AuthCondition when = 2;
-}
-
-message AuthRule {
-  bool invert = 1;
-  // Rules
-  string identity = 2;
-  string namespace = 3;
-}
-
-message AuthCondition {
-  bool invert = 1;
-  uint32 port = 2;
 }
 
 // PorList represents the ports for a service
