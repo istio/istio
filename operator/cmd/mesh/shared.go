@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,15 +38,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	// installerScope is the scope for all commands in the mesh package.
-	installerScope = log.RegisterScope("installer", "installer", 0)
-
-	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
-	// nolint: unused
-	testK8Interface *kubernetes.Clientset
-	testRestConfig  *rest.Config
-)
+// installerScope is the scope for all commands in the mesh package.
+var installerScope = log.RegisterScope("installer", "installer", 0)
 
 type Printer interface {
 	Printf(format string, a ...any)
