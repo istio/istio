@@ -29,7 +29,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
@@ -580,18 +579,11 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		Namespace:      sc.configOptions.WorkloadNamespace,
 		ServiceAccount: sc.configOptions.ServiceAccount,
 	}
-	var uid string
-	var podName string
+	ctx := context.Background()
 	if override, err := spiffe.ParseIdentity(resourceName); err == nil {
-		// resource name is a direct spiffe identity, so we should use that
-		// TODO: should we check that we have permissions here?
-		if strings.Contains(override.ServiceAccount, "~") {
-			spl := strings.SplitN(override.ServiceAccount, "~", 3)
-			override.ServiceAccount = spl[0]
-			podName = spl[1]
-			uid = spl[2]
-		}
+		// resource name is a direct spiffe identity, so we should use that and impersonate
 		csrHostName = override
+		ctx = context.WithValue(ctx, security.ImpersonatedIdentity, override)
 	}
 
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
@@ -611,12 +603,6 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 
 	numOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
 
-	ctx := metadata.NewOutgoingContext(context.Background(),
-		metadata.Pairs(
-			"SAN", csrHostName.String(),
-			"UID", uid,
-			"POD", podName,
-		))
 	timeBeforeCSR := time.Now()
 	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, int64(sc.configOptions.SecretTTL.Seconds()))
 	if err == nil {

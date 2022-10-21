@@ -50,7 +50,6 @@ package ambientgen
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -175,16 +174,16 @@ func (g *ZTunnelConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.P
 		}
 	}
 
-	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-		c := outboundTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
+	for sa := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+		c := outboundTunnelCluster(proxy, push, sa, sa)
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-		c := outboundPodTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
+	for sa := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+		c := outboundPodTunnelCluster(proxy, push, sa, sa)
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	for sa, saWorkloads := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
-		c := outboundPodLocalTunnelCluster(proxy, push, sa, pickWorkload(saWorkloads))
+	for sa := range workloads.NodeLocalBySA(proxy.Metadata.NodeName) {
+		c := outboundPodLocalTunnelCluster(proxy, push, sa, sa)
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 
@@ -196,25 +195,6 @@ func (g *ZTunnelConfigGenerator) BuildClusters(proxy *model.Proxy, push *model.P
 		tcpPassthroughCluster(push),
 		blackholeCluster(push))
 	return out
-}
-
-// pickWorkload selects the oldest workload from the list. This is needed for stable UID selection for SDS.
-// Without this, clusters churn a lot. Oldest is picked because older pods are less likely to be removed soon.
-func pickWorkload(workloads []ambient.Workload) *ambient.Workload {
-	// TODO: Min instead oF sort
-	workloads = append([]ambient.Workload{}, workloads...)
-	sort.Slice(workloads, func(i, j int) bool {
-		// If creation time is the same, then behavior is nondeterministic. In this case, we can
-		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if workloads[i].CreationTimestamp.Equal(workloads[j].CreationTimestamp) {
-			in := workloads[i].Name + "." + workloads[i].Namespace
-			jn := workloads[j].Name + "." + workloads[j].Namespace
-			return in < jn
-		}
-		return workloads[i].CreationTimestamp.Before(workloads[j].CreationTimestamp)
-	})
-	return &workloads[0]
 }
 
 func blackholeCluster(push *model.PushContext) *discovery.Resource {
@@ -681,8 +661,6 @@ func buildWaypointClusters(proxy *model.Proxy, push *model.PushContext) model.Re
 			// no waypoints or no workloads that use this client waypoint on the node
 			continue
 		}
-		workload := pickWorkload(saWorkloads) // we use this pod id for fetching cert
-
 		clusters = append(clusters, &cluster.Cluster{
 			Name:                          waypointClusterName(sa),
 			ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
@@ -692,7 +670,7 @@ func buildWaypointClusters(proxy *model.Proxy, push *model.PushContext) model.Re
 			TransportSocket: &core.TransportSocket{
 				Name: "envoy.transport_sockets.tls",
 				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-					CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
+					CommonTlsContext: buildCommonTLSContext(proxy, sa, push, false),
 				})},
 			},
 			EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
@@ -721,7 +699,7 @@ func buildWaypointClusters(proxy *model.Proxy, push *model.PushContext) model.Re
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(proxy, pickWorkload(workloads), push, false),
+						CommonTlsContext: buildCommonTLSContext(proxy, workloadSA, push, false),
 					})},
 				},
 				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
@@ -942,20 +920,14 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 	}
 }
 
-func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
+func buildCommonTLSContext(proxy *model.Proxy, identityOverride string, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
 	// TODO san match
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
 
-	// TODO always use the below flow, always specify which workload
-	if workload != nil {
-		// present the workload cert if possible
-		workloadSecret := workload.Identity()
-		if workload.UID != "" {
-			workloadSecret += "~" + workload.Name + "~" + workload.UID
-		}
+	if identityOverride != "" {
 		ctx.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			security.ConstructSdsSecretConfig(workloadSecret),
+			security.ConstructSdsSecretConfig(identityOverride),
 		}
 	}
 	ctx.AlpnProtocols = []string{"h2"}
@@ -969,8 +941,8 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 	return ctx
 }
 
-// outboundTunnelCluster is per-workload SA, but requires one workload that uses that SA so we can send the Pod UID
-func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, workload *ambient.Workload) *cluster.Cluster {
+// outboundTunnelCluster is per-workload SA
+func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, identityOverride string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 outboundTunnelClusterName(sa),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
@@ -984,14 +956,14 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa strin
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
+				CommonTlsContext: buildCommonTLSContext(proxy, identityOverride, push, false),
 			})},
 		},
 	}
 }
 
-// outboundTunnelCluster is per-workload SA, but requires one workload that uses that SA so we can send the Pod UID
-func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, workload *ambient.Workload) *cluster.Cluster {
+// outboundTunnelCluster is per-workload SA
+func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, identityOverride string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 outboundPodTunnelClusterName(sa),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
@@ -1007,14 +979,14 @@ func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa st
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
+				CommonTlsContext: buildCommonTLSContext(proxy, identityOverride, push, false),
 			})},
 		},
 	}
 }
 
-// outboundTunnelCluster is per-workload SA, but requires one workload that uses that SA so we can send the Pod UID
-func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, workload *ambient.Workload) *cluster.Cluster {
+// outboundTunnelCluster is per-workload SA
+func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, identityOverride string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 outboundPodLocalTunnelClusterName(sa),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
@@ -1031,7 +1003,7 @@ func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, 
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildCommonTLSContext(proxy, workload, push, false),
+				CommonTlsContext: buildCommonTLSContext(proxy, identityOverride, push, false),
 			})},
 		},
 	}
@@ -1169,7 +1141,7 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(proxy, &workload, push, true),
+						CommonTlsContext: buildCommonTLSContext(proxy, workload.Identity(), push, true),
 					})},
 				},
 				Filters: filters,

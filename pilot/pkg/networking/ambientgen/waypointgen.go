@@ -155,7 +155,7 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 				TransportSocket: &core.TransportSocket{
 					Name: "envoy.transport_sockets.tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(proxy, nil, push, true),
+						CommonTlsContext: buildCommonTLSContext(proxy, "", push, true),
 					})},
 				},
 				Filters: []*listener.Filter{{
@@ -235,7 +235,7 @@ func (p *WaypointGenerator) buildClusters(node *model.Proxy, push *model.PushCon
 		}
 	}
 
-	clusters = append(clusters, outboundTunnelCluster(node, push, node.Metadata.ServiceAccount, nil))
+	clusters = append(clusters, outboundTunnelCluster(node, push, node.Metadata.ServiceAccount, ""))
 	var out model.Resources
 	for _, c := range clusters {
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})

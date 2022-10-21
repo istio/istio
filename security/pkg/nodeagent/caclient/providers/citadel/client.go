@@ -33,6 +33,7 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
@@ -85,14 +86,28 @@ func (c *CitadelClient) Close() {
 	}
 }
 
+func getImpersonatedIdentity(ctx context.Context) string {
+	i, ok := ctx.Value(security.ImpersonatedIdentity).(spiffe.Identity)
+	if !ok {
+		return ""
+	}
+	return i.String()
+}
+
 // CSRSign calls Citadel to sign a CSR.
 func (c *CitadelClient) CSRSign(ctx context.Context, csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	crMetaStruct := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			security.CertSigner: {
-				Kind: &structpb.Value_StringValue{StringValue: c.opts.CertSigner},
-			},
-		},
+		Fields: map[string]*structpb.Value{},
+	}
+	if c.opts.CertSigner != "" {
+		crMetaStruct.Fields[security.CertSigner] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: c.opts.CertSigner},
+		}
+	}
+	if id := getImpersonatedIdentity(ctx); id != "" {
+		crMetaStruct.Fields[security.ImpersonatedIdentity] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: id},
+		}
 	}
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
