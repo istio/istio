@@ -124,7 +124,7 @@ func TestIndex(t *testing.T) {
 	// This can't happen in practice with Pod, but Index supports arbitrary types
 	pod1Alt.Spec.ServiceAccountName = "new-sa"
 
-	kNew := SaNode{
+	keyNew := SaNode{
 		ServiceAccount: types.NamespacedName{
 			Namespace: "ns",
 			Name:      "new-sa",
@@ -132,10 +132,10 @@ func TestIndex(t *testing.T) {
 		Node: "node",
 	}
 	c.Kube().CoreV1().Pods("ns").Update(context.Background(), pod1Alt, metav1.UpdateOptions{})
-	assertIndex(k1, pod3)      // Pod should be dropped from the index
-	assertIndex(kNew, pod1Alt) // And added under the new key
+	assertIndex(k1, pod3)        // Pod should be dropped from the index
+	assertIndex(keyNew, pod1Alt) // And added under the new key
 
 	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod1Alt.Name, metav1.DeleteOptions{})
 	assertIndex(k1, pod3) // Shouldn't impact others
-	assertIndex(kNew)     // but should be removed
+	assertIndex(keyNew)   // but should be removed
 }
