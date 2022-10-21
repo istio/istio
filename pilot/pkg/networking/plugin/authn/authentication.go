@@ -49,7 +49,18 @@ func (b *Builder) ForPort(port uint32) authn.MTLSSettings {
 			Mode: model.MTLSDisable,
 		}
 	}
-	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains)
+	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains, authn.NoOverride)
+}
+
+func (b *Builder) ForHBONE() authn.MTLSSettings {
+	if b == nil {
+		return authn.MTLSSettings{
+			Port: 15008,
+			Mode: model.MTLSDisable,
+		}
+	}
+	// HBONE is always strict
+	return b.applier.InboundMTLSSettings(15008, b.proxy, b.trustDomains, model.MTLSStrict)
 }
 
 func (b *Builder) ForPassthrough() []authn.MTLSSettings {
@@ -64,7 +75,7 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 
 	resp := []authn.MTLSSettings{
 		// Full passthrough - no port match
-		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains),
+		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains, authn.NoOverride),
 	}
 
 	// Then generate the per-port passthrough filter chains.
@@ -75,7 +86,7 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 		}
 
 		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", b.proxy.ID, port)
-		resp = append(resp, b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains))
+		resp = append(resp, b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains, authn.NoOverride))
 	}
 	return resp
 }

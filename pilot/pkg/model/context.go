@@ -33,6 +33,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
@@ -494,9 +495,6 @@ type BootstrapNodeMetadata struct {
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`
 
-	// WorkloadName specifies the name of the workload represented by this node.
-	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
-
 	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
@@ -552,6 +550,9 @@ type NodeMetadata struct {
 
 	// Namespace is the namespace in which the workload instance is running.
 	Namespace string `json:"NAMESPACE,omitempty"`
+
+	// WorkloadName specifies the name of the workload represented by this node.
+	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
 
 	// InterceptionMode is the name of the metadata variable that carries info about
 	// traffic interception mode at the proxy
@@ -615,6 +616,9 @@ type NodeMetadata struct {
 	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
+
+	// EnableHBONE, if set, will enable generation of HBONE config.
+	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
@@ -1160,6 +1164,10 @@ func (node *Proxy) FuzzValidate() bool {
 		return false
 	}
 	return len(node.IPAddresses) != 0
+}
+
+func (node *Proxy) EnableHBONE() bool {
+	return features.EnableHBONE && bool(node.Metadata.EnableHBONE)
 }
 
 type GatewayController interface {
