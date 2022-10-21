@@ -2473,6 +2473,10 @@ type localServiceDiscovery struct {
 	NetworkGatewaysHandler
 }
 
+func (l *localServiceDiscovery) PodInformation(podsUpdated map[ConfigKey]struct{}) ([]WorkloadInfo, []string) {
+	return nil, nil
+}
+
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
 func (l *localServiceDiscovery) Services() []*Service {

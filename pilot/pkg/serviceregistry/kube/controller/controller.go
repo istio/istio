@@ -17,7 +17,9 @@ package controller
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,12 +27,14 @@ import (
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -47,8 +51,11 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/spiffe"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -145,6 +152,8 @@ type Options struct {
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+
+	GetPods func() []cache.Indexer
 }
 
 // DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
@@ -275,6 +284,7 @@ type Controller struct {
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
 	meshWatcher mesh.Watcher
+	podLister   listerv1.PodLister
 }
 
 func (c *Controller) AmbientEnabled(pod *v1.Pod) bool {
@@ -289,6 +299,130 @@ func (c *Controller) AmbientEnabled(pod *v1.Pod) bool {
 	ns, _ := c.nsLister.Get(pod.Namespace) // Nil namespace is valid, we may not care if mode is ON
 
 	return ambientpod.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true)
+}
+
+func (c *Controller) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
+	c.pods.Lock()
+	defer c.pods.Unlock()
+
+	pl := listerv1.NewPodLister(c.pods.informer.GetIndexer())
+	if len(podsUpdated) == 0 {
+		waypoints, _ := c.podLister.Pods(metav1.NamespaceAll).List(proxyLbl)
+		pods, _ := pl.Pods(metav1.NamespaceAll).List(klabels.Everything())
+		infos := make([]model.WorkloadInfo, 0, len(pods))
+		for _, pod := range pods {
+			if pod.Spec.HostNetwork {
+				continue
+			}
+			wl := c.constructWorkload(pod, waypoints)
+			if wl == nil {
+				continue
+			}
+			infos = append(infos, model.WorkloadInfo{
+				Workload: wl,
+				Labels:   pod.Labels,
+			})
+		}
+		return infos, nil
+	}
+	var removed []string
+	infos := make([]model.WorkloadInfo, 0, len(podsUpdated))
+	for p := range podsUpdated {
+		pod, _ := pl.Pods(p.Namespace).Get(p.Name)
+		// HACK: in initial pod creation, we don't want to send "Removed"; we can just send nothing
+		// We need a more reliable way to generate this though, hooking into the proper event notification pipelines.
+		if pod != nil && !IsPodReady(pod) && pod.CreationTimestamp.Add(-time.Second*3).Before(time.Now()) {
+			continue
+		}
+		if pod != nil && pod.Spec.HostNetwork {
+			continue
+		}
+		var waypoints []*v1.Pod
+		if pod != nil {
+			waypoints, _ = c.podLister.Pods(pod.GetNamespace()).List(proxyLbl)
+		}
+		wl := c.constructWorkload(pod, waypoints)
+		if wl == nil {
+			removed = append(removed, p.Name+"/"+p.Namespace)
+			continue
+		}
+		infos = append(infos, model.WorkloadInfo{
+			Workload: wl,
+			Labels:   pod.Labels,
+		})
+	}
+	return infos, removed
+}
+
+func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []*v1.Pod) *workloadapi.Workload {
+	if pod == nil {
+		return nil
+	}
+	if !IsPodReady(pod) {
+		return nil
+	}
+	vips := map[string]*workloadapi.PortList{}
+	if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+		for _, svc := range services {
+			for _, vip := range getVIPs(svc) {
+				if vips[vip] == nil {
+					vips[vip] = &workloadapi.PortList{}
+				}
+				for _, port := range svc.Spec.Ports {
+					// TODO: resolve named port
+					vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
+						ServicePort: uint32(port.Port),
+						TargetPort:  uint32(port.TargetPort.IntVal),
+					})
+				}
+			}
+		}
+	}
+
+	wl := &workloadapi.Workload{
+		Name:           pod.Name,
+		Namespace:      pod.Namespace,
+		Address:        netip.MustParseAddr(pod.Status.PodIP).AsSlice(),
+		Network:        c.network.String(),
+		ServiceAccount: pod.Spec.ServiceAccountName,
+		Node:           pod.Spec.NodeName,
+	}
+	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
+		wl.TrustDomain = td
+	}
+
+	wl.WorkloadName, wl.WorkloadType = workloadNameAndType(pod)
+	wl.CanonicalName, wl.CanonicalRevision = kubelabels.CanonicalService(pod.Labels, wl.WorkloadName)
+	// If we are not a remote proxy, and we have a remote proxy, configure it
+	if remote := c.proxiesForWorkload(pod, waypoints); len(remote) > 0 {
+		// TODO support multiple
+		wl.WaypointAddress = netip.MustParseAddr(remote[0]).AsSlice()
+	}
+
+	// In node mode, we can assume all of the cluster uses h2 connect
+	// May need to be more precise though
+	// wl.Protocol = workloadapi.Protocol_HTTP2CONNECT
+	if c.AmbientEnabled(pod) {
+		// Configured for override
+		wl.Protocol = workloadapi.Protocol_HTTP
+	}
+	// Otherwise supports tunnel directly
+	if pod.Labels[model.TunnelLabel] == model.TunnelH2 {
+		wl.Protocol = workloadapi.Protocol_HTTP
+		wl.NativeHbone = true
+	}
+	return wl
+}
+
+func getVIPs(svc *v1.Service) []string {
+	res := []string{}
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
+		res = append(res, svc.Spec.ClusterIP)
+	}
+	for _, ing := range svc.Status.LoadBalancer.Ingress {
+		res = append(res, ing.IP)
+	}
+	return res
 }
 
 // NewController creates a new Kubernetes controller
@@ -398,6 +532,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
 
+	c.podLister = kubeClient.KubeInformer().Core().V1().Pods().Lister()
 	podInformer := filter.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
@@ -1445,4 +1580,73 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
+}
+
+var proxyLbl = func() klabels.Selector {
+	proxyLbl, err := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller")
+	if err != nil {
+		panic(err.Error())
+	}
+	return proxyLbl
+}()
+
+// TODO: optimize this, we can easily cache the Pods.List
+func (c *Controller) proxiesForWorkload(pod *v1.Pod, waypoints []*v1.Pod) []string {
+	if pod.Labels[ambient.LabelType] != ambient.TypeWorkload {
+		// Not in the mesh
+		return nil
+	}
+	var ips []string
+
+	for _, p := range waypoints {
+		if !IsPodReady(p) {
+			continue
+		}
+		if p.Namespace != pod.Namespace {
+			continue
+		}
+		if p.Spec.ServiceAccountName == pod.Spec.ServiceAccountName {
+			ips = append(ips, p.Status.PodIP)
+		}
+	}
+	return ips
+}
+
+func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
+	if len(pod.GenerateName) == 0 {
+		return pod.Name, workloadapi.WorkloadType_POD
+	}
+
+	// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
+	var controllerRef metav1.OwnerReference
+	controllerFound := false
+	for _, ref := range pod.GetOwnerReferences() {
+		if *ref.Controller {
+			controllerRef = ref
+			controllerFound = true
+			break
+		}
+	}
+
+	if !controllerFound {
+		return pod.Name, workloadapi.WorkloadType_POD
+	}
+
+	// heuristic for deployment detection
+	if controllerRef.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
+		name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
+		return name, workloadapi.WorkloadType_DEPLOYMENT
+	}
+
+	if controllerRef.Kind == "Job" {
+		// figure out how to go from Job -> CronJob
+		return controllerRef.Name, workloadapi.WorkloadType_JOB
+	}
+
+	if controllerRef.Kind == "CronJob" {
+		// figure out how to go from Job -> CronJob
+		return controllerRef.Name, workloadapi.WorkloadType_CRONJOB
+	}
+
+	return pod.Name, workloadapi.WorkloadType_POD
 }

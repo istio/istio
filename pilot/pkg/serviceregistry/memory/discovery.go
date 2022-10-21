@@ -81,6 +81,10 @@ type ServiceDiscovery struct {
 	mutex sync.Mutex
 }
 
+func (sd *ServiceDiscovery) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
+	return nil, nil
+}
+
 var _ model.ServiceDiscovery = &ServiceDiscovery{}
 
 // NewServiceDiscovery builds an in-memory ServiceDiscovery

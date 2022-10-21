@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -48,6 +49,23 @@ type Controller struct {
 	handlers          model.ControllerHandlers
 	handlersByCluster map[cluster.ID]*model.ControllerHandlers
 	model.NetworkGatewaysHandler
+}
+
+func (c *Controller) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
+	i := []model.WorkloadInfo{}
+	removed := sets.New()
+	for _, p := range c.registries {
+		wis, r := p.PodInformation(podsUpdated)
+		i = append(i, wis...)
+		removed.InsertAll(r...)
+	}
+	// We may have 'removed' it in one registry but found it in another
+	for _, wl := range i {
+		if removed.Contains(wl.ResourceName()) {
+			removed.Delete(wl.ResourceName())
+		}
+	}
+	return i, removed.UnsortedList()
 }
 
 type registryEntry struct {

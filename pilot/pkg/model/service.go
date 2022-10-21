@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -639,13 +640,16 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
+	PodInformation(podsUpdated map[ConfigKey]struct{}) ([]WorkloadInfo, []string)
 }
 
-type PodInfo struct {
-	Address  string
-	Identity string
-	Protocol string
-	VIPs     map[string]string
+type WorkloadInfo struct {
+	*workloadapi.Workload
+	Labels labels.Instance
+}
+
+func (i WorkloadInfo) ResourceName() string {
+	return i.Name + "/" + i.Namespace
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
