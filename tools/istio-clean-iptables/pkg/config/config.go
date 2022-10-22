@@ -35,6 +35,7 @@ type Config struct {
 	OwnerGroupsInclude      string   `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
 	OwnerGroupsExclude      string   `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
 	InboundInterceptionMode string   `json:"INBOUND_INTERCEPTION_MODE"`
+	InboundTProxyMark       string   `json:"INBOUND_TPROXY_MARK"`
 }
 
 func (c *Config) String() string {

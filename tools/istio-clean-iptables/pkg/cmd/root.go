@@ -65,6 +65,7 @@ func constructConfig() *config.Config {
 		OwnerGroupsInclude:      viper.GetString(constants.OwnerGroupsInclude.Name),
 		OwnerGroupsExclude:      viper.GetString(constants.OwnerGroupsExclude.Name),
 		InboundInterceptionMode: viper.GetString(constants.InboundInterceptionMode),
+		InboundTProxyMark:       viper.GetString(constants.InboundTProxyMark),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
