@@ -254,6 +254,16 @@ stringData:
 			pods := primary.Kube().CoreV1().Pods(ns)
 			podMeta := deps.Items[0].Spec.Template.ObjectMeta
 			podMeta.Name = pod
+			template := deps.Items[0].Spec.Template.Spec
+			for _, container := range template.Containers {
+				if container.Name != "discovery" {
+					continue
+				}
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  "PILOT_REMOTE_CLUSTER_TIMEOUT",
+					Value: "15s",
+				})
+			}
 			_, err = pods.Create(context.TODO(), &corev1.Pod{
 				ObjectMeta: podMeta,
 				Spec:       deps.Items[0].Spec.Template.Spec,
