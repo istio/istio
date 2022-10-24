@@ -60,7 +60,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
@@ -79,6 +78,7 @@ import (
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/match"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -150,8 +150,9 @@ func (g *ZTunnelConfigGenerator) BuildListeners(proxy *model.Proxy, push *model.
 		g.buildInboundCaptureListener(proxy, push),
 		g.buildInboundPlaintextCaptureListener(proxy, push),
 	)
+	outboundListenerAccessLog := accessLogBuilder.ListenerAccessLog(push, proxy, networking.ListenerClassSidecarOutbound)
 	for sa := range push.AmbientIndex.Workloads.ByIdentity {
-		out = append(out, outboundTunnelListener(outboundTunnelListenerName(sa), sa))
+		out = append(out, outboundTunnelListener(outboundTunnelListenerName(sa), sa, outboundListenerAccessLog))
 	}
 
 	return out
@@ -250,10 +251,10 @@ func tcpPassthroughCluster(push *model.PushContext) *discovery.Resource {
 // of ServiceAccount from pods on the node and Service VIP in the cluster.
 func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Proxy, push *model.PushContext) *discovery.Resource {
 	l := &listener.Listener{
+		AccessLog:      accessLogBuilder.ListenerAccessLog(push, proxy, networking.ListenerClassSidecarOutbound),
 		Name:           "ztunnel_outbound",
 		UseOriginalDst: wrappers.Bool(true),
 		Transparent:    wrappers.Bool(true),
-		AccessLog:      accessLogString("outbound capture listener"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from outbound listener",
 			Level:       SolSocket,
@@ -280,8 +281,10 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 			},
 		}},
 	}
+
+	outboundTCPAccessLog := accessLogBuilder.TCPAccessLog(push, proxy, networking.ListenerClassSidecarOutbound)
 	if push.Mesh.GetOutboundTrafficPolicy().GetMode() == v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
-		l.DefaultFilterChain = passthroughFilterChain()
+		l.DefaultFilterChain = passthroughFilterChain(outboundTCPAccessLog)
 	}
 	// nolint: gocritic
 	// if features.SidecarlessCapture == model.VariantIptables {
@@ -330,7 +333,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 		sourceMatch.Map[sourceWl.PodIP] = match.ToMatcher(sourceAndDestMatch.Matcher)
 
 		clientWaypoints := push.AmbientIndex.Waypoints.ByIdentity[sourceWl.Identity()] // TODO need to use this instead of ServiceAccountName
-		clientWaypointChain := buildWaypointChain(sourceWl, clientWaypoints, "client")
+		clientWaypointChain := buildWaypointChain(sourceWl, clientWaypoints, "client", outboundTCPAccessLog)
 
 		for _, svc := range services {
 			// No client waypoint proxy, we build a chain per destination VIP
@@ -340,7 +343,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 			sourceAndDestMatch.Map[vip] = match.ToMatcher(portMatch.Matcher)
 			for _, port := range svc.Ports {
 				var chain *listener.FilterChain
-				serverWaypointChain := g.maybeBuildServerWaypointChain(push, sourceWl, svc)
+				serverWaypointChain := g.maybeBuildServerWaypointChain(push, sourceWl, svc, outboundTCPAccessLog)
 				if serverWaypointChain != nil {
 					// Has server waypoint proxy, send traffic there
 					chain = serverWaypointChain
@@ -350,16 +353,17 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 				} else {
 					// No waypoint proxy
 					name := outboundServiceClusterName(sourceWl.Identity(), port.Name, svc.Hostname.String())
+					tcpFilter := &tcp.TcpProxy{
+						AccessLog:        outboundTCPAccessLog,
+						StatPrefix:       name,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+					}
+
 					chain = &listener.FilterChain{
 						Name: name,
 						Filters: []*listener.Filter{{
-							Name: wellknown.TCPProxy,
-							ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-								AccessLog:        accessLogString("capture outbound (no waypoint proxy)"),
-								StatPrefix:       name,
-								ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
-							},
-							)},
+							Name:       wellknown.TCPProxy,
+							ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpFilter)},
 						}},
 					}
 				}
@@ -377,7 +381,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 			var chain *listener.FilterChain
 			// Need to decide if there is a server waypoint proxy. This is somewhat problematic because a Service may span waypoint proxy and non-waypoint proxy.
 			// If any workload behind the service has a waypoint proxy, we will use the waypoint proxy. In 99% of cases this is homogenous.
-			serverWaypointChain := buildWaypointChain(sourceWl, push.AmbientIndex.Waypoints.ByIdentity[wl.Identity()], "server")
+			serverWaypointChain := buildWaypointChain(sourceWl, push.AmbientIndex.Waypoints.ByIdentity[wl.Identity()], "server", outboundTCPAccessLog)
 			if serverWaypointChain != nil {
 				// Has server waypoint proxy, send traffic there
 				chain = serverWaypointChain
@@ -411,18 +415,17 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 					},
 				}
 				// Case 1: tunnel cross node
-				cluster := outboundPodTunnelClusterName(sourceWl.Identity())
+				clusterName := outboundPodTunnelClusterName(sourceWl.Identity())
 				// Case 2: same node tunnel (iptables)
 				if node := wl.NodeName; node != "" && node == proxy.Metadata.NodeName {
-					cluster = outboundPodLocalTunnelClusterName(sourceWl.Identity())
+					clusterName = outboundPodLocalTunnelClusterName(sourceWl.Identity())
 				}
 				// Case 3: direct
 				if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {
-					cluster = util.PassthroughCluster + "-tcp"
+					clusterName = util.PassthroughCluster + "-tcp"
 					tunnel = nil
 				}
-
-				name := "fc-" + cluster
+				name := "fc-" + clusterName
 				chain = &listener.FilterChain{
 					Name: name,
 					Filters: []*listener.Filter{
@@ -430,9 +433,9 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 							Name: wellknown.TCPProxy,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-									AccessLog:        accessLogString("capture outbound pod (no waypoint proxy)"),
+									AccessLog:        accessLogBuilder.TCPAccessLog(push, proxy, networking.ListenerClassSidecarOutbound),
 									StatPrefix:       name,
-									ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
+									ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 									TunnelingConfig:  tunnel,
 								}),
 							},
@@ -449,7 +452,8 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 	}
 
 	l.FilterChainMatcher = destPortMatch.BuildMatcher()
-	l.FilterChains = append(l.FilterChains, passthroughFilterChain(), blackholeFilterChain("outbound"))
+	l.FilterChains = append(l.FilterChains, passthroughFilterChain(outboundTCPAccessLog),
+		blackholeFilterChain("outbound", outboundTCPAccessLog))
 	return &discovery.Resource{
 		Name:     l.Name,
 		Resource: protoconv.MessageToAny(l),
@@ -460,6 +464,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 // If any workload behind the service has a waypoint, we will use the waypoint. In 99% of cases this is homogenous.
 func (g *ZTunnelConfigGenerator) maybeBuildServerWaypointChain(push *model.PushContext,
 	sourceWl ambient.Workload, svc *model.Service,
+	al []*accesslog.AccessLog,
 ) *listener.FilterChain {
 	var serviceWorkloads []ambient.Workload
 	if svc.Attributes.ServiceRegistry == provider.External &&
@@ -485,7 +490,7 @@ func (g *ZTunnelConfigGenerator) maybeBuildServerWaypointChain(push *model.PushC
 	// TODO what happens if workloads specify multiple SAs that have waypoint proxies?
 	for _, wl := range serviceWorkloads {
 		if waypoints := push.AmbientIndex.Waypoints.ByIdentity[wl.Identity()]; len(waypoints) > 0 {
-			return buildWaypointChain(sourceWl, waypoints, "server")
+			return buildWaypointChain(sourceWl, waypoints, "server", al)
 		}
 	}
 
@@ -509,13 +514,13 @@ func workloadsForShards(workloads ambient.Indexes, shards *model.EndpointShards)
 	return out
 }
 
-func blackholeFilterChain(t string) *listener.FilterChain {
+func blackholeFilterChain(t string, al []*accesslog.AccessLog) *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: "blackhole " + t,
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-				AccessLog:        accessLogString("blackhole " + t),
+				AccessLog:        al,
 				StatPrefix:       util.BlackHoleCluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "blackhole " + t},
 			})},
@@ -523,7 +528,7 @@ func blackholeFilterChain(t string) *listener.FilterChain {
 	}
 }
 
-func buildWaypointChain(workload ambient.Workload, waypoints []ambient.Workload, t string) *listener.FilterChain {
+func buildWaypointChain(workload ambient.Workload, waypoints []ambient.Workload, t string, al []*accesslog.AccessLog) *listener.FilterChain {
 	if len(waypoints) == 0 {
 		return nil
 	}
@@ -536,39 +541,40 @@ func buildWaypointChain(workload ambient.Workload, waypoints []ambient.Workload,
 		// For server, we need to create the product of source identity x waypoint proxy
 		cluster = serverWaypointClusterName(waypoint.Identity(), workload.Identity())
 	}
+	tcpFilter := &tcp.TcpProxy{
+		AccessLog:        al,
+		StatPrefix:       cluster,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%", // (unused, per extended connect)
+			HeadersToAdd: []*core.HeaderValueOption{
+				// This is for server ztunnel - not really needed for waypoint proxy
+				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+
+				// This is for metadata propagation
+				// TODO: should we just set the baggage directly, as we have access to the Pod here (instead of using the filter)?
+				{Header: &core.HeaderValue{Key: "baggage", Value: "%DYNAMIC_METADATA([\"envoy.filters.listener.workload_metadata\", \"baggage\"])%"}},
+			},
+		},
+	}
+
 	return &listener.FilterChain{
 		Name: cluster,
 		Filters: []*listener.Filter{{
-			Name: wellknown.TCPProxy,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-				AccessLog:        accessLogString(fmt.Sprintf("capture outbound (to %v waypoint proxy)", t)),
-				StatPrefix:       cluster,
-				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: cluster},
-				TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-					Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%", // (unused, per extended connect)
-					HeadersToAdd: []*core.HeaderValueOption{
-						// This is for server ztunnel - not really needed for waypoint proxy
-						{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-
-						// This is for metadata propagation
-						// TODO: should we just set the baggage directly, as we have access to the Pod here (instead of using the filter)?
-						{Header: &core.HeaderValue{Key: "baggage", Value: "%DYNAMIC_METADATA([\"envoy.filters.listener.workload_metadata\", \"baggage\"])%"}},
-					},
-				},
-			},
-			)},
+			Name:       wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpFilter)},
 		}},
 	}
 }
 
-func passthroughFilterChain() *listener.FilterChain {
+func passthroughFilterChain(al []*accesslog.AccessLog) *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: util.PassthroughFilterChain,
 		/// TODO no match – add one to make it so we only passthrough if strict mTLS to the destination is allowed
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-				AccessLog:        accessLogString("passthrough"),
+				AccessLog:        al,
 				StatPrefix:       util.PassthroughCluster,
 				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 			})},
@@ -889,7 +895,7 @@ func outboundTunnelListenerName(sa string) string {
 // outboundTunnelListener is built for each ServiceAccount from pods on the node.
 // This listener adds the original destination headers from the dynamic EDS metadata pass through.
 // We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
-func outboundTunnelListener(name string, sa string) *discovery.Resource {
+func outboundTunnelListener(name string, sa string, al []*accesslog.AccessLog) *discovery.Resource {
 	l := &listener.Listener{
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -901,7 +907,7 @@ func outboundTunnelListener(name string, sa string) *discovery.Resource {
 				ConfigType: &listener.Filter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
 						StatPrefix:       name,
-						AccessLog:        accessLogString("outbound tunnel"),
+						AccessLog:        al,
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: outboundTunnelClusterName(sa)},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 							Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
@@ -1026,6 +1032,7 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 	// TODO L7 stuff (deny at l4 for l7 auth if there is a waypoint proxy for the dest workload)
 
 	l := &listener.Listener{
+		AccessLog:      accessLogBuilder.ListenerAccessLog(push, proxy, networking.ListenerClassSidecarInbound),
 		Name:           "ztunnel_inbound",
 		UseOriginalDst: wrappers.Bool(true),
 		ListenerFilters: []*listener.ListenerFilter{
@@ -1045,7 +1052,6 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 			},
 		},
 		Transparent: wrappers.Bool(true),
-		AccessLog:   accessLogString("capture inbound listener"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",
 			Level:       SolSocket,
@@ -1068,6 +1074,9 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 		}},
 	}
 
+	inboundTCPAccessLog := accessLogBuilder.TCPAccessLog(push, proxy, networking.ListenerClassSidecarInbound)
+	hcmAccessLog := accessLogBuilder.HTTPAccessLog(push, proxy, networking.ListenerClassSidecarInbound)
+
 	for _, workload := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		// Skip workloads in the host network
 		if workload.HostNetwork {
@@ -1085,54 +1094,55 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 				allowedIdentities = strings.TrimPrefix(workload.Identity(), "spiffe://")
 			}
 			authzBuilder := authz.NewBuilderSkipIdentity(authz.Local, push, dummy, allowedIdentities)
-			tcp := authzBuilder.BuildTCP()
+			tcpAuthzFilters := authzBuilder.BuildTCP()
+			hcm := &httpconn.HttpConnectionManager{
+				AccessLog:  hcmAccessLog,
+				CodecType:  httpconn.HttpConnectionManager_AUTO,
+				StatPrefix: "inbound_hcm",
+				RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
+					RouteConfig: &route.RouteConfiguration{
+						Name: "local_route",
+						VirtualHosts: []*route.VirtualHost{{
+							Name:    "local_service",
+							Domains: []string{"*"},
+							Routes: []*route.Route{{
+								Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
+									ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
+								}},
+								Action: &route.Route_Route{
+									Route: &route.RouteAction{
+										UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+											UpgradeType:   "CONNECT",
+											ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+										}},
+										ClusterSpecifier: &route.RouteAction_Cluster{
+											Cluster: "virtual_inbound",
+										},
+									},
+								},
+							}},
+						}},
+					},
+				},
+				// TODO rewrite destination port to original_dest port
+				HttpFilters: []*httpconn.HttpFilter{{
+					Name:       "envoy.filters.http.router",
+					ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
+				}},
+				Http2ProtocolOptions: &core.Http2ProtocolOptions{
+					AllowConnect: true,
+				},
+				UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
+					UpgradeType: "CONNECT",
+				}},
+			}
 
 			var filters []*listener.Filter
-			filters = append(filters, tcp...)
+			filters = append(filters, tcpAuthzFilters...)
 			filters = append(filters, &listener.Filter{
 				Name: "envoy.filters.network.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
-						AccessLog:  accessLogString("inbound hcm"),
-						CodecType:  0,
-						StatPrefix: "inbound_hcm",
-						RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
-							RouteConfig: &route.RouteConfiguration{
-								Name: "local_route",
-								VirtualHosts: []*route.VirtualHost{{
-									Name:    "local_service",
-									Domains: []string{"*"},
-									Routes: []*route.Route{{
-										Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_ConnectMatcher_{
-											ConnectMatcher: &route.RouteMatch_ConnectMatcher{},
-										}},
-										Action: &route.Route_Route{
-											Route: &route.RouteAction{
-												UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-													UpgradeType:   "CONNECT",
-													ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-												}},
-												ClusterSpecifier: &route.RouteAction_Cluster{
-													Cluster: "virtual_inbound",
-												},
-											},
-										},
-									}},
-								}},
-							},
-						},
-						// TODO rewrite destination port to original_dest port
-						HttpFilters: []*httpconn.HttpFilter{{
-							Name:       "envoy.filters.http.router",
-							ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
-						}},
-						Http2ProtocolOptions: &core.Http2ProtocolOptions{
-							AllowConnect: true,
-						},
-						UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
-							UpgradeType: "CONNECT",
-						}},
-					}),
+					TypedConfig: protoconv.MessageToAny(hcm),
 				},
 			})
 			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
@@ -1147,6 +1157,14 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 				Filters: filters,
 			})
 		} else {
+			tcpFilter := &tcp.TcpProxy{
+				AccessLog:  inboundTCPAccessLog,
+				StatPrefix: "virtual_inbound_hbone",
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{
+					Cluster: "virtual_inbound_hbone",
+				},
+			}
+
 			// Pod is already handling HBONE, and this is an HBONE request. Pass it through directly.
 			l.FilterChains = append(l.FilterChains, &listener.FilterChain{
 				Name:             "inbound_" + workload.PodIP,
@@ -1154,20 +1172,14 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 				Filters: []*listener.Filter{{
 					Name: wellknown.TCPProxy,
 					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-							StatPrefix: "virtual_inbound_hbone",
-							AccessLog:  accessLogString("inbound passthrough"),
-							ClusterSpecifier: &tcp.TcpProxy_Cluster{
-								Cluster: "virtual_inbound_hbone",
-							},
-						}),
+						TypedConfig: protoconv.MessageToAny(tcpFilter),
 					},
 				}},
 			})
 		}
 	}
 	// TODO cases where we passthrough
-	l.FilterChains = append(l.FilterChains, blackholeFilterChain("inbound"))
+	l.FilterChains = append(l.FilterChains, blackholeFilterChain("inbound", inboundTCPAccessLog))
 
 	return &discovery.Resource{
 		Name:     l.Name,
@@ -1180,6 +1192,7 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 	// TODO L7 stuff (deny at l4 for l7 auth if there is a waypoint proxy for the dest workload)
 	l := &listener.Listener{
 		Name:           "ztunnel_inbound_plaintext",
+		AccessLog:      accessLogBuilder.ListenerAccessLog(push, proxy, networking.ListenerClassSidecarInbound),
 		UseOriginalDst: wrappers.Bool(true),
 		ListenerFilters: []*listener.ListenerFilter{
 			{
@@ -1197,7 +1210,6 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 				},
 			},
 		},
-		AccessLog: accessLogString("capture inbound listener plaintext"),
 		SocketOptions: []*core.SocketOption{{
 			Description: "Set socket mark to packets coming back from inbound listener",
 			Level:       SolSocket,
@@ -1251,7 +1263,8 @@ func (g *ZTunnelConfigGenerator) buildInboundPlaintextCaptureListener(proxy *mod
 		})
 	}
 	// TODO cases where we passthrough
-	l.FilterChains = append(l.FilterChains, blackholeFilterChain("inbound plaintext"))
+	inboundTCPAccessLog := accessLogBuilder.ListenerAccessLog(push, proxy, networking.ListenerClassSidecarInbound)
+	l.FilterChains = append(l.FilterChains, blackholeFilterChain("inbound plaintext", inboundTCPAccessLog))
 
 	return &discovery.Resource{
 		Name:     l.Name,
@@ -1301,30 +1314,6 @@ func matchIP(addr string) []*core.CidrRange {
 	return []*core.CidrRange{{
 		AddressPrefix: addr,
 		PrefixLen:     wrappers.UInt32(32),
-	}}
-}
-
-const EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-	"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
-	"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
-	"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
-	"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
-	"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
-	"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
-	"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME% "
-
-func accessLogString(prefix string) []*accesslog.AccessLog {
-	inlineString := EnvoyTextLogFormat + prefix + "\n"
-	return []*accesslog.AccessLog{{
-		Name: "envoy.access_loggers.file",
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
-			Path: "/dev/stdout",
-			AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{
-					InlineString: inlineString,
-				}}},
-			}},
-		})},
 	}}
 }
 

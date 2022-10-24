@@ -28,8 +28,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	core2 "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -39,7 +41,11 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var _ model.XdsResourceGenerator = &WaypointGenerator{}
+var (
+	_ model.XdsResourceGenerator = &WaypointGenerator{}
+	// accessLogBuilder is used to set accessLog to filters
+	accessLogBuilder = telemetry.DefaultAccessLogBuilder
+)
 
 /*
 Listener waypoint_outbound, 0.0.0.0:15001:
@@ -76,6 +82,7 @@ func (p *WaypointGenerator) Generate(proxy *model.Proxy, w *model.WatchedResourc
 				Resource: protoconv.MessageToAny(c),
 			})
 		}
+
 		out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
@@ -142,11 +149,12 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 			}
 		}
 	}
-	l := &listener.Listener{
-		Name:    "waypoint_outbound l",
-		Address: ipPortAddress("0.0.0.0", ZTunnelOutboundCapturePort),
+	listenerClass := networking.ListenerClassSidecarOutbound
 
-		AccessLog: accessLogString("waypoint_outbound"),
+	l := &listener.Listener{
+		Name:      "waypoint_outbound l",
+		Address:   ipPortAddress("0.0.0.0", ZTunnelOutboundCapturePort),
+		AccessLog: accessLogBuilder.ListenerAccessLog(push, proxy, listenerClass),
 		FilterChains: []*listener.FilterChain{
 			{
 				Name: "waypoint_outbound fc",
@@ -161,8 +169,8 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &listener.Filter_TypedConfig{
 						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
-							AccessLog:  accessLogString("waypoint hcm"),
 							StatPrefix: "outbound_hcm",
+							AccessLog:  accessLogBuilder.HTTPAccessLog(push, proxy, listenerClass),
 							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
 								RouteConfig: &route.RouteConfiguration{
 									Name:             "local_route",
@@ -186,6 +194,7 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 			},
 		},
 	}
+
 	var out model.Resources
 	for _, l := range []*listener.Listener{l} {
 		out = append(out, &discovery.Resource{
