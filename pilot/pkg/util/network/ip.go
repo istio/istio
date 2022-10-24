@@ -154,6 +154,9 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	for _, addr := range addrs {
 		// unwrap the IPv4-mapped IPv6 address
 		unwrapAddr := addr.Unmap()
+		if !unwrapAddr.IsValid() {
+			continue
+		}
 		tmpAddPort := netip.AddrPortFrom(unwrapAddr, port)
 		resolvedAddr = tmpAddPort.String()
 		if unwrapAddr.Is4() {
