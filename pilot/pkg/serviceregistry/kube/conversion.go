@@ -54,8 +54,13 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 }
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
-	addr := constants.UnspecifiedIP
 	addresses := svc.Spec.ClusterIPs
+	if len(addresses) == 0 {
+		addresses = append(addresses, constants.UnspecifiedIP)
+		if features.EnableDualStack {
+			addresses = append(addresses, constants.UnspecifiedIPv6)
+		}
+	}
 	resolution := model.ClientSideLB
 	meshExternal := false
 
@@ -67,8 +72,6 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	if svc.Spec.ClusterIP == coreV1.ClusterIPNone || svc.Spec.ClusterIP == constants.UnspecifiedIPv6 {
 		// headless services should not be load balanced
 		resolution = model.Passthrough
-	} else if svc.Spec.ClusterIP != "" {
-		addr = svc.Spec.ClusterIP
 	}
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
@@ -98,7 +101,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
 		ClusterVIPs: model.AddressMap{
 			Addresses: map[cluster.ID][]string{
-				clusterID: {addr},
+				clusterID: {addresses[0]},
 			},
 		},
 		Ports:            ports,
