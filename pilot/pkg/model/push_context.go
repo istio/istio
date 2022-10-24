@@ -137,7 +137,11 @@ func newDestinationRuleIndex() destinationRuleIndex {
 // sidecarIndex is the index of sidecar rules
 type sidecarIndex struct {
 	// user configured sidecars for each namespace if available.
-	sidecarsByNamespace map[string][]*SidecarScope
+	sidecarsByNamespace map[string]map[string]*SidecarScope
+	// user configured sidecars with selector for each namespace if available.
+	sidecarsByNamespaceWithSelector map[string]map[string]*SidecarScope
+	// user configured sidecars without selector for each namespace if available.
+	sidecarsByNamespaceWithoutSelector map[string]map[string]*SidecarScope
 	// the Sidecar for the root namespace (if present). This applies to any namespace without its own Sidecar.
 	meshRootSidecarConfig *config.Config
 	// meshRootSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar.
@@ -155,10 +159,12 @@ type sidecarIndex struct {
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:         map[string][]*SidecarScope{},
-		meshRootSidecarsByNamespace: map[string]*SidecarScope{},
-		defaultSidecarsByNamespace:  map[string]*SidecarScope{},
-		derivedSidecarMutex:         &sync.RWMutex{},
+		sidecarsByNamespace:                map[string]map[string]*SidecarScope{},
+		sidecarsByNamespaceWithSelector:    map[string]map[string]*SidecarScope{},
+		sidecarsByNamespaceWithoutSelector: map[string]map[string]*SidecarScope{},
+		meshRootSidecarsByNamespace:        map[string]*SidecarScope{},
+		defaultSidecarsByNamespace:         map[string]*SidecarScope{},
+		derivedSidecarMutex:                &sync.RWMutex{},
 	}
 }
 
@@ -1232,6 +1238,8 @@ func (ps *PushContext) updateContext(
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
+	var changedSidecars []ConfigKey
+
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case kind.ServiceEntry:
@@ -1244,6 +1252,7 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case kind.Sidecar:
 			sidecarsChanged = true
+			changedSidecars = append(changedSidecars, conf)
 		case kind.WasmPlugin:
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
@@ -1354,6 +1363,12 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.gatewayIndex = oldPushContext.gatewayIndex
+	}
+
+	if sidecarsChanged && !servicesChanged && !virtualServicesChanged && !destinationRulesChanged {
+		if err := ps.updateSidecarScopes(env, changedSidecars); err != nil {
+			return err
+		}
 	}
 
 	// Must be initialized in the end
@@ -1657,39 +1672,91 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		return err
 	}
 
-	sortConfigByCreationTime(sidecarConfigs)
-
-	sidecarConfigWithSelector := make([]config.Config, 0)
-	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	for _, sidecarConfig := range sidecarConfigs {
-		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
-		if sidecar.WorkloadSelector != nil {
-			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
-		} else {
-			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
-		}
-	}
-
-	sidecarNum := len(sidecarConfigs)
-	sidecarConfigs = make([]config.Config, 0, sidecarNum)
-	// sidecars with selector take preference
-	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
-	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
-
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	ps.sidecarIndex.sidecarsByNamespaceWithSelector = make(map[string]map[string]*SidecarScope)
+	ps.sidecarIndex.sidecarsByNamespaceWithoutSelector = make(map[string]map[string]*SidecarScope)
 	for i, sidecarConfig := range sidecarConfigs {
-		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
-		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
-			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
-			rootNSConfig = &sidecarConfigs[i]
+		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		if sidecar.WorkloadSelector != nil {
+			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace]; !f {
+				ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
+			}
+			ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace)
+		} else {
+			if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace {
+				rootNSConfig = &sidecarConfigs[i]
+			}
+			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace]; !f {
+				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
+			}
+			ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace)
 		}
 	}
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
+
+	return nil
+}
+
+// initSidecarScopes synthesizes Sidecar CRDs into objects called
+// SidecarScope.  The SidecarScope object is a semi-processed view of the
+// service registry, and config state associated with the sidecar CRD. The
+// scope contains a set of inbound and outbound listeners, services/configs
+// per listener, etc. The sidecar scopes are precomputed based on the
+// Sidecar API objects in each namespace. If there is no sidecar api object
+// for a namespace, a default sidecarscope is assigned to the namespace
+// which enables connectivity to all services in the mesh.
+//
+// When proxies connect to Pilot, we identify the sidecar scope associated
+// with the proxy and derive listeners/routes/clusters based on the sidecar
+// scope.
+func (ps *PushContext) updateSidecarScopes(env *Environment, changedSidecars []ConfigKey) error {
+	rootNSConfig := ps.sidecarIndex.meshRootSidecarConfig
+	var newRootNSConfig *config.Config
+	for _, changedSidecar := range changedSidecars {
+		sidecarConfig := env.Get(gvk.Sidecar, changedSidecar.Name, changedSidecar.Namespace)
+		if sidecarConfig == nil {
+			// sidecar config is deleted
+			delete(ps.sidecarIndex.sidecarsByNamespace[changedSidecar.Namespace], changedSidecar.Name)
+			if len(ps.sidecarIndex.sidecarsByNamespace[changedSidecar.Namespace]) == 0 {
+				delete(ps.sidecarIndex.sidecarsByNamespace, changedSidecar.Namespace)
+			}
+			continue
+		} else {
+			sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+			if sidecar.WorkloadSelector != nil {
+				if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace]; !f {
+					ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
+				}
+				ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, sidecarConfig, sidecarConfig.Namespace)
+			} else {
+				if sidecarConfig.Namespace == ps.Mesh.RootNamespace {
+					if rootNSConfig == nil {
+						newRootNSConfig = sidecarConfig
+					} else if rootNSConfig != nil && ps.sidecarIndex.meshRootSidecarConfig.Name == changedSidecar.Name {
+						newRootNSConfig = sidecarConfig
+					}
+				}
+
+				if _, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace]; !f {
+					ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
+				}
+				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, sidecarConfig, sidecarConfig.Namespace)
+			}
+		}
+
+	}
+
+	ps.sidecarIndex.derivedSidecarMutex.Lock()
+	defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
+	if newRootNSConfig != nil {
+		ps.sidecarIndex.meshRootSidecarConfig = newRootNSConfig
+	}
+	// clear derived sidecars cache to allow newly created sidecar configs to be used
+	ps.sidecarIndex.meshRootSidecarsByNamespace = make(map[string]*SidecarScope)
+	ps.sidecarIndex.defaultSidecarsByNamespace = make(map[string]*SidecarScope)
 
 	return nil
 }
