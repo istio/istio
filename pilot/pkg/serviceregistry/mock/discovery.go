@@ -16,7 +16,7 @@ package mock
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -135,10 +135,11 @@ func MakeIP(service *model.Service, version int) string {
 	if service.External() {
 		return ""
 	}
-	ip := net.ParseIP(service.DefaultAddress).To4()
+	ipa, _ := netip.ParseAddr(service.DefaultAddress)
+	ip := ipa.As4()
 	ip[2] = byte(1)
 	ip[3] = byte(version)
-	return ip.String()
+	return netip.AddrFrom4(ip).String()
 }
 
 type Controller struct {

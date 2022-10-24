@@ -78,6 +78,25 @@ func listenOnUDS(uds string) (net.Listener, error) {
 	return ln, nil
 }
 
+func listenUDPAddress(ip string, port int) (net.PacketConn, int, error) {
+	parsedIP := net.ParseIP(ip)
+	ipBind := "udp"
+	if parsedIP != nil {
+		if parsedIP.To4() == nil && parsedIP.To16() != nil {
+			ipBind = "udp6"
+		} else if parsedIP.To4() != nil {
+			ipBind = "udp4"
+		}
+	}
+	ln, err := net.ListenPacket(ipBind, net.JoinHostPort(ip, strconv.Itoa(port)))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	port = ln.LocalAddr().(*net.UDPAddr).Port
+	return ln, port, nil
+}
+
 // forceClose the given socket.
 func forceClose(conn net.Conn) error {
 	// Close may be called more than once.

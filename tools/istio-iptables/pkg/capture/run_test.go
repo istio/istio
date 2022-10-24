@@ -15,7 +15,7 @@
 package capture
 
 import (
-	"net"
+	"net/netip"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -280,14 +280,14 @@ func TestIptables(t *testing.T) {
 }
 
 func TestSeparateV4V6(t *testing.T) {
-	mkIPList := func(ips ...string) []*net.IPNet {
-		ret := []*net.IPNet{}
+	mkIPList := func(ips ...string) []netip.Prefix {
+		ret := []netip.Prefix{}
 		for _, ip := range ips {
-			_, network, err := net.ParseCIDR(ip)
+			ipp, err := netip.ParsePrefix(ip)
 			if err != nil {
 				panic(err.Error())
 			}
-			ret = append(ret, network)
+			ret = append(ret, ipp)
 		}
 		return ret
 	}
@@ -306,12 +306,12 @@ func TestSeparateV4V6(t *testing.T) {
 		{
 			name: "v4 only",
 			cidr: "10.0.0.0/8,172.16.0.0/16",
-			v4:   NetworkRange{IPNets: mkIPList("10.0.0.0/8", "172.16.0.0/16")},
+			v4:   NetworkRange{CIDRs: mkIPList("10.0.0.0/8", "172.16.0.0/16")},
 		},
 		{
 			name: "v6 only",
 			cidr: "fd04:3e42:4a4e:3381::/64,ffff:ffff:ac10:ac10::/64",
-			v6:   NetworkRange{IPNets: mkIPList("fd04:3e42:4a4e:3381::/64", "ffff:ffff:ac10:ac10::/64")},
+			v6:   NetworkRange{CIDRs: mkIPList("fd04:3e42:4a4e:3381::/64", "ffff:ffff:ac10:ac10::/64")},
 		},
 	}
 	for _, tt := range cases {

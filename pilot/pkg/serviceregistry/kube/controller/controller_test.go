@@ -41,13 +41,13 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -1396,7 +1396,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 			// assert that namespace membership has been updated
 			eventually(t, func() bool {
 				members := discoveryNamespacesFilter.GetMembers()
-				return members.Has(nsA) && members.Has(nsB) && members.Has(nsC)
+				return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
 			})
 
 			// service event handlers should trigger for all svcs

@@ -24,13 +24,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	informer filter.FilteredSharedIndexInformer
+	informer informer.FilteredSharedIndexInformer
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
@@ -44,19 +44,19 @@ type PodCache struct {
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
-	needResync         map[string]sets.Set
+	needResync         map[string]sets.String
 	queueEndpointEvent func(string)
 
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer filter.FilteredSharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
+func newPodCache(c *Controller, informer informer.FilteredSharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
 	out := &PodCache{
 		informer:           informer,
 		c:                  c,
 		podsByIP:           make(map[string]string),
 		IPByPods:           make(map[string]string),
-		needResync:         make(map[string]sets.Set),
+		needResync:         make(map[string]sets.String),
 		queueEndpointEvent: queueEndpointEvent,
 	}
 

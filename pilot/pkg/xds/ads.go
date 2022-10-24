@@ -590,11 +590,11 @@ func connectionID(node string) string {
 func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
-		return nil, err
+		return nil, status.New(codes.InvalidArgument, err.Error()).Err()
 	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
-		return nil, err
+		return nil, status.New(codes.InvalidArgument, err.Error()).Err()
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
@@ -780,7 +780,7 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set) {
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
 	if s == nil {
 		return
 	}
@@ -985,10 +985,10 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 // watched resources for the proxy, ordered in accordance with known push order.
 // It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
+func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.New()
+	typeUrls := sets.New[string]()
 	for k := range conn.proxy.WatchedResources {
 		typeUrls.Insert(k)
 	}

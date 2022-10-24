@@ -37,8 +37,10 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -91,13 +93,14 @@ type Controller struct {
 	queue               controllers.Queue
 	informer            cache.SharedIndexInformer
 
-	cs *ClusterStore
+	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	cs                        *ClusterStore
 
 	handlers []ClusterHandler
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID) *Controller {
+func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID, meshWatcher mesh.Watcher) *Controller {
 	informerClient := kubeclientset
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -147,6 +150,10 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		informer:            secretsInformer,
 	}
 
+	nsInformer := kubeclientset.KubeInformer().Core().V1().Namespaces().Informer()
+	_ = nsInformer.SetTransform(kube.StripUnusedFields)
+	nsLister := kubeclientset.KubeInformer().Core().V1().Namespaces().Lister()
+	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(nsLister, meshWatcher.Mesh().GetDiscoverySelectors())
 	controller.queue = controllers.NewQueue("multicluster secret",
 		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
@@ -261,7 +268,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 // sanitizeKubeConfig sanitizes a kubeconfig file to strip out insecure settings which may leak
 // confidential materials.
 // See https://github.com/kubernetes/kubectl/issues/697
-func sanitizeKubeConfig(config api.Config, allowlist sets.Set) error {
+func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 	for k, auths := range config.AuthInfos {
 		if ap := auths.AuthProvider; ap != nil {
 			// We currently are importing 5 authenticators: gcp, azure, exec, and openstack

@@ -78,6 +78,8 @@ type Controller struct {
 	// is only the case when we are the leader.
 	statusController *status.Controller
 	statusEnabled    *atomic.Bool
+
+	started atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
@@ -274,7 +276,12 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 	// For all other types, do nothing as c.cache has been registered
 }
 
+func (c *Controller) HasStarted() bool {
+	return c.started.Load()
+}
+
 func (c *Controller) Run(stop <-chan struct{}) {
+	c.started.Store(true)
 	go func() {
 		if crdclient.WaitForCRD(gvk.GatewayClass, stop) {
 			gcc := NewClassController(c.client)

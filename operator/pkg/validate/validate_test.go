@@ -102,7 +102,7 @@ values:
     proxy:
       includeIPRanges: "1.1.0.300/16,2.2.0.0/16"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges invalid CIDR address: 1.1.0.300/16`}),
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges netip.ParsePrefix("1.1.0.300/16"): ParseAddr("1.1.0.300"): IPv4 field has value >255`}),
 		},
 		{
 			desc: "EmptyValuesIP",

@@ -176,13 +176,27 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 	if efw == nil {
 		return nil
 	}
-	keys := sets.Set{}
+	keys := sets.String{}
 	for _, patches := range efw.Patches {
 		for _, patch := range patches {
 			keys.Insert(patch.Key())
 		}
 	}
-	return keys.SortedList()
+	return sets.SortedList(keys)
+}
+
+// Returns the keys of all the wrapped envoyfilters.
+func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
+	if efw == nil {
+		return nil
+	}
+	keys := sets.String{}
+	for _, a := range applyTo {
+		for _, patch := range efw.Patches[a] {
+			keys.Insert(patch.Key())
+		}
+	}
+	return sets.SortedList(keys)
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {

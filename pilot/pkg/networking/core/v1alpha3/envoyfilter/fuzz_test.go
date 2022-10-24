@@ -29,6 +29,7 @@ import (
 
 func FuzzApplyClusterMerge(f *testing.F) {
 	f.Fuzz(func(t *testing.T, patchCount int, hostname string, data []byte) {
+		defer fuzz.Finalize()
 		fg := fuzz.New(t, data)
 		patches := fuzz.Slice[*networking.EnvoyFilter_EnvoyConfigObjectPatch](fg, patchCount%30)
 		proxy := fuzz.Struct[*model.Proxy](fg)

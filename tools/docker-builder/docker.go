@@ -205,12 +205,12 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.
 	hasDoubleDefault := variants.Contains(DefaultVariant) && variants.Contains(PrimaryVariant)
 
-	allGroups := sets.New()
+	allGroups := sets.New[string]()
 	// Tar files builds a mapping of tar file name (when used with --save) -> alias for that
 	// If the value is "", the tar file exists but has no aliases
 	tarFiles := map[string]string{}
 
-	allDestinations := sets.New()
+	allDestinations := sets.New[string]()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
 			// Just for Dockerfile, so do not worry about architecture
@@ -270,7 +270,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			allGroups.Insert(variant)
 		}
 	}
-	groups["all"] = Group{allGroups.SortedList()}
+	groups["all"] = Group{sets.SortedList(allGroups)}
 	bf := BakeFile{
 		Target: targets,
 		Group:  groups,
@@ -284,7 +284,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 
 	if a.NoClobber {
 		e := errgroup.Group{}
-		for _, i := range allDestinations.SortedList() {
+		for _, i := range sets.SortedList(allDestinations) {
 			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
 				continue
 			}

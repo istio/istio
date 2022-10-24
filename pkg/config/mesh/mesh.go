@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -242,10 +243,14 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		}
 	}
 
-	defaultConfig.TrustDomainAliases = sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
+	defaultConfig.TrustDomainAliases = sets.SortedList(sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...))
 
-	if err := validation.ValidateMeshConfig(defaultConfig); err != nil {
+	warn, err := validation.ValidateMeshConfig(defaultConfig)
+	if err != nil {
 		return nil, err
+	}
+	if warn != nil {
+		log.Warnf("warnings occurred during mesh validation: %v", warn)
 	}
 
 	return defaultConfig, nil

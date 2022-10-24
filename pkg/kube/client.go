@@ -26,7 +26,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -50,6 +49,7 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -74,6 +74,7 @@ import (
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -86,6 +87,7 @@ import (
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
@@ -96,6 +98,7 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
+	RunningStatus       = "status.phase=Running"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -144,6 +147,7 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
+	HasStarted() bool
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
@@ -177,6 +181,9 @@ type CLIClient interface {
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
 	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
+
+	// GetProxyPods retrieves all the proxy pod objects: sidecar injected pods and gateway pods.
+	GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error)
 
 	// PodExecCommands takes a list of commands and the pod data to run the commands in the specified pod.
 	PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error)
@@ -297,16 +304,14 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 
 	c.fastSync = true
 
+	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
+
 	return c
 }
 
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
-	if minor != "" && minor != "latest" {
-		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
-		})
-	}
+	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 	return c
 }
 
@@ -339,6 +344,7 @@ type client struct {
 	gatewayapi         gatewayapiclient.Interface
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
+	started atomic.Bool
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
@@ -352,8 +358,7 @@ type client struct {
 	discoveryClient discovery.CachedDiscoveryInterface
 	mapper          meta.ResettableRESTMapper
 
-	versionOnce sync.Once
-	version     *kubeVersion.Info
+	version lazy.Lazy[*kubeVersion.Info]
 
 	portManager PortManager
 }
@@ -426,6 +431,18 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
 
 	c.portManager = defaultAvailablePort
+
+	var clientWithTimeout kubernetes.Interface
+	clientWithTimeout = c.kube
+	restConfig := c.RESTConfig()
+	if restConfig != nil {
+		restConfig.Timeout = time.Second * 5
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err == nil {
+			clientWithTimeout = kubeClient
+		}
+	}
+	c.version = lazy.NewWithRetry(clientWithTimeout.Discovery().ServerVersion)
 
 	return &c, nil
 }
@@ -505,6 +522,10 @@ func (c *client) ExtInformer() kubeExtInformers.SharedInformerFactory {
 	return c.extInformer
 }
 
+func (c *client) HasStarted() bool {
+	return c.started.Load()
+}
+
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
@@ -512,12 +533,9 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.mirrorQueueStarted.Store(true)
 		go c.mirrorQueue.Run(stop)
 	}
-	c.kubeInformer.Start(stop)
-	c.dynamicInformer.Start(stop)
-	c.metadataInformer.Start(stop)
-	c.istioInformer.Start(stop)
-	c.gatewayapiInformer.Start(stop)
-	c.extInformer.Start(stop)
+
+	c.startInformer(stop)
+
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -549,33 +567,18 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	}
 }
 
-func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
-	var clientWithTimeout kubernetes.Interface
-	clientWithTimeout = c.kube
-	restConfig := c.RESTConfig()
-	if restConfig != nil {
-		restConfig.Timeout = time.Second * 5
-		kubeClient, err := kubernetes.NewForConfig(restConfig)
-		if err == nil {
-			clientWithTimeout = kubeClient
-		}
-	}
+func (c *client) startInformer(stop <-chan struct{}) {
+	c.kubeInformer.Start(stop)
+	c.dynamicInformer.Start(stop)
+	c.metadataInformer.Start(stop)
+	c.istioInformer.Start(stop)
+	c.gatewayapiInformer.Start(stop)
+	c.extInformer.Start(stop)
+	c.started.Store(true)
+}
 
-	c.versionOnce.Do(func() {
-		v, err := clientWithTimeout.Discovery().ServerVersion()
-		if err == nil {
-			c.version = v
-		}
-	})
-	if c.version != nil {
-		return c.version, nil
-	}
-	// Initial attempt failed, retry on each call to this function
-	v, err := clientWithTimeout.Discovery().ServerVersion()
-	if err != nil {
-		c.version = v
-	}
-	return c.version, err
+func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
+	return c.version.Get()
 }
 
 type reflectInformerSync interface {
@@ -758,7 +761,7 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
 	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
 		"labelSelector": "app=istiod",
-		"fieldSelector": "status.phase=Running",
+		"fieldSelector": RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -797,7 +800,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
+	fw, err := c.NewPortForwarder(podName, podNamespace, "", 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -853,7 +856,7 @@ func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
 	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
 		"labelSelector": "app=istiod",
-		"fieldSelector": "status.phase=Running",
+		"fieldSelector": RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -892,6 +895,55 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		}
 	}
 	return &res, errs
+}
+
+func revisionOfPod(pod *v1.Pod) string {
+	if revision, ok := pod.GetLabels()[label.IoIstioRev.Name]; ok && len(revision) > 0 {
+		// For istiod or gateways.
+		return revision
+	}
+	// For pods injected.
+	statusAnno, ok := pod.GetAnnotations()[annotation.SidecarStatus.Name]
+	if !ok {
+		return ""
+	}
+	var status struct {
+		Revision string `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(statusAnno), &status); err != nil {
+		return ""
+	}
+	return status.Revision
+}
+
+func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error) {
+	opts := metav1.ListOptions{
+		LabelSelector: label.ServiceCanonicalName.Name,
+		FieldSelector: RunningStatus,
+		Limit:         limit,
+		Continue:      token,
+	}
+
+	// get pods from all the namespaces.
+	list, err := c.kube.CoreV1().Pods(metav1.NamespaceAll).List(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the pod list: %v", err)
+	}
+
+	// If we have a istio.io/rev label for the injected pods,
+	// this loop may not be needed. Instead, we can use "LabelSelector"
+	// to get pods in a specific revision.
+	if c.revision != "" {
+		items := []v1.Pod{}
+		for _, p := range list.Items {
+			if revisionOfPod(&p) == c.revision {
+				items = append(items, p)
+			}
+		}
+		list.Items = items
+	}
+
+	return list, nil
 }
 
 func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
@@ -996,8 +1048,8 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		return err
 	}
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
-	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamFieldValidation)
+	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
+	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamFieldValidation)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -1128,7 +1180,7 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	opts.WaitForDeletion = true
 	opts.WarnClusterScope = enforceNamespace
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
+	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
 
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer

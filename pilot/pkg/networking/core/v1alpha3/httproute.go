@@ -61,7 +61,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
-		envoyfilterKeys := efw.Keys()
+		envoyfilterKeys := efw.KeysApplyingTo(
+			networking.EnvoyFilter_ROUTE_CONFIGURATION,
+			networking.EnvoyFilter_VIRTUAL_HOST,
+			networking.EnvoyFilter_HTTP_ROUTE,
+		)
 		for _, routeName := range routeNames {
 			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
@@ -385,9 +389,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
-	vhosts := sets.Set{}
-	vhdomains := sets.Set{}
-	knownFQDN := sets.Set{}
+	vhosts := sets.String{}
+	vhdomains := sets.String{}
+	knownFQDN := sets.String{}
 
 	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
 		name := util.DomainName(hostname, vhwrapper.Port)
@@ -476,7 +480,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 }
 
 // dedupeDomains removes the duplicate domains from the passed in domains.
-func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string, knownFQDNs sets.Set) []string {
+func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []string, knownFQDNs sets.String) []string {
 	temp := domains[:0]
 	for _, d := range domains {
 		if vhdomains.Contains(d) {

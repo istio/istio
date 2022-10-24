@@ -120,8 +120,12 @@ func TestDefaultProxyConfig(t *testing.T) {
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
-	if err := validation.ValidateMeshConfig(mesh.DefaultMeshConfig()); err != nil {
+	warn, err := validation.ValidateMeshConfig(mesh.DefaultMeshConfig())
+	if err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
+	}
+	if warn != nil {
+		t.Errorf("validation of default mesh config produced warnings: %v", warn)
 	}
 }
 

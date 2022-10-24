@@ -360,8 +360,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		// Validate that endpoints are pushed.
 		lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
 		eh, euh := xdstest.ExtractHealthEndpoints(lbe)
-		gotHealthy := sets.New(eh...).SortedList()
-		gotUnhealthy := sets.New(euh...).SortedList()
+		gotHealthy := sets.SortedList(sets.New(eh...))
+		gotUnhealthy := sets.SortedList(sets.New(euh...))
 		if !reflect.DeepEqual(gotHealthy, healthy) {
 			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
 		}
@@ -599,7 +599,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 			if shard, ok := s.Discovery.Env.EndpointIndex.ShardsForService("flipflop.com", ""); !ok {
 				t.Fatalf("Expected service key %s to be present in EndpointIndex. But missing %v", "flipflop.com", s.Discovery.Env.EndpointIndex.Shardz())
 			} else {
-				assert.Equal(t, shard.ServiceAccounts.SortedList(), []string{tt.newSa})
+				assert.Equal(t, sets.SortedList(shard.ServiceAccounts), []string{tt.newSa})
 			}
 		})
 	}

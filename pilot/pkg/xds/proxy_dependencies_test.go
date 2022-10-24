@@ -19,10 +19,17 @@ import (
 	"strconv"
 	"testing"
 
+	mesh "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
@@ -212,6 +219,83 @@ func TestProxyNeedsPush(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: push})
+			if got != tt.want {
+				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+		})
+	}
+
+	// test for gateway proxy dependencies with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG enabled.
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+
+	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+		Configs: []config.Config{
+			{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             svcName,
+					Namespace:        nsName,
+				},
+				Spec: &networking.VirtualService{
+					Hosts:    []string{"*"},
+					Gateways: []string{generalName},
+					Http: []*networking.HTTPRoute{
+						{
+							Route: []*networking.HTTPRouteDestination{
+								{
+									Destination: &networking.Destination{
+										Host: svcName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		MeshConfig: &mesh.MeshConfig{
+			ExtensionProviders: []*mesh.MeshConfig_ExtensionProvider{
+				{
+					Provider: &mesh.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+						EnvoyExtAuthzHttp: &mesh.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+							Service: "extension",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	gateway.MergedGateway = &model.MergedGateway{
+		GatewayNameForServer: map[*networking.Server]string{
+			{}: nsName + "/" + generalName,
+		},
+	}
+
+	cases = []Case{
+		{
+			name:    "service without vs attached to gateway",
+			proxy:   gateway,
+			configs: map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}: {}},
+			want:    false,
+		},
+		{
+			name:    "service with vs attached to gateway",
+			proxy:   gateway,
+			configs: map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}: {}},
+			want:    true,
+		},
+		{
+			name:    "mesh config extensions",
+			proxy:   gateway,
+			configs: map[model.ConfigKey]struct{}{{Kind: kind.ServiceEntry, Name: "extension", Namespace: nsName}: {}},
+			want:    true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}

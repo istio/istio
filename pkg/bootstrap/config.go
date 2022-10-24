@@ -67,7 +67,7 @@ const (
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
-	v2Suffix   = ",component"
+	v2Suffix   = ",component,istio"
 )
 
 // Config for creating a bootstrap file.
@@ -753,7 +753,7 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 }
 
 func removeDuplicates(values []string) []string {
-	set := sets.New()
+	set := sets.New[string]()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
 		if !set.InsertContains(v) {

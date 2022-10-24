@@ -114,7 +114,7 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := sets.New()
+	configMap := sets.New[string]()
 
 	for _, store := range cr.stores[typ] {
 		storeConfigs, err := store.List(typ, namespace)
@@ -169,6 +169,16 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreController
+}
+
+func (cr *storeCache) HasStarted() bool {
+	for _, cache := range cr.caches {
+		if !cache.HasStarted() {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (cr *storeCache) HasSynced() bool {

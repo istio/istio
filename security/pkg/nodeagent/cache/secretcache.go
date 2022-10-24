@@ -765,7 +765,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 	sc.configTrustBundleMutex.RLock()
 	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
 	sc.configTrustBundleMutex.RUnlock()
-	anchors := sets.New()
+	anchors := sets.New[string]()
 	for _, cert := range existingCerts {
 		anchors.Insert(cert)
 	}
@@ -773,7 +773,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 		anchors.Insert(cert)
 	}
 	anchorBytes := []byte{}
-	for _, cert := range anchors.SortedList() {
+	for _, cert := range sets.SortedList(anchors) {
 		anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))
 	}
 	return anchorBytes

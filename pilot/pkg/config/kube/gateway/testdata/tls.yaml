@@ -35,6 +35,19 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
+  - name: terminate-mtls
+    hostname: "other.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+      options:
+        gateway.istio.io/tls-terminate-mode: MUTUAL
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute

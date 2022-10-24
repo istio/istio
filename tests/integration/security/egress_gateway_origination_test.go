@@ -46,6 +46,7 @@ import (
 func TestSimpleTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.tls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -121,13 +122,13 @@ func TestSimpleTlsOrigination(t *testing.T) {
 func TestMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
 				credNameGeneric    = "mtls-credential-generic"
 				credNameNotGeneric = "mtls-credential-not-generic"
 				fakeCredNameA      = "fake-mtls-credential-a"
-				fakeCredNameB      = "fake-mtls-credential-b"
 				credNameMissing    = "mtls-credential-not-created"
 				simpleCredName     = "tls-credential-simple-cacert"
 			)
@@ -150,13 +151,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, fakeCredNameA, ingressutil.Mtls, ingressutil.IngressCredential{
 				Certificate: sdstlsutil.FakeCert,
 				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
-			}, false)
-
-			// Configured with an invalid ClientCert and PrivateKey
-			ingressutil.CreateIngressKubeSecret(t, fakeCredNameB, ingressutil.Mtls, ingressutil.IngressCredential{
-				Certificate: sdstlsutil.FakeCert,
-				PrivateKey:  sdstlsutil.FakeKey,
 				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
 			}, false)
 
@@ -365,7 +359,7 @@ func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGatew
 }
 
 func newTLSGatewayTest(t framework.TestContext) *echotest.T {
-	return echotest.New(t, apps.Ns1.All.Instances()).
+	return echotest.New(t, apps.All.Instances()).
 		WithDefaultFilters(1, 1).
 		FromMatch(match.And(
 			match.Namespace(apps.Ns1.Namespace),

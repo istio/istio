@@ -1547,6 +1547,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 				8080,
 				testNode,
 				[]string{},
+				authn.NoOverride,
 			)
 			if diff := cmp.Diff(tc.expected, got, protocmp.Transform()); diff != "" {
 				t.Errorf("unexpected filter chains: %v", diff)

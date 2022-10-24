@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -116,16 +117,6 @@ var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 // RegexEngine is the default google RE2 regex engine.
 var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
-func getMaxCidrPrefix(addr string) uint32 {
-	ip := net.ParseIP(addr)
-	if ip.To4() == nil {
-		// ipv6 address
-		return 128
-	}
-	// ipv4 address
-	return 32
-}
-
 func ListContains(haystack []string, needle string) bool {
 	for _, n := range haystack {
 		if needle == n {
@@ -137,24 +128,49 @@ func ListContains(haystack []string, needle string) bool {
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
-	if len(addr) == 0 {
+	cidr, err := AddrStrToCidrRange(addr)
+	if err != nil {
+		log.Errorf("failed to convert address %s to CidrRange: %v", addr, err)
 		return nil
 	}
 
-	cidr := &core.CidrRange{
-		AddressPrefix: addr,
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: getMaxCidrPrefix(addr),
-		},
+	return cidr
+}
+
+// AddrStrToCidrRange converts from string to CIDR proto
+func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
+	if len(addr) == 0 {
+		return nil, fmt.Errorf("empty address")
 	}
 
+	var (
+		ipAddr        netip.Addr
+		maxCidrPrefix int
+	)
+
 	if strings.Contains(addr, "/") {
-		parts := strings.Split(addr, "/")
-		cidr.AddressPrefix = parts[0]
-		prefix, _ := strconv.Atoi(parts[1])
-		cidr.PrefixLen.Value = uint32(prefix)
+		ipp, err := netip.ParsePrefix(addr)
+		if err != nil {
+			return nil, err
+		}
+		ipAddr = ipp.Addr()
+		maxCidrPrefix = ipp.Bits()
+	} else {
+		ipa, err := netip.ParseAddr(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		ipAddr = ipa
+		maxCidrPrefix = ipAddr.BitLen()
 	}
-	return cidr
+
+	return &core.CidrRange{
+		AddressPrefix: ipAddr.String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(maxCidrPrefix),
+		},
+	}, nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -171,6 +187,23 @@ func BuildAddress(bind string, port uint32) *core.Address {
 			},
 		},
 	}
+}
+
+// BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+	var additionalAddresses []*listener.AdditionalAddress
+	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+		for _, exbd := range extrAddresses {
+			if exbd == "" {
+				continue
+			}
+			extraAddress := &listener.AdditionalAddress{
+				Address: BuildAddress(exbd, listenPort),
+			}
+			additionalAddresses = append(additionalAddresses, extraAddress)
+		}
+	}
+	return additionalAddresses
 }
 
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
@@ -482,6 +515,10 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 	}
 	epTLSMode := ""
 	if ep.Metadata.FilterMetadata != nil {
+		if _, f := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey].GetFields()[model.TunnelLabelShortName]; f {
+			// Tunnel > MTLS
+			return nil, false
+		}
 		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
@@ -620,15 +657,15 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	}
 
 	for i := range a {
-		netA, err := toIPNet(a[i])
+		netA, err := toMaskedPrefix(a[i])
 		if err != nil {
 			return false
 		}
-		netB, err := toIPNet(b[i])
+		netB, err := toMaskedPrefix(b[i])
 		if err != nil {
 			return false
 		}
-		if netA.IP.String() != netB.IP.String() {
+		if netA.Addr().String() != netB.Addr().String() {
 			return false
 		}
 	}
@@ -636,12 +673,13 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	return true
 }
 
-func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
-	_, cA, err := net.ParseCIDR(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
+func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
+	ipp, err := netip.ParsePrefix(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
 	if err != nil {
 		log.Errorf("failed to parse CidrRange %v as IPNet: %v", c, err)
 	}
-	return cA, err
+
+	return ipp.Masked(), err
 }
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
@@ -677,4 +715,57 @@ func IPv6Compliant(host string) string {
 // DomainName builds the domain name for a given host and port
 func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+// BuildInternalEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.LocalityLbEndpoints {
+	llb := []*endpoint.LocalityLbEndpoints{{
+		LbEndpoints: []*endpoint.LbEndpoint{BuildInternalLbEndpoint(dest, meta)},
+	}}
+	return llb
+}
+
+// BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpoint {
+	var endpointID string
+	if tunnel, ok := meta.GetFilterMetadata()["tunnel"]; ok {
+		if dest, ok := tunnel.GetFields()["destination"]; ok {
+			endpointID = dest.GetStringValue()
+		}
+	}
+	address := BuildInternalAddressWithIdentifier(dest, endpointID)
+
+	return &endpoint.LbEndpoint{
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: address,
+			},
+		},
+		Metadata: meta,
+	}
+}
+
+func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
+	return &core.Address{
+		Address: &core.Address_EnvoyInternalAddress{
+			EnvoyInternalAddress: &core.EnvoyInternalAddress{
+				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+					ServerListenerName: name,
+				},
+				EndpointId: identifier,
+			},
+		},
+	}
+}
+
+func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort int) *structpb.Struct {
+	st, _ := structpb.NewStruct(map[string]interface{}{
+		// ORIGINAL_DST destination address to tunnel on (usually only differs from "destination" by port)
+		"address": net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
+		// logical destination behind the tunnel, on which policy and telemetry will be applied
+		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
+	})
+	return st
 }

@@ -87,10 +87,10 @@ global:
     excludeIPRanges: "3.3.0.0/33,4.4.0.0/34"
 `,
 			wantErrs: makeErrors([]string{
-				`global.proxy.excludeIPRanges invalid CIDR address: 3.3.0.0/33`,
-				`global.proxy.excludeIPRanges invalid CIDR address: 4.4.0.0/34`,
-				`global.proxy.includeIPRanges invalid CIDR address: 1.1.0.256/16`,
-				`global.proxy.includeIPRanges invalid CIDR address: 2.2.0.257/16`,
+				`global.proxy.excludeIPRanges netip.ParsePrefix("3.3.0.0/33"): prefix length out of range`,
+				`global.proxy.excludeIPRanges netip.ParsePrefix("4.4.0.0/34"): prefix length out of range`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("1.1.0.256/16"): ParseAddr("1.1.0.256"): IPv4 field has value >255`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("2.2.0.257/16"): ParseAddr("2.2.0.257"): IPv4 field has value >255`,
 			}),
 		},
 		{
@@ -101,8 +101,8 @@ global:
     includeIPRanges: "1.2.3/16,1.2.3.x/16"
 `,
 			wantErrs: makeErrors([]string{
-				`global.proxy.includeIPRanges invalid CIDR address: 1.2.3/16`,
-				`global.proxy.includeIPRanges invalid CIDR address: 1.2.3.x/16`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("1.2.3/16"): ParseAddr("1.2.3"): IPv4 address too short`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("1.2.3.x/16"): ParseAddr("1.2.3.x"): unexpected character (at "x")`,
 			}),
 		},
 		{
@@ -112,7 +112,7 @@ global:
   proxy:
     includeIPRanges: "*,1.1.0.0/16,2.2.0.0/16"
 `,
-			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges invalid CIDR address: *`}),
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges netip.ParsePrefix("*"): no '/'`}),
 		},
 		{
 			desc: "BadPortRange",

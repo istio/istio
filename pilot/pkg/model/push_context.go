@@ -89,22 +89,30 @@ type exportToDefaults struct {
 
 // virtualServiceIndex is the index of virtual services by various fields.
 type virtualServiceIndex struct {
-	exportedToNamespaceByGateway map[string]map[string][]config.Config
+	exportedToNamespaceByGateway map[types.NamespacedName][]config.Config
 	// this contains all the virtual services with exportTo "." and current namespace. The keys are namespace,gateway.
-	privateByNamespaceAndGateway map[string]map[string][]config.Config
+	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
 	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
 	delegates map[ConfigKey][]ConfigKey
+
+	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
+	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
+	destinationsByGateway map[string]sets.String
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
-	return virtualServiceIndex{
+	out := virtualServiceIndex{
 		publicByGateway:              map[string][]config.Config{},
-		privateByNamespaceAndGateway: map[string]map[string][]config.Config{},
-		exportedToNamespaceByGateway: map[string]map[string][]config.Config{},
+		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
+		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
 	}
+	if features.FilterGatewayClusterConfig {
+		out.destinationsByGateway = make(map[string]sets.String)
+	}
+	return out
 }
 
 // destinationRuleIndex is the index of destination rules by various fields.
@@ -356,9 +364,9 @@ type PushRequest struct {
 // ResourceDelta records the difference in requested resources by an XDS client
 type ResourceDelta struct {
 	// Subscribed indicates the client requested these additional resources
-	Subscribed sets.Set
+	Subscribed sets.String
 	// Unsubscribed indicates the client no longer requires these resources
-	Unsubscribed sets.Set
+	Unsubscribed sets.String
 }
 
 func (rd ResourceDelta) IsEmpty() bool {
@@ -706,16 +714,16 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.IntSet {
+func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
 
-	out := make(map[string]sets.IntSet)
+	out := make(map[string]sets.Set[int])
 
 	addDestination := func(host string, port *networking.PortSelector) {
 		if _, ok := out[host]; !ok {
-			out[host] = make(sets.IntSet)
+			out[host] = sets.New[int]()
 		}
 		if port != nil {
 			out[host].Insert(int(port.Number))
@@ -765,24 +773,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := sets.New()
+	hostsFromGateways := sets.String{}
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
-			vs, ok := vsConfig.Spec.(*networking.VirtualService)
-			if !ok { // should never happen
-				log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
-				return svcs
-			}
-
-			for host := range virtualServiceDestinations(vs) {
-				hostsFromGateways.Insert(host)
-			}
-		}
+		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 	}
-
-	hostsFromMeshConfig := getHostsFromMeshConfig(ps)
-	hostsFromGateways.Merge(hostsFromMeshConfig)
-
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
 	gwSvcs := make([]*Service, 0, len(svcs))
@@ -800,36 +794,44 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
+func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
+			if hosts.Contains(hostname) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func getHostsFromMeshConfig(ps *PushContext) sets.Set {
-	hostsFromMeshConfig := sets.New()
-
+func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzHttp.Service)
+			hosts.Insert(p.EnvoyExtAuthzHttp.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzGrpc.Service)
+			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-			hostsFromMeshConfig.Insert(p.Zipkin.Service)
+			hosts.Insert(p.Zipkin.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-			hostsFromMeshConfig.Insert(p.Lightstep.Service)
+			hosts.Insert(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-			hostsFromMeshConfig.Insert(p.Datadog.Service)
+			hosts.Insert(p.Datadog.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-			hostsFromMeshConfig.Insert(p.Opencensus.Service)
+			hosts.Insert(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-			hostsFromMeshConfig.Insert(p.Skywalking.Service)
+			hosts.Insert(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			hostsFromMeshConfig.Insert(p.EnvoyHttpAls.Service)
+			hosts.Insert(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			hostsFromMeshConfig.Insert(p.EnvoyTcpAls.Service)
+			hosts.Insert(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			hostsFromMeshConfig.Insert(p.EnvoyOtelAls.Service)
+			hosts.Insert(p.EnvoyOtelAls.Service)
 		}
 	}
-	return hostsFromMeshConfig
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -898,12 +900,21 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
+//
+// Note that for generating the imported virtual services of sidecar egress
+// listener, we don't call this function to copy configs for performance issues.
+// Instead, we pass the virtualServiceIndex directly into SelectVirtualServices
+// function.
 func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []config.Config {
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway])+
-		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway])+
+	name := types.NamespacedName{
+		Namespace: proxyNamespace,
+		Name:      gateway,
+	}
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway]...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway]...)
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 
 	return res
@@ -1442,7 +1453,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			var accounts sets.Set
+			var accounts sets.String
 			func() {
 				// First get endpoint level service accounts
 				shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
@@ -1454,7 +1465,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				if len(svc.ServiceAccounts) > 0 {
 					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
 				}
-				sa := spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases).SortedList()
+				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
 				key := serviceAccountKey{
 					hostname:  svc.Hostname,
 					namespace: svc.Attributes.Namespace,
@@ -1476,9 +1487,13 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) error {
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[string]map[string][]config.Config{}
-	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[string]map[string][]config.Config{}
+	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
+	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
+
+	if features.FilterGatewayClusterConfig {
+		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
+	}
 
 	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
 	if err != nil {
@@ -1516,13 +1531,11 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			// No exportTo in virtualService. Use the global default
 			// We only honor ., *
 			if ps.exportToDefaults.virtualService[visibility.Private] {
-				if _, f := ps.virtualServiceIndex.privateByNamespaceAndGateway[ns]; !f {
-					ps.virtualServiceIndex.privateByNamespaceAndGateway[ns] = map[string][]config.Config{}
-				}
 				// add to local namespace only
 				private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 				for _, gw := range gwNames {
-					private[ns][gw] = append(private[ns][gw], virtualService)
+					n := types.NamespacedName{Namespace: ns, Name: gw}
+					private[n] = append(private[n], virtualService)
 				}
 			} else if ps.exportToDefaults.virtualService[visibility.Public] {
 				for _, gw := range gwNames {
@@ -1549,24 +1562,35 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				// . or other namespaces
 				for exportTo := range exportToMap {
 					if exportTo == visibility.Private || string(exportTo) == ns {
-						if _, f := ps.virtualServiceIndex.privateByNamespaceAndGateway[ns]; !f {
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[ns] = map[string][]config.Config{}
-						}
 						// add to local namespace only
 						for _, gw := range gwNames {
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[ns][gw] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[ns][gw], virtualService)
+							n := types.NamespacedName{Namespace: ns, Name: gw}
+							ps.virtualServiceIndex.privateByNamespaceAndGateway[n] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[n], virtualService)
 						}
 					} else {
-						if _, f := ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)]; !f {
-							ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)] = map[string][]config.Config{}
-						}
 						exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 						// add to local namespace only
 						for _, gw := range gwNames {
-							exported[string(exportTo)][gw] = append(exported[string(exportTo)][gw], virtualService)
+							n := types.NamespacedName{Namespace: string(exportTo), Name: gw}
+							exported[n] = append(exported[n], virtualService)
 						}
 					}
 				}
+			}
+		}
+
+		if features.FilterGatewayClusterConfig {
+			for _, gw := range gwNames {
+				if gw == constants.IstioMeshGateway {
+					continue
+				}
+				if _, f := ps.virtualServiceIndex.destinationsByGateway[gw]; !f {
+					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.New[string]()
+				}
+				for host := range virtualServiceDestinations(rule) {
+					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
+				}
+				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 			}
 		}
 	}
@@ -1843,8 +1867,13 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 	return nil
 }
 
-// WasmPlugins return the WasmPluginWrappers of a proxy
+// WasmPlugins return the WasmPluginWrappers of a proxy.
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
+	return ps.WasmPluginsByListenerInfo(proxy, anyListener)
+}
+
+// WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
+func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo) map[extensions.PluginPhase][]*WasmPluginWrapper {
 	if proxy == nil {
 		return nil
 	}
@@ -1855,7 +1884,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
+			if plugin.MatchListener(proxy.Labels, info) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
@@ -1864,7 +1893,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.Selector == nil || labels.Instance(plugin.Selector.MatchLabels).SubsetOf(proxy.Labels) {
+			if plugin.MatchListener(proxy.Labels, info) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}

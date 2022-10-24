@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"time"
 
@@ -116,7 +117,11 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 			return nil, false, fmt.Errorf("no port %d found in service: %s/%s", port, ns, svcName)
 		}
 
-		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
+		ipAddr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return nil, false, err
+		}
+		return netip.AddrPortFrom(ipAddr, uint16(nodePort)), true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -133,7 +138,11 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
 	}
 	if ingr.IP != "" {
-		return net.TCPAddr{IP: net.ParseIP(ingr.IP), Port: port}, true, nil
+		ipaddr, err := netip.ParseAddr(ingr.IP)
+		if err != nil {
+			return nil, false, err
+		}
+		return netip.AddrPortFrom(ipaddr, uint16(port)), true, nil
 	}
 	return net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)), true, nil
 }

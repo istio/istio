@@ -537,7 +537,10 @@ func TestWasmCache(t *testing.T) {
 		{
 			name: "purge OCI image on expiry",
 			initialCachedModules: map[moduleKey]cacheEntry{
-				{name: urlAsResourceName(ociURLWithTag) + "-purged", checksum: dockerImageDigest}: {modulePath: ociWasmFile, referencingURLs: sets.New(ociURLWithTag)},
+				{name: urlAsResourceName(ociURLWithTag) + "-purged", checksum: dockerImageDigest}: {
+					modulePath:      ociWasmFile,
+					referencingURLs: sets.New(ociURLWithTag),
+				},
 			},
 			initialCachedChecksums: map[string]*checksumEntry{
 				ociURLWithTag: {
@@ -640,7 +643,7 @@ func TestWasmCache(t *testing.T) {
 				if m.referencingURLs != nil {
 					cache.modules[mkey].referencingURLs = m.referencingURLs.Copy()
 				} else {
-					cache.modules[mkey].referencingURLs = sets.New()
+					cache.modules[mkey].referencingURLs = sets.New[string]()
 				}
 
 				if urlAsResourceName(c.fetchURL) == k.name && c.checksum == k.checksum {
@@ -714,7 +717,7 @@ func TestWasmCache(t *testing.T) {
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
 					t.Errorf("Wasm module cache lookup got no error, want error prefix `%v`", c.wantErrorMsgPrefix)
-				} else if !strings.HasPrefix(gotErr.Error(), c.wantErrorMsgPrefix) {
+				} else if !strings.Contains(gotErr.Error(), c.wantErrorMsgPrefix) {
 					t.Errorf("Wasm module cache lookup got error `%v`, want error prefix `%v`", gotErr, c.wantErrorMsgPrefix)
 				}
 			} else if gotFilePath != wantFilePath {

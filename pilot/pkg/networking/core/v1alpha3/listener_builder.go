@@ -90,11 +90,17 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 	lb.inboundListeners = lb.buildInboundListeners()
+	if lb.node.EnableHBONE() {
+		lb.inboundListeners = append(lb.inboundListeners, lb.buildInboundHBONEListeners()...)
+	}
 	return lb
 }
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
 	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	if lb.node.EnableHBONE() {
+		lb.outboundListeners = append(lb.outboundListeners, outboundTunnelListener(lb.push, lb.node))
+	}
 	return lb
 }
 
@@ -121,17 +127,21 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
-
+	actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
 		Name:             model.VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyListenPort)),
+		Address:          util.BuildAddress(actualWildcards[0], uint32(lb.push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
+	// add extra addresses for the listener
+	if len(actualWildcards) > 1 {
+		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), lb.node)
+	}
+
 	class := model.OutboundListenerClass(lb.node.Type)
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener, class)
 	lb.virtualOutboundListener = ipTablesListener
@@ -224,15 +234,14 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	} else {
 		egressCluster = util.BlackHoleCluster
 	}
-	idleTimeoutDuration, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err != nil {
-		idleTimeoutDuration = 0
-	}
 
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
-		IdleTimeout:      durationpb.New(idleTimeoutDuration),
+	}
+	idleTimeoutDuration, err := time.ParseDuration(node.Metadata.IdleTimeout)
+	if err == nil {
+		tcpProxy.IdleTimeout = durationpb.New(idleTimeoutDuration)
 	}
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
 	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound)
@@ -354,7 +363,17 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
-	wasm := lb.push.WasmPlugins(lb.node)
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  httpOpts.port,
+		Class: httpOpts.class,
+	})
+
+	// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
+	// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
+	if features.MetadataExchange && !httpOpts.hbone {
+		filters = append(filters, xdsfilters.HTTPMx)
+	}
+
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
@@ -365,10 +384,6 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-
-	if features.MetadataExchange {
-		filters = append(filters, xdsfilters.HTTPMx)
-	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
 		filters = append(filters, xdsfilters.GrpcWeb)
