@@ -70,9 +70,6 @@ while read -r line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 
-echo "ld flags:"
-echo "${LD_EXTRAFLAGS}"
-
 OPTIMIZATION_FLAGS=(-trimpath)
 if [ "${DEBUG}" == "1" ]; then
     OPTIMIZATION_FLAGS=()

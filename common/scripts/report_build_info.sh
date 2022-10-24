@@ -46,7 +46,3 @@ echo "istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"
 echo "istio.io/pkg/version.buildHub=${HUB}"
 echo "istio.io/pkg/version.buildOS=${BUILD_GOOS}"
 echo "istio.io/pkg/version.buildArch=${BUILD_GOARCH}"
-
-#echo 123
-#echo "${BUILD_GOOS}"
-#
