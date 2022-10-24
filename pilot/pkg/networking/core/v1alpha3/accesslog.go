@@ -323,23 +323,3 @@ func (b *AccessLogBuilder) reset() {
 	b.listenerFileAccessLog = nil
 	b.mutex.Unlock()
 }
-
-func NewAccessLogBuilder() *AccessLogBuilder {
-	return newAccessLogBuilder()
-}
-
-func (b *AccessLogBuilder) SetListenerAccessLog(push *model.PushContext, proxy *model.Proxy,
-	listener *listener.Listener, class networking.ListenerClass,
-) {
-	b.setListenerAccessLog(push, proxy, listener, class)
-}
-
-func (b *AccessLogBuilder) SetHTTPAccessLog(push *model.PushContext, proxy *model.Proxy,
-	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass) {
-	b.setHTTPAccessLog(push, proxy, connectionManager, class)
-}
-
-func (b *AccessLogBuilder) SetTCPAccessLog(push *model.PushContext, proxy *model.Proxy,
-	tcp *tcp.TcpProxy, class networking.ListenerClass) {
-	b.setTCPAccessLog(push, proxy, tcp, class)
-}
