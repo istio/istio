@@ -322,24 +322,43 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		hosts    []host.Name
 		hostsMap map[host.Name]struct{}
 		time     int
+		matches  bool
 	}{
-		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10},
-		{"50Exact", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50},
-		{"100Exact", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100},
-		{"1000Exact", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000},
-		{"5000Exact", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000},
+		{"10ExactNoMatch", host.Name("foo.bar.com.10"), "bar.com", []host.Name{}, nil, 10, false},
+		{"50ExactNoMatch", host.Name("foo.bar.com.50"), "bar.com", []host.Name{}, nil, 50, false},
+		{"100ExactNoMatch", host.Name("foo.bar.com.100"), "bar.com", []host.Name{}, nil, 100, false},
+		{"1000ExactNoMatch", host.Name("foo.bar.com.1000"), "bar.com", []host.Name{}, nil, 1000, false},
+		{"5000ExactNoMatch", host.Name("foo.bar.com.5000"), "bar.com", []host.Name{}, nil, 5000, false},
 
-		{"10DestRuleWildcard", host.Name("foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, 10},
-		{"50DestRuleWildcard", host.Name("foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, 50},
-		{"100DestRuleWildcard", host.Name("foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, 100},
-		{"1000DestRuleWildcard", host.Name("foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, 1000},
-		{"5000DestRuleWildcard", host.Name("foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+		{"10ExactMatch", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10, true},
+		{"50ExactMatch", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50, true},
+		{"100ExactMatch", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100, true},
+		{"1000ExactMatch", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000, true},
+		{"5000ExactMatch", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000, true},
 
-		{"10NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 10},
-		{"50NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 50},
-		{"100NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 100},
-		{"1000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 1000},
-		{"5000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+		{"10DestRuleWildcardNoMatch", host.Name("foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, 10, false},
+		{"50DestRuleWildcardNoMatch", host.Name("foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, 50, false},
+		{"100DestRuleWildcardNoMatch", host.Name("foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, 100, false},
+		{"1000DestRuleWildcardNoMatch", host.Name("foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, 1000, false},
+		{"5000DestRuleWildcardNoMatch", host.Name("foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, 5000, false},
+
+		{"10DestRuleWildcardMatch", host.Name("foo.bar.baz.com.10"), "*.bar.baz.com", []host.Name{}, nil, 10, true},
+		{"50DestRuleWildcardMatch", host.Name("foo.bar.baz.com.50"), "*.bar.baz.com", []host.Name{}, nil, 50, true},
+		{"100DestRuleWildcardMatch", host.Name("foo.bar.baz.com.100"), "*.bar.baz.com", []host.Name{}, nil, 100, true},
+		{"1000DestRuleWildcardMatch", host.Name("foo.bar.baz.com.1000"), "*.bar.baz.com", []host.Name{}, nil, 1000, true},
+		{"5000DestRuleWildcardMatch", host.Name("foo.bar.baz.com.5000"), "*.bar.baz.com", []host.Name{}, nil, 5000, true},
+
+		{"10NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 10, false},
+		{"50NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 50, false},
+		{"100NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 100, false},
+		{"1000NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 1000, false},
+		{"5000NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 5000, false},
+
+		{"10NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, 10, true},
+		{"50NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, 50, true},
+		{"100NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, 100, true},
+		{"1000NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, 1000, true},
+		{"5000NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, 5000, true},
 	}
 
 	for _, bm := range benchmarks {
@@ -351,7 +370,97 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
+				_, ok := model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
+				if bm.matches != ok {
+					b.Fatalf("expected to find match")
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkMostSpecificHostMatchMixed(b *testing.B) {
+	benchmarks := []struct {
+		name     string
+		needle   host.Name
+		baseHost string
+		hosts    []host.Name
+		hostsMap map[host.Name]struct{}
+		time     int
+		matches  bool
+	}{
+		{"10DestRuleWildcardNoMatch", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10, false},
+		{"50DestRuleWildcardNoMatch", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50, false},
+		{"100DestRuleWildcardNoMatch", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100, false},
+		{"1000DestRuleWildcardNoMatch", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000, false},
+		{"5000DestRuleWildcardNoMatch", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000, false},
+
+		{"10DestRuleWildcardMatch", host.Name("foo.bar.baz.com.10"), "bar.baz.com", []host.Name{}, nil, 10, true},
+		{"50DestRuleWildcardMatch", host.Name("foo.bar.baz.com.50"), "bar.baz.com", []host.Name{}, nil, 50, true},
+		{"100DestRuleWildcardMatch", host.Name("foo.bar.baz.com.100"), "bar.baz.com", []host.Name{}, nil, 100, true},
+		{"1000DestRuleWildcardMatch", host.Name("foo.bar.baz.com.1000"), "bar.baz.com", []host.Name{}, nil, 1000, true},
+		{"5000DestRuleWildcardMatch", host.Name("foo.bar.baz.com.5000"), "bar.baz.com", []host.Name{}, nil, 5000, true},
+
+		{"10NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "foo.bar.com", []host.Name{}, nil, 10, false},
+		{"50NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "foo.bar.com", []host.Name{}, nil, 50, false},
+		{"100NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "foo.bar.com", []host.Name{}, nil, 100, false},
+		{"1000NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "foo.bar.com", []host.Name{}, nil, 1000, false},
+		{"5000NeedleWildcardNoMatch", host.Name("*.bar.foo.bar.com"), "foo.bar.com", []host.Name{}, nil, 5000, false},
+
+		{"10NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10, true},
+		{"50NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50, true},
+		{"100NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100, true},
+		{"1000NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000, true},
+		{"5000NeedleWildcardMatch", host.Name("*.bar.foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000, true},
+	}
+
+	for _, bm := range benchmarks {
+		bm.hostsMap = make(map[host.Name]struct{}, bm.time)
+
+		for i := 1; i <= bm.time; i++ {
+			// these specific non-wildcard hosts are crafted this way to never match the needle,
+			// this should replicate real-world scenarios of mixed specific and wildcard hosts
+			specific := host.Name(strconv.Itoa(i) + "." + bm.baseHost)
+			// generate correct wildcard hosts, one of these will match
+			wildcard := host.Name("*." + bm.baseHost + "." + strconv.Itoa(i))
+			bm.hostsMap[specific] = struct{}{}
+			bm.hostsMap[wildcard] = struct{}{}
+		}
+		b.Run(bm.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_, ok := model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
+				if bm.matches != ok {
+					b.Fatalf("expected to find match")
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
+	benchmarks := []struct {
+		name     string
+		needle   host.Name
+		hosts    []host.Name
+		hostsMap map[host.Name]struct{}
+	}{
+		{"DestRuleWildcard", host.Name("a.foo.bar.baz.com"), []host.Name{"*.foo.bar.baz.com", "*.bar.baz.com", "*.baz.com", "*.com"}, nil},
+
+		{"NeedleWildcard", host.Name("*.a.foo.bar.baz.com"), []host.Name{"*.foo.bar.baz.com", "*.bar.baz.com", "*.baz.com", "*.com"}, nil},
+	}
+
+	for _, bm := range benchmarks {
+		bm.hostsMap = make(map[host.Name]struct{}, len(bm.hosts))
+
+		for _, h := range bm.hosts {
+			bm.hostsMap[h] = struct{}{}
+		}
+		b.Run(bm.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_, ok := model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
+				if !ok {
+					b.Fatalf("expected to find match")
+				}
 			}
 		})
 	}
