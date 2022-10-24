@@ -114,25 +114,9 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	if addr == "" {
 		return "", ErrResolveNoAddress
 	}
-	var host string
-	var port uint16
-	var addrs []netip.Addr
-	var lookupErr error
-	addPort, err := netip.ParseAddrPort(addr)
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		oHost, oPort, oErr := net.SplitHostPort(addr)
-		if oErr != nil {
-			return "", oErr
-		}
-		host = oHost
-		pPort, pErr := strconv.ParseUint(oPort, 10, 16)
-		if pErr != nil {
-			return "", oErr
-		}
-		port = uint16(pPort)
-	} else {
-		host = addPort.Addr().String()
-		port = addPort.Port()
+		return "", err
 	}
 
 	log.Infof("Attempting to lookup address: %s", host)
@@ -140,6 +124,8 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	// lookup the udp address with a timeout of 15 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	var addrs []netip.Addr
+	var lookupErr error
 	if (len(lookupIPAddr) > 0) && (lookupIPAddr[0] != nil) {
 		// if there are more than one lookup function, ignore all but first
 		addrs, lookupErr = lookupIPAddr[0](ctx, host)
@@ -157,7 +143,11 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 		if !unwrapAddr.IsValid() {
 			continue
 		}
-		tmpAddPort := netip.AddrPortFrom(unwrapAddr, port)
+		pPort, pErr := strconv.ParseUint(port, 10, 16)
+		if pErr != nil {
+			continue
+		}
+		tmpAddPort := netip.AddrPortFrom(unwrapAddr, uint16(pPort))
 		resolvedAddr = tmpAddPort.String()
 		if unwrapAddr.Is4() {
 			break
@@ -177,9 +167,7 @@ func AllIPv6(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-		// unwrap the IPv4-mapped IPv6 address
-		unwrapAddr := addr.Unmap()
-		if unwrapAddr.Is4() {
+		if addr.Is4() {
 			return false
 		}
 	}
@@ -196,9 +184,7 @@ func AllIPv4(ipAddrs []string) bool {
 			// skip it to prevent a panic.
 			continue
 		}
-		// unwrap the IPv4-mapped IPv6 address
-		unwrapAddr := addr.Unmap()
-		if !unwrapAddr.Is4() && unwrapAddr.Is6() {
+		if !addr.Is4() && addr.Is6() {
 			return false
 		}
 	}
