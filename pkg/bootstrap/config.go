@@ -67,7 +67,7 @@ const (
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
-	v2Suffix   = ",component"
+	v2Suffix   = ",component,istio"
 )
 
 // Config for creating a bootstrap file.
