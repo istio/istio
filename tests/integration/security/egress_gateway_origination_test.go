@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 )
 
 // TestSimpleTlsOrigination test SIMPLE TLS mode with TLS origination happening at Gateway proxy
@@ -59,7 +58,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				CaCert: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
 			}
 			CredentialB := ingressutil.IngressCredential{
-				CaCert: sdstlsutil.FakeRoot,
+				CaCert: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/fake-root-cert.pem")),
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
 			ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS, credentialA, false)
@@ -149,7 +148,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 			// Configured with an invalid ClientCert
 			ingressutil.CreateIngressKubeSecret(t, fakeCredNameA, ingressutil.Mtls, ingressutil.IngressCredential{
-				Certificate: sdstlsutil.FakeCert,
+				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/fake-cert-chain.pem")),
 				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
 			}, false)
