@@ -254,8 +254,6 @@ spec:
           value: "ztunnel"
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.global.multiCluster.clusterName | default "Kubernetes" }}
-        - name: CREDENTIAL_FETCHER_TYPE
-          value: "TokenRequest"
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -295,16 +293,11 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /var/lib/kubelet/pki # Must match due to symlinks...
-          name: kubelet-creds
         - name: config-volume
           mountPath: /etc/istio/config
       volumes:
       - emptyDir: {}
         name: istio-data
-      - name: kubelet-creds
-        hostPath:
-          path: /var/lib/kubelet/pki
       - name: istio-token
         projected:
           sources:

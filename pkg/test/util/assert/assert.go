@@ -15,6 +15,7 @@
 package assert
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -22,6 +23,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var compareErrors = cmp.Comparer(func(x, y error) bool {
@@ -50,6 +52,21 @@ func Equal[T any](t test.Failer, a, b T, context ...string) {
 			cs = " " + strings.Join(context, ", ") + ":"
 		}
 		t.Fatalf("found diff:%s %v\nLeft: %v\nRight: %v", cs, cmp.Diff(a, b, cmpOpts...), a, b)
+	}
+}
+
+func EventuallyEqual[T any](t test.Failer, fetchA func() T, b T, opts ...retry.Option) {
+	t.Helper()
+	var a T
+	err := retry.UntilSuccess(func() error {
+		a = fetchA()
+		if !cmp.Equal(a, b, cmpOpts...) {
+			return fmt.Errorf("not equal")
+		}
+		return nil
+	}, opts...)
+	if err != nil {
+		t.Fatalf("found diff: %v\nLeft: %v\nRight: %v", cmp.Diff(a, b, cmpOpts...), a, b)
 	}
 }
 

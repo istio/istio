@@ -335,8 +335,11 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
-		// TODO: can we distinguish init and reconnect? Do we care?
-		deltaLog.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
+		if len(request.InitialResourceVersions) > 0 {
+			deltaLog.Debugf("ADS:%s: RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
+		} else {
+			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
+		}
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
@@ -517,7 +520,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case !req.Full:
+	case !req.Full && w.TypeUrl != v3.WorkloadType:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
@@ -528,7 +531,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 			// Add additional information to logs when debug mode enabled.
 			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
 		}
-		deltaLog.Infof("%s: %s%s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res),
+		deltaLog.Infof("%s: %s%s for node:%s resources:%d removed:%d size:%v%s%s",
+			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), len(resp.RemovedResources),
 			util.ByteCount(ResourceSize(res)), info, debug)
 	}
 
@@ -562,6 +566,10 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
+	// Set only on first request
+	for k := range request.InitialResourceVersions {
+		res.Insert(k)
+	}
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	return res.SortedList()
 }
