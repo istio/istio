@@ -179,7 +179,7 @@ func AllIPv6(ipAddrs []string) bool {
 func AllIPv4(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
 		addr := net.ParseIP(ipAddrs[i])
-		if addr != nil {
+		if addr == nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
