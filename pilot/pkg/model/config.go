@@ -15,8 +15,7 @@
 package model
 
 import (
-	"crypto/md5"
-	"encoding/binary"
+	"github.com/cespare/xxhash/v2"
 	"sort"
 	"strings"
 
@@ -58,12 +57,15 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := md5.New()
-	hash.Write([]byte{byte(key.Kind)})
-	hash.Write([]byte(key.Name))
-	hash.Write([]byte(key.Namespace))
-	sum := hash.Sum(nil)
-	return ConfigHash(binary.BigEndian.Uint64(sum))
+	var builder strings.Builder
+	k := string(key.Kind)
+	l := len(k) + len(key.Name) + len(key.Namespace)
+
+	builder.Grow(l)
+	builder.WriteString(k)
+	builder.WriteString(key.Name)
+	builder.WriteString(key.Namespace)
+	return ConfigHash(xxhash.Sum64([]byte(builder.String())))
 }
 
 func (key ConfigKey) String() string {
