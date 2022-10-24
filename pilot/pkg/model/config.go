@@ -277,48 +277,61 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 	return out
 }
 
-// MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
-// matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch[V any](needle host.Name, m map[host.Name]V) (host.Name, bool) {
-	matches := []host.Name{}
-	// exact match first
-	if m != nil {
-		if _, ok := m[needle]; ok {
-			return needle, true
-		}
-	}
+// MostSpecificHostMatch compares the maps of specific and wildcard hosts to the needle, and returns the longest element
+// matching the needle and it's value, or false if no element in the maps matches the needle.
+func MostSpecificHostMatch[V any](needle host.Name, specific map[host.Name]V, wildcard map[host.Name]V) (host.Name, V, bool) {
+	found := false
+	var matchHost host.Name
+	var matchValue V
 
 	if needle.IsWildCarded() {
-		for h := range m {
+		// exact match first
+		if v, ok := wildcard[needle]; ok {
+			return needle, v, true
+		}
+
+		for h, v := range wildcard {
 			// both needle and h are wildcards
-			if h.IsWildCarded() {
-				if len(needle) < len(h) {
-					continue
-				}
-				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
-					matches = append(matches, h)
+			if len(needle) < len(h) {
+				continue
+			}
+			if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
+				if !found {
+					matchHost = h
+					matchValue = wildcard[h]
+					found = true
+				} else {
+					if host.MoreSpecific(h, matchHost) {
+						matchHost = h
+						matchValue = v
+					}
 				}
 			}
 		}
 	} else {
-		for h := range m {
-			// only n is wildcard
-			if h.IsWildCarded() {
-				if strings.HasSuffix(string(needle), string(h[1:])) {
-					matches = append(matches, h)
+		// exact match first
+		if v, ok := specific[needle]; ok {
+			return needle, v, true
+		}
+
+		// check wildcard
+		for h, v := range wildcard {
+			if strings.HasSuffix(string(needle), string(h[1:])) {
+				if !found {
+					matchHost = h
+					matchValue = wildcard[h]
+					found = true
+				} else {
+					if host.MoreSpecific(h, matchHost) {
+						matchHost = h
+						matchValue = v
+					}
 				}
 			}
 		}
 	}
-	if len(matches) > 1 {
-		// Sort the host names, find the most specific one.
-		sort.Sort(host.Names(matches))
-	}
-	if len(matches) > 0 {
-		// TODO: return closest match out of all non-exact matching hosts
-		return matches[0], true
-	}
-	return "", false
+
+	return matchHost, matchValue, found
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).

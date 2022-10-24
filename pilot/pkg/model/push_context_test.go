@@ -1882,8 +1882,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		{Namespace: "test", Name: "rule2"},
 	}
 	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
-	public := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)]
+	private := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
+	public := ps.destinationRuleIndex.exportedByNamespace["test"].specificDestRules[host.Name(testhost)]
 	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
 	subsetsExport := public[0].rule.Spec.(*networking.DestinationRule).Subsets
 	assert.Equal(t, private[0].from, expectedDestRules)

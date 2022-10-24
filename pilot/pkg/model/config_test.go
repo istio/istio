@@ -298,17 +298,30 @@ func TestMostSpecificHostMatch(t *testing.T) {
 	}
 
 	for idx, tt := range tests {
-		m := make(map[host.Name]struct{})
+		specific := make(map[host.Name]struct{})
+		wildcard := make(map[host.Name]struct{})
 		for _, h := range tt.in {
-			m[h] = struct{}{}
+			if h.IsWildCarded() {
+				wildcard[h] = struct{}{}
+			} else {
+				specific[h] = struct{}{}
+			}
 		}
 
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
-			actual, found := model.MostSpecificHostMatch(tt.needle, m)
+			actual, value, found := model.MostSpecificHostMatch(tt.needle, specific, wildcard)
 			if tt.want != "" && !found {
-				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
+				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %v, %t; want: %v", tt.needle, tt.in, actual, value, found, tt.want)
 			} else if actual != tt.want {
-				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
+				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %v, %t; want: %v", tt.needle, tt.in, actual, value, found, tt.want)
+			}
+			if found {
+				if actual.IsWildCarded() && value != wildcard[actual] {
+					t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %v, %t; want: %v", tt.needle, tt.in, actual, value, found, tt.want)
+				}
+				if !actual.IsWildCarded() && value != specific[actual] {
+					t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %v, %t; want: %v", tt.needle, tt.in, actual, value, found, tt.want)
+				}
 			}
 		})
 	}
@@ -316,42 +329,48 @@ func TestMostSpecificHostMatch(t *testing.T) {
 
 func BenchmarkMostSpecificHostMatch(b *testing.B) {
 	benchmarks := []struct {
-		name     string
-		needle   host.Name
-		baseHost string
-		hosts    []host.Name
-		hostsMap map[host.Name]struct{}
-		time     int
+		name             string
+		needle           host.Name
+		baseHost         string
+		hosts            []host.Name
+		specificHostsMap map[host.Name]struct{}
+		wildcardHostsMap map[host.Name]struct{}
+		time             int
 	}{
-		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10},
-		{"50Exact", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, 50},
-		{"100Exact", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, 100},
-		{"1000Exact", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, 1000},
-		{"5000Exact", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, 5000},
+		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, nil, 10},
+		{"50Exact", host.Name("foo.bar.com.50"), "foo.bar.com", []host.Name{}, nil, nil, 50},
+		{"100Exact", host.Name("foo.bar.com.100"), "foo.bar.com", []host.Name{}, nil, nil, 100},
+		{"1000Exact", host.Name("foo.bar.com.1000"), "foo.bar.com", []host.Name{}, nil, nil, 1000},
+		{"5000Exact", host.Name("foo.bar.com.5000"), "foo.bar.com", []host.Name{}, nil, nil, 5000},
 
-		{"10DestRuleWildcard", host.Name("foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, 10},
-		{"50DestRuleWildcard", host.Name("foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, 50},
-		{"100DestRuleWildcard", host.Name("foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, 100},
-		{"1000DestRuleWildcard", host.Name("foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, 1000},
-		{"5000DestRuleWildcard", host.Name("foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+		{"10DestRuleWildcard", host.Name("foo.bar.com.10"), "*.foo.bar.com", []host.Name{}, nil, nil, 10},
+		{"50DestRuleWildcard", host.Name("foo.bar.com.50"), "*.foo.bar.com", []host.Name{}, nil, nil, 50},
+		{"100DestRuleWildcard", host.Name("foo.bar.com.100"), "*.foo.bar.com", []host.Name{}, nil, nil, 100},
+		{"1000DestRuleWildcard", host.Name("foo.bar.com.1000"), "*.foo.bar.com", []host.Name{}, nil, nil, 1000},
+		{"5000DestRuleWildcard", host.Name("foo.bar.com.5000"), "*.foo.bar.com", []host.Name{}, nil, nil, 5000},
 
-		{"10NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 10},
-		{"50NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 50},
-		{"100NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 100},
-		{"1000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 1000},
-		{"5000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, 5000},
+		{"10NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, nil, 10},
+		{"50NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, nil, 50},
+		{"100NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, nil, 100},
+		{"1000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, nil, 1000},
+		{"5000NeedleWildcard", host.Name("*.bar.foo.bar.com"), "*.foo.bar.com", []host.Name{}, nil, nil, 5000},
 	}
 
 	for _, bm := range benchmarks {
-		bm.hostsMap = make(map[host.Name]struct{}, bm.time)
+		bm.specificHostsMap = make(map[host.Name]struct{}, bm.time)
+		bm.wildcardHostsMap = make(map[host.Name]struct{}, bm.time)
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
-			bm.hostsMap[h] = struct{}{}
+			if h.IsWildCarded() {
+				bm.wildcardHostsMap[h] = struct{}{}
+			} else {
+				bm.specificHostsMap[h] = struct{}{}
+			}
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
+				_, _, _ = model.MostSpecificHostMatch(bm.needle, bm.specificHostsMap, bm.wildcardHostsMap)
 			}
 		})
 	}
