@@ -7,4 +7,5 @@ releaseNotes:
   instead of the Wasm-based extension. This improves CPU overhead and memory
   usage of the feature. Custom dimensions no longer require regex and bootstrap
   annotations. If customizations use CEL expressions with Wasm attributes, they
-  are likely to be affected.
+  are likely to be affected. This change can be disabled by setting the control
+  plane feature flag `TELEMETRY_USE_NATIVE_STATS` to `false`.

@@ -34,6 +34,7 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
@@ -815,6 +816,15 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
+func statsRootIDForClass(class networking.ListenerClass) string {
+	switch class {
+	case networking.ListenerClassSidecarInbound:
+		return "stats_inbound"
+	default:
+		return "stats_outbound"
+	}
+}
+
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
 	for _, cfg := range metricsCfg {
@@ -824,12 +834,32 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 				// No logging for prometheus
 				continue
 			}
-			statsCfg := generateStatsConfig(class, cfg)
-			f := &hcm.HttpFilter{
-				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
+			if features.EnableNativeStats {
+				statsCfg := generateStatsConfig(class, cfg, true)
+				f := &hcm.HttpFilter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
+				}
+				res = append(res, f)
+			} else {
+				statsCfg := generateStatsConfig(class, cfg, false)
+				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+				root := statsRootIDForClass(class)
+				vmConfig.VmConfig.VmId = root
+
+				wasmConfig := &httpwasm.Wasm{
+					Config: &wasm.PluginConfig{
+						RootId:        root,
+						Vm:            vmConfig,
+						Configuration: statsCfg,
+					},
+				}
+				f := &hcm.HttpFilter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}
+				res = append(res, f)
 			}
-			res = append(res, f)
 
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
@@ -862,12 +892,33 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 	for _, telemetryCfg := range telemetryConfigs {
 		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			cfg := generateStatsConfig(class, telemetryCfg)
-			f := &listener.Filter{
-				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
+			if features.EnableNativeStats {
+				cfg := generateStatsConfig(class, telemetryCfg, true)
+				f := &listener.Filter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
+				}
+				res = append(res, f)
+			} else {
+				cfg := generateStatsConfig(class, telemetryCfg, false)
+				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+				root := statsRootIDForClass(class)
+				vmConfig.VmConfig.VmId = "tcp_" + root
+
+				wasmConfig := &wasmfilter.Wasm{
+					Config: &wasm.PluginConfig{
+						RootId:        root,
+						Vm:            vmConfig,
+						Configuration: cfg,
+					},
+				}
+				f := &listener.Filter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}
+				res = append(res, f)
 			}
-			res = append(res, f)
+
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
@@ -1010,7 +1061,7 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig) *anypb.Any {
+func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig, native bool) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
@@ -1034,7 +1085,11 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 		}
 		cfg.Metrics = append(cfg.Metrics, mc)
 	}
-	return protoconv.MessageToAny(&cfg)
+	if native {
+		return protoconv.MessageToAny(&cfg)
+	}
+	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
+	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {

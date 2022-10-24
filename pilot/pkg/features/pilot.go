@@ -689,6 +689,12 @@ var (
 		false,
 		"If set, it allows creating inbound listeners for service ports and sidecar ingress listeners ",
 	).Get()
+
+	EnableNativeStats = env.Register(
+		"TELEMETRY_USE_NATIVE_STATS",
+		true,
+		"True if the stats runtime should use the Envoy extension instead of the compiled Wasm extension.",
+	).Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
