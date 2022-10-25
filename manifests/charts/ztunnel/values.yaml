@@ -4,7 +4,7 @@ ztunnel:
   variant: ""
 
   # Can be a full hub/image:tag
-  image: proxyv2
+  image: ztunnel
 
   resources:
     requests:

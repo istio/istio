@@ -158,6 +158,48 @@ function download_wasm_if_necessary () {
   fi
 }
 
+
+# ztunnel binary vars (TODO handle debug builds, centos, arm, darwin etc.)
+ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com/istio-build/ztunnel}"
+ZTUNNEL_REPO_SHA="${ZTUNNEL_REPO_SHA:-$(grep ZTUNNEL_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
+
+ISTIO_ZTUNNEL_VERSION="${ISTIO_ZTUNNEL_VERSION:-${ZTUNNEL_REPO_SHA}}"
+ISTIO_ZTUNNEL_RELEASE_URL="${ISTIO_ZTUNNEL_RELEASE_URL:-${ISTIO_ZTUNNEL_BASE_URL}/ztunnel-${ISTIO_ZTUNNEL_VERSION}-${TARGET_ARCH}}"
+ISTIO_ZTUNNEL_LINUX_RELEASE_NAME="${ISTIO_ZTUNNEL_LINUX_RELEASE_NAME:-ztunnel-${ISTIO_ZTUNNEL_VERSION}}"
+ISTIO_ZTUNNEL_LINUX_RELEASE_PATH="${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH:-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ZTUNNEL_LINUX_RELEASE_NAME}}"
+
+echo "rel url '${ISTIO_ZTUNNEL_RELEASE_URL}'"
+
+# Params:
+#   $1: The URL of the ztunnel binary to be downloaded.
+#   $2: The full path of the output binary.
+#   $3: Non-versioned name to use
+function download_ztunnel_if_necessary () {
+  if [[ -f "$2" ]] ; then
+    return
+  fi
+  # Enter the output directory.
+  mkdir -p "$(dirname "$2")"
+  pushd "$(dirname "$2")"
+
+  # Download and make the binary executable
+  echo "Downloading ztunnel: $1 to $2"
+  BASE_NAME="$(basename ${ISTIO_ZTUNNEL_RELEASE_URL})"
+  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "${BASE_NAME}"
+  chmod +x "${BASE_NAME}"
+
+  # Copy the extracted binary to the output location
+  cp "${BASE_NAME}" "$2"
+
+  # Remove the extracted binary.
+  rm -rf usr
+
+  # Make a copy named just "ztunnel" in the same directory (overwrite if necessary).
+  echo "Copying $2 to $(dirname "$2")/${3}"
+  cp -f "$2" "$(dirname "$2")/${3}"
+  popd
+}
+
 mkdir -p "${TARGET_OUT}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
@@ -205,3 +247,9 @@ if [[ "$GOOS_LOCAL" != "linux" ]]; then
    echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/${SIDECAR}"
   cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/${SIDECAR}"
 fi
+
+# Download zTunnel
+download_ztunnel_if_necessary "${ISTIO_ZTUNNEL_RELEASE_URL}" "$ISTIO_ZTUNNEL_LINUX_RELEASE_PATH" "ztunnel"
+# TODO handle linux vs mac ztunnel, for now always copy the linux one
+echo "Copying ${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
+cp -f "${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
