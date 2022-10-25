@@ -58,6 +58,14 @@ const (
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
+func ConfigureTracing(push *model.PushContext,
+	proxy *model.Proxy,
+	hcm *hcm.HttpConnectionManager,
+	class networking.ListenerClass,
+) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
+	return configureTracing(push, proxy, hcm, class)
+}
+
 func configureTracing(
 	push *model.PushContext,
 	proxy *model.Proxy,

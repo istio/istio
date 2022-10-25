@@ -73,6 +73,9 @@ values:
   meshConfig:
     ambientMesh:
       mode: "DEFAULT"
+    defaultProviders:
+      accessLogging:
+      - envoy
     defaultConfig:
       proxyMetadata:
         ISTIO_META_DNS_CAPTURE: "true"

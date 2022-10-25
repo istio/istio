@@ -28,6 +28,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 	core2 "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -142,6 +143,29 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 			}
 		}
 	}
+	outboundHCM := &httpconn.HttpConnectionManager{
+		AccessLog:  accessLogString("waypoint hcm"),
+		StatPrefix: "outbound_hcm",
+		RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
+			RouteConfig: &route.RouteConfiguration{
+				Name:             "local_route",
+				VirtualHosts:     []*route.VirtualHost{vhost},
+				ValidateClusters: proto.BoolFalse,
+			},
+		},
+		HttpFilters: []*httpconn.HttpFilter{{
+			Name:       "envoy.filters.http.router",
+			ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
+		}},
+		Http2ProtocolOptions: &core.Http2ProtocolOptions{
+			AllowConnect: true,
+		},
+		UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
+			UpgradeType: "CONNECT",
+		}},
+	}
+	v1alpha3.ConfigureTracing(push, proxy, outboundHCM, networking.ListenerClassSidecarOutbound)
+
 	l := &listener.Listener{
 		Name:    "waypoint_outbound l",
 		Address: ipPortAddress("0.0.0.0", ZTunnelOutboundCapturePort),
@@ -160,27 +184,7 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 				Filters: []*listener.Filter{{
 					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
-							AccessLog:  accessLogString("waypoint hcm"),
-							StatPrefix: "outbound_hcm",
-							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
-								RouteConfig: &route.RouteConfiguration{
-									Name:             "local_route",
-									VirtualHosts:     []*route.VirtualHost{vhost},
-									ValidateClusters: proto.BoolFalse,
-								},
-							},
-							HttpFilters: []*httpconn.HttpFilter{{
-								Name:       "envoy.filters.http.router",
-								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
-							}},
-							Http2ProtocolOptions: &core.Http2ProtocolOptions{
-								AllowConnect: true,
-							},
-							UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
-								UpgradeType: "CONNECT",
-							}},
-						}),
+						TypedConfig: protoconv.MessageToAny(outboundHCM),
 					},
 				}},
 			},
