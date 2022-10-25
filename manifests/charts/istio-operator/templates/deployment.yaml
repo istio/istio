@@ -59,7 +59,7 @@ spec:
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION
-              value: {{.Values.revision | quote}}
+              value: {{.Values.revision | default "default"}}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

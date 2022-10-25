@@ -185,7 +185,7 @@ spec:
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: "300s"
             - name: REVISION
-              value: ""
+              value: "default"
 ---
 apiVersion: v1
 kind: Service
