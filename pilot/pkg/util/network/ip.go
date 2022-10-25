@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/sleep"
@@ -30,7 +32,7 @@ const (
 	waitTimeout  = 2 * time.Minute
 )
 
-type lookupIPAddrType = func(ctx context.Context, addr string) ([]net.IPAddr, error)
+type lookupIPAddrType = func(ctx context.Context, addr string) ([]netip.Addr, error)
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
 // but no address was provided.
@@ -75,21 +77,31 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 		addrs, _ := iface.Addrs()
 
 		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
+			var ipAddr netip.Addr
+			addrType := addr.Network()
+			if addrType == "ip+net" {
+				ipNet, iErr := netip.ParsePrefix(addr.String())
+				if iErr != nil {
+					continue
+				}
+				ipAddr = ipNet.Addr()
+			} else if addrType == "ip" {
+				ip, aErr := netip.ParseAddr(addr.String())
+				if aErr != nil {
+					continue
+				}
+				ipAddr = ip
 			}
-			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			// unwrap the IPv4-mapped IPv6 address
+			unwrapAddr := ipAddr.Unmap()
+			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalUnicast() || unwrapAddr.IsLinkLocalMulticast() {
 				continue
 			}
-			if ip.IsUnspecified() {
+			if unwrapAddr.IsUnspecified() {
 				ok = false
 				continue
 			}
-			ipAddresses = append(ipAddresses, ip.String())
+			ipAddresses = append(ipAddresses, unwrapAddr.String())
 		}
 	}
 	return ipAddresses, ok
@@ -110,31 +122,38 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	if err != nil {
 		return "", err
 	}
+
 	log.Infof("Attempting to lookup address: %s", host)
 	defer log.Infof("Finished lookup of address: %s", host)
 	// lookup the udp address with a timeout of 15 seconds.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	var addrs []net.IPAddr
+	var addrs []netip.Addr
 	var lookupErr error
 	if (len(lookupIPAddr) > 0) && (lookupIPAddr[0] != nil) {
 		// if there are more than one lookup function, ignore all but first
 		addrs, lookupErr = lookupIPAddr[0](ctx, host)
 	} else {
-		addrs, lookupErr = net.DefaultResolver.LookupIPAddr(ctx, host)
+		addrs, lookupErr = net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 	}
-
 	if lookupErr != nil || len(addrs) == 0 {
 		return "", fmt.Errorf("lookup failed for IP address: %w", lookupErr)
 	}
 	var resolvedAddr string
 
-	for _, address := range addrs {
-		ip := address.IP
-		if ip.To4() == nil {
-			resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
-		} else {
-			resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
+	for _, addr := range addrs {
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := addr.Unmap()
+		if !unwrapAddr.IsValid() {
+			continue
+		}
+		pPort, pErr := strconv.ParseUint(port, 10, 16)
+		if pErr != nil {
+			continue
+		}
+		tmpAddPort := netip.AddrPortFrom(unwrapAddr, uint16(pPort))
+		resolvedAddr = tmpAddPort.String()
+		if unwrapAddr.Is4() {
 			break
 		}
 	}
@@ -146,13 +165,13 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 // are valid IPv6 address, for all other cases it returns false.
 func AllIPv6(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() != nil {
+		if addr.Is4() {
 			return false
 		}
 	}
@@ -163,13 +182,13 @@ func AllIPv6(ipAddrs []string) bool {
 // are valid IPv4 address, for all other cases it returns false.
 func AllIPv4(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() == nil && addr.To16() != nil {
+		if !addr.Is4() && addr.Is6() {
 			return false
 		}
 	}
@@ -179,8 +198,8 @@ func AllIPv4(ipAddrs []string) bool {
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.
 func GlobalUnicastIP(ipAddrs []string) string {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
