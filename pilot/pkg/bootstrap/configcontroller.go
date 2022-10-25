@@ -297,7 +297,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
 				cont, err := incluster.NewController(stop, s.RWConfigStore,
-					s.kubeClient, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
+					s.kubeClient, args.Revision, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
 				if err != nil {
 					return
 				}
