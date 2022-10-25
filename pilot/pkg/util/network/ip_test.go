@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"testing"
 )
@@ -27,33 +28,35 @@ import (
 // cases in TestResolveAddr(). Need to wrap IPv6 addresses in square
 // brackets.
 func determineLocalHostIPString(t *testing.T) string {
-	ips, err := net.LookupIP("localhost")
+	ips, err := net.DefaultResolver.LookupNetIP(context.Background(), "ip", "localhost")
 	if err != nil || len(ips) == 0 {
 		t.Fatalf("Test setup failure - unable to determine IP of localhost: %v", err)
 	}
 	var ret string
 	for _, ip := range ips {
-		if ip.To4() == nil {
-			ret = fmt.Sprintf("[%s]", ip.String())
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapIP := ip.Unmap()
+		if unwrapIP.Is6() {
+			ret = fmt.Sprintf("[%s]", unwrapIP.String())
 		} else {
-			return ip.String()
+			return unwrapIP.String()
 		}
 	}
 	return ret
 }
 
-func MockLookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
-	ret := []net.IPAddr{
-		{IP: net.ParseIP("2001:db8::68")},
-		{IP: net.IPv4(1, 2, 3, 4)},
-		{IP: net.IPv4(1, 2, 3, 5)},
+func MockLookupIPAddr(_ context.Context, _ string) ([]netip.Addr, error) {
+	ret := []netip.Addr{
+		netip.MustParseAddr("2001:db8::68"),
+		netip.MustParseAddr("1.2.3.4"),
+		netip.MustParseAddr("1.2.3.5"),
 	}
 	return ret, nil
 }
 
-func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]net.IPAddr, error) {
-	ret := []net.IPAddr{
-		{IP: net.ParseIP("2001:db8::68")},
+func MockLookupIPAddrIPv6(_ context.Context, _ string) ([]netip.Addr, error) {
+	ret := []netip.Addr{
+		netip.MustParseAddr("2001:db8::68"),
 	}
 	return ret, nil
 }
@@ -66,7 +69,7 @@ func TestResolveAddr(t *testing.T) {
 		input    string
 		expected string
 		errStr   string
-		lookup   func(ctx context.Context, addr string) ([]net.IPAddr, error)
+		lookup   func(ctx context.Context, addr string) ([]netip.Addr, error)
 	}{
 		{
 			name:     "Host by name",
@@ -127,7 +130,7 @@ func TestResolveAddr(t *testing.T) {
 		{
 			name:     "Colon, but no port",
 			input:    "localhost:",
-			expected: fmt.Sprintf("%s:", localIP),
+			expected: "",
 			errStr:   "",
 			lookup:   nil,
 		},
@@ -142,7 +145,7 @@ func TestResolveAddr(t *testing.T) {
 			name:     "Missing host",
 			input:    ":9080",
 			expected: "",
-			errStr:   "lookup failed for IP address: lookup : no such host",
+			errStr:   "lookup failed for IP address: %!w(<nil>)",
 			lookup:   nil,
 		},
 		{
