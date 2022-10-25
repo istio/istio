@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/file"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 )
 
 // TestMutualTlsOrigination test MUTUAL TLS mode with TLS origination happening at Sidecar
@@ -62,7 +61,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 
 			// Create a kubernetes secret with an invalid ClientCert
 			ingressutil.CreateIngressKubeSecretInNamespace(t, fakeCredName, ingressutil.Mtls, ingressutil.IngressCredential{
-				Certificate: sdstlsutil.FakeCert,
+				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/fake-cert-chain.pem")),
 				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
 			}, false, apps.Ns1.Namespace.Name())
