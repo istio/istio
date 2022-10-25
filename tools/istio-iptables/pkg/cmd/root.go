@@ -80,22 +80,24 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, err := getLocalIP()
+			hostIPs, err := getLocalIPs()
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
-			validator := validation.NewValidator(cfg, hostIP)
+			for _, hostIP := range hostIPs {
+				validator := validation.NewValidator(cfg, hostIP)
 
-			if err := validator.Run(); err != nil {
-				// nolint: revive, stylecheck
-				msg := fmt.Errorf(`iptables validation failed; workload is not ready for Istio.
+				if err := validator.Run(); err != nil {
+					// nolint: revive, stylecheck
+					msg := fmt.Errorf(`iptables validation failed; workload is not ready for Istio.
 When using Istio CNI, this can occur if a pod is scheduled before the node is ready.
 
 If installed with 'cni.repair.deletePods=true', this pod should automatically be deleted and retry.
 Otherwise, this pod will need to be manually removed so that it is scheduled on a node with istio-cni running, allowing iptables rules to be established.
 `)
-				handleErrorWithCode(msg, constants.ValidationErrorCode)
+					handleErrorWithCode(msg, constants.ValidationErrorCode)
+				}
 			}
 		}
 	},
@@ -172,11 +174,17 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	podIP, err := getLocalIP()
+	podIPs, err := getLocalIPs()
 	if err != nil {
 		panic(err)
 	}
-	cfg.EnableInboundIPv6 = podIP.To4() == nil
+
+	for _, podIP := range podIPs {
+		if netutil.IsIPv6Address(podIP.String()) {
+			cfg.EnableInboundIPv6 = true
+			break
+		}
+	}
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
@@ -193,7 +201,8 @@ func constructConfig() *config.Config {
 }
 
 // getLocalIP returns the local IP address
-func getLocalIP() (net.IP, error) {
+func getLocalIPs() ([]net.IP, error) {
+	var ipAddrs []net.IP
 	addrs, err := LocalIPAddrs()
 	if err != nil {
 		return nil, err
@@ -201,8 +210,12 @@ func getLocalIP() (net.IP, error) {
 
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
-			return ipnet.IP, nil
+			ipAddrs = append(ipAddrs, ipnet.IP)
 		}
+	}
+
+	if len(ipAddrs) > 0 {
+		return ipAddrs, nil
 	}
 	return nil, fmt.Errorf("no valid local IP address found")
 }

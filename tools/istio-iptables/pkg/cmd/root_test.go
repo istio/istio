@@ -67,7 +67,7 @@ func TestGetLocalIP(t *testing.T) {
 					netip.MustParseAddr("2222:3333::1"),
 				})
 			},
-			expected: false,
+			expected: true,
 		},
 	}
 	for _, tt := range tests {
