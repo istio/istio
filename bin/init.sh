@@ -175,7 +175,7 @@ echo "rel url '${ISTIO_ZTUNNEL_RELEASE_URL}'"
 #   $2: The full path of the output binary.
 #   $3: Non-versioned name to use
 function download_ztunnel_if_necessary () {
-  if [[ -f "$2" ]] ; then
+  if [[ -f "$2" ]] || [] ; then
     return
   fi
   # Enter the output directory.
@@ -248,8 +248,10 @@ if [[ "$GOOS_LOCAL" != "linux" ]]; then
   cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/${SIDECAR}"
 fi
 
-# Download zTunnel
-download_ztunnel_if_necessary "${ISTIO_ZTUNNEL_RELEASE_URL}" "$ISTIO_ZTUNNEL_LINUX_RELEASE_PATH" "ztunnel"
-# TODO handle linux vs mac ztunnel, for now always copy the linux one
-echo "Copying ${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
-cp -f "${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
+# TODO handle arm, linux vs mac ztunnel, for now always copy the linux one
+if [[ "${TARGET_ARCH}" == "amd64" ]]; then
+  # Download zTunnel
+  download_ztunnel_if_necessary "${ISTIO_ZTUNNEL_RELEASE_URL}" "$ISTIO_ZTUNNEL_LINUX_RELEASE_PATH" "ztunnel"
+  echo "Copying ${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
+  cp -f "${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
+fi
