@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 )
 
 type ConfigGeneratorImpl struct {
@@ -33,4 +34,5 @@ func NewConfigGenerator(cache model.XdsCache) *ConfigGeneratorImpl {
 // MeshConfigChanged is called when mesh config is changed.
 func (configgen *ConfigGeneratorImpl) MeshConfigChanged(_ *meshconfig.MeshConfig) {
 	accessLogBuilder.reset()
+	telemetry.DefaultAccessLogBuilder.Reset()
 }
