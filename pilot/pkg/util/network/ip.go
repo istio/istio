@@ -78,15 +78,19 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 
 		for _, addr := range addrs {
 			var ipAddr netip.Addr
-			ipPort, iErr := netip.ParseAddrPort(addr.String())
-			if iErr != nil {
+			addrType := addr.Network()
+			if addrType == "ip+net" {
+				ipNet, iErr := netip.ParsePrefix(addr.String())
+				if iErr != nil {
+					continue
+				}
+				ipAddr = ipNet.Addr()
+			} else if addrType == "ip" {
 				ip, aErr := netip.ParseAddr(addr.String())
 				if aErr != nil {
 					continue
 				}
 				ipAddr = ip
-			} else {
-				ipAddr = ipPort.Addr()
 			}
 			// unwrap the IPv4-mapped IPv6 address
 			unwrapAddr := ipAddr.Unmap()
@@ -161,13 +165,13 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 // are valid IPv6 address, for all other cases it returns false.
 func AllIPv6(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() != nil {
+		if addr.Is4() {
 			return false
 		}
 	}
@@ -178,13 +182,13 @@ func AllIPv6(ipAddrs []string) bool {
 // are valid IPv4 address, for all other cases it returns false.
 func AllIPv4(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
 		}
-		if addr.To4() == nil && addr.To16() != nil {
+		if !addr.Is4() && addr.Is6() {
 			return false
 		}
 	}
@@ -194,8 +198,8 @@ func AllIPv4(ipAddrs []string) bool {
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.
 func GlobalUnicastIP(ipAddrs []string) string {
 	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
+		addr, err := netip.ParseAddr(ipAddrs[i])
+		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
 			// skip it to prevent a panic.
 			continue
