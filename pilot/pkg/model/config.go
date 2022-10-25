@@ -280,52 +280,39 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 // MostSpecificHostMatch compares the maps of specific and wildcard hosts to the needle, and returns the longest element
 // matching the needle and it's value, or false if no element in the maps matches the needle.
 func MostSpecificHostMatch[V any](needle host.Name, specific map[host.Name]V, wildcard map[host.Name]V) (host.Name, V, bool) {
-	found := false
-	var matchHost host.Name
-	var matchValue V
-
 	if needle.IsWildCarded() {
 		// exact match first
 		if v, ok := wildcard[needle]; ok {
 			return needle, v, true
 		}
 
-		for h, v := range wildcard {
-			// both needle and h are wildcards
-			if len(needle) < len(h) {
-				continue
-			}
-			if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
-				if !found {
-					matchHost = h
-					matchValue = wildcard[h]
-					found = true
-				} else {
-					if host.MoreSpecific(h, matchHost) {
-						matchHost = h
-						matchValue = v
-					}
-				}
-			}
-		}
-	} else {
-		// exact match first
-		if v, ok := specific[needle]; ok {
-			return needle, v, true
-		}
+		return mostSpecificHostWildcardMatch(string(needle[1:]), wildcard)
+	}
 
-		// check wildcard
-		for h, v := range wildcard {
-			if strings.HasSuffix(string(needle), string(h[1:])) {
-				if !found {
+	// exact match first
+	if v, ok := specific[needle]; ok {
+		return needle, v, true
+	}
+
+	// check wildcard
+	return mostSpecificHostWildcardMatch(string(needle), wildcard)
+}
+
+func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]V) (host.Name, V, bool) {
+	found := false
+	var matchHost host.Name
+	var matchValue V
+
+	for h, v := range wildcard {
+		if strings.HasSuffix(needle, string(h[1:])) {
+			if !found {
+				matchHost = h
+				matchValue = wildcard[h]
+				found = true
+			} else {
+				if host.MoreSpecific(h, matchHost) {
 					matchHost = h
-					matchValue = wildcard[h]
-					found = true
-				} else {
-					if host.MoreSpecific(h, matchHost) {
-						matchHost = h
-						matchValue = v
-					}
+					matchValue = v
 				}
 			}
 		}
