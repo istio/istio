@@ -32,6 +32,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
+	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -47,9 +48,11 @@ import (
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func preCheck() *cobra.Command {
@@ -120,6 +123,11 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	msgs = append(msgs, m...)
 
 	msgs = append(msgs, checkInstallPermissions(cli)...)
+	gwMsg, err := checkGatewayAPIs(cli)
+	if err != nil {
+		return nil, err
+	}
+	msgs = append(msgs, gwMsg...)
 
 	// TODO: add more checks
 
@@ -147,6 +155,58 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	}
 
 	return msgs, nil
+}
+
+// Checks that if the user has gateway APIs, they are the minimum version.
+// It is ok to not have them, but they must be at least v1beta1 if they do.
+func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
+	msgs := diag.Messages{}
+	res, err := cli.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	betaKinds := sets.New(gvk.KubernetesGateway.Kind, gvk.GatewayClass.Kind, gvk.HTTPRoute.Kind)
+	for _, r := range res.Items {
+		if r.Spec.Group != gvk.KubernetesGateway.Group {
+			continue
+		}
+		if !betaKinds.Contains(r.Spec.Names.Kind) {
+			continue
+		}
+
+		versions := extractCRDVersions(&r)
+		has := "none"
+		if len(versions) > 0 {
+			has = strings.Join(sets.SortedList(versions), ",")
+		}
+		if !versions.Contains(gvk.KubernetesGateway.Version) {
+			origin := kube3.Origin{
+				Collection: collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+				Kind:       gvk.CustomResourceDefinition.Kind,
+				FullName: resource.FullName{
+					Namespace: resource.Namespace(r.Namespace),
+					Name:      resource.LocalName(r.Name),
+				},
+				Version: resource.Version(gvk.CustomResourceDefinition.Version),
+			}
+			r := &resource.Instance{
+				Origin: &origin,
+			}
+			msgs.Add(msg.NewUnsupportedGatewayAPIVersion(r, has, gvk.KubernetesGateway.Version))
+		}
+	}
+	return msgs, nil
+}
+
+func extractCRDVersions(r *crd.CustomResourceDefinition) sets.String {
+	res := sets.New[string]()
+	for _, v := range r.Spec.Versions {
+		if v.Served {
+			res.Insert(v.Name)
+		}
+	}
+	return res
 }
 
 func checkInstallPermissions(cli kube.CLIClient) diag.Messages {
