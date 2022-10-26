@@ -295,6 +295,17 @@ messages:
       - name: labels
         type: string
 
+  - name: "RejectedTCPTrafficAuthz"
+    code: IST0157
+    level: Warning
+    description: "There is L7 deny rule in authorizaion policy which is responsible for denying all raw TCP traffic"
+    template: "All the tcp traffic to raw tcp ports for all workloads with label selector : %s in namespace %s is denied because of the presence of L7 Deny rule in authorization policy"
+    args:
+      - name: workloadlabel
+        type: string
+      - name: namespace
+        type: string
+
   - name: "NoServerCertificateVerificationDestinationLevel"
     code: IST0128
     level: Error

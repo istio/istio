@@ -261,6 +261,59 @@ spec:
         - key: request.auth.claims[iss]
           values: ["https://accounts.google.com"]
 ---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-L7-deny1 
+  namespace: httpbin
+spec:
+  selector: # There are workloads matching this selector
+    matchLabels:
+      app: httpbin
+  action: DENY
+  rules:  # L7 Deny rules
+    - from:
+        - source:
+            requestPrincipals: ["id-1"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-L7-deny2 
+  namespace: httpbin
+spec:
+  selector: # There are workloads matching this selector
+    matchLabels:
+      app: httpbin-v1
+      version: v1
+  action: DENY
+  rules:  # L7 Deny rules
+    - to:
+        - operation:
+            methods: ["GET"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-L7-deny3 
+  namespace: httpbin
+spec:
+  action: DENY
+  rules:   # L7 Deny rules
+    - to:
+        - operation:
+            methods: ["GET"]
+---
 apiVersion: v1
 kind: Pod
 metadata:

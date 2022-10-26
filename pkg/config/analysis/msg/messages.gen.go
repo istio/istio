@@ -105,6 +105,10 @@ var (
 	// Description: There aren't workloads matching the resource labels
 	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
 
+	// RejectedTCPTrafficAuthz defines a diag.MessageType for message "RejectedTCPTrafficAuthz".
+	// Description: There is L7 deny rule in authorizaion policy which is responsible for denying all raw TCP traffic
+	RejectedTCPTrafficAuthz = diag.NewMessageType(diag.Warning, "IST0157", "All the tcp traffic to raw tcp ports for all workloads with label selector : %s in namespace %s is denied because of the presence of L7 Deny rule in authorization policy")
+
 	// NoServerCertificateVerificationDestinationLevel defines a diag.MessageType for message "NoServerCertificateVerificationDestinationLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate.
 	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Error, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
@@ -249,6 +253,7 @@ func All() []*diag.MessageType {
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
 		NoMatchingWorkloadsFound,
+		RejectedTCPTrafficAuthz,
 		NoServerCertificateVerificationDestinationLevel,
 		NoServerCertificateVerificationPortLevel,
 		VirtualServiceUnreachableRule,
@@ -519,6 +524,16 @@ func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Messa
 		NoMatchingWorkloadsFound,
 		r,
 		labels,
+	)
+}
+
+// NewRejectedTCPTrafficAuthz returns a new diag.Message based on RejectedTCPTrafficAuthz.
+func NewRejectedTCPTrafficAuthz(r *resource.Instance, workloadlabel string, namespace string) diag.Message {
+	return diag.NewMessage(
+		RejectedTCPTrafficAuthz,
+		r,
+		workloadlabel,
+		namespace,
 	)
 }
 

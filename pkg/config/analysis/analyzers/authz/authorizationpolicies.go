@@ -57,8 +57,52 @@ func (a *AuthorizationPoliciesAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), func(r *resource.Instance) bool {
 		a.analyzeNoMatchingWorkloads(r, c, podLabelsMap)
 		a.analyzeNamespaceNotFound(r, c)
+		a.analyzeL7DenyAuthzPolicies(r, c)
 		return true
 	})
+}
+
+func (a *AuthorizationPoliciesAnalyzer) analyzeL7DenyAuthzPolicies(r *resource.Instance, c analysis.Context) {
+	ap := r.Message.(*v1beta1.AuthorizationPolicy)
+	apNs := r.Metadata.FullName.Namespace.String()
+
+	if ap.Action == v1beta1.AuthorizationPolicy_DENY {
+		for _, rule := range ap.Rules {
+			if rule.From != nil || rule.To != nil {
+				tcpRulesInFrom := false
+				tcpRulesInTo := false
+				for _, from := range rule.From {
+					if from.Source.GetPrincipals() != nil ||
+						from.Source.GetNotPrincipals() != nil || from.Source.GetIpBlocks() != nil ||
+						from.Source.GetNotIpBlocks() != nil || from.Source.GetNamespaces() != nil ||
+						from.Source.GetNotNamespaces() != nil || from.Source.GetRemoteIpBlocks() != nil ||
+						from.Source.GetNotRemoteIpBlocks() != nil {
+						tcpRulesInFrom = true
+					}
+				}
+
+				for _, to := range rule.To {
+					if to.Operation.GetPorts() != nil || to.Operation.GetNotPorts() != nil {
+						tcpRulesInTo = true
+					}
+				}
+
+				if !tcpRulesInFrom && !tcpRulesInTo && (len(rule.From) > 0 || len(rule.To) > 0) {
+					if ap.Selector != nil && ap.Selector.MatchLabels != nil {
+						for key, val := range ap.Selector.MatchLabels {
+							label := key + ":" + val
+							m := msg.NewRejectedTCPTrafficAuthz(r, label, apNs)
+							c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
+						}
+					} else {
+						m := msg.NewRejectedTCPTrafficAuthz(r, "any label", apNs)
+						c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
+					}
+				}
+
+			}
+		}
+	}
 }
 
 func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.Instance, c analysis.Context, podLabelsMap map[string][]k8s_labels.Set) {
