@@ -963,6 +963,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 	case SidecarProxy:
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
+		// First attempt to find a sidecar with a match selector in resource in the proxy's namespace
 		selectorSidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespaceWithSelector[proxy.ConfigNamespace]
 		if hasSidecar {
 			for _, wrapper := range selectorSidecars {
@@ -975,6 +976,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 			}
 		}
 
+		// Then attempt to find a sidecar with a match no selectors in resource in the proxy's namespace
 		sidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[proxy.ConfigNamespace]
 		if hasSidecar {
 			for _, wrapper := range sidecars {
