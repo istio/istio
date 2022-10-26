@@ -1165,7 +1165,7 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
-func TestUpdateSidecarScopeDeleteCreate(t *testing.T) {
+func TestUpdateSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
