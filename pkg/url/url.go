@@ -16,6 +16,7 @@ package url
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/operator/version"
 	buildversion "istio.io/pkg/version"
@@ -29,8 +30,8 @@ var (
 	buildOS      = buildversion.DockerInfo.OS
 
 	// ReleaseTar is a URL to download latest istio version from Github release
-	ReleaseTar = fmt.Sprintf("https://github.com/istio/istio/releases/download/%s/istio-%s-%s-%s.tar.gz",
-		patchVersion, patchVersion, buildOS, buildArch)
+	releasePackageName = fmt.Sprintf("istio-%s.tar.gz", strings.Join([]string{patchVersion, buildOS, buildArch}, "-"))
+	ReleaseTar         = `https://github.com/istio/istio/releases/download/` + patchVersion + `/` + releasePackageName
 )
 
 // istio.io related URLs
