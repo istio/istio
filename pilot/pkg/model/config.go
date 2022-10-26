@@ -309,11 +309,9 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 				matchHost = h
 				matchValue = wildcard[h]
 				found = true
-			} else {
-				if host.MoreSpecific(h, matchHost) {
-					matchHost = h
-					matchValue = v
-				}
+			} else if host.MoreSpecific(h, matchHost) {
+				matchHost = h
+				matchValue = v
 			}
 		}
 	}
