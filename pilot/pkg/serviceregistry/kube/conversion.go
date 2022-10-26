@@ -55,6 +55,9 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 
 func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addresses := svc.Spec.ClusterIPs
+	if svc.Spec.ClusterIP == coreV1.ClusterIPNone {
+		addresses = addresses[:0]
+	}
 	if len(addresses) == 0 {
 		addresses = append(addresses, constants.UnspecifiedIP)
 		if features.EnableDualStack {
