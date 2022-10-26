@@ -106,7 +106,7 @@ func TestReachability(t *testing.T) {
 					// TODO, the IPFamilies should be "IPv4, IPv6" and
 					// IPFamilyPolicy should be "RequireDualStack" once dual stack is totally supported
 					// IPFamilies:     "IPv4",
-					IPFamilies: "IPv4, IPv6",
+					IPFamilies:     "IPv4, IPv6",
 					IPFamilyPolicy: "RequireDualStack",
 				}).BuildOrFail(t)
 			}

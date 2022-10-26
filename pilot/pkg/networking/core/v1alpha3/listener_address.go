@@ -81,8 +81,8 @@ func getWildcardsAndLocalHostForDualStack(ipMode model.IPMode) ([]string, []stri
 
 func init() {
 	// maintain 3 maps to return wildCards, localHosts and passthroughBindIPs according to IP mode of proxy
-	wildCards          = make(map[model.IPMode][]string)
-	localHosts         = make(map[model.IPMode][]string)
+	wildCards = make(map[model.IPMode][]string)
+	localHosts = make(map[model.IPMode][]string)
 	passthroughBindIPs = make(map[model.IPMode][]string)
 
 	wildCards[model.IPv4] = []string{WildcardAddress}
