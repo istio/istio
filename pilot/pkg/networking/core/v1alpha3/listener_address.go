@@ -37,9 +37,9 @@ const (
 )
 
 var (
-	wildCards  map[model.IPMode][]string
-	localHosts map[model.IPMode][]string
-	ptBindIPs  map[model.IPMode][]string
+	wildCards          map[model.IPMode][]string
+	localHosts         map[model.IPMode][]string
+	passthroughBindIPs map[model.IPMode][]string
 )
 
 // TODO: getActualWildcardAndLocalHost would be removed once the dual stack support in Istio
@@ -53,14 +53,14 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 }
 
 func getPassthroughBindIPsForDualStack(ipMode model.IPMode) []string {
-	ptBindings := ptBindIPs[ipMode]
-	if len(ptBindings) == 0 {
+	passthroughBindIPAddresses := passthroughBindIPs[ipMode]
+	if len(passthroughBindIPAddresses) == 0 {
 		if ipMode == model.IPv4 || ipMode == model.Dual {
 			return []string{InboundPassthroughBindIpv4}
 		}
 		return []string{InboundPassthroughBindIpv6}
 	}
-	return ptBindings
+	return passthroughBindIPAddresses
 }
 
 // getSidecarInboundBindIPs returns the IP that the proxy can bind to along with the sidecar specified port.
@@ -80,10 +80,10 @@ func getWildcardsAndLocalHostForDualStack(ipMode model.IPMode) ([]string, []stri
 }
 
 func init() {
-	// maintain 3 maps to return wildCards, localHosts and ptBindIPs according to IP mode of proxy
-	wildCards = make(map[model.IPMode][]string)
-	localHosts = make(map[model.IPMode][]string)
-	ptBindIPs = make(map[model.IPMode][]string)
+	// maintain 3 maps to return wildCards, localHosts and passthroughBindIPs according to IP mode of proxy
+	wildCards          = make(map[model.IPMode][]string)
+	localHosts         = make(map[model.IPMode][]string)
+	passthroughBindIPs = make(map[model.IPMode][]string)
 
 	wildCards[model.IPv4] = []string{WildcardAddress}
 	wildCards[model.IPv6] = []string{WildcardIPv6Address}
@@ -93,7 +93,7 @@ func init() {
 	localHosts[model.IPv6] = []string{LocalhostIPv6Address}
 	localHosts[model.Dual] = []string{LocalhostAddress, LocalhostIPv6Address}
 
-	ptBindIPs[model.IPv4] = []string{InboundPassthroughBindIpv4}
-	ptBindIPs[model.IPv6] = []string{InboundPassthroughBindIpv6}
-	ptBindIPs[model.Dual] = []string{InboundPassthroughBindIpv4, InboundPassthroughBindIpv6}
+	passthroughBindIPs[model.IPv4] = []string{InboundPassthroughBindIpv4}
+	passthroughBindIPs[model.IPv6] = []string{InboundPassthroughBindIpv6}
+	passthroughBindIPs[model.Dual] = []string{InboundPassthroughBindIpv4, InboundPassthroughBindIpv6}
 }

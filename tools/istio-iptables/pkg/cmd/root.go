@@ -85,19 +85,17 @@ var rootCmd = &cobra.Command{
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
-			for _, hostIP := range hostIPs {
-				validator := validation.NewValidator(cfg, hostIP)
+			validator := validation.NewValidator(cfg, hostIPs[0])
 
-				if err := validator.Run(); err != nil {
-					// nolint: revive, stylecheck
-					msg := fmt.Errorf(`iptables validation failed; workload is not ready for Istio.
+			if err := validator.Run(); err != nil {
+				// nolint: revive, stylecheck
+				msg := fmt.Errorf(`iptables validation failed; workload is not ready for Istio.
 When using Istio CNI, this can occur if a pod is scheduled before the node is ready.
 
 If installed with 'cni.repair.deletePods=true', this pod should automatically be deleted and retry.
 Otherwise, this pod will need to be manually removed so that it is scheduled on a node with istio-cni running, allowing iptables rules to be established.
 `)
-					handleErrorWithCode(msg, constants.ValidationErrorCode)
-				}
+				handleErrorWithCode(msg, constants.ValidationErrorCode)
 			}
 		}
 	},
