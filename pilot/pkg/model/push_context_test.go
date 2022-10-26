@@ -1165,6 +1165,152 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
+func TestUpdateSidecarScopeDeleteCreate(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	ps.Mesh = env.Mesh()
+	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
+
+	configStore := NewFakeStore()
+	sidecarWithWorkloadSelector := &networking.Sidecar{
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "foo"},
+		},
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"default/*"},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
+	sidecarWithoutWorkloadSelector := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"default/*"},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
+	configWithWorkloadSelector := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "foo",
+			Namespace:        "default",
+		},
+		Spec: sidecarWithWorkloadSelector,
+	}
+	configWithWorkloadSelector2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "bar",
+			Namespace:        "default",
+		},
+		Spec: sidecarWithWorkloadSelector,
+	}
+	rootConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "global",
+			Namespace:        constants.IstioSystemNamespace,
+		},
+		Spec: sidecarWithoutWorkloadSelector,
+	}
+	rootConfig2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "global2",
+			Namespace:        constants.IstioSystemNamespace,
+		},
+		Spec: sidecarWithoutWorkloadSelector,
+	}
+	_, _ = configStore.Create(configWithWorkloadSelector)
+	_, _ = configStore.Create(rootConfig)
+
+	env.ConfigStore = configStore
+	if err := ps.initSidecarScopes(env); err != nil {
+		t.Fatalf("init sidecar scope failed: %v", err)
+	}
+
+	cases := []struct {
+		proxy    *Proxy
+		labels   labels.Instance
+		sidecar  string
+		describe string
+	}{
+		{
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
+			labels:   labels.Instance{"app": "foo"},
+			sidecar:  "default/foo",
+			describe: "match local sidecar",
+		},
+		{
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
+			labels:   labels.Instance{"app": "bar"},
+			sidecar:  "default/global",
+			describe: "no match local sidecar",
+		},
+		{
+			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
+			labels:   labels.Instance{"app": "bar"},
+			sidecar:  "nosidecar/global",
+			describe: "no sidecar",
+		},
+		{
+			proxy:    &Proxy{Type: Router, ConfigNamespace: "istio-system"},
+			labels:   labels.Instance{"app": "istio-gateway"},
+			sidecar:  "istio-system/default-sidecar",
+			describe: "gateway sidecar scope",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.describe, func(t *testing.T) {
+			scope := ps.getSidecarScope(c.proxy, c.labels)
+			if c.sidecar != scopeToSidecar(scope) {
+				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
+			}
+		})
+	}
+
+	// update context
+	ps2 := NewPushContext()
+	ps2.Mesh = env.Mesh()
+	ps2.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
+	ps2.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
+	ps2.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
+
+	// test delete configs and create new ones with different names
+	configStore.Delete(configWithWorkloadSelector.GroupVersionKind, configWithWorkloadSelector.Name, configWithWorkloadSelector.Namespace, nil)
+	configStore.Delete(rootConfig.GroupVersionKind, rootConfig.Name, rootConfig.Namespace, nil)
+	configStore.Create(configWithWorkloadSelector2)
+	configStore.Create(rootConfig2)
+
+	changedSidecars := []ConfigKey{
+		{Kind: kind.Sidecar, Name: configWithWorkloadSelector.Name, Namespace: configWithWorkloadSelector.Namespace},
+		{Kind: kind.Sidecar, Name: configWithWorkloadSelector2.Name, Namespace: configWithWorkloadSelector2.Namespace},
+		{Kind: kind.Sidecar, Name: rootConfig.Name, Namespace: rootConfig.Namespace},
+		{Kind: kind.Sidecar, Name: rootConfig2.Name, Namespace: rootConfig2.Namespace},
+	}
+	if err := ps2.updateSidecarScopes(env, ps.sidecarIndex, changedSidecars); err != nil {
+		t.Fatalf("init sidecar scope failed: %v", err)
+	}
+
+	// change expects to newly created sidecars
+	cases[0].sidecar = "default/bar"
+	cases[1].sidecar = "default/global2"
+	cases[2].sidecar = "nosidecar/global2"
+
+	for _, c := range cases {
+		t.Run(c.describe, func(t *testing.T) {
+			scope := ps2.getSidecarScope(c.proxy, c.labels)
+			if c.sidecar != scopeToSidecar(scope) {
+				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
+			}
+		})
+	}
+}
+
 func TestRootSidecarScopePropagation(t *testing.T) {
 	rootNS := "istio-system"
 	defaultNS := "default"

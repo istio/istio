@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -136,8 +137,6 @@ func newDestinationRuleIndex() destinationRuleIndex {
 
 // sidecarIndex is the index of sidecar rules
 type sidecarIndex struct {
-	// user configured sidecars for each namespace if available.
-	sidecarsByNamespace map[string]map[string]*SidecarScope
 	// user configured sidecars with selector for each namespace if available.
 	sidecarsByNamespaceWithSelector map[string]map[string]*SidecarScope
 	// user configured sidecars without selector for each namespace if available.
@@ -159,7 +158,6 @@ type sidecarIndex struct {
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:                map[string]map[string]*SidecarScope{},
 		sidecarsByNamespaceWithSelector:    map[string]map[string]*SidecarScope{},
 		sidecarsByNamespaceWithoutSelector: map[string]map[string]*SidecarScope{},
 		meshRootSidecarsByNamespace:        map[string]*SidecarScope{},
@@ -949,9 +947,6 @@ func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHas
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
 func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Instance) *SidecarScope {
-	// TODO: logic to merge multiple sidecar resources
-	// Currently we assume that there will be only one sidecar config for a namespace.
-	sidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespace[proxy.ConfigNamespace]
 	switch proxy.Type {
 	case Router:
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
@@ -967,29 +962,28 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	case SidecarProxy:
+		// TODO: logic to merge multiple sidecar resources
+		// Currently we assume that there will be only one sidecar config for a namespace.
+		selectorSidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespaceWithSelector[proxy.ConfigNamespace]
 		if hasSidecar {
-			for _, wrapper := range sidecars {
-				if wrapper.Sidecar != nil {
-					sidecar := wrapper.Sidecar
-					// if there is no workload selector, the config applies to all workloads
-					// if there is a workload selector, check for matching workload labels
-					if sidecar.GetWorkloadSelector() != nil {
-						workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
-						// exclude workload selector that not match
-						if !workloadSelector.SubsetOf(workloadLabels) {
-							continue
-						}
-					}
-
-					// it is guaranteed sidecars with selectors are put in front
-					// and the sidecars are sorted by creation timestamp,
-					// return exact/wildcard matching one directly
+			for _, wrapper := range selectorSidecars {
+				sidecar := wrapper.Sidecar
+				workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+				// exclude workload selector that not match
+				if workloadSelector.SubsetOf(workloadLabels) {
 					return wrapper
 				}
-				// this happens at last, it is the default sidecar scope
+			}
+		}
+
+		sidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[proxy.ConfigNamespace]
+		if hasSidecar {
+			for _, wrapper := range sidecars {
+				// return first namespace sidecar without selector
 				return wrapper
 			}
 		}
+
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
 
@@ -1366,7 +1360,8 @@ func (ps *PushContext) updateContext(
 	}
 
 	if sidecarsChanged && !servicesChanged && !virtualServicesChanged && !destinationRulesChanged {
-		if err := ps.updateSidecarScopes(env, changedSidecars); err != nil {
+		// Only update changed sidecars
+		if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars); err != nil {
 			return err
 		}
 	}
@@ -1712,47 +1707,64 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 // When proxies connect to Pilot, we identify the sidecar scope associated
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
-func (ps *PushContext) updateSidecarScopes(env *Environment, changedSidecars []ConfigKey) error {
-	rootNSConfig := ps.sidecarIndex.meshRootSidecarConfig
+func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarIndex, changedSidecars []ConfigKey) error {
+	rootNSConfig := oldIndex.meshRootSidecarConfig
 	var newRootNSConfig *config.Config
+
+	ps.sidecarIndex.sidecarsByNamespaceWithSelector = oldIndex.sidecarsByNamespaceWithSelector
+	ps.sidecarIndex.sidecarsByNamespaceWithoutSelector = oldIndex.sidecarsByNamespaceWithoutSelector
+
 	for _, changedSidecar := range changedSidecars {
 		sidecarConfig := env.Get(gvk.Sidecar, changedSidecar.Name, changedSidecar.Namespace)
 		if sidecarConfig == nil {
+			fmt.Printf("sidecarIndex update: sidecarConfig is nil for %+v\n", changedSidecar)
 			// sidecar config is deleted
-			delete(ps.sidecarIndex.sidecarsByNamespace[changedSidecar.Namespace], changedSidecar.Name)
-			if len(ps.sidecarIndex.sidecarsByNamespace[changedSidecar.Namespace]) == 0 {
-				delete(ps.sidecarIndex.sidecarsByNamespace, changedSidecar.Namespace)
+			m := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]
+			delete(m, changedSidecar.Name)
+			if len(m) == 0 {
+				delete(ps.sidecarIndex.sidecarsByNamespaceWithSelector, changedSidecar.Namespace)
 			}
-			continue
-		} else {
-			sidecar := sidecarConfig.Spec.(*networking.Sidecar)
-			if sidecar.WorkloadSelector != nil {
-				if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace]; !f {
-					ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
-				}
-				ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, sidecarConfig, sidecarConfig.Namespace)
-			} else {
-				if sidecarConfig.Namespace == ps.Mesh.RootNamespace {
-					if rootNSConfig == nil {
-						newRootNSConfig = sidecarConfig
-					} else if rootNSConfig != nil && ps.sidecarIndex.meshRootSidecarConfig.Name == changedSidecar.Name {
-						newRootNSConfig = sidecarConfig
-					}
-				}
 
-				if _, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace]; !f {
-					ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
-				}
-				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, sidecarConfig, sidecarConfig.Namespace)
+			m = ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace]
+			delete(m, changedSidecar.Name)
+			if len(m) == 0 {
+				delete(ps.sidecarIndex.sidecarsByNamespaceWithoutSelector, changedSidecar.Namespace)
 			}
+
+			if rootNSConfig != nil && rootNSConfig.Namespace == changedSidecar.Namespace && rootNSConfig.Name == changedSidecar.Name {
+				rootNSConfig = nil
+			}
+
+			continue
 		}
 
+		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		if sidecar.WorkloadSelector != nil {
+			fmt.Printf("sidecarIndex update: %+v\n", ps.sidecarIndex.sidecarsByNamespaceWithSelector)
+			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]; !f {
+				ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace] = make(map[string]*SidecarScope)
+			}
+			ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace][changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
+			fmt.Printf("sidecarIndex update: %+v\n", ps.sidecarIndex.sidecarsByNamespaceWithSelector)
+		} else {
+			fmt.Printf("sidecarIndex update: sidecarConfig without selector %+v, %+v\n", changedSidecar, sidecar)
+			if sidecarConfig.Namespace == ps.Mesh.RootNamespace {
+				newRootNSConfig = sidecarConfig
+			}
+
+			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace]; !f {
+				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace] = make(map[string]*SidecarScope)
+			}
+			ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace][changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
+		}
 	}
 
-	ps.sidecarIndex.derivedSidecarMutex.Lock()
-	defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
-	if newRootNSConfig != nil {
+	oldIndex.derivedSidecarMutex.RLock()
+	defer oldIndex.derivedSidecarMutex.RUnlock()
+	if rootNSConfig == nil {
 		ps.sidecarIndex.meshRootSidecarConfig = newRootNSConfig
+	} else {
+		ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
 	}
 	// clear derived sidecars cache to allow newly created sidecar configs to be used
 	ps.sidecarIndex.meshRootSidecarsByNamespace = make(map[string]*SidecarScope)
