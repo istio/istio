@@ -15,7 +15,7 @@
 package model
 
 import (
-	"fmt"
+	"errors"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -109,7 +109,7 @@ func (s *FakeStore) Update(cfg config.Config) (newRevision string, err error) {
 		}
 	}
 
-	return "", fmt.Errorf("config not found")
+	return "", errors.New("config not found")
 }
 
 func (*FakeStore) UpdateStatus(config config.Config) (string, error) { return "", nil }
