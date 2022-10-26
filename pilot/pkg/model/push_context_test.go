@@ -1062,7 +1062,8 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
+			ClusterLocalHosts{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
