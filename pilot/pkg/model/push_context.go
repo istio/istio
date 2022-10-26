@@ -1358,11 +1358,12 @@ func (ps *PushContext) updateContext(
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
 
+	// if only sidecars have changed, we can only update the changed sidecars
 	if sidecarsChanged && !servicesChanged && !virtualServicesChanged && !destinationRulesChanged {
-		// Only update changed sidecars
 		if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	// Must be initialized in the end
