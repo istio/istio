@@ -1695,18 +1695,9 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	return nil
 }
 
-// initSidecarScopes synthesizes Sidecar CRDs into objects called
-// SidecarScope.  The SidecarScope object is a semi-processed view of the
-// service registry, and config state associated with the sidecar CRD. The
-// scope contains a set of inbound and outbound listeners, services/configs
-// per listener, etc. The sidecar scopes are precomputed based on the
-// Sidecar API objects in each namespace. If there is no sidecar api object
-// for a namespace, a default sidecarscope is assigned to the namespace
-// which enables connectivity to all services in the mesh.
-//
-// When proxies connect to Pilot, we identify the sidecar scope associated
-// with the proxy and derive listeners/routes/clusters based on the sidecar
-// scope.
+// updateSidecarScopes processes sidecar updates from a previous index, only
+// creating, updating, or deleting sidecar that have changed.
+// When a sidecar is consider as changed it is fully rebuilt.
 func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarIndex, changedSidecars []ConfigKey) error {
 	rootNSConfig := oldIndex.meshRootSidecarConfig
 	var newRootNSConfig *config.Config
@@ -1717,7 +1708,7 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 	for _, changedSidecar := range changedSidecars {
 		sidecarConfig := env.Get(gvk.Sidecar, changedSidecar.Name, changedSidecar.Namespace)
 		if sidecarConfig == nil {
-			// sidecar config is deleted
+			// sidecar config is deleted remove it from the indexes
 			m := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]
 			delete(m, changedSidecar.Name)
 			if len(m) == 0 {
@@ -1730,6 +1721,7 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 				delete(ps.sidecarIndex.sidecarsByNamespaceWithoutSelector, changedSidecar.Namespace)
 			}
 
+			// the root namespace sidecar config is deleted
 			if rootNSConfig != nil && rootNSConfig.Namespace == changedSidecar.Namespace && rootNSConfig.Name == changedSidecar.Name {
 				rootNSConfig = nil
 			}
