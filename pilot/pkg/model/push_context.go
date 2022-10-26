@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -1717,7 +1716,6 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 	for _, changedSidecar := range changedSidecars {
 		sidecarConfig := env.Get(gvk.Sidecar, changedSidecar.Name, changedSidecar.Namespace)
 		if sidecarConfig == nil {
-			fmt.Printf("sidecarIndex update: sidecarConfig is nil for %+v\n", changedSidecar)
 			// sidecar config is deleted
 			m := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]
 			delete(m, changedSidecar.Name)
@@ -1740,14 +1738,11 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
-			fmt.Printf("sidecarIndex update: %+v\n", ps.sidecarIndex.sidecarsByNamespaceWithSelector)
 			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]; !f {
 				ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace] = make(map[string]*SidecarScope)
 			}
 			ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace][changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
-			fmt.Printf("sidecarIndex update: %+v\n", ps.sidecarIndex.sidecarsByNamespaceWithSelector)
 		} else {
-			fmt.Printf("sidecarIndex update: sidecarConfig without selector %+v, %+v\n", changedSidecar, sidecar)
 			if sidecarConfig.Namespace == ps.Mesh.RootNamespace {
 				newRootNSConfig = sidecarConfig
 			}
