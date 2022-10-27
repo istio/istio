@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	xxhashv2 "github.com/cespare/xxhash/v2"
-
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
