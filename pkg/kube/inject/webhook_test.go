@@ -1299,33 +1299,35 @@ func TestParseInjectEnvs(t *testing.T) {
 
 func TestMergeOrAppendProbers(t *testing.T) {
 	cases := []struct {
-		name string
+		name               string
 		perviouslyInjected bool
-		in   []corev1.EnvVar
-		probers string
-		want   []corev1.EnvVar
-	} {
+		in                 []corev1.EnvVar
+		probers            string
+		want               []corev1.EnvVar
+	}{
 		{
-			name: "Append Prober",
+			name:               "Append Prober",
 			perviouslyInjected: false,
-			in: []corev1.EnvVar{},
-			probers: "{\"/app-health/bar/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":9000,\"scheme\":\"HTTP\"}},\"/app-health/foo/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":8000,\"scheme\":\"HTTP\"}}}",
+			in:                 []corev1.EnvVar{},
+			probers: "{\"/app-health/bar/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":9000,\"scheme\":\"HTTP\"}}," +
+				"\"/app-health/foo/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":8000,\"scheme\":\"HTTP\"}}}",
 			want: []corev1.EnvVar{{
 				Name: status.KubeAppProberEnvName,
-				Value: "{\"/app-health/bar/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":9000,\"scheme\":\"HTTP\"}},\"/app-health/foo/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":8000,\"scheme\":\"HTTP\"}}}",
+				Value: "{\"/app-health/bar/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":9000,\"scheme\":\"HTTP\"}}," +
+					"\"/app-health/foo/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":8000,\"scheme\":\"HTTP\"}}}",
 			}},
 		},
 		{
-			name: "Merge Prober",
+			name:               "Merge Prober",
 			perviouslyInjected: true,
 			in: []corev1.EnvVar{
 				{
-					Name: "TEST_ENV_VAR1",
+					Name:  "TEST_ENV_VAR1",
 					Value: "value1",
 				},
 				{
-				Name: status.KubeAppProberEnvName,
-				Value: `{
+					Name: status.KubeAppProberEnvName,
+					Value: `{
 					"/app-health/foo/livez": {
 					  "httpGet": {
 						"path": "/",
@@ -1334,12 +1336,12 @@ func TestMergeOrAppendProbers(t *testing.T) {
 					  }
 					}
 				  }`,
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
 			},
-			{
-				Name: "TEST_ENV_VAR2",
-				Value: "value2",
-			},
-		},
 			probers: `{
 				"/app-health/bar/livez": {
 				  "httpGet": {
@@ -1350,20 +1352,21 @@ func TestMergeOrAppendProbers(t *testing.T) {
 				}
 			  }`,
 			want: []corev1.EnvVar{
-			{
-				Name: "TEST_ENV_VAR1",
-				Value: "value1",
-			},
-			{
-				Name: status.KubeAppProberEnvName,
-				Value: "{\"/app-health/bar/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":9000,\"scheme\":\"HTTP\"}},\"/app-health/foo/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":8000,\"scheme\":\"HTTP\"}}}",
-			},
-			{
-				Name: "TEST_ENV_VAR2",
-				Value: "value2",
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name: status.KubeAppProberEnvName,
+					Value: "{\"/app-health/bar/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":9000,\"scheme\":\"HTTP\"}}," +
+						"\"/app-health/foo/livez\":{\"httpGet\":{\"path\":\"/\",\"port\":8000,\"scheme\":\"HTTP\"}}}",
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
 			},
 		},
-		},		
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

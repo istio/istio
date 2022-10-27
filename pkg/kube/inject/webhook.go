@@ -630,9 +630,17 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 	for idx, env := range envVars {
 		if env.Name == status.KubeAppProberEnvName {
 			var existingKubeAppProber KubeAppProbers
-			json.Unmarshal([]byte(env.Value), &existingKubeAppProber)
+			err := json.Unmarshal([]byte(env.Value), &existingKubeAppProber)
+			if err != nil {
+				log.Errorf("failed to unmarshal existing kubeAppProbers %v", err)
+				return envVars
+			}
 			var newKubeAppProber KubeAppProbers
-			json.Unmarshal([]byte(newProbers), &newKubeAppProber)
+			err = json.Unmarshal([]byte(newProbers), &newKubeAppProber)
+			if err != nil {
+				log.Errorf("failed to unmarshal new kubeAppProbers %v", err)
+				return envVars
+			}
 			for k, v := range existingKubeAppProber {
 				// merge old and new probers.
 				newKubeAppProber[k] = v
