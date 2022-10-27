@@ -145,7 +145,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		// For subsequent restart, CA will reads key/cert from CASecret.
 		caSecret, err := client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 		if err == nil {
-			pkiCaLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
+			pkiCaLog.Infof("Load signing key and cert from existing secret %s/%s", caSecret.Namespace, caSecret.Name)
 			rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rootCertFile)
 			if err != nil {
 				return fmt.Errorf("failed to append root certificates (%v)", err)
