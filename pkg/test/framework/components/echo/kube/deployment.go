@@ -142,19 +142,23 @@ func (d *deployment) Restart() error {
 			}
 		}`, time.Now().Format("RFC3339")) // e.g., “2006-01-02T15:04:05Z07:00”
 		var err error
+		appsv1 := d.cfg.Cluster.Kube().AppsV1()
+
 		if d.cfg.IsStatefulSet() {
-			_, err = d.cfg.Cluster.Kube().AppsV1().StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+			_, err = appsv1.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		} else {
-			_, err = d.cfg.Cluster.Kube().AppsV1().Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+			_, err = appsv1.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		}
 		if err != nil {
-			multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v", d.cfg.Namespace.Name(), deploymentName, err))
+			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v", d.cfg.Namespace.Name(), deploymentName, err))
 			continue
 		}
 
 		if err := retry.UntilSuccess(func() error {
 			if d.cfg.IsStatefulSet() {
-				sts, err := d.cfg.Cluster.Kube().AppsV1().StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				sts, err := appsv1.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -162,7 +166,7 @@ func (d *deployment) Restart() error {
 					return fmt.Errorf("rollout is not yet done (%v/%v)", sts.Status.UpdatedReplicas, sts.Spec.Replicas)
 				}
 			} else {
-				dep, err := d.cfg.Cluster.Kube().AppsV1().Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				dep, err := appsv1.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -172,7 +176,8 @@ func (d *deployment) Restart() error {
 			}
 			return nil
 		}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second)); err != nil {
-			return err
+			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
+				d.cfg.Namespace.Name(), deploymentName, err))
 		}
 	}
 	return errs
