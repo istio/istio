@@ -622,7 +622,7 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 }
 
 // mergeOrAppendProbers ensures that if sidecar has existing ISTIO_KUBE_APP_PROBERS,
-// then probe rewrite should be a merge operation instead of append.
+// then probers should be merged.
 func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newProbers string) []corev1.EnvVar {
 	if !previouslyInjected {
 		return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
