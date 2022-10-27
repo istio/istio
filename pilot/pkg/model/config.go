@@ -15,9 +15,10 @@
 package model
 
 import (
-	"github.com/cespare/xxhash/v2"
 	"sort"
 	"strings"
+
+	xxhashv2 "github.com/cespare/xxhash/v2"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
@@ -57,15 +58,12 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	var builder strings.Builder
-	k := string(key.Kind)
-	l := len(k) + len(key.Name) + len(key.Namespace)
-
-	builder.Grow(l)
-	builder.WriteString(k)
-	builder.WriteString(key.Name)
-	builder.WriteString(key.Namespace)
-	return ConfigHash(xxhash.Sum64([]byte(builder.String())))
+	hash := xxhashv2.New()
+	// the error will always return nil
+	_, _ = hash.Write([]byte{byte(key.Kind)})
+	_, _ = hash.Write([]byte(key.Name))
+	_, _ = hash.Write([]byte(key.Namespace))
+	return ConfigHash(hash.Sum64())
 }
 
 func (key ConfigKey) String() string {
