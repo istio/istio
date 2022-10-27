@@ -340,19 +340,21 @@ func getPrivateIPIfAvailable() netip.Addr {
 	addrs, _ := net.InterfaceAddrs()
 	for _, addr := range addrs {
 		var ipAddr netip.Addr
-		addrType := addr.Network()
-		if addrType == "ip+net" {
+		switch addr.(type) {
+		case *net.IPNet:
 			ipNet, iErr := netip.ParsePrefix(addr.String())
 			if iErr != nil {
 				continue
 			}
 			ipAddr = ipNet.Addr()
-		} else if addrType == "ip" {
+		case *net.IPAddr:
 			ip, aErr := netip.ParseAddr(addr.String())
 			if aErr != nil {
 				continue
 			}
 			ipAddr = ip
+		default:
+			continue
 		}
 		if !ipAddr.IsLoopback() {
 			return ipAddr
