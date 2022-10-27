@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -201,7 +202,7 @@ func DefaultArgs() Args {
 		variants = sets.SortedList(cur)
 	}
 
-	arch := []string{"linux/amd64"}
+	arch := []string{fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)}
 	if legacy, f := os.LookupEnv("DOCKER_ARCHITECTURES"); f {
 		arch = strings.Split(legacy, ",")
 	}
