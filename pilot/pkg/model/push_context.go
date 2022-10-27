@@ -136,9 +136,11 @@ func newDestinationRuleIndex() destinationRuleIndex {
 
 // sidecarIndex is the index of sidecar rules
 type sidecarIndex struct {
-	// user configured sidecars with selector for each namespace if available.
+	// user configured sidecars with selector for each namespace if available, sidecars
+	// are also indexed by name to allow for quick lookups and deletions.
 	sidecarsByNamespaceWithSelector map[string]map[string]*SidecarScope
-	// user configured sidecars without selector for each namespace if available.
+	// user configured sidecars without selector for each namespace if available, sidecars
+	// are also indexed by name to allow for quick lookups and deletions.
 	sidecarsByNamespaceWithoutSelector map[string]map[string]*SidecarScope
 	// the Sidecar for the root namespace (if present). This applies to any namespace without its own Sidecar.
 	meshRootSidecarConfig *config.Config
