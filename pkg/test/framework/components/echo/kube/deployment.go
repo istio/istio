@@ -134,9 +134,9 @@ func (d *deployment) Restart() error {
 		}
 		rolloutCmd := fmt.Sprintf("kubectl rollout restart %s/%s -n %s",
 			wlType, deploymentName, d.cfg.Namespace.Name())
-		if out, err := shell.Execute(true, rolloutCmd); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v %v",
-				d.cfg.Namespace.Name(), deploymentName, out, err))
+		if _, err := shell.Execute(true, rolloutCmd); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v",
+				d.cfg.Namespace.Name(), deploymentName, err))
 			continue
 		}
 		waitCmd := fmt.Sprintf("kubectl rollout status %s/%s -n %s",

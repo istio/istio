@@ -319,10 +319,8 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 	t.Logf("use config in %s.", filterConfigPath)
 	t.ConfigIstio().File(common.GetAppNamespace().Name(), filterConfigPath).ApplyOrFail(t)
 	if restartTarget {
-		target := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetTarget().Instances())
-		if err := target.Restart(); err != nil {
-			t.Fatalf("failed to restart the target pod: %v", err)
-		}
+		// Restart all the targets
+		common.GetTarget().Instances().Restart()
 	}
 
 	// Wait until there is agent metrics for wasm download failure
