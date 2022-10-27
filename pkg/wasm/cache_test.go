@@ -166,11 +166,11 @@ func TestWasmCache(t *testing.T) {
 			name:                   "download failure",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
 			initialCachedChecksums: map[string]*checksumEntry{},
-			fetchURL:               "https://dummyurl",
+			fetchURL:               "https://-invalid-url",
 			requestTimeout:         time.Second * 10,
 			wantCachedModules:      map[moduleKey]*cacheEntry{},
 			wantCachedChecksums:    map[string]*checksumEntry{},
-			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\"",
+			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://-invalid-url\"",
 			wantVisitServer:        false,
 		},
 		{
