@@ -612,11 +612,42 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	// We don't have to escape json encoding here when using golang libraries.
 	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
-			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+			// If sidecar.istio.io/status is not present then append instead of merge.
+			_, previouslyInjected := pod.Annotations[annotation.SidecarStatus.Name]
+			sidecar.Env = mergeOrAppendProbers(previouslyInjected, sidecar.Env, prober)
 		}
 		patchRewriteProbe(pod.Annotations, pod, req.meshConfig.GetDefaultConfig().GetStatusPort())
 	}
 	return nil
+}
+
+// mergeOrAppendProbers ensures that if sidecar has existing ISTIO_KUBE_APP_PROBERS,
+// then probe rewrite should be a merge operation instead of append.
+func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newProbers string) []corev1.EnvVar {
+	if !previouslyInjected {
+		return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
+	}
+	for idx, env := range envVars {
+		if env.Name == status.KubeAppProberEnvName {
+			var existingKubeAppProber KubeAppProbers
+			json.Unmarshal([]byte(env.Value), &existingKubeAppProber)
+			var newKubeAppProber KubeAppProbers
+			json.Unmarshal([]byte(newProbers), &newKubeAppProber)
+			for k, v := range existingKubeAppProber {
+				// merge old and new probers.
+				newKubeAppProber[k] = v
+			}
+			marshalledKubeAppProber, err := json.Marshal(newKubeAppProber)
+			if err != nil {
+				log.Errorf("failed to serialize the merged app prober config %v", err)
+				return envVars
+			}
+			// replace old env var with new value.
+			envVars[idx] = corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: string(marshalledKubeAppProber)}
+			return envVars
+		}
+	}
+	return envVars
 }
 
 var emptyScrape = status.PrometheusScrapeConfiguration{}
