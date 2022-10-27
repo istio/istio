@@ -163,16 +163,16 @@ func (d *deployment) Restart() error {
 				if err != nil {
 					return err
 				}
-				if sts.Spec.Replicas != &sts.Status.UpdatedReplicas {
-					return fmt.Errorf("rollout is not yet done (%v/%v)", sts.Status.UpdatedReplicas, sts.Spec.Replicas)
+				if sts.Spec.Replicas == nil || *sts.Spec.Replicas != sts.Status.UpdatedReplicas {
+					return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
 				}
 			} else {
 				dep, err := appsv1.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				if dep.Spec.Replicas != &dep.Status.UpdatedReplicas {
-					return fmt.Errorf("rollout is not yet done (%v/%v)", dep.Status.UpdatedReplicas, dep.Spec.Replicas)
+				if dep.Spec.Replicas == nil || *dep.Spec.Replicas != dep.Status.UpdatedReplicas {
+					return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
 				}
 			}
 			return nil
