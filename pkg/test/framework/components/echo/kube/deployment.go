@@ -135,7 +135,7 @@ func (d *deployment) Restart() error {
 				"template": {
 					"metadata": {
 						"annotations": {
-							"kubectl.kubernetes.io/restartedAt": %s
+							"kubectl.kubernetes.io/restartedAt": "%s"
 						}
 					}
 				}
