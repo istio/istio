@@ -692,7 +692,7 @@ var (
 
 	EnableNativeStats = env.Register(
 		"TELEMETRY_USE_NATIVE_STATS",
-		true,
+		false,
 		"True if the stats runtime should use the Envoy extension instead of the compiled Wasm extension.",
 	).Get()
 )
