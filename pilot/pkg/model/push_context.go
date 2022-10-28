@@ -136,6 +136,10 @@ func newDestinationRuleIndex() destinationRuleIndex {
 
 // sidecarIndex is the index of sidecar rules
 type sidecarIndex struct {
+	// mutex to protect sidecar indexes.
+	// TODO: analyze performance implications of this mutex, might be best to switch to sync.Map or
+	// an external library like xsync.MapOf
+	indexMutex *sync.RWMutex
 	// user configured sidecars with selector for each namespace if available, sidecars
 	// are also indexed by name to allow for quick lookups and deletions.
 	sidecarsByNamespaceWithSelector map[string]map[string]*SidecarScope
@@ -159,6 +163,7 @@ type sidecarIndex struct {
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
+		indexMutex:                         &sync.RWMutex{},
 		sidecarsByNamespaceWithSelector:    map[string]map[string]*SidecarScope{},
 		sidecarsByNamespaceWithoutSelector: map[string]map[string]*SidecarScope{},
 		meshRootSidecarsByNamespace:        map[string]*SidecarScope{},
@@ -965,6 +970,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 	case SidecarProxy:
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
+		ps.sidecarIndex.indexMutex.RLock()
 		// First attempt to find a sidecar with a match selector in resource in the proxy's namespace
 		selectorSidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespaceWithSelector[proxy.ConfigNamespace]
 		if hasSidecar {
@@ -973,6 +979,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 				workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
 				// exclude workload selector that not match
 				if workloadSelector.SubsetOf(workloadLabels) {
+					ps.sidecarIndex.indexMutex.RUnlock()
 					return wrapper
 				}
 			}
@@ -983,9 +990,11 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 		if hasSidecar {
 			for _, wrapper := range sidecars {
 				// return first namespace sidecar without selector
+				ps.sidecarIndex.indexMutex.RUnlock()
 				return wrapper
 			}
 		}
+		ps.sidecarIndex.indexMutex.RUnlock()
 
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
@@ -1706,6 +1715,11 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 	rootNSConfig := oldIndex.meshRootSidecarConfig
 	var newRootNSConfig *config.Config
 
+	oldIndex.indexMutex.Lock()
+	defer oldIndex.indexMutex.Unlock()
+
+	// we use the same mutex since the indexes are the same
+	ps.sidecarIndex.indexMutex = oldIndex.indexMutex
 	ps.sidecarIndex.sidecarsByNamespaceWithSelector = oldIndex.sidecarsByNamespaceWithSelector
 	ps.sidecarIndex.sidecarsByNamespaceWithoutSelector = oldIndex.sidecarsByNamespaceWithoutSelector
 
@@ -1735,24 +1749,26 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
-			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]; !f {
-				ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace] = make(map[string]*SidecarScope)
+			m, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]
+			if !f {
+				m = make(map[string]*SidecarScope)
+				ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace] = m
 			}
-			ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace][changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
+			m[changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
 		} else {
 			if sidecarConfig.Namespace == ps.Mesh.RootNamespace {
 				newRootNSConfig = sidecarConfig
 			}
 
-			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace]; !f {
-				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace] = make(map[string]*SidecarScope)
+			m, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace]
+			if !f {
+				m = make(map[string]*SidecarScope)
+				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace] = m
 			}
-			ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[changedSidecar.Namespace][changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
+			m[changedSidecar.Name] = ConvertToSidecarScope(ps, sidecarConfig, changedSidecar.Namespace)
 		}
 	}
 
-	oldIndex.derivedSidecarMutex.RLock()
-	defer oldIndex.derivedSidecarMutex.RUnlock()
 	if rootNSConfig == nil {
 		ps.sidecarIndex.meshRootSidecarConfig = newRootNSConfig
 	} else {
