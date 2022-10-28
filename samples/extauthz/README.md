@@ -14,7 +14,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
     ```console
     $ kubectl apply -f ext-authz.yaml
     service/ext-authz created
-    deployment.extensions/ext-authz created
+    deployment.apps/ext-authz created
     ```
 
     Note, you can also deploy the Ext Authz service locally with the application container in the same pod, see the example in `local-ext-authz.yaml`.
