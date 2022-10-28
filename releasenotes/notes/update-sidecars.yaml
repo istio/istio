@@ -3,4 +3,4 @@ kind: feature
 area: traffic-management
 releaseNotes:
   - |
-    Process sidecar updates individually instead of doing a full rebuild.
+    **Improved** Sidecar resource updates to be individually instead of doing a full rebuild.
