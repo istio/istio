@@ -904,10 +904,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	}
 	err := istiogrpc.Send(conn.stream.Context(), sendHandler)
 	if err == nil {
-		sz := 0
-		for _, rc := range res.Resources {
-			sz += len(rc.Value)
-		}
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {

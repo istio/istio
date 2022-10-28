@@ -511,3 +511,42 @@ func TestConfigsOnlyHaveKind(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkHashCode(b *testing.B) {
+	benchmarks := []struct {
+		name   string
+		config model.ConfigKey
+	}{
+		{
+			name: "small string",
+			config: model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "abc",
+				Namespace: "ns-foo",
+			},
+		},
+		{
+			name: "middle string",
+			config: model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "foo.svc.cluster.local.middle.len",
+				Namespace: "ns-foo-a-middle-string-with-len",
+			},
+		},
+		{
+			name: "long string",
+			config: model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "foo.svc.cluster.local.middle.len.foo.svc.cluster.local.middle.len",
+				Namespace: "ns-foo-a-middle-string-with-len.ns-foo-a-middle-string-with-len",
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				bm.config.HashCode()
+			}
+		})
+	}
+}

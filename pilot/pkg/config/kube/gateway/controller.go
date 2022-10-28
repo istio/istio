@@ -26,7 +26,6 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -79,12 +78,19 @@ type Controller struct {
 	statusController *status.Controller
 	statusEnabled    *atomic.Bool
 
+	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool
+
 	started atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreController, options controller.Options) *Controller {
+func NewController(
+	client kube.Client,
+	c model.ConfigStoreController,
+	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool,
+	options controller.Options,
+) *Controller {
 	var ctl *status.Controller
 
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
@@ -97,6 +103,7 @@ func NewController(client kube.Client, c model.ConfigStoreController, options co
 		statusController:  ctl,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
+		waitForCRD:    waitForCRD,
 	}
 
 	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -283,7 +290,7 @@ func (c *Controller) HasStarted() bool {
 func (c *Controller) Run(stop <-chan struct{}) {
 	c.started.Store(true)
 	go func() {
-		if crdclient.WaitForCRD(gvk.GatewayClass, stop) {
+		if c.waitForCRD(gvk.GatewayClass, stop) {
 			gcc := NewClassController(c.client)
 			c.client.RunAndWait(stop)
 			gcc.Run(stop)
