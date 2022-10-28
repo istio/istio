@@ -15,11 +15,10 @@
 package model
 
 import (
-	"crypto/md5"
-	"encoding/binary"
 	"sort"
 	"strings"
 
+	xxhashv2 "github.com/cespare/xxhash/v2"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -58,12 +57,12 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := md5.New()
-	hash.Write([]byte{byte(key.Kind)})
-	hash.Write([]byte(key.Name))
-	hash.Write([]byte(key.Namespace))
-	sum := hash.Sum(nil)
-	return ConfigHash(binary.BigEndian.Uint64(sum))
+	hash := xxhashv2.New()
+	// the error will always return nil
+	_, _ = hash.Write([]byte{byte(key.Kind)})
+	_, _ = hash.Write([]byte(key.Name))
+	_, _ = hash.Write([]byte(key.Namespace))
+	return ConfigHash(hash.Sum64())
 }
 
 func (key ConfigKey) String() string {

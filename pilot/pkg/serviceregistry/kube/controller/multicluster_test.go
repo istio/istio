@@ -100,7 +100,7 @@ func Test_KubeSecretController(t *testing.T) {
 			DomainSuffix:          DomainSuffix,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, nil, nil, "default", false, nil, s)
+		}, nil, nil, "default", false, nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
@@ -150,7 +150,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 			DomainSuffix:          DomainSuffix,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, nil, certWatcher, "default", false, nil, s)
+		}, nil, certWatcher, "default", false, nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
