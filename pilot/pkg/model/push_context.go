@@ -1689,18 +1689,22 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	for i, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
-			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace]; !f {
-				ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
+			m, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace]
+			if !f {
+				m = make(map[string]*SidecarScope)
+				ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace] = m
 			}
-			ps.sidecarIndex.sidecarsByNamespaceWithSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace)
+			m[sidecarConfig.Name] = ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace)
 		} else {
 			if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace {
 				rootNSConfig = &sidecarConfigs[i]
 			}
-			if _, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace]; !f {
-				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace] = make(map[string]*SidecarScope)
+			m, f := ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace]
+			if !f {
+				m = make(map[string]*SidecarScope)
+				ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace] = m
 			}
-			ps.sidecarIndex.sidecarsByNamespaceWithoutSelector[sidecarConfig.Namespace][sidecarConfig.Name] = ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace)
+			m[sidecarConfig.Name] = ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace)
 		}
 	}
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
