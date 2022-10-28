@@ -111,7 +111,7 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
 func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
 	h := func(obj any) {
-		o := extractObject(obj)
+		o := ExtractObject(obj)
 		if o == nil {
 			return
 		}
@@ -145,7 +145,7 @@ func FilteredObjectSpecHandler(handler func(o Object), filter func(o Object) boo
 
 func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, filter func(o Object) bool) cache.ResourceEventHandler {
 	single := func(obj any) {
-		o := extractObject(obj)
+		o := ExtractObject(obj)
 		if o == nil {
 			return
 		}
@@ -157,11 +157,11 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: single,
 		UpdateFunc: func(oldInterface, newInterface any) {
-			oldObj := extractObject(oldInterface)
+			oldObj := ExtractObject(oldInterface)
 			if oldObj == nil {
 				return
 			}
-			newObj := extractObject(newInterface)
+			newObj := ExtractObject(newInterface)
 			if newObj == nil {
 				return
 			}
@@ -179,7 +179,28 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 }
 
-func extractObject(obj any) Object {
+func Extract[T Object](obj any) T {
+	var empty T
+	if obj == nil {
+		return empty
+	}
+	o, ok := obj.(T)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Errorf("couldn't get object from tombstone %+v", obj)
+			return empty
+		}
+		o, ok = tombstone.Obj.(T)
+		if !ok {
+			log.Errorf("tombstone contained object that is not an object %+v", obj)
+			return empty
+		}
+	}
+	return o
+}
+
+func ExtractObject(obj any) Object {
 	o, ok := obj.(Object)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)

@@ -479,6 +479,8 @@ func reasonsUpdated(req *model.PushRequest) string {
 		return "unknown"
 	case 1:
 		return string(req.Reason[0])
+	case 2:
+		return fmt.Sprintf("%s and %s", req.Reason[0], req.Reason[1])
 	default:
 		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
 	}

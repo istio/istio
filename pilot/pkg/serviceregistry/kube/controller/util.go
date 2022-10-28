@@ -143,6 +143,25 @@ func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error
 	return services, nil
 }
 
+func getPodsInService(s listerv1.PodLister, svc *v1.Service) []*v1.Pod {
+	allPods, err := s.Pods(svc.Namespace).List(klabels.Everything())
+	if err != nil {
+		return nil
+	}
+	if svc.Spec.Selector == nil {
+		// services with nil selectors match nothing, not everything.
+		return nil
+	}
+	var pods []*v1.Pod
+	for _, pod := range allPods {
+		if labels.Instance(svc.Spec.Selector).SubsetOf(pod.Labels) {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods
+}
+
 func portsEqual(a, b []v1.EndpointPort) bool {
 	if len(a) != len(b) {
 		return false

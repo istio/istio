@@ -59,7 +59,7 @@ func CreateIndex[O runtime.Object, K comparable](
 		mu:       sync.RWMutex{},
 	}
 	addObj := func(obj any) {
-		ro := extractObject(obj)
+		ro := ExtractObject(obj)
 		o := ro.(O)
 		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {
@@ -70,7 +70,7 @@ func CreateIndex[O runtime.Object, K comparable](
 		}
 	}
 	deleteObj := func(obj any) {
-		ro := extractObject(obj)
+		ro := ExtractObject(obj)
 		o := ro.(O)
 		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {

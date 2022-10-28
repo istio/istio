@@ -357,6 +357,10 @@ type WatchedResource struct {
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
+	// Wildcard indicates the subscription is a wildcard subscription. This only applies to types that
+	// allow both wildcard and non-wildcard subscriptions.
+	Wildcard bool
+
 	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
