@@ -34,6 +34,7 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
@@ -833,24 +834,33 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 				// No logging for prometheus
 				continue
 			}
-			statsCfg := generateStatsConfig(class, cfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = root
+			if features.EnableNativeStats {
+				statsCfg := generateStatsConfig(class, cfg, true)
+				f := &hcm.HttpFilter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
+				}
+				res = append(res, f)
+			} else {
+				statsCfg := generateStatsConfig(class, cfg, false)
+				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+				root := statsRootIDForClass(class)
+				vmConfig.VmConfig.VmId = root
 
-			wasmConfig := &httpwasm.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: statsCfg,
-				},
+				wasmConfig := &httpwasm.Wasm{
+					Config: &wasm.PluginConfig{
+						RootId:        root,
+						Vm:            vmConfig,
+						Configuration: statsCfg,
+					},
+				}
+				f := &hcm.HttpFilter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}
+				res = append(res, f)
 			}
 
-			f := &hcm.HttpFilter{
-				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-			}
-			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
@@ -882,24 +892,33 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 	for _, telemetryCfg := range telemetryConfigs {
 		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			cfg := generateStatsConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = "tcp_" + root
+			if features.EnableNativeStats {
+				cfg := generateStatsConfig(class, telemetryCfg, true)
+				f := &listener.Filter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
+				}
+				res = append(res, f)
+			} else {
+				cfg := generateStatsConfig(class, telemetryCfg, false)
+				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+				root := statsRootIDForClass(class)
+				vmConfig.VmConfig.VmId = "tcp_" + root
 
-			wasmConfig := &wasmfilter.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: cfg,
-				},
+				wasmConfig := &wasmfilter.Wasm{
+					Config: &wasm.PluginConfig{
+						RootId:        root,
+						Vm:            vmConfig,
+						Configuration: cfg,
+					},
+				}
+				f := &listener.Filter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}
+				res = append(res, f)
 			}
 
-			f := &listener.Filter{
-				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-			}
-			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
@@ -1042,7 +1061,7 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig) *anypb.Any {
+func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig, native bool) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
@@ -1066,7 +1085,9 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 		}
 		cfg.Metrics = append(cfg.Metrics, mc)
 	}
-	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
+	if native {
+		return protoconv.MessageToAny(&cfg)
+	}
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
 	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
