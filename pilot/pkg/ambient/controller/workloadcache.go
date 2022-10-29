@@ -95,7 +95,7 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 		wc.removeFromAll(key)
 	}
 	if update {
-		log.Debugf("trigger full push on delete pod %s", key)
+		log.Debugf("trigger full push on update pod %s", key)
 		wc.xds.ConfigUpdate(&model.PushRequest{
 			Full: true, // TODO: find a better way?
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
