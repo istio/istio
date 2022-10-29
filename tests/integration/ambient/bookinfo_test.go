@@ -193,7 +193,7 @@ func TestBookinfo(t *testing.T) {
 func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), defaultDestRule)
 	applyFileOrFail(t, nsConfig.Name(), bookinfoGateway)
-	applyFileOrFail(t, nsConfig.Name(), routingV1)
+	//applyFileOrFail(t, nsConfig.Name(), routingV1)
 }
 
 func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
