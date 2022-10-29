@@ -1503,6 +1503,17 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: "before proxy_protocol",
+				},
+				{
+					Name: "envoy.filters.listener.proxy_protocol",
+				},
+				{
+					Name: "after proxy_protocol",
+				},
+			},
 		},
 		{
 			Name: "another-listener",
