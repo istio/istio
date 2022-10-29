@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	listerappsv1 "k8s.io/client-go/listers/apps/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
@@ -43,12 +44,13 @@ import (
 )
 
 type WaypointProxyController struct {
-	client          kubelib.Client
-	queue           controllers.Queue
-	deployments     listerappsv1.DeploymentLister
-	serviceAccounts listerv1.ServiceAccountLister
-	gateways        gwlister.GatewayLister
-	patcher         istiogw.Patcher
+	client             kubelib.Client
+	queue              controllers.Queue
+	deploymentInformer cache.SharedIndexInformer
+	deployments        listerappsv1.DeploymentLister
+	serviceAccounts    listerv1.ServiceAccountLister
+	gateways           gwlister.GatewayLister
+	patcher            istiogw.Patcher
 
 	cluster cluster.ID
 
@@ -82,9 +84,10 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, con
 	gateways.Informer().AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
 
 	deployments := rc.client.KubeInformer().Apps().V1().Deployments()
+	rc.deploymentInformer = deployments.Informer()
 	rc.deployments = deployments.Lister()
 
-	deployments.Informer().AddEventHandler(controllers.ObjectHandler(controllers.EnqueueForParentHandler(rc.queue, gvk.KubernetesGateway)))
+	rc.deploymentInformer.AddEventHandler(controllers.ObjectHandler(controllers.EnqueueForParentHandler(rc.queue, gvk.KubernetesGateway)))
 
 	sas := rc.client.KubeInformer().Core().V1().ServiceAccounts()
 	rc.serviceAccounts = sas.Lister()
@@ -100,8 +103,15 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, con
 }
 
 func (rc *WaypointProxyController) Run(stop <-chan struct{}) {
+	kubelib.WaitForCacheSync(stop, rc.informerSynced)
+	waypointLog.Infof("controller start to run")
+
 	go rc.queue.Run(stop)
 	<-stop
+}
+
+func (rc *WaypointProxyController) informerSynced() bool {
+	return rc.deploymentInformer.HasSynced()
 }
 
 func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
