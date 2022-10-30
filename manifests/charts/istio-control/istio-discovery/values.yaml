@@ -8,6 +8,7 @@ pilot:
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
+  topologySpreadConstraints: []
 
   hub: ""
   tag: ""
