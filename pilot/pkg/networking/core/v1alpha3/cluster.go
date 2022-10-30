@@ -63,6 +63,8 @@ import (
 // in this map, then delta calculation is triggered.
 var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
 
+const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
+
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 	return &cluster.CircuitBreakers_Thresholds{
@@ -178,10 +180,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
-		clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+		if proxy.EnableHBONE() {
+			clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
+			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, instances)...)
+		}
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
@@ -199,9 +204,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
-	if proxy.EnableHBONE() {
-		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
-	}
+
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
@@ -1019,15 +1022,12 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance) []*cluster.Cluster {
-	if !proxy.EnableHBONE() {
-		return nil
-	}
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, instances []*model.ServiceInstance) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	names := sets.New[string]()
 	for _, i := range instances {
 		p := i.Endpoint.EndpointPort
-		name := fmt.Sprintf("inbound-hbone|%d", p)
+		name := "inbound-hbone" + "|" + strconv.Itoa(int(p))
 		if !names.InsertContains(name) {
 			clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
 		}
@@ -1037,9 +1037,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 
 func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
 	clusterType := cluster.Cluster_STATIC
-	llb := util.BuildInternalEndpoint(listenerName, nil)
 	port := &model.Port{}
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
+	localCluster := cb.buildDefaultCluster(clusterName, clusterType, util.BuildInternalEndpoint(listenerName, nil),
 		model.TrafficDirectionInbound, port, nil, nil)
 	// no TLS
 	localCluster.cluster.TransportSocketMatches = nil
@@ -1057,7 +1056,7 @@ var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
 }
 
 var InternalUpstreamSocket = &core.TransportSocket{
-	Name: "envoy.transport_sockets.internal_upstream",
+	Name: TransportSocketInternalUpstream,
 	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
 		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 			{
@@ -1083,7 +1082,7 @@ var InternalUpstreamSocket = &core.TransportSocket{
 
 func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	return &cluster.Cluster{
-		Name:                 "outbound-tunnel",
+		Name:                 util.OutboundTunnel,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:       push.Mesh.ConnectTimeout,
@@ -1102,15 +1101,15 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 		TransportSocket: &core.TransportSocket{
 			Name: wellknown.TransportSocketTls,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildHBONECommonTLSContext(proxy, push, false),
+				CommonTlsContext: buildHBONECommonTLSContext(proxy, push),
 			})},
 		},
 	}
 }
 
-func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
+func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
+	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), false)
 
 	ctx.AlpnProtocols = util.ALPNH2Only
 
