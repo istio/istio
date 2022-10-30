@@ -22,8 +22,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
-// NdsGenerator generates config for Nds i.e. Name Discovery Service. Istio agents send NDS requests to istiod and
-// istiod responds with a list of services and their IPs (including service entries).
+// NdsGenerator generates config for Nds i.e. Name Discovery Service. Istio agents send NDS requests to istiod and istiod responds with a list of services and their IPs (including service entries).
 // The agent then updates its internal DNS based on this data. If DNS capture is enabled in the pod the agent will
 // capture all DNS requests and attempt to resolve locally before forwarding to upstream dns servers.
 type NdsGenerator struct {
@@ -32,9 +31,22 @@ type NdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
-// Map of all configs that NDS is dependent on.
-var ndsDependentConfigs = map[kind.Kind]struct{}{
-	kind.ServiceEntry: {},
+// Map of all configs that do not impact NDS
+var skippedNdsConfigs = map[kind.Kind]struct{}{
+	kind.Gateway:               {},
+	kind.VirtualService:        {},
+	kind.DestinationRule:       {},
+	kind.Secret:                {},
+	kind.Telemetry:             {},
+	kind.EnvoyFilter:           {},
+	kind.WorkloadEntry:         {},
+	kind.WorkloadGroup:         {},
+	kind.AuthorizationPolicy:   {},
+	kind.RequestAuthentication: {},
+	kind.PeerAuthentication:    {},
+	kind.WasmPlugin:            {},
+	kind.ProxyConfig:           {},
+	kind.MeshConfig:            {},
 }
 
 func ndsNeedsPush(req *model.PushRequest) bool {
@@ -50,7 +62,7 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if _, f := ndsDependentConfigs[config.Kind]; f {
+		if _, f := skippedNdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}
