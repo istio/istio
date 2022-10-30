@@ -924,7 +924,8 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
-	istioAutodetectedMtls := tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected
+	istioAutodetectedMtls := tls != nil && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL &&
+		mtlsCtxType == autoDetected
 	if cb.hbone {
 		cb.applyHBONETransportSocketMatches(c.cluster, tls, istioAutodetectedMtls)
 	} else if c.cluster.GetType() != cluster.Cluster_ORIGINAL_DST {
