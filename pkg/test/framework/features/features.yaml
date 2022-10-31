@@ -149,6 +149,8 @@ features:
       image-pull-policy:
   # features releated to the lifecycle of istio installations
   installation:
+    operator:
+      uninstall_revision:
     istioctl:
       install:
       uninstall_revision:
