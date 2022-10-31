@@ -79,9 +79,9 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 
 	//
 	if cfg.InboundInterceptionMode == constants.TPROXY {
-		DeleteRule(ext, cmd, constants.PREROUTING, constants.MANGLE,
+		DeleteRule(ext, cmd, constants.MANGLE, constants.PREROUTING,
 			"-p", constants.TCP, "-m", "mark", "--mark", cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
-		DeleteRule(ext, cmd, constants.OUTPUT, constants.MANGLE,
+		DeleteRule(ext, cmd, constants.MANGLE, constants.OUTPUT,
 			"-p", constants.TCP, "-m", "connmark", "--mark", cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
 	}
 
