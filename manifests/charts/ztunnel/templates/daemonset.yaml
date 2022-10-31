@@ -242,7 +242,7 @@ spec:
             - NET_ADMIN
         readinessProbe:
           httpGet:
-            port: 15022
+            port: 15021
             path: /healthz/ready
         args:
         - proxy
