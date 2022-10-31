@@ -231,7 +231,7 @@ spec:
 {{- if contains "/" .Values.ztunnel.image }}
         image: "{{ .Values.ztunnel.image }}"
 {{- else }}
-        image: "{{ .Values.ztunnel.hub | default .Values.global.hub }}/{{ .Values.ztunnel.image | default "ztunnel" }}:{{ .Values.ztunnel.tag | default .Values.global.tag }}{{with (.Values.ztunnel.variant | default .Values.global.variant)}}-{{.}}{{end}}"
+        image: "{{ .Values.ztunnel.hub | default .Values.global.hub }}/{{ .Values.ztunnel.image | default "proxyv2" }}:{{ .Values.ztunnel.tag | default .Values.global.tag }}{{with (.Values.ztunnel.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -242,8 +242,11 @@ spec:
             - NET_ADMIN
         readinessProbe:
           httpGet:
-            port: 15020 # TODO: use 15021, but it spams logs
+            port: 15022
             path: /healthz/ready
+        args:
+        - proxy
+        - sidecar
         env:
         - name: ISTIO_META_GENERATOR
           value: "ztunnel-envoy"
