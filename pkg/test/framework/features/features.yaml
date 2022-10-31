@@ -147,6 +147,8 @@ features:
       remote-load:
   # features releated to the lifecycle of istio installations
   installation:
+    operator:
+      uninstall_revision:
     istioctl:
       install:
       uninstall_revision:
