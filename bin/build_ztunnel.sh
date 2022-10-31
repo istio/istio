@@ -54,7 +54,7 @@ function set_download_command () {
 #   $2: The full path of the output binary.
 #   $3: Non-versioned name to use
 function download_ztunnel_if_necessary () {
-  if [[ -f "$2" ]] || [] ; then
+  if [[ -f "$2" ]]; then
     return
   fi
   # Enter the output directory.
