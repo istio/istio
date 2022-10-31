@@ -130,8 +130,7 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 	patchFilterChains(patchContext, patches, listener)
 }
 
-// patchListenerFilters patches passed in filter if it is MERGE operation.
-// The return value indicates whether the filter has been removed for REMOVE operations.
+// patchListenerFilters patches passed in listener filters with listener filter patches.
 func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches []*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener,

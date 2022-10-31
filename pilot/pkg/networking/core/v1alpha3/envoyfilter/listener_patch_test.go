@@ -944,6 +944,37 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value:     buildPatchStruct(`{"name":"after proxy_protocol"}`),
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     6381,
+						ListenerFilter: "filter-to-be-removed",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     6381,
+						ListenerFilter: "filter-before-replace",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value:     buildPatchStruct(`{"name":"filter-after-replace"}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -1069,6 +1100,14 @@ func TestApplyListenerPatches(t *testing.T) {
 				Filters: []*listener.Filter{
 					{Name: "default-network-filter"},
 					{Name: "default-network-filter-removed"},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: "filter-to-be-removed",
+				},
+				{
+					Name: "filter-before-replace",
 				},
 			},
 		},
@@ -1317,6 +1356,11 @@ func TestApplyListenerPatches(t *testing.T) {
 			DefaultFilterChain: &listener.FilterChain{
 				Filters: []*listener.Filter{
 					{Name: "default-network-filter-replaced"},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: "filter-after-replace",
 				},
 			},
 		},
