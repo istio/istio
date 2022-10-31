@@ -627,6 +627,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, cancel, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
 	format := resp.Header.Get("Content-Type")
