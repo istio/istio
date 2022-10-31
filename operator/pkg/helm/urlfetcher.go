@@ -16,6 +16,7 @@ package helm
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -86,7 +87,8 @@ func (f *URLFetcher) Fetch() error {
 	}
 	defer reader.Close()
 
-	return tgz.Extract(reader, f.destDirRoot)
+	// Limit reads to 10mb; charts should be orders of magnitude smaller.
+	return tgz.Extract(io.LimitReader(reader, 1024*1024*10), f.destDirRoot)
 }
 
 // DownloadTo downloads from remote srcURL to dest local file path
