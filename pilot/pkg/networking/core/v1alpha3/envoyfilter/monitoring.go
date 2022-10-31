@@ -30,10 +30,11 @@ const (
 type PatchType string
 
 const (
-	Cluster       PatchType = "cluster"
-	Listener      PatchType = "listener"
-	FilterChain   PatchType = "filterchain"
-	NetworkFilter PatchType = "networkfilter"
+	Cluster        PatchType = "cluster"
+	Listener       PatchType = "listener"
+	ListenerFilter PatchType = "listenerfilter"
+	FilterChain    PatchType = "filterchain"
+	NetworkFilter  PatchType = "networkfilter"
 	// nolint
 	HttpFilter  PatchType = "httpfilter"
 	Route       PatchType = "route"

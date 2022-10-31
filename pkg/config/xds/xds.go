@@ -61,6 +61,8 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 		obj = &core.TypedExtensionConfig{}
 	case networking.EnvoyFilter_BOOTSTRAP:
 		obj = &bootstrapv3.Bootstrap{}
+	case networking.EnvoyFilter_LISTENER_FILTER:
+		obj = &listener.ListenerFilter{}
 	default:
 		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: stylecheck
 	}
