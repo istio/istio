@@ -28,12 +28,15 @@ var (
 
 // ClusterLocalHosts is a map of host names or wildcard patterns which should only
 // be made accessible from within the same cluster.
-type ClusterLocalHosts map[host.Name]struct{}
+type ClusterLocalHosts struct {
+	specific map[host.Name]struct{}
+	wildcard map[host.Name]struct{}
+}
 
 // IsClusterLocal indicates whether the given host should be treated as a
 // cluster-local destination.
 func (c ClusterLocalHosts) IsClusterLocal(h host.Name) bool {
-	_, ok := MostSpecificHostMatch(h, c)
+	_, _, ok := MostSpecificHostMatch(h, c.specific, c.wildcard)
 	return ok
 }
 
@@ -93,11 +96,19 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	}
 
 	// Collect the cluster-local hosts.
-	hosts := make(ClusterLocalHosts, 0)
+	hosts := ClusterLocalHosts{
+		specific: make(map[host.Name]struct{}, 0),
+		wildcard: make(map[host.Name]struct{}, 0),
+	}
 	for _, serviceSettings := range e.Mesh().ServiceSettings {
 		if serviceSettings.GetSettings().GetClusterLocal() {
 			for _, h := range serviceSettings.GetHosts() {
-				hosts[host.Name(h)] = struct{}{}
+				hostname := host.Name(h)
+				if hostname.IsWildCarded() {
+					hosts.wildcard[hostname] = struct{}{}
+				} else {
+					hosts.specific[hostname] = struct{}{}
+				}
 			}
 		} else {
 			// Remove defaults if specified to be non-cluster-local.
@@ -119,7 +130,11 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	// Add any remaining defaults to the end of the list.
 	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
 		if len(defaultClusterLocalHost) > 0 {
-			hosts[defaultClusterLocalHost] = struct{}{}
+			if defaultClusterLocalHost.IsWildCarded() {
+				hosts.wildcard[defaultClusterLocalHost] = struct{}{}
+			} else {
+				hosts.specific[defaultClusterLocalHost] = struct{}{}
+			}
 		}
 	}
 

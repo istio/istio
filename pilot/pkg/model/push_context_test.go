@@ -1062,7 +1062,8 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
+			ClusterLocalHosts{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1882,8 +1883,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		{Namespace: "test", Name: "rule2"},
 	}
 	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
-	public := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)]
+	private := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
+	public := ps.destinationRuleIndex.exportedByNamespace["test"].specificDestRules[host.Name(testhost)]
 	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
 	subsetsExport := public[0].rule.Spec.(*networking.DestinationRule).Subsets
 	assert.Equal(t, private[0].from, expectedDestRules)
