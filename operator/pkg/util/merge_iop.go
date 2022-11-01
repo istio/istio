@@ -147,7 +147,6 @@ type meshConfig struct {
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting                     `json:"localityLbSetting" patchStrategy:"merge"`
 	DNSRefreshRate                 *durationpb.Duration                                      `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
-	ThriftConfig                   *meshConfigThriftConfig                                   `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
 	DefaultProviders               *meshConfigDefaultProviders                               `json:"defaultProviders" patchStrategy:"merge"`
 	ExtensionProviders             []*meshConfigExtensionProvider                            `json:"extensionProviders" patchStrategy:"merge" patchMergeKey:"name"`
@@ -182,10 +181,6 @@ type (
 	}
 )
 
-type meshConfigThriftConfig struct {
-	RateLimitTimeout *durationpb.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`
-}
-
 type proxyConfig struct {
 	DrainDuration                  *durationpb.Duration                    `json:"drainDuration" patchStrategy:"replace"`
 	ParentShutdownDuration         *durationpb.Duration                    `json:"parentShutdownDuration" patchStrategy:"replace"`
@@ -201,7 +196,6 @@ type proxyConfig struct {
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting   `json:"localityLbSetting" patchStrategy:"merge"`
 	DNSRefreshRate                 *durationpb.Duration                    `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                `json:"certificates" patchStrategy:"replace"`
-	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig      `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
 	Tracing                        *tracing                                `json:"tracing" patchStrategy:"replace"`
 	Sds                            *v1alpha13.SDS                          `json:"sds" patchStrategy:"replace"`
