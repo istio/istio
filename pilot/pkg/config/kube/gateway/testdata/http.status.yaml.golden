@@ -26,28 +26,28 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 5
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready

@@ -90,7 +90,7 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Deployed gateway to the cluster
-    reason: ResourcesAvailable
+    reason: Accepted
     status: "True"
-    type: Scheduled
+    type: Accepted
 ---

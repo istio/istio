@@ -8,29 +8,29 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resources not yet deployed to the cluster
+    reason: ResourcesPending
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: hostname "eastwestgateway.istio-system.svc.domain.suffix"
       not found'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
-    reason: ResourcesPending
-    status: "False"
-    type: Scheduled
   listeners:
   - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -49,14 +49,14 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -75,14 +75,14 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready

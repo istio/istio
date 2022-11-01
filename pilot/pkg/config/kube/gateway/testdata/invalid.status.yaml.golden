@@ -26,28 +26,28 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 5
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -73,29 +73,29 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -121,6 +121,11 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: port 8080 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
@@ -128,24 +133,19 @@ status:
     reason: AddressNotAssigned
     status: "False"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -171,29 +171,29 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: Only Hostname is supported,
       ignoring [1.2.3.4]'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -219,28 +219,28 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'Invalid listeners: [default]'
     reason: ListenersNotValid
     status: "False"
     type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
     - lastTransitionTime: fake
       message: invalid certificate reference core/unknown/my-cert-http., only secret
         is allowed

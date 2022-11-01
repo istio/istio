@@ -1315,15 +1315,15 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 			},
 		}
 		if IsManaged(kgw) {
-			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
+			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
 				error: &ConfigError{
 					Reason:  "ResourcesPending",
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
+				setOnce: string(k8s.GatewayReasonPending), // Default reason
 			}
 		} else {
-			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
+			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
 				reason:  "ResourcesAvailable",
 				message: "Resources available",
 			}
@@ -1557,8 +1557,8 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 			reason:  string(k8s.ListenerReasonReady),
 			message: "No errors found",
 		},
-		string(k8s.ListenerConditionDetached): {
-			reason:  string(k8s.ListenerReasonAttached),
+		string(k8s.ListenerConditionAccepted): {
+			reason:  string(k8s.ListenerReasonAccepted),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},

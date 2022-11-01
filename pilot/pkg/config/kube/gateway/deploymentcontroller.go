@@ -210,8 +210,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		},
 		Status: gateway.GatewayStatus{
 			Conditions: setConditions(gw.Generation, nil, map[string]*condition{
-				string(gateway.GatewayConditionScheduled): {
-					reason:  "ResourcesAvailable",
+				string(gateway.GatewayConditionAccepted): {
+					reason:  string(gateway.GatewayReasonAccepted),
 					message: "Deployed gateway to the cluster",
 				},
 			}),

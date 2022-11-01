@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/jsonpb"
-	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
+	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/encoding/prototext"
