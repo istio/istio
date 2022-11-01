@@ -250,10 +250,7 @@ func getDNSDomain(podNamespace, domain string) string {
 }
 
 func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(loggingOptions); err != nil {
-		return err
-	}
-	return nil
+	return log.Configure(loggingOptions)
 }
 
 func initProxy(args []string) (*model.Proxy, error) {
