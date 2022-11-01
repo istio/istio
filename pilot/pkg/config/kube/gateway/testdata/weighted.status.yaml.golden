@@ -27,7 +27,7 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Resources available
-    reason: ResourcesAvailable
+    reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
@@ -36,19 +36,29 @@ status:
     reason: ListenersValid
     status: "True"
     type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
   listeners:
   - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: Accepted
-      status: "False"
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Attached
+      status: "False"
+      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -68,13 +78,18 @@ status:
     - lastTransitionTime: fake
       message: No errors found
       reason: Accepted
-      status: "False"
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Attached
+      status: "False"
+      type: Detached
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready

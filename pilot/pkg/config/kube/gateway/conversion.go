@@ -1317,13 +1317,26 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 		if IsManaged(kgw) {
 			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
 				error: &ConfigError{
-					Reason:  "ResourcesPending",
+					Reason:  string(k8s.GatewayReasonAccepted),
 					Message: "Resources not yet deployed to the cluster",
 				},
 				setOnce: string(k8s.GatewayReasonPending), // Default reason
 			}
+			// nolint: staticcheck // Deprecated condition, set both until 1.17
+			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
+				error: &ConfigError{
+					Reason:  "ResourcesPending",
+					Message: "Resources not yet deployed to the cluster",
+				},
+				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
+			}
 		} else {
 			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
+				reason:  string(k8s.GatewayReasonAccepted),
+				message: "Resources available",
+			}
+			// nolint: staticcheck // Deprecated condition, set both until 1.17
+			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
 				reason:  "ResourcesAvailable",
 				message: "Resources available",
 			}
@@ -1559,6 +1572,11 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 		},
 		string(k8s.ListenerConditionAccepted): {
 			reason:  string(k8s.ListenerReasonAccepted),
+			message: "No errors found",
+		},
+		// nolint: staticcheck // Deprecated condition, set both until 1.17
+		string(k8s.ListenerConditionDetached): {
+			reason:  string(k8s.ListenerReasonAttached),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},
