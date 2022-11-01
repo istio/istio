@@ -127,6 +127,7 @@ func TestController(t *testing.T) {
 			removeCmd := []string{
 				"operator", "remove",
 				"--skip-confirmation",
+				"--purge",
 			}
 			istioCtl.InvokeOrFail(t, removeCmd)
 
