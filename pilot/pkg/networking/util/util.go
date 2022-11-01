@@ -61,6 +61,9 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
+	// OutboundTunnel is HBONE's outbound cluster.
+	OutboundTunnel = "outbound-tunnel"
+
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
