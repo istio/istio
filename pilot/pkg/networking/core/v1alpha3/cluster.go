@@ -184,7 +184,6 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 		if proxy.EnableHBONE() {
-			clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
 			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, instances)...)
 		}
 	default: // Gateways
@@ -198,6 +197,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
+	}
+
+	// OutboundTunnel cluster is needed for sidecar and gateway.
+	if proxy.EnableHBONE() {
+		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
 	}
 
 	// if credential socket exists, create a cluster for it
