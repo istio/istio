@@ -10,6 +10,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.1
+	cloud.google.com/go/monitoring v1.7.0
 	cloud.google.com/go/security v1.9.0
 	cloud.google.com/go/trace v1.3.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
@@ -107,7 +108,6 @@ require (
 require (
 	cloud.google.com/go/compute v1.12.1 // indirect
 	cloud.google.com/go/longrunning v0.1.1 // indirect
-	cloud.google.com/go/monitoring v1.7.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.4.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
