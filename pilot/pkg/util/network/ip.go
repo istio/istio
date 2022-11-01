@@ -77,20 +77,18 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 		addrs, _ := iface.Addrs()
 
 		for _, addr := range addrs {
-			var ipAddr netip.Addr
-			addrType := addr.Network()
-			if addrType == "ip+net" {
-				ipNet, iErr := netip.ParsePrefix(addr.String())
-				if iErr != nil {
-					continue
-				}
-				ipAddr = ipNet.Addr()
-			} else if addrType == "ip" {
-				ip, aErr := netip.ParseAddr(addr.String())
-				if aErr != nil {
-					continue
-				}
-				ipAddr = ip
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			default:
+				continue
+			}
+			ipAddr, okay := netip.AddrFromSlice(ip)
+			if !okay {
+				continue
 			}
 			// unwrap the IPv4-mapped IPv6 address
 			unwrapAddr := ipAddr.Unmap()
