@@ -240,10 +240,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 	}
 	err := istiogrpc.Send(conn.deltaStream.Context(), sendHandler)
 	if err == nil {
-		sz := 0
-		for _, rc := range res.Resources {
-			sz += len(rc.Resource.Value)
-		}
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {

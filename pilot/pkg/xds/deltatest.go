@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var knownOptimizationGaps = sets.New[string](
+var knownOptimizationGaps = sets.New(
 	"BlackHoleCluster",
 	"InboundPassthroughClusterIpv4",
 	"InboundPassthroughClusterIpv6",
