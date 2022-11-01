@@ -216,7 +216,20 @@ func passthroughCluster(push *model.PushContext) *discovery.Resource {
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       push.Mesh.ConnectTimeout,
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				"istio": {
+					Fields: map[string]*structpb.Value{
+						"upstream_type": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: "passthrough",
+							},
+						},
+					},
+				},
+			},
+		},
+		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		// TODO protocol options are copy-paste from v1alpha3 package
 		TypedExtensionProtocolOptions: map[string]*any.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
@@ -242,7 +255,20 @@ func tcpPassthroughCluster(push *model.PushContext) *discovery.Resource {
 		Name:                 util.PassthroughCluster + "-tcp",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       push.Mesh.ConnectTimeout,
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				"istio": {
+					Fields: map[string]*structpb.Value{
+						"upstream_type": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: "passthrough-tcp",
+							},
+						},
+					},
+				},
+			},
+		},
+		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 	}
 	return &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)}
 }
@@ -589,7 +615,19 @@ func (g *ZTunnelConfigGenerator) serviceOutboundCluster(
 	c := &cluster.Cluster{
 		Name:                 outboundServiceClusterName(sa, port, svc.Hostname.String()),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
-
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				"istio": {
+					Fields: map[string]*structpb.Value{
+						"upstream_type": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: "no waypoint",
+							},
+						},
+					},
+				},
+			},
+		},
 		TransportSocketMatches: v1alpha3.InternalUpstreamSocketMatch,
 	}
 	switch discoveryType {
@@ -679,6 +717,19 @@ func buildWaypointClusters(proxy *model.Proxy, push *model.PushContext) model.Re
 					CommonTlsContext: buildCommonTLSContext(proxy, sa, push, false),
 				})},
 			},
+			Metadata: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"istio": {
+						Fields: map[string]*structpb.Value{
+							"upstream_type": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "client waypoint proxy",
+								},
+							},
+						},
+					},
+				},
+			},
 			EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 				EdsConfig: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
@@ -707,6 +758,19 @@ func buildWaypointClusters(proxy *model.Proxy, push *model.PushContext) model.Re
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 						CommonTlsContext: buildCommonTLSContext(proxy, workloadSA, push, false),
 					})},
+				},
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						"istio": {
+							Fields: map[string]*structpb.Value{
+								"upstream_type": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "server waypoint proxy",
+									},
+								},
+							},
+						},
+					},
 				},
 				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 					EdsConfig: &core.ConfigSource{
@@ -958,6 +1022,19 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa strin
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{},
 		},
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				"istio": {
+					Fields: map[string]*structpb.Value{
+						"upstream_type": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: "outbound tunnel",
+							},
+						},
+					},
+				},
+			},
+		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
@@ -979,6 +1056,19 @@ func outboundPodTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa st
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundCapturePort),
+			},
+		},
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				"istio": {
+					Fields: map[string]*structpb.Value{
+						"upstream_type": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: "outbound tunnel",
+							},
+						},
+					},
+				},
 			},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -1003,6 +1093,19 @@ func outboundPodLocalTunnelCluster(proxy *model.Proxy, push *model.PushContext, 
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UseHttpHeader:        true,
 				UpstreamPortOverride: wrappers.UInt32(ZTunnelInboundNodeLocalCapturePort),
+			},
+		},
+		Metadata: &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{
+				"istio": {
+					Fields: map[string]*structpb.Value{
+						"upstream_type": {
+							Kind: &structpb.Value_StringValue{
+								StringValue: "outbound local",
+							},
+						},
+					},
+				},
 			},
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
@@ -1101,7 +1204,7 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 				StatPrefix: "inbound_hcm",
 				RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
 					RouteConfig: &route.RouteConfiguration{
-						Name: "local_route",
+						Name: "inbound_hcm",
 						VirtualHosts: []*route.VirtualHost{{
 							Name:    "local_service",
 							Domains: []string{"*"},

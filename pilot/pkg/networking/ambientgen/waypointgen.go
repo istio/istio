@@ -173,7 +173,7 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 							AccessLog:  accessLogBuilder.HTTPAccessLog(push, proxy, listenerClass),
 							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
 								RouteConfig: &route.RouteConfiguration{
-									Name:             "local_route",
+									Name:             "waypoint_hcm",
 									VirtualHosts:     []*route.VirtualHost{vhost},
 									ValidateClusters: proto.BoolFalse,
 								},
