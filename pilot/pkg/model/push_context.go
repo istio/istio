@@ -1244,16 +1244,19 @@ func (ps *PushContext) updateContext(
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
-	var changedSidecars []ConfigKey
+	var changedSidecars, changedServices, changedDestinationRules, changedVirtualServices []ConfigKey
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case kind.ServiceEntry:
 			servicesChanged = true
+			changedServices = append(changedServices, conf)
 		case kind.DestinationRule:
 			destinationRulesChanged = true
+			changedDestinationRules = append(changedDestinationRules, conf)
 		case kind.VirtualService:
 			virtualServicesChanged = true
+			changedVirtualServices = append(changedVirtualServices, conf)
 		case kind.Gateway:
 			gatewayChanged = true
 		case kind.Sidecar:
@@ -1273,6 +1276,7 @@ func (ps *PushContext) updateContext(
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
+			changedVirtualServices = append(changedVirtualServices, conf)
 		case kind.Telemetry:
 			telemetryChanged = true
 		case kind.ProxyConfig:
@@ -1372,8 +1376,8 @@ func (ps *PushContext) updateContext(
 	}
 
 	// if only sidecars have changed, we can only update the changed sidecars
-	if sidecarsChanged && !servicesChanged && !virtualServicesChanged && !destinationRulesChanged {
-		if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars); err != nil {
+	if sidecarsChanged || servicesChanged || virtualServicesChanged || destinationRulesChanged {
+		if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars, changedServices); err != nil {
 			return err
 		}
 		return nil
@@ -1382,8 +1386,15 @@ func (ps *PushContext) updateContext(
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
 	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
-		if err := ps.initSidecarScopes(env); err != nil {
-			return err
+		if !gatewayAPIChanged {
+			if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars,
+				changedServices, changedDestinationRules, changedVirtualServices); err != nil {
+				return err
+			}
+		} else {
+			if err := ps.initSidecarScopes(env); err != nil {
+				return err
+			}
 		}
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
@@ -1715,7 +1726,9 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 // updateSidecarScopes processes sidecar updates from a previous index, only
 // creating, updating, or deleting sidecar that have changed.
 // When a sidecar is consider as changed it is fully rebuilt.
-func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarIndex, changedSidecars []ConfigKey) error {
+func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarIndex, changedSidecars []ConfigKey,
+	changedServices []ConfigKey, changedDestinationRules []ConfigKey, changedVirtualServices []ConfigKey) error {
+
 	rootNSConfig := oldIndex.meshRootSidecarConfig
 	var newRootNSConfig *config.Config
 
@@ -1724,10 +1737,26 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 
 	// we use the same mutex since the indexes are the same
 	ps.sidecarIndex.indexMutex = oldIndex.indexMutex
+
+	sidecarsToUpdate := make(map[ConfigKey]struct{})
+
+	for _, changedSidecar := range changedSidecars {
+		sidecarsToUpdate[changedSidecar] = struct{}{}
+	}
+
+	// find sidecars affected by the changed resources, and mark them for update.
+	// TODO: this is linear to the amount of sidecars in the mesh times the amount of changed resources, this is not ideal
+	// but it should be better than rebuilding everything and is the best we can do with the current data structures,
+	// we should probably analyze adding a global index of resources to sidecars using them, but could prove very memory
+	// intensive.
+	for sidecar, _ := range sidecarsUsingResources(oldIndex, changedServices, changedDestinationRules, changedVirtualServices) {
+		sidecarsToUpdate[sidecar] = struct{}{}
+	}
+
 	ps.sidecarIndex.sidecarsByNamespaceWithSelector = oldIndex.sidecarsByNamespaceWithSelector
 	ps.sidecarIndex.sidecarsByNamespaceWithoutSelector = oldIndex.sidecarsByNamespaceWithoutSelector
 
-	for _, changedSidecar := range changedSidecars {
+	for changedSidecar := range sidecarsToUpdate {
 		sidecarConfig := env.Get(gvk.Sidecar, changedSidecar.Name, changedSidecar.Namespace)
 		if sidecarConfig == nil {
 			// sidecar config is deleted remove it from the indexes
@@ -1751,6 +1780,8 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 			continue
 		}
 
+		// rebuild sidecar scope for this sidecar config.
+		// TODO: we could do better than this and only add/remove/update the actually changed resources.
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			m, f := ps.sidecarIndex.sidecarsByNamespaceWithSelector[changedSidecar.Namespace]
@@ -1779,10 +1810,61 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 		ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
 	}
 	// clear derived sidecars cache to allow newly created sidecar configs to be used
+	// TODO: we could probably be more intelligent about this, and only clear the derived
+	// sidecars that are affected by the changed sidecars or resources, but i'm not sure
+	// it's worth the trouble.
 	ps.sidecarIndex.meshRootSidecarsByNamespace = make(map[string]*SidecarScope)
 	ps.sidecarIndex.defaultSidecarsByNamespace = make(map[string]*SidecarScope)
 
 	return nil
+}
+
+// sidecarsUsingResources returns a set of sidecars that are affected by the given resources
+func sidecarsUsingResources(sidecarIndex sidecarIndex, services []ConfigKey, destinationRules []ConfigKey, virtualServices []ConfigKey) map[ConfigKey]struct{} {
+	sidecars := make(map[ConfigKey]struct{}, 0)
+
+	if len(services) > 0 || len(destinationRules) > 0 || len(virtualServices) > 0 {
+		return sidecars
+	}
+
+	// we iterate over all sidecars in the mesh, and check if they are affected by the changed resources,
+	// this assumes that there are normally more sidecars than changed resources.
+	for _, sidecarMap := range sidecarIndex.sidecarsByNamespaceWithSelector {
+		for _, sidecar := range sidecarMap {
+			if sidecarUsingAnyResource(sidecar, services, destinationRules, virtualServices) {
+				sidecars[ConfigKey{Name: sidecar.Name, Namespace: sidecar.Namespace, Kind: kind.Sidecar}] = struct{}{}
+			}
+		}
+	}
+	for _, sidecarMap := range sidecarIndex.sidecarsByNamespaceWithoutSelector {
+		for _, sidecar := range sidecarMap {
+			if sidecarUsingAnyResource(sidecar, services, destinationRules, virtualServices) {
+				sidecars[ConfigKey{Name: sidecar.Name, Namespace: sidecar.Namespace, Kind: kind.Sidecar}] = struct{}{}
+			}
+		}
+	}
+
+	return sidecars
+}
+
+// sidecarUsingAnyResource returns true if the sidecar is using any of the given resources
+func sidecarUsingAnyResource(sidecar *SidecarScope, services []ConfigKey, destinationRules []ConfigKey, virtualServices []ConfigKey) bool {
+	for _, service := range services {
+		if sidecar.DependsOnConfig(service) {
+			return true
+		}
+	}
+	for _, dr := range destinationRules {
+		if sidecar.DependsOnConfig(dr) {
+			return true
+		}
+	}
+	for _, vs := range virtualServices {
+		if sidecar.DependsOnConfig(vs) {
+			return true
+		}
+	}
+	return false
 }
 
 // Split out of DestinationRule expensive conversions - once per push.

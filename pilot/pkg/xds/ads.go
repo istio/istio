@@ -695,7 +695,10 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			}
 		}
 	}
+
 	// compute the sidecarscope for both proxy type whenever it changes.
+	// TODO: we should find a way of knowing if the sidecar scope has changed
+	// instead of recomputing this for every proxy on every push.
 	if sidecar {
 		proxy.SetSidecarScope(push)
 	}
