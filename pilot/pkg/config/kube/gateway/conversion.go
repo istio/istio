@@ -47,13 +47,12 @@ const (
 
 // KubernetesResources stores all inputs to our conversion
 type KubernetesResources struct {
-	GatewayClass    []config.Config
-	Gateway         []config.Config
-	HTTPRoute       []config.Config
-	TCPRoute        []config.Config
-	TLSRoute        []config.Config
-	ReferencePolicy []config.Config
-	ReferenceGrant  []config.Config
+	GatewayClass   []config.Config
+	Gateway        []config.Config
+	HTTPRoute      []config.Config
+	TCPRoute       []config.Config
+	TLSRoute       []config.Config
+	ReferenceGrant []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace
 
@@ -169,12 +168,8 @@ func convertReferencePolicies(r KubernetesResources) AllowedReferences {
 		Namespace string
 		Grant     *k8s.ReferenceGrantSpec
 	}
-	specs := make([]namespacedGrant, 0, len(r.ReferenceGrant)+len(r.ReferencePolicy))
+	specs := make([]namespacedGrant, 0, len(r.ReferenceGrant))
 
-	for _, obj := range r.ReferencePolicy {
-		rp := obj.Spec.(*k8s.ReferenceGrantSpec)
-		specs = append(specs, namespacedGrant{Namespace: obj.Namespace, Grant: rp})
-	}
 	for _, obj := range r.ReferenceGrant {
 		rp := obj.Spec.(*k8s.ReferenceGrantSpec)
 		specs = append(specs, namespacedGrant{Namespace: obj.Namespace, Grant: rp})
@@ -312,7 +307,23 @@ func buildHTTPVirtualServices(
 		for _, filter := range r.Filters {
 			switch filter.Type {
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
-				vs.Headers = createHeadersFilter(filter.RequestHeaderModifier)
+				h := createHeadersFilter(filter.RequestHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if vs.Headers == nil {
+					vs.Headers = &istio.Headers{}
+				}
+				vs.Headers.Request = h
+			case k8sbeta.HTTPRouteFilterResponseHeaderModifier:
+				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if vs.Headers == nil {
+					vs.Headers = &istio.Headers{}
+				}
+				vs.Headers.Response = h
 			case k8s.HTTPRouteFilterRequestRedirect:
 				vs.Redirect = createRedirectFilter(filter.RequestRedirect)
 			case k8s.HTTPRouteFilterRequestMirror:
@@ -868,7 +879,23 @@ func buildHTTPDestination(
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
-				rd.Headers = createHeadersFilter(filter.RequestHeaderModifier)
+				h := createHeadersFilter(filter.RequestHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if rd.Headers == nil {
+					rd.Headers = &istio.Headers{}
+				}
+				rd.Headers.Request = h
+			case k8sbeta.HTTPRouteFilterResponseHeaderModifier:
+				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if rd.Headers == nil {
+					rd.Headers = &istio.Headers{}
+				}
+				rd.Headers.Response = h
 			default:
 				return nil, &ConfigError{Reason: InvalidFilter, Message: fmt.Sprintf("unsupported filter type %q", filter.Type)}
 			}
@@ -1042,16 +1069,14 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	return resp
 }
 
-func createHeadersFilter(filter *k8s.HTTPRequestHeaderFilter) *istio.Headers {
+func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers_HeaderOperations {
 	if filter == nil {
 		return nil
 	}
-	return &istio.Headers{
-		Request: &istio.Headers_HeaderOperations{
-			Add:    headerListToMap(filter.Add),
-			Remove: filter.Remove,
-			Set:    headerListToMap(filter.Set),
-		},
+	return &istio.Headers_HeaderOperations{
+		Add:    headerListToMap(filter.Add),
+		Remove: filter.Remove,
+		Set:    headerListToMap(filter.Set),
 	}
 }
 
@@ -1290,6 +1315,14 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 			},
 		}
 		if IsManaged(kgw) {
+			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
+				error: &ConfigError{
+					Reason:  string(k8s.GatewayReasonAccepted),
+					Message: "Resources not yet deployed to the cluster",
+				},
+				setOnce: string(k8s.GatewayReasonPending), // Default reason
+			}
+			// nolint: staticcheck // Deprecated condition, set both until 1.17
 			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
 				error: &ConfigError{
 					Reason:  "ResourcesPending",
@@ -1298,6 +1331,11 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
 			}
 		} else {
+			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
+				reason:  string(k8s.GatewayReasonAccepted),
+				message: "Resources available",
+			}
+			// nolint: staticcheck // Deprecated condition, set both until 1.17
 			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
 				reason:  "ResourcesAvailable",
 				message: "Resources available",
@@ -1532,6 +1570,11 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 			reason:  string(k8s.ListenerReasonReady),
 			message: "No errors found",
 		},
+		string(k8s.ListenerConditionAccepted): {
+			reason:  string(k8s.ListenerReasonAccepted),
+			message: "No errors found",
+		},
+		// nolint: staticcheck // Deprecated condition, set both until 1.17
 		string(k8s.ListenerConditionDetached): {
 			reason:  string(k8s.ListenerReasonAttached),
 			message: "No errors found",
@@ -1775,11 +1818,6 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 func (kr KubernetesResources) FuzzValidate() bool {
 	for _, gwc := range kr.GatewayClass {
 		if gwc.Spec == nil {
-			return false
-		}
-	}
-	for _, rp := range kr.ReferencePolicy {
-		if rp.Spec == nil {
 			return false
 		}
 	}
