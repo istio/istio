@@ -90,14 +90,16 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 			if !okay {
 				continue
 			}
-			if !ipAddr.IsValid() || ipAddr.IsLoopback() || ipAddr.IsLinkLocalUnicast() || ipAddr.IsLinkLocalMulticast() {
+			// unwrap the IPv4-mapped IPv6 address
+			unwrapAddr := ipAddr.Unmap()
+			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalUnicast() || unwrapAddr.IsLinkLocalMulticast() {
 				continue
 			}
-			if ipAddr.IsUnspecified() {
+			if unwrapAddr.IsUnspecified() {
 				ok = false
 				continue
 			}
-			ipAddresses = append(ipAddresses, ipAddr.String())
+			ipAddresses = append(ipAddresses, unwrapAddr.String())
 		}
 	}
 	return ipAddresses, ok

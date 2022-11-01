@@ -352,8 +352,10 @@ func getPrivateIPIfAvailable() netip.Addr {
 		if !ok {
 			continue
 		}
-		if !ipAddr.IsLoopback() {
-			return ipAddr
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := ipAddr.Unmap()
+		if !unwrapAddr.IsLoopback() {
+			return unwrapAddr
 		}
 	}
 	return netip.IPv4Unspecified()
