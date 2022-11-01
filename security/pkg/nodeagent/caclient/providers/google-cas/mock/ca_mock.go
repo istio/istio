@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
+	privatecapb "cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,10 +42,6 @@ func ContextDialerCreate(listener *bufconn.Listener) ContextDialer {
 		return listener.Dial()
 	}
 	return bufDialer
-}
-
-func BufDialer(ctx context.Context, address string) (net.Conn, error) {
-	return lis.Dial()
 }
 
 type certificate struct {

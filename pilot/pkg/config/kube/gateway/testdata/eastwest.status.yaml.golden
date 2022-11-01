@@ -8,6 +8,11 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resources not yet deployed to the cluster
+    reason: Accepted
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: hostname "eastwestgateway.istio-system.svc.domain.suffix"
       not found'
     reason: AddressNotAssigned
@@ -21,6 +26,11 @@ status:
   listeners:
   - attachedRoutes: 1
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
@@ -49,6 +59,11 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
@@ -73,6 +88,11 @@ status:
       kind: TLSRoute
   - attachedRoutes: 0
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
