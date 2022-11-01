@@ -279,13 +279,21 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 // MostSpecificHostMatch compares the maps of specific and wildcard hosts to the needle, and returns the longest element
 // matching the needle and it's value, or false if no element in the maps matches the needle.
 func MostSpecificHostMatch[V any](needle host.Name, specific map[host.Name]V, wildcard map[host.Name]V) (host.Name, V, bool) {
+	var matchValue V
+
 	if needle.IsWildCarded() {
 		// exact match first
 		if v, ok := wildcard[needle]; ok {
 			return needle, v, true
 		}
 
-		return mostSpecificHostWildcardMatch(string(needle[1:]), wildcard)
+		// needle is global wildcard "*", there is no further matching we can make
+		// we also need to ensure it's size is at least 2 for the next operation
+		if len(needle) == 1 {
+			return "", matchValue, false
+		}
+
+		return mostSpecificHostWildcardMatch(string(needle[2:]), wildcard)
 	}
 
 	// exact match first
@@ -293,29 +301,39 @@ func MostSpecificHostMatch[V any](needle host.Name, specific map[host.Name]V, wi
 		return needle, v, true
 	}
 
-	// check wildcard
 	return mostSpecificHostWildcardMatch(string(needle), wildcard)
 }
 
 func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]V) (host.Name, V, bool) {
-	found := false
-	var matchHost host.Name
 	var matchValue V
 
-	for h, v := range wildcard {
-		if strings.HasSuffix(needle, string(h[1:])) {
-			if !found {
-				matchHost = h
-				matchValue = wildcard[h]
-				found = true
-			} else if host.MoreSpecific(h, matchHost) {
-				matchHost = h
-				matchValue = v
-			}
+	// no use in doing any searches if the map is empty
+	if len(wildcard) == 0 {
+		return "", matchValue, false
+	}
+
+	// attempt to find all possible wildcard matches for hostname
+	for {
+		i := strings.Index(needle, ".")
+		if i == -1 {
+			break
+		}
+		needle = needle[i+1:]
+
+		// atempt to find wildcard match for this part
+		wild := host.Name("*." + needle)
+		if v, ok := wildcard[wild]; ok {
+			return wild, v, true
 		}
 	}
 
-	return matchHost, matchValue, found
+	// attempt to find global wildcard match
+	wild := host.Name("*")
+	if v, ok := wildcard[wild]; ok {
+		return wild, v, true
+	}
+
+	return "", matchValue, false
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
