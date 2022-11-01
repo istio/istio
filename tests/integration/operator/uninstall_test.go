@@ -216,7 +216,7 @@ spec:
 	}
 }
 
-func checkIopExist(cs istiokube.CLIClient, iopName string) (bool, error) {
+func checkIopExist(cs istiokube.ExtendedClient, iopName string) (bool, error) {
 	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
@@ -234,7 +234,7 @@ func checkIopExist(cs istiokube.CLIClient, iopName string) (bool, error) {
 	return false, err
 }
 
-func deleteIop(cs istiokube.CLIClient, iopName string) error {
+func deleteIop(cs istiokube.ExtendedClient, iopName string) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
 	gvr := schema.GroupVersionResource{
 		Group:    "install.istio.io",
