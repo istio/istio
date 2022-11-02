@@ -159,6 +159,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: b
+  namespace: default
 spec:
   parentRefs:
   - kind: Service
