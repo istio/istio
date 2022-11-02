@@ -31,8 +31,6 @@ import (
 )
 
 const (
-	// Name of the webhook config in the config - no need to change it.
-	webhookName = "sidecar-injector.istio.io"
 	// defaultInjectorConfigMapName is the default name of the ConfigMap with the injection config
 	// The actual name can be different - use getInjectorConfigMapName
 	defaultInjectorConfigMapName = "istio-sidecar-injector"
@@ -93,7 +91,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
 			// update webhook configuration by watching the cabundle
-			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, s.istiodCertBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision,
+				getInjectionWebhookName(args.Revision, args.Namespace), s.istiodCertBundleWatcher)
 			if err != nil {
 				log.Errorf("failed to create webhook cert patcher: %v", err)
 				return nil
@@ -108,6 +107,17 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		return nil
 	})
 	return wh, nil
+}
+
+func getInjectionWebhookName(revision string, namespace string) string {
+	name := features.InjectionWebhookConfigName
+	if revision != "default" {
+		name += "-" + revision
+	}
+	if namespace != "istio-system" {
+		name += "-" + namespace
+	}
+	return name
 }
 
 func getInjectorConfigMapName(revision string) string {
