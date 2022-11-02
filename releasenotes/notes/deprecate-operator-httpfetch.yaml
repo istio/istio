@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
 - |
-  **Added** deprecation announcement of fetching charts from arbitrary URLs in `istio-operator`.
+  **Deprecated** fetching charts from arbitrary URLs in `istio-operator`.
