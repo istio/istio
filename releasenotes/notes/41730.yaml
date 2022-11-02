@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+
+releaseNotes:
+- |
+  **Added** support for custom histogram bucket.
