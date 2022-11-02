@@ -24,6 +24,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -317,7 +318,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
-	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", allowWasmHTTPFilter),
+	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{}),
 	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{

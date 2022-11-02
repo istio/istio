@@ -128,7 +128,7 @@ func (d *deployment) Restart() error {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
-	curTimesatmp := time.Now().Format("RFC3339")
+	curTimestamp := time.Now().Format("RFC3339")
 	for _, deploymentName := range deploymentNames {
 		patchOpts := metav1.PatchOptions{}
 		patchData := fmt.Sprintf(`{
@@ -141,7 +141,7 @@ func (d *deployment) Restart() error {
 					}
 				}
 			}
-		}`, curTimesatmp) // e.g., “2006-01-02T15:04:05Z07:00”
+		}`, curTimestamp) // e.g., “2006-01-02T15:04:05Z07:00”
 		var err error
 		appsv1 := d.cfg.Cluster.Kube().AppsV1()
 
@@ -153,7 +153,7 @@ func (d *deployment) Restart() error {
 				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		}
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimesatmp))
+			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp))
 			continue
 		}
 

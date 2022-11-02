@@ -33,8 +33,7 @@ import (
 )
 
 var (
-	allowWasmHTTPFilter = &rbac.RBAC{}
-	allowTypedConfig    = protoconv.MessageToAny(allowWasmHTTPFilter)
+	allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
 )
 
 func createAllowAllFilter(name string) (*anypb.Any, error) {
