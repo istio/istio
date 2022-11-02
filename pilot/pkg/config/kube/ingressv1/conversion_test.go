@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -140,7 +140,7 @@ func TestConversion(t *testing.T) {
 	exact := knetworking.PathTypeExact
 
 	ingress := knetworking.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
 		},
 		Spec: knetworking.IngressSpec{
@@ -213,7 +213,7 @@ func TestConversion(t *testing.T) {
 		},
 	}
 	ingress2 := knetworking.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
 		Spec: knetworking.IngressSpec{
@@ -340,7 +340,7 @@ func TestEncoding(t *testing.T) {
 func TestIngressClass(t *testing.T) {
 	istio := mesh.DefaultMeshConfig().IngressClass
 	ingressClassIstio := &knetworking.IngressClass{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "istio",
 		},
 		Spec: knetworking.IngressClassSpec{
@@ -348,7 +348,7 @@ func TestIngressClass(t *testing.T) {
 		},
 	}
 	ingressClassOther := &knetworking.IngressClass{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo",
 		},
 		Spec: knetworking.IngressClassSpec{
@@ -393,7 +393,7 @@ func TestIngressClass(t *testing.T) {
 		}
 		t.Run(fmt.Sprintf("%d %s %s %s", i, c.ingressMode, c.annotation, className), func(t *testing.T) {
 			ing := knetworking.Ingress{
-				ObjectMeta: metaV1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
 					Annotations: make(map[string]string),
@@ -428,7 +428,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	defer cancel()
 
 	ingress := knetworking.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
 		Spec: knetworking.IngressSpec{
@@ -454,13 +454,13 @@ func TestNamedPortIngressConversion(t *testing.T) {
 			},
 		},
 	}
-	service := &coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "mock",
 		},
-		Spec: coreV1.ServiceSpec{
-			Ports: []coreV1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "test-svc-port",
 					Protocol: "TCP",
