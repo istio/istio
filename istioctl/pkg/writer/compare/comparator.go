@@ -20,7 +20,7 @@ import (
 	"io"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -61,7 +61,7 @@ func NewComparator(w io.Writer, istiodResponses map[string][]byte, envoyResponse
 }
 
 // NewXdsComparator is a comparator constructor
-func NewXdsComparator(w io.Writer, istiodResponses map[string]*xdsapi.DiscoveryResponse, envoyResponse []byte) (*Comparator, error) {
+func NewXdsComparator(w io.Writer, istiodResponses map[string]*discovery.DiscoveryResponse, envoyResponse []byte) (*Comparator, error) {
 	c := &Comparator{}
 	for _, resp := range istiodResponses {
 		if len(resp.Resources) > 0 {

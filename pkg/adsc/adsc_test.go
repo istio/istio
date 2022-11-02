@@ -27,7 +27,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -45,13 +45,13 @@ import (
 
 type testAdscRunServer struct{}
 
-var StreamHandler func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+var StreamHandler func(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 
-func (t *testAdscRunServer) StreamAggregatedResources(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (t *testAdscRunServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	return StreamHandler(stream)
 }
 
-func (t *testAdscRunServer) DeltaAggregatedResources(xdsapi.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (t *testAdscRunServer) DeltaAggregatedResources(discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	return nil
 }
 
@@ -59,7 +59,7 @@ func TestADSC_Run(t *testing.T) {
 	type testCase struct {
 		desc                 string
 		inAdsc               *ADSC
-		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+		streamHandler        func(server discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 		expectedADSResources *ADSC
 		validator            func(testCase) error
 	}
@@ -67,7 +67,7 @@ func TestADSC_Run(t *testing.T) {
 
 	type testDesc struct {
 		desc             string
-		initialRequests  []*xdsapi.DiscoveryRequest
+		initialRequests  []*discovery.DiscoveryRequest
 		excludedResource string
 		validator        func(testCase) error
 	}
@@ -75,11 +75,11 @@ func TestADSC_Run(t *testing.T) {
 	descs := []testDesc{
 		{
 			desc:            "stream-no-resources",
-			initialRequests: []*xdsapi.DiscoveryRequest{},
+			initialRequests: []*discovery.DiscoveryRequest{},
 		},
 		{
 			desc: "stream-2-unnamed-resources",
-			initialRequests: []*xdsapi.DiscoveryRequest{
+			initialRequests: []*discovery.DiscoveryRequest{
 				{
 					TypeUrl: "foo",
 				},
@@ -115,12 +115,12 @@ func TestADSC_Run(t *testing.T) {
 
 	for _, item := range descs {
 		desc := item // avoid refer to on-stack-var
-		expected := map[string]*xdsapi.DiscoveryResponse{}
+		expected := map[string]*discovery.DiscoveryResponse{}
 		for _, request := range desc.initialRequests {
 			if desc.excludedResource != "" && request.TypeUrl == desc.excludedResource {
 				continue
 			}
-			expected[request.TypeUrl] = &xdsapi.DiscoveryResponse{
+			expected[request.TypeUrl] = &discovery.DiscoveryResponse{
 				TypeUrl: request.TypeUrl,
 			}
 		}
@@ -128,9 +128,9 @@ func TestADSC_Run(t *testing.T) {
 		tc := testCase{
 			desc: desc.desc,
 			inAdsc: &ADSC{
-				Received:   make(map[string]*xdsapi.DiscoveryResponse),
+				Received:   make(map[string]*discovery.DiscoveryResponse),
 				Updates:    make(chan string),
-				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
+				XDSUpdates: make(chan *discovery.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					InitialDiscoveryRequests: desc.initialRequests,
@@ -138,9 +138,9 @@ func TestADSC_Run(t *testing.T) {
 				VersionInfo: map[string]string{},
 				sync:        map[string]time.Time{},
 			},
-			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+			streamHandler: func(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				for _, resource := range expected {
-					_ = stream.Send(&xdsapi.DiscoveryResponse{
+					_ = stream.Send(&discovery.DiscoveryResponse{
 						TypeUrl: resource.TypeUrl,
 					})
 				}
@@ -165,7 +165,7 @@ func TestADSC_Run(t *testing.T) {
 			}
 			tt.inAdsc.url = l.Addr().String()
 			xds := grpc.NewServer()
-			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
+			discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
 				err = xds.Serve(l)
 				if err != nil {

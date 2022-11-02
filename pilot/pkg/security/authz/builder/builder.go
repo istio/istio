@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strconv"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -122,7 +122,7 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 }
 
 // BuildTCP returns the TCP filters built from the authorization policy.
-func (b Builder) BuildTCP() []*tcppb.Filter {
+func (b Builder) BuildTCP() []*listener.Filter {
 	b.logger = &AuthzLogger{}
 	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
@@ -133,7 +133,7 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 		return nil
 	}
 
-	var filters []*tcppb.Filter
+	var filters []*listener.Filter
 	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true); configs != nil {
 		b.logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
@@ -151,7 +151,7 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 
 type builtConfigs struct {
 	http []*httppb.HttpFilter
-	tcp  []*tcppb.Filter
+	tcp  []*listener.Filter
 }
 
 func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
@@ -302,7 +302,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	}
 }
 
-func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*tcppb.Filter {
+func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*listener.Filter {
 	if !b.option.IsCustomBuilder {
 		rbac := &rbactcppb.RBAC{
 			Rules:                 rules,
@@ -310,10 +310,10 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
-		return []*tcppb.Filter{
+		return []*listener.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -324,10 +324,10 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			Rules:      rbacDefaultDenyAll,
 			StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
 		}
-		return []*tcppb.Filter{
+		return []*listener.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	} else if extauthz.tcp == nil {
@@ -339,14 +339,14 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
 			ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
 		}
-		return []*tcppb.Filter{
+		return []*listener.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 			{
 				Name:       wellknown.ExternalAuthorization,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
 			},
 		}
 	}

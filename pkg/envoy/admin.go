@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/util/protomarshal"
@@ -49,13 +49,13 @@ func DrainListeners(adminPort uint32, inboundonly bool) error {
 }
 
 // GetServerInfo returns a structure representing a call to /server_info
-func GetServerInfo(adminPort uint32) (*envoyAdmin.ServerInfo, error) {
+func GetServerInfo(adminPort uint32) (*adminapi.ServerInfo, error) {
 	buffer, err := doEnvoyGet("server_info", adminPort)
 	if err != nil {
 		return nil, err
 	}
 
-	msg := &envoyAdmin.ServerInfo{}
+	msg := &adminapi.ServerInfo{}
 	if err := unmarshal(buffer.String(), msg); err != nil {
 		return nil, err
 	}
@@ -64,13 +64,13 @@ func GetServerInfo(adminPort uint32) (*envoyAdmin.ServerInfo, error) {
 }
 
 // GetConfigDump polls Envoy admin port for the config dump and returns the response.
-func GetConfigDump(adminPort uint32) (*envoyAdmin.ConfigDump, error) {
+func GetConfigDump(adminPort uint32) (*adminapi.ConfigDump, error) {
 	buffer, err := doEnvoyGet("config_dump", adminPort)
 	if err != nil {
 		return nil, err
 	}
 
-	msg := &envoyAdmin.ConfigDump{}
+	msg := &adminapi.ConfigDump{}
 	if err := unmarshal(buffer.String(), msg); err != nil {
 		return nil, err
 	}

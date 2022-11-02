@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/test/framework"
@@ -49,7 +49,7 @@ func TestPiggyback(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("couldn't curl sidecar: %v", err)
 				}
-				dr := xdsapi.DiscoveryResponse{}
+				dr := discovery.DiscoveryResponse{}
 				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
 					return fmt.Errorf("unmarshal: %v", err)
 				}

@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	envoyCore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -338,7 +338,7 @@ func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 	return ic.GetProxyServiceInstances(&model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{serviceImportPodIP},
-		Locality:        &envoyCore.Locality{Region: "r", Zone: "z"},
+		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceImportNamespace,
 		Labels: map[string]string{
 			"app":                      "prod-app",

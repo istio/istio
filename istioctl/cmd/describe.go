@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
@@ -739,7 +739,7 @@ func routeDestinationMatchesSvc(vhRoute *route.Route, svc v1.Service, vh *route.
 }
 
 // getIstioConfig returns .metadata.filter_metadata.istio.config, err
-func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
+func getIstioConfig(metadata *core.Metadata) (string, error) {
 	if metadata != nil {
 		istioConfig := asMyProtoValue(metadata.FilterMetadata[util.IstioMetadataKey]).
 			keyAsString("config")

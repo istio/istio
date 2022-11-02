@@ -15,7 +15,7 @@
 package authz
 
 import (
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -38,7 +38,7 @@ type Builder struct {
 	httpBuilt, tcpBuilt bool
 
 	httpFilters []*httppb.HttpFilter
-	tcpFilters  []*tcppb.Filter
+	tcpFilters  []*listener.Filter
 	builder     *builder.Builder
 }
 
@@ -52,7 +52,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	return &Builder{builder: b}
 }
 
-func (b *Builder) BuildTCP() []*tcppb.Filter {
+func (b *Builder) BuildTCP() []*listener.Filter {
 	if b == nil || b.builder == nil {
 		return nil
 	}
