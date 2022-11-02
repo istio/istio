@@ -17,7 +17,7 @@ package extension
 import (
 	"testing"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
@@ -53,13 +53,13 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		name        string
 		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
 		names       []string
-		expectedECs []*envoy_config_core_v3.TypedExtensionConfig
+		expectedECs []*core.TypedExtensionConfig
 	}{
 		{
 			name:        "empty",
 			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{},
 			names:       []string{someAuthNFilter.Name},
-			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{},
+			expectedECs: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "authn",
@@ -70,7 +70,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 				},
 			},
 			names: []string{someAuthNFilter.Namespace + "." + someAuthNFilter.Name},
-			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
+			expectedECs: []*core.TypedExtensionConfig{
 				{
 					Name:        "istio-system.someAuthNFilter",
 					TypedConfig: wasm,

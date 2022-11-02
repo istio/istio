@@ -15,7 +15,7 @@
 package extension
 
 import (
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
@@ -29,11 +29,11 @@ import (
 	_ "istio.io/istio/pkg/wasm" // include for registering wasm logging scope
 )
 
-var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
-	ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-		Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+var defaultConfigSource = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
 	},
-	ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
+	ResourceApiVersion: core.ApiVersion_V3,
 	// we block proxy init until WasmPlugins are loaded because they might be
 	// critical for security (e.g. authn/authz)
 	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
@@ -56,7 +56,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 	return &hcm_filter.HttpFilter{
 		Name: wasmPlugin.ResourceName,
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
-			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
+			ConfigDiscovery: &core.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
 				TypeUrls:     []string{xds.WasmHTTPFilterType},
 			},
@@ -68,8 +68,8 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	names []string, pullSecrets map[string][]byte,
-) []*envoy_config_core_v3.TypedExtensionConfig {
-	result := make([]*envoy_config_core_v3.TypedExtensionConfig, 0)
+) []*core.TypedExtensionConfig {
+	result := make([]*core.TypedExtensionConfig, 0)
 	if len(wasmPlugins) == 0 {
 		return result
 	}
@@ -96,7 +96,7 @@ func InsertedExtensionConfigurations(
 				}
 			}
 			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
-			ec := &envoy_config_core_v3.TypedExtensionConfig{
+			ec := &core.TypedExtensionConfig{
 				Name:        p.ResourceName,
 				TypedConfig: typedConfig,
 			}

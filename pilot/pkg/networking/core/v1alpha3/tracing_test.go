@@ -17,7 +17,7 @@ package v1alpha3
 import (
 	"testing"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
@@ -345,7 +345,7 @@ func fakeOptsOnlyDatadogTelemetryAPI() buildListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
-		XdsNode: &envoy_config_core_v3.Node{
+		XdsNode: &core.Node{
 			Cluster: "fake-cluster",
 		},
 	}
@@ -580,9 +580,9 @@ func fakeZipkinProvider(expectClusterName, expectAuthority string) *tracingcfg.T
 
 func fakeSkywalkingProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
 	fakeSkywalkingProviderConfig := &tracingcfg.SkyWalkingConfig{
-		GrpcService: &envoy_config_core_v3.GrpcService{
-			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 					ClusterName: expectClusterName,
 					Authority:   expectAuthority,
 				},

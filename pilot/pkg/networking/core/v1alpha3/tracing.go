@@ -20,7 +20,7 @@ import (
 	"strconv"
 
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
@@ -170,14 +170,14 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(_, hostname, clusterName string) (*anypb.Any, error) {
 					dc := &tracingcfg.OpenTelemetryConfig{
-						GrpcService: &envoy_config_core_v3.GrpcService{
-							TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+						GrpcService: &core.GrpcService{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 									ClusterName: clusterName,
 									Authority:   hostname,
 								},
 							},
-							InitialMetadata: []*envoy_config_core_v3.HeaderValue{
+							InitialMetadata: []*core.HeaderValue{
 								{
 									Key:   "lightstep-access-token",
 									Value: provider.Lightstep.GetAccessToken(),
@@ -216,9 +216,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		tracing, err = buildHCMTracing(pushCtx, envoySkywalking, provider.Skywalking.GetService(),
 			provider.Skywalking.GetPort(), 0, func(_, hostname, clusterName string) (*anypb.Any, error) {
 				s := &tracingcfg.SkyWalkingConfig{
-					GrpcService: &envoy_config_core_v3.GrpcService{
-						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-							EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+					GrpcService: &core.GrpcService{
+						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 								ClusterName: clusterName,
 								Authority:   hostname,
 							},
@@ -273,26 +273,26 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 					tokenPath = "/var/run/secrets/tokens/istio-token"
 				}
 
-				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
-					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
+				sd.StackdriverGrpcService = &core.GrpcService{
+					InitialMetadata: []*core.HeaderValue{
 						{
 							Key:   "x-goog-user-project",
 							Value: proj,
 						},
 					},
-					TargetSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_{
-						GoogleGrpc: &envoy_config_core_v3.GrpcService_GoogleGrpc{
+					TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+						GoogleGrpc: &core.GrpcService_GoogleGrpc{
 							TargetUri:  "cloudtrace.googleapis.com",
 							StatPrefix: "oc_stackdriver_tracer",
-							ChannelCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_ChannelCredentials{
-								CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-									SslCredentials: &envoy_config_core_v3.GrpcService_GoogleGrpc_SslCredentials{},
+							ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+								CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+									SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
 								},
 							},
-							CallCredentials: []*envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials{
+							CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
 								{
-									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
-										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
+									CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
+										StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
 											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
 											SubjectTokenPath:        tokenPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
@@ -360,9 +360,9 @@ func datadogConfigGen(serviceName, _, cluster string) (*anypb.Any, error) {
 
 func otelConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.OpenTelemetryConfig{
-		GrpcService: &envoy_config_core_v3.GrpcService{
-			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 					ClusterName: cluster,
 					Authority:   hostname,
 				},
