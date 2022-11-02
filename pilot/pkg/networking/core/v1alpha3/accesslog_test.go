@@ -48,7 +48,7 @@ import (
 )
 
 func TestListenerAccessLog(t *testing.T) {
-	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio)
+	defaultFormatJSON, _ := protomarshal.ToJSON(model.EnvoyJSONLogFormatIstio)
 
 	for _, tc := range []struct {
 		name       string
@@ -252,7 +252,7 @@ func newTestEnviroment() *model.Environment {
 		},
 	})
 
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+	configStore := memory.Make(collections.Pilot)
 	configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "test",
@@ -295,7 +295,7 @@ var (
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormatIstio,
+					JsonFormat: model.EnvoyJSONLogFormatIstio,
 				},
 			},
 		},

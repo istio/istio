@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-forward-proxy
+spec:
+  selector:
+    app: external-forward-proxy
+  ports:
+{{- range $idx, $port := .ports }}
+  - name: {{$port.Name}}
+    port: {{$port.Port}}
+    targetPort: {{$port.TargetPort}}
+    protocol: TCP
+{{- end }}

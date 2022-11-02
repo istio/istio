@@ -33,7 +33,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
 	s.serviceEntryController = serviceentry.NewController(
-		s.configController, s.environment.ConfigStore, s.XDSServer,
+		s.configController, s.XDSServer,
 		serviceentry.WithClusterID(s.clusterID),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
@@ -75,7 +75,8 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
-
+	// pass namespace to k8s service registry
+	args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
 	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient.Kube(),
 		args.RegistryOptions.ClusterRegistriesNamespace,

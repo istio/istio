@@ -65,21 +65,6 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	// Number of delayed pushes. Currently this happens only when the last push has not been ACKed
-	totalDelayedPushes = monitoring.NewSum(
-		"pilot_xds_delayed_pushes_total",
-		"Total number of XDS pushes that are delayed.",
-		monitoring.WithLabels(typeTag),
-	)
-
-	// Number of delayed pushes that we pushed prematurely as a failsafe.
-	// This indicates that either the failsafe timeout is too aggressive or there is a deadlock
-	totalDelayedPushTimeouts = monitoring.NewSum(
-		"pilot_xds_delayed_push_timeouts_total",
-		"Total number of XDS pushes that are delayed and timed out",
-		monitoring.WithLabels(typeTag),
-	)
-
 	xdsExpiredNonce = monitoring.NewSum(
 		"pilot_xds_expired_nonce",
 		"Total number of XDS requests with an expired nonce.",
@@ -118,6 +103,12 @@ var (
 	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
+	debounceTime = monitoring.NewDistribution(
+		"pilot_debounce_time",
+		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue.",
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+	)
+
 	pushContextInitTime = monitoring.NewDistribution(
 		"pilot_pushcontext_init_seconds",
 		"Total time in seconds Pilot takes to init pushContext.",
@@ -137,7 +128,6 @@ var (
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
-	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
 		"Time in seconds, a proxy is in the push queue before being dequeued.",
@@ -150,7 +140,6 @@ var (
 		monitoring.WithLabels(typeTag),
 	)
 
-	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
@@ -292,6 +281,7 @@ func init() {
 		xdsClients,
 		xdsResponseWriteTimeouts,
 		pushes,
+		debounceTime,
 		pushContextInitTime,
 		pushTime,
 		proxiesConvergeDelay,
@@ -301,8 +291,6 @@ func init() {
 		inboundUpdates,
 		pushTriggers,
 		sendTime,
-		totalDelayedPushes,
-		totalDelayedPushTimeouts,
 		pilotSDSCertificateErrors,
 		configSizeBytes,
 	)

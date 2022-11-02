@@ -1,3 +1,8 @@
+{{- $defaultBinDir :=
+    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
+      "/home/kubernetes/bin"
+      "/opt/cni/bin"
+}}
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -21,7 +26,7 @@ data:
           "log_uds_address": "__LOG_UDS_ADDRESS__", 
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
-              "cni_bin_dir": {{ quote .Values.cni.cniBinDir }},
+              "cni_bin_dir": {{ .Values.cni.cniBinDir | default $defaultBinDir | quote }},
               "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ]
           }
         }

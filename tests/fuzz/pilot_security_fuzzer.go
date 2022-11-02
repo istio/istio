@@ -19,11 +19,12 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
 )
 
 func FuzzCidrRange(data []byte) int {
-	_, _ = matcher.CidrRange(string(data))
+	_, _ = util.AddrStrToCidrRange(string(data))
 	return 1
 }
 

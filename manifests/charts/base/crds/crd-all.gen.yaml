@@ -48,6 +48,25 @@ spec:
               imagePullSecret:
                 description: Credentials to use for OCI image pulling.
                 type: string
+              match:
+                items:
+                  properties:
+                    mode:
+                      enum:
+                      - UNDEFINED
+                      - CLIENT
+                      - SERVER
+                      - CLIENT_AND_SERVER
+                      type: string
+                    ports:
+                      items:
+                        properties:
+                          number:
+                            type: integer
+                        type: object
+                      type: array
+                  type: object
+                type: array
               phase:
                 description: Determines where in the filter chain this `WasmPlugin`
                   is to be injected.
@@ -3008,6 +3027,7 @@ spec:
                       - CLUSTER
                       - EXTENSION_CONFIG
                       - BOOTSTRAP
+                      - LISTENER_FILTER
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -3092,6 +3112,9 @@ spec:
                                   description: Applies only to `SIDECAR_INBOUND` context.
                                   type: string
                               type: object
+                            listenerFilter:
+                              description: Match a specific listener filter.
+                              type: string
                             name:
                               description: Match a specific listener by its name.
                               type: string

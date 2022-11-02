@@ -23,16 +23,16 @@ import (
 )
 
 var (
-	runningInCI   = env.RegisterBoolVar("CI", false, "If true, indicates we are running in CI").Get()
-	artifactsBase = env.RegisterStringVar("PROW_ARTIFACTS_BASE", "https://gcsweb.istio.io/gcs/istio-prow", "the base url for prow artifacts").Get()
+	runningInCI   = env.Register("CI", false, "If true, indicates we are running in CI").Get()
+	artifactsBase = env.Register("PROW_ARTIFACTS_BASE", "https://gcsweb.istio.io/gcs/istio-prow", "the base url for prow artifacts").Get()
 	// https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md#job-environment-variables
-	jobType    = env.RegisterStringVar("JOB_TYPE", "presubmit", "type of job").Get()
-	jobName    = env.RegisterStringVar("JOB_NAME", "", "name of job").Get()
-	pullNumber = env.RegisterStringVar("PULL_NUMBER", "", "PR of job").Get()
-	repoName   = env.RegisterStringVar("REPO_NAME", "istio", "repo name").Get()
-	repoOwner  = env.RegisterStringVar("REPO_OWNER", "istio", "repo owner").Get()
-	buildID    = env.RegisterStringVar("BUILD_ID", "", "build id").Get()
-	artifacts  = env.RegisterStringVar("ARTIFACTS", "", "artifacts base").Get()
+	jobType    = env.Register("JOB_TYPE", "presubmit", "type of job").Get()
+	jobName    = env.Register("JOB_NAME", "", "name of job").Get()
+	pullNumber = env.Register("PULL_NUMBER", "", "PR of job").Get()
+	repoName   = env.Register("REPO_NAME", "istio", "repo name").Get()
+	repoOwner  = env.Register("REPO_OWNER", "istio", "repo owner").Get()
+	buildID    = env.Register("BUILD_ID", "", "build id").Get()
+	artifacts  = env.Register("ARTIFACTS", "", "artifacts base").Get()
 )
 
 func ArtifactsURL(filename string) string {

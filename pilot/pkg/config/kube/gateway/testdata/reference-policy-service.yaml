@@ -18,7 +18,7 @@ spec:
         from: All
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: allow-service
   namespace: service

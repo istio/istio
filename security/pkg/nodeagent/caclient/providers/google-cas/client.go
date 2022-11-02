@@ -20,8 +20,8 @@ import (
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
+	privatecapb "cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"google.golang.org/api/option"
-	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -118,7 +118,7 @@ func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 
 // GetRootCertBundle:  Get CA certs of the pool from Google CAS API endpoint
 func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
-	rootCertSet := sets.New()
+	rootCertSet := sets.New[string]()
 
 	ctx := context.Background()
 
@@ -133,12 +133,10 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 	for _, certChain := range resp.CaCerts {
 		certs := certChain.Certificates
 		rootCert := certs[len(certs)-1]
-		if !rootCertSet.Contains(rootCert) {
-			rootCertSet.Insert(rootCert)
-		}
+		rootCertSet.Insert(rootCert)
 	}
 
-	return rootCertSet.SortedList(), nil
+	return sets.SortedList(rootCertSet), nil
 }
 
 func (r *GoogleCASClient) Close() {

@@ -24,17 +24,17 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
-	common "istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
 var (
-	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
+	envoyUserVar = env.Register(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
-	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
+	dnsCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
 )
 
@@ -90,7 +90,7 @@ func constructConfig() *config.Config {
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
 		}
-		cfg.DNSServersV4, cfg.DNSServersV6 = common.SplitV4V6(dnsConfig.Servers)
+		cfg.DNSServersV4, cfg.DNSServersV6 = netutil.IPsSplitV4V6(dnsConfig.Servers)
 	}
 
 	return cfg

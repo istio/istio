@@ -367,13 +367,6 @@ func TestProxyStatus(t *testing.T) {
 
 			var output string
 			var args []string
-			g := gomega.NewWithT(t)
-
-			args = []string{"proxy-status"}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			// Just verify pod A is known to Pilot; implicitly this verifies that
-			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
 
 			expectSubstrings := func(have string, wants ...string) error {
 				for _, want := range wants {
@@ -383,6 +376,11 @@ func TestProxyStatus(t *testing.T) {
 				}
 				return nil
 			}
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{"proxy-status"}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
+			})
 
 			retry.UntilSuccessOrFail(t, func() error {
 				args = []string{
@@ -401,9 +399,13 @@ func TestProxyStatus(t *testing.T) {
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				if err != nil {
+					return err
+				}
 				err = os.WriteFile(filename, dump, os.ModePerm)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				if err != nil {
+					return err
+				}
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
 				}

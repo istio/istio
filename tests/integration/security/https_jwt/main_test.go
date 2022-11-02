@@ -23,17 +23,22 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/jwt"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
-	ist  istio.Instance
-	apps = &util.EchoDeployments{}
+	ist       istio.Instance
+	apps      deployment.SingleNamespaceView
+	jwtServer jwt.Server
+	echoNS    namespace.Instance
+	systemNs  namespace.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -43,8 +48,18 @@ func TestMain(m *testing.M) {
 		Label("CustomSetup").
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, true)
+			var err error
+			systemNs, err = istio.ClaimSystemNamespace(ctx)
+			return err
 		}).
+		Setup(namespace.Setup(&echoNS, namespace.Config{Prefix: "echo1", Inject: true})).
+		SetupParallel(
+			jwt.Setup(&jwtServer, namespace.Future(&systemNs)),
+			deployment.SetupSingleNamespace(&apps, deployment.Config{
+				Namespaces: []namespace.Getter{
+					namespace.Future(&echoNS),
+				},
+			})).
 		Run()
 }
 
@@ -69,4 +84,5 @@ values:
       PILOT_JWT_ENABLE_REMOTE_JWKS: false
 meshConfig:
   accessLogFile: /dev/stdout`, map[string]string{"pem": rootCaCert})
+	cfg.ConfigClusterValues = cfg.ControlPlaneValues
 }

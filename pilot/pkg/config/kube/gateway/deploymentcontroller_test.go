@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/test/util"
@@ -33,11 +34,11 @@ import (
 func TestConfigureIstioGateway(t *testing.T) {
 	tests := []struct {
 		name string
-		gw   v1alpha2.Gateway
+		gw   v1beta1.Gateway
 	}{
 		{
 			"simple",
-			v1alpha2.Gateway{
+			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -47,14 +48,14 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			"manual-ip",
-			v1alpha2.Gateway{
+			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.GatewaySpec{
-					Addresses: []v1alpha2.GatewayAddress{{
-						Type:  func() *v1alpha2.AddressType { x := v1alpha2.IPAddressType; return &x }(),
+				Spec: v1beta1.GatewaySpec{
+					Addresses: []v1beta1.GatewayAddress{{
+						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
 					}},
 				},
@@ -62,32 +63,34 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			"cluster-ip",
-			v1alpha2.Gateway{
+			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
 					Annotations: map[string]string{"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP)},
 				},
-				Spec: v1alpha2.GatewaySpec{
-					Listeners: []v1alpha2.Listener{{
-						Name: "http",
-						Port: v1alpha2.PortNumber(80),
+				Spec: v1beta1.GatewaySpec{
+					Listeners: []v1beta1.Listener{{
+						Name:     "http",
+						Port:     v1beta1.PortNumber(80),
+						Protocol: v1alpha2.HTTPProtocolType,
 					}},
 				},
 			},
 		},
 		{
 			"multinetwork",
-			v1alpha2.Gateway{
+			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 					Labels:    map[string]string{"topology.istio.io/network": "network-1"},
 				},
-				Spec: v1alpha2.GatewaySpec{
-					Listeners: []v1alpha2.Listener{{
-						Name: "http",
-						Port: v1alpha2.PortNumber(80),
+				Spec: v1beta1.GatewaySpec{
+					Listeners: []v1beta1.Listener{{
+						Name:     "http",
+						Port:     v1beta1.PortNumber(80),
+						Protocol: v1alpha2.HTTPProtocolType,
 					}},
 				},
 			},

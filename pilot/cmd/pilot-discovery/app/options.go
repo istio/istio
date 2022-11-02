@@ -17,29 +17,28 @@ package app
 import (
 	"crypto/tls"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // insecureTLSCipherNames returns a list of insecure cipher suite names implemented by crypto/tls
 // which have security issues.
 func insecureTLSCipherNames() []string {
-	cipherKeys := sets.NewString()
+	cipherKeys := sets.New[string]()
 	for _, cipher := range tls.InsecureCipherSuites() {
 		cipherKeys.Insert(cipher.Name)
 	}
-	return cipherKeys.List()
+	return sets.SortedList(cipherKeys)
 }
 
 // secureTLSCipherNames returns a list of secure cipher suite names implemented by crypto/tls.
 func secureTLSCipherNames() []string {
-	cipherKeys := sets.NewString()
+	cipherKeys := sets.New[string]()
 	for _, cipher := range tls.CipherSuites() {
 		cipherKeys.Insert(cipher.Name)
 	}
-	return cipherKeys.List()
+	return sets.SortedList(cipherKeys)
 }
 
 func validateFlags(serverArgs *bootstrap.PilotArgs) error {

@@ -70,7 +70,16 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	if addr != nil {
 		return addr.Address
 	}
-	return "unix://" + host.Address.GetPipe().Path
+	if pipe := host.Address.GetPipe(); pipe != nil {
+		return "unix://" + pipe.Path
+	}
+	if internal := host.Address.GetEnvoyInternalAddress(); internal != nil {
+		switch an := internal.GetAddressNameSpecifier().(type) {
+		case *core.EnvoyInternalAddress_ServerListenerName:
+			return fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId)
+		}
+	}
+	return "unknown"
 }
 
 func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {

@@ -22,6 +22,7 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var statusStillPropagating = &v1alpha1.IstioStatus{
@@ -138,9 +139,7 @@ func TestReconcileStatuses(t *testing.T) {
 						tt.want1.Conditions[i].LastProbeTime = got1.Conditions[i].LastProbeTime
 					}
 				}
-				if !reflect.DeepEqual(got1, tt.want1) {
-					t.Errorf("ReconcileStatuses() got1 = %v, want %v", got1, tt.want1)
-				}
+				assert.Equal(t, got1, tt.want1)
 			}
 		})
 	}

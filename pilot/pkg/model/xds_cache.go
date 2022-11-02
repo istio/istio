@@ -30,35 +30,28 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-func init() {
-	monitoring.MustRegister(xdsCacheReads)
-	monitoring.MustRegister(xdsCacheEvictions)
-	monitoring.MustRegister(xdsCacheSize)
-	monitoring.MustRegister(dependentConfigSize)
+var enableStats = func() bool {
+	return features.EnableXDSCacheMetrics
 }
 
 var (
-	xdsCacheReads = monitoring.NewSum(
+	xdsCacheReads = monitoring.RegisterIf(monitoring.NewSum(
 		"xds_cache_reads",
 		"Total number of xds cache xdsCacheReads.",
-		monitoring.WithLabels(typeTag),
-	)
+		monitoring.WithLabels(typeTag)), enableStats)
 
-	xdsCacheEvictions = monitoring.NewSum(
+	xdsCacheEvictions = monitoring.RegisterIf(monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
-		monitoring.WithLabels(typeTag),
-	)
+		monitoring.WithLabels(typeTag)), enableStats)
 
-	xdsCacheSize = monitoring.NewGauge(
+	xdsCacheSize = monitoring.RegisterIf(monitoring.NewGauge(
 		"xds_cache_size",
-		"Current size of xds cache",
-	)
+		"Current size of xds cache"), enableStats)
 
-	dependentConfigSize = monitoring.NewGauge(
+	dependentConfigSize = monitoring.RegisterIf(monitoring.NewGauge(
 		"xds_cache_dependent_config_size",
-		"Current size of dependent configs",
-	)
+		"Current size of dependent configs"), enableStats)
 
 	xdsCacheHits              = xdsCacheReads.With(typeTag.Value("hit"))
 	xdsCacheMisses            = xdsCacheReads.With(typeTag.Value("miss"))
@@ -67,21 +60,15 @@ var (
 )
 
 func hit() {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheHits.Increment()
-	}
+	xdsCacheHits.Increment()
 }
 
 func miss() {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheMisses.Increment()
-	}
+	xdsCacheMisses.Increment()
 }
 
 func size(cs int) {
-	if features.EnableXDSCacheMetrics {
-		xdsCacheSize.Record(float64(cs))
-	}
+	xdsCacheSize.Record(float64(cs))
 }
 
 // XdsCacheEntry interface defines functions that should be implemented by
@@ -128,8 +115,8 @@ type XdsCache interface {
 func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
-		configIndex:      map[ConfigHash]sets.Set{},
-		typesIndex:       map[kind.Kind]sets.Set{},
+		configIndex:      map[ConfigHash]sets.String{},
+		typesIndex:       map[kind.Kind]sets.String{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -140,8 +127,8 @@ func NewXdsCache() XdsCache {
 func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
-		configIndex:      map[ConfigHash]sets.Set{},
-		typesIndex:       map[kind.Kind]sets.Set{},
+		configIndex:      map[ConfigHash]sets.String{},
+		typesIndex:       map[kind.Kind]sets.String{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -155,8 +142,8 @@ type lruCache struct {
 	// It is refreshed when Clear or ClearAll are called
 	token       CacheToken
 	mu          sync.RWMutex
-	configIndex map[ConfigHash]sets.Set
-	typesIndex  map[kind.Kind]sets.Set
+	configIndex map[ConfigHash]sets.String
+	typesIndex  map[kind.Kind]sets.String
 
 	// mark whether a key is evicted on Clear call, passively.
 	evictedOnClear bool
@@ -177,9 +164,6 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 }
 
 func (l *lruCache) recordDependentConfigSize() {
-	if !features.EnableXDSCacheMetrics {
-		return
-	}
 	dsize := 0
 	for _, dependents := range l.configIndex {
 		dsize += len(dependents)
@@ -189,12 +173,10 @@ func (l *lruCache) recordDependentConfigSize() {
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
 func (l *lruCache) onEvict(k any, v any) {
-	if features.EnableXDSCacheMetrics {
-		if l.evictedOnClear {
-			xdsCacheEvictsionsOnClear.Increment()
-		} else {
-			xdsCacheEvictsionsOnSize.Increment()
-		}
+	if l.evictedOnClear {
+		xdsCacheEvictsionsOnClear.Increment()
+	} else {
+		xdsCacheEvictsionsOnSize.Increment()
 	}
 
 	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
@@ -210,7 +192,7 @@ func (l *lruCache) onEvict(k any, v any) {
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
 		if l.configIndex[cfg] == nil {
-			l.configIndex[cfg] = sets.New()
+			l.configIndex[cfg] = sets.New[string]()
 		}
 		l.configIndex[cfg].Insert(k)
 	}
@@ -233,7 +215,7 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
 		if l.typesIndex[t] == nil {
-			l.typesIndex[t] = sets.New()
+			l.typesIndex[t] = sets.New[string]()
 		}
 		l.typesIndex[t].Insert(k)
 	}
@@ -384,8 +366,8 @@ func (l *lruCache) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store = newLru(l.onEvict)
-	l.configIndex = map[ConfigHash]sets.Set{}
-	l.typesIndex = map[kind.Kind]sets.Set{}
+	l.configIndex = map[ConfigHash]sets.String{}
+	l.typesIndex = map[kind.Kind]sets.String{}
 	size(l.store.Len())
 }
 

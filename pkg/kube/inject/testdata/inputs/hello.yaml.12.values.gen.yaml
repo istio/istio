@@ -118,7 +118,8 @@
         "address": ""
       }
     },
-    "useMCP": false
+    "useMCP": false,
+    "variant": ""
   },
   "istio_cni": {
     "enabled": false

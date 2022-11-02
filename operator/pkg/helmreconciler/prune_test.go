@@ -22,6 +22,8 @@ import (
 	"sync"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -167,6 +169,72 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 				assert.Equal(t, h1.iop.GetName(), u.GetLabels()[OwningResourceName])
 				assert.Equal(t, h1.iop.GetNamespace(), u.GetLabels()[OwningResourceNamespace])
 			}
+		}
+	})
+}
+
+func TestPilotExist(t *testing.T) {
+	t.Run("exist", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		iop := &v1alpha1.IstioOperator{}
+		h := &HelmReconciler{
+			client:     cl,
+			kubeClient: kube.NewFakeClientWithVersion("24"),
+			opts: &Options{
+				ProgressLog: progress.NewLog(),
+				Log:         clog.NewDefaultLogger(),
+			},
+			iop:           iop,
+			countLock:     &sync.Mutex{},
+			prunedKindSet: map[schema.GroupKind]struct{}{},
+		}
+		mockClient := &kube.MockClient{
+			DiscoverablePods: map[string]map[string]*v1.PodList{
+				"istio-system": {
+					"app=istiod": {
+						Items: []v1.Pod{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      "istiod",
+									Namespace: "istio-system",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		if exist, err := h.pilotExists(mockClient, "istio-system"); err != nil {
+			t.Fatalf("HelmReconciler.pilotExists error = %v", err)
+		} else if !exist {
+			t.Errorf("HelmReconciler.pilotExists fail")
+		}
+	})
+
+	t.Run("non-exist", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		iop := &v1alpha1.IstioOperator{}
+		h := &HelmReconciler{
+			client:     cl,
+			kubeClient: kube.NewFakeClientWithVersion("24"),
+			opts: &Options{
+				ProgressLog: progress.NewLog(),
+				Log:         clog.NewDefaultLogger(),
+			},
+			iop:           iop,
+			countLock:     &sync.Mutex{},
+			prunedKindSet: map[schema.GroupKind]struct{}{},
+		}
+		mockClient := &kube.MockClient{
+			DiscoverablePods: map[string]map[string]*v1.PodList{
+				"istio-system": {},
+			},
+		}
+		if exist, err := h.pilotExists(mockClient, "istio-system"); err != nil {
+			t.Fatalf("HelmReconciler.pilotExists error = %v", err)
+		} else if exist {
+			t.Errorf("HelmReconciler.pilotExists fail")
 		}
 	})
 }

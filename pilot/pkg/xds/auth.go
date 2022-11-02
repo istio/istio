@@ -31,7 +31,7 @@ import (
 	"istio.io/pkg/env"
 )
 
-var AuthPlaintext = env.RegisterBoolVar("XDS_AUTH_PLAINTEXT", false,
+var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,
 	"Authenticate plain text requests - used if Istiod is running on a secure/trusted network").Get()
 
 // authenticate authenticates the ADS request using the configured authenticators.

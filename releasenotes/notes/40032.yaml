@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 40027
+
+releaseNotes:
+  - |
+    **Added** support for use of the OpenTelemetry tracing provider with the Telemetry API.

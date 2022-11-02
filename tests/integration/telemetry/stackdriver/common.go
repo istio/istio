@@ -27,9 +27,9 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
-	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -355,14 +355,13 @@ func logDiff(t test.Failer, tp string, query map[string]string, entries []map[st
 		return
 	}
 	allMismatches := []map[string]string{}
-	seen := sets.New()
+	seen := sets.New[string]()
 	for _, s := range entries {
 		b, _ := json.Marshal(s)
 		ss := string(b)
-		if seen.Contains(ss) {
+		if seen.InsertContains(ss) {
 			continue
 		}
-		seen.Insert(ss)
 		misMatched := map[string]string{}
 		for k, want := range query {
 			got := s[k]

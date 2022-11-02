@@ -352,15 +352,12 @@ func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client ku
 	return mergedIOP, nil
 }
 
-// validateSetFlags 1: validates that setFlags all have path=value format, 2: check profile whether it is deprecated.
+// validateSetFlags validates that setFlags all have path=value format.
 func validateSetFlags(setFlags []string) error {
 	for _, sf := range setFlags {
 		pv := strings.Split(sf, "=")
 		if len(pv) != 2 {
 			return fmt.Errorf("set flag %s has incorrect format, must be path=value", sf)
-		}
-		if pv[0] == "profile" && pv[1] == "remote" {
-			return fmt.Errorf("profile \"remote\" has been removed (use the \"default\" profile, which is equivalent)")
 		}
 	}
 	return nil
@@ -437,8 +434,28 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	} else {
 		overlays = append(overlays, jwtStr)
 	}
-
+	cni := getCNISettings(client)
+	if cni != "" {
+		overlays = append(overlays, cni)
+	}
 	return makeTreeFromSetList(overlays)
+}
+
+// getCNISettings gets auto-detected values based on the Kubernetes environment.
+// Note: there are other settings as well; however, these are detected inline in the helm chart.
+// This ensures helm users also get them.
+func getCNISettings(client kube.Client) string {
+	ver, err := client.GetKubernetesVersion()
+	if err != nil {
+		return ""
+	}
+	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
+	// GKE requires deployment in kube-system namespace.
+	if strings.Contains(ver.GitVersion, "-gke") {
+		return "components.cni.namespace=kube-system"
+	}
+	// TODO: OpenShift
+	return ""
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.

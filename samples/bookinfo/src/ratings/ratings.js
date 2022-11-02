@@ -260,6 +260,13 @@ function handleRequest (request, response) {
 
 var server = http.createServer(handleRequest)
 
+process.on('SIGTERM', function () {
+  console.log("SIGTERM received")
+  server.close(function () {
+    process.exit(0);
+  });
+});
+
 server.listen(port, function () {
   console.log('Server listening on: http://0.0.0.0:%s', port)
 })

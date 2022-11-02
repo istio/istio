@@ -63,7 +63,7 @@ const (
 
 var (
 	// IstioConfig is the name of the istioctl config file (if any)
-	IstioConfig = env.RegisterStringVar("ISTIOCONFIG", defaultIstioctlConfig,
+	IstioConfig = env.Register("ISTIOCONFIG", defaultIstioctlConfig,
 		"Default values for istioctl flags").Get()
 
 	kubeconfig       string
@@ -238,6 +238,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(debugCommand())
 	experimentalCmd.AddCommand(preCheck())
 	experimentalCmd.AddCommand(statsConfigCmd())
+	experimentalCmd.AddCommand(checkInjectCommand())
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)

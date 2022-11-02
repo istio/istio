@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** a `--cluster-specific` flag to `istioctl manifest generate`. When this is set, the current cluster context will be used to determine dynamic default settings, mirroring `istioctl install`.
+

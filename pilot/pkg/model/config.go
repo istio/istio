@@ -15,20 +15,18 @@
 package model
 
 import (
-	"crypto/md5"
-	"encoding/binary"
-	"net"
 	"sort"
 	"strings"
 
+	xxhashv2 "github.com/cespare/xxhash/v2"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -59,12 +57,12 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := md5.New()
-	hash.Write([]byte{byte(key.Kind)})
-	hash.Write([]byte(key.Name))
-	hash.Write([]byte(key.Namespace))
-	sum := hash.Sum(nil)
-	return ConfigHash(binary.BigEndian.Uint64(sum))
+	hash := xxhashv2.New()
+	// the error will always return nil
+	_, _ = hash.Write([]byte{byte(key.Kind)})
+	_, _ = hash.Write([]byte(key.Name))
+	_, _ = hash.Write([]byte(key.Namespace))
+	return ConfigHash(hash.Sum64())
 }
 
 func (key ConfigKey) String() string {
@@ -96,7 +94,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
-	ret := sets.New()
+	ret := sets.New[string]()
 
 	for conf := range configs {
 		if conf.Kind == kind {
@@ -194,7 +192,12 @@ type ConfigStoreController interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
+
+	// SetWatchErrorHandler should be call if store has started
 	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
+
+	// HasStarted return ture after store started.
+	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
@@ -220,7 +223,7 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	}
 
 	// if the hostname is a valid ipv4 or ipv6 address, do not append domain or namespace
-	if net.ParseIP(hostname) != nil {
+	if netutil.IsValidIPAddress(hostname) {
 		return host.Name(out)
 	}
 
@@ -273,120 +276,46 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 	return out
 }
 
-// MostSpecificHostMatch compares the map of the stack to the needle, and returns the longest element
-// matching the needle, or false if no element in the map matches the needle.
-func MostSpecificHostMatch(needle host.Name, m map[host.Name][]*ConsolidatedDestRule) (host.Name, bool) {
-	matches := []host.Name{}
+// MostSpecificHostMatch compares the maps of specific and wildcard hosts to the needle, and returns the longest element
+// matching the needle and it's value, or false if no element in the maps matches the needle.
+func MostSpecificHostMatch[V any](needle host.Name, specific map[host.Name]V, wildcard map[host.Name]V) (host.Name, V, bool) {
+	if needle.IsWildCarded() {
+		// exact match first
+		if v, ok := wildcard[needle]; ok {
+			return needle, v, true
+		}
+
+		return mostSpecificHostWildcardMatch(string(needle[1:]), wildcard)
+	}
 
 	// exact match first
-	if m != nil {
-		if _, ok := m[needle]; ok {
-			return needle, true
-		}
+	if v, ok := specific[needle]; ok {
+		return needle, v, true
 	}
 
-	if needle.IsWildCarded() {
-		for h := range m {
-			// both needle and h are wildcards
-			if h.IsWildCarded() {
-				if len(needle) < len(h) {
-					continue
-				}
-				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
-					matches = append(matches, h)
-				}
-			}
-		}
-	} else {
-		for h := range m {
-			// only n is wildcard
-			if h.IsWildCarded() {
-				if strings.HasSuffix(string(needle), string(h[1:])) {
-					matches = append(matches, h)
-				}
+	// check wildcard
+	return mostSpecificHostWildcardMatch(string(needle), wildcard)
+}
+
+func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]V) (host.Name, V, bool) {
+	found := false
+	var matchHost host.Name
+	var matchValue V
+
+	for h, v := range wildcard {
+		if strings.HasSuffix(needle, string(h[1:])) {
+			if !found {
+				matchHost = h
+				matchValue = wildcard[h]
+				found = true
+			} else if host.MoreSpecific(h, matchHost) {
+				matchHost = h
+				matchValue = v
 			}
 		}
 	}
-	if len(matches) > 1 {
-		// Sort the host names, find the most specific one.
-		sort.Sort(host.Names(matches))
-	}
-	if len(matches) > 0 {
-		// TODO: return closest match out of all non-exact matching hosts
-		return matches[0], true
-	}
-	return "", false
-}
 
-// MostSpecificHostMatch2 compares the map of the stack to the needle, and returns the longest element
-// matching the needle, or false if no element in the map matches the needle.
-// TODO: merge with MostSpecificHostMatch once go 1.18 is used
-func MostSpecificHostMatch2(needle host.Name, m map[host.Name]struct{}) (host.Name, bool) {
-	matches := []host.Name{}
-
-	// exact match first
-	if m != nil {
-		if _, ok := m[needle]; ok {
-			return needle, true
-		}
-	}
-
-	if needle.IsWildCarded() {
-		for h := range m {
-			// both needle and h are wildcards
-			if h.IsWildCarded() {
-				if len(needle) < len(h) {
-					continue
-				}
-				if strings.HasSuffix(string(needle[1:]), string(h[1:])) {
-					matches = append(matches, h)
-				}
-			}
-		}
-	} else {
-		for h := range m {
-			// only n is wildcard
-			if h.IsWildCarded() {
-				if strings.HasSuffix(string(needle), string(h[1:])) {
-					matches = append(matches, h)
-				}
-			}
-		}
-	}
-	if len(matches) > 1 {
-		// Sort the host names, find the most specific one.
-		sort.Sort(host.Names(matches))
-	}
-	if len(matches) > 0 {
-		// TODO: return closest match out of all non-exact matching hosts
-		return matches[0], true
-	}
-	return "", false
-}
-
-// istioConfigStore provides a simple adapter for Istio configuration types
-// from the generic config registry
-type istioConfigStore struct {
-	ConfigStore
-}
-
-// MakeIstioStore creates a wrapper around a store.
-// In pilot it is initialized with a ConfigStoreController, tests only use
-// a regular ConfigStore.
-func MakeIstioStore(store ConfigStore) ConfigStore {
-	return &istioConfigStore{store}
-}
-
-func (store *istioConfigStore) ServiceEntries() []config.Config {
-	serviceEntries, err := store.List(gvk.ServiceEntry, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	// To ensure the ip allocation logic deterministically
-	// allocates the same IP to a service entry.
-	sortConfigByCreationTime(serviceEntries)
-	return serviceEntries
+	return matchHost, matchValue, found
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
@@ -407,14 +336,4 @@ func sortConfigByCreationTime(configs []config.Config) {
 // key creates a key from a reference's name and namespace.
 func key(name, namespace string) string {
 	return name + "/" + namespace
-}
-
-func (store *istioConfigStore) AuthorizationPolicies(namespace string) []config.Config {
-	authorizationPolicies, err := store.List(gvk.AuthorizationPolicy, namespace)
-	if err != nil {
-		log.Errorf("failed to get AuthorizationPolicy in namespace %s: %v", namespace, err)
-		return nil
-	}
-
-	return authorizationPolicies
 }

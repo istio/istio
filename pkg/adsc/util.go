@@ -16,7 +16,10 @@ package adsc
 
 import (
 	"crypto/tls"
+	"strings"
 
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
 )
 
@@ -46,4 +49,24 @@ func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInf
 	}
 
 	return nil
+}
+
+func convertTypeURLToMCPGVK(typeURL string) (config.GroupVersionKind, bool) {
+	parts := strings.SplitN(typeURL, "/", 3)
+	if len(parts) != 3 {
+		return config.GroupVersionKind{}, false
+	}
+
+	gvk := config.GroupVersionKind{
+		Group:   parts[0],
+		Version: parts[1],
+		Kind:    parts[2],
+	}
+
+	_, isMCP := collections.Pilot.FindByGroupVersionKind(gvk)
+	if isMCP {
+		return gvk, true
+	}
+
+	return config.GroupVersionKind{}, false
 }

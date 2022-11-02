@@ -46,7 +46,6 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/istiomultierror"
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -394,7 +393,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
 					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh)
 				if err != nil {
@@ -686,7 +685,7 @@ func buildGatewayListenerTLSContext(
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
-	server.Tls.CipherSuites = filteredGatewayCipherSuites(server)
+	server.Tls.CipherSuites = security.FilterCipherSuites(server.Tls.CipherSuites)
 	return BuildListenerTLSContext(server.Tls, proxy, transportProtocol, gateway.IsTCPServerWithTLSTermination(server))
 }
 
@@ -1033,24 +1032,4 @@ func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int
 		domains = append(domains, util.IPv6Compliant(hostname)+":*")
 	}
 	return domains
-}
-
-// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredGatewayCipherSuites(server *networking.Server) []string {
-	suites := server.Tls.CipherSuites
-	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New()
-	for _, s := range suites {
-		if security.IsValidCipherSuite(s) {
-			if !validCiphers.Contains(s) {
-				ret = append(ret, s)
-				validCiphers = validCiphers.Insert(s)
-			} else if log.DebugEnabled() {
-				log.Debugf("ignoring duplicated cipherSuite: %q for server %s", s, server.String())
-			}
-		} else if log.DebugEnabled() {
-			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
-		}
-	}
-	return ret
 }

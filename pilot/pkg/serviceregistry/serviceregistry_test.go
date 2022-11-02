@@ -84,8 +84,7 @@ func setupTest(t *testing.T) (
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
 
-	istioStore := model.MakeIstioStore(configController)
-	se := serviceentry.NewController(configController, istioStore, xdsUpdater)
+	se := serviceentry.NewController(configController, xdsUpdater)
 	client.RunAndWait(stop)
 
 	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)

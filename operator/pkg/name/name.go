@@ -24,11 +24,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 )
 
-// Istio default namespace
-const (
-	IstioDefaultNamespace = "istio-system"
-)
-
 // Kubernetes Kind strings.
 const (
 	CRDStr                            = "CustomResourceDefinition"

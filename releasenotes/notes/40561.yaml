@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** disable `PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING` temporarily to fix some memory/CPU cost issues.

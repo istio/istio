@@ -213,6 +213,10 @@ func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler mode
 	panic("implement me")
 }
 
+func (d dfCache) HasStarted() bool {
+	return true
+}
+
 // Run intentionally left empty
 func (d dfCache) Run(_ <-chan struct{}) {
 }
@@ -269,22 +273,31 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
-	store, err := crdclient.NewForSchemas(c, revision, "cluster.local", "analysis-controller", sa.kubeResources)
+	store, err := crdclient.NewForSchemas(c, crdclient.Option{
+		Revision:     revision,
+		DomainSuffix: "cluster.local",
+		Identifier:   "analysis-controller",
+	}, sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
 		return
 	}
 	sa.stores = append(sa.stores, store)
-	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		// failed resources will never be synced, which causes the process to hang indefinitely.
-		// better to fail fast, and get a good idea for the failure.
-		scope.Analysis.Errorf("Failed to watch crd resource for analysis: %s", err)
-	})
-	if err != nil {
-		scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
-		return
+	if !store.HasStarted() {
+		err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+			// failed resources will never be synced, which causes the process to hang indefinitely.
+			// better to fail fast, and get a good idea for the failure.
+			scope.Analysis.Errorf("Failed to watch crd resource for analysis: %s", err)
+		})
+		if err != nil {
+			scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
+			return
+		}
+	} else {
+		scope.Analysis.Debugf("store is started, skipping set watch error handler")
 	}
+
 	sa.clientsToRun = append(sa.clientsToRun, c)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
@@ -393,7 +406,7 @@ type CollectionReporterFn func(collection.Name)
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
-	nsNames := sets.New()
+	nsNames := sets.New[string]()
 	for k := range namespaces {
 		nsNames.Insert(k.String())
 	}

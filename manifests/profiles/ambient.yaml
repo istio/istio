@@ -1,0 +1,14 @@
+# The ambient profile has ambient mesh enabled
+# Note: currently this only enables HBONE for sidecars, as the full ambient mode is not yet implemented.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_ENABLE_HBONE: "true"
+  values:
+    pilot:
+      env:
+        PILOT_ENABLE_INBOUND_PASSTHROUGH: "false"
+        PILOT_ENABLE_HBONE: "true"

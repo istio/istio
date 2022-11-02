@@ -15,7 +15,7 @@
 package ingress
 
 import (
-	"net"
+	"net/netip"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -45,7 +45,7 @@ type Instance interface {
 	TCPAddress() (string, int)
 	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
-	DiscoveryAddress() net.TCPAddr
+	DiscoveryAddress() netip.AddrPort
 	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
 	AddressForPort(port int) (string, int)

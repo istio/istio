@@ -36,6 +36,12 @@ const (
 	InboundPassthroughBindIpv6 = "::6"
 )
 
+var (
+	wildCards  map[model.IPMode][]string
+	localHosts map[model.IPMode][]string
+)
+
+// TODO: getActualWildcardAndLocalHost would be removed once the dual stack support in Istio
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
 // depending on value of proxy's IPAddresses.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
@@ -52,14 +58,32 @@ func getPassthroughBindIP(node *model.Proxy) string {
 	return InboundPassthroughBindIpv6
 }
 
-// getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
+// getSidecarInboundBindIPs returns the IP that the proxy can bind to along with the sidecar specified port.
 // It looks for an unicast address, if none found, then the default wildcard address is used.
 // This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
-func getSidecarInboundBindIP(node *model.Proxy) string {
+func getSidecarInboundBindIPs(node *model.Proxy) []string {
 	// Return the IP if its a global unicast address.
 	if len(node.GlobalUnicastIP) > 0 {
-		return node.GlobalUnicastIP
+		return []string{node.GlobalUnicastIP}
 	}
-	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
-	return defaultInboundIP
+	defaultInboundIPs, _ := getWildcardsAndLocalHostForDualStack(node.GetIPMode())
+	return defaultInboundIPs
+}
+
+func getWildcardsAndLocalHostForDualStack(ipMode model.IPMode) ([]string, []string) {
+	return wildCards[ipMode], localHosts[ipMode]
+}
+
+func init() {
+	// maintain 2 maps to return wildCards and localHosts according to IP mode of proxy
+	wildCards = make(map[model.IPMode][]string)
+	localHosts = make(map[model.IPMode][]string)
+
+	wildCards[model.IPv4] = []string{WildcardAddress}
+	wildCards[model.IPv6] = []string{WildcardIPv6Address}
+	wildCards[model.Dual] = []string{WildcardAddress, WildcardIPv6Address}
+
+	localHosts[model.IPv4] = []string{LocalhostAddress}
+	localHosts[model.IPv6] = []string{LocalhostIPv6Address}
+	localHosts[model.Dual] = []string{LocalhostAddress, LocalhostIPv6Address}
 }

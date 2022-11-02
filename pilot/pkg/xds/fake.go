@@ -219,7 +219,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
-			g := gateway.NewController(defaultKubeClient, c, kube.Options{
+			g := gateway.NewController(defaultKubeClient, c, func(class config.GroupVersionKind, stop <-chan struct{}) bool {
+				return true
+			}, kube.Options{
 				DomainSuffix: "cluster.local",
 			})
 			gwc = g
@@ -446,6 +448,16 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
 	}
 	return loadAssignments
+}
+
+// EnsureSynced checks that all ConfigUpdates sent have been established
+// This does NOT ensure that the change has been sent to all proxies; only that PushContext is updated
+// Typically, if trying to ensure changes are sent, its better to wait for the push event.
+func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
+	c := f.Discovery.InboundUpdates.Load()
+	retry.UntilOrFail(t, func() bool {
+		return f.Discovery.CommittedUpdates.Load() >= c
+	}, retry.Delay(time.Millisecond))
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {

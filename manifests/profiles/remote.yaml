@@ -1,0 +1,24 @@
+# The remote profile is used to configure a mesh cluster without a locally deployed control plane.
+# Only the injector mutating webhook configuration is installed.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: false
+    pilot:
+      enabled: false
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+    istiodRemote:
+      enabled: true
+  values:
+    global:
+      externalIstiod: true
+      omitSidecarInjectorConfigMap: true
+      configCluster: false
+    pilot:
+      configMap: false
+    telemetry:
+      enabled: false

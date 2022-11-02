@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -157,6 +158,25 @@ const (
 	LocalityLabel = "istio-locality"
 	// k8s istio-locality label separator
 	k8sSeparator = "."
+)
+
+const (
+	// TunnelLabel defines the label workloads describe to indicate that they support tunneling.
+	// Values are expected to be a CSV list, sorted by preference, of protocols supported.
+	// Currently supported values:
+	// * "http": indicates tunneling over HTTP over TCP. HTTP/2 vs HTTP/1.1 may be supported by ALPN negotiation.
+	// Planned future values:
+	// * "http3": indicates tunneling over HTTP over QUIC. This is distinct from "http", since we cannot do ALPN
+	//   negotiation for QUIC vs TCP.
+	// Users should appropriately parse the full list rather than doing a string literal check to
+	// ensure future-proofing against new protocols being added.
+	TunnelLabel = "networking.istio.io/tunnel"
+	// TunnelLabelShortName is a short name for TunnelLabel to be used in optimized scenarios.
+	TunnelLabelShortName = "tunnel"
+	// TunnelHTTP indicates tunneling over HTTP over TCP. HTTP/2 vs HTTP/1.1 may be supported by ALPN
+	// negotiation. Note: ALPN negotiation is not currently implemented; HTTP/2 will always be used.
+	// This is future-proofed, however, because only the `h2` ALPN is exposed.
+	TunnelHTTP = "http"
 )
 
 const (
@@ -390,10 +410,17 @@ type Locality struct {
 type HealthStatus int32
 
 const (
+	// TODO: change the value to 1,2 to match HealthStatus proto
+
 	// Healthy.
 	Healthy HealthStatus = 0
 	// Unhealthy.
 	UnHealthy HealthStatus = 1
+	// Draining - the constant matches envoy
+	Draining HealthStatus = 3
+	// Not used in Istio
+	Timeout  HealthStatus = 4
+	Degraded HealthStatus = 5
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -466,6 +493,10 @@ type IstioEndpoint struct {
 
 	// Indicatesthe endpoint health status.
 	HealthStatus HealthStatus
+}
+
+func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
+	return sets.New(strings.Split(ep.Labels[TunnelLabel], ",")...).Contains(tunnelType)
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.
@@ -563,10 +594,51 @@ type ServiceAttributes struct {
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
-	// Nested mutexes are configured to be ignored by copystructure.Copy.
-	// Disabling `go vet` warning since this is actually safe in this case.
-	// nolint: vet
-	return copyInternal(*s).(ServiceAttributes)
+	// AddressMap contains a mutex, which is safe to copy in this case.
+	// nolint: govet
+	out := *s
+
+	if s.Labels != nil {
+		out.Labels = make(map[string]string, len(s.Labels))
+		for k, v := range s.Labels {
+			out.Labels[k] = v
+		}
+	}
+
+	if s.ExportTo != nil {
+		out.ExportTo = make(map[visibility.Instance]bool, len(s.ExportTo))
+		for k, v := range s.ExportTo {
+			out.ExportTo[k] = v
+		}
+	}
+
+	if s.LabelSelectors != nil {
+		out.LabelSelectors = make(map[string]string, len(s.LabelSelectors))
+		for k, v := range s.LabelSelectors {
+			out.LabelSelectors[k] = v
+		}
+	}
+
+	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
+
+	if s.ClusterExternalPorts != nil {
+		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
+		for k, m := range s.ClusterExternalPorts {
+			if m == nil {
+				out.ClusterExternalPorts[k] = nil
+				continue
+			}
+
+			out.ClusterExternalPorts[k] = make(map[uint32]uint32, len(m))
+			for sp, np := range m {
+				out.ClusterExternalPorts[k][sp] = np
+			}
+		}
+	}
+
+	// AddressMap contains a mutex, which is safe to return a copy in this case.
+	// nolint: govet
+	return out
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -772,6 +844,20 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	}
 
 	return s.DefaultAddress
+}
+
+// GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
+// Especially for dual stack k8s service to get other IP family addresses.
+func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
+	if node.Metadata != nil {
+		if node.Metadata.ClusterID != "" {
+			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			if len(addresses) > 1 {
+				return addresses[1:]
+			}
+		}
+	}
+	return nil
 }
 
 // getAllAddresses returns a Service's all addresses.

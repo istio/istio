@@ -16,15 +16,16 @@ package dependencies
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -98,12 +99,14 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		}
 		defer nsContainer.Close()
 	}
-
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 100 * time.Millisecond
-	b.MaxInterval = 2 * time.Second
-	b.MaxElapsedTime = 10 * time.Second
-	backoffError := backoff.Retry(func() error {
+	o := backoff.Option{
+		InitialInterval: 100 * time.Millisecond,
+		MaxInterval:     2 * time.Second,
+	}
+	b := backoff.NewExponentialBackOff(o)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	backoffError := b.RetryWithContext(ctx, func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
@@ -132,7 +135,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
 		return err
-	}, b)
+	})
 	if backoffError != nil {
 		return fmt.Errorf("timed out trying to acquire XTables lock: %v", err)
 	}

@@ -33,6 +33,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
@@ -94,7 +95,7 @@ func injectorListCommand() *cobra.Command {
 				return nslist[i].Name < nslist[j].Name
 			})
 
-			hooks, err := getWebhooks(ctx, client)
+			hooks, err := tag.Webhooks(ctx, client)
 			if err != nil {
 				return err
 			}
@@ -174,14 +175,6 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 	}
 
 	return w.Flush()
-}
-
-func getWebhooks(ctx context.Context, client kube.CLIClient) ([]admit_v1.MutatingWebhookConfiguration, error) {
-	hooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return []admit_v1.MutatingWebhookConfiguration{}, err
-	}
-	return hooks.Items, nil
 }
 
 func printHooks(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration, injectedImages map[string]string) error {
@@ -333,7 +326,7 @@ func hideFromOutput(ns resource.Namespace) bool {
 
 func injectionDisabled(pod *v1.Pod) bool {
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
-	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+	if lbl, labelPresent := pod.ObjectMeta.GetLabels()[label.SidecarInject.Name]; labelPresent {
 		inject = lbl
 	}
 	return strings.EqualFold(inject, "false")

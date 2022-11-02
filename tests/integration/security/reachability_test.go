@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -44,6 +45,8 @@ const (
 	mtlsModeParam            = "MTLSMode"
 	mtlsModeOverrideParam    = "MTLSModeOverride"
 	tlsModeParam             = "TLSMode"
+	cMinIstioVersion         = "1.15.0"
+	// cMinIstioVersionDS       = "1.16.0"
 )
 
 func TestReachability(t *testing.T) {
@@ -52,11 +55,14 @@ func TestReachability(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
-			// Create a custom echo deployment in NS1 with subsets that allows us to test the
-			// migration of a workload to istio (from no sidecar to sidecar).
-			migrationApp := deployment.New(t).
-				WithClusters(t.Clusters()...).
-				WithConfig(echo.Config{
+			integIstioVersion := cMinIstioVersion
+			var migrationApp echo.Instances
+			// if dual stack is enabled, a dual stack encho config should be added
+			if !t.Settings().EnableDualStack {
+				// Create a custom echo deployment in NS1 with subsets that allows us to test the
+				// migration of a workload to istio (from no sidecar to sidecar).
+				migrationApp = deployment.New(t).
+					WithClusters(t.Clusters()...).WithConfig(echo.Config{
 					Namespace:      echo1NS,
 					Service:        migrationServiceName,
 					ServiceAccount: true,
@@ -73,8 +79,36 @@ func TestReachability(t *testing.T) {
 							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 						},
 					},
-				}).
-				BuildOrFail(t)
+				}).BuildOrFail(t)
+			} else {
+				// TODO: remove the MinIstioVersion setting for dual stack integration test for next line
+				// integIstioVersion = cMinIstioVersionDS
+				// Create a custom echo deployment in NS1 with subsets that allows us to test the
+				// migration of a workload to istio (from no sidecar to sidecar).
+				migrationApp = deployment.New(t).
+					WithClusters(t.Clusters()...).WithConfig(echo.Config{
+					Namespace:      echo1NS,
+					Service:        migrationServiceName,
+					ServiceAccount: true,
+					Ports:          ports.All(),
+					Subsets: []echo.SubsetConfig{
+						{
+							// Istio deployment, with sidecar.
+							Version:     migrationVersionIstio,
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, true),
+						},
+						{
+							// Legacy (non-Istio) deployment subset, does not have sidecar injected.
+							Version:     migrationVersionNonIstio,
+							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+						},
+					},
+					// TODO, the IPFamilies should be "IPv4, IPv6" and
+					// IPFamilyPolicy should be "RequireDualStack" once dual stack is totally supported
+					// IPFamilies:     "IPv4",
+					IPFamilyPolicy: "SingleStack",
+				}).BuildOrFail(t)
+			}
 
 			// Add the migration app to the full list of services.
 			allServices := apps.Ns1.All.Append(migrationApp.Services())
@@ -113,6 +147,8 @@ func TestReachability(t *testing.T) {
 				expectCrossCluster condition
 				expectCrossNetwork condition
 				expectSuccess      condition
+				// minIstioVersion allows conditionally skipping based on required version
+				minIstioVersion string
 			}{
 				{
 					name: "global mtls strict",
@@ -130,6 +166,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notNaked,
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global mtls permissive",
@@ -147,6 +184,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notToNaked,
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global mtls disabled",
@@ -164,6 +202,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: never,
 					expectSuccess:      always,
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global plaintext to mtls permissive",
@@ -181,6 +220,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: never,
 					expectSuccess:      always,
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global automtls strict",
@@ -231,6 +271,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: and(notFromNaked, or(toHeadless, toStatefulSet)),
 					expectCrossNetwork: never,
 					expectSuccess:      always,
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "global no peer authn",
@@ -246,6 +287,7 @@ func TestReachability(t *testing.T) {
 					expectCrossCluster: notFromNaked,
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notToNaked,
+					minIstioVersion:    integIstioVersion,
 				},
 				{
 					name: "mtls strict",
@@ -377,6 +419,12 @@ func TestReachability(t *testing.T) {
 				c := c
 
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+					if c.minIstioVersion != "" {
+						skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
+						if skipMV {
+							t.SkipNow()
+						}
+					}
 					// Apply the configs.
 					config.New(t).
 						Source(c.configs...).

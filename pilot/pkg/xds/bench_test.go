@@ -367,12 +367,14 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.16.0",
+			IstioVersion: "1.17.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 	}
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
+	// need to call DiscoverIPMode to check the ipMode of the proxy
+	proxy.DiscoverIPMode()
 
 	configs, k8sConfig := getConfigsWithCache(t, config)
 	m := mesh.DefaultMeshConfig()
@@ -475,7 +477,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
-var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
+var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
 var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
 

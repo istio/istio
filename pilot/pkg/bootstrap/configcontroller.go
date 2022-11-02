@@ -136,7 +136,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.configController = aggregateConfigController
 
 	// Create the config store.
-	s.environment.ConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -160,7 +160,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
@@ -188,7 +188,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
-						if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
 							controller := gateway.NewDeploymentController(s.kubeClient)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
@@ -255,9 +255,10 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
 			store := memory.Make(collections.Pilot)
+			// TODO: enable namespace filter for memory controller
 			configController := memory.NewController(store)
 			configController.RegisterHasSyncedHandler(xdsMCP.HasSynced)
-			xdsMCP.Store = model.MakeIstioStore(configController)
+			xdsMCP.Store = configController
 			err = xdsMCP.Run()
 			if err != nil {
 				return fmt.Errorf("MCP: failed running %v", err)
@@ -296,7 +297,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
 				cont, err := incluster.NewController(stop, s.RWConfigStore,
-					s.kubeClient, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
+					s.kubeClient, args.Revision, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
 				if err != nil {
 					return
 				}
@@ -342,8 +343,16 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
-	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix, "crd-controller")
+func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
+	opts := crdclient.Option{
+		Revision:     args.Revision,
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
+		Identifier:   "crd-controller",
+	}
+	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
+		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter
+	}
+	return crdclient.New(s.kubeClient, opts)
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

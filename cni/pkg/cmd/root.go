@@ -175,37 +175,29 @@ func init() {
 
 func registerStringParameter(name, value, usage string) {
 	rootCmd.Flags().String(name, value, usage)
-	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
-	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
-	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterStringVar(envName, value, usage)
-	bindViper(name)
+	registerEnvironment(name, value, usage)
 }
 
 func registerStringArrayParameter(name string, value []string, usage string) {
 	rootCmd.Flags().StringArray(name, value, usage)
-	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
-	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
-	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterStringVar(envName, strings.Join(value, ","), usage)
-	bindViper(name)
+	registerEnvironment(name, strings.Join(value, ","), usage)
 }
 
 func registerIntegerParameter(name string, value int, usage string) {
 	rootCmd.Flags().Int(name, value, usage)
-	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
-	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
-	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterIntVar(envName, value, usage)
-	bindViper(name)
+	registerEnvironment(name, value, usage)
 }
 
 func registerBooleanParameter(name string, value bool, usage string) {
-	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
 	rootCmd.Flags().Bool(name, value, usage)
+	registerEnvironment(name, value, usage)
+}
+
+func registerEnvironment[T env.Parseable](name string, defaultValue T, usage string) {
+	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
 	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
 	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
-	env.RegisterBoolVar(envName, value, usage)
+	env.Register(envName, defaultValue, usage)
 	bindViper(name)
 }
 

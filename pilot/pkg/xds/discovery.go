@@ -97,8 +97,8 @@ type DiscoveryServer struct {
 
 	// concurrentPushLimit is a semaphore that limits the amount of concurrent XDS pushes.
 	concurrentPushLimit chan struct{}
-	// requestRateLimit limits the number of new XDS requests allowed. This helps prevent thundering hurd of incoming requests.
-	requestRateLimit *rate.Limiter
+	// RequestRateLimit limits the number of new XDS requests allowed. This helps prevent thundering hurd of incoming requests.
+	RequestRateLimit *rate.Limiter
 
 	// InboundUpdates describes the number of configuration updates the discovery server has received
 	InboundUpdates *atomic.Int64
@@ -163,7 +163,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterAliase
 		Generators:          map[string]model.XdsResourceGenerator{},
 		ProxyNeedsPush:      DefaultProxyNeedsPush,
 		concurrentPushLimit: make(chan struct{}, features.PushThrottle),
-		requestRateLimit:    rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
+		RequestRateLimit:    rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
 		InboundUpdates:      atomic.NewInt64(0),
 		CommittedUpdates:    atomic.NewInt64(0),
 		pushChannel:         make(chan *model.PushRequest, 10),
@@ -302,8 +302,7 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	}
 }
 
-// Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
-// to avoid direct dependencies.
+// Push is called to push changes on config updates using ADS.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
@@ -359,7 +358,6 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
-// It replaces the 'clear cache' from v1.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
@@ -390,9 +388,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 	free := true
 	freeCh := make(chan struct{}, 1)
 
-	push := func(req *model.PushRequest, debouncedEvents int) {
+	push := func(req *model.PushRequest, debouncedEvents int, startDebounce time.Time) {
 		pushFn(req)
 		updateSent.Add(int64(debouncedEvents))
+		debounceTime.Record(time.Since(startDebounce).Seconds())
 		freeCh <- struct{}{}
 	}
 
@@ -413,7 +412,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 						quietTime, eventDelay, req.Full)
 				}
 				free = false
-				go push(req, debouncedEvents)
+				go push(req, debouncedEvents, startDebounce)
 				req = nil
 				debouncedEvents = 0
 			}
@@ -586,11 +585,11 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
-	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace, internalDebugMux)
+	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
-// shutdown shuts down DiscoveryServer components.
+// Shutdown shuts down DiscoveryServer components.
 func (s *DiscoveryServer) Shutdown() {
 	s.closeJwksResolver()
 	s.pushQueue.ShutDown()
@@ -660,7 +659,7 @@ func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
 }
 
 func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
-	if s.requestRateLimit.Limit() == 0 {
+	if s.RequestRateLimit.Limit() == 0 {
 		// Allow opt out when rate limiting is set to 0qps
 		return nil
 	}
@@ -668,5 +667,5 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	// instance in best case, or retry with backoff.
 	wait, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	return s.requestRateLimit.Wait(wait)
+	return s.RequestRateLimit.Wait(wait)
 }

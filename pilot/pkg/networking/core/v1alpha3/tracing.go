@@ -36,12 +36,23 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
+)
+
+const (
+	envoyDatadog       = "envoy.tracers.datadog"
+	envoyLightstep     = "envoy.tracers.lightstep"
+	envoyOpenCensus    = "envoy.tracers.opencensus"
+	envoyOpenTelemetry = "envoy.tracers.opentelemetry"
+	envoySkywalking    = "envoy.tracers.skywalking"
+	envoyZipkin        = "envoy.tracers.zipkin"
 )
 
 // this is used for testing. it should not be changed in regular code.
@@ -94,7 +105,7 @@ func configureTracingFromSpec(
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
 	if spec.Provider != nil {
-		tcfg, rfCtx, err := configureFromProviderConfig(push, proxy.Metadata, spec.Provider)
+		tcfg, rfCtx, err := configureFromProviderConfig(push, proxy, spec.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
 			return nil, nil
@@ -126,43 +137,84 @@ func configureTracingFromSpec(
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
-func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
+func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
 ) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
 	tracing := &hpb.HttpConnectionManager_Tracing{}
-	var rfCtx *xdsfilters.RouterFilterContext
-	var err error
+	var (
+		rfCtx          *xdsfilters.RouterFilterContext
+		err            error
+		serviceCluster string
+		meta           = proxy.Metadata
+	)
+
+	if proxy.XdsNode != nil {
+		serviceCluster = proxy.XdsNode.Cluster
+	}
 
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyZipkin, provider.Zipkin.GetService(),
+			provider.Zipkin.GetPort(), provider.Zipkin.GetMaxTagLength(), zipkinConfigGen, serviceCluster)
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, envoyDatadog, provider.Datadog.GetService(),
+			provider.Datadog.GetPort(), provider.Datadog.GetMaxTagLength(), datadogConfigGen, serviceCluster)
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
-			func(hostname, clusterName string) (*anypb.Any, error) {
-				lc := &tracingcfg.LightstepConfig{
-					CollectorCluster: clusterName,
-					AccessTokenFile:  provider.Lightstep.AccessToken,
-				}
-				return anypb.New(lc)
-			})
+		// todo: read raw metadata and retrieve lightstep extensions (instead of relying on version)
+
+		// Envoy dropped support for Lightstep in v1.24+ (~istio 1.16+). So, we generate old-style configuration
+		// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
+		useOTel := util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion))
+		if useOTel {
+			tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Lightstep.GetService(),
+				provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
+				func(_, hostname, clusterName string) (*anypb.Any, error) {
+					dc := &tracingcfg.OpenTelemetryConfig{
+						GrpcService: &envoy_config_core_v3.GrpcService{
+							TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+									ClusterName: clusterName,
+									Authority:   hostname,
+								},
+							},
+							InitialMetadata: []*envoy_config_core_v3.HeaderValue{
+								{
+									Key:   "lightstep-access-token",
+									Value: provider.Lightstep.GetAccessToken(),
+								},
+							},
+						},
+					}
+					return anypb.New(dc)
+				}, serviceCluster)
+		} else {
+			tracing, err = buildHCMTracing(pushCtx, envoyLightstep, provider.Lightstep.GetService(), provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
+				func(_, hostname, clusterName string) (*anypb.Any, error) {
+					lc := &tracingcfg.LightstepConfig{
+						CollectorCluster: clusterName,
+						AccessTokenFile:  provider.Lightstep.GetAccessToken(),
+					}
+					return protoconv.MessageToAnyWithError(lc)
+				}, serviceCluster)
+		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Opencensus.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Opencensus.GetMaxTagLength(), func() (*anypb.Any, error) {
 			oc := &tracingcfg.OpenCensusConfig{
-				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.Service, provider.Opencensus.Port),
+				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.GetService(), provider.Opencensus.GetPort()),
 				OcagentExporterEnabled: true,
-				IncomingTraceContext:   convert(provider.Opencensus.Context),
-				OutgoingTraceContext:   convert(provider.Opencensus.Context),
+				// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
+				// is not allowed during the lifetime of a proxy.
+				IncomingTraceContext: convert(provider.Opencensus.GetContext()),
+				OutgoingTraceContext: convert(provider.Opencensus.GetContext()),
 			}
 
-			return anypb.New(oc)
+			return protoconv.MessageToAnyWithError(oc)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service,
-			provider.Skywalking.Port, 0, func(hostname, clusterName string) (*anypb.Any, error) {
+		tracing, err = buildHCMTracing(pushCtx, envoySkywalking, provider.Skywalking.GetService(),
+			provider.Skywalking.GetPort(), 0, func(_, hostname, clusterName string) (*anypb.Any, error) {
 				s := &tracingcfg.SkyWalkingConfig{
 					GrpcService: &envoy_config_core_v3.GrpcService{
 						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
@@ -174,15 +226,15 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 					},
 				}
 
-				return anypb.New(s)
-			})
+				return protoconv.MessageToAnyWithError(s)
+			}, serviceCluster)
 
 		rfCtx = &xdsfilters.RouterFilterContext{
 			StartChildSpan: true,
 		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Stackdriver.GetMaxTagLength(), func() (*anypb.Any, error) {
 			proj, ok := meta.PlatformMetadata[platform.GCPProject]
 			if !ok {
 				proj, ok = meta.PlatformMetadata[platform.GCPProjectNumber]
@@ -196,7 +248,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				StackdriverProjectId:       proj,
 				IncomingTraceContext:       allContexts,
 				OutgoingTraceContext:       allContexts,
-				StdoutExporterEnabled:      provider.Stackdriver.Debug,
+				// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+				StdoutExporterEnabled: false,
 				TraceConfig: &opb.TraceConfig{
 					MaxNumberOfAnnotations:   200,
 					MaxNumberOfAttributes:    200,
@@ -209,6 +262,17 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
+				// prior to Istio 1.14, token path was absolute. this was changed
+				// in Istio 1.14 to the relative path used here. to prevent issues
+				// with OpenCensus configuration across version upgrades, we must
+				// preserve behavior for older version even in the face of control
+				// plane upgrades.
+				tokenPath := constants.TrustworthyJWTPath
+				if !util.IsIstioVersionGE114(model.ParseIstioVersion(meta.IstioVersion)) {
+					// use legacy path
+					tokenPath = "/var/run/secrets/tokens/istio-token"
+				}
+
 				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
 					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
 						{
@@ -230,7 +294,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
 											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-											SubjectTokenPath:        constants.TrustworthyJWTPath,
+											SubjectTokenPath:        tokenPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 										},
@@ -242,25 +306,39 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				}
 			}
 
-			if provider.Stackdriver.MaxNumberOfAnnotations != nil {
-				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.MaxNumberOfAnnotations.Value
+			// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+			// so, we should not allow dynamic control based on provider configuration of the following params:
+			// - max number of annotations
+			// - max number of attributes
+			// - max number of message events
+			// The following code block allows control for a single configuration once during the lifecycle of a
+			// mesh.
+			// nolint: staticcheck
+			if provider.Stackdriver.GetMaxNumberOfAnnotations() != nil {
+				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.GetMaxNumberOfAnnotations().GetValue()
 			}
-			if provider.Stackdriver.MaxNumberOfAttributes != nil {
-				sd.TraceConfig.MaxNumberOfAttributes = provider.Stackdriver.MaxNumberOfAttributes.Value
+			// nolint: staticcheck
+			if provider.Stackdriver.GetMaxNumberOfAttributes() != nil {
+				sd.TraceConfig.MaxNumberOfAttributes = provider.Stackdriver.GetMaxNumberOfAttributes().GetValue()
 			}
-			if provider.Stackdriver.MaxNumberOfMessageEvents != nil {
-				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.MaxNumberOfMessageEvents.Value
+			// nolint: staticcheck
+			if provider.Stackdriver.GetMaxNumberOfMessageEvents() != nil {
+				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.GetMaxNumberOfMessageEvents().GetValue()
 			}
-			return anypb.New(sd)
+			return protoconv.MessageToAnyWithError(sd)
 		})
+
+	case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
+		tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Opentelemetry.GetService(),
+			provider.Opentelemetry.GetPort(), provider.Opentelemetry.GetMaxTagLength(), otelConfigGen, serviceCluster)
 	}
 
 	return tracing, rfCtx, err
 }
 
-type typedConfigGenFromClusterFn func(hostname, clusterName string) (*anypb.Any, error)
+type typedConfigGenFromClusterFn func(serviceName, hostname, clusterName string) (*anypb.Any, error)
 
-func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
+func zipkinConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
@@ -269,12 +347,27 @@ func zipkinConfigGen(hostname, cluster string) (*anypb.Any, error) {
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
-	return anypb.New(zc)
+	return protoconv.MessageToAnyWithError(zc)
 }
 
-func datadogConfigGen(hostname, cluster string) (*anypb.Any, error) {
+func datadogConfigGen(serviceName, _, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
 		CollectorCluster: cluster,
+		ServiceName:      serviceName,
+	}
+	return protoconv.MessageToAnyWithError(dc)
+}
+
+func otelConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
+	dc := &tracingcfg.OpenTelemetryConfig{
+		GrpcService: &envoy_config_core_v3.GrpcService{
+			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+					Authority:   hostname,
+				},
+			},
+		},
 	}
 	return anypb.New(dc)
 }
@@ -283,6 +376,7 @@ type typedConfigGenFn func() (*anypb.Any, error)
 
 func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, maxTagLen uint32,
 	anyFn typedConfigGenFromClusterFn,
+	serviceCluster string,
 ) (*hpb.HttpConnectionManager_Tracing, error) {
 	config := &hpb.HttpConnectionManager_Tracing{}
 
@@ -291,7 +385,7 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 		return config, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 	}
 
-	cfg, err := anyFn(hostname, cluster)
+	cfg, err := anyFn(serviceCluster, hostname, cluster)
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)
 	}

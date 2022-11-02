@@ -30,7 +30,8 @@ func Get(url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch URL %s : %s", url, resp.Status)
 	}
-	ret, err := io.ReadAll(resp.Body)
+	// Limit requests to 10mb; we expect response to be much smaller
+	ret, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*10))
 	if err != nil {
 		return nil, err
 	}

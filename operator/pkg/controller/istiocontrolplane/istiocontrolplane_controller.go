@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	kubeversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,6 +56,7 @@ import (
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -76,7 +75,8 @@ var (
 )
 
 type Options struct {
-	Force bool
+	Force                   bool
+	MaxConcurrentReconciles int
 }
 
 const (
@@ -165,9 +165,11 @@ var (
 
 	operatorPredicates = predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
+			metrics.IncrementReconcileRequest("create")
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
+			metrics.IncrementReconcileRequest("delete")
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -176,16 +178,23 @@ var (
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
 				return false
 			}
-			newIOP := e.ObjectNew.(*iopv1alpha1.IstioOperator)
+			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
 			}
-			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) ||
-				oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() ||
-				oldIOP.GetGeneration() != newIOP.GetGeneration() {
+
+			if oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() {
+				metrics.IncrementReconcileRequest("update_deletion_timestamp")
 				return true
 			}
+
+			if oldIOP.GetGeneration() != newIOP.GetGeneration() {
+				metrics.IncrementReconcileRequest("update_generation")
+				return true
+			}
+
+			// if generation unchanged, spec also unchanged
 			return false
 		},
 	}
@@ -271,9 +280,9 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	deleted := iop.GetDeletionTimestamp() != nil
-	finalizers := sets.NewString(iop.GetFinalizers()...)
+	finalizers := sets.New(iop.GetFinalizers()...)
 	if deleted {
-		if !finalizers.Has(finalizer) {
+		if !finalizers.Contains(finalizer) {
 			scope.Infof("IstioOperator %s deleted", iopName)
 			metrics.CRDeletionTotal.Increment()
 			return reconcile.Result{}, nil
@@ -290,14 +299,14 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 
 		finalizers.Delete(finalizer)
-		iop.SetFinalizers(finalizers.List())
+		iop.SetFinalizers(sets.SortedList(finalizers))
 		finalizerError := r.client.Update(context.TODO(), iop)
 		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			scope.Info("API server conflict during finalizer removal, retrying.")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, iop)
-			finalizers = sets.NewString(iop.GetFinalizers()...)
+			finalizers = sets.New(iop.GetFinalizers()...)
 			finalizers.Delete(finalizer)
-			iop.SetFinalizers(finalizers.List())
+			iop.SetFinalizers(sets.SortedList(finalizers))
 			finalizerError = r.client.Update(context.TODO(), iop)
 		}
 		if finalizerError != nil {
@@ -313,10 +322,10 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, finalizerError
 		}
 		return reconcile.Result{}, nil
-	} else if !finalizers.Has(finalizer) {
+	} else if !finalizers.Contains(finalizer) {
 		log.Infof("Adding finalizer %v to %v", finalizer, request)
 		finalizers.Insert(finalizer)
-		iop.SetFinalizers(finalizers.List())
+		iop.SetFinalizers(sets.SortedList(finalizers))
 		err := r.client.Update(context.TODO(), iop)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -364,9 +373,11 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, helmReconcilerOptions)
 	if err != nil {
+		scope.Errorf("Error during reconcile. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 	if err := reconciler.SetStatusBegin(); err != nil {
+		scope.Errorf("Error during reconcile, failed to update status to Begin. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 	status, err := reconciler.Reconcile()
@@ -374,6 +385,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		scope.Errorf("Error during reconcile: %s", err)
 	}
 	if err := reconciler.SetStatusComplete(status); err != nil {
+		scope.Errorf("Error during reconcile, failed to update status to Complete. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 
@@ -448,14 +460,14 @@ func Add(mgr manager.Manager, options *Options) error {
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
-	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), kubeClient: kubeClient, options: options})
+	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), kubeClient: kubeClient, options: options}, options)
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r *ReconcileIstioOperator) error {
+// add adds a new Controller to mgr with r as the reconcile.Reconciler along with options for additional configuration.
+func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error {
 	scope.Info("Adding controller for IstioOperator.")
 	// Create a new controller
-	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: options.MaxConcurrentReconciles})
 	if err != nil {
 		return err
 	}

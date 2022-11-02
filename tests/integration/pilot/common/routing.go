@@ -661,7 +661,8 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name: "fault abort gRPC",
+		name:            "fault abort gRPC",
+		minIstioVersion: "1.15.0",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1173,7 +1174,7 @@ spec:
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
 			// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
 			// and control plane should filter our invalid one.
-			return templateParams(protocol.HTTPS, src, dests, append(security.ValidCipherSuites.SortedList(), "fake"))
+			return templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
 		},
 		setupOpts: fqdnHostHeader,
 		opts: echo.CallOptions{
@@ -1780,8 +1781,9 @@ func hostCases(t TrafficContext) {
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
 			t.RunTraffic(TrafficTestCase{
-				name: name,
-				call: c.CallOrFail,
+				name:            name,
+				minIstioVersion: "1.15.0",
+				call:            c.CallOrFail,
 				opts: echo.CallOptions{
 					To:    t.Apps.Headless,
 					Count: 1,
@@ -1826,8 +1828,9 @@ func hostCases(t TrafficContext) {
 				assertion = check.OK()
 			}
 			t.RunTraffic(TrafficTestCase{
-				name: name,
-				call: c.CallOrFail,
+				name:            name,
+				minIstioVersion: "1.15.0",
+				call:            c.CallOrFail,
 				opts: echo.CallOptions{
 					To: t.Apps.Headless,
 					Port: echo.Port{
@@ -2102,10 +2105,11 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "tcp source ip " + c.Config().Service,
-				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:   c.CallOrFail,
-				opts:   tcpCallopts,
+				name:            "tcp source ip " + c.Config().Service,
+				minIstioVersion: "1.14.0",
+				config:          svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:            c.CallOrFail,
+				opts:            tcpCallopts,
 				skip: skip{
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
@@ -2121,9 +2125,9 @@ var ConsistentHostChecker echo.Checker = func(result echo.CallResult, _ error) e
 		hostnames[i] = r.Hostname
 	}
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
-	unique := sets.New(hostnames...).SortedList()
+	unique := sets.SortedList(sets.New(hostnames...))
 	if len(unique) != 1 {
-		return fmt.Errorf("excepted only one destination, got: %v", unique)
+		return fmt.Errorf("expected only one destination, got: %v", unique)
 	}
 	return nil
 }
@@ -3028,6 +3032,32 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
+		name:             "matched multiple claims with regex:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"@request.auth.claims.sub", "regex", "(\\W|^)(sub-1|sub-2)(\\W|$)"},
+					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value[AB](\\W|$)"},
+				},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims:200",
 		targetMatchers:   podB,
 		workloadAgnostic: true,
@@ -3100,15 +3130,18 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
-		name:             "matched both with and without claims:200",
+		name:             "matched both with and without claims with regex:200",
 		targetMatchers:   podB,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers":        []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
-				"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				"WithoutHeaders": []configData{
+					{"@request.auth.claims.nested.key1", "exact", "value-not-matched"},
+					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value\\s{0,3}not{0,1}\\s{0,3}matched(\\W|$)"},
+				},
 			}
 		},
 		opts: echo.CallOptions{

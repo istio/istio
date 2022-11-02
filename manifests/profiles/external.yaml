@@ -1,5 +1,4 @@
-# The external profile is used to configure a mesh using an external control plane.
-# Only the injector mutating webhook configuration is installed.
+# Deprecated. Use the "remote" profile instead.
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:

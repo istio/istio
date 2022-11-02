@@ -13,6 +13,10 @@
       {{- if .Values.global.meshID }}
       meshId: "{{ .Values.global.meshID }}"
       {{- end }}
+      {{- with (.Values.global.proxy.variant | default .Values.global.variant) }}
+      image:
+        imageType: {{. | quote}}
+      {{- end }}
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:

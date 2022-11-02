@@ -16,10 +16,7 @@ package v1beta1
 
 import (
 	"fmt"
-	"net"
-	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -42,6 +39,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/pkg/log"
 )
 
@@ -147,8 +145,16 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) authn.MTLSSettings {
-	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(
+	endpointPort uint32,
+	node *model.Proxy,
+	trustDomainAliases []string,
+	modeOverride model.MutualTLSMode,
+) authn.MTLSSettings {
+	effectiveMTLSMode := modeOverride
+	if effectiveMTLSMode == model.MTLSUnknown {
+		effectiveMTLSMode = a.GetMutualTLSModeForPort(endpointPort)
+	}
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	var mc *meshconfig.MeshConfig
 	if a.push != nil {
@@ -239,17 +245,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri.
 			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
 			// it will always let envoy to fetch the jwks for consistent behavior.
-			u, _ := url.Parse(jwtRule.JwksUri)
-			host, hostPort, _ := net.SplitHostPort(u.Host)
-			// TODO: Default port based on scheme ?
-			port := 80
-			if hostPort != "" {
-				var err error
-				if port, err = strconv.Atoi(hostPort); err != nil {
-					port = 80 // If port is not specified or there is an error in parsing default to 80.
-				}
+			jwksInfo, err := security.ParseJwksURI(jwtRule.JwksUri)
+			if err != nil {
+				authnLog.Errorf("Failed to parse jwt rule jwks uri %v", err)
 			}
-			_, cluster, err := extensionproviders.LookupCluster(push, host, port)
+			_, cluster, err := extensionproviders.LookupCluster(push, jwksInfo.Hostname.String(), jwksInfo.Port)
 
 			if err == nil && len(cluster) > 0 {
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
