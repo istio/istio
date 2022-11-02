@@ -116,6 +116,9 @@
         "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
+    {{- if .proxyStatsHistogramBucketSettings }}
+    "histogram_bucket_settings": {{ .proxyStatsHistogramBucketSettings }},
+    {{- end }}
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [

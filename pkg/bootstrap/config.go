@@ -87,6 +87,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 
 	opts = append(opts,
+		option.EnvoyStatsHistogramBucketSettings(cfg.Metadata.ProxyConfig.ProxyStatsHistogramBucketSettings),
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),

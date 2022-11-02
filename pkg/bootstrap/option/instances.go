@@ -216,6 +216,10 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionRegexps", value)
 }
 
+func EnvoyStatsHistogramBucketSettings(value []*meshAPI.ProxyConfig_ProxyStatsHistogramBucketSetting) Instance {
+	return newOptionOrSkipIfZero("proxyStatsHistogramBucketSettings", value).withConvert(jsonConverter(value))
+}
+
 func EnvoyStatusPort(value int) Instance {
 	return newOption("envoy_status_port", value)
 }
