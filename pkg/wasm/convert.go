@@ -32,9 +32,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 )
 
-var (
-	allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
-)
+var allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
 
 func createAllowAllFilter(name string) (*anypb.Any, error) {
 	ec := &core.TypedExtensionConfig{
