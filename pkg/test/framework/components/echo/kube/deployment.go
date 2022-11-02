@@ -30,6 +30,7 @@ import (
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
@@ -43,7 +44,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -512,8 +512,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}, nil
 }
 
-// Restart performs a `kubectl rollout restart` on the echo deployment and waits for
-// `kubectl rollout status` to complete before returning.
+// Restart performs restarts of all the pod of the deployment.
+// This is analogous to `kubectl rollout restart` on the echo deployment and waits for
+// `kubectl rollout status` to complete before returning, but uses direct API calls.
 func (d *deployment) Restart() error {
 	var errs error
 	var deploymentNames []string
@@ -521,21 +522,55 @@ func (d *deployment) Restart() error {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
+	curTimestamp := time.Now().Format("RFC3339")
 	for _, deploymentName := range deploymentNames {
-		wlType := "deployment"
+		patchOpts := metav1.PatchOptions{}
+		patchData := fmt.Sprintf(`{
+			"spec": {
+				"template": {
+					"metadata": {
+						"annotations": {
+							"kubectl.kubernetes.io/restartedAt": %q
+						}
+					}
+				}
+			}
+		}`, curTimestamp) // e.g., “2006-01-02T15:04:05Z07:00”
+		var err error
+		appsv1 := d.cfg.Cluster.Kube().AppsV1()
+
 		if d.cfg.IsStatefulSet() {
-			wlType = "statefulset"
+			_, err = appsv1.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+				types.StrategicMergePatchType, []byte(patchData), patchOpts)
+		} else {
+			_, err = appsv1.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		}
-		rolloutCmd := fmt.Sprintf("kubectl rollout restart %s/%s -n %s",
-			wlType, deploymentName, d.cfg.Namespace.Name())
-		if _, err := shell.Execute(true, rolloutCmd); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v",
-				d.cfg.Namespace.Name(), deploymentName, err))
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp))
 			continue
 		}
-		waitCmd := fmt.Sprintf("kubectl rollout status %s/%s -n %s",
-			wlType, deploymentName, d.cfg.Namespace.Name())
-		if _, err := shell.Execute(true, waitCmd); err != nil {
+
+		if err := retry.UntilSuccess(func() error {
+			if d.cfg.IsStatefulSet() {
+				sts, err := appsv1.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if sts.Spec.Replicas == nil || *sts.Spec.Replicas != sts.Status.UpdatedReplicas {
+					return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
+				}
+			} else {
+				dep, err := appsv1.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if dep.Spec.Replicas == nil || *dep.Spec.Replicas != dep.Status.UpdatedReplicas {
+					return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
+				}
+			}
+			return nil
+		}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second)); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
 				d.cfg.Namespace.Name(), deploymentName, err))
 		}
