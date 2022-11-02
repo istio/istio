@@ -153,7 +153,13 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 	}
 	// If istiod is enabled, check if it has any proxies connected.
 	if pilotEnabled {
-		pilotExists, err := h.pilotExists(iopSpec.Revision, ns)
+		cfg := h.kubeClient.RESTConfig()
+		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), iopSpec.Revision)
+		if err != nil {
+			return errStatus, err
+		}
+
+		pilotExists, err := h.pilotExists(kubeClient, ns)
 		if err != nil {
 			return errStatus, fmt.Errorf("failed to check istiod extist: %v", err)
 		}
@@ -187,12 +193,8 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
 }
 
-func (h *HelmReconciler) pilotExists(istioNamespace, revision string) (bool, error) {
-	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd("", ""), revision)
-	if err != nil {
-		return false, err
-	}
-	istiodPods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
+func (h *HelmReconciler) pilotExists(cliClient kube.CLIClient, istioNamespace string) (bool, error) {
+	istiodPods, err := cliClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
 		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})

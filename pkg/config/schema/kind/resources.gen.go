@@ -29,7 +29,6 @@ const (
 	Pod
 	ProxyConfig
 	ReferenceGrant
-	ReferencePolicy
 	RequestAuthentication
 	Secret
 	Service
@@ -88,8 +87,6 @@ func (k Kind) String() string {
 		return "ProxyConfig"
 	case ReferenceGrant:
 		return "ReferenceGrant"
-	case ReferencePolicy:
-		return "ReferencePolicy"
 	case RequestAuthentication:
 		return "RequestAuthentication"
 	case Secret:
@@ -182,9 +179,6 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	}
 	if gvk.Kind == "ReferenceGrant" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
 		return ReferenceGrant
-	}
-	if gvk.Kind == "ReferencePolicy" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
-		return ReferencePolicy
 	}
 	if gvk.Kind == "RequestAuthentication" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
 		return RequestAuthentication

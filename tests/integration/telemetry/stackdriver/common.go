@@ -27,9 +27,9 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
-	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/bootstrap/platform"

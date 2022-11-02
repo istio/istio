@@ -256,8 +256,19 @@ func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	}, nil
 }
 
-func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]string) ([]v1.Pod, error) {
-	return nil, fmt.Errorf("TODO MockClient doesn't implement IstioPods")
+func (c MockClient) GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error) {
+	labelSelectors, ok := params["labelSelector"]
+	if !ok {
+		return nil, fmt.Errorf("miss labelSelectors")
+	}
+	podList, err := c.PodsForSelector(ctx, namespace, labelSelectors)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]v1.Pod, 0, len(podList.Items))
+	out = append(out, podList.Items...)
+
+	return out, nil
 }
 
 func (c MockClient) GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error) {

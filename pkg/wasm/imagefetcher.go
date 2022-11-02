@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -73,7 +74,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	}
 
 	if opt.Insecure {
-		t := remote.DefaultTransport.Clone()
+		t := remote.DefaultTransport.(*http.Transport).Clone()
 		t.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: opt.Insecure, //nolint: gosec
 		}
