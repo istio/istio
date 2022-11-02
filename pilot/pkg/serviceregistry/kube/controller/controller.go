@@ -368,7 +368,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
-	_ = c.nodeInformer.SetTransform(kubelib.StripUnusedFields)
+	_ = c.nodeInformer.SetTransform(stripNodeUnusedFields)
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	nodeInformer := informer.NewFilteredSharedIndexInformer(nil, c.nodeInformer)
 	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
@@ -1437,6 +1437,31 @@ func stripPodUnusedFields(obj any) (any, error) {
 		pod.Spec.Volumes = nil
 		pod.Status.InitContainerStatuses = nil
 		pod.Status.ContainerStatuses = nil
+	}
+
+	return obj, nil
+}
+
+// stripNodeUnusedFields is the transform function for shared pod informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func stripNodeUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// Annotation is never used
+	t.GetObjectMeta().SetAnnotations(nil)
+	// OwnerReference is never used
+	t.GetObjectMeta().SetOwnerReferences(nil)
+	// only node labels and addressed are useful
+	if node := obj.(*v1.Node); node != nil {
+		node.Status.Allocatable = nil
+		node.Status.Capacity = nil
+		node.Status.Images = nil
+		node.Status.Conditions = nil
 	}
 
 	return obj, nil
