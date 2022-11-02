@@ -1626,8 +1626,8 @@ metadata:
   creationTimestamp: "{{.Time}}"
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
+  - kind: Gateway
+    name: fake
 {{ with .PortMatch }}
     port: {{.}}
 {{ end }}
