@@ -63,7 +63,7 @@ function download_ztunnel_if_necessary () {
 
   # Download and make the binary executable
   echo "Downloading ztunnel: $1 to $2"
-  BASE_NAME="$(basename ${ISTIO_ZTUNNEL_RELEASE_URL})"
+  BASE_NAME="$(basename "${ISTIO_ZTUNNEL_RELEASE_URL}")"
   time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "${BASE_NAME}"
   chmod +x "${BASE_NAME}"
 
@@ -79,7 +79,7 @@ function download_ztunnel_if_necessary () {
   popd
 
   # Also copy it to out/$os_arch/ztunnel as that's whats used in the build
-  echo "Copying "${2}" to ${TARGET_OUT_LINUX}/ztunnel"
+  echo "Copying '${2}' to ${TARGET_OUT_LINUX}/ztunnel"
   cp -f "${2}" "${TARGET_OUT_LINUX}/ztunnel"
 }
 
@@ -88,7 +88,7 @@ function maybe_build_ztunnel() {
   # BUILD_ZTUNNEL=1 with no BUILD_ZTUNNEL_REPO tries to infer BUILD_ZTUNNEL_REPO
   if [[ "${BUILD_ZTUNNEL_REPO:-}" == "" ]] && [[ "${BUILD_ZTUNNEL:-}" != "" ]]; then
     local ZTUNNEL_DIR
-    ZTUNNEL_DIR="$(pwd)/../ztunnel"
+	ZTUNNEL_DIR="$(pwd)/../ztunnel"
     if [[ -d "${ZTUNNEL_DIR}" ]]; then
       BUILD_ZTUNNEL_REPO="${ZTUNNEL_DIR}"
     else
