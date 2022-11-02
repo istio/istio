@@ -215,7 +215,7 @@ func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamesp
 				}
 				resp, err := queryToOnePod(&pod)
 				if err != nil {
-					fmt.Fprintf(options.MessageWriter, "Skip the agent in Pod %s due to the error: %s\n", namespacedName, err.Error())
+					fmt.Fprintf(os.Stderr, "Skip the agent in Pod %s due to the error: %s\n", namespacedName, err.Error())
 					continue
 				}
 				responses = append(responses, resp)
