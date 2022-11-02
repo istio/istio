@@ -29,7 +29,7 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -162,7 +162,7 @@ func TestDashboard(t *testing.T) {
 						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
 						cm, err := cl.Kube().CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
-							context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
+							context.TODO(), d.configmap, metav1.GetOptions{})
 						if err != nil {
 							t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 						}

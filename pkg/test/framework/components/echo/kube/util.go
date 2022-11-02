@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -33,7 +33,7 @@ func (s podSelector) String() string {
 	return s.Label + "=" + s.Value
 }
 
-func (s podSelector) MatchesPod(pod *kubeCore.Pod) bool {
+func (s podSelector) MatchesPod(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.Labels[s.Label] == s.Value
 }
 

@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
@@ -150,7 +150,7 @@ func (m *workloadManager) Start() error {
 	return err
 }
 
-func (m *workloadManager) onPodAddOrUpdate(pod *kubeCore.Pod) error {
+func (m *workloadManager) onPodAddOrUpdate(pod *corev1.Pod) error {
 	m.mutex.Lock()
 
 	// After the method returns, notify the handler the ready state of the workload changed.
@@ -205,7 +205,7 @@ func (m *workloadManager) onPodAddOrUpdate(pod *kubeCore.Pod) error {
 	return nil
 }
 
-func (m *workloadManager) onPodDeleted(pod *kubeCore.Pod) (err error) {
+func (m *workloadManager) onPodDeleted(pod *corev1.Pod) (err error) {
 	m.mutex.Lock()
 
 	// After the method returns, notify the handler the ready state of the workload changed.

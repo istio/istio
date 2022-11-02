@@ -17,8 +17,8 @@ package injection
 import (
 	"strings"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
-	apps_v1 "k8s.io/api/apps/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -56,9 +56,9 @@ func (a *ImageAutoAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer.
 func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
-	var istioWebhooks []admit_v1.MutatingWebhook
+	var istioWebhooks []admitv1.MutatingWebhook
 	c.ForEach(collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Name(), func(resource *resource.Instance) bool {
-		mwhc := resource.Message.(*admit_v1.MutatingWebhookConfiguration)
+		mwhc := resource.Message.(*admitv1.MutatingWebhookConfiguration)
 		for _, wh := range mwhc.Webhooks {
 			if strings.HasSuffix(wh.Name, "istio.io") {
 				istioWebhooks = append(istioWebhooks, wh)
@@ -77,7 +77,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
-		d := resource.Message.(*apps_v1.DeploymentSpec)
+		d := resource.Message.(*appsv1.DeploymentSpec)
 		if !hasAutoImage(&d.Template.Spec) {
 			return true
 		}
@@ -110,7 +110,7 @@ func getNamespaceLabels(c analysis.Context, nsName string) map[string]string {
 	return ns.Metadata.Labels
 }
 
-func matchesWebhooks(nsLabels, podLabels map[string]string, istioWebhooks []admit_v1.MutatingWebhook) bool {
+func matchesWebhooks(nsLabels, podLabels map[string]string, istioWebhooks []admitv1.MutatingWebhook) bool {
 	for _, w := range istioWebhooks {
 		if selectorMatches(w.NamespaceSelector, nsLabels) && selectorMatches(w.ObjectSelector, podLabels) {
 			return true

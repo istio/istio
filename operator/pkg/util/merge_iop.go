@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	yaml2 "sigs.k8s.io/yaml"
 
@@ -37,8 +37,8 @@ import (
 // that alone would not be sufficient.
 // Only non-scalar types require tags, therefore most fields are omitted here.
 type iopMergeStructType struct {
-	v11.ObjectMeta `json:"metadata" patchStrategy:"merge"`
-	Spec           istioOperatorSpec `json:"spec" patchStrategy:"merge"`
+	metav1.ObjectMeta `json:"metadata" patchStrategy:"merge"`
+	Spec              istioOperatorSpec `json:"spec" patchStrategy:"merge"`
 }
 
 type istioOperatorSpec struct {

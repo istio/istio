@@ -25,7 +25,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"google.golang.org/protobuf/proto"
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
@@ -54,7 +54,7 @@ type sidecar struct {
 	cluster      cluster.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) *sidecar {
+func newSidecar(pod corev1.Pod, cluster cluster.Cluster) *sidecar {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,

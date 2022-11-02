@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -192,7 +192,7 @@ func TestCronJobMetadata(t *testing.T) {
 		controller := true
 		t.Run(tt.name, func(t *testing.T) {
 			gotObjectMeta, gotTypeMeta := GetDeployMetaFromPod(
-				&kubeApiCore.Pod{
+				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: tt.jobName + "-pod",
 						OwnerReferences: []metav1.OwnerReference{{
@@ -217,7 +217,7 @@ func TestCronJobMetadata(t *testing.T) {
 func TestDeploymentConfigMetadata(t *testing.T) {
 	tests := []struct {
 		name               string
-		pod                *kubeApiCore.Pod
+		pod                *corev1.Pod
 		wantTypeMetadata   metav1.TypeMeta
 		wantObjectMetadata metav1.ObjectMeta
 	}{
@@ -275,13 +275,13 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 	}
 }
 
-func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) *kubeApiCore.Pod {
+func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) *corev1.Pod {
 	controller := true
 	labels := make(map[string]string)
 	if hasDeployConfigLabel {
 		labels["deploymentconfig"] = deployConfigName
 	}
-	return &kubeApiCore.Pod{
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: deployConfigName + "-rc-pod",
 			OwnerReferences: []metav1.OwnerReference{{
@@ -303,7 +303,7 @@ func TestStripUnusedFields(t *testing.T) {
 	}{
 		{
 			name: "transform pods",
-			obj: &kubeApiCore.Pod{
+			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",
@@ -316,7 +316,7 @@ func TestStripUnusedFields(t *testing.T) {
 					},
 				},
 			},
-			want: &kubeApiCore.Pod{
+			want: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",
@@ -327,7 +327,7 @@ func TestStripUnusedFields(t *testing.T) {
 		},
 		{
 			name: "transform endpoints",
-			obj: &kubeApiCore.Endpoints{
+			obj: &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",
@@ -340,7 +340,7 @@ func TestStripUnusedFields(t *testing.T) {
 					},
 				},
 			},
-			want: &kubeApiCore.Endpoints{
+			want: &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "foo",
 					Name:        "bar",

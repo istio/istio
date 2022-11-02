@@ -24,8 +24,8 @@ import (
 
 	. "github.com/onsi/gomega"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
-	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	kubeTypedAdmission "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
@@ -49,11 +49,11 @@ var (
 	failurePolicyIgnore = kubeApiAdmission.Ignore
 
 	unpatchedWebhookConfig = &kubeApiAdmission.ValidatingWebhookConfiguration{
-		TypeMeta: kubeApiMeta.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: kubeApiAdmission.SchemeGroupVersion.String(),
 			Kind:       "ValidatingWebhookConfiguration",
 		},
-		ObjectMeta: kubeApiMeta.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: webhookName,
 			Labels: map[string]string{
 				label.IoIstioRev.Name: revision,
@@ -228,11 +228,11 @@ func TestGreenfield(t *testing.T) {
 	c := createTestController(t)
 
 	// install adds the webhook config with fail open policy
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
+	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, metav1.CreateOptions{})
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 
 	reconcileHelper(t, c, unpatchedWebhookConfig.Name)
-	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, kubeApiMeta.GetOptions{})).
+	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, metav1.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleIgnore), "no config update when endpoint not present")
 
 	// verify the webhook isn't updated if invalid config is accepted.
@@ -240,25 +240,25 @@ func TestGreenfield(t *testing.T) {
 		return true, &v1alpha3.Gateway{}, nil
 	})
 	reconcileHelper(t, c, unpatchedWebhookConfig.Name)
-	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, kubeApiMeta.GetOptions{})).
+	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, metav1.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleIgnore), "no config update when endpoint invalid config is accepted")
 
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
 	c.istioFakeClient.PrependReactor("create", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1alpha3.Gateway{}, kubeErrors.NewInternalError(errors.New("unknown error"))
+		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New("unknown error"))
 	})
 	reconcileHelper(t, c, unpatchedWebhookConfig.Name)
-	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, kubeApiMeta.GetOptions{})).
+	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, metav1.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleIgnore),
 			"no config update when endpoint invalid config is rejected for an unknown reason")
 
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
 	c.istioFakeClient.PrependReactor("create", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1alpha3.Gateway{}, kubeErrors.NewInternalError(errors.New(deniedRequestMessageFragment))
+		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))
 	})
 	reconcileHelper(t, c, unpatchedWebhookConfig.Name)
 	g.Expect(c.Actions()[1].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
-	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, kubeApiMeta.GetOptions{})).
+	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, metav1.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleFail),
 			"istiod config created when endpoint is ready and invalid config is denied")
 }
@@ -270,7 +270,7 @@ func TestBackoff(t *testing.T) {
 	c.queue = workqueue.NewRateLimitingQueue(workqueue.NewItemFastSlowRateLimiter(1*time.Millisecond, 180*time.Minute, maxAttempts))
 
 	// install adds the webhook config with fail open policy
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
+	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, metav1.CreateOptions{})
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 
 	stop := test.NewStop(t)
@@ -290,8 +290,8 @@ func TestUpdateAll(t *testing.T) {
 
 	// add two validating webhook configurations
 	const secondName = "second"
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), copyWithName(unpatchedWebhookConfig, secondName), kubeApiMeta.CreateOptions{})
+	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, metav1.CreateOptions{})
+	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), copyWithName(unpatchedWebhookConfig, secondName), metav1.CreateOptions{})
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 	_ = c.configStore.Add(copyWithName(unpatchedWebhookConfig, secondName))
 
@@ -325,13 +325,13 @@ func TestCABundleChange(t *testing.T) {
 	g := NewWithT(t)
 	c := createTestController(t)
 
-	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
+	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, metav1.CreateOptions{})
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 	c.istioFakeClient.PrependReactor("create", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1alpha3.Gateway{}, kubeErrors.NewInternalError(errors.New(deniedRequestMessageFragment))
+		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))
 	})
 	reconcileHelper(t, c, unpatchedWebhookConfig.Name)
-	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), unpatchedWebhookConfig.Name, kubeApiMeta.GetOptions{})).
+	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), unpatchedWebhookConfig.Name, metav1.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleFail), "istiod config created when endpoint is ready")
 
 	// keep test store and tracker in-sync
@@ -347,7 +347,7 @@ func TestCABundleChange(t *testing.T) {
 	webhookConfigAfterCAUpdate.Webhooks[1].ClientConfig.CABundle = caBundle1
 
 	reconcileHelper(t, c, unpatchedWebhookConfig.Name)
-	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, kubeApiMeta.GetOptions{})).
+	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, metav1.GetOptions{})).
 		Should(Equal(webhookConfigAfterCAUpdate), "webhook should change after cert change")
 	// keep test store and tracker in-sync
 	_ = c.configStore.Update(webhookConfigAfterCAUpdate)

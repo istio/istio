@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -524,7 +524,7 @@ spec:
 			}
 		}
 		cmName := fmt.Sprintf("%s-%s-vm-bootstrap", cfg.Service, subset.Version)
-		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
+		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
 		_, err = cfg.Cluster.Kube().CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed creating configmap %s: %v", cm.Name, err)
@@ -536,7 +536,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	secret := &kubeCore.Secret{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfg.Service + "-istio-token",
 			Namespace: cfg.Namespace.Name(),
@@ -589,7 +589,7 @@ func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
 
 func createServiceAccount(client kubernetes.Interface, ns string, serviceAccount string) error {
 	scopes.Framework.Debugf("Creating service account for: %s/%s", ns, serviceAccount)
-	_, err := client.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &kubeCore.ServiceAccount{
+	_, err := client.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: serviceAccount},
 	}, metav1.CreateOptions{})
 	return err

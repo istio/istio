@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -86,22 +86,22 @@ func TestDescribe(t *testing.T) {
 
 func TestGetRevisionFromPodAnnotation(t *testing.T) {
 	cases := []struct {
-		anno k8s_labels.Set
+		anno klabels.Set
 
 		expected string
 	}{
 		{
-			anno: k8s_labels.Set{
+			anno: klabels.Set{
 				apiannotation.SidecarStatus.Name: "",
 			},
 			expected: "",
 		},
 		{
-			anno:     k8s_labels.Set{},
+			anno:     klabels.Set{},
 			expected: "",
 		},
 		{
-			anno: k8s_labels.Set{
+			anno: klabels.Set{
 				apiannotation.SidecarStatus.Name: `
 				{
 					"initContainers": [

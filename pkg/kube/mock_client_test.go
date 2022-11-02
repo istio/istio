@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/util/assert"
 	version2 "istio.io/pkg/version"
@@ -83,7 +83,7 @@ func TestMockClient_PodsForSelector(t *testing.T) {
 			"app=foo": {
 				Items: []v1.Pod{
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "foo-1",
 						},
 					},
@@ -92,12 +92,12 @@ func TestMockClient_PodsForSelector(t *testing.T) {
 			"app=bar": {
 				Items: []v1.Pod{
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "bar-1",
 						},
 					},
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "bar-2",
 						},
 					},
@@ -108,7 +108,7 @@ func TestMockClient_PodsForSelector(t *testing.T) {
 			"app=prometheus": {
 				Items: []v1.Pod{
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "prometheus",
 						},
 					},
@@ -130,17 +130,17 @@ func TestMockClient_PodsForSelector(t *testing.T) {
 			expected: &v1.PodList{
 				Items: []v1.Pod{
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "foo-1",
 						},
 					},
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "bar-1",
 						},
 					},
 					{
-						ObjectMeta: meta_v1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "bar-2",
 						},
 					},
