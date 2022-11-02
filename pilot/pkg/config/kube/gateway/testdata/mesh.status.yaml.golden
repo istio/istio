@@ -85,8 +85,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: example
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -125,56 +125,6 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: no-hostname
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: mesh requires hostname to be set
-      reason: NoMatchingListenerHostname
-      status: "False"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      kind: Mesh
-      name: istio
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TLSRoute
-metadata:
-  creationTimestamp: null
-  name: echo
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: mesh requires hostname to be set
-      reason: NoMatchingListenerHostname
-      status: "False"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: echo
 ---
