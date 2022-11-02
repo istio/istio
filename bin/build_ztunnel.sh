@@ -87,7 +87,8 @@ function maybe_build_ztunnel() {
   # TODO detect git changes or something to avoid unnecessarily building
   # BUILD_ZTUNNEL=1 with no BUILD_ZTUNNEL_REPO tries to infer BUILD_ZTUNNEL_REPO
   if [[ "${BUILD_ZTUNNEL_REPO:-}" == "" ]] && [[ "${BUILD_ZTUNNEL:-}" != "" ]]; then
-    local ZTUNNEL_DIR="$(pwd)/../ztunnel"
+    local ZTUNNEL_DIR
+    ZTUNNEL_DIR="$(pwd)/../ztunnel"
     if [[ -d "${ZTUNNEL_DIR}" ]]; then
       BUILD_ZTUNNEL_REPO="${ZTUNNEL_DIR}"
     else
