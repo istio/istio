@@ -20,9 +20,9 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 
@@ -257,7 +257,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 
 func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*hcm.HttpFilter {
 	if !b.option.IsCustomBuilder {
-		rbac := &rbachttppb.RBAC{
+		rbac := &rbachttp.RBAC{
 			Rules:                 rules,
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
@@ -273,7 +273,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	extauthz, err := getExtAuthz(b.extensions, providers)
 	if err != nil {
 		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action:"))
-		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
+		rbac := &rbachttp.RBAC{Rules: rbacDefaultDenyAll}
 		return []*hcm.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
@@ -286,7 +286,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	// can utilize these metadata to trigger the enforcement conditionally.
 	// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
 	// for more details.
-	rbac := &rbachttppb.RBAC{
+	rbac := &rbachttp.RBAC{
 		ShadowRules:           rules,
 		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
 	}
@@ -304,7 +304,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 
 func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*listener.Filter {
 	if !b.option.IsCustomBuilder {
-		rbac := &rbactcppb.RBAC{
+		rbac := &rbactcp.RBAC{
 			Rules:                 rules,
 			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
 			ShadowRules:           shadowRules,
@@ -320,7 +320,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 
 	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
 		b.logger.AppendError(multierror.Prefix(err, "failed to parse CUSTOM action, will generate a deny all config:"))
-		rbac := &rbactcppb.RBAC{
+		rbac := &rbactcp.RBAC{
 			Rules:      rbacDefaultDenyAll,
 			StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
 		}
@@ -334,7 +334,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		b.logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
 	} else {
-		rbac := &rbactcppb.RBAC{
+		rbac := &rbactcp.RBAC{
 			ShadowRules:           rules,
 			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
 			ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,

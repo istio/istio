@@ -27,7 +27,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
@@ -580,7 +580,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 	// Identify RBAC policies. Currently there are no "breadcrumbs" so we only return the policy names.
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == wellknown.HTTPRoleBasedAccessControl {
-			rbac := &rbac_http_filter.RBAC{}
+			rbac := &rbachttp.RBAC{}
 			if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err == nil {
 				policies := []string{}
 				for polName := range rbac.Rules.Policies {
