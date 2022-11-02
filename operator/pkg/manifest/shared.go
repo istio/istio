@@ -384,7 +384,7 @@ func RewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skip
 	}
 	if isURL {
 		// TODO: remove this feature in next major release
-		log.Warnf("fetching charts from arbitrary URLs will be removed in next major release")
+		log.Warnf("fetching charts from URLs will be removed in next major release")
 		installPackagePath, err = fetchExtractInstallPackageHTTP(installPackagePath)
 		if err != nil {
 			return "", "", err
