@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"google.golang.org/protobuf/proto"
@@ -64,8 +64,8 @@ func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) *sidecar {
 	return sidecar
 }
 
-func (s *sidecar) Info() (*adminapi.ServerInfo, error) {
-	msg := &adminapi.ServerInfo{}
+func (s *sidecar) Info() (*admin.ServerInfo, error) {
+	msg := &admin.ServerInfo{}
 	if err := s.adminRequest("server_info", msg); err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *sidecar) Info() (*adminapi.ServerInfo, error) {
 	return msg, nil
 }
 
-func (s *sidecar) InfoOrFail(t test.Failer) *adminapi.ServerInfo {
+func (s *sidecar) InfoOrFail(t test.Failer) *admin.ServerInfo {
 	t.Helper()
 	info, err := s.Info()
 	if err != nil {
@@ -82,8 +82,8 @@ func (s *sidecar) InfoOrFail(t test.Failer) *adminapi.ServerInfo {
 	return info
 }
 
-func (s *sidecar) Config() (*adminapi.ConfigDump, error) {
-	msg := &adminapi.ConfigDump{}
+func (s *sidecar) Config() (*admin.ConfigDump, error) {
+	msg := &admin.ConfigDump{}
 	if err := s.adminRequest("config_dump", msg); err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *sidecar) Config() (*adminapi.ConfigDump, error) {
 	return msg, nil
 }
 
-func (s *sidecar) ConfigOrFail(t test.Failer) *adminapi.ConfigDump {
+func (s *sidecar) ConfigOrFail(t test.Failer) *admin.ConfigDump {
 	t.Helper()
 	cfg, err := s.Config()
 	if err != nil {
@@ -100,10 +100,10 @@ func (s *sidecar) ConfigOrFail(t test.Failer) *adminapi.ConfigDump {
 	return cfg
 }
 
-func (s *sidecar) WaitForConfig(accept func(*adminapi.ConfigDump) (bool, error), options ...retry.Option) error {
+func (s *sidecar) WaitForConfig(accept func(*admin.ConfigDump) (bool, error), options ...retry.Option) error {
 	options = append([]retry.Option{retry.BackoffDelay(defaultConfigDelay), retry.Timeout(defaultConfigTimeout)}, options...)
 
-	var cfg *adminapi.ConfigDump
+	var cfg *admin.ConfigDump
 	_, err := retry.UntilComplete(func() (result any, completed bool, err error) {
 		cfg, err = s.Config()
 		if err != nil {
@@ -148,15 +148,15 @@ func (s *sidecar) WaitForConfig(accept func(*adminapi.ConfigDump) (bool, error),
 	return nil
 }
 
-func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*adminapi.ConfigDump) (bool, error), options ...retry.Option) {
+func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*admin.ConfigDump) (bool, error), options ...retry.Option) {
 	t.Helper()
 	if err := s.WaitForConfig(accept, options...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (s *sidecar) Clusters() (*adminapi.Clusters, error) {
-	msg := &adminapi.Clusters{}
+func (s *sidecar) Clusters() (*admin.Clusters, error) {
+	msg := &admin.Clusters{}
 	if err := s.adminRequest("clusters?format=json", msg); err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (s *sidecar) Clusters() (*adminapi.Clusters, error) {
 	return msg, nil
 }
 
-func (s *sidecar) ClustersOrFail(t test.Failer) *adminapi.Clusters {
+func (s *sidecar) ClustersOrFail(t test.Failer) *admin.Clusters {
 	t.Helper()
 	clusters, err := s.Clusters()
 	if err != nil {
@@ -173,8 +173,8 @@ func (s *sidecar) ClustersOrFail(t test.Failer) *adminapi.Clusters {
 	return clusters
 }
 
-func (s *sidecar) Listeners() (*adminapi.Listeners, error) {
-	msg := &adminapi.Listeners{}
+func (s *sidecar) Listeners() (*admin.Listeners, error) {
+	msg := &admin.Listeners{}
 	if err := s.adminRequest("listeners?format=json", msg); err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (s *sidecar) Listeners() (*adminapi.Listeners, error) {
 	return msg, nil
 }
 
-func (s *sidecar) ListenersOrFail(t test.Failer) *adminapi.Listeners {
+func (s *sidecar) ListenersOrFail(t test.Failer) *admin.Listeners {
 	t.Helper()
 	listeners, err := s.Listeners()
 	if err != nil {

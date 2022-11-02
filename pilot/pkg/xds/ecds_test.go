@@ -19,7 +19,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -283,7 +283,7 @@ func TestECDSGenerate(t *testing.T) {
 				gotExtensions.Insert(res.Name)
 				ec := &core.TypedExtensionConfig{}
 				res.Resource.UnmarshalTo(ec)
-				wasm := &extensionsv3.Wasm{}
+				wasm := &wasm.Wasm{}
 				ec.TypedConfig.UnmarshalTo(wasm)
 				gotsecret := wasm.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()[model.WasmSecretEnv]
 				if gotsecret != "" {

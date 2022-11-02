@@ -17,14 +17,14 @@ package configdump
 import (
 	"sort"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetDynamicClusterDump retrieves a cluster dump with just dynamic active clusters in it
-func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersConfigDump, error) {
+func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*admin.ClustersConfigDump, error) {
 	clusterDump, err := w.GetClusterConfigDump()
 	if err != nil {
 		return nil, err
@@ -53,16 +53,16 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 			dac[i].LastUpdated = nil
 		}
 	}
-	return &adminapi.ClustersConfigDump{DynamicActiveClusters: dac}, nil
+	return &admin.ClustersConfigDump{DynamicActiveClusters: dac}, nil
 }
 
 // GetClusterConfigDump retrieves the cluster config dump from the ConfigDump
-func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
+func (w *Wrapper) GetClusterConfigDump() (*admin.ClustersConfigDump, error) {
 	clusterDumpAny, err := w.getSection(clusters)
 	if err != nil {
 		return nil, err
 	}
-	clusterDump := &adminapi.ClustersConfigDump{}
+	clusterDump := &admin.ClustersConfigDump{}
 	err = clusterDumpAny.UnmarshalTo(clusterDump)
 	if err != nil {
 		return nil, err

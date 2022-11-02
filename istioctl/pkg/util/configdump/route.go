@@ -18,7 +18,7 @@ import (
 	"sort"
 	"time"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -50,7 +50,7 @@ func (w *Wrapper) GetLastUpdatedDynamicRouteTime() (*time.Time, error) {
 }
 
 // GetDynamicRouteDump retrieves a route dump with just dynamic active routes in it
-func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfigDump, error) {
+func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*admin.RoutesConfigDump, error) {
 	routeDump, err := w.GetRouteConfigDump()
 	if err != nil {
 		return nil, err
@@ -94,16 +94,16 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 			drc[i].LastUpdated = nil
 		}
 	}
-	return &adminapi.RoutesConfigDump{DynamicRouteConfigs: drc}, nil
+	return &admin.RoutesConfigDump{DynamicRouteConfigs: drc}, nil
 }
 
 // GetRouteConfigDump retrieves the route config dump from the ConfigDump
-func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
+func (w *Wrapper) GetRouteConfigDump() (*admin.RoutesConfigDump, error) {
 	routeDumpAny, err := w.getSection(routes)
 	if err != nil {
 		return nil, err
 	}
-	routeDump := &adminapi.RoutesConfigDump{}
+	routeDump := &admin.RoutesConfigDump{}
 	err = routeDumpAny.UnmarshalTo(routeDump)
 	if err != nil {
 		return nil, err

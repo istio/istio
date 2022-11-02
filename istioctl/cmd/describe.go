@@ -28,7 +28,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -595,7 +595,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 }
 
 // Return the first HTTP Connection Manager config for the inbound port
-func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_conn.HttpConnectionManager, error) {
+func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*hcm.HttpConnectionManager, error) {
 	filter := istio_envoy_configdump.ListenerFilter{
 		Port: uint32(port),
 	}
@@ -618,7 +618,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		if listenerTyped.Name == model.VirtualInboundListenerName {
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
-					hcm := &http_conn.HttpConnectionManager{}
+					hcm := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcm); err == nil {
 						return hcm, nil
 					}
@@ -638,7 +638,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
-					hcm := &http_conn.HttpConnectionManager{}
+					hcm := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcm); err == nil {
 						return hcm, nil
 					}

@@ -16,8 +16,8 @@ package extension
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -41,10 +41,10 @@ var defaultConfigSource = &core.ConfigSource{
 
 // PopAppend takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
 // plugins of a provided phase from the WASM plugin set and append them to the list of filters
-func PopAppend(list []*hcm_filter.HttpFilter,
+func PopAppend(list []*hcm.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase,
-) []*hcm_filter.HttpFilter {
+) []*hcm.HttpFilter {
 	for _, ext := range filterMap[phase] {
 		list = append(list, toEnvoyHTTPFilter(ext))
 	}
@@ -52,10 +52,10 @@ func PopAppend(list []*hcm_filter.HttpFilter,
 	return list
 }
 
-func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
-	return &hcm_filter.HttpFilter{
+func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
 		Name: wasmPlugin.ResourceName,
-		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
+		ConfigType: &hcm.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &core.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
 				TypeUrls:     []string{xds.WasmHTTPFilterType},
@@ -79,7 +79,7 @@ func InsertedExtensionConfigurations(
 			if !hasName.Contains(p.ResourceName) {
 				continue
 			}
-			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*extensionsv3.Wasm)
+			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*wasm.Wasm)
 			// Find the pull secret resource name from wasm vm env variables.
 			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
 			// at in the VM env variables, with value being the secret resource name. We try to find the actual

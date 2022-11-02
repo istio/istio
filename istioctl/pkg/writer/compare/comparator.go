@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -66,7 +66,7 @@ func NewXdsComparator(w io.Writer, istiodResponses map[string]*discovery.Discove
 	for _, resp := range istiodResponses {
 		if len(resp.Resources) > 0 {
 			c.istiod = &configdump.Wrapper{
-				ConfigDump: &adminapi.ConfigDump{
+				ConfigDump: &admin.ConfigDump{
 					Configs: resp.Resources,
 				},
 			}

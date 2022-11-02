@@ -15,16 +15,16 @@
 package configdump
 
 import (
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 )
 
 // GetBootstrapConfigDump retrieves the bootstrap config dump from the ConfigDump
-func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error) {
+func (w *Wrapper) GetBootstrapConfigDump() (*admin.BootstrapConfigDump, error) {
 	bootstrapDumpAny, err := w.getSection(bootstrap)
 	if err != nil {
 		return nil, err
 	}
-	bootstrapDump := &adminapi.BootstrapConfigDump{}
+	bootstrapDump := &admin.BootstrapConfigDump{}
 	err = bootstrapDumpAny.UnmarshalTo(bootstrapDump)
 	if err != nil {
 		return nil, err

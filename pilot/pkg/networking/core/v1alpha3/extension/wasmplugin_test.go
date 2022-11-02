@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -48,7 +48,7 @@ var (
 )
 
 func TestInsertedExtensionConfigurations(t *testing.T) {
-	wasm := protoconv.MessageToAny(&extensionsv3.Wasm{})
+	wasm := protoconv.MessageToAny(&wasm.Wasm{})
 	testCases := []struct {
 		name        string
 		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
