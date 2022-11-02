@@ -22,6 +22,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -94,7 +95,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail-open"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail-open"],
+				extensionConfigMap["remote-load-allow"],
 			},
 			wantNack: false,
 		},
@@ -180,10 +181,10 @@ func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedEx
 	}
 }
 
-func buildWasmExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
+func buildAnyExtensionConfig(name string, msg proto.Message) *core.TypedExtensionConfig {
 	return &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: util.MessageToAny(wasm),
+		TypedConfig: util.MessageToAny(msg),
 	}
 }
 
@@ -242,7 +243,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			},
 		},
 	}),
-	"remote-load-success-local-file": buildWasmExtensionConfig("remote-load-success", &wasm.Wasm{
+	"remote-load-success-local-file": buildAnyExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
 				VmConfig: &v3.VmConfig{
@@ -288,4 +289,5 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
+	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{}),
 }

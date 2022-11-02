@@ -32,6 +32,7 @@ import (
 
 const (
 	wasmFilterType  = "envoy.extensions.filters.http.wasm.v3.Wasm"
+	rbacFilterType  = "envoy.extensions.filters.http.rbac.v3.RBAC"
 	statsFilterName = "istio.stats"
 )
 
@@ -132,7 +133,10 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{"type.googleapis.com/" + wasmFilterType},
+				TypeUrls: []string{
+					"type.googleapis.com/" + wasmFilterType,
+					"type.googleapis.com/" + rbacFilterType,
+				},
 			},
 		},
 	}
