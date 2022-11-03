@@ -40,7 +40,7 @@ spec:
         image: "{{ .Values.ztunnel.image }}"
 {{- else }}
         {{/*  TODO(https://github.com/solo-io/istio-sidecarless/issues/281): use distroless, but we are depending on a variant of things not in the distroless image */}}
-        image: "{{ .Values.ztunnel.hub | default .Values.global.hub }}/{{ .Values.ztunnel.image | default "proxyv2" }}:{{ .Values.ztunnel.tag | default .Values.global.tag }}"
+        image: "{{ .Values.ztunnel.hub | default .Values.global.hub }}/{{ .Values.ztunnel.image | default "ztunnel" }}:{{ .Values.ztunnel.tag | default .Values.global.tag }}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -242,7 +242,7 @@ spec:
             - NET_ADMIN
         readinessProbe:
           httpGet:
-            port: 15020 # TODO: use 15021, but it spams logs
+            port: 15021
             path: /healthz/ready
         args:
         - proxy

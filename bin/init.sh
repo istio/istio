@@ -22,7 +22,7 @@ set -o nounset
 set -o pipefail
 
 if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
-  echo "Environment variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
+  echo "Environment variables not set. Make sure you run through the makefile (\`make init\`) rather than directly."
   exit 1
 fi
 
@@ -113,6 +113,7 @@ function download_envoy_if_necessary () {
     # Enter the output directory.
     mkdir -p "$(dirname "$2")"
     pushd "$(dirname "$2")"
+    echo "dl to $(pwd)"
 
     # Download and extract the binary to the output directory.
     echo "Downloading ${SIDECAR}: $1 to $2"
@@ -157,6 +158,7 @@ function download_wasm_if_necessary () {
     popd
   fi
 }
+
 
 mkdir -p "${TARGET_OUT}"
 

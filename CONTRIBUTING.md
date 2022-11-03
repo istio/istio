@@ -14,8 +14,11 @@ The contents below is copied from the old readme for building/running/testing am
 HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
 
+# Optional: build rust ztunnel
+export BUILD_ZTUNNEL=1
+
 # Build Istiod and proxy
-tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push # consider --builder=crane
+tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push # consider --builder=crane
 ```
 
 ## Cluster Setup and Install
@@ -35,6 +38,18 @@ tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --pus
 ```shell
 # Mesh config options are optional to improve debugging
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
+  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
+  --set values.global.imagePullPolicy=Always
+
+kubectl apply -f local-test-utils/samples/
+```
+
+with Rust [zTunnel](https://github.com/istio/ztunnel):
+
+```shell
+# Mesh config options are optional to improve debugging
+CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
+  --set values.ztunnel.image=ztunnel \
   --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
   --set values.global.imagePullPolicy=Always
 
@@ -107,10 +122,6 @@ INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
 A workaround for private repo in-containers:
 
 ```shell
-# add a replace directive for istio/api to ../api
-# clone/checkout ambient branch in api repo
-# run with CONDITIONAL_HOST_MOUNTS
-CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=$(cd ../api && pwd),destination=/api" \
 INTEGRATION_TEST_FLAGS="--istio.test.ambient" prow/integ-suite-kind.sh \
   --kind-config prow/config/ambient-sc.yaml --node-image kindest/node:v1.24.0 \
   test.integration.ambient.kube
