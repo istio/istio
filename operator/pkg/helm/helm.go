@@ -44,6 +44,16 @@ const (
 	NotesFileNameSuffix = ".txt"
 )
 
+const (
+	// InstallationDirectory is temporary folder name for caching downloaded installation packages.
+	InstallationDirectory = "istio-install-packages"
+	// OperatorSubdirFilePath is file path of installation packages to helm charts.
+	OperatorSubdirFilePath = "manifests"
+	// OperatorSubdirFilePath15 is the file path of installation packages to helm charts for 1.5 and earlier.
+	// TODO: remove in 1.7.
+	OperatorSubdirFilePath15 = "install/kubernetes/operator"
+)
+
 var scope = log.RegisterScope("installer", "installer", 0)
 
 // TemplateFilterFunc filters templates to render by their file name
