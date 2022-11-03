@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+   - |
+     **Added** support for restricting istiod webhook cert patcher to only patch the webhooks it owns
+     if `ENABLE_ENHANCED_RESOURCE_SCOPING` feature flag is enabled.
+docs:
+   - https://docs.google.com/document/d/1y4liRJbQW0NCMeQtqMma46flVqs-izV1/

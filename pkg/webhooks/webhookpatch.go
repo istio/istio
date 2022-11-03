@@ -79,7 +79,7 @@ func NewWebhookCertPatcher(
 	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 		if features.EnableEnhancedResourceScoping {
-			options.FieldSelector = fmt.Sprintf("metadata.name=%s", getInjectionWebhookName(revision, systemNameSpace))
+			options.FieldSelector = fmt.Sprintf("metadata.name=%s", getInjectionWebhookConfigName(revision, systemNameSpace))
 		}
 	})
 	p.informer = informer
@@ -192,7 +192,7 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 	}
 }
 
-func getInjectionWebhookName(revision string, namespace string) string {
+func getInjectionWebhookConfigName(revision string, namespace string) string {
 	name := features.InjectionWebhookConfigName
 	if revision != "default" {
 		name += "-" + revision
