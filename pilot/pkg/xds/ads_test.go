@@ -280,9 +280,7 @@ func TestAdsPushScoping(t *testing.T) {
 			s.Discovery.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
-		}})
+		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace})})
 	}
 
 	addVirtualService := func(i int, hosts []string, dest string) {

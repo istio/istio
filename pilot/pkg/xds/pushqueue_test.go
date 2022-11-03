@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/util/leak"
 )
 
@@ -176,12 +177,9 @@ func TestProxyQueue(t *testing.T) {
 		})
 
 		p.Enqueue(proxies[0], &model.PushRequest{
-			Full: false,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
-				Name:      "bar",
-				Namespace: "ns1",
-			}: {}},
+			Full:           false,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "bar", Namespace: "ns1"}),
+
 			Start: firstTime.Add(time.Second),
 		})
 		_, info, _ := p.Dequeue()

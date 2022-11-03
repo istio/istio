@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -147,14 +148,14 @@ func TestXdsCache(t *testing.T) {
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.Clear(map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "a", Namespace: "b"}: {}})
+		c.Clear(sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "a", Namespace: "b"}))
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.Clear(map[model.ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "b", Namespace: "b"}: {}})
+		c.Clear(sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "b", Namespace: "b"}))
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}

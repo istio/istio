@@ -344,7 +344,7 @@ type PushRequest struct {
 	// If this is empty, then all proxies will get an update.
 	// Otherwise only proxies depend on these configs will get an update.
 	// The kind of resources are defined in pkg/config/schemas.
-	ConfigsUpdated map[ConfigKey]struct{}
+	ConfigsUpdated sets.Set[ConfigKey]
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
