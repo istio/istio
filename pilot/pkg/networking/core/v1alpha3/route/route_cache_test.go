@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
@@ -63,7 +64,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// clear cache when delegate virtual service is updated
 	// this func is called by `dropCacheForRequest` in `initPushContext`
-	xdsCache.Clear(map[model.ConfigKey]struct{}{
+	xdsCache.Clear(sets.Set[model.ConfigKey]{
 		delegate: {},
 	})
 	if _, found := xdsCache.Get(&entry); found {
@@ -75,7 +76,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	irrelevantDelegate := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
 
 	// don't clear cache when irrelevant delegate virtual service is updated
-	xdsCache.Clear(map[model.ConfigKey]struct{}{
+	xdsCache.Clear(sets.Set[model.ConfigKey]{
 		irrelevantDelegate: {},
 	})
 	if got, found := xdsCache.Get(&entry); !found || !reflect.DeepEqual(got, resource) {

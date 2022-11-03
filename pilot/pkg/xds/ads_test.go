@@ -215,7 +215,7 @@ func TestAdsPushScoping(t *testing.T) {
 	)
 
 	removeServiceByNames := func(ns string, names ...string) {
-		configsUpdated := map[model.ConfigKey]struct{}{}
+		configsUpdated := sets.Set[model.ConfigKey]{}
 
 		for _, name := range names {
 			hostname := host.Name(name)
@@ -239,7 +239,7 @@ func TestAdsPushScoping(t *testing.T) {
 		removeServiceByNames(ns, names...)
 	}
 	addServiceByNames := func(ns string, names ...string) {
-		configsUpdated := map[model.ConfigKey]struct{}{}
+		configsUpdated := sets.Set[model.ConfigKey]{}
 
 		for _, name := range names {
 			hostname := host.Name(name)

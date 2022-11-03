@@ -477,7 +477,7 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		for conf := range pr.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
 		}

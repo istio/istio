@@ -535,7 +535,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.Set[model.ConfigKey]{
 				{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
 				{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace}: {},
 			}}}) // service added
@@ -553,7 +553,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.Set[model.ConfigKey]{
 				{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
 				{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace}: {},
 			}}}) // service updated
@@ -1244,7 +1244,7 @@ func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.Servic
 
 func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	cmpPushRequest := func(expectReq, gotReq *model.PushRequest) bool {
-		var expectConfigs, gotConfigs map[model.ConfigKey]struct{}
+		var expectConfigs, gotConfigs sets.Set[model.ConfigKey]
 		if expectReq != nil {
 			expectConfigs = expectReq.ConfigsUpdated
 		}

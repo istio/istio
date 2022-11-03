@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -98,7 +99,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	var updatedSecrets map[model.ConfigKey]struct{}
+	var updatedSecrets sets.Set[model.ConfigKey]
 	if !req.Full {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
@@ -369,7 +370,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 	}
 }
 
-func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
+func containsAny(mp sets.Set[model.ConfigKey], keys []model.ConfigKey) bool {
 	for _, k := range keys {
 		if _, f := mp[k]; f {
 			return true

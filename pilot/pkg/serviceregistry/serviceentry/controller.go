@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -234,7 +235,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	instancesUpdated := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
 	fullPush := false
-	configsUpdated := map[model.ConfigKey]struct{}{}
+	configsUpdated := sets.Set[model.ConfigKey]{}
 
 	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
 		// If serviceentry's resolution is DNS, make a full push
@@ -328,8 +329,8 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 }
 
 // getUpdatedConfigs returns related service entries when full push
-func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
-	configsUpdated := map[model.ConfigKey]struct{}{}
+func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
+	configsUpdated := sets.Set[model.ConfigKey]{}
 	for _, svc := range services {
 		configsUpdated[model.ConfigKey{
 			Kind:      kind.ServiceEntry,
@@ -345,7 +346,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
-	configsUpdated := map[model.ConfigKey]struct{}{}
+	configsUpdated := sets.Set[model.ConfigKey]{}
 	key := types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name}
 
 	s.mutex.Lock()
@@ -500,7 +501,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
-	configsUpdated := map[model.ConfigKey]struct{}{}
+	configsUpdated := sets.Set[model.ConfigKey]{}
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)

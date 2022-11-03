@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // getByMessageName finds a schema by message name if it is available
@@ -500,35 +501,30 @@ func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
 func TestConfigsOnlyHaveKind(t *testing.T) {
 	tests := []struct {
 		name    string
-		configs map[model.ConfigKey]struct{}
+		configs sets.Set[model.ConfigKey]
 		want    bool
 	}{
 		{
-			name: "mix",
-			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Deployment}: {},
-				{Kind: kind.Secret}:     {},
-			},
+			name:    "mix",
+			configs: sets.New(model.ConfigKey{Kind: kind.Deployment}, model.ConfigKey{Kind: kind.Secret}),
+
 			want: true,
 		},
 		{
-			name: "no secret",
-			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Deployment}: {},
-			},
+			name:    "no secret",
+			configs: sets.New(model.ConfigKey{Kind: kind.Deployment}),
+
 			want: false,
 		},
 		{
-			name: "only secret",
-			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Secret}: {},
-				{Kind: kind.Secret}: {},
-			},
+			name:    "only secret",
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret}, model.ConfigKey{Kind: kind.Secret}),
+
 			want: true,
 		},
 		{
 			name:    "empty",
-			configs: map[model.ConfigKey]struct{}{},
+			configs: sets.Set[model.ConfigKey]{},
 			want:    false,
 		},
 	}

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -57,7 +58,7 @@ func (s *Server) OnSecretUpdate(resourceName string) {
 	}
 	s.workloadSds.XdsServer.Push(&model.PushRequest{
 		Full: false,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{
+		ConfigsUpdated: sets.Set[model.ConfigKey]{
 			{Kind: kind.Secret, Name: resourceName}: {},
 		},
 		Reason: []model.TriggerReason{model.SecretTrigger},

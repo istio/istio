@@ -2698,7 +2698,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
-		configUpdated        map[model.ConfigKey]struct{}
+		configUpdated        sets.Set[model.ConfigKey]
 		watchedResourceNames []string
 		usedDelta            bool
 		removedClusters      []string

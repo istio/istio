@@ -51,7 +51,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	type Case struct {
 		name    string
 		proxy   *model.Proxy
-		configs map[model.ConfigKey]struct{}
+		configs sets.Set[model.ConfigKey]
 		want    bool
 	}
 
@@ -122,11 +122,11 @@ func TestProxyNeedsPush(t *testing.T) {
 
 			true,
 		},
-		{"mixture matched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
+		{"mixture matched and unmatched config for sidecar", sidecar, sets.Set[model.ConfigKey]{
 			{Kind: kind.DestinationRule, Name: drName, Namespace: nsName}:                   {},
 			{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}: {},
 		}, true},
-		{"mixture unmatched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
+		{"mixture unmatched and unmatched config for sidecar", sidecar, sets.Set[model.ConfigKey]{
 			{Kind: kind.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName}: {},
 			{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName}:   {},
 		}, false},
