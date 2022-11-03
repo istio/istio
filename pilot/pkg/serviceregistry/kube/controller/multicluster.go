@@ -43,6 +43,11 @@ import (
 	"istio.io/istio/pkg/webhooks"
 )
 
+const (
+	// Name of the webhook config in the config - no need to change it.
+	webhookName = "sidecar-injector.istio.io"
+)
+
 var _ multicluster.ClusterHandler = &Multicluster{}
 
 type kubeController struct {
@@ -293,7 +298,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" {
 			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, m.opts.SystemNamespace, m.caBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, m.opts.SystemNamespace, webhookName, m.caBundleWatcher)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
