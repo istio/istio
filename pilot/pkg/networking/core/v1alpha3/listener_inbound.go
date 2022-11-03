@@ -183,7 +183,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	}
 	l := &listener.Listener{
 		Name:    "inbound-hbone",
-		Address: util.BuildAddress("0.0.0.0", 15008),
+		Address: util.BuildAddress("0.0.0.0", model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
 				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
@@ -312,7 +312,7 @@ func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
 	allChains := buildInboundPassthroughChains(lb)
 	allChains = append(allChains, chains...)
-	l := lb.buildInboundListener(model.VirtualInboundListenerName, actualWildcards, ProxyInboundListenPort, false, allChains)
+	l := lb.buildInboundListener(model.VirtualInboundListenerName, actualWildcards, model.ProxyInboundListenPort, false, allChains)
 	return l
 }
 
@@ -798,7 +798,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: model.VirtualInboundBlackholeFilterChainName,
 		FilterChainMatch: &listener.FilterChainMatch{
-			DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
+			DestinationPort: &wrappers.UInt32Value{Value: model.ProxyInboundListenPort},
 		},
 		Filters: filters,
 	}
