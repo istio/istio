@@ -215,16 +215,16 @@ func TestAdsPushScoping(t *testing.T) {
 	)
 
 	removeServiceByNames := func(ns string, names ...string) {
-		configsUpdated := sets.Set[model.ConfigKey]{}
+		configsUpdated := sets.New[model.ConfigKey]()
 
 		for _, name := range names {
 			hostname := host.Name(name)
 			s.Discovery.MemRegistry.RemoveService(hostname)
-			configsUpdated[model.ConfigKey{
+			configsUpdated.Insert(model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
-			}] = struct{}{}
+			})
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
@@ -239,7 +239,7 @@ func TestAdsPushScoping(t *testing.T) {
 		removeServiceByNames(ns, names...)
 	}
 	addServiceByNames := func(ns string, names ...string) {
-		configsUpdated := sets.Set[model.ConfigKey]{}
+		configsUpdated := sets.New[model.ConfigKey]()
 
 		for _, name := range names {
 			hostname := host.Name(name)

@@ -64,9 +64,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// clear cache when delegate virtual service is updated
 	// this func is called by `dropCacheForRequest` in `initPushContext`
-	xdsCache.Clear(sets.Set[model.ConfigKey]{
-		delegate: {},
-	})
+	xdsCache.Clear(sets.New(delegate))
 	if _, found := xdsCache.Get(&entry); found {
 		t.Fatalf("rds cache was not cleared")
 	}
@@ -76,9 +74,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	irrelevantDelegate := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
 
 	// don't clear cache when irrelevant delegate virtual service is updated
-	xdsCache.Clear(sets.Set[model.ConfigKey]{
-		irrelevantDelegate: {},
-	})
+	xdsCache.Clear(sets.New(irrelevantDelegate))
 	if got, found := xdsCache.Get(&entry); !found || !reflect.DeepEqual(got, resource) {
 		t.Fatalf("rds cache was cleared by irrelevant delegate virtual service update")
 	}

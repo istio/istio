@@ -564,7 +564,7 @@ func BenchmarkPushRequest(b *testing.B) {
 		for i := 0; i < pushesMerged; i++ {
 			trigger := allTriggers[i%len(allTriggers)]
 			nreq := &model.PushRequest{
-				ConfigsUpdated: sets.Set[model.ConfigKey]{},
+				ConfigsUpdated: sets.New[model.ConfigKey](),
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {

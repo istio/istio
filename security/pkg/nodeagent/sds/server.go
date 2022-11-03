@@ -57,11 +57,9 @@ func (s *Server) OnSecretUpdate(resourceName string) {
 		return
 	}
 	s.workloadSds.XdsServer.Push(&model.PushRequest{
-		Full: false,
-		ConfigsUpdated: sets.Set[model.ConfigKey]{
-			{Kind: kind.Secret, Name: resourceName}: {},
-		},
-		Reason: []model.TriggerReason{model.SecretTrigger},
+		Full:           false,
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: resourceName}),
+		Reason:         []model.TriggerReason{model.SecretTrigger},
 	})
 }
 

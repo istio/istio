@@ -524,7 +524,7 @@ func TestConfigsOnlyHaveKind(t *testing.T) {
 		},
 		{
 			name:    "empty",
-			configs: sets.Set[model.ConfigKey]{},
+			configs: sets.New[model.ConfigKey](),
 			want:    false,
 		},
 	}

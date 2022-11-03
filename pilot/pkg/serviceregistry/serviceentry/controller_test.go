@@ -535,10 +535,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.Set[model.ConfigKey]{
-				{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
-				{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace}: {},
-			}}}) // service added
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace},
+			)}}) // service added
 
 		selector1Updated := func() *config.Config {
 			c := selector1.DeepCopy()
@@ -553,10 +553,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.Set[model.ConfigKey]{
-				{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
-				{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace}: {},
-			}}}) // service updated
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace},
+			)}}) // service updated
 	})
 }
 
