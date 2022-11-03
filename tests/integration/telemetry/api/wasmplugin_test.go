@@ -323,9 +323,6 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 		if err := target.Restart(); err != nil {
 			t.Fatalf("failed to restart the target pod: %v", err)
 		}
-		time.Sleep(5 * time.Second)
-		t.Logf("check if the restarted pod can return 200")
-		common.SendTrafficOrFail(t, to)
 	}
 
 	// Wait until there is agent metrics for wasm download failure
