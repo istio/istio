@@ -1420,8 +1420,6 @@ func stripPodUnusedFields(obj any) (any, error) {
 	t.GetObjectMeta().SetManagedFields(nil)
 	// Annotation is never used
 	t.GetObjectMeta().SetAnnotations(nil)
-	// OwnerReference is never used
-	t.GetObjectMeta().SetOwnerReferences(nil)
 	// only container ports can be used
 	if pod := obj.(*v1.Pod); pod != nil {
 		containers := []v1.Container{}
