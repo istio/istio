@@ -17,30 +17,30 @@ package matcher
 import (
 	"testing"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestMetadataStringMatcher(t *testing.T) {
-	matcher := &matcherpb.StringMatcher{
-		MatchPattern: &matcherpb.StringMatcher_Exact{
+	m := &matcher.StringMatcher{
+		MatchPattern: &matcher.StringMatcher_Exact{
 			Exact: "exact",
 		},
 	}
-	actual := MetadataStringMatcher("istio_authn", "key", matcher)
-	expect := &matcherpb.MetadataMatcher{
+	actual := MetadataStringMatcher("istio_authn", "key", m)
+	expect := &matcher.MetadataMatcher{
 		Filter: "istio_authn",
-		Path: []*matcherpb.MetadataMatcher_PathSegment{
+		Path: []*matcher.MetadataMatcher_PathSegment{
 			{
-				Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
+				Segment: &matcher.MetadataMatcher_PathSegment_Key{
 					Key: "key",
 				},
 			},
 		},
-		Value: &matcherpb.ValueMatcher{
-			MatchPattern: &matcherpb.ValueMatcher_StringMatch{
-				StringMatch: matcher,
+		Value: &matcher.ValueMatcher{
+			MatchPattern: &matcher.ValueMatcher_StringMatch{
+				StringMatch: m,
 			},
 		},
 	}
@@ -51,32 +51,32 @@ func TestMetadataStringMatcher(t *testing.T) {
 }
 
 func TestMetadataListMatcher(t *testing.T) {
-	getWant := func(regex string) *matcherpb.MetadataMatcher {
-		return &matcherpb.MetadataMatcher{
+	getWant := func(regex string) *matcher.MetadataMatcher {
+		return &matcher.MetadataMatcher{
 			Filter: "istio_authn",
-			Path: []*matcherpb.MetadataMatcher_PathSegment{
+			Path: []*matcher.MetadataMatcher_PathSegment{
 				{
-					Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
+					Segment: &matcher.MetadataMatcher_PathSegment_Key{
 						Key: "key1",
 					},
 				},
 				{
-					Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
+					Segment: &matcher.MetadataMatcher_PathSegment_Key{
 						Key: "key2",
 					},
 				},
 			},
-			Value: &matcherpb.ValueMatcher{
-				MatchPattern: &matcherpb.ValueMatcher_ListMatch{
-					ListMatch: &matcherpb.ListMatcher{
-						MatchPattern: &matcherpb.ListMatcher_OneOf{
-							OneOf: &matcherpb.ValueMatcher{
-								MatchPattern: &matcherpb.ValueMatcher_StringMatch{
-									StringMatch: &matcherpb.StringMatcher{
-										MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-											SafeRegex: &matcherpb.RegexMatcher{
-												EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-													GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+			Value: &matcher.ValueMatcher{
+				MatchPattern: &matcher.ValueMatcher_ListMatch{
+					ListMatch: &matcher.ListMatcher{
+						MatchPattern: &matcher.ListMatcher_OneOf{
+							OneOf: &matcher.ValueMatcher{
+								MatchPattern: &matcher.ValueMatcher_StringMatch{
+									StringMatch: &matcher.StringMatcher{
+										MatchPattern: &matcher.StringMatcher_SafeRegex{
+											SafeRegex: &matcher.RegexMatcher{
+												EngineType: &matcher.RegexMatcher_GoogleRe2{
+													GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
 												},
 												Regex: regex,
 											},

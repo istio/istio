@@ -24,18 +24,18 @@ import (
 	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_api_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	apiannotation "istio.io/api/annotation"
@@ -109,8 +109,8 @@ the configuration objects that affect that pod.`,
 
 			writer := cmd.OutOrStdout()
 
-			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
-			annotations := k8s_labels.Set(pod.ObjectMeta.Annotations)
+			podLabels := klabels.Set(pod.ObjectMeta.Labels)
+			annotations := klabels.Set(pod.ObjectMeta.Annotations)
 			opts.Revision = getRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
@@ -123,7 +123,7 @@ the configuration objects that affect that pod.`,
 			matchingServices := make([]v1.Service, 0, len(svcs.Items))
 			for _, svc := range svcs.Items {
 				if len(svc.Spec.Selector) > 0 {
-					svcSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
+					svcSelector := klabels.SelectorFromSet(svc.Spec.Selector)
 					if svcSelector.Matches(podLabels) {
 						matchingServices = append(matchingServices, svc)
 					}
@@ -147,7 +147,7 @@ the configuration objects that affect that pod.`,
 				return err
 			}
 
-			podsLabels := []k8s_labels.Set{k8s_labels.Set(pod.ObjectMeta.Labels)}
+			podsLabels := []klabels.Set{klabels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
 			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
 			if err != nil {
@@ -156,7 +156,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, kubeClient, configClient, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
+			err = describePeerAuthentication(writer, kubeClient, configClient, ns, klabels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotation(anno k8s_labels.Set) string {
+func getRevisionFromPodAnnotation(anno klabels.Set) string {
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
@@ -219,11 +219,11 @@ func extendFQDN(host string) string {
 }
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
-func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []k8s_labels.Set) ([]string, []string) {
+func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []klabels.Set) ([]string, []string) {
 	matchingSubsets := make([]string, 0, len(subsets))
 	nonmatchingSubsets := make([]string, 0, len(subsets))
 	for _, subset := range subsets {
-		subsetSelector := k8s_labels.SelectorFromSet(subset.Labels)
+		subsetSelector := klabels.SelectorFromSet(subset.Labels)
 		if matchesAnyPod(subsetSelector, podsLabels) {
 			matchingSubsets = append(matchingSubsets, subset.Name)
 		} else {
@@ -234,7 +234,7 @@ func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []k8s_labels.Set)
 	return matchingSubsets, nonmatchingSubsets
 }
 
-func matchesAnyPod(subsetSelector k8s_labels.Selector, podsLabels []k8s_labels.Set) bool {
+func matchesAnyPod(subsetSelector klabels.Selector, podsLabels []klabels.Set) bool {
 	for _, podLabels := range podsLabels {
 		if subsetSelector.Matches(podLabels) {
 			return true
@@ -243,7 +243,7 @@ func matchesAnyPod(subsetSelector k8s_labels.Selector, podsLabels []k8s_labels.S
 	return false
 }
 
-func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule, podsLabels []k8s_labels.Set) {
+func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule, podsLabels []klabels.Set) {
 	fmt.Fprintf(writer, "DestinationRule: %s for %q\n", kname(dr.ObjectMeta), dr.Spec.Host)
 
 	matchingSubsets, nonmatchingSubsets := getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
@@ -580,7 +580,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 	// Identify RBAC policies. Currently there are no "breadcrumbs" so we only return the policy names.
 	for _, httpFilter := range hcm.HttpFilters {
 		if httpFilter.Name == wellknown.HTTPRoleBasedAccessControl {
-			rbac := &rbac_http_filter.RBAC{}
+			rbac := &rbachttp.RBAC{}
 			if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err == nil {
 				policies := []string{}
 				for polName := range rbac.Rules.Policies {
@@ -595,7 +595,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 }
 
 // Return the first HTTP Connection Manager config for the inbound port
-func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_conn.HttpConnectionManager, error) {
+func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*hcm.HttpConnectionManager, error) {
 	filter := istio_envoy_configdump.ListenerFilter{
 		Port: uint32(port),
 	}
@@ -618,7 +618,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		if listenerTyped.Name == model.VirtualInboundListenerName {
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
-					hcm := &http_conn.HttpConnectionManager{}
+					hcm := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcm); err == nil {
 						return hcm, nil
 					}
@@ -638,7 +638,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
-					hcm := &http_conn.HttpConnectionManager{}
+					hcm := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcm); err == nil {
 						return hcm, nil
 					}
@@ -739,7 +739,7 @@ func routeDestinationMatchesSvc(vhRoute *route.Route, svc v1.Service, vh *route.
 }
 
 // getIstioConfig returns .metadata.filter_metadata.istio.config, err
-func getIstioConfig(metadata *envoy_api_core.Metadata) (string, error) {
+func getIstioConfig(metadata *core.Metadata) (string, error) {
 	if metadata != nil {
 		istioConfig := asMyProtoValue(metadata.FilterMetadata[util.IstioMetadataKey]).
 			keyAsString("config")
@@ -881,7 +881,7 @@ func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, 
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.CLIClient) error { // nolint: lll
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []klabels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.CLIClient) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -1049,9 +1049,9 @@ the configuration objects that affect that service.`,
 			matchingPods := []v1.Pod{}
 			selectedPodCount := 0
 			if len(svc.Spec.Selector) > 0 {
-				svcSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
+				svcSelector := klabels.SelectorFromSet(svc.Spec.Selector)
 				for _, pod := range pods.Items {
-					if svcSelector.Matches(k8s_labels.Set(pod.ObjectMeta.Labels)) {
+					if svcSelector.Matches(klabels.Set(pod.ObjectMeta.Labels)) {
 						selectedPodCount++
 
 						if pod.Status.Phase != v1.PodRunning {
@@ -1096,9 +1096,9 @@ the configuration objects that affect that service.`,
 
 			// Get all the labels for all the matching pods.  We will used this to complain
 			// if NONE of the pods match a VirtualService
-			podsLabels := make([]k8s_labels.Set, len(matchingPods))
+			podsLabels := make([]klabels.Set, len(matchingPods))
 			for i, pod := range matchingPods {
-				podsLabels[i] = k8s_labels.Set(pod.ObjectMeta.Labels)
+				podsLabels[i] = klabels.Set(pod.ObjectMeta.Labels)
 			}
 
 			// Describe based on the Envoy config for this first pod only
@@ -1124,7 +1124,7 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []k8s_labels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []klabels.Set) error { // nolint: lll
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
 	if err != nil {
 		if ignoreUnmeshed {
@@ -1216,7 +1216,7 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
+func describePeerAuthentication(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, workloadNamespace string, podsLabels klabels.Set) error { // nolint: lll
 	meshCfg, err := getMeshConfig(kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to fetch mesh config: %v", err)
@@ -1261,13 +1261,13 @@ type Workloader interface {
 // config. So configs passed into this method should only contains workload's namespaces configs
 // and rootNamespaces configs, caller should be responsible for controlling configs passed
 // in.
-func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*config.Config {
+func findMatchedConfigs(podsLabels klabels.Set, configs []*config.Config) []*config.Config {
 	var cfgs []*config.Config
 
 	for _, cfg := range configs {
 		cfg := cfg
 		labels := cfg.Spec.(Workloader).GetSelector().GetMatchLabels()
-		selector := k8s_labels.SelectorFromSet(labels)
+		selector := klabels.SelectorFromSet(labels)
 		if selector.Matches(podsLabels) {
 			cfgs = append(cfgs, cfg)
 		}

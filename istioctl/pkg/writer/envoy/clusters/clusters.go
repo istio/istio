@@ -23,7 +23,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"sigs.k8s.io/yaml"
 
@@ -65,7 +65,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 	return nil
 }
 
-func retrieveEndpointAddress(host *adminapi.HostStatus) string {
+func retrieveEndpointAddress(host *admin.HostStatus) string {
 	addr := host.Address.GetSocketAddress()
 	if addr != nil {
 		return addr.Address
@@ -82,7 +82,7 @@ func retrieveEndpointAddress(host *adminapi.HostStatus) string {
 	return "unknown"
 }
 
-func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
+func retrieveEndpointPort(l *admin.HostStatus) uint32 {
 	addr := l.Address.GetSocketAddress()
 	if addr != nil {
 		return addr.GetPortValue()
@@ -90,16 +90,16 @@ func retrieveEndpointPort(l *adminapi.HostStatus) uint32 {
 	return 0
 }
 
-func retrieveEndpointStatus(l *adminapi.HostStatus) core.HealthStatus {
+func retrieveEndpointStatus(l *admin.HostStatus) core.HealthStatus {
 	return l.HealthStatus.GetEdsHealthStatus()
 }
 
-func retrieveFailedOutlierCheck(l *adminapi.HostStatus) bool {
+func retrieveFailedOutlierCheck(l *admin.HostStatus) bool {
 	return l.HealthStatus.GetFailedOutlierCheck()
 }
 
 // Verify returns true if the passed host matches the filter fields
-func (e *EndpointFilter) Verify(host *adminapi.HostStatus, cluster string) bool {
+func (e *EndpointFilter) Verify(host *admin.HostStatus, cluster string) bool {
 	if e.Address == "" && e.Port == 0 && e.Cluster == "" && e.Status == "" {
 		return true
 	}

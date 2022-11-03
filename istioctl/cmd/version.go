@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"os"
 
-	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -96,7 +96,7 @@ func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioV
 func xdsVersionCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
-	var xdsResponses *xdsapi.DiscoveryResponse
+	var xdsResponses *discovery.DiscoveryResponse
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
 		GetRemoteVersion: xdsRemoteVersionWrapper(&opts, &centralOpts, &xdsResponses),
 		GetProxyVersions: xdsProxyVersionWrapper(&xdsResponses),
@@ -149,9 +149,9 @@ istioctl x version --xds-label istio.io/rev=default
 // xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
 // (Screwy API on istioVersion.CobraCommandWithOptions)
 // nolint: lll
-func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **xdsapi.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
+func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
-		xdsRequest := xdsapi.DiscoveryRequest{
+		xdsRequest := discovery.DiscoveryRequest{
 			TypeUrl: "istio.io/connections",
 		}
 		kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
@@ -187,13 +187,13 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 	}
 }
 
-func xdsProxyVersionWrapper(xdsResponse **xdsapi.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
+func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
 		pi := []istioVersion.ProxyInfo{}
 		for _, resource := range (*xdsResponse).Resources {
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.config.core.v3.Node":
-				node := envoy_corev3.Node{}
+				node := core.Node{}
 				err := resource.UnmarshalTo(&node)
 				if err != nil {
 					return nil, fmt.Errorf("could not unmarshal Node: %w", err)

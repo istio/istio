@@ -15,7 +15,7 @@
 package authn
 
 import (
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -91,7 +91,7 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 	return resp
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter {
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	if b == nil {
 		return nil
 	}
@@ -99,7 +99,7 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter
 		// Only applies to inbound and gateways
 		return nil
 	}
-	res := []*httppb.HttpFilter{}
+	res := []*hcm.HttpFilter{}
 	if filter := b.applier.JwtFilter(); filter != nil {
 		res = append(res, filter)
 	}

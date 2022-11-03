@@ -15,10 +15,10 @@
 package model
 
 import (
-	corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func principalAny() *rbacpb.Principal {
@@ -57,7 +57,7 @@ func principalNot(principal *rbacpb.Principal) *rbacpb.Principal {
 	}
 }
 
-func principalAuthenticated(name *matcherpb.StringMatcher) *rbacpb.Principal {
+func principalAuthenticated(name *matcher.StringMatcher) *rbacpb.Principal {
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_Authenticated_{
 			Authenticated: &rbacpb.Principal_Authenticated{
@@ -67,7 +67,7 @@ func principalAuthenticated(name *matcherpb.StringMatcher) *rbacpb.Principal {
 	}
 }
 
-func principalDirectRemoteIP(cidr *corepb.CidrRange) *rbacpb.Principal {
+func principalDirectRemoteIP(cidr *core.CidrRange) *rbacpb.Principal {
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_DirectRemoteIp{
 			DirectRemoteIp: cidr,
@@ -75,7 +75,7 @@ func principalDirectRemoteIP(cidr *corepb.CidrRange) *rbacpb.Principal {
 	}
 }
 
-func principalRemoteIP(cidr *corepb.CidrRange) *rbacpb.Principal {
+func principalRemoteIP(cidr *core.CidrRange) *rbacpb.Principal {
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_RemoteIp{
 			RemoteIp: cidr,
@@ -83,7 +83,7 @@ func principalRemoteIP(cidr *corepb.CidrRange) *rbacpb.Principal {
 	}
 }
 
-func principalMetadata(metadata *matcherpb.MetadataMatcher) *rbacpb.Principal {
+func principalMetadata(metadata *matcher.MetadataMatcher) *rbacpb.Principal {
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_Metadata{
 			Metadata: metadata,

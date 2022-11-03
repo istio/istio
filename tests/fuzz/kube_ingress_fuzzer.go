@@ -16,7 +16,7 @@ package fuzz
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 	networkingV1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +36,7 @@ func FuzzConvertIngressVirtualService(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	service := &coreV1.Service{}
+	service := &corev1.Service{}
 	cfgs := map[string]*config.Config{}
 	serviceLister, teardown := newServiceLister(service)
 	defer teardown()
@@ -51,7 +51,7 @@ func FuzzConvertIngressVirtualService2(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	service := &coreV1.Service{}
+	service := &corev1.Service{}
 	cfgs := map[string]*config.Config{}
 	serviceLister, teardown := newServiceLister(service)
 	defer teardown()

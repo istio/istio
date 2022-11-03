@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/tag"
@@ -181,7 +181,7 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 			if nsi := descr.NamespaceSummary[nsName]; nsi != nil {
 				podsInNamespace = nsi.Pods
 			}
-			labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
+			labelSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 				MatchLabels: map[string]string{label.IoIstioRev.Name: rev},
 			})
 			if err != nil {
@@ -190,7 +190,7 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 			}
 			podsForRev, err := t.Clusters().Default().Kube().
 				CoreV1().Pods(nsName).
-				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+				List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 			if podsForRev == nil || err != nil { // nolint: staticcheck
 				t.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
 			}
@@ -286,7 +286,7 @@ func verifyComponentPodsForRevision(t framework.TestContext, component, rev stri
 	if opComponent == "" {
 		t.Fatalf("unknown component: %s", component)
 	}
-	labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
+	labelSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        rev,
 			label.OperatorComponent.Name: opComponent,
@@ -297,7 +297,7 @@ func verifyComponentPodsForRevision(t framework.TestContext, component, rev stri
 	}
 	componentPods, err := t.Clusters().Default().Kube().
 		CoreV1().Pods("").
-		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+		List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		t.Fatalf("unexpected error while fetching %s pods for revision %s: %v", component, rev, err)
 	}

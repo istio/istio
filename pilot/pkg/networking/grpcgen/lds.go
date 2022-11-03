@@ -24,8 +24,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	stateful_sessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -181,7 +181,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
-			rbac := &rbachttppb.RBAC{
+			rbac := &rbachttp.RBAC{
 				Rules: rules,
 			}
 			fc = append(fc,
@@ -192,7 +192,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 		}
 		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
 		if arules != nil && len(arules.Policies) > 0 {
-			rbac := &rbachttppb.RBAC{
+			rbac := &rbachttp.RBAC{
 				Rules: arules,
 			}
 			fc = append(fc,
@@ -299,7 +299,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						filters = append(filters, &hcm.HttpFilter{
 							Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
 							ConfigType: &hcm.HttpFilter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&stateful_sessionv3.StatefulSession{
+								TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
 									SessionState: &core.TypedExtensionConfig{
 										Name: "envoy.http.stateful_session.cookie",
 										TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{

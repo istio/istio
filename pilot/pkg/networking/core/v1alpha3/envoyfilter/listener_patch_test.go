@@ -26,7 +26,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -1127,8 +1127,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter-to-be-replaced"},
 										{Name: "another-http-filter"},
 									},
@@ -1152,8 +1152,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter-should-not-be-replaced"},
 										{Name: "another-http-filter"},
 									},
@@ -1380,8 +1380,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter-replaced"},
 										{Name: "another-http-filter"},
 									},
@@ -1405,8 +1405,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter-should-not-be-replaced"},
 										{Name: "another-http-filter"},
 									},
@@ -1595,8 +1595,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 									},
@@ -1651,8 +1651,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 										{Name: "http-filter3"},
@@ -1730,11 +1730,11 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{
 											Name:       wellknown.Fault,
-											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
+											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
 										{Name: "http-filter-to-be-removed"},
@@ -1783,8 +1783,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "base"},
 									},
 								}),
@@ -1850,15 +1850,15 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 									XffNumTrustedHops:            4,
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
-									HttpFilters: []*http_conn.HttpFilter{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "http-filter0"},
 										{
 											Name:       wellknown.Fault,
-											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
 										{Name: "http-filter2"},
@@ -1930,8 +1930,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						{
 							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
-									HttpFilters: []*http_conn.HttpFilter{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
 										{Name: "base"},
 									},
 								}),
@@ -2060,11 +2060,11 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 					{
 						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&http_conn.HttpConnectionManager{
+							TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
 								XffNumTrustedHops:            4,
 								MergeSlashes:                 true,
 								AlwaysSetRequestIdInResponse: true,
-								HttpFilters: []*http_conn.HttpFilter{
+								HttpFilters: []*hcm.HttpFilter{
 									{Name: "http-filter3"},
 									{Name: "envoy.router"}, // Use deprecated name for test.
 									{Name: "http-filter2"},

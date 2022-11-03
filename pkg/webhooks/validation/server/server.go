@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	multierror "github.com/hashicorp/go-multierror"
-	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,7 +55,7 @@ var (
 )
 
 func init() {
-	_ = kubeApiAdmissionv1.AddToScheme(runtimeScheme)
+	_ = admissionv1.AddToScheme(runtimeScheme)
 	_ = kubeApiAdmissionv1beta1.AddToScheme(runtimeScheme)
 }
 

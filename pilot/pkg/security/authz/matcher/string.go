@@ -17,21 +17,21 @@ package matcher
 import (
 	"strings"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 // StringMatcher creates a string matcher for v.
-func StringMatcher(v string) *matcherpb.StringMatcher {
+func StringMatcher(v string) *matcher.StringMatcher {
 	return StringMatcherWithPrefix(v, "")
 }
 
 // StringMatcherRegex creates a regex string matcher for regex.
-func StringMatcherRegex(regex string) *matcherpb.StringMatcher {
-	return &matcherpb.StringMatcher{
-		MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-			SafeRegex: &matcherpb.RegexMatcher{
-				EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-					GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+func StringMatcherRegex(regex string) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		MatchPattern: &matcher.StringMatcher_SafeRegex{
+			SafeRegex: &matcher.RegexMatcher{
+				EngineType: &matcher.RegexMatcher_GoogleRe2{
+					GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
 				},
 				Regex: regex,
 			},
@@ -42,7 +42,7 @@ func StringMatcherRegex(regex string) *matcherpb.StringMatcher {
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
 // The wildcard "*" will be generated as ".+" instead of ".*".
-func StringMatcherWithPrefix(v, prefix string) *matcherpb.StringMatcher {
+func StringMatcherWithPrefix(v, prefix string) *matcher.StringMatcher {
 	switch {
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
@@ -50,22 +50,22 @@ func StringMatcherWithPrefix(v, prefix string) *matcherpb.StringMatcher {
 		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
 		if prefix == "" {
-			return &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_Suffix{
+			return &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_Suffix{
 					Suffix: strings.TrimPrefix(v, "*"),
 				},
 			}
 		}
 		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
 	case strings.HasSuffix(v, "*"):
-		return &matcherpb.StringMatcher{
-			MatchPattern: &matcherpb.StringMatcher_Prefix{
+		return &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Prefix{
 				Prefix: prefix + strings.TrimSuffix(v, "*"),
 			},
 		}
 	default:
-		return &matcherpb.StringMatcher{
-			MatchPattern: &matcherpb.StringMatcher_Exact{
+		return &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{
 				Exact: prefix + v,
 			},
 		}

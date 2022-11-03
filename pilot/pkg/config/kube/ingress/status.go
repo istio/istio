@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -119,7 +119,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 }
 
 // updateStatus updates ingress status with the list of IP
-func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
+func (s *StatusSyncer) updateStatus(status []corev1.LoadBalancerIngress) error {
 	l, err := s.ingressLister.List(labels.Everything())
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 
 		currIng.Status.LoadBalancer.Ingress = status
 
-		_, err = s.client.NetworkingV1beta1().Ingresses(currIng.Namespace).UpdateStatus(context.TODO(), currIng, metaV1.UpdateOptions{})
+		_, err = s.client.NetworkingV1beta1().Ingresses(currIng.Namespace).UpdateStatus(context.TODO(), currIng, metav1.UpdateOptions{})
 		if err != nil {
 			log.Warnf("error updating ingress status: %v", err)
 		}
@@ -173,7 +173,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 			return nil, err
 		}
 
-		if svc.Spec.Type == coreV1.ServiceTypeExternalName {
+		if svc.Spec.Type == corev1.ServiceTypeExternalName {
 			addrs = append(addrs, svc.Spec.ExternalName)
 			return addrs, nil
 		}
@@ -199,7 +199,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 
 	for _, pod := range igPods {
 		// only Running pods are valid
-		if pod.Status.Phase != coreV1.PodRunning {
+		if pod.Status.Phase != corev1.PodRunning {
 			continue
 		}
 
@@ -210,7 +210,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		}
 
 		for _, address := range node.Status.Addresses {
-			if address.Type == coreV1.NodeExternalIP {
+			if address.Type == corev1.NodeExternalIP {
 				if address.Address != "" && !addressInSlice(address.Address, addrs) {
 					addrs = append(addrs, address.Address)
 				}
@@ -232,20 +232,20 @@ func addressInSlice(addr string, list []string) bool {
 }
 
 // sliceToStatus converts a slice of IP and/or hostnames to LoadBalancerIngress
-func sliceToStatus(endpoints []string) []coreV1.LoadBalancerIngress {
-	lbi := make([]coreV1.LoadBalancerIngress, 0, len(endpoints))
+func sliceToStatus(endpoints []string) []corev1.LoadBalancerIngress {
+	lbi := make([]corev1.LoadBalancerIngress, 0, len(endpoints))
 	for _, ep := range endpoints {
 		if !netutil.IsValidIPAddress(ep) {
-			lbi = append(lbi, coreV1.LoadBalancerIngress{Hostname: ep})
+			lbi = append(lbi, corev1.LoadBalancerIngress{Hostname: ep})
 		} else {
-			lbi = append(lbi, coreV1.LoadBalancerIngress{IP: ep})
+			lbi = append(lbi, corev1.LoadBalancerIngress{IP: ep})
 		}
 	}
 
 	return lbi
 }
 
-func lessLoadBalancerIngress(addrs []coreV1.LoadBalancerIngress) func(int, int) bool {
+func lessLoadBalancerIngress(addrs []corev1.LoadBalancerIngress) func(int, int) bool {
 	return func(a, b int) bool {
 		switch strings.Compare(addrs[a].Hostname, addrs[b].Hostname) {
 		case -1:
@@ -257,7 +257,7 @@ func lessLoadBalancerIngress(addrs []coreV1.LoadBalancerIngress) func(int, int) 
 	}
 }
 
-func ingressSliceEqual(lhs, rhs []coreV1.LoadBalancerIngress) bool {
+func ingressSliceEqual(lhs, rhs []corev1.LoadBalancerIngress) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}

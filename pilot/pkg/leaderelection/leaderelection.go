@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -145,7 +145,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		key = remoteIstiodPrefix + key
 	}
 	lock := k8sresourcelock.ConfigMapLock{
-		ConfigMapMeta: metaV1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
+		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: k8sresourcelock.ResourceLockConfig{
 			Identity: l.name,

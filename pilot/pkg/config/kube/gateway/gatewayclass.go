@@ -17,7 +17,7 @@ package gateway
 import (
 	"context"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -68,7 +68,7 @@ func (c *ClassController) Reconcile(name types.NamespacedName) error {
 		log.Errorf("unable to fetch GatewayClass: %v", err)
 		return err
 	}
-	if !apierrors.IsNotFound(err) {
+	if !kerrors.IsNotFound(err) {
 		log.Debugf("GatewayClass/%v already exists, no action", DefaultClassName)
 		return nil
 	}
@@ -83,7 +83,7 @@ func (c *ClassController) Reconcile(name types.NamespacedName) error {
 		},
 	}
 	_, err = c.directClient.Create(context.Background(), gc, metav1.CreateOptions{})
-	if apierrors.IsConflict(err) {
+	if kerrors.IsConflict(err) {
 		// This is not really an error, just a race condition
 		log.Infof("Attempted to create GatewayClass/%v, but it was already created", DefaultClassName)
 		return nil

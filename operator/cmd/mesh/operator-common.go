@@ -17,7 +17,7 @@ package mesh
 import (
 	"context"
 
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" //  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 
@@ -114,7 +114,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 
 // deploymentExists returns true if the given deployment in the namespace exists.
 func deploymentExists(cs kubernetes.Interface, namespace, name string) (bool, error) {
-	d, err := cs.AppsV1().Deployments(namespace).Get(context.TODO(), name, v12.GetOptions{})
+	d, err := cs.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
