@@ -4923,6 +4923,42 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "valid endpoint port", in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "1.1.1.1",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "invalid endpoint port", in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "1.1.1.1",
+						Ports: map[string]uint32{
+							"http-valid1": 65536,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "protocol unset for addresses empty", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
