@@ -50,7 +50,7 @@ type SecretResource struct {
 var _ model.XdsCacheEntry = SecretResource{}
 
 func (sr SecretResource) Key() string {
-	return sr.Key() + "/" + sr.pkpConfHash
+	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
