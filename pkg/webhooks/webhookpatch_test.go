@@ -228,7 +228,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 
 			watcher := keycertbundle.NewWatcher()
 			watcher.SetAndNotify(nil, nil, tc.pemData)
-			whPatcher, err := NewWebhookCertPatcher(client, tc.revision, tc.webhookName, watcher)
+			whPatcher, err := NewWebhookCertPatcher(client, tc.revision, "istio-system", tc.webhookName, watcher)
 			if err != nil {
 				t.Fatal(err)
 			}
