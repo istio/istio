@@ -51,7 +51,7 @@ type ManifestGenerateArgs struct {
 	Set []string
 	// Force proceeds even if there are validation errors
 	Force bool
-	// ManifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	// ManifestsPath is a path to a charts and profiles directory in the local filesystem with a release tgz.
 	ManifestsPath string
 	// Revision is the Istio control plane revision the command targets.
 	Revision string
