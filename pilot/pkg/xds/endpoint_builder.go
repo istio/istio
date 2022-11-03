@@ -386,7 +386,7 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	address, port := e.Address, e.EndpointPort
-	tunnelAddress, tunnelPort := address, 15008
+	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
 	// Otherwise supports tunnel
