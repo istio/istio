@@ -197,7 +197,7 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
-	webhookConfigName := getValidationWebhookConfigName(o.Revision, o.WatchedNamespace)
+	webhookConfigName := util.GetWebhookConfigName(features.ValidationWebhookConfigName, o.Revision, o.WatchedNamespace)
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -221,17 +221,6 @@ func newController(
 	c.webhookInformer = webhookInformer
 
 	return c
-}
-
-func getValidationWebhookConfigName(revision string, namespace string) string {
-	name := features.ValidationWebhookConfigName
-	if revision != "default" {
-		name += "-" + revision
-	}
-	if namespace != "istio-system" {
-		name += "-" + namespace
-	}
-	return name
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
