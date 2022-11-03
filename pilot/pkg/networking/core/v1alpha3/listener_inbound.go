@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -155,19 +156,19 @@ type ServiceInstancePort struct {
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	vhost := &route.VirtualHost{
-		Name:    "connect",
+		Name:    "inbound-hbone-connect",
 		Domains: []string{"*"},
 	}
 	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		// TODO passthrough
-		p := cc.port.TargetPort
-		name := fmt.Sprintf("inbound-hbone|%d", p)
+		p := strconv.Itoa(int(cc.port.TargetPort))
+		destination := "inbound-hbone" + "|" + p
 		vhost.Routes = append(vhost.Routes, &route.Route{
 			Match: &route.RouteMatch{
 				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 				Headers: []*route.HeaderMatcher{
-					istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("*:%d", p)),
+					istiomatcher.HeaderMatcher(":authority", "*:"+p),
 				},
 			},
 			Action: &route.Route_Route{Route: &route.RouteAction{
@@ -176,7 +177,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 				}},
 
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: name},
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: destination},
 			}},
 		})
 	}
@@ -188,34 +189,12 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
 				Filters: []*listener.Filter{
 					xdsfilters.CaptureTLS,
-					{
-						// TODO: use standard builder
-						Name: wellknown.HTTPConnectionManager,
-						ConfigType: &listener.Filter_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
-								StatPrefix: "inbound-hbone",
-								RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-									RouteConfig: &route.RouteConfiguration{
-										Name:             "local_route",
-										VirtualHosts:     []*route.VirtualHost{vhost},
-										ValidateClusters: proto.BoolFalse,
-									},
-								},
-								HttpFilters: []*hcm.HttpFilter{xdsfilters.Baggage, xdsfilters.Router},
-								Http2ProtocolOptions: &core.Http2ProtocolOptions{
-									AllowConnect: true,
-								},
-								// TODO: I doubt this is needed
-								UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{{
-									UpgradeType: "CONNECT",
-								}},
-							}),
-						},
-					},
+					buildHBONEConnectionManager(vhost),
 				},
 			},
 		},
 	}
+
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 
 	var listeners []*listener.Listener
@@ -237,7 +216,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 				fcm.TransportProtocol = ""
 			}
 		}
-		name := fmt.Sprintf("inbound-hbone|%d", cc.port.TargetPort)
+		name := "inbound-hbone" + "|" + strconv.Itoa(int(cc.port.TargetPort))
 		l := &listener.Listener{
 			Name:              name,
 			ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -250,6 +229,31 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		listeners = append(listeners, l)
 	}
 	return listeners
+}
+
+func buildHBONEConnectionManager(vhost *route.VirtualHost) *listener.Filter {
+	connMgr := &hcm.HttpConnectionManager{}
+	connMgr.StatPrefix = "inbound-hbone"
+
+	connMgr.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{
+		RouteConfig: &route.RouteConfiguration{
+			Name:             "local_route",
+			VirtualHosts:     []*route.VirtualHost{vhost},
+			ValidateClusters: proto.BoolFalse,
+		},
+	}
+	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.Baggage, xdsfilters.Router}
+	connMgr.Http2ProtocolOptions = &core.Http2ProtocolOptions{
+		AllowConnect: true,
+	}
+	// TODO: I doubt this is needed
+	connMgr.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
+		UpgradeType: "CONNECT",
+	}}
+	return &listener.Filter{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(connMgr)},
+	}
 }
 
 // buildInboundListeners creates inbound listeners.
