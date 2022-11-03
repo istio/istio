@@ -65,9 +65,8 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, systemNameSpace string, caBundleWatcher *keycertbundle.Watcher,
+	revision, systemNameSpace string, webhookName string, caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
-	webhookName := getInjectionWebhookName(revision, systemNameSpace)
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
 		revision:        revision,
@@ -80,7 +79,7 @@ func NewWebhookCertPatcher(
 	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 		if features.EnableEnhancedResourceScoping {
-			options.FieldSelector = fmt.Sprintf("metadata.name=%s", webhookName)
+			options.FieldSelector = fmt.Sprintf("metadata.name=%s", getInjectionWebhookName(revision, systemNameSpace))
 		}
 	})
 	p.informer = informer
