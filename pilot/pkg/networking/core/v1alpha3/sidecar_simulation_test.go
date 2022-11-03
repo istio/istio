@@ -1626,8 +1626,8 @@ metadata:
   creationTimestamp: "{{.Time}}"
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
+  - kind: TODO
+    name: TODO
 {{ with .PortMatch }}
     port: {{.}}
 {{ end }}
@@ -2440,7 +2440,9 @@ spec:
 			},
 		},
 	}
-	for _, variant := range []string{"httproute", "virtualservice"} {
+	// TODO test httproute when support for arbitrary hostnames is added in the GEP
+	// TODO for _, variant := range []string{"httproute", "virtualservice"} {
+	for _, variant := range []string{"virtualservice"} {
 		t.Run(variant, func(t *testing.T) {
 			for _, tt := range cases {
 				t.Run(tt.name, func(t *testing.T) {

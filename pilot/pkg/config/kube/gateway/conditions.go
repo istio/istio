@@ -123,8 +123,9 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 type ParentErrorReason string
 
 const (
-	ParentErrorNotAllowed = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
-	ParentErrorNoHostname = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
+	ParentErrorNotAllowed        = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
+	ParentErrorNoHostname        = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
+	ParentErrorParentRefConflict = ParentErrorReason("ParentRefConflict")
 )
 
 type ConfigErrorReason = string

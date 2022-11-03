@@ -139,6 +139,17 @@ spec:
   hosts:
   - '*'
   http:
+  - match:
+    - uri:
+        prefix: /original
+    rewrite:
+      authority: new.example.com
+      uri: /replacement
+    route:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
   - mirror:
       host: httpbin-mirror.default.svc.domain.suffix
       port:
@@ -153,17 +164,6 @@ spec:
       redirectCode: 302
       scheme: https
   - route:
-    - destination:
-        host: httpbin.default.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
-        prefix: /original
-    rewrite:
-      authority: new.example.com
-      uri: /replacement
-    route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
