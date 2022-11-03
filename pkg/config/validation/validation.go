@@ -3308,6 +3308,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						if !servicePorts[name] {
 							errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 						}
+						errs = appendValidation(errs,
+							ValidatePortName(name),
+							ValidatePort(int(port)))
 					}
 				}
 				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
