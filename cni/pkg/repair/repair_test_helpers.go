@@ -16,7 +16,7 @@ package repair
 
 import (
 	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -33,11 +33,11 @@ type makePodArgs struct {
 
 func makePod(args makePodArgs) *v1.Pod {
 	pod := &v1.Pod{
-		TypeMeta: v12.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        args.PodName,
 			Namespace:   args.Namespace,
 			Labels:      args.Labels,

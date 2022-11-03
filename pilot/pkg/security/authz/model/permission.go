@@ -18,7 +18,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 func permissionAny() *rbacpb.Permission {
@@ -73,7 +73,7 @@ func permissionDestinationPort(port uint32) *rbacpb.Permission {
 	}
 }
 
-func permissionRequestedServerName(name *matcherpb.StringMatcher) *rbacpb.Permission {
+func permissionRequestedServerName(name *matcher.StringMatcher) *rbacpb.Permission {
 	return &rbacpb.Permission{
 		Rule: &rbacpb.Permission_RequestedServerName{
 			RequestedServerName: name,
@@ -81,7 +81,7 @@ func permissionRequestedServerName(name *matcherpb.StringMatcher) *rbacpb.Permis
 	}
 }
 
-func permissionMetadata(metadata *matcherpb.MetadataMatcher) *rbacpb.Permission {
+func permissionMetadata(metadata *matcher.MetadataMatcher) *rbacpb.Permission {
 	return &rbacpb.Permission{
 		Rule: &rbacpb.Permission_Metadata{
 			Metadata: metadata,
@@ -97,7 +97,7 @@ func permissionHeader(header *routepb.HeaderMatcher) *rbacpb.Permission {
 	}
 }
 
-func permissionPath(path *matcherpb.PathMatcher) *rbacpb.Permission {
+func permissionPath(path *matcher.PathMatcher) *rbacpb.Permission {
 	return &rbacpb.Permission{
 		Rule: &rbacpb.Permission_UrlPath{
 			UrlPath: path,

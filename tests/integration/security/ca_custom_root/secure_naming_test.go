@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
@@ -214,7 +214,7 @@ func verifyCertificatesWithPluginCA(t framework.TestContext, certs []string) {
 func checkCACert(t framework.TestContext, testNamespace namespace.Instance) error {
 	configMapName := "istio-ca-root-cert"
 	cm, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(testNamespace.Name()).Get(context.TODO(), configMapName,
-		kubeApiMeta.GetOptions{})
+		metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

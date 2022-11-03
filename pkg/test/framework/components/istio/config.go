@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -280,7 +280,7 @@ func newHelmValues(ctx resource.Context) (map[string]string, error) {
 
 	// Always pull Docker images if using the "latest".
 	if values[tagValuesKey] == "latest" {
-		values[imagePullPolicyValuesKey] = string(kubeCore.PullAlways)
+		values[imagePullPolicyValuesKey] = string(corev1.PullAlways)
 	}
 
 	// We need more information on Envoy logs to detect usage of any deprecated feature

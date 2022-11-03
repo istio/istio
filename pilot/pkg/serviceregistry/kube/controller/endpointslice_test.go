@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -46,7 +46,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 
 	pod := generatePod("128.0.0.1", "pod1", ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
-	pods := []*coreV1.Pod{pod}
+	pods := []*corev1.Pod{pod}
 	addPods(t, controller, fx, pods...)
 
 	createService(controller, svcName, ns, nil,

@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/admissionregistration/v1"
-	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	admissioninformer "k8s.io/client-go/informers/admissionregistration/v1"
@@ -104,7 +104,7 @@ func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
 
 	// do not want to retry the task if these errors occur, they indicate that
 	// we should no longer be patching the given webhook
-	if kubeErrors.IsNotFound(err) || errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) || errors.Is(err, errNotFound) {
+	if kerrors.IsNotFound(err) || errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) || errors.Is(err, errNotFound) {
 		return nil
 	}
 

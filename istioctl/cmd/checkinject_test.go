@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -244,7 +244,7 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var defaultWh *admit_v1.MutatingWebhookConfiguration
+	var defaultWh *admitv1.MutatingWebhookConfiguration
 	if err := yaml.Unmarshal(defaultFile, &defaultWh); err != nil {
 		t.Fatal(err)
 	}
@@ -252,13 +252,13 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var revWh *admit_v1.MutatingWebhookConfiguration
+	var revWh *admitv1.MutatingWebhookConfiguration
 	if err := yaml.Unmarshal(revFile, &revWh); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			checkResults := analyzeRunningWebhooks([]admit_v1.MutatingWebhookConfiguration{*defaultWh, *revWh},
+			checkResults := analyzeRunningWebhooks([]admitv1.MutatingWebhookConfiguration{*defaultWh, *revWh},
 				c.pod.Labels, c.ns.Labels)
 			assert.Equal(t, c.expectedMessages, checkResults)
 		})

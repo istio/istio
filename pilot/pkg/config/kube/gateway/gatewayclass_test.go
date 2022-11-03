@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -46,7 +46,7 @@ func TestClassController(t *testing.T) {
 			},
 		}
 		_, err := client.GatewayAPI().GatewayV1beta1().GatewayClasses().Create(context.Background(), gc, metav1.CreateOptions{})
-		if apierrors.IsAlreadyExists(err) {
+		if kerrors.IsAlreadyExists(err) {
 			_, _ = client.GatewayAPI().GatewayV1beta1().GatewayClasses().Update(context.Background(), gc, metav1.UpdateOptions{})
 		}
 	}

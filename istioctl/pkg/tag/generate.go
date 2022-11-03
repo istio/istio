@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -197,11 +197,11 @@ base:
 			Strict: true,
 		})
 
-	whObject, _, err := deserializer.Decode([]byte(validatingWebhookYAML), nil, &admit_v1.ValidatingWebhookConfiguration{})
+	whObject, _, err := deserializer.Decode([]byte(validatingWebhookYAML), nil, &admitv1.ValidatingWebhookConfiguration{})
 	if err != nil {
 		return "", fmt.Errorf("could not decode generated webhook: %w", err)
 	}
-	decodedWh := whObject.(*admit_v1.ValidatingWebhookConfiguration)
+	decodedWh := whObject.(*admitv1.ValidatingWebhookConfiguration)
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
@@ -254,11 +254,11 @@ istiodRemote:
 			Strict: true,
 		})
 
-	whObject, _, err := deserializer.Decode([]byte(tagWebhookYaml), nil, &admit_v1.MutatingWebhookConfiguration{})
+	whObject, _, err := deserializer.Decode([]byte(tagWebhookYaml), nil, &admitv1.MutatingWebhookConfiguration{})
 	if err != nil {
 		return "", fmt.Errorf("could not decode generated webhook: %w", err)
 	}
-	decodedWh := whObject.(*admit_v1.MutatingWebhookConfiguration)
+	decodedWh := whObject.(*admitv1.MutatingWebhookConfiguration)
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 		if decodedWh.Webhooks[i].ClientConfig.Service != nil {
@@ -278,7 +278,7 @@ istiodRemote:
 }
 
 // tagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
-func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName, istioNS string) (*tagWebhookConfig, error) {
+func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguration, tagName, istioNS string) (*tagWebhookConfig, error) {
 	rev, err := GetWebhookRevision(wh)
 	if err != nil {
 		return nil, err

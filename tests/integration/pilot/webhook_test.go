@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
@@ -62,7 +62,7 @@ func TestWebhook(t *testing.T) {
 				updated.Webhooks[0].FailurePolicy = &ignore
 
 				if _, err := cluster.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(),
-					updated, kubeApiMeta.UpdateOptions{}); err != nil {
+					updated, metav1.UpdateOptions{}); err != nil {
 					return fmt.Errorf("could not update validating webhook config %q: %v", updated.Name, err)
 				}
 				return nil
@@ -90,7 +90,7 @@ func TestWebhook(t *testing.T) {
 
 func getValidatingWebhookConfiguration(client kubernetes.Interface, name string) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
 	whc, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
-		name, kubeApiMeta.GetOptions{})
+		name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get validating webhook config %q: %v", name, err)
 	}
@@ -121,7 +121,7 @@ func verifyRejectsInvalidConfig(t framework.TestContext, configRevision string, 
 		revLabel[label.IoIstioRev.Name] = configRevision
 	}
 	invalidGateway := &v1alpha3.Gateway{
-		ObjectMeta: kubeApiMeta.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "invalid-istio-gateway",
 			Namespace: istioNamespace,
 			Labels:    revLabel,
@@ -129,7 +129,7 @@ func verifyRejectsInvalidConfig(t framework.TestContext, configRevision string, 
 		Spec: networking.Gateway{},
 	}
 
-	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	istioClient := t.Clusters().Default().Istio().NetworkingV1alpha3()
 	_, err := istioClient.Gateways(istioNamespace).Create(context.TODO(), invalidGateway, createOptions)
 	rejected := err != nil

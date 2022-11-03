@@ -17,7 +17,7 @@ package kube
 import (
 	"fmt"
 
-	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,7 +193,7 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 			}
 		}
 
-	case *kubeApiAdmissionv1.AdmissionReview:
+	case *admissionv1.AdmissionReview:
 		typeMeta = obj.TypeMeta
 		arv1Response := obj.Response
 		arv1Request := obj.Request
@@ -283,9 +283,9 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 		arv1beta1.TypeMeta = ar.TypeMeta
 		res = &arv1beta1
 	case admissionAPIV1:
-		arv1 := kubeApiAdmissionv1.AdmissionReview{}
+		arv1 := admissionv1.AdmissionReview{}
 		if arRequest != nil {
-			arv1.Request = &kubeApiAdmissionv1.AdmissionRequest{
+			arv1.Request = &admissionv1.AdmissionRequest{
 				UID:                arRequest.UID,
 				Kind:               arRequest.Kind,
 				Resource:           arRequest.Resource,
@@ -295,7 +295,7 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 				RequestKind:        arRequest.RequestKind,
 				RequestResource:    arRequest.RequestResource,
 				RequestSubResource: arRequest.RequestSubResource,
-				Operation:          kubeApiAdmissionv1.Operation(arRequest.Operation),
+				Operation:          admissionv1.Operation(arRequest.Operation),
 				UserInfo:           arRequest.UserInfo,
 				Object:             arRequest.Object,
 				OldObject:          arRequest.OldObject,
@@ -304,11 +304,11 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 			}
 		}
 		if arResponse != nil {
-			var patchType *kubeApiAdmissionv1.PatchType
+			var patchType *admissionv1.PatchType
 			if arResponse.PatchType != nil {
-				patchType = (*kubeApiAdmissionv1.PatchType)(arResponse.PatchType)
+				patchType = (*admissionv1.PatchType)(arResponse.PatchType)
 			}
-			arv1.Response = &kubeApiAdmissionv1.AdmissionResponse{
+			arv1.Response = &admissionv1.AdmissionResponse{
 				UID:              arResponse.UID,
 				Allowed:          arResponse.Allowed,
 				Result:           arResponse.Result,

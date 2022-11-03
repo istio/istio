@@ -27,9 +27,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
@@ -711,21 +711,21 @@ func (i *istioImpl) deployCACerts() error {
 				// ^^^ Use config cluster name because external control plane uses config cluster as its cluster ID
 			}
 		}
-		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-			ObjectMeta: kubeApiMeta.ObjectMeta{
+		if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
 				Labels:      nsLabels,
 				Annotations: nsAnnotations,
 				Name:        i.cfg.SystemNamespace,
 			},
-		}, kubeApiMeta.CreateOptions{}); err != nil {
+		}, metav1.CreateOptions{}); err != nil {
 			if errors.IsAlreadyExists(err) {
-				if _, err := c.Kube().CoreV1().Namespaces().Update(context.TODO(), &kubeApiCore.Namespace{
-					ObjectMeta: kubeApiMeta.ObjectMeta{
+				if _, err := c.Kube().CoreV1().Namespaces().Update(context.TODO(), &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
 						Labels:      nsLabels,
 						Annotations: nsAnnotations,
 						Name:        i.cfg.SystemNamespace,
 					},
-				}, kubeApiMeta.UpdateOptions{}); err != nil {
+				}, metav1.UpdateOptions{}); err != nil {
 					scopes.Framework.Errorf("failed updating namespace %s on cluster %s. This can happen when deploying "+
 						"multiple control planes. Error: %v", i.cfg.SystemNamespace, c.Name(), err)
 				}
@@ -737,7 +737,7 @@ func (i *istioImpl) deployCACerts() error {
 
 		// Create the secret for the cacerts.
 		if _, err := c.Kube().CoreV1().Secrets(i.cfg.SystemNamespace).Create(context.TODO(), secret,
-			kubeApiMeta.CreateOptions{}); err != nil {
+			metav1.CreateOptions{}); err != nil {
 			// no need to do anything if cacerts is already present
 			if !errors.IsAlreadyExists(err) {
 				scopes.Framework.Errorf("failed to create CA secrets on cluster %s. This can happen when deploying "+
@@ -762,34 +762,34 @@ func (i *istioImpl) configureRemoteConfigForControlPlane(c cluster.Cluster) erro
 	scopes.Framework.Infof("configuring external control plane in %s to use config cluster %s", c.Name(), configCluster.Name())
 	// ensure system namespace exists
 	if _, err = c.Kube().CoreV1().Namespaces().
-		Create(context.TODO(), &kubeApiCore.Namespace{
-			ObjectMeta: kubeApiMeta.ObjectMeta{
+		Create(context.TODO(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: i.cfg.SystemNamespace,
 			},
-		}, kubeApiMeta.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+		}, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 	// create kubeconfig secret
 	if _, err = c.Kube().CoreV1().Secrets(i.cfg.SystemNamespace).
-		Create(context.TODO(), &kubeApiCore.Secret{
-			ObjectMeta: kubeApiMeta.ObjectMeta{
+		Create(context.TODO(), &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "istio-kubeconfig",
 				Namespace: i.cfg.SystemNamespace,
 			},
 			Data: map[string][]byte{
 				"config": []byte(istioKubeConfig),
 			},
-		}, kubeApiMeta.CreateOptions{}); err != nil {
+		}, metav1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) { // Allow easier running locally when we run multiple tests in a row
-			if _, err := c.Kube().CoreV1().Secrets(i.cfg.SystemNamespace).Update(context.TODO(), &kubeApiCore.Secret{
-				ObjectMeta: kubeApiMeta.ObjectMeta{
+			if _, err := c.Kube().CoreV1().Secrets(i.cfg.SystemNamespace).Update(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "istio-kubeconfig",
 					Namespace: i.cfg.SystemNamespace,
 				},
 				Data: map[string][]byte{
 					"config": []byte(istioKubeConfig),
 				},
-			}, kubeApiMeta.UpdateOptions{}); err != nil {
+			}, metav1.UpdateOptions{}); err != nil {
 				scopes.Framework.Infof("error updating istio-kubeconfig secret: %v", err)
 				return err
 			}

@@ -26,7 +26,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
-	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -320,7 +320,7 @@ func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	configuration, err := c.client.Kube().
 		AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
 	if err != nil {
-		if kubeErrors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
 			return false, nil
 		}
@@ -380,7 +380,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	istioClient := c.client.Istio().NetworkingV1alpha3()
 	_, err := istioClient.Gateways(c.o.WatchedNamespace).Create(context.TODO(), invalidGateway, createOptions)
-	if kubeErrors.IsAlreadyExists(err) {
+	if kerrors.IsAlreadyExists(err) {
 		updateOptions := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 		_, err = istioClient.Gateways(c.o.WatchedNamespace).Update(context.TODO(), invalidGateway, updateOptions)
 	}
@@ -433,7 +433,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 	if err != nil {
 		scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
 			updated.Name, failurePolicy, updated.ResourceVersion, err)
-		reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
+		reportValidationConfigUpdateError(kerrors.ReasonForError(err))
 		return err
 	}
 

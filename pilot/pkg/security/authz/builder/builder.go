@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"strconv"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 
@@ -93,7 +93,7 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 }
 
 // BuildHTTP returns the HTTP filters built from the authorization policy.
-func (b Builder) BuildHTTP() []*httppb.HttpFilter {
+func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	b.logger = &AuthzLogger{}
 	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
@@ -105,7 +105,7 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 		return nil
 	}
 
-	var filters []*httppb.HttpFilter
+	var filters []*hcm.HttpFilter
 	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, false); configs != nil {
 		b.logger.AppendDebugf("built %d HTTP filters for AUDIT action", len(configs.http))
 		filters = append(filters, configs.http...)
@@ -122,7 +122,7 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 }
 
 // BuildTCP returns the TCP filters built from the authorization policy.
-func (b Builder) BuildTCP() []*tcppb.Filter {
+func (b Builder) BuildTCP() []*listener.Filter {
 	b.logger = &AuthzLogger{}
 	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
@@ -133,7 +133,7 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 		return nil
 	}
 
-	var filters []*tcppb.Filter
+	var filters []*listener.Filter
 	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true); configs != nil {
 		b.logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
@@ -150,8 +150,8 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 }
 
 type builtConfigs struct {
-	http []*httppb.HttpFilter
-	tcp  []*tcppb.Filter
+	http []*hcm.HttpFilter
+	tcp  []*listener.Filter
 }
 
 func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
@@ -255,17 +255,17 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 	return &builtConfigs{http: b.buildHTTP(enforceRules, shadowRules, providers)}
 }
 
-func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*httppb.HttpFilter {
+func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*hcm.HttpFilter {
 	if !b.option.IsCustomBuilder {
-		rbac := &rbachttppb.RBAC{
+		rbac := &rbachttp.RBAC{
 			Rules:                 rules,
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
-		return []*httppb.HttpFilter{
+		return []*hcm.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
-				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -273,11 +273,11 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	extauthz, err := getExtAuthz(b.extensions, providers)
 	if err != nil {
 		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action:"))
-		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
-		return []*httppb.HttpFilter{
+		rbac := &rbachttp.RBAC{Rules: rbacDefaultDenyAll}
+		return []*hcm.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
-				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
@@ -286,67 +286,67 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	// can utilize these metadata to trigger the enforcement conditionally.
 	// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
 	// for more details.
-	rbac := &rbachttppb.RBAC{
+	rbac := &rbachttp.RBAC{
 		ShadowRules:           rules,
 		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
 	}
-	return []*httppb.HttpFilter{
+	return []*hcm.HttpFilter{
 		{
 			Name:       wellknown.HTTPRoleBasedAccessControl,
-			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 		},
 		{
 			Name:       wellknown.HTTPExternalAuthorization,
-			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
 		},
 	}
 }
 
-func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*tcppb.Filter {
+func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*listener.Filter {
 	if !b.option.IsCustomBuilder {
-		rbac := &rbactcppb.RBAC{
+		rbac := &rbactcp.RBAC{
 			Rules:                 rules,
 			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
-		return []*tcppb.Filter{
+		return []*listener.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	}
 
 	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
 		b.logger.AppendError(multierror.Prefix(err, "failed to parse CUSTOM action, will generate a deny all config:"))
-		rbac := &rbactcppb.RBAC{
+		rbac := &rbactcp.RBAC{
 			Rules:      rbacDefaultDenyAll,
 			StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
 		}
-		return []*tcppb.Filter{
+		return []*listener.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
 	} else if extauthz.tcp == nil {
 		b.logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
 	} else {
-		rbac := &rbactcppb.RBAC{
+		rbac := &rbactcp.RBAC{
 			ShadowRules:           rules,
 			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
 			ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
 		}
-		return []*tcppb.Filter{
+		return []*listener.Filter{
 			{
 				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 			{
 				Name:       wellknown.ExternalAuthorization,
-				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
 			},
 		}
 	}

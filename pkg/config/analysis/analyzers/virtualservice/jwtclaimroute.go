@@ -17,7 +17,7 @@ package virtualservice
 import (
 	"strings"
 
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
@@ -51,14 +51,14 @@ func (s *JWTClaimRouteAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
-	requestAuthNByNamespace := map[string][]k8s_labels.Selector{}
+	requestAuthNByNamespace := map[string][]klabels.Selector{}
 	c.ForEach(collections.IstioSecurityV1Beta1Requestauthentications.Name(), func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.Namespace.String()
 		if _, found := requestAuthNByNamespace[ns]; !found {
-			requestAuthNByNamespace[ns] = []k8s_labels.Selector{}
+			requestAuthNByNamespace[ns] = []klabels.Selector{}
 		}
 		ra := r.Message.(*v1beta1.RequestAuthentication)
-		raSelector := k8s_labels.SelectorFromSet(ra.GetSelector().GetMatchLabels())
+		raSelector := klabels.SelectorFromSet(ra.GetSelector().GetMatchLabels())
 		requestAuthNByNamespace[ns] = append(requestAuthNByNamespace[ns], raSelector)
 		return true
 	})
@@ -69,7 +69,7 @@ func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context, requestAuthNByNamespace map[string][]k8s_labels.Selector) {
+func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context, requestAuthNByNamespace map[string][]klabels.Selector) {
 	// Check if the virtual service is using JWT claim based routing.
 	vs := r.Message.(*v1alpha3.VirtualService)
 	var vsRouteKey string
@@ -92,11 +92,11 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 		}
 
 		gw := gwRes.Message.(*v1alpha3.Gateway)
-		gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
+		gwSelector := klabels.SelectorFromSet(gw.Selector)
 
 		// Check each pod selected by the gateway.
 		c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
-			podLabels := k8s_labels.Set(rPod.Metadata.Labels)
+			podLabels := klabels.Set(rPod.Metadata.Labels)
 			if !gwSelector.Matches(podLabels) {
 				return true
 			}
