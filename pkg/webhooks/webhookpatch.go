@@ -65,8 +65,9 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
+	revision, systemNameSpace string, caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
+	webhookName := getInjectionWebhookName(revision, systemNameSpace)
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
 		revision:        revision,
@@ -190,4 +191,15 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 			return
 		}
 	}
+}
+
+func getInjectionWebhookName(revision string, namespace string) string {
+	name := features.InjectionWebhookConfigName
+	if revision != "default" {
+		name += "-" + revision
+	}
+	if namespace != "istio-system" {
+		name += "-" + namespace
+	}
+	return name
 }
