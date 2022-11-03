@@ -33,7 +33,7 @@ import (
 )
 
 // ConstructProxyConfig returns proxyConfig
-func 	ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
+func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
 		if os.IsNotExist(err) {
