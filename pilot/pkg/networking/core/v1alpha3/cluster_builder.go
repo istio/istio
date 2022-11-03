@@ -69,7 +69,7 @@ var hboneTransportSocketMatch = &structpb.Struct{
 // revive:disable-next-line
 var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
 	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-		IdleTimeout: durationpb.New(5 * time.Second),
+		IdleTimeout: durationpb.New(5 * time.Minute),
 	},
 	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
@@ -385,10 +385,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
 		}
-	}
-
-	if discoveryType == cluster.Cluster_ORIGINAL_DST {
-
 	}
 
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
