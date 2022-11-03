@@ -60,7 +60,7 @@ type uninstallArgs struct {
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	set []string
-	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem with a release tgz.
 	manifestsPath string
 	// verbose generates verbose output.
 	verbose bool

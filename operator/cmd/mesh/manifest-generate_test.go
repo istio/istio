@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test"
@@ -570,7 +569,6 @@ func TestInstallPackagePath(t *testing.T) {
 	if err := tgz.Create(string(liveCharts), filepath.Join(serverDir, testTGZFilename)); err != nil {
 		t.Fatal(err)
 	}
-	srv := httpserver.NewServer(serverDir)
 	runTestGroup(t, testGroup{
 		{
 			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
@@ -584,12 +582,6 @@ func TestInstallPackagePath(t *testing.T) {
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
 			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", string(liveCharts), string(liveCharts)),
-		},
-		{
-			// --force is needed for version mismatch.
-			desc:       "install_package_path",
-			diffSelect: "Deployment:*:istiod",
-			flags:      "--force --set installPackagePath=" + srv.URL() + "/" + testTGZFilename,
 		},
 	})
 }
