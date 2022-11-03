@@ -398,17 +398,19 @@ func buildHTTPVirtualServices(
 		// for gateway routes, build one VS per gateway+host
 		routeMap := gatewayRoutes
 		routeKey := gw.InternalName
+		vsHosts := hosts
 		if gw.InternalName == "mesh" {
 			// for mesh routes, build one VS per namespace+host
 			routeMap = meshRoutes
 			routeKey = ns
+			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", gw.OriginalReference.Name, defaultIfNil((*string)(gw.OriginalReference.Namespace), ns), ctx.Domain)}
 		}
 		if _, f := routeMap[routeKey]; !f {
 			routeMap[routeKey] = make(map[string]*config.Config)
 		}
 		// Create one VS per hostname with a single hostname.
 		// This ensures we can treat each hostname independently, as the spec requires
-		for _, h := range hosts {
+		for _, h := range vsHosts {
 			if cfg := routeMap[routeKey][h]; cfg != nil {
 				// merge http routes
 				vs := cfg.Spec.(*istio.VirtualService)
@@ -461,10 +463,11 @@ func routeMeta(obj config.Config) map[string]string {
 // see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
 func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 	sort.SliceStable(routes, func(i, j int) bool {
-		if len(routes[i].Match) == 0 {
-			return len(routes[j].Match) != 0
-		}
-		if len(routes[j].Match) == 0 {
+		if len(routes[i].Match) != 0 {
+			if len(routes[j].Match) == 0 {
+				return true
+			}
+		} else if len(routes[j].Match) == 0 {
 			return false
 		}
 		m1, m2 := routes[i].Match[0], routes[j].Match[0]
@@ -519,20 +522,19 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
 	empty := parentKey{}
-	grp := defaultIfNil((*string)(p.Group), gvk.KubernetesGateway.Group)
 	kind := defaultIfNil((*string)(p.Kind), gvk.KubernetesGateway.Kind)
 	var ik config.GroupVersionKind
 	var ns string
-	// Currently supported types are Gateway and Mesh
-	if kind == gvk.KubernetesGateway.Kind && grp == gvk.KubernetesGateway.Group {
-		// Unset namespace means "same namespace"
-		ns = defaultIfNil((*string)(p.Namespace), localNamespace)
+	// Currently supported types are Gateway and Service
+	if kind == gvk.KubernetesGateway.Kind && nilOrEqual((*string)(p.Group), gvk.KubernetesGateway.Group) {
 		ik = gvk.KubernetesGateway
-	} else if kind == meshGVK.Kind && grp == meshGVK.Group {
-		ik = meshGVK
+	} else if kind == gvk.Service.Kind && nilOrEqual((*string)(p.Group), gvk.Service.Group) {
+		ik = gvk.Service
 	} else {
-		return empty, fmt.Errorf("unsupported parentKey: %v/%v", grp, kind)
+		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
 	}
+	// Unset namespace means "same namespace"
+	ns = defaultIfNil((*string)(p.Namespace), localNamespace)
 	return parentKey{
 		Kind:      ik,
 		Name:      string(p.Name),
@@ -543,51 +545,61 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 func referenceAllowed(
 	p *parentInfo,
 	routeKind config.GroupVersionKind,
-	parentKind config.GroupVersionKind,
+	parent parentKey,
 	hostnames []k8s.Hostname,
 	namespace string,
 ) *ParentError {
-	// First check the hostnames are a match. This is a bi-directional wildcard match. Only one route
-	// hostname must match for it to be allowed (but the others will be filtered at runtime)
-	// If either is empty its treated as a wildcard which always matches
-
-	if len(hostnames) == 0 {
-		hostnames = []k8s.Hostname{"*"}
-	}
-	if len(p.Hostnames) > 0 {
-		// TODO: the spec actually has a label match, not a string match. That is, *.com does not match *.apple.com
-		// We are doing a string match here
-		matched := false
-		hostMatched := false
-		for _, routeHostname := range hostnames {
-			for _, parentHostNamespace := range p.Hostnames {
-				spl := strings.Split(parentHostNamespace, "/")
-				parentNamespace, parentHostname := spl[0], spl[1]
-				hostnameMatch := host.Name(parentHostname).Matches(host.Name(routeHostname))
-				namespaceMatch := parentNamespace == "*" || parentNamespace == namespace
-				hostMatched = hostMatched || hostnameMatch
-				if hostnameMatch && namespaceMatch {
-					matched = true
-					break
-				}
+	if parent.Kind == gvk.Service {
+		// TODO: check if the service reference is valid
+		if false {
+			return &ParentError{
+				Reason:  ParentErrorParentRefConflict,
+				Message: fmt.Sprintf("parent service: %q is invalid", parent.Name),
 			}
 		}
-		if !matched {
-			if hostMatched {
-				return &ParentError{
-					Reason: ParentErrorNotAllowed,
-					Message: fmt.Sprintf(
-						"hostnames matched parent hostname %q, but namespace %q is not allowed by the parent",
-						p.OriginalHostname, namespace,
-					),
+	} else {
+		// First check the hostnames are a match. This is a bi-directional wildcard match. Only one route
+		// hostname must match for it to be allowed (but the others will be filtered at runtime)
+		// If either is empty its treated as a wildcard which always matches
+
+		if len(hostnames) == 0 {
+			hostnames = []k8s.Hostname{"*"}
+		}
+		if len(p.Hostnames) > 0 {
+			// TODO: the spec actually has a label match, not a string match. That is, *.com does not match *.apple.com
+			// We are doing a string match here
+			matched := false
+			hostMatched := false
+			for _, routeHostname := range hostnames {
+				for _, parentHostNamespace := range p.Hostnames {
+					spl := strings.Split(parentHostNamespace, "/")
+					parentNamespace, parentHostname := spl[0], spl[1]
+					hostnameMatch := host.Name(parentHostname).Matches(host.Name(routeHostname))
+					namespaceMatch := parentNamespace == "*" || parentNamespace == namespace
+					hostMatched = hostMatched || hostnameMatch
+					if hostnameMatch && namespaceMatch {
+						matched = true
+						break
+					}
 				}
 			}
-			return &ParentError{
-				Reason: ParentErrorNoHostname,
-				Message: fmt.Sprintf(
-					"no hostnames matched parent hostname %q",
-					p.OriginalHostname,
-				),
+			if !matched {
+				if hostMatched {
+					return &ParentError{
+						Reason: ParentErrorNotAllowed,
+						Message: fmt.Sprintf(
+							"hostnames matched parent hostname %q, but namespace %q is not allowed by the parent",
+							p.OriginalHostname, namespace,
+						),
+					}
+				}
+				return &ParentError{
+					Reason: ParentErrorNoHostname,
+					Message: fmt.Sprintf(
+						"no hostnames matched parent hostname %q",
+						p.OriginalHostname,
+					),
+				}
 			}
 		}
 	}
@@ -603,17 +615,6 @@ func referenceAllowed(
 		return &ParentError{
 			Reason:  ParentErrorNotAllowed,
 			Message: fmt.Sprintf("kind %v is not allowed", routeKind),
-		}
-	}
-
-	if parentKind == meshGVK {
-		for _, h := range hostnames {
-			if h == "*" {
-				return &ParentError{
-					Reason:  ParentErrorNoHostname,
-					Message: "mesh requires hostname to be set",
-				}
-			}
 		}
 	}
 	return nil
@@ -633,7 +634,7 @@ func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*pare
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
 				Hostname:          pr.OriginalHostname,
-				DeniedReason:      referenceAllowed(pr, kind, pk.Kind, hostnames, localNamespace),
+				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
 				OriginalReference: ref,
 			}
 			if rpi.DeniedReason == nil {
@@ -642,14 +643,18 @@ func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*pare
 			}
 			parentRefs = append(parentRefs, rpi)
 		}
+		gk := ir
+		if ir.Kind == gvk.Service {
+			gk = meshParentKey
+		}
 		if ref.SectionName != nil {
 			// We are selecting a specific section, so attach just that section
-			if pr, f := gateways[ir][*ref.SectionName]; f {
+			if pr, f := gateways[gk][*ref.SectionName]; f {
 				appendParent(pr, ir)
 			}
 		} else {
 			// no section name set, match all sections
-			for _, pr := range gateways[ir] {
+			for _, pr := range gateways[gk] {
 				appendParent(pr, ir)
 			}
 		}
@@ -1210,20 +1215,25 @@ func getGatewayClasses(r KubernetesResources) map[string]struct{} {
 	return classes
 }
 
+// parentKey holds info about a parentRef (eg route binding to a Gateway). This is a mirror of
+// k8s.ParentReference in a form that can be stored in a map
+type parentKey struct {
+	Kind config.GroupVersionKind
+	// Name is the original name of the resource (eg Kubernetes Gateway name)
+	Name string
+	// Namespace is the namespace of the resource
+	Namespace string
+}
+
 var meshGVK = config.GroupVersionKind{
 	Group:   gvk.KubernetesGateway.Group,
 	Version: gvk.KubernetesGateway.Version,
 	Kind:    "Mesh",
 }
 
-// parentKey holds info about a parentRef (ie route binding to a Gateway). This is a mirror of
-// k8s.ParentReference in a form that can be stored in a map
-type parentKey struct {
-	Kind config.GroupVersionKind
-	// Name is the original name of the resource (ie Kubernetes Gateway name)
-	Name string
-	// Namespace is the namespace of the resource
-	Namespace string
+var meshParentKey = parentKey{
+	Kind: meshGVK,
+	Name: "istio",
 }
 
 // parentInfo holds info about a "parent" - something that can be referenced as a ParentRef in the API.
@@ -1460,10 +1470,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 		reportGatewayCondition(obj, gatewayConditions)
 	}
 	// Insert a parent for Mesh references.
-	gwMap[parentKey{
-		Kind: meshGVK,
-		Name: "istio",
-	}] = map[k8s.SectionName]*parentInfo{
+	gwMap[meshParentKey] = map[k8s.SectionName]*parentInfo{
 		"": {
 			InternalName: "mesh",
 			// Mesh has no configurable AllowedKinds, so allow all supported
