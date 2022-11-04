@@ -124,6 +124,9 @@ function build_images() {
   if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.operator "
   fi
+  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" ]]; then
+    targets+="docker.ztunnel "
+  fi
   targets+="docker.install-cni "
   # Integration tests are always running on local architecture (no cross compiling), so find out what that is.
   arch="linux/amd64"
