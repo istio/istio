@@ -15,9 +15,13 @@
 package mesh
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -37,7 +41,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/operator/pkg/util/tgz"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -69,7 +72,7 @@ var (
 		if err != nil {
 			panic(fmt.Errorf("failed to read data snapshot: %v", err))
 		}
-		if err := tgz.Extract(f, d); err != nil {
+		if err := extract(f, d); err != nil {
 			panic(fmt.Errorf("failed to extract data snapshot: %v", err))
 		}
 		return chartSourceType(filepath.Join(d, "manifests"))
@@ -97,6 +100,54 @@ type testGroup []struct {
 	diffSelect                  string
 	diffIgnore                  string
 	chartSource                 chartSourceType
+}
+
+func extract(gzipStream io.Reader, destination string) error {
+	uncompressedStream, err := gzip.NewReader(gzipStream)
+	if err != nil {
+		return fmt.Errorf("create gzip reader: %v", err)
+	}
+
+	tarReader := tar.NewReader(uncompressedStream)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("next: %v", err)
+		}
+
+		dest := filepath.Join(destination, header.Name)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if _, err := os.Stat(dest); err != nil {
+				if err := os.Mkdir(dest, 0o755); err != nil {
+					return fmt.Errorf("mkdir: %v", err)
+				}
+			}
+		case tar.TypeReg:
+			// Create containing folder if not present
+			dir := path.Dir(dest)
+			if _, err := os.Stat(dir); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					return err
+				}
+			}
+			outFile, err := os.Create(dest)
+			if err != nil {
+				return fmt.Errorf("create: %v", err)
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				return fmt.Errorf("copy: %v", err)
+			}
+			outFile.Close()
+		default:
+			return fmt.Errorf("uknown type: %v in %v", header.Typeflag, header.Name)
+		}
+	}
+	return nil
 }
 
 func TestMain(m *testing.M) {
@@ -565,10 +616,6 @@ func TestBogusControlPlaneSec(t *testing.T) {
 }
 
 func TestInstallPackagePath(t *testing.T) {
-	serverDir := t.TempDir()
-	if err := tgz.Create(string(liveCharts), filepath.Join(serverDir, testTGZFilename)); err != nil {
-		t.Fatal(err)
-	}
 	runTestGroup(t, testGroup{
 		{
 			// Use some arbitrary small test input (pilot only) since we are testing the local filesystem code here, not
