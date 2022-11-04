@@ -70,7 +70,7 @@ func GetInjectionWebhookConfigName(webhookPrefix string, revision string, namesp
 	return name
 }
 
-func GetValidationWebhookConfigName(webhookPrefix string, revision string, namespace string) string {
+func GetValidatingWebhookConfigName(webhookPrefix string, revision string, namespace string) string {
 	name := webhookPrefix
 	if revision != "default" {
 		name += "-" + revision
