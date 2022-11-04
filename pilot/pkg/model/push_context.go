@@ -1375,24 +1375,18 @@ func (ps *PushContext) updateContext(
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
 
-	// if only sidecars have changed, we can only update the changed sidecars
-	if sidecarsChanged || servicesChanged || virtualServicesChanged || destinationRulesChanged {
-		if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars, changedServices); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	// Must be initialized in the end
-	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
+	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change.
 	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
 		if !gatewayAPIChanged {
-			if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars,
-				changedServices, changedDestinationRules, changedVirtualServices); err != nil {
+			// TODO: we cannot currently tell which sidecars are affected when gatewayAPI changed,
+			// we need to rebuild all sidecars
+			if err := ps.initSidecarScopes(env); err != nil {
 				return err
 			}
 		} else {
-			if err := ps.initSidecarScopes(env); err != nil {
+			if err := ps.updateSidecarScopes(env, oldPushContext.sidecarIndex, changedSidecars,
+				changedServices, changedDestinationRules, changedVirtualServices); err != nil {
 				return err
 			}
 		}
@@ -1738,19 +1732,19 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 	// we use the same mutex since the indexes are the same
 	ps.sidecarIndex.indexMutex = oldIndex.indexMutex
 
-	sidecarsToUpdate := make(map[ConfigKey]struct{})
+	sidecarsToUpdate := sets.New[ConfigKey]()
 
 	for _, changedSidecar := range changedSidecars {
-		sidecarsToUpdate[changedSidecar] = struct{}{}
+		sidecarsToUpdate.Insert(changedSidecar)
 	}
 
 	// find sidecars affected by the changed resources, and mark them for update.
 	// TODO: this is linear to the amount of sidecars in the mesh times the amount of changed resources, this is not ideal
 	// but it should be better than rebuilding everything and is the best we can do with the current data structures,
-	// we should probably analyze adding a global index of resources to sidecars using them, but could prove very memory
-	// intensive.
-	for sidecar, _ := range sidecarsUsingResources(oldIndex, changedServices, changedDestinationRules, changedVirtualServices) {
-		sidecarsToUpdate[sidecar] = struct{}{}
+	// we should probably analyze adding a global index of resources to sidecars using them,
+	// but could prove very memory intensive.
+	for sidecar := range sidecarsUsingResources(oldIndex, changedServices, changedDestinationRules, changedVirtualServices) {
+		sidecarsToUpdate.Insert(sidecar)
 	}
 
 	ps.sidecarIndex.sidecarsByNamespaceWithSelector = oldIndex.sidecarsByNamespaceWithSelector
@@ -1820,8 +1814,8 @@ func (ps *PushContext) updateSidecarScopes(env *Environment, oldIndex sidecarInd
 }
 
 // sidecarsUsingResources returns a set of sidecars that are affected by the given resources
-func sidecarsUsingResources(sidecarIndex sidecarIndex, services []ConfigKey, destinationRules []ConfigKey, virtualServices []ConfigKey) map[ConfigKey]struct{} {
-	sidecars := make(map[ConfigKey]struct{}, 0)
+func sidecarsUsingResources(sidecarIndex sidecarIndex, services []ConfigKey, destinationRules []ConfigKey, virtualServices []ConfigKey) sets.Set[ConfigKey] {
+	sidecars := sets.New[ConfigKey]()
 
 	if len(services) > 0 || len(destinationRules) > 0 || len(virtualServices) > 0 {
 		return sidecars
@@ -1832,14 +1826,14 @@ func sidecarsUsingResources(sidecarIndex sidecarIndex, services []ConfigKey, des
 	for _, sidecarMap := range sidecarIndex.sidecarsByNamespaceWithSelector {
 		for _, sidecar := range sidecarMap {
 			if sidecarUsingAnyResource(sidecar, services, destinationRules, virtualServices) {
-				sidecars[ConfigKey{Name: sidecar.Name, Namespace: sidecar.Namespace, Kind: kind.Sidecar}] = struct{}{}
+				sidecars.Insert(ConfigKey{Name: sidecar.Name, Namespace: sidecar.Namespace, Kind: kind.Sidecar})
 			}
 		}
 	}
 	for _, sidecarMap := range sidecarIndex.sidecarsByNamespaceWithoutSelector {
 		for _, sidecar := range sidecarMap {
 			if sidecarUsingAnyResource(sidecar, services, destinationRules, virtualServices) {
-				sidecars[ConfigKey{Name: sidecar.Name, Namespace: sidecar.Namespace, Kind: kind.Sidecar}] = struct{}{}
+				sidecars.Insert(ConfigKey{Name: sidecar.Name, Namespace: sidecar.Namespace, Kind: kind.Sidecar})
 			}
 		}
 	}
