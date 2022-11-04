@@ -18,9 +18,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	xxhashv2 "github.com/cespare/xxhash/v2"
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -42,9 +44,14 @@ import (
 // SecretResource wraps the authnmodel type with cache functions implemented
 type SecretResource struct {
 	credentials.SecretResource
+	pkpConfHash string
 }
 
 var _ model.XdsCacheEntry = SecretResource{}
+
+func (sr SecretResource) Key() string {
+	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
+}
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
 func (sr SecretResource) DependentTypes() []kind.Kind {
@@ -79,6 +86,11 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 // Invalid resource names are ignored
 func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretResource {
 	res := make([]SecretResource, 0, len(names))
+	pkpConf := (*mesh.ProxyConfig)(proxy.Metadata.ProxyConfig).GetPrivateKeyProvider()
+	pkpConfHashStr := ""
+	if pkpConf != nil {
+		pkpConfHashStr = strconv.FormatUint(xxhashv2.Sum64String(pkpConf.String()), 10)
+	}
 	for _, resource := range names {
 		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
 		if err != nil {
@@ -86,7 +98,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 			log.Warnf("error parsing resource name: %v", err)
 			continue
 		}
-		res = append(res, SecretResource{sr})
+		res = append(res, SecretResource{sr, pkpConfHashStr})
 	}
 	return res
 }
