@@ -24,12 +24,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -384,5 +386,66 @@ func TestAtMostNJoin(t *testing.T) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPrivateKeyProviderProxyConfig(t *testing.T) {
+	pkpProxy := &model.Proxy{
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		Metadata: &model.NodeMetadata{
+			ClusterID: "Kubernetes",
+			ProxyConfig: &model.NodeMetaProxyConfig{
+				PrivateKeyProvider: &meshconfig.PrivateKeyProvider{
+					Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+						Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+							PollDelay: &durationpb.Duration{
+								Seconds: 0,
+								Nanos:   10000,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rawProxy := &model.Proxy{
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+	}
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: []runtime.Object{genericCert},
+		KubeClientModifier: func(c kube.Client) {
+			cc := c.Kube().(*fake.Clientset)
+			disableAuthorizationForSecret(cc)
+		},
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
+	secrets, _, _ := gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	for _, scrt := range raw {
+		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatalf("expect no private key provider in secret")
+		}
+	}
+
+	// add private key provider in proxy-config
+	secrets, _, _ = gen.Generate(s.SetupProxy(pkpProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	for _, scrt := range raw {
+		if scrt.GetTlsCertificate().GetPrivateKeyProvider() == nil {
+			t.Fatalf("expect private key provider in secret")
+		}
+	}
+
+	// erase private key provider in proxy-config
+	secrets, _, _ = gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	for _, scrt := range raw {
+		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatalf("expect no private key provider in secret")
+		}
 	}
 }
