@@ -89,7 +89,6 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 
 		VerifyInstallation(t, cs, true)
 		VerifyValidation(t)
-
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
 			deleteIstio(t, h, cs)

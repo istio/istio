@@ -37,7 +37,7 @@ func New(kubeConfig string) *Helm {
 
 // InstallChartWithValues installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values []string, timeout time.Duration) error {
-	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
+	command := fmt.Sprintf("helm install --debug %s %s --namespace %s --kubeconfig %s --timeout %s %s",
 		name, chartPath, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
 	_, err := execCommand(command)
 	return err
@@ -45,7 +45,7 @@ func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values 
 
 // InstallChart installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, timeout time.Duration) error {
-	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
+	command := fmt.Sprintf("helm install --debug %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
 		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout)
 	_, err := execCommand(command)
 	return err
@@ -54,7 +54,7 @@ func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, ti
 // UpgradeChart upgrades the specified chart with its given name to the given namespace; does not use baseWorkDir
 // but the full path passed
 func (h *Helm) UpgradeChart(name, chartPath, namespace, overridesFile string, timeout time.Duration, args ...string) error {
-	command := fmt.Sprintf("helm upgrade %s %s --namespace %s -f %s --kubeconfig %s --timeout %s %v",
+	command := fmt.Sprintf("helm upgrade --debug %s %s --namespace %s -f %s --kubeconfig %s --timeout %s %v",
 		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout, strings.Join(args, " "))
 	_, err := execCommand(command)
 	return err
@@ -62,14 +62,14 @@ func (h *Helm) UpgradeChart(name, chartPath, namespace, overridesFile string, ti
 
 // DeleteChart deletes the specified chart with its given name in the given namespace
 func (h *Helm) DeleteChart(name, namespace string) error {
-	command := fmt.Sprintf("helm delete %s --namespace %s --kubeconfig %s", name, namespace, h.kubeConfig)
+	command := fmt.Sprintf("helm delete --debug %s --namespace %s --kubeconfig %s", name, namespace, h.kubeConfig)
 	_, err := execCommand(command)
 	return err
 }
 
 // Template runs the template command and applies the generated file with kubectl
 func (h *Helm) Template(name, chartPath, namespace, templateFile string, timeout time.Duration, args ...string) (string, error) {
-	command := fmt.Sprintf("helm template %s %s --namespace %s -s %s --kubeconfig %s --timeout %s %s ",
+	command := fmt.Sprintf("helm template --debug %s %s --namespace %s -s %s --kubeconfig %s --timeout %s %s ",
 		name, chartPath, namespace, templateFile, h.kubeConfig, timeout, strings.Join(args, " "))
 
 	return execCommand(command)

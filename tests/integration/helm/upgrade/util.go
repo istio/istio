@@ -98,46 +98,43 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(cs cluster.Cluster, h *helm.Helm, gatewayChartsInstalled bool) error {
+func deleteIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, gatewayChartsInstalled bool) {
 	scopes.Framework.Infof("cleaning up resources")
 	if gatewayChartsInstalled {
 		if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
-			return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)
+			t.Errorf("failed to delete %s release", helmtest.EgressReleaseName)
 		}
 		if err := h.DeleteChart(helmtest.IngressReleaseName, helmtest.IstioNamespace); err != nil {
-			return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
+			t.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
 		}
 	}
 
 	if err := h.DeleteChart(helmtest.IstiodReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.IstiodReleaseName)
+		t.Errorf("failed to delete %s release", helmtest.IstiodReleaseName)
 	}
 
-	return cleanupIstio(cs, h)
+	cleanupIstio(t, cs, h)
 }
 
-func cleanupIstio(cs cluster.Cluster, h *helm.Helm) error {
+func cleanupIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm) {
 	if err := h.DeleteChart(helmtest.BaseReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.BaseReleaseName)
+		t.Errorf("failed to delete %s release", helmtest.BaseReleaseName)
 	}
 	if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), helmtest.IstioNamespace, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete istio namespace: %v", err)
+		t.Errorf("failed to delete istio namespace: %v", err)
 	}
 	if err := kubetest.WaitForNamespaceDeletion(cs.Kube(), helmtest.IstioNamespace, retry.Timeout(helmtest.RetryTimeOut)); err != nil {
-		return fmt.Errorf("waiting for istio namespace to be deleted: %v", err)
+		t.Errorf("waiting for istio namespace to be deleted: %v", err)
 	}
-	return nil
 }
 
 // deleteIstioCanary deletes installed Istio Helm charts and resources
-func deleteIstioRevision(h *helm.Helm, revision string) error {
+func deleteIstioRevision(t framework.TestContext, h *helm.Helm, revision string) {
 	scopes.Framework.Infof("cleaning up revision resources (%s)", revision)
 	name := helmtest.IstiodReleaseName + "-" + strings.ReplaceAll(revision, ".", "-")
 	if err := h.DeleteChart(name, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete revision (%s)", name)
+		t.Errorf("failed to delete revision (%s)", name)
 	}
-
-	return nil
 }
 
 // getValuesOverrides returns the values file created to pass into Helm override default values
@@ -163,10 +160,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		t.CleanupConditionally(func() {
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
-			err := deleteIstio(cs, h, true)
-			if err != nil {
-				t.Fatalf("could not delete istio: %v", err)
-			}
+			deleteIstio(t, cs, h, true)
 		})
 
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
@@ -214,14 +208,8 @@ func performRevisionUpgradeFunc(previousVersion, previousValidatingWebhookName s
 		h := helm.New(cs.Filename())
 
 		t.CleanupConditionally(func() {
-			err := deleteIstioRevision(h, canaryTag)
-			if err != nil {
-				t.Fatalf("could not delete istio: %v", err)
-			}
-			err = deleteIstio(cs, h, false)
-			if err != nil {
-				t.Fatalf("could not delete istio: %v", err)
-			}
+			deleteIstioRevision(t, h, canaryTag)
+			deleteIstio(t, cs, h, false)
 		})
 
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
@@ -273,19 +261,9 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		h := helm.New(cs.Filename())
 
 		t.CleanupConditionally(func() {
-			err := deleteIstioRevision(h, latestRevisionTag)
-			if err != nil {
-				t.Fatalf("could not delete istio revision (%v): %v", latestRevisionTag, err)
-			}
-			err = deleteIstioRevision(h, previousVersion)
-			if err != nil {
-				t.Fatalf("could not delete istio revision (%v): %v", previousVersion, err)
-			}
-
-			err = cleanupIstio(cs, h)
-			if err != nil {
-				t.Fatalf("could not cleanup istio: %v", err)
-			}
+			deleteIstioRevision(t, h, latestRevisionTag)
+			deleteIstioRevision(t, h, previousVersion)
+			cleanupIstio(t, cs, h)
 		})
 
 		// install MAJOR.MINOR.PATCH charts with revision set to "MAJOR-MINOR-PATCH" name. For example,
