@@ -36,6 +36,7 @@ func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 		Description: "Validates that providers in telemery resource is valid",
 		Inputs: collection.Names{
 			collections.IstioTelemetryV1Alpha1Telemetries.Name(),
+			collections.IstioMeshV1Alpha1MeshConfig.Name(),
 		},
 	}
 }
