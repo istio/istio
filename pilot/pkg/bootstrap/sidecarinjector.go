@@ -93,7 +93,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
 			// update webhook configuration by watching the cabundle
-			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, s.istiodCertBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, args.Namespace, webhookName, s.istiodCertBundleWatcher)
 			if err != nil {
 				log.Errorf("failed to create webhook cert patcher: %v", err)
 				return nil
