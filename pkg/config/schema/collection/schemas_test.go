@@ -17,8 +17,9 @@ package collection_test
 import (
 	"testing"
 
-	_ "github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	_ "google.golang.org/protobuf/types/known/emptypb"
+	_ "google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -29,14 +30,14 @@ var (
 	emptyResource = resource.Builder{
 		Kind:         "Empty",
 		Plural:       "empties",
-		ProtoPackage: "github.com/gogo/protobuf/types",
+		ProtoPackage: "google.golang.org/protobuf/types/known/emptypb",
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
 	structResource = resource.Builder{
 		Kind:         "Struct",
 		Plural:       "structs",
-		ProtoPackage: "github.com/gogo/protobuf/types",
+		ProtoPackage: "google.golang.org/protobuf/types/known/structpb",
 		Proto:        "google.protobuf.Struct",
 	}.MustBuild()
 )

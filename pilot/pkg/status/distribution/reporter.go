@@ -22,7 +22,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -53,7 +53,7 @@ type Reporter struct {
 	status map[string]string
 	// map from nonce to connection ids for which it is current
 	// using map[string]struct to approximate a hashset
-	reverseStatus          map[string]sets.Set
+	reverseStatus          map[string]sets.String
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
 	cm                     *corev1.ConfigMap
@@ -81,7 +81,7 @@ func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	}
 	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
-	r.reverseStatus = make(map[string]sets.Set)
+	r.reverseStatus = make(map[string]sets.String)
 	r.inProgressResources = make(map[string]*inProgressEntry)
 	go r.readFromEventQueue(stop)
 }
@@ -105,7 +105,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 		scope.Errorf("can't identify pod %s context: %s", podname, err)
 	} else {
 		r.cm.OwnerReferences = []metav1.OwnerReference{
-			*metav1.NewControllerRef(x, metav1.SchemeGroupVersion.WithKind("Pod")),
+			*metav1.NewControllerRef(x, corev1.SchemeGroupVersion.WithKind("Pod")),
 		}
 	}
 	go func() {
@@ -247,7 +247,7 @@ func (r *Reporter) writeReport(ctx context.Context) {
 // CreateOrUpdateConfigMap is lifted with few modifications from kubeadm's apiclient
 func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v1.ConfigMapInterface) (res *corev1.ConfigMap, err error) {
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
-		if !apierrors.IsAlreadyExists(err) {
+		if !kerrors.IsAlreadyExists(err) {
 			scope.Errorf("%v", err)
 			return nil, fmt.Errorf("unable to create ConfigMap: %w", err)
 		}
@@ -317,7 +317,7 @@ func (r *Reporter) processEvent(conID string, distributionType xds.EventType, no
 	// touch
 	r.status[key] = version
 	if _, ok := r.reverseStatus[version]; !ok {
-		r.reverseStatus[version] = sets.New()
+		r.reverseStatus[version] = sets.New[string]()
 	}
 	r.reverseStatus[version].Insert(key)
 }

@@ -143,28 +143,47 @@ func TestDeltaEDS(t *testing.T) {
 
 func TestDeltaReconnectRequests(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		Services: []*model.Service{{
-			Hostname:       "adsupdate.example.com",
-			DefaultAddress: "10.11.0.1",
-			Ports: []*model.Port{
-				{
-					Name:     "http-main",
-					Port:     2080,
-					Protocol: protocol.HTTP,
+		Services: []*model.Service{
+			{
+				Hostname:       "adsupdate.example.com",
+				DefaultAddress: "10.11.0.1",
+				Ports: []*model.Port{
+					{
+						Name:     "http-main",
+						Port:     2080,
+						Protocol: protocol.HTTP,
+					},
+				},
+				Attributes: model.ServiceAttributes{
+					Name:      "adsupdate",
+					Namespace: "default",
 				},
 			},
-			Attributes: model.ServiceAttributes{
-				Name:      "adsupdate",
-				Namespace: "default",
+			{
+				Hostname:       "adsstatic.example.com",
+				DefaultAddress: "10.11.0.2",
+				Ports: []*model.Port{
+					{
+						Name:     "http-main",
+						Port:     2080,
+						Protocol: protocol.HTTP,
+					},
+				},
+				Attributes: model.ServiceAttributes{
+					Name:      "adsstatic",
+					Namespace: "default",
+				},
 			},
-		}},
+		},
 	})
 
+	const updateCluster = "outbound|2080||adsupdate.example.com"
+	const staticCluster = "outbound|2080||adsstatic.example.com"
 	ads := s.ConnectDeltaADS()
 	// Send initial request
 	res := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ClusterType})
 	// we must get the cluster back
-	if resn := xdstest.ExtractResource(res.Resources); !resn.Contains("outbound|2080||adsupdate.example.com") {
+	if resn := xdstest.ExtractResource(res.Resources); !resn.Contains(updateCluster) || !resn.Contains(staticCluster) {
 		t.Fatalf("unexpected resources: %v", resn)
 	}
 
@@ -190,15 +209,16 @@ func TestDeltaReconnectRequests(t *testing.T) {
 		TypeUrl: v3.ClusterType,
 		InitialResourceVersions: map[string]string{
 			// This time we include the version map, since it is a reconnect
-			"outbound|2080||adsupdate.example.com": "",
+			staticCluster: "",
+			updateCluster: "",
 		},
 	})
 	// we must NOT get the cluster back
-	if resn := xdstest.ExtractResource(res.Resources); resn.Contains("outbound|2080||adsupdate.example.com") {
+	if resn := xdstest.ExtractResource(res.Resources); resn.Contains(updateCluster) || !resn.Contains(staticCluster) {
 		t.Fatalf("unexpected resources: %v", resn)
 	}
 	// It should be removed
-	if resn := sets.New(res.RemovedResources...); !resn.Contains("outbound|2080||adsupdate.example.com") {
+	if resn := sets.New(res.RemovedResources...); !resn.Contains(updateCluster) {
 		t.Fatalf("unexpected remove resources: %v", resn)
 	}
 }

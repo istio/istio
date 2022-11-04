@@ -57,7 +57,7 @@ var labelPatch = []byte(fmt.Sprintf(
 	ambient.TypeWorkload,
 ))
 
-func ambientLabelFilter(ignoredNamespaces sets.Set) func(o controllers.Object) bool {
+func ambientLabelFilter(ignoredNamespaces sets.String) func(o controllers.Object) bool {
 	return func(o controllers.Object) bool {
 		_, alreadyLabelled := o.GetLabels()[ambient.LabelType] // Waypoints and ztunnels will already be labeled
 		ignored := inject.IgnoredNamespaces.Contains(o.GetNamespace()) || ignoredNamespaces.Contains(o.GetNamespace())

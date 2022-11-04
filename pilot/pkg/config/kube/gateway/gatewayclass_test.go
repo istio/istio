@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -45,18 +45,18 @@ func TestClassController(t *testing.T) {
 				ControllerName: gateway.GatewayController(controller),
 			},
 		}
-		_, err := client.GatewayAPI().GatewayV1alpha2().GatewayClasses().Create(context.Background(), gc, metav1.CreateOptions{})
-		if apierrors.IsAlreadyExists(err) {
-			_, _ = client.GatewayAPI().GatewayV1alpha2().GatewayClasses().Update(context.Background(), gc, metav1.UpdateOptions{})
+		_, err := client.GatewayAPI().GatewayV1beta1().GatewayClasses().Create(context.Background(), gc, metav1.CreateOptions{})
+		if kerrors.IsAlreadyExists(err) {
+			_, _ = client.GatewayAPI().GatewayV1beta1().GatewayClasses().Update(context.Background(), gc, metav1.UpdateOptions{})
 		}
 	}
 	deleteClass := func(name string) {
-		client.GatewayAPI().GatewayV1alpha2().GatewayClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+		client.GatewayAPI().GatewayV1beta1().GatewayClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 	}
 	expectClass := func(name, controller string) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
-			gc, err := client.GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), name, metav1.GetOptions{})
+			gc, err := client.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), name, metav1.GetOptions{})
 			if controllers.IgnoreNotFound(err) != nil {
 				return err
 			}

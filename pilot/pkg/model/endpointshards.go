@@ -68,7 +68,7 @@ type EndpointShards struct {
 	// current list, a full push will be forced, to trigger a secure naming update.
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
-	ServiceAccounts sets.Set
+	ServiceAccounts sets.String
 }
 
 // Keys gives a sorted list of keys for EndpointShards.Shards.
@@ -165,7 +165,7 @@ func (e *EndpointIndex) GetOrCreateEndpointShard(serviceName, namespace string) 
 	// This endpoint is for a service that was not previously loaded.
 	ep := &EndpointShards{
 		Shards:          map[ShardKey][]*IstioEndpoint{},
-		ServiceAccounts: sets.Set{},
+		ServiceAccounts: sets.String{},
 	}
 	e.shardsBySvc[serviceName][namespace] = ep
 	// Clear the cache here to avoid race in cache writes.
@@ -199,14 +199,6 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 	epShards := e.shardsBySvc[serviceName][namespace]
 	epShards.Lock()
 	delete(epShards.Shards, shard)
-	epShards.ServiceAccounts = sets.Set{}
-	for _, shard := range epShards.Shards {
-		for _, ep := range shard {
-			if ep.ServiceAccount != "" {
-				epShards.ServiceAccounts.Insert(ep.ServiceAccount)
-			}
-		}
-	}
 	// Clear the cache here to avoid race in cache writes.
 	e.clearCacheForService(serviceName, namespace)
 	if !preserveKeys {

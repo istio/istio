@@ -52,6 +52,7 @@ func New() *Instance {
 	protocolMap[scheme.TLS] = add(newTLSProtocol(e))
 	protocolMap[scheme.XDS] = add(newXDSProtocol(e))
 	protocolMap[scheme.TCP] = add(newTCPProtocol(e))
+	protocolMap[scheme.UDP] = add(newUDPProtocol(e))
 
 	return &Instance{
 		e:           e,

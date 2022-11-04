@@ -82,6 +82,8 @@ func (m *Multicluster) deleteCluster(key cluster.ID) {
 }
 
 func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
+	m.m.Lock()
+	defer m.m.Unlock()
 	if _, f := m.remoteKubeControllers[clusterID]; !f {
 		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}
@@ -100,6 +102,8 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 
 func (m *Multicluster) AddSecretHandler(h secretHandler) {
 	m.secretHandlers = append(m.secretHandlers, h)
+	m.m.Lock()
+	defer m.m.Unlock()
 	for _, c := range m.remoteKubeControllers {
 		c.AddEventHandler(h)
 	}

@@ -42,6 +42,7 @@ body:
     attributes:
       label: Affected product area
       options:
+      - label: "Ambient"
       - label: "Docs"
       - label: "Installation"
       - label: "Networking"

@@ -15,36 +15,37 @@
 package backoff
 
 import (
+	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestBackOff(t *testing.T) {
 	var (
-		testInitialInterval     = 500 * time.Millisecond
-		testRandomizationFactor = 0.1
-		testMultiplier          = 2.0
-		testMaxInterval         = 5 * time.Second
-		testMaxElapsedTime      = 15 * time.Minute
+		testInitialInterval = 500 * time.Millisecond
+		testMaxInterval     = 5 * time.Second
 	)
 
-	exp := NewExponentialBackOff(func(off *ExponentialBackOff) {
-		off.InitialInterval = testInitialInterval
-		off.RandomizationFactor = testRandomizationFactor
-		off.Multiplier = testMultiplier
-		off.MaxInterval = testMaxInterval
-		off.MaxElapsedTime = testMaxElapsedTime
-	})
+	o := DefaultOption()
+	o.InitialInterval = testInitialInterval
+	o.MaxInterval = testMaxInterval
+	exp := NewExponentialBackOff(o)
+	exp.(ExponentialBackOff).exponentialBackOff.Multiplier = 2
 
 	expectedResults := []time.Duration{500, 1000, 2000, 4000, 5000, 5000, 5000, 5000, 5000, 5000}
 	for i, d := range expectedResults {
 		expectedResults[i] = d * time.Millisecond
 	}
 
+	DefaultRandomizationFactor := 0.5
 	for _, expected := range expectedResults {
 		// Assert that the next backoff falls in the expected range.
-		minInterval := expected - time.Duration(testRandomizationFactor*float64(expected))
-		maxInterval := expected + time.Duration(testRandomizationFactor*float64(expected))
+		minInterval := expected - time.Duration(DefaultRandomizationFactor*float64(expected))
+		maxInterval := expected + time.Duration(DefaultRandomizationFactor*float64(expected))
 		actualInterval := exp.NextBackOff()
 		if !(minInterval <= actualInterval && actualInterval <= maxInterval) {
 			t.Error("error")
@@ -63,18 +64,39 @@ func (c *TestClock) Now() time.Time {
 	return t
 }
 
-func TestMaxElapsedTime(t *testing.T) {
-	exp := NewExponentialBackOff(func(off *ExponentialBackOff) {
-		off.Clock = &TestClock{start: time.Time{}}
-	})
-	b := exp.(*ExponentialBackOff)
-	// override clock to simulate the max elapsed time has passed.
-	b.Clock = &TestClock{start: time.Time{}.Add(10000 * time.Second)}
-	assertEquals(t, MaxDuration, exp.NextBackOff())
-}
+func TestRetry(t *testing.T) {
+	o := DefaultOption()
+	o.InitialInterval = 1 * time.Microsecond
+	ebf := NewExponentialBackOff(o)
 
-func assertEquals(t *testing.T, expected, value time.Duration) {
-	if expected != value {
-		t.Errorf("got: %d, expected: %d", value, expected)
-	}
+	// Run a task that fails the first time and retries.
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	failed := false
+	err := ebf.RetryWithContext(context.TODO(), func() error {
+		defer wg.Done()
+		if failed {
+			return nil
+		}
+		failed = true
+		return errors.New("fake error")
+	})
+	assert.NoError(t, err)
+
+	// wait for the task to run twice.
+	wg.Wait()
+
+	o.InitialInterval = 1 * time.Second
+	// Test timeout context
+	ebf = NewExponentialBackOff(o)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
+	defer cancel()
+
+	count := 0
+	err = ebf.RetryWithContext(ctx, func() error {
+		count++
+		return errors.New("fake error")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, count, 1)
 }

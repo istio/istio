@@ -193,7 +193,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
-	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.BaggageFilter}, h.HttpFilters...)
+	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.Baggage}, h.HttpFilters...)
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
 	}}
@@ -214,7 +214,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 					})},
 				},
 				Filters: []*listener.Filter{
-					xdsfilters.CaptureTLSFilter,
+					xdsfilters.CaptureTLS,
 					{
 						Name:       wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
@@ -293,7 +293,7 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 				FilterChains:      []*listener.FilterChain{},
 				ListenerFilters: []*listener.ListenerFilter{
 					util.InternalListenerSetAddressFilter(),
-					xdsfilters.MetadataToPeerNodeListenerFilter,
+					xdsfilters.MetadataToPeerNode,
 				},
 			}
 			if port.Protocol.IsUnsupported() {
@@ -711,7 +711,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 
 	// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker svc account check
 	if service != nil && lb.node.VerifiedIdentity != nil && (service.MeshExternal ||
-		!sets.New(lb.push.ServiceAccounts[service.Hostname][port]...).Contains(lb.node.VerifiedIdentity.String())) {
+		!sets.New(lb.push.ServiceAccounts(service.Hostname, service.Attributes.Namespace, port)...).Contains(lb.node.VerifiedIdentity.String())) {
 		dir, subset = model.TrafficDirectionOutbound, destination.Subset
 	}
 
@@ -753,7 +753,7 @@ func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push 
 // This listener adds the original destination headers from the dynamic EDS metadata pass through.
 // We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
 func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := "tunnel" // TODO: rename
+	name := util.OutboundTunnel
 	p := &tcp.TcpProxy{
 		StatPrefix: name,
 		// TODO

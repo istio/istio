@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	envoyCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyWasmFilterV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -27,9 +27,12 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	typeapi "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -46,6 +49,21 @@ const (
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 )
 
+func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
+	switch class {
+	case istionetworking.ListenerClassGateway:
+		return typeapi.WorkloadMode_CLIENT
+	case istionetworking.ListenerClassSidecarInbound:
+		return typeapi.WorkloadMode_SERVER
+	case istionetworking.ListenerClassSidecarOutbound:
+		return typeapi.WorkloadMode_CLIENT
+	case istionetworking.ListenerClassUndefined:
+		// this should not happen, just in case
+		return typeapi.WorkloadMode_CLIENT
+	}
+	return typeapi.WorkloadMode_CLIENT
+}
+
 type WasmPluginWrapper struct {
 	*extensions.WasmPlugin
 
@@ -54,6 +72,58 @@ type WasmPluginWrapper struct {
 	ResourceName string
 
 	WasmExtensionConfig *envoyWasmFilterV3.Wasm
+}
+
+func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li WasmPluginListenerInfo) bool {
+	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
+	return workloadMatch && matchTrafficSelectors(p.Match, li)
+}
+
+type WasmPluginListenerInfo struct {
+	Port  int
+	Class istionetworking.ListenerClass
+}
+
+// If anyListener is used as a listener info,
+// the listener is matched with any TrafficSelector.
+var anyListener = WasmPluginListenerInfo{
+	Port:  0,
+	Class: istionetworking.ListenerClassUndefined,
+}
+
+func matchTrafficSelectors(ts []*extensions.WasmPlugin_TrafficSelector, li WasmPluginListenerInfo) bool {
+	if (li.Class == istionetworking.ListenerClassUndefined && li.Port == 0) || len(ts) == 0 {
+		return true
+	}
+
+	for _, match := range ts {
+		if matchMode(match.Mode, li.Class) && matchPorts(match.Ports, li.Port) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchMode(workloadMode typeapi.WorkloadMode, class istionetworking.ListenerClass) bool {
+	switch workloadMode {
+	case typeapi.WorkloadMode_CLIENT_AND_SERVER, typeapi.WorkloadMode_UNDEFINED:
+		return true
+	default:
+		return workloadMode == workloadModeForListenerClass(class)
+	}
+}
+
+func matchPorts(portSelectors []*typeapi.PortSelector, port int) bool {
+	if len(portSelectors) == 0 {
+		// If there is no specified port, match with all the ports.
+		return true
+	}
+	for _, ps := range portSelectors {
+		if ps.GetNumber() != 0 && ps.GetNumber() == uint32(port) {
+			return true
+		}
+	}
+	return false
 }
 
 func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
@@ -133,12 +203,12 @@ func toSecretResourceName(name, pluginNamespace string) string {
 	return sr.KubernetesResourceName()
 }
 
-func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.AsyncDataSource {
+func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncDataSource {
 	if u.Scheme == fileScheme {
-		return &envoyCoreV3.AsyncDataSource{
-			Specifier: &envoyCoreV3.AsyncDataSource_Local{
-				Local: &envoyCoreV3.DataSource{
-					Specifier: &envoyCoreV3.DataSource_Filename{
+		return &core.AsyncDataSource{
+			Specifier: &core.AsyncDataSource_Local{
+				Local: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
 						Filename: strings.TrimPrefix(wasmPlugin.Url, "file://"),
 					},
 				},
@@ -146,13 +216,13 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 		}
 	}
 
-	return &envoyCoreV3.AsyncDataSource{
-		Specifier: &envoyCoreV3.AsyncDataSource_Remote{
-			Remote: &envoyCoreV3.RemoteDataSource{
-				HttpUri: &envoyCoreV3.HttpUri{
+	return &core.AsyncDataSource{
+		Specifier: &core.AsyncDataSource_Remote{
+			Remote: &core.RemoteDataSource{
+				HttpUri: &core.HttpUri{
 					Uri:     u.String(),
 					Timeout: durationpb.New(30 * time.Second),
-					HttpUpstreamType: &envoyCoreV3.HttpUri_Cluster{
+					HttpUpstreamType: &core.HttpUri_Cluster{
 						// this will be fetched by the agent anyway, so no need for a cluster
 						Cluster: "_",
 					},
@@ -164,7 +234,7 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 }
 
 func buildVMConfig(
-	datasource *envoyCoreV3.AsyncDataSource,
+	datasource *core.AsyncDataSource,
 	resourceVersion string,
 	wasmPlugin *extensions.WasmPlugin,
 ) *envoyExtensionsWasmV3.PluginConfig_VmConfig {

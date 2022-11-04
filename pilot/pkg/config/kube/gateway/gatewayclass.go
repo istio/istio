@@ -17,12 +17,12 @@ package gateway
 import (
 	"context"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
-	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
+	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -46,9 +46,9 @@ func NewClassController(client kube.Client) *ClassController {
 		controllers.WithReconciler(gc.Reconcile),
 		controllers.WithMaxAttempts(25))
 
-	class := client.GatewayAPIInformer().Gateway().V1alpha2().GatewayClasses()
+	class := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	gc.classes = class.Lister()
-	gc.directClient = client.GatewayAPI().GatewayV1alpha2().GatewayClasses()
+	gc.directClient = client.GatewayAPI().GatewayV1beta1().GatewayClasses()
 	class.Informer().
 		AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
 			return o.GetName() == DefaultClassName
@@ -68,7 +68,7 @@ func (c *ClassController) Reconcile(name types.NamespacedName) error {
 		log.Errorf("unable to fetch GatewayClass: %v", err)
 		return err
 	}
-	if !apierrors.IsNotFound(err) {
+	if !kerrors.IsNotFound(err) {
 		log.Debugf("GatewayClass/%v already exists, no action", DefaultClassName)
 		return nil
 	}
@@ -83,7 +83,7 @@ func (c *ClassController) Reconcile(name types.NamespacedName) error {
 		},
 	}
 	_, err = c.directClient.Create(context.Background(), gc, metav1.CreateOptions{})
-	if apierrors.IsConflict(err) {
+	if kerrors.IsConflict(err) {
 		// This is not really an error, just a race condition
 		log.Infof("Attempted to create GatewayClass/%v, but it was already created", DefaultClassName)
 		return nil

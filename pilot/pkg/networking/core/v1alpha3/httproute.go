@@ -61,7 +61,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
-		envoyfilterKeys := efw.Keys()
+		envoyfilterKeys := efw.KeysApplyingTo(
+			networking.EnvoyFilter_ROUTE_CONFIGURATION,
+			networking.EnvoyFilter_VIRTUAL_HOST,
+			networking.EnvoyFilter_HTTP_ROUTE,
+		)
 		for _, routeName := range routeNames {
 			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
@@ -351,19 +355,21 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			return services[i].Hostname <= services[j].Hostname
 		})
 
-		routeCache = &istio_route.Cache{
-			RouteName:               routeName,
-			ProxyVersion:            node.Metadata.IstioVersion,
-			ClusterID:               string(node.Metadata.ClusterID),
-			DNSDomain:               node.DNSDomain,
-			DNSCapture:              bool(node.Metadata.DNSCapture),
-			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
-			AllowAny:                util.IsAllowAnyOutbound(node),
-			ListenerPort:            listenerPort,
-			Services:                services,
-			VirtualServices:         virtualServices,
-			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
-			EnvoyFilterKeys:         efKeys,
+		if features.EnableRDSCaching {
+			routeCache = &istio_route.Cache{
+				RouteName:               routeName,
+				ProxyVersion:            node.Metadata.IstioVersion,
+				ClusterID:               string(node.Metadata.ClusterID),
+				DNSDomain:               node.DNSDomain,
+				DNSCapture:              bool(node.Metadata.DNSCapture),
+				DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
+				AllowAny:                util.IsAllowAnyOutbound(node),
+				ListenerPort:            listenerPort,
+				Services:                services,
+				VirtualServices:         virtualServices,
+				DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
+				EnvoyFilterKeys:         efKeys,
+			}
 		}
 	}
 
@@ -375,19 +381,21 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
 
-	resource, exist := xdsCache.Get(routeCache)
-	if exist && !features.EnableUnsafeAssertions {
-		return nil, resource, routeCache
+	if features.EnableRDSCaching {
+		resource, exist := xdsCache.Get(routeCache)
+		if exist && !features.EnableUnsafeAssertions {
+			return nil, resource, routeCache
+		}
 	}
 
 	vHostPortMap := make(map[int][]*route.VirtualHost)
-	vhosts := sets.Set{}
-	vhdomains := sets.Set{}
-	knownFQDN := sets.Set{}
+	vhosts := sets.String{}
+	vhdomains := sets.String{}
+	knownFQDN := sets.String{}
 
 	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
 		name := util.DomainName(hostname, vhwrapper.Port)
-		if duplicateVirtualHost(name, vhosts) {
+		if vhosts.InsertContains(name) {
 			// This means this virtual host has caused duplicate virtual host name.
 			var msg string
 			if svc == nil {
@@ -471,17 +479,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	return out, nil, routeCache
 }
 
-// duplicateVirtualHost checks whether the virtual host with the same name exists in the route.
-func duplicateVirtualHost(vhost string, vhosts sets.Set) bool {
-	if vhosts.Contains(vhost) {
-		return true
-	}
-	vhosts.Insert(vhost)
-	return false
-}
-
 // dedupeDomains removes the duplicate domains from the passed in domains.
-func dedupeDomains(domains []string, vhdomains sets.Set, expandedHosts []string, knownFQDNs sets.Set) []string {
+func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []string, knownFQDNs sets.String) []string {
 	temp := domains[:0]
 	for _, d := range domains {
 		if vhdomains.Contains(d) {

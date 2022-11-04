@@ -171,12 +171,6 @@ func (c *Controller) writeAllStatus() (staleReporters []string) {
 	return
 }
 
-func (c *Controller) pruneOldVersion(config status.Resource) {
-	defer c.mu.Unlock()
-	c.mu.Lock()
-	delete(c.CurrentState, config)
-}
-
 func (c *Controller) removeStaleReporters(staleReporters []string) {
 	defer c.mu.Unlock()
 	c.mu.Lock()

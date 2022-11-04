@@ -323,7 +323,7 @@ func (g *ZTunnelConfigGenerator) buildPodOutboundCaptureListener(proxy *model.Pr
 	destPortMatch.Map[strconv.Itoa(int(l.GetAddress().GetSocketAddress().GetPortValue()))] = match.ToChain(util.BlackHoleCluster)
 
 	services := proxy.SidecarScope.Services()
-	seen := sets.New()
+	seen := sets.New[string]()
 	for _, sourceWl := range push.AmbientIndex.Workloads.NodeLocal(proxy.Metadata.NodeName) {
 		sourceAndDestMatch := match.NewDestinationIP()
 		// TODO: handle host network better, which has a shared IP
@@ -826,12 +826,12 @@ func (g *ZTunnelConfigGenerator) upstreamLbEndpointsFromShards(
 			// Waypointss and in-meshed workloads can do a tunnel
 			supportsTunnel = true
 		}
-		if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 && istioEndpoint.EndpointPort == ZTunnelInboundCapturePort {
+		if istioEndpoint.SupportsTunnel(model.TunnelHTTP) && istioEndpoint.EndpointPort == ZTunnelInboundCapturePort {
 			// Even if it is in the mesh, if it supports tunnel directly then we should pass through the traffic if its already tunneled
 			// TODO this assumes it gets captured and server ztunnel inits the tunnel
 			supportsTunnel = false
 		}
-		if al := istioEndpoint.Labels[model.TunnelLabel]; al == model.TunnelH2 {
+		if istioEndpoint.SupportsTunnel(model.TunnelHTTP) {
 			// if the pod natively supports tunnel, node local doesn't change the port since we're not relying on redirection here
 			capturePort = ZTunnelInboundCapturePort // TODO should this be if tunnel: h2 && !captured?
 			supportsTunnel = true
@@ -846,7 +846,7 @@ func (g *ZTunnelConfigGenerator) upstreamLbEndpointsFromShards(
 				int(capturePort)))
 			lbe.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
+					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
 				},
 			}
 		}
@@ -1074,7 +1074,7 @@ func (g *ZTunnelConfigGenerator) buildInboundCaptureListener(proxy *model.Proxy,
 			continue
 		}
 
-		if workload.Labels[model.TunnelLabel] != model.TunnelH2 {
+		if workload.Labels[model.TunnelLabel] != model.TunnelHTTP {
 			dummy := &model.Proxy{
 				ConfigNamespace: workload.Namespace,
 				Labels:          workload.Labels,

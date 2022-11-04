@@ -16,13 +16,13 @@ package validate
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
@@ -186,8 +186,7 @@ func validateCIDR(path util.Path, val any) util.Errors {
 	if !util.IsString(val) {
 		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
 	} else {
-		_, _, err = net.ParseCIDR(val.(string))
-		if err != nil {
+		if _, err = netip.ParsePrefix(val.(string)); err != nil {
 			err = fmt.Errorf("%s %s", path, err)
 		}
 	}
@@ -281,7 +280,7 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	// This also preserves iopYAML if it is ""; we don't want iopYAML to be the string "null"
 	if len(mapIOP) > 0 {
 		un := &unstructured.Unstructured{Object: mapIOP}
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 		iopYAML = util.ToYAML(un)
 	}
 	iop := &v1alpha1.IstioOperator{}

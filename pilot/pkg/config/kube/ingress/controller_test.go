@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"k8s.io/api/networking/v1beta1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -42,7 +42,7 @@ func newFakeController() (model.ConfigStoreController, kube.Client) {
 
 func TestIngressController(t *testing.T) {
 	ingress1 := v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
 			Name:      "test",
 		},
@@ -101,7 +101,7 @@ func TestIngressController(t *testing.T) {
 	}
 
 	ingress2 := v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 			Name:      "test",
 		},
@@ -151,13 +151,13 @@ func TestIngressController(t *testing.T) {
 
 	client.RunAndWait(stopCh)
 
-	client.Kube().NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metaV1.CreateOptions{})
+	client.Kube().NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metav1.CreateOptions{})
 
 	vs := wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
-	client.Kube().NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metaV1.UpdateOptions{})
+	client.Kube().NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metav1.UpdateOptions{})
 	vs = wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)

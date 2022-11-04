@@ -22,10 +22,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/informer"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -34,7 +34,7 @@ import (
 type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
-	getInformer() filter.FilteredSharedIndexInformer
+	getInformer() informer.FilteredSharedIndexInformer
 	onEvent(curr any, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
@@ -48,7 +48,7 @@ type kubeEndpointsController interface {
 // kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
 type kubeEndpoints struct {
 	c        *Controller
-	informer filter.FilteredSharedIndexInformer
+	informer informer.FilteredSharedIndexInformer
 }
 
 func (e *kubeEndpoints) HasSynced() bool {
@@ -106,13 +106,15 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.E
 			endpoints = epc.buildIstioEndpoints(ep, hostName)
 		}
 
-		svc := c.GetService(hostName)
-		if svc != nil {
-			fep := c.collectWorkloadInstanceEndpoints(svc)
-			endpoints = append(endpoints, fep...)
-		} else {
-			log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
-				namespacedName.Namespace, namespacedName.Name)
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			svc := c.GetService(hostName)
+			if svc != nil {
+				fep := c.collectWorkloadInstanceEndpoints(svc)
+				endpoints = append(endpoints, fep...)
+			} else {
+				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
+					namespacedName.Namespace, namespacedName.Name)
+			}
 		}
 
 		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)

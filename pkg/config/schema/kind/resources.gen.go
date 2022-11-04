@@ -1,4 +1,3 @@
-
 // GENERATED FILE -- DO NOT EDIT
 //
 
@@ -30,7 +29,6 @@ const (
 	Pod
 	ProxyConfig
 	ReferenceGrant
-	ReferencePolicy
 	RequestAuthentication
 	Secret
 	Service
@@ -89,8 +87,6 @@ func (k Kind) String() string {
 		return "ProxyConfig"
 	case ReferenceGrant:
 		return "ReferenceGrant"
-	case ReferencePolicy:
-		return "ReferencePolicy"
 	case RequestAuthentication:
 		return "RequestAuthentication"
 	case Secret:
@@ -145,16 +141,16 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	if gvk.Kind == "Gateway" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
 		return Gateway
 	}
-	if gvk.Kind == "GatewayClass" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+	if gvk.Kind == "GatewayClass" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
 		return GatewayClass
 	}
-	if gvk.Kind == "HTTPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+	if gvk.Kind == "HTTPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
 		return HTTPRoute
 	}
 	if gvk.Kind == "Ingress" && gvk.Group == "extensions" && gvk.Version == "v1beta1" {
 		return Ingress
 	}
-	if gvk.Kind == "Gateway" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+	if gvk.Kind == "Gateway" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
 		return KubernetesGateway
 	}
 	if gvk.Kind == "MeshConfig" && gvk.Group == "" && gvk.Version == "v1alpha1" {
@@ -183,9 +179,6 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	}
 	if gvk.Kind == "ReferenceGrant" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
 		return ReferenceGrant
-	}
-	if gvk.Kind == "ReferencePolicy" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
-		return ReferencePolicy
 	}
 	if gvk.Kind == "RequestAuthentication" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
 		return RequestAuthentication

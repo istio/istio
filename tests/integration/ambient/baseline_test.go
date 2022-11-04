@@ -201,7 +201,7 @@ func TestServerSideLB(t *testing.T) {
 			for i, r := range result.Responses {
 				hostnames[i] = r.Hostname
 			}
-			unique := sets.New(hostnames...).SortedList()
+			unique := sets.SortedList(sets.New(hostnames...))
 			if len(unique) != 1 {
 				return fmt.Errorf("excepted only one destination, got: %v", unique)
 			}
@@ -212,7 +212,7 @@ func TestServerSideLB(t *testing.T) {
 			for i, r := range result.Responses {
 				hostnames[i] = r.Hostname
 			}
-			unique := sets.New(hostnames...).SortedList()
+			unique := sets.SortedList(sets.New(hostnames...))
 			want := dst.WorkloadsOrFail(t).Len()
 			if len(unique) != want {
 				return fmt.Errorf("excepted all destinations (%v), got: %v", want, unique)

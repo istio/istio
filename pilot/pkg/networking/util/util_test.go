@@ -93,6 +93,34 @@ func TestConvertAddressToCidr(t *testing.T) {
 			nil,
 		},
 		{
+			"cidr with two /",
+			"192.168.0.0//16",
+			nil,
+		},
+		{
+			"cidr with invalid prefix length",
+			"192.168.0.0/ab",
+			nil,
+		},
+		{
+			"cidr with negative prefix length",
+			"192.168.0.0/-16",
+			nil,
+		},
+		{
+			"invalid ip address",
+			"19216800",
+			nil,
+		},
+		{
+			"valid ipv6 address",
+			"2001:abcd:85a3::8a2e:370:1234",
+			&core.CidrRange{
+				AddressPrefix: "2001:abcd:85a3::8a2e:370:1234",
+				PrefixLen:     &wrappers.UInt32Value{Value: 128},
+			},
+		},
+		{
 			"success case with no PrefixLen",
 			"1.2.3.4",
 			&core.CidrRange{

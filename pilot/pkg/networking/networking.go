@@ -17,7 +17,7 @@ package networking
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -111,7 +111,7 @@ type FilterChain struct {
 	TransportProtocol TransportProtocol
 
 	// HTTP is the set of HTTP filters for this filter chain
-	HTTP []*http_conn.HttpFilter
+	HTTP []*hcm.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
 }

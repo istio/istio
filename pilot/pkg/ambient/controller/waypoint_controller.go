@@ -139,8 +139,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		return rc.pruneGateway(name)
 	}
 
-	haveProxies := sets.New()
-	wantProxies := sets.New()
+	haveProxies := sets.New[string]()
+	wantProxies := sets.New[string]()
 
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
 	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)

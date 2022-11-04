@@ -30,6 +30,7 @@ spec:
         ENABLE_AUTO_SNI: "true"
 
         PILOT_ENABLE_INBOUND_PASSTHROUGH: "false" # TODO(https://github.com/solo-io/istio-sidecarless/issues/155)
+        PILOT_ENABLE_HBONE: "true"
     cni:
       logLevel: "debug"
       privileged: true

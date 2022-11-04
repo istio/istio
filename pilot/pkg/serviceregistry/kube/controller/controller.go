@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
@@ -51,7 +50,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/informer"
 	kubelabels "istio.io/istio/pkg/kube/labels"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/spiffe"
@@ -162,7 +163,7 @@ func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
 	useEndpointslice, ok := features.EnableEndpointSliceController()
 
 	// we have a client, and flag wasn't set explicitly, auto-detect
-	if kubeClient != nil && !ok && kubelib.IsAtLeastVersion(kubeClient, 21) {
+	if kubeClient != nil && !ok && !kubelib.IsLessThanVersion(kubeClient, 21) {
 		useEndpointslice = true
 	}
 
@@ -229,7 +230,7 @@ type Controller struct {
 	nsInformer cache.SharedIndexInformer
 	nsLister   listerv1.NamespaceLister
 
-	serviceInformer filter.FilteredSharedIndexInformer
+	serviceInformer informer.FilteredSharedIndexInformer
 	serviceLister   listerv1.ServiceLister
 
 	endpoints kubeEndpointsController
@@ -407,7 +408,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []*v1.Pod) *worklo
 		wl.Protocol = workloadapi.Protocol_HTTP
 	}
 	// Otherwise supports tunnel directly
-	if pod.Labels[model.TunnelLabel] == model.TunnelH2 {
+	if model.SupportsTunnel(pod.Labels, model.TunnelHTTP) {
 		wl.Protocol = workloadapi.Protocol_HTTP
 		wl.NativeHbone = true
 	}
@@ -484,7 +485,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	_ = c.nsInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if c.opts.SystemNamespace != "" {
-		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj any) bool {
+		nsInformer := informer.NewFilteredSharedIndexInformer(func(obj any) bool {
 			ns, ok := obj.(*v1.Namespace)
 			if !ok {
 				log.Warnf("Namespace watch getting wrong type in event: %T", obj)
@@ -494,7 +495,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		}, c.nsInformer)
 		c.registerHandlers(nsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
-	c.registerHandlers(c.nsInformer, "Namespaces", func(a any, event model.Event) error {
+	filterdNs := informer.NewFilteredSharedIndexInformer(func(obj any) bool {
+		return true
+	}, c.nsInformer)
+	c.registerHandlers(filterdNs, "Namespaces", func(a any, event model.Event) error {
 		return nil
 	}, func(old, cur any) bool {
 		oldLabel := getNamespaceLabel(old, "istio.io/dataplane-mode")
@@ -511,7 +515,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
-	c.serviceInformer = filter.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Services().Informer())
+	c.serviceInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter,
+		kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
 	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
@@ -530,10 +535,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
 	_ = c.nodeInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	c.registerHandlers(c.nodeInformer, "Nodes", c.onNodeEvent, nil)
+	nodeInformer := informer.NewFilteredSharedIndexInformer(nil, c.nodeInformer)
+	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
 
 	c.podLister = kubeClient.KubeInformer().Core().V1().Pods().Lister()
-	podInformer := filter.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
+	podInformer := informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
@@ -635,9 +641,13 @@ func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
 	}
 
 	if c.ranger != nil {
-		entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
+		ip := net.ParseIP(endpointIP)
+		if ip == nil {
+			return ""
+		}
+		entries, err := c.ranger.ContainingNetworks(ip)
 		if err != nil {
-			log.Error(err)
+			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
 			return ""
 		}
 		if len(entries) > 1 {
@@ -767,9 +777,11 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
-	if len(endpoints) > 0 {
-		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
+		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+		if len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+		}
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
@@ -779,8 +791,10 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 
 func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
 	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, updateCache)
-	fep := c.collectWorkloadInstanceEndpoints(svc)
-	endpoints = append(endpoints, fep...)
+	if features.EnableK8SServiceSelectWorkloadEntries {
+		fep := c.collectWorkloadInstanceEndpoints(svc)
+		endpoints = append(endpoints, fep...)
+	}
 	return endpoints
 }
 
@@ -841,16 +855,14 @@ func (c *Controller) onNodeEvent(obj any, event model.Event) error {
 type FilterOutFunc func(old, cur any) bool
 
 func (c *Controller) registerHandlers(
-	informer filter.FilteredSharedIndexInformer, otype string,
+	informer informer.FilteredSharedIndexInformer, otype string,
 	handler func(any, model.Event) error, filter FilterOutFunc,
 ) {
 	wrappedHandler := func(obj any, event model.Event) error {
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
 	}
-	if informer, ok := informer.(cache.SharedInformer); ok {
-		_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
-	}
+	_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj any) {
@@ -892,7 +904,7 @@ func (c *Controller) registerHandlers(
 
 // tryGetLatestObject attempts to fetch the latest version of the object from the cache.
 // Changes may have occurred between queuing and processing.
-func tryGetLatestObject(informer filter.FilteredSharedIndexInformer, obj any) any {
+func tryGetLatestObject(informer informer.FilteredSharedIndexInformer, obj any) any {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		log.Warnf("failed creating key for informer object: %v", err)
@@ -979,7 +991,7 @@ func (c *Controller) syncNodes() error {
 
 func (c *Controller) syncServices() error {
 	var err *multierror.Error
-	services := c.serviceInformer.GetIndexer().List()
+	services, _ := c.serviceInformer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
@@ -989,7 +1001,7 @@ func (c *Controller) syncServices() error {
 
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
-	pods := c.pods.informer.GetIndexer().List()
+	pods, _ := c.pods.informer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))

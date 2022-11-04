@@ -53,7 +53,7 @@ type Controller struct {
 
 func (c *Controller) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
 	i := []model.WorkloadInfo{}
-	removed := sets.New()
+	removed := sets.New[string]()
 	for _, p := range c.registries {
 		wis, r := p.PodInformation(podsUpdated)
 		i = append(i, wis...)

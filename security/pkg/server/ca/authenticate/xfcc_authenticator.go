@@ -17,15 +17,14 @@ package authenticate
 import (
 	"fmt"
 	"net"
-	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/alecholmes/xfccparser"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/security"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -43,27 +42,17 @@ func (xff XfccAuthenticator) AuthenticatorType() string {
 
 // Authenticate extracts identities from Xfcc Header.
 func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.Caller, error) {
-	peerInfo, _ := peer.FromContext(ctx.GrpcContext)
+	remoteAddr := ctx.RemoteAddress()
+	xfccHeader := ctx.Header(xfccparser.ForwardedClientCertHeader)
+	if len(remoteAddr) == 0 || len(xfccHeader) == 0 {
+		return nil, nil
+	}
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
-	if !isTrustedAddress(peerInfo.Addr.String(), features.TrustedGatewayCIDR) {
-		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", peerInfo.Addr.String())
+	if !isTrustedAddress(remoteAddr, features.TrustedGatewayCIDR) {
+		return nil, fmt.Errorf("caller from %s is not in the trusted network. XfccAuthenticator can not be used", remoteAddr)
 	}
-	meta, ok := metadata.FromIncomingContext(ctx.GrpcContext)
 
-	if !ok || len(meta.Get(xfccparser.ForwardedClientCertHeader)) == 0 {
-		return nil, nil
-	}
-	xfccHeader := meta.Get(xfccparser.ForwardedClientCertHeader)[0]
-	return buildSecurityCaller(xfccHeader)
-}
-
-// AuthenticateRequest validates Xfcc Header.
-func (xff XfccAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	xfccHeader := req.Header.Get(xfccparser.ForwardedClientCertHeader)
-	if len(xfccHeader) == 0 {
-		return nil, nil
-	}
-	return buildSecurityCaller(xfccHeader)
+	return buildSecurityCaller(xfccHeader[0])
 }
 
 func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
@@ -92,25 +81,28 @@ func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 }
 
 func isTrustedAddress(addr string, trustedCidrs []string) bool {
+	ip, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		log.Warnf("peer address %s can not be split in to proper host and port", addr)
+		return false
+	}
 	for _, cidr := range trustedCidrs {
-		if isInRange(addr, cidr) {
+		if isInRange(ip, cidr) {
 			return true
 		}
 	}
 	// Always trust local host addresses.
-	return net.ParseIP(addr).IsLoopback()
+	return netip.MustParseAddr(ip).IsLoopback()
 }
 
 func isInRange(addr, cidr string) bool {
 	if strings.Contains(cidr, "/") {
-		ip, ipnet, err := net.ParseCIDR(cidr)
+		ipp, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			return false
 		}
-		if ip.To4() == nil && ip.To16() == nil {
-			return false
-		}
-		return ipnet.Contains(net.ParseIP(addr))
+
+		return ipp.Contains(netip.MustParseAddr(addr))
 	}
 	return false
 }

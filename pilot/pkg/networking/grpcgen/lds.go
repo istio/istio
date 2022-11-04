@@ -24,14 +24,20 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
+	durationpb "github.com/golang/protobuf/ptypes/duration"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
@@ -110,6 +116,10 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
 		}
+		// add extra addresses for the listener
+		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
+		ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
+
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
 			Resource: protoconv.MessageToAny(ll),
@@ -171,7 +181,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
-			rbac := &rbachttppb.RBAC{
+			rbac := &rbachttp.RBAC{
 				Rules: rules,
 			}
 			fc = append(fc,
@@ -182,7 +192,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 		}
 		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
 		if arules != nil && len(arules.Policies) > 0 {
-			rbac := &rbachttppb.RBAC{
+			rbac := &rbachttp.RBAC{
 				Rules: arules,
 			}
 			fc = append(fc,
@@ -256,6 +266,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 			m, err := authzmodel.New(rule)
 			if err != nil {
 				log.Warn("Invalid rule ", rule, err)
+				continue
 			}
 			generated, _ := m.Generate(false, a)
 			rules.Policies[name] = generated
@@ -275,12 +286,36 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 			continue
 		}
 		// we must duplicate the listener for every requested host - grpc may have watches for both foo and foo.ns
-		for _, matchedHost := range match.RequestedNames.SortedList() {
+		for _, matchedHost := range sets.SortedList(match.RequestedNames) {
 			for _, p := range sv.Ports {
 				sPort := strconv.Itoa(p.Port)
 				if !match.includesPort(sPort) {
 					continue
 				}
+				filters := supportedFilters
+				if features.PersistentSessionLabel != "" {
+					sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel]
+					if sessionCookie != "" {
+						filters = append(filters, &hcm.HttpFilter{
+							Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
+							ConfigType: &hcm.HttpFilter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
+									SessionState: &core.TypedExtensionConfig{
+										Name: "envoy.http.stateful_session.cookie",
+										TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+											Cookie: &httpv3.Cookie{
+												Path: "/",
+												Ttl:  &durationpb.Duration{Seconds: 120},
+												Name: sessionCookie,
+											},
+										}),
+									},
+								}),
+							},
+						})
+					}
+				}
+
 				ll := &listener.Listener{
 					Name: net.JoinHostPort(matchedHost, sPort),
 					Address: &core.Address{
@@ -295,7 +330,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					},
 					ApiListener: &listener.ApiListener{
 						ApiListener: protoconv.MessageToAny(&hcm.HttpConnectionManager{
-							HttpFilters: supportedFilters,
+							HttpFilters: filters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
 								Rds: &hcm.Rds{
@@ -310,6 +345,10 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 						}),
 					},
 				}
+				// add extra addresses for the listener
+				extrAddresses := sv.GetExtraAddressesForProxy(node)
+				ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
+
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
 					Resource: protoconv.MessageToAny(ll),
@@ -325,8 +364,8 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 type listenerNames map[string]listenerName
 
 type listenerName struct {
-	RequestedNames sets.Set
-	Ports          sets.Set
+	RequestedNames sets.String
+	Ports          sets.String
 }
 
 func (ln *listenerName) includesPort(port string) bool {
@@ -381,7 +420,7 @@ func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
 		for _, name := range allNames {
 			ln, ok := filter[name]
 			if !ok {
-				ln = listenerName{RequestedNames: sets.New()}
+				ln = listenerName{RequestedNames: sets.New[string]()}
 			}
 			ln.RequestedNames.Insert(requestedName)
 

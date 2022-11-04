@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config/xds"
 )
 
 func Test_virtualHostMatch(t *testing.T) {
@@ -943,6 +944,148 @@ func Test_routeMatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := routeMatch(tt.args.httpRoute, tt.args.cp); got != tt.want {
 				t.Errorf("routeMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPatchHTTPRoute(t *testing.T) {
+	type args struct {
+		patchContext       networking.EnvoyFilter_PatchContext
+		patches            map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper
+		routeConfiguration *route.RouteConfiguration
+		virtualHost        *route.VirtualHost
+		routeIndex         int
+		routesRemoved      *bool
+		portMap            model.GatewayPortMap
+	}
+	obj := &route.Route{}
+	if err := xds.StructToMessage(buildPatchStruct(`{"route": { "prefix_rewrite": "/foo"}}`), obj, false); err != nil {
+		t.Errorf("GogoStructToMessage error %v", err)
+	}
+	tests := []struct {
+		name string
+		args args
+		want *route.VirtualHost
+	}{
+		{
+			name: "normal",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				patches: map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+					networking.EnvoyFilter_HTTP_ROUTE: {
+						{
+							ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+							Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+								ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+									RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+										Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+											Name: "normal",
+											Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+												Action: networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ROUTE,
+											},
+										},
+									},
+								},
+							},
+							Operation: networking.EnvoyFilter_Patch_MERGE,
+							Value:     obj,
+						},
+					},
+				},
+				routeConfiguration: &route.RouteConfiguration{Name: "normal"},
+				virtualHost: &route.VirtualHost{
+					Name:    "normal",
+					Domains: []string{"*"},
+					Routes: []*route.Route{
+						{
+							Name: "normal",
+							Action: &route.Route_Route{
+								Route: &route.RouteAction{
+									PrefixRewrite: "/normal",
+								},
+							},
+						},
+					},
+				},
+				routeIndex: 0,
+				portMap: map[int]map[int]struct{}{
+					8080: {},
+				},
+			},
+			want: &route.VirtualHost{
+				Name:    "normal",
+				Domains: []string{"*"},
+				Routes: []*route.Route{
+					{
+						Name: "normal",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/foo",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			patchHTTPRoute(tt.args.patchContext, tt.args.patches, tt.args.routeConfiguration,
+				tt.args.virtualHost, tt.args.routeIndex, tt.args.routesRemoved, tt.args.portMap)
+			if diff := cmp.Diff(tt.want, tt.args.virtualHost, protocmp.Transform()); diff != "" {
+				t.Errorf("PatchHTTPRoute(): %s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestCloneVhostRouteByRouteIndex(t *testing.T) {
+	type args struct {
+		vh1 *route.VirtualHost
+		vh2 *route.VirtualHost
+	}
+	cloneRouter := route.Route{
+		Name: "clone",
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				PrefixRewrite: "/clone",
+			},
+		},
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantClone bool
+	}{
+		{
+			name: "clone",
+			args: args{
+				vh1: &route.VirtualHost{
+					Name:    "vh1",
+					Domains: []string{"*"},
+					Routes: []*route.Route{
+						&cloneRouter,
+					},
+				},
+				vh2: &route.VirtualHost{
+					Name:    "vh2",
+					Domains: []string{"*"},
+					Routes: []*route.Route{
+						&cloneRouter,
+					},
+				},
+			},
+			wantClone: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cloneRouter.Name = "test"
+			cloneVhostRouteByRouteIndex(tt.args.vh1, 0)
+			if tt.args.vh1.Routes[0].Name != tt.args.vh2.Routes[0].Name && tt.wantClone {
+				t.Errorf("CloneVhostRouteByRouteIndex(): %s (-wantClone +got):%v", tt.name, tt.wantClone)
 			}
 		})
 	}

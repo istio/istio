@@ -16,14 +16,15 @@ package cmd
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 )
 
-var tesrLocalIPAddrs = func(ips []net.IP) ([]net.Addr, error) {
+var tesrLocalIPAddrs = func(ips []netip.Addr) ([]net.Addr, error) {
 	var IPAddrs []net.Addr
 	for i := 0; i < len(ips); i++ {
 		var ipAddr net.Addr
-		ipNetAddr := &net.IPNet{IP: ips[i]}
+		ipNetAddr := &net.IPNet{IP: net.ParseIP(ips[i].String())}
 		ipAddr = ipNetAddr
 		IPAddrs = append(IPAddrs, ipAddr)
 	}
@@ -39,9 +40,9 @@ func TestGetLocalIP(t *testing.T) {
 		{
 			name: "ipv4 only local ip addresses",
 			lipas: func() ([]net.Addr, error) {
-				return tesrLocalIPAddrs([]net.IP{
-					net.ParseIP("127.0.0.1"),
-					net.ParseIP("1.2.3.5"),
+				return tesrLocalIPAddrs([]netip.Addr{
+					netip.MustParseAddr("127.0.0.1"),
+					netip.MustParseAddr("1.2.3.5"),
 				})
 			},
 			expected: false,
@@ -49,9 +50,9 @@ func TestGetLocalIP(t *testing.T) {
 		{
 			name: "ipv6 only local ip addresses",
 			lipas: func() ([]net.Addr, error) {
-				return tesrLocalIPAddrs([]net.IP{
-					net.ParseIP("::1"),
-					net.ParseIP("2222:3333::1"),
+				return tesrLocalIPAddrs([]netip.Addr{
+					netip.MustParseAddr("::1"),
+					netip.MustParseAddr("2222:3333::1"),
 				})
 			},
 			expected: true,
@@ -59,11 +60,11 @@ func TestGetLocalIP(t *testing.T) {
 		{
 			name: "mixed ipv4 and ipv6 local ip addresses",
 			lipas: func() ([]net.Addr, error) {
-				return tesrLocalIPAddrs([]net.IP{
-					net.ParseIP("::1"),
-					net.ParseIP("127.0.0.1"),
-					net.ParseIP("1.2.3.5"),
-					net.ParseIP("2222:3333::1"),
+				return tesrLocalIPAddrs([]netip.Addr{
+					netip.MustParseAddr("::1"),
+					netip.MustParseAddr("127.0.0.1"),
+					netip.MustParseAddr("1.2.3.5"),
+					netip.MustParseAddr("2222:3333::1"),
 				})
 			},
 			expected: false,

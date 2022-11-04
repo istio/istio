@@ -391,12 +391,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Root: key.Root,
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Root: key.Root,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -406,12 +408,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Namespace: key.Namespace,
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Namespace: key.Namespace,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
@@ -425,12 +429,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if selector.SubsetOf(proxy.Labels) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
-			ls = append(ls, &computedAccessLogging{
-				telemetryKey: telemetryKey{
-					Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
-				},
-				Logging: telemetry.Spec.GetAccessLogging(),
-			})
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
 			ts = append(ts, spec.GetTracing()...)
 			break
 		}
@@ -476,7 +482,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	allKeys := sets.New()
+	allKeys := sets.New[string]()
 	for k := range tml {
 		allKeys.Insert(k)
 	}
@@ -485,7 +491,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 
 	m := make([]telemetryFilterConfig, 0, len(allKeys))
-	for _, k := range allKeys.SortedList() {
+	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
 		if p == nil {
 			continue
@@ -533,7 +539,7 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	filters := map[string]*tpb.AccessLogging_Filter{}
 	for _, m := range logs {
-		names := sets.New()
+		names := sets.New[string]()
 		for _, p := range m.Logging {
 			subProviders := getProviderNames(p.Providers)
 			names.InsertAll(subProviders...)
@@ -653,7 +659,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 	inScopeProviders := sets.New(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
-	disabledAllMetricsProviders := sets.New()
+	disabledAllMetricsProviders := sets.New[string]()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		// If providers is not set, use parent's
@@ -814,15 +820,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
-func statsRootIDForClass(class networking.ListenerClass) string {
-	switch class {
-	case networking.ListenerClassSidecarInbound:
-		return "stats_inbound"
-	default:
-		return "stats_outbound"
-	}
-}
-
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
 	for _, cfg := range metricsCfg {
@@ -833,23 +830,12 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 				continue
 			}
 			statsCfg := generateStatsConfig(class, cfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = root
-
-			wasmConfig := &httpwasm.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: statsCfg,
-				},
-			}
-
 			f := &hcm.HttpFilter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
 			}
 			res = append(res, f)
+
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
@@ -882,21 +868,9 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 			cfg := generateStatsConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = "tcp_" + root
-
-			wasmConfig := &wasmfilter.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: cfg,
-				},
-			}
-
 			f := &listener.Filter{
 				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -1068,9 +1042,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 		}
 		cfg.Metrics = append(cfg.Metrics, mc)
 	}
-	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
-	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+	return protoconv.MessageToAny(&cfg)
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {

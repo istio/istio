@@ -21,9 +21,7 @@ import (
 )
 
 func FuzzConvertResources(f *testing.F) {
-	fuzz.BaseCases(f)
-	f.Fuzz(func(t *testing.T, data []byte) {
-		fg := fuzz.New(t, data)
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		r := fuzz.Struct[KubernetesResources](fg)
 		convertResources(r)
 	})

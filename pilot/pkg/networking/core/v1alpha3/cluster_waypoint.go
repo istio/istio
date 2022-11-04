@@ -110,18 +110,6 @@ func (cb *ClusterBuilder) buildWaypointInboundInternalPodCluster(wl ambient.Work
 	return localCluster
 }
 
-func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
-	clusterType := cluster.Cluster_STATIC
-	llb := util.BuildInternalEndpoint(listenerName, nil)
-	port := &model.Port{}
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
-		model.TrafficDirectionInbound, port, nil, nil)
-	// no TLS
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
-	return localCluster
-}
-
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name (without internal subset)
 func (cb *ClusterBuilder) buildWaypointInboundVIPInternalCluster(svc *model.Service, port model.Port) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "internal", svc.Hostname, port.Port)
@@ -169,7 +157,7 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 		Name: "internal_upstream",
 		Match: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
 			},
 		},
 		TransportSocket: util.InternalUpstreamTransportSocket(util.TunnelHostMetadata, util.IstioHostMetadata),
@@ -274,26 +262,6 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: ctx,
-			})},
-		},
-	}
-}
-
-func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	return &cluster.Cluster{
-		Name:                 "tunnel", // TODO rename
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       durationpb.New(2 * time.Second),
-		CleanupInterval:      durationpb.New(60 * time.Second),
-		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
-			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{UseHttpHeader: true},
-		},
-		TypedExtensionProtocolOptions: h2connectUpgrade(),
-		TransportSocket: &core.TransportSocket{
-			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildCommonTLSContext(proxy, nil, push, false),
 			})},
 		},
 	}

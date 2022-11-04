@@ -26,7 +26,7 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prometheus_model "github.com/prometheus/common/model"
 	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
 )
@@ -88,7 +88,7 @@ func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.CLIClient, error)
 				"app=prometheus": {
 					Items: []v1.Pod{
 						{
-							TypeMeta: meta_v1.TypeMeta{
+							TypeMeta: metav1.TypeMeta{
 								Kind: "MockPod",
 							},
 						},

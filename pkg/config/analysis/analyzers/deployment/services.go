@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"strconv"
 
-	apps_v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -144,14 +144,14 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 // findMatchingServices returns an slice of Services that matches with deployment's pods.
 func (s *ServiceAssociationAnalyzer) findMatchingServices(r *resource.Instance, c analysis.Context) []ServiceSpecWithName {
 	matchingSvcs := make([]ServiceSpecWithName, 0)
-	d := r.Message.(*apps_v1.DeploymentSpec)
+	d := r.Message.(*appsv1.DeploymentSpec)
 	deploymentNS := r.Metadata.FullName.Namespace.String()
 
 	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*core_v1.ServiceSpec)
 
-		sSelector := k8s_labels.SelectorFromSet(s.Selector)
-		pLabels := k8s_labels.Set(d.Template.Labels)
+		sSelector := klabels.SelectorFromSet(s.Selector)
+		pLabels := klabels.Set(d.Template.Labels)
 		if sSelector.Matches(pLabels) && r.Metadata.FullName.Namespace.String() == deploymentNS {
 			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}

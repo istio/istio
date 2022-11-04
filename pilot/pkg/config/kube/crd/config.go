@@ -15,16 +15,16 @@
 package crd
 
 import (
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // IstioKind is the generic Kubernetes API object wrapper
 type IstioKind struct {
-	meta_v1.TypeMeta
-	meta_v1.ObjectMeta `json:"metadata"`
-	Spec               map[string]any `json:"spec"`
-	Status             map[string]any `json:"status,omitempty"`
+	metav1.TypeMeta
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              map[string]any `json:"spec"`
+	Status            map[string]any `json:"status,omitempty"`
 }
 
 // GetSpec from a wrapper
@@ -38,7 +38,7 @@ func (in *IstioKind) GetStatus() map[string]any {
 }
 
 // GetObjectMeta from a wrapper
-func (in *IstioKind) GetObjectMeta() meta_v1.ObjectMeta {
+func (in *IstioKind) GetObjectMeta() metav1.ObjectMeta {
 	return in.ObjectMeta
 }
 
@@ -75,5 +75,5 @@ type IstioObject interface {
 	runtime.Object
 	GetSpec() map[string]any
 	GetStatus() map[string]any
-	GetObjectMeta() meta_v1.ObjectMeta
+	GetObjectMeta() metav1.ObjectMeta
 }

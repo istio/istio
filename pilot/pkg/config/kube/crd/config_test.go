@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 )
@@ -38,7 +38,7 @@ func TestKind(t *testing.T) {
 		t.Errorf("GetStatus() => got %v, want %v", got, status)
 	}
 
-	meta := meta_v1.ObjectMeta{Name: "test"}
+	meta := metav1.ObjectMeta{Name: "test"}
 	obj.ObjectMeta = meta
 	if got := obj.GetObjectMeta(); !reflect.DeepEqual(meta, got) {
 		t.Errorf("GetObjectMeta() => got %v, want %v", got, meta)

@@ -129,11 +129,12 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		if cpw.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER ||
 			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
 			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			// insert_before, after or first is applicable for network filter,
+			// insert_before, after or first is applicable for listener filter, network filter,
 			// http filter and http route, convert the rest to add
 			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER &&
 				cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER &&
-				cpw.ApplyTo != networking.EnvoyFilter_HTTP_ROUTE {
+				cpw.ApplyTo != networking.EnvoyFilter_HTTP_ROUTE &&
+				cpw.ApplyTo != networking.EnvoyFilter_LISTENER_FILTER {
 				cpw.Operation = networking.EnvoyFilter_Patch_ADD
 			}
 		}
@@ -176,13 +177,27 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 	if efw == nil {
 		return nil
 	}
-	keys := sets.Set{}
+	keys := sets.String{}
 	for _, patches := range efw.Patches {
 		for _, patch := range patches {
 			keys.Insert(patch.Key())
 		}
 	}
-	return keys.SortedList()
+	return sets.SortedList(keys)
+}
+
+// Returns the keys of all the wrapped envoyfilters.
+func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
+	if efw == nil {
+		return nil
+	}
+	keys := sets.String{}
+	for _, a := range applyTo {
+		for _, patch := range efw.Patches[a] {
+			keys.Insert(patch.Key())
+		}
+	}
+	return sets.SortedList(keys)
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {

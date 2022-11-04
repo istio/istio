@@ -22,8 +22,9 @@ import (
 	"strings"
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
@@ -48,11 +49,11 @@ func TestPiggyback(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("couldn't curl sidecar: %v", err)
 				}
-				dr := xdsapi.DiscoveryResponse{}
+				dr := discovery.DiscoveryResponse{}
 				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
 					return fmt.Errorf("unmarshal: %v", err)
 				}
-				if dr.TypeUrl != "istio.io/debug/syncz" {
+				if dr.TypeUrl != xds.TypeDebugSyncronization {
 					return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
 				}
 				if len(dr.Resources) < 1 {
@@ -86,7 +87,10 @@ func TestPiggyback(t *testing.T) {
 
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 				args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
-				output, _ := istioCtl.InvokeOrFail(t, args)
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
 
 				// Just verify pod A is known to Pilot; implicitly this verifies that
 				// the printing code printed it.
