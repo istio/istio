@@ -399,8 +399,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 	// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
-	//	TODO: should it be lb.node.IsAmbient() or is hbone equivilent?
-	if features.MetadataExchange && !httpOpts.hbone {
+	if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
 

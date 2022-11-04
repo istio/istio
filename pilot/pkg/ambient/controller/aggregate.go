@@ -18,9 +18,11 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -137,9 +139,10 @@ func initForCluster(opts Options) *ambientController {
 				opt := opts
 				opt.Stop = leaderStop
 				initAutolabel(opt)
-				// if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-				waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
-				waypointController.Run(leaderStop)
+				if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+					waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+					waypointController.Run(leaderStop)
+				}
 			})
 		go election.Run(opts.Stop)
 	}

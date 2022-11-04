@@ -16,7 +16,6 @@ package kube
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	kubeCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -57,7 +56,7 @@ func serviceAccount(cfg echo.Config) string {
 }
 
 // workloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
-func workloadHasSidecar(pod *kubeCore.Pod) bool {
+func workloadHasSidecar(pod *corev1.Pod) bool {
 	for _, c := range pod.Spec.Containers {
 		if c.Name == "istio-proxy" {
 			return true

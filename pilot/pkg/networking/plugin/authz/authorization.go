@@ -37,10 +37,9 @@ type Builder struct {
 	// Lazy load
 	httpBuilt, tcpBuilt bool
 
-	httpFilters     []*hcm.HttpFilter
-	tcpFilters      []*listener.Filter
-	builder         *builder.Builder
-	skippedIdentity string
+	httpFilters []*hcm.HttpFilter
+	tcpFilters  []*listener.Filter
+	builder     *builder.Builder
 }
 
 // NewBuilderSkipIdentity allows a builder that will have rules mutated to always allow requests from some identity
