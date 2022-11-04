@@ -8,6 +8,10 @@ metadata:
     {{ $key }}: "{{ $val }}"
 {{- end }}
 spec:
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: ztunnel
@@ -263,6 +267,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
