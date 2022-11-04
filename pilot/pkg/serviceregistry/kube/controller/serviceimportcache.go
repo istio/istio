@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -219,12 +220,9 @@ func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []str
 
 func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 	pushReq := &model.PushRequest{
-		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      kind.ServiceEntry,
-			Name:      mcsHost.String(),
-			Namespace: ns,
-		}: {}},
+		Full:           true,
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: mcsHost.String(), Namespace: ns}),
+
 		Reason: []model.TriggerReason{model.ServiceUpdate},
 	}
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)

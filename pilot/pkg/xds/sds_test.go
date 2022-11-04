@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func makeSecret(name string, data map[string]string) *corev1.Secret {
@@ -158,9 +159,11 @@ func TestGenerate(t *testing.T) {
 			name:      "full push with updates",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert"},
-			request: &model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}: {},
-			}},
+			request: &model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.Secret,
+				Name:      "generic-mtls",
+				Namespace: "istio-system",
+			})},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
 					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
@@ -179,9 +182,7 @@ func TestGenerate(t *testing.T) {
 			name:      "incremental push with updates",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic", Namespace: "istio-system", Kind: kind.Secret}: {},
-			}},
+			request:   &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "generic", Namespace: "istio-system"})},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
 					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
@@ -193,9 +194,10 @@ func TestGenerate(t *testing.T) {
 			name:      "incremental push with updates - mtls",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}: {},
-			}},
+			request: &model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "generic-mtls", Namespace: "istio-system"}),
+			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls": {
 					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
@@ -210,9 +212,10 @@ func TestGenerate(t *testing.T) {
 			name:      "incremental push with updates - mtls split",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
-			}},
+			request: &model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "generic-mtls-split", Namespace: "istio-system"}),
+			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
 					Key:  string(genericMtlsCertSplit.Data[credentials.GenericScrtKey]),
@@ -227,9 +230,10 @@ func TestGenerate(t *testing.T) {
 			name:      "incremental push with updates - mtls split ca update",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
 			resources: allResources,
-			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "generic-mtls-split-cacert", Namespace: "istio-system", Kind: kind.Secret}: {},
-			}},
+			request: &model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "generic-mtls-split-cacert", Namespace: "istio-system"}),
+			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
 					Key:  string(genericMtlsCertSplit.Data[credentials.GenericScrtKey]),
