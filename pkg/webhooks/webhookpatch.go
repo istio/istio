@@ -80,7 +80,7 @@ func NewWebhookCertPatcher(
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 		if features.EnableEnhancedResourceScoping {
 			options.FieldSelector = fmt.Sprintf("metadata.name=%s",
-				util.GetWebhookConfigName(features.InjectionWebhookConfigName, revision, systemNameSpace))
+				util.GetInjectionWebhookConfigName(features.InjectionWebhookConfigName, revision, systemNameSpace))
 		}
 	})
 	p.informer = informer
