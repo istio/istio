@@ -177,10 +177,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "no_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
 			wantExtensions:   sets.String{},
@@ -190,11 +188,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "has_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-					{Kind: kind.WasmPlugin}:          {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.WasmPlugin}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
@@ -204,11 +199,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "non_relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-					{Kind: kind.Secret}:              {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.Secret}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{},
@@ -218,10 +210,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
@@ -231,10 +221,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "relevant_secret_update_non_full_push",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
-				},
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
@@ -246,10 +234,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "multi_wasmplugin_update_secret",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
-				},
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},

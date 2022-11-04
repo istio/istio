@@ -853,7 +853,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 		// Make sure the ConfigsUpdated map exists
 		if req.ConfigsUpdated == nil {
-			req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+			req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
 		}
 	}
 

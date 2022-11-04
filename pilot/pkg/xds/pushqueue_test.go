@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/util/leak"
 )
 
@@ -168,20 +169,17 @@ func TestProxyQueue(t *testing.T) {
 		firstTime := time.Now()
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			ConfigsUpdated: sets.New(model.ConfigKey{
 				Kind: kind.ServiceEntry,
 				Name: "foo",
-			}: {}},
+			}),
 			Start: firstTime,
 		})
 
 		p.Enqueue(proxies[0], &model.PushRequest{
-			Full: false,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
-				Name:      "bar",
-				Namespace: "ns1",
-			}: {}},
+			Full:           false,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "bar", Namespace: "ns1"}),
+
 			Start: firstTime.Add(time.Second),
 		})
 		_, info, _ := p.Dequeue()
@@ -189,15 +187,18 @@ func TestProxyQueue(t *testing.T) {
 		if info.Start != firstTime {
 			t.Errorf("Expected start time to be %v, got %v", firstTime, info.Start)
 		}
-		expectedEds := map[model.ConfigKey]struct{}{{
-			Kind:      kind.ServiceEntry,
-			Name:      "foo",
-			Namespace: "",
-		}: {}, {
-			Kind:      kind.ServiceEntry,
-			Name:      "bar",
-			Namespace: "ns1",
-		}: {}}
+		expectedEds := sets.New(
+			model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      "foo",
+				Namespace: "",
+			},
+			model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      "bar",
+				Namespace: "ns1",
+			},
+		)
 		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, kind.ServiceEntry), expectedEds) {
 			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, kind.ServiceEntry))
 		}
@@ -257,10 +258,10 @@ func TestProxyQueue(t *testing.T) {
 			for eds := 0; eds < 100; eds++ {
 				for _, pr := range proxies {
 					p.Enqueue(pr, &model.PushRequest{
-						ConfigsUpdated: map[model.ConfigKey]struct{}{{
+						ConfigsUpdated: sets.New(model.ConfigKey{
 							Kind: kind.ServiceEntry,
 							Name: fmt.Sprintf("%d", eds),
-						}: {}},
+						}),
 					})
 				}
 			}
@@ -311,10 +312,10 @@ func TestProxyQueue(t *testing.T) {
 			// send to pushQueue
 			for eds := 0; eds < 100; eds++ {
 				p.Enqueue(con, &model.PushRequest{
-					ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					ConfigsUpdated: sets.New(model.ConfigKey{
 						Kind: kind.Kind(eds),
 						Name: fmt.Sprintf("%d", eds),
-					}: {}},
+					}),
 				})
 			}
 		}()
