@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+
+releaseNotes:
+- |
+  **Added** analyzer for telemetry resource.
