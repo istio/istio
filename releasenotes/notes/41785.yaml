@@ -3,6 +3,7 @@ kind: feature
 area: installation
 
 issue:
+- 41170
 
 releaseNotes:
 - |
