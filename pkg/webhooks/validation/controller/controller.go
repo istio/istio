@@ -197,7 +197,7 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
-	webhookConfigName := util.GetValidationWebhookConfigName(features.ValidationWebhookConfigName, o.Revision, o.WatchedNamespace)
+	webhookConfigName := util.GetValidatingWebhookConfigName(features.ValidationWebhookConfigName, o.Revision, o.WatchedNamespace)
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
