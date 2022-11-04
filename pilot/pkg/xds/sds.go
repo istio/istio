@@ -15,13 +15,14 @@
 package xds
 
 import (
-	"crypto/md5"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	xxhashv2 "github.com/cespare/xxhash/v2"
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -80,8 +81,8 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 // Invalid resource names are ignored
 func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretResource {
 	res := make([]SecretResource, 0, len(names))
-	pkpConf := proxy.Metadata.ProxyConfigOrDefault(s.meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
-	pkpConfHash := md5.Sum([]byte(pkpConf.String()))
+	pkpConf := (*mesh.ProxyConfig)(proxy.Metadata.ProxyConfig).GetPrivateKeyProvider()
+	pkpConfHash := xxhashv2.Sum64String(pkpConf.String())
 	for _, resource := range names {
 		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
 		if err != nil {
@@ -89,7 +90,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 			log.Warnf("error parsing resource name: %v", err)
 			continue
 		}
-		res = append(res, SecretResource{sr, string(pkpConfHash[:])})
+		res = append(res, SecretResource{sr, strconv.FormatUint(pkpConfHash, 10)})
 	}
 	return res
 }

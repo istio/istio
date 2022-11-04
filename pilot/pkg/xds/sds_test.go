@@ -25,13 +25,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/durationpb"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -407,10 +407,12 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 					},
 				},
 			},
-		}}
-	rawProxy := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
-		Type:     model.Router,
-		Metadata: &model.NodeMetadata{ClusterID: "Kubernetes"},
+		},
+	}
+	rawProxy := &model.Proxy{
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
 	}
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},
