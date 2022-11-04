@@ -13,7 +13,6 @@ spec:
     route:
     - destination:
         host: istio-egressgateway.istio-system.svc.cluster.local
-        subset: originate-tls-for-external-svc
         port:
           number: 80
   tls:
@@ -24,7 +23,6 @@ spec:
     route:
     - destination:
         host: istio-egressgateway.istio-system.svc.cluster.local
-        subset: originate-tls-for-external-svc
         port:
           number: 443
 ---

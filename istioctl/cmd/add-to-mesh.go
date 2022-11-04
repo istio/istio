@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -392,7 +392,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	if err != nil {
 		return nil, err
 	}
-	svcSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
+	svcSelector := klabels.SelectorFromSet(svc.Spec.Selector)
 	if svcSelector.Empty() {
 		return nil, nil
 	}
@@ -402,7 +402,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	}
 	deps := make([]appsv1.Deployment, 0, len(deployments.Items))
 	for _, dep := range deployments.Items {
-		depLabels := k8s_labels.Set(dep.Spec.Selector.MatchLabels)
+		depLabels := klabels.Set(dep.Spec.Selector.MatchLabels)
 		if svcSelector.Matches(depLabels) {
 			deps = append(deps, dep)
 		}

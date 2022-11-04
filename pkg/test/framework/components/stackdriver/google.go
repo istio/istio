@@ -21,15 +21,15 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	cloudtracepb "cloud.google.com/go/trace/apiv1/tracepb"
 	cloudtrace "google.golang.org/api/cloudtrace/v1"
 	logging "google.golang.org/api/logging/v2"
 	monitoring "google.golang.org/api/monitoring/v3"
 	"google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
-	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
-	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	md "istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/framework/resource"

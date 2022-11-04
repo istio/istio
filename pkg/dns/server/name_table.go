@@ -15,13 +15,13 @@
 package server
 
 import (
-	"net"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 // Config for building the name table.
@@ -53,7 +53,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 		if svcAddress != constants.UnspecifiedIP {
 			// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
 			// should be caught in validation.
-			if addr := net.ParseIP(svcAddress); addr == nil {
+			if !netutil.IsValidIPAddress(svcAddress) {
 				continue
 			}
 			addressList = append(addressList, svcAddress)

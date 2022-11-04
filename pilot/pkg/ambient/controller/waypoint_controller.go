@@ -139,8 +139,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		return rc.pruneGateway(name)
 	}
 
-	haveProxies := sets.New()
-	wantProxies := sets.New()
+	haveProxies := sets.New[string]()
+	wantProxies := sets.New[string]()
 
 	proxyLbl, _ := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller,istio.io/gateway-name=" + gw.Name)
 	proxyDeployments, _ := rc.deployments.Deployments(gw.Namespace).List(proxyLbl)
@@ -177,8 +177,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			msg += fmt.Sprintf(" for %q service account", gatewaySA)
 		}
 		err := rc.UpdateStatus(gw, map[string]*istiogw.Condition{
-			string(v1alpha2.GatewayConditionScheduled): {
-				Reason:  string(v1alpha2.GatewayReasonScheduled),
+			string(v1alpha2.GatewayConditionAccepted): {
+				Reason:  string(v1alpha2.GatewayReasonAccepted),
 				Message: msg,
 			},
 		})
@@ -214,8 +214,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 				Reason:  string(v1alpha2.GatewayReasonReady),
 				Message: msg,
 			},
-			string(v1alpha2.GatewayConditionScheduled): {
-				Reason:  string(v1alpha2.GatewayReasonScheduled),
+			string(v1alpha2.GatewayConditionAccepted): {
+				Reason:  string(v1alpha2.GatewayReasonAccepted),
 				Message: msg,
 			},
 		})

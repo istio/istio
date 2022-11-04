@@ -15,7 +15,7 @@ To run the TCP Echo Service sample:
     ```console
     $ kubectl apply -f <(istioctl kube-inject -f tcp-echo.yaml)
     service/tcp-echo created
-    deployment.extensions/tcp-echo created
+    deployment.apps/tcp-echo created
     ```
 
 1. Test by running the `nc` command from a `busybox` container from within the cluster.
@@ -34,5 +34,5 @@ To run the TCP Echo Service sample:
     ```console
     $ kubectl delete -f tcp-echo.yaml
     service "tcp-echo" deleted
-    deployment.extensions "tcp-echo" deleted
+    deployment.apps "tcp-echo" deleted
     ```

@@ -18,7 +18,7 @@ import (
 	"regexp"
 	"strings"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -36,7 +36,7 @@ func SplitYamlByKind(content string) map[string]string {
 	cfgs := SplitString(content)
 	result := map[string]string{}
 	for _, cfg := range cfgs {
-		var typeMeta kubeApiMeta.TypeMeta
+		var typeMeta metav1.TypeMeta
 		if e := yaml.Unmarshal([]byte(cfg), &typeMeta); e != nil {
 			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
 			continue
@@ -47,11 +47,11 @@ func SplitYamlByKind(content string) map[string]string {
 }
 
 // SplitYamlByKind splits the given YAML into parts indexed by kind.
-func GetMetadata(content string) []kubeApiMeta.ObjectMeta {
+func GetMetadata(content string) []metav1.ObjectMeta {
 	cfgs := SplitString(content)
-	result := []kubeApiMeta.ObjectMeta{}
+	result := []metav1.ObjectMeta{}
 	for _, cfg := range cfgs {
-		var m kubeApiMeta.ObjectMeta
+		var m metav1.ObjectMeta
 		if e := yaml.Unmarshal([]byte(cfg), &m); e != nil {
 			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
 			continue

@@ -1,0 +1,20 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: {{ .WasmPluginName }}
+  {{- if .WasmPluginVersion }}
+  annotations:
+    wasmPluginVersion: {{ .WasmPluginVersion }}
+  {{- end }}
+spec:
+  phase: STATS
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
+  {{- if .TestWasmModuleURL }}
+  url: {{ .TestWasmModuleURL }}
+  {{- end }}
+  imagePullSecret: reg-cred
+  {{- if .ImagePullPolicy }}
+  imagePullPolicy: {{ .ImagePullPolicy }}
+  {{- end }}

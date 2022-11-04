@@ -18,7 +18,7 @@ import (
 	"context"
 	"reflect"
 
-	gogoproto "github.com/gogo/protobuf/proto"
+	gogoproto "github.com/gogo/protobuf/proto" // nolint: depguard
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"

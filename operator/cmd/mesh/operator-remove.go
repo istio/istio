@@ -15,6 +15,8 @@
 package mesh
 
 import (
+	"os"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
@@ -31,20 +33,27 @@ type operatorRemoveArgs struct {
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
+	// skipConfirmation determines whether the user is prompted for confirmation.
+	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
+	skipConfirmation bool
 	// force proceeds even if there are validation errors
 	force bool
 	// operatorNamespace is the namespace the operator controller is installed into.
 	operatorNamespace string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// purge if set to true, all revisions of Istio operator will be specified.
+	purge bool
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", ContextFlagHelpStr)
+	cmd.PersistentFlags().BoolVarP(&oiArgs.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
 	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "", OperatorRevFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&oiArgs.purge, "purge", false, AllOperatorRevFlagHelpStr)
 }
 
 func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
@@ -55,13 +64,13 @@ func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
-			operatorRemove(rootArgs, orArgs, l)
+			operatorRemove(cmd, rootArgs, orArgs, l)
 		},
 	}
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.
-func operatorRemove(args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
+func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
 	kubeClient, client, err := KubernetesClients(orArgs.kubeConfigPath, orArgs.context, l)
@@ -69,15 +78,34 @@ func operatorRemove(args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
+	// If the user is performing purge but also specified a revision, an error message
+	// should be displayed and do nothing
+	if orArgs.purge && orArgs.revision != "" {
+		orArgs.revision = ""
+		l.LogAndFatal("At most one of the --revision (or --set revision=<revision>) or --purge flags could be set\n")
+	} else if !orArgs.purge && orArgs.revision == "" {
+		orArgs.revision = "default"
+	}
+
 	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
-	if !installed {
+	if !installed && !orArgs.purge {
 		l.LogAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.operatorNamespace)
 		if !orArgs.force {
 			l.LogAndFatal("Aborting, use --force to override.")
 		}
+	}
+
+	var message string
+	message = "All revisions of Istio operator will be removed from cluster, Proceed? (y/N)"
+	if orArgs.revision != "" {
+		message = "Istio operator revision " + orArgs.revision + " will be removed from cluster, Proceed? (y/N)"
+	}
+	if !orArgs.skipConfirmation && !confirm(message, cmd.OutOrStdout()) {
+		cmd.Print("Cancelled.\n")
+		os.Exit(1)
 	}
 
 	l.LogAndPrintf("Removing Istio operator...")

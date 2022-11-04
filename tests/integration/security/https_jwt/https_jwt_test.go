@@ -63,7 +63,7 @@ func TestJWTHTTPS(t *testing.T) {
 
 			for _, c := range cases {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					echotest.New(t, apps.EchoNamespace.A).
+					echotest.New(t, apps.All.Instances()).
 						SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 							args := map[string]string{
 								"Namespace": ns.Name(),

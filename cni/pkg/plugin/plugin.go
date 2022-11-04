@@ -30,13 +30,13 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/pkg/log"
 )
 
 var (
-	nsSetupBinDir       = "/opt/cni/bin"
 	injectAnnotationKey = annotation.SidecarInject.Name
 	sidecarStatusKey    = annotation.SidecarStatus.Name
 
@@ -198,9 +198,6 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 	// TODO: Reset back to Debugf
 	log.Infof("istio-cni cmdAdd with k8s args: %+v", k8sArgs)
-	if conf.Kubernetes.CNIBinDir != "" {
-		nsSetupBinDir = conf.Kubernetes.CNIBinDir
-	}
 	if conf.Kubernetes.InterceptRuleMgrType != "" {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
@@ -274,7 +271,12 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 			if len(pi.Containers) > 1 {
 				log.Debugf("Checking pod %s/%s annotations prior to redirect for Istio proxy", podNamespace, podName)
-				if val, ok := pi.Annotations[injectAnnotationKey]; ok {
+				val := pi.Annotations[injectAnnotationKey]
+				if lbl, labelPresent := pi.Labels[label.SidecarInject.Name]; labelPresent {
+					// The label is the new API; if both are present we prefer the label
+					val = lbl
+				}
+				if val != "" {
 					log.Debugf("Pod %s/%s contains inject annotation: %s", podNamespace, podName, val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {

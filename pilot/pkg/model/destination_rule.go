@@ -22,6 +22,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
 )
@@ -39,7 +40,16 @@ import (
 func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
-	if mdrList, exists := p.destRules[resolvedHost]; exists {
+
+	var destRules map[host.Name][]*ConsolidatedDestRule
+
+	if resolvedHost.IsWildCarded() {
+		destRules = p.wildcardDestRules
+	} else {
+		destRules = p.specificDestRules
+	}
+
+	if mdrList, exists := destRules[resolvedHost]; exists {
 		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
 		addRuleToProcessedDestRules := true
 		for _, mdr := range mdrList {
@@ -100,12 +110,12 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			}
 		}
 		if addRuleToProcessedDestRules {
-			p.destRules[resolvedHost] = append(p.destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
+			destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
 		}
 		return
 	}
 	// DestinationRule does not exist for the resolved host so add it
-	p.destRules[resolvedHost] = append(p.destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
+	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
 	p.exportTo[resolvedHost] = exportToMap
 }
 

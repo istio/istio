@@ -32,16 +32,16 @@ func GetMatchingPaths(config *config.BugReportConfig, cluster *cluster2.Resource
 	if err != nil {
 		return nil, err
 	}
-	return paths.SortedList(), nil
+	return sets.SortedList(paths), nil
 }
 
-func getMatchingPathsForSpec(config *config.BugReportConfig, cluster *cluster2.Resources) (sets.Set, error) {
-	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, sets.New())
+func getMatchingPathsForSpec(config *config.BugReportConfig, cluster *cluster2.Resources) (sets.String, error) {
+	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, sets.New[string]())
 }
 
 func getMatchingPathsForSpecImpl(config *config.BugReportConfig, cluster *cluster2.Resources, node map[string]any,
-	path path.Path, matchingPaths sets.Set,
-) (sets.Set, error) {
+	path path.Path, matchingPaths sets.String,
+) (sets.String, error) {
 	for pe, n := range node {
 		np := append(path, pe)
 		if nn, ok := n.(map[string]any); ok {

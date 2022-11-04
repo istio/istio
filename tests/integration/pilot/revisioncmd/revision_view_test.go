@@ -26,10 +26,10 @@ import (
 	"testing"
 	"time"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/cmd"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -143,7 +143,7 @@ func testRevisionListingVerbose(t framework.TestContext, istioCtl istioctl.Insta
 	if err != nil {
 		t.Fatalf("unexpected error while invoking istioctl command %v: %v", listVerboseCmd, err)
 	}
-	var revDescriptions map[string]*cmd.RevisionDescription
+	var revDescriptions map[string]*tag.RevisionDescription
 	if err = json.Unmarshal([]byte(stdout), &revDescriptions); err != nil {
 		t.Fatalf("error while unmarshaling JSON output: %v", err)
 	}
@@ -177,11 +177,11 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 		verifyRevisionOutput(t, descr, rev)
 		if resources := revResources[rev]; resources != nil {
 			nsName := resources.ns.Name()
-			podsInNamespace := []*cmd.PodFilteredInfo{}
+			podsInNamespace := []*tag.PodFilteredInfo{}
 			if nsi := descr.NamespaceSummary[nsName]; nsi != nil {
 				podsInNamespace = nsi.Pods
 			}
-			labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
+			labelSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 				MatchLabels: map[string]string{label.IoIstioRev.Name: rev},
 			})
 			if err != nil {
@@ -190,7 +190,7 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 			}
 			podsForRev, err := t.Clusters().Default().Kube().
 				CoreV1().Pods(nsName).
-				List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+				List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 			if podsForRev == nil || err != nil { // nolint: staticcheck
 				t.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
 			}
@@ -244,13 +244,13 @@ func testInvalidOutputFormat(t framework.TestContext, istioCtl istioctl.Instance
 	}
 }
 
-func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cmd.RevisionDescription, error) {
+func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*tag.RevisionDescription, error) {
 	describeCmd := []string{"x", "revision", "describe", revision, "-d", manifestPath, "-o", "json", "-v"}
 	descr, _, err := istioCtl.Invoke(describeCmd)
 	if err != nil {
 		return nil, err
 	}
-	var revDescription cmd.RevisionDescription
+	var revDescription tag.RevisionDescription
 	if err = json.Unmarshal([]byte(descr), &revDescription); err != nil {
 		return nil, fmt.Errorf("error while unmarshaling revision description JSON for"+
 			" revision=%s : %v", revision, err)
@@ -258,7 +258,7 @@ func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cm
 	return &revDescription, nil
 }
 
-func verifyRevisionOutput(t framework.TestContext, descr *cmd.RevisionDescription, rev string) {
+func verifyRevisionOutput(t framework.TestContext, descr *tag.RevisionDescription, rev string) {
 	expectedComponents, ok := expectedComponentsPerRevision[rev]
 	if !ok {
 		t.Fatalf("unexpected error. Could not find expected components for %s", rev)
@@ -281,12 +281,12 @@ func verifyRevisionOutput(t framework.TestContext, descr *cmd.RevisionDescriptio
 	verifyComponentPodsForRevision(t, "egress-gateway", rev, descr)
 }
 
-func verifyComponentPodsForRevision(t framework.TestContext, component, rev string, descr *cmd.RevisionDescription) {
+func verifyComponentPodsForRevision(t framework.TestContext, component, rev string, descr *tag.RevisionDescription) {
 	opComponent := componentMap[component]
 	if opComponent == "" {
 		t.Fatalf("unknown component: %s", component)
 	}
-	labelSelector, err := meta_v1.LabelSelectorAsSelector(&meta_v1.LabelSelector{
+	labelSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        rev,
 			label.OperatorComponent.Name: opComponent,
@@ -297,7 +297,7 @@ func verifyComponentPodsForRevision(t framework.TestContext, component, rev stri
 	}
 	componentPods, err := t.Clusters().Default().Kube().
 		CoreV1().Pods("").
-		List(context.Background(), meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+		List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		t.Fatalf("unexpected error while fetching %s pods for revision %s: %v", component, rev, err)
 	}
@@ -308,7 +308,7 @@ func verifyComponentPodsForRevision(t framework.TestContext, component, rev stri
 	}
 
 	actualComponentPodSet := map[string]bool{}
-	podList := []*cmd.PodFilteredInfo{}
+	podList := []*tag.PodFilteredInfo{}
 	switch component {
 	case "istiod":
 		podList = descr.ControlPlanePods

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"sigs.k8s.io/yaml"
 
@@ -118,7 +118,7 @@ func describeRouteDomains(domains []string) string {
 
 func unexpandDomains(domains []string) []string {
 	unique := sets.New(domains...)
-	shouldDelete := sets.New()
+	shouldDelete := sets.New[string]()
 	for _, h := range domains {
 		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
 		if _, f := unique[stripFull]; f && stripFull != h {
@@ -139,7 +139,7 @@ func unexpandDomains(domains []string) []string {
 	return ret
 }
 
-func describeManagement(metadata *envoy_config_core_v3.Metadata) string {
+func describeManagement(metadata *core.Metadata) string {
 	if metadata == nil {
 		return ""
 	}

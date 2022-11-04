@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
@@ -62,6 +63,9 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
+	// OutboundTunnel is HBONE's outbound cluster.
+	OutboundTunnel = "outbound-tunnel"
+
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -118,16 +122,6 @@ var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 // RegexEngine is the default google RE2 regex engine.
 var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
-func getMaxCidrPrefix(addr string) uint32 {
-	ip := net.ParseIP(addr)
-	if ip.To4() == nil {
-		// ipv6 address
-		return 128
-	}
-	// ipv4 address
-	return 32
-}
-
 func ListContains(haystack []string, needle string) bool {
 	for _, n := range haystack {
 		if needle == n {
@@ -139,24 +133,49 @@ func ListContains(haystack []string, needle string) bool {
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
-	if len(addr) == 0 {
+	cidr, err := AddrStrToCidrRange(addr)
+	if err != nil {
+		log.Errorf("failed to convert address %s to CidrRange: %v", addr, err)
 		return nil
 	}
 
-	cidr := &core.CidrRange{
-		AddressPrefix: addr,
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: getMaxCidrPrefix(addr),
-		},
+	return cidr
+}
+
+// AddrStrToCidrRange converts from string to CIDR proto
+func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
+	if len(addr) == 0 {
+		return nil, fmt.Errorf("empty address")
 	}
 
+	var (
+		ipAddr        netip.Addr
+		maxCidrPrefix int
+	)
+
 	if strings.Contains(addr, "/") {
-		parts := strings.Split(addr, "/")
-		cidr.AddressPrefix = parts[0]
-		prefix, _ := strconv.Atoi(parts[1])
-		cidr.PrefixLen.Value = uint32(prefix)
+		ipp, err := netip.ParsePrefix(addr)
+		if err != nil {
+			return nil, err
+		}
+		ipAddr = ipp.Addr()
+		maxCidrPrefix = ipp.Bits()
+	} else {
+		ipa, err := netip.ParseAddr(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		ipAddr = ipa
+		maxCidrPrefix = ipAddr.BitLen()
 	}
-	return cidr
+
+	return &core.CidrRange{
+		AddressPrefix: ipAddr.String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(maxCidrPrefix),
+		},
+	}, nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -175,22 +194,26 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
+// BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+	var additionalAddresses []*listener.AdditionalAddress
+	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+		for _, exbd := range extrAddresses {
+			if exbd == "" {
+				continue
+			}
+			extraAddress := &listener.AdditionalAddress{
+				Address: BuildAddress(exbd, listenPort),
+			}
+			additionalAddresses = append(additionalAddresses, extraAddress)
+		}
+	}
+	return additionalAddresses
+}
+
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildInternalAddress(name string) *core.Address {
 	return BuildInternalAddressWithIdentifier(name, "")
-}
-
-func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
-	return &core.Address{
-		Address: &core.Address_EnvoyInternalAddress{
-			EnvoyInternalAddress: &core.EnvoyInternalAddress{
-				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
-					ServerListenerName: name,
-				},
-				EndpointId: identifier,
-			},
-		},
-	}
 }
 
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
@@ -233,6 +256,12 @@ func IsIstioVersionGE114(version *model.IstioVersion) bool {
 func IsIstioVersionGE115(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
+func IsIstioVersionGE116(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -435,12 +464,9 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 	// Merge the two typed protos
 	merge.Merge(dstX, srcX)
-	var retVal *anypb.Any
 
 	// Convert the merged proto back to dst
-	if retVal, err = anypb.New(dstX); err != nil {
-		return nil, err
-	}
+	retVal := protoconv.MessageToAny(dstX)
 
 	return retVal, nil
 }
@@ -647,15 +673,15 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	}
 
 	for i := range a {
-		netA, err := toIPNet(a[i])
+		netA, err := toMaskedPrefix(a[i])
 		if err != nil {
 			return false
 		}
-		netB, err := toIPNet(b[i])
+		netB, err := toMaskedPrefix(b[i])
 		if err != nil {
 			return false
 		}
-		if netA.IP.String() != netB.IP.String() {
+		if netA.Addr().String() != netB.Addr().String() {
 			return false
 		}
 	}
@@ -663,18 +689,19 @@ func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	return true
 }
 
-func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
-	_, cA, err := net.ParseCIDR(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
+func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
+	ipp, err := netip.ParsePrefix(c.AddressPrefix + "/" + strconv.Itoa(int(c.PrefixLen.GetValue())))
 	if err != nil {
 		log.Errorf("failed to parse CidrRange %v as IPNet: %v", c, err)
 	}
-	return cA, err
+
+	return ipp.Masked(), err
 }
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
-	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
 // ByteCount returns a human readable byte format
@@ -706,7 +733,7 @@ func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
-// BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// BuildInternalEndpoint builds an lb endpoint pointing to the internal listener named dest.
 // If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
 func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.LocalityLbEndpoints {
 	llb := []*endpoint.LocalityLbEndpoints{{
@@ -733,6 +760,19 @@ func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpo
 			},
 		},
 		Metadata: meta,
+	}
+}
+
+func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
+	return &core.Address{
+		Address: &core.Address_EnvoyInternalAddress{
+			EnvoyInternalAddress: &core.EnvoyInternalAddress{
+				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+					ServerListenerName: name,
+				},
+				EndpointId: identifier,
+			},
+		},
 	}
 }
 

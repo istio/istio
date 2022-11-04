@@ -57,6 +57,12 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
+var hboneTransportSocketMatch = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+	},
+}
+
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
@@ -908,17 +914,6 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 }
 
 func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
-	if tls == nil {
-		// We still allow HBONE
-		if cb.hbone {
-			opts.mutable.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				InternalUpstreamSocketMatch[0],
-				defaultTransportSocketMatch(),
-			}
-		}
-		return
-	}
-
 	c := opts.mutable
 
 	tlsContext, err := cb.buildUpstreamClusterTLSContext(opts, tls)
@@ -933,36 +928,15 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
-
-	// For headless service, discover type will be `Cluster_ORIGINAL_DST`
-	// Apply auto mtls to clusters excluding these kind of headless service
+	istioAutodetectedMtls := tls != nil && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL &&
+		mtlsCtxType == autoDetected
 	if cb.hbone {
-		transportSocket := c.cluster.TransportSocket
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
-			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				InternalUpstreamSocketMatch[0],
-				{
-					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match:           istioMtlsTransportSocketMatch,
-					TransportSocket: transportSocket,
-				},
-				defaultTransportSocketMatch(),
-			}
-		} else {
-			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				// If HBONE exists, use it
-				InternalUpstreamSocketMatch[0],
-				// Otherwise default to mTLS
-				{
-					Name:            "tls",
-					Match:           &structpb.Struct{},
-					TransportSocket: transportSocket,
-				},
-			}
-		}
+		cb.applyHBONETransportSocketMatches(c.cluster, tls, istioAutodetectedMtls)
 	} else if c.cluster.GetType() != cluster.Cluster_ORIGINAL_DST {
-		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+		// For headless service, discovery type will be `Cluster_ORIGINAL_DST`
+		// Apply auto mtls to clusters excluding these kind of headless services.
+		if istioAutodetectedMtls {
+			// convert to transport socket matcher if the mode was auto detected
 			transportSocket := c.cluster.TransportSocket
 			c.cluster.TransportSocket = nil
 			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
@@ -977,7 +951,60 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 	}
 }
 
+func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, tls *networking.ClientTLSSettings,
+	istioAutoDetectedMtls bool,
+) {
+	if tls == nil {
+		c.TransportSocketMatches = HboneOrPlaintextSocket
+		return
+	}
+	// For headless service, discovery type will be `Cluster_ORIGINAL_DST`
+	// Apply auto mtls to clusters excluding these kind of headless services.
+	if c.GetType() != cluster.Cluster_ORIGINAL_DST {
+		// convert to transport socket matcher if the mode was auto detected
+		if istioAutoDetectedMtls {
+			transportSocket := c.TransportSocket
+			c.TransportSocket = nil
+			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name:            "hbone",
+					Match:           hboneTransportSocketMatch,
+					TransportSocket: InternalUpstreamSocket,
+				},
+				{
+					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match:           istioMtlsTransportSocketMatch,
+					TransportSocket: transportSocket,
+				},
+				defaultTransportSocketMatch(),
+			}
+		} else {
+			if c.TransportSocket == nil {
+				c.TransportSocketMatches = HboneOrPlaintextSocket
+			} else {
+				ts := c.TransportSocket
+				c.TransportSocket = nil
+
+				c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					{
+						Name:            "hbone",
+						Match:           hboneTransportSocketMatch,
+						TransportSocket: InternalUpstreamSocket,
+					},
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						TransportSocket: ts,
+					},
+				}
+			}
+		}
+	}
+}
+
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
+	if tls == nil {
+		return nil, nil
+	}
 	// Hack to avoid egress sds cluster config generation for sidecar when
 	// CredentialName is set in DestinationRule without a workloadSelector.
 	// We do not want to support CredentialName setting in non workloadSelector based DestinationRules, because
@@ -1042,6 +1069,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -1081,6 +1109,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -1215,16 +1244,15 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
-	have := sets.Set{}
+	have := sets.String{}
 	out := make([]*discovery.Resource, 0, len(clusters))
 	for _, c := range clusters {
-		if !have.Contains(c.Name) {
+		if !have.InsertContains(c.Name) {
 			out = append(out, c)
 		} else {
 			cb.req.Push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxyID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
 		}
-		have.Insert(c.Name)
 	}
 	return out
 }
@@ -1341,6 +1369,14 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			},
 		},
 	}
+	options := &http.HttpProtocolOptions{}
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+		ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+			ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+				Http2ProtocolOptions: http2ProtocolOptions(),
+			},
+		},
+	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
@@ -1352,6 +1388,9 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 					LbEndpoints: []*endpoint.LbEndpoint{ep},
 				},
 			},
+		},
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
 	return c

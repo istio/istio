@@ -536,12 +536,12 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	services := []*model.Service{
-		buildHTTPService("bookinfo.com", visibility.Public, wildcardIP, "default", 9999, 70),
-		buildHTTPService("private.com", visibility.Private, wildcardIP, "default", 9999, 80),
+		buildHTTPService("bookinfo.com", visibility.Public, wildcardIPv4, "default", 9999, 70),
+		buildHTTPService("private.com", visibility.Private, wildcardIPv4, "default", 9999, 80),
 		buildHTTPService("test.com", visibility.Public, "8.8.8.8", "not-default", 8080),
 		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
-		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
+		buildHTTPService("test-headless.com", visibility.Public, wildcardIPv4, "not-default", 8888),
 		buildHTTPService("service-A.default.svc.cluster.local", visibility.Public, "", "default", 7777),
 	}
 
@@ -1393,12 +1393,12 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 
 func TestSelectVirtualService(t *testing.T) {
 	services := []*model.Service{
-		buildHTTPService("bookinfo.com", visibility.Public, wildcardIP, "default", 9999, 70),
-		buildHTTPService("private.com", visibility.Private, wildcardIP, "default", 9999, 80),
+		buildHTTPService("bookinfo.com", visibility.Public, wildcardIPv4, "default", 9999, 70),
+		buildHTTPService("private.com", visibility.Private, wildcardIPv4, "default", 9999, 80),
 		buildHTTPService("test.com", visibility.Public, "8.8.8.8", "not-default", 8080),
 		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
-		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
+		buildHTTPService("test-headless.com", visibility.Public, wildcardIPv4, "not-default", 8888),
 	}
 
 	servicesByName := make(map[host.Name]*model.Service, len(services))
@@ -1648,7 +1648,7 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},
 	}
-	if ip == wildcardIP {
+	if ip == wildcardIPv4 {
 		service.Resolution = model.Passthrough
 	}
 

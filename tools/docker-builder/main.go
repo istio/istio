@@ -57,7 +57,7 @@ func main() {
 	}
 }
 
-var privilegedHubs = sets.New(
+var privilegedHubs = sets.New[string](
 	"docker.io/istio",
 	"istio",
 	"gcr.io/istio-release",
@@ -139,8 +139,8 @@ func ReadPlanTargets() ([]string, []string, error) {
 	if err := yaml.Unmarshal(by, &plan); err != nil {
 		return nil, nil, err
 	}
-	bases := sets.New()
-	nonBases := sets.New()
+	bases := sets.New[string]()
+	nonBases := sets.New[string]()
 	for _, i := range plan.Images {
 		if i.Base {
 			bases.Insert(i.Name)
@@ -148,7 +148,7 @@ func ReadPlanTargets() ([]string, []string, error) {
 			nonBases.Insert(i.Name)
 		}
 	}
-	return bases.SortedList(), nonBases.SortedList(), nil
+	return sets.SortedList(bases), sets.SortedList(nonBases), nil
 }
 
 var LocalArch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
@@ -184,11 +184,11 @@ func ReadPlan(a Args) (Args, error) {
 
 		// Check targets are valid
 		tgt := sets.New(a.Targets...)
-		known := sets.New()
+		known := sets.New[string]()
 		for _, img := range plan.Images {
 			known.Insert(img.Name)
 		}
-		if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
+		if unknown := sets.SortedList(tgt.Difference(known)); len(unknown) > 0 {
 			return a, fmt.Errorf("unknown targets: %v", unknown)
 		}
 

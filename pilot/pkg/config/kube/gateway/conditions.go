@@ -313,8 +313,5 @@ func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
 }
 
 func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
-	if rgk.Group != nil {
-		return *rgk.Group
-	}
-	return "gateway.networking.k8s.io"
+	return k8s.Group(defaultIfNil((*string)(rgk.Group), gvk.KubernetesGateway.Group))
 }

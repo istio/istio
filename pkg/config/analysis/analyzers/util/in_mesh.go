@@ -15,10 +15,10 @@
 package util
 
 import (
-	apps_v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -26,24 +26,31 @@ import (
 
 // DeploymentinMesh returns true if deployment is in the service mesh (has sidecar)
 func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
-	d := r.Message.(*apps_v1.DeploymentSpec)
-	return inMesh(d.Template.Annotations, resource.Namespace(r.Metadata.FullName.Namespace.String()), d.Template.Spec.Containers, c)
+	d := r.Message.(*appsv1.DeploymentSpec)
+	return inMesh(d.Template.Annotations, d.Template.Labels,
+		resource.Namespace(r.Metadata.FullName.Namespace.String()), d.Template.Spec.Containers, c)
 }
 
 // PodInMesh returns true if a Pod is in the service mesh (has sidecar)
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 	p := r.Message.(*v1.PodSpec)
-	return inMesh(r.Metadata.Annotations, r.Metadata.FullName.Namespace, p.Containers, c)
+	return inMesh(r.Metadata.Annotations, r.Metadata.Labels,
+		r.Metadata.FullName.Namespace, p.Containers, c)
 }
 
-func inMesh(annos map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {
+func inMesh(annos, labels map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {
 	// If pod has the sidecar container set, then, the pod is in the mesh
 	if hasIstioProxy(containers) {
 		return true
 	}
 
+	// If Pod has labels, return the injection label value
+	if piv, ok := getPodSidecarInjectionStatus(labels); ok {
+		return piv
+	}
+
 	// If Pod has annotation, return the injection annotation value
-	if piv, pivok := getPodSidecarInjectionStatus(annos); pivok {
+	if piv, ok := getPodSidecarInjectionStatus(annos); ok {
 		return piv
 	}
 
@@ -57,10 +64,10 @@ func inMesh(annos map[string]string, namespace resource.Namespace, containers []
 }
 
 // getPodSidecarInjectionStatus returns two booleans: enabled and ok.
-// enabled is true when deployment d PodSpec has either the annotation 'sidecar.istio.io/inject: "true"'
-// ok is true when the PodSpec doesn't have the 'sidecar.istio.io/inject' annotation present.
-func getPodSidecarInjectionStatus(annos map[string]string) (enabled bool, ok bool) {
-	v, ok := annos[annotation.SidecarInject.Name]
+// enabled is true when deployment d PodSpec has either the label/annotation 'sidecar.istio.io/inject: "true"'
+// ok is true when the PodSpec doesn't have the 'sidecar.istio.io/inject' label/annotation present.
+func getPodSidecarInjectionStatus(metadata map[string]string) (enabled bool, ok bool) {
+	v, ok := metadata[label.SidecarInject.Name]
 	return v == "true", ok
 }
 

@@ -21,7 +21,7 @@ import (
 	"context"
 	"encoding/json"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -44,7 +44,7 @@ func (ml *MultiLock) Get(ctx context.Context) (*LeaderElectionRecord, []byte, er
 	secondary, secondaryRaw, err := ml.Secondary.Get(ctx)
 	if err != nil {
 		// Lock is held by old client
-		if apierrors.IsNotFound(err) && primary.HolderIdentity != ml.Identity() {
+		if kerrors.IsNotFound(err) && primary.HolderIdentity != ml.Identity() {
 			return primary, primaryRaw, nil
 		}
 		return nil, nil, err
@@ -63,7 +63,7 @@ func (ml *MultiLock) Get(ctx context.Context) (*LeaderElectionRecord, []byte, er
 // Create attempts to create both primary lock and secondary lock
 func (ml *MultiLock) Create(ctx context.Context, ler LeaderElectionRecord) error {
 	err := ml.Primary.Create(ctx, ler)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
+	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return err
 	}
 	return ml.Secondary.Create(ctx, ler)
@@ -76,7 +76,7 @@ func (ml *MultiLock) Update(ctx context.Context, ler LeaderElectionRecord) error
 		return err
 	}
 	_, _, err = ml.Secondary.Get(ctx)
-	if err != nil && apierrors.IsNotFound(err) {
+	if err != nil && kerrors.IsNotFound(err) {
 		return ml.Secondary.Create(ctx, ler)
 	}
 	return ml.Secondary.Update(ctx, ler)

@@ -15,7 +15,7 @@
 package clusters
 
 import (
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -23,7 +23,7 @@ import (
 // Wrapper is a wrapper around the Envoy Clusters
 // It has extra helper functions for handling any/struct/marshal protobuf pain
 type Wrapper struct {
-	*adminapi.Clusters
+	*admin.Clusters
 }
 
 // MarshalJSON is a custom marshaller to handle protobuf pain
@@ -33,7 +33,7 @@ func (w *Wrapper) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
-	cd := &adminapi.Clusters{}
+	cd := &admin.Clusters{}
 	err := protomarshal.UnmarshalAllowUnknown(b, cd)
 	*w = Wrapper{cd}
 	return err

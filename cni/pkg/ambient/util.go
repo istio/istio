@@ -115,10 +115,6 @@ func (s *Server) isAmbientNamespaced() bool {
 	return s.meshMode == v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT
 }
 
-func (s *Server) isAmbientOff() bool {
-	return s.meshMode == v1alpha1.MeshConfig_AmbientMeshConfig_OFF
-}
-
 func getEnvFromPod(pod *corev1.Pod, envName string) string {
 	for _, container := range pod.Spec.Containers {
 		for _, env := range container.Env {

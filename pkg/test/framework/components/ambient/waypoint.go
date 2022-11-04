@@ -18,11 +18,8 @@ import (
 	"fmt"
 	"io"
 
-	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
-
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -33,13 +30,10 @@ var _ io.Closer = &kubeComponent{}
 type kubeComponent struct {
 	id resource.ID
 
-	api       map[string]prometheusApiV1.API
-	forwarder map[string]istioKube.PortForwarder
-	clusters  cluster.Clusters
-	sa        string
-	ns        namespace.Instance
-	inbound   istioKube.PortForwarder
-	outbound  istioKube.PortForwarder
+	sa       string
+	ns       namespace.Instance
+	inbound  istioKube.PortForwarder
+	outbound istioKube.PortForwarder
 }
 
 func (k kubeComponent) Namespace() namespace.Instance {

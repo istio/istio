@@ -19,21 +19,26 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
+	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
+	v1 "k8s.io/api/core/v1"
+	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -43,9 +48,11 @@ import (
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func preCheck() *cobra.Command {
@@ -54,7 +61,7 @@ func preCheck() *cobra.Command {
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
 		Use:   "precheck",
-		Short: "check whether Istio can safely be installed or upgrade",
+		Short: "Check whether Istio can safely be installed or upgrade",
 		Long:  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
 		Example: `  # Verify that Istio can be installed or upgraded
   istioctl x precheck
@@ -116,6 +123,11 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	msgs = append(msgs, m...)
 
 	msgs = append(msgs, checkInstallPermissions(cli)...)
+	gwMsg, err := checkGatewayAPIs(cli)
+	if err != nil {
+		return nil, err
+	}
+	msgs = append(msgs, gwMsg...)
 
 	// TODO: add more checks
 
@@ -143,6 +155,58 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	}
 
 	return msgs, nil
+}
+
+// Checks that if the user has gateway APIs, they are the minimum version.
+// It is ok to not have them, but they must be at least v1beta1 if they do.
+func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
+	msgs := diag.Messages{}
+	res, err := cli.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	betaKinds := sets.New(gvk.KubernetesGateway.Kind, gvk.GatewayClass.Kind, gvk.HTTPRoute.Kind)
+	for _, r := range res.Items {
+		if r.Spec.Group != gvk.KubernetesGateway.Group {
+			continue
+		}
+		if !betaKinds.Contains(r.Spec.Names.Kind) {
+			continue
+		}
+
+		versions := extractCRDVersions(&r)
+		has := "none"
+		if len(versions) > 0 {
+			has = strings.Join(sets.SortedList(versions), ",")
+		}
+		if !versions.Contains(gvk.KubernetesGateway.Version) {
+			origin := kube3.Origin{
+				Collection: collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+				Kind:       gvk.CustomResourceDefinition.Kind,
+				FullName: resource.FullName{
+					Namespace: resource.Namespace(r.Namespace),
+					Name:      resource.LocalName(r.Name),
+				},
+				Version: resource.Version(gvk.CustomResourceDefinition.Version),
+			}
+			r := &resource.Instance{
+				Origin: &origin,
+			}
+			msgs.Add(msg.NewUnsupportedGatewayAPIVersion(r, has, gvk.KubernetesGateway.Version))
+		}
+	}
+	return msgs, nil
+}
+
+func extractCRDVersions(r *crd.CustomResourceDefinition) sets.String {
+	res := sets.New[string]()
+	for _, v := range r.Spec.Versions {
+		if v.Served {
+			res.Insert(v.Name)
+		}
+	}
+	return res
 }
 
 func checkInstallPermissions(cli kube.CLIClient) diag.Messages {
@@ -280,11 +344,34 @@ func checkDataPlane(cli kube.CLIClient, namespace string) (diag.Messages, error)
 	return msgs, nil
 }
 
+var networkingChanges, _ = goversion.NewSemver("1.10.0")
+
+func fromLegacyNetworkingVersion(pod v1.Pod) bool {
+	for _, c := range pod.Spec.Containers {
+		if c.Name != "istio-proxy" {
+			continue
+		}
+		_, tag, _ := strings.Cut(c.Image, ":")
+		ver, err := pkgversion.TagToVersionString(tag)
+		if err != nil {
+			return true // If we aren't sure, default to doing more checks than needed
+		}
+		sv, err := goversion.NewSemver(ver)
+		if err != nil {
+			return true // If we aren't sure, default to doing more checks than needed
+		}
+		return sv.LessThan(networkingChanges)
+	}
+	return false
+}
+
+// checkListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
 func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error) {
 	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		// Find all running pods
 		FieldSelector: "status.phase=Running",
-		// Find all injected pods
+		// Find all injected pods. We don't care about non-injected pods, because the new behavior
+		// mirrors Kubernetes; this is only a breaking change for existing Istio users.
 		LabelSelector: "security.istio.io/tlsMode=istio",
 	})
 	if err != nil {
@@ -297,6 +384,11 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 	sem := semaphore.NewWeighted(25)
 	for _, pod := range pods.Items {
 		pod := pod
+		if !fromLegacyNetworkingVersion(pod) {
+			// Skip check. This pod is already on a version where the change has been made; if they were going
+			// to break they would already be broken.
+			continue
+		}
 		g.Go(func() error {
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
@@ -332,7 +424,7 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 					fmt.Println("failed to get parse state: ", err)
 					continue
 				}
-				ip := net.ParseIP(bind)
+				ip, _ := netip.ParseAddr(bind)
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]
@@ -397,12 +489,12 @@ func getColumn(line string, col int) string {
 
 func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
 	ports := map[int]bindStatus{}
-	cd := &adminapi.ConfigDump{}
+	cd := &admin.ConfigDump{}
 	if err := protomarshal.Unmarshal(configdump, cd); err != nil {
 		return nil, err
 	}
 	for _, cdump := range cd.Configs {
-		clw := &adminapi.ClustersConfigDump_DynamicCluster{}
+		clw := &admin.ClustersConfigDump_DynamicCluster{}
 		if err := cdump.UnmarshalTo(clw); err != nil {
 			return nil, err
 		}

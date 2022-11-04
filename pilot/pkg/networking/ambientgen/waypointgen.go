@@ -77,7 +77,6 @@ func (p *WaypointGenerator) Generate(proxy *model.Proxy, w *model.WatchedResourc
 			})
 		}
 		out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
-		out = append(out, outboundTunnelListener("tunnel", proxy.Metadata.ServiceAccount))
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
 		waypointClusters := p.buildClusters(proxy, req.Push)
@@ -201,7 +200,7 @@ func (p *WaypointGenerator) buildClusters(node *model.Proxy, push *model.PushCon
 	// TODO passthrough and blackhole
 	var clusters []*cluster.Cluster
 	wildcard := getActualWildcardAndLocalHost(node)
-	seen := sets.New()
+	seen := sets.New[string]()
 	for _, egressListener := range node.SidecarScope.EgressListeners {
 		for _, service := range egressListener.Services() {
 			for _, port := range service.Ports {

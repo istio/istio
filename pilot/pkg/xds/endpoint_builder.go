@@ -130,6 +130,10 @@ func (b EndpointBuilder) Key() string {
 	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
 	hash.Write(Separator)
+	if features.EnableHBONE && b.proxy != nil {
+		hash.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
+		hash.Write(Separator)
+	}
 	hash.Write([]byte(util.LocalityToString(b.locality)))
 	hash.Write(Separator)
 	if len(b.failoverPriorityLabels) > 0 {
@@ -275,6 +279,15 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
+			// Draining endpoints are only sent to 'persistent session' clusters.
+			draining := ep.HealthStatus == model.Draining ||
+				features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""
+			if draining {
+				persistentSession := b.service.Attributes.Labels[features.PersistentSessionLabel] != ""
+				if !persistentSession {
+					continue
+				}
+			}
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
@@ -286,11 +299,10 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			// TODO: we used to cache this, but since the ShardKey doesn't distinguish inbound vs outbound
-			// we need different logic
-			// if ep.EnvoyEndpoint == nil {
+			// Currently the HBONE implementation leads to different endpoint generation depending on if the
+			// client proxy supports HBONE or not. This breaks the cache.
+			// For now, just disable caching
 			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(b, ep)
-			//}
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
@@ -359,8 +371,15 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		addr = util.BuildInternalAddress(target)
 	}
 	healthStatus := core.HealthStatus_HEALTHY
+	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
 	if e.HealthStatus == model.UnHealthy {
 		healthStatus = core.HealthStatus_UNHEALTHY
+	}
+	if e.HealthStatus == model.Draining {
+		healthStatus = core.HealthStatus_DRAINING
+	}
+	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
+		healthStatus = core.HealthStatus_DRAINING
 	}
 
 	ep := &endpoint.LbEndpoint{
@@ -380,8 +399,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	// Do not remove pilot/pkg/xds/fake.go
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
-	address, port, tunnelPort := e.Address, e.EndpointPort, 15008
-	tunnelAddress := address
+	address, port := e.Address, e.EndpointPort
+	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
 	// Other side is a waypoint proxy. TODO: can this really happen?
@@ -392,9 +411,18 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	if al := e.Labels[ambient.LabelStatus]; al == ambient.TypeEnabled {
 		supportsTunnel = true
 	}
-	// Otherwise supports tunnel directly
-	if tm := e.Labels[model.TunnelLabel]; tm == model.TunnelH2 {
+	// Otherwise supports tunnel
+	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
+	// need to pick the right one based on our support overlap.
+	if e.SupportsTunnel(model.TunnelHTTP) {
 		supportsTunnel = true
+	}
+	if b.proxy.IsProxylessGrpc() {
+		// Proxyless client cannot handle tunneling, even if the server can
+		supportsTunnel = false
+	}
+	if !features.EnableHBONE {
+		supportsTunnel = false
 	}
 
 	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
@@ -409,14 +437,13 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				tunnelPort = 15006
 			}
 		}
-		ambientTunnelMeta := util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier("tunnel", net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier("outbound-tunnel", net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
-		ep.Metadata.FilterMetadata["tunnel"] = ambientTunnelMeta
+		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelH2}},
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
 			},
 		}
 	}

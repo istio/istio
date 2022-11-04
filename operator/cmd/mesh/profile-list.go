@@ -23,7 +23,7 @@ import (
 )
 
 type profileListArgs struct {
-	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem with a release tgz.
 	manifestsPath string
 }
 
@@ -47,6 +47,7 @@ func profileListCmd(rootArgs *RootArgs, plArgs *profileListArgs) *cobra.Command 
 // profileList list all the builtin profiles.
 func profileList(cmd *cobra.Command, args *RootArgs, plArgs *profileListArgs) error {
 	initLogsOrExit(args)
+
 	profiles, err := helm.ListProfiles(plArgs.manifestsPath)
 	if err != nil {
 		return err

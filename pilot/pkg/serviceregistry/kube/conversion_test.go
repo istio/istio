@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/cluster"
@@ -42,38 +42,38 @@ func TestConvertProtocol(t *testing.T) {
 		port        int32
 		name        string
 		appProtocol *string
-		proto       coreV1.Protocol
+		proto       corev1.Protocol
 		out         protocol.Instance
 	}
 	protocols := []protocolCase{
-		{8888, "", nil, coreV1.ProtocolTCP, protocol.Unsupported},
-		{25, "", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{53, "", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{3306, "", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{27017, "", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{8888, "http", nil, coreV1.ProtocolTCP, protocol.HTTP},
-		{8888, "http-test", nil, coreV1.ProtocolTCP, protocol.HTTP},
-		{8888, "http", nil, coreV1.ProtocolUDP, protocol.UDP},
-		{8888, "httptest", nil, coreV1.ProtocolTCP, protocol.Unsupported},
-		{25, "httptest", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{53, "httptest", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{3306, "httptest", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{27017, "httptest", nil, coreV1.ProtocolTCP, protocol.TCP},
-		{8888, "https", nil, coreV1.ProtocolTCP, protocol.HTTPS},
-		{8888, "https-test", nil, coreV1.ProtocolTCP, protocol.HTTPS},
-		{8888, "http2", nil, coreV1.ProtocolTCP, protocol.HTTP2},
-		{8888, "http2-test", nil, coreV1.ProtocolTCP, protocol.HTTP2},
-		{8888, "grpc", nil, coreV1.ProtocolTCP, protocol.GRPC},
-		{8888, "grpc-test", nil, coreV1.ProtocolTCP, protocol.GRPC},
-		{8888, "grpc-web", nil, coreV1.ProtocolTCP, protocol.GRPCWeb},
-		{8888, "grpc-web-test", nil, coreV1.ProtocolTCP, protocol.GRPCWeb},
-		{8888, "mongo", nil, coreV1.ProtocolTCP, protocol.Mongo},
-		{8888, "mongo-test", nil, coreV1.ProtocolTCP, protocol.Mongo},
-		{8888, "redis", nil, coreV1.ProtocolTCP, protocol.Redis},
-		{8888, "redis-test", nil, coreV1.ProtocolTCP, protocol.Redis},
-		{8888, "mysql", nil, coreV1.ProtocolTCP, protocol.MySQL},
-		{8888, "mysql-test", nil, coreV1.ProtocolTCP, protocol.MySQL},
-		{8888, "tcp", &http, coreV1.ProtocolTCP, protocol.HTTP},
+		{8888, "", nil, corev1.ProtocolTCP, protocol.Unsupported},
+		{25, "", nil, corev1.ProtocolTCP, protocol.TCP},
+		{53, "", nil, corev1.ProtocolTCP, protocol.TCP},
+		{3306, "", nil, corev1.ProtocolTCP, protocol.TCP},
+		{27017, "", nil, corev1.ProtocolTCP, protocol.TCP},
+		{8888, "http", nil, corev1.ProtocolTCP, protocol.HTTP},
+		{8888, "http-test", nil, corev1.ProtocolTCP, protocol.HTTP},
+		{8888, "http", nil, corev1.ProtocolUDP, protocol.UDP},
+		{8888, "httptest", nil, corev1.ProtocolTCP, protocol.Unsupported},
+		{25, "httptest", nil, corev1.ProtocolTCP, protocol.TCP},
+		{53, "httptest", nil, corev1.ProtocolTCP, protocol.TCP},
+		{3306, "httptest", nil, corev1.ProtocolTCP, protocol.TCP},
+		{27017, "httptest", nil, corev1.ProtocolTCP, protocol.TCP},
+		{8888, "https", nil, corev1.ProtocolTCP, protocol.HTTPS},
+		{8888, "https-test", nil, corev1.ProtocolTCP, protocol.HTTPS},
+		{8888, "http2", nil, corev1.ProtocolTCP, protocol.HTTP2},
+		{8888, "http2-test", nil, corev1.ProtocolTCP, protocol.HTTP2},
+		{8888, "grpc", nil, corev1.ProtocolTCP, protocol.GRPC},
+		{8888, "grpc-test", nil, corev1.ProtocolTCP, protocol.GRPC},
+		{8888, "grpc-web", nil, corev1.ProtocolTCP, protocol.GRPCWeb},
+		{8888, "grpc-web-test", nil, corev1.ProtocolTCP, protocol.GRPCWeb},
+		{8888, "mongo", nil, corev1.ProtocolTCP, protocol.Mongo},
+		{8888, "mongo-test", nil, corev1.ProtocolTCP, protocol.Mongo},
+		{8888, "redis", nil, corev1.ProtocolTCP, protocol.Redis},
+		{8888, "redis-test", nil, corev1.ProtocolTCP, protocol.Redis},
+		{8888, "mysql", nil, corev1.ProtocolTCP, protocol.MySQL},
+		{8888, "mysql-test", nil, corev1.ProtocolTCP, protocol.MySQL},
+		{8888, "tcp", &http, corev1.ProtocolTCP, protocol.HTTP},
 	}
 
 	// Create the list of cases for all of the names in both upper and lowercase.
@@ -105,13 +105,13 @@ func TestConvertProtocol(t *testing.T) {
 func BenchmarkConvertProtocol(b *testing.B) {
 	cases := []struct {
 		name  string
-		proto coreV1.Protocol
+		proto corev1.Protocol
 		out   protocol.Instance
 	}{
-		{"grpc-web-lowercase", coreV1.ProtocolTCP, protocol.GRPCWeb},
-		{"GRPC-WEB-mixedcase", coreV1.ProtocolTCP, protocol.GRPCWeb},
-		{"https-lowercase", coreV1.ProtocolTCP, protocol.HTTPS},
-		{"HTTPS-mixedcase", coreV1.ProtocolTCP, protocol.HTTPS},
+		{"grpc-web-lowercase", corev1.ProtocolTCP, protocol.GRPCWeb},
+		{"GRPC-WEB-mixedcase", corev1.ProtocolTCP, protocol.GRPCWeb},
+		{"https-lowercase", corev1.ProtocolTCP, protocol.HTTPS},
+		{"HTTPS-mixedcase", corev1.ProtocolTCP, protocol.HTTPS},
 	}
 
 	for _, c := range cases {
@@ -142,8 +142,8 @@ func TestServiceConversion(t *testing.T) {
 	ip := "10.0.0.1"
 
 	tnow := time.Now()
-	localSvc := coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	localSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 			Annotations: map[string]string{
@@ -151,20 +151,20 @@ func TestServiceConversion(t *testing.T) {
 				annotation.AlphaCanonicalServiceAccounts.Name:  saC + "," + saD,
 				"other/annotation": "test",
 			},
-			CreationTimestamp: metaV1.Time{Time: tnow},
+			CreationTimestamp: metav1.Time{Time: tnow},
 		},
-		Spec: coreV1.ServiceSpec{
+		Spec: corev1.ServiceSpec{
 			ClusterIP: ip,
 			Selector:  map[string]string{"foo": "bar"},
-			Ports: []coreV1.ServicePort{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
 					Port:     8080,
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
 					Name:     "https",
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 					Port:     443,
 				},
 			},
@@ -234,23 +234,23 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 
 	ip := "10.0.0.1"
 
-	localSvc := coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	localSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceName,
 			Namespace:   namespace,
 			Annotations: map[string]string{},
 		},
-		Spec: coreV1.ServiceSpec{
+		Spec: corev1.ServiceSpec{
 			ClusterIP: ip,
-			Ports: []coreV1.ServicePort{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
 					Port:     8080,
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
 					Name:     "https",
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 					Port:     443,
 				},
 			},
@@ -272,20 +272,20 @@ func TestExternalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
 
-	extSvc := coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	extSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 		},
-		Spec: coreV1.ServiceSpec{
-			Ports: []coreV1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
 					Port:     80,
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
-			Type:         coreV1.ServiceTypeExternalName,
+			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: "google.com",
 		},
 	}
@@ -314,20 +314,20 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
 
-	extSvc := coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	extSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 		},
-		Spec: coreV1.ServiceSpec{
-			Ports: []coreV1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
 					Port:     80,
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
-			Type:         coreV1.ServiceTypeExternalName,
+			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: "some.test.svc.cluster.local",
 		},
 	}
@@ -358,7 +358,7 @@ func TestLBServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
 
-	addresses := []coreV1.LoadBalancerIngress{
+	addresses := []corev1.LoadBalancerIngress{
 		{
 			IP: "127.68.32.112",
 		},
@@ -373,23 +373,23 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 	}
 
-	extSvc := coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	extSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 		},
-		Spec: coreV1.ServiceSpec{
-			Ports: []coreV1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
 					Port:     80,
-					Protocol: coreV1.ProtocolTCP,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
-			Type: coreV1.ServiceTypeLoadBalancer,
+			Type: corev1.ServiceTypeLoadBalancer,
 		},
-		Status: coreV1.ServiceStatus{
-			LoadBalancer: coreV1.LoadBalancerStatus{
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: addresses,
 			},
 		},
@@ -420,7 +420,7 @@ func TestLBServiceConversion(t *testing.T) {
 }
 
 func TestSecureNamingSAN(t *testing.T) {
-	pod := &coreV1.Pod{}
+	pod := &corev1.Pod{}
 
 	pod.Annotations = make(map[string]string)
 

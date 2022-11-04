@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,14 +38,8 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	// installerScope is the scope for all commands in the mesh package.
-	installerScope = log.RegisterScope("installer", "installer", 0)
-
-	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
-	testK8Interface *kubernetes.Clientset
-	testRestConfig  *rest.Config
-)
+// installerScope is the scope for all commands in the mesh package.
+var installerScope = log.RegisterScope("installer", "installer", 0)
 
 type Printer interface {
 	Printf(format string, a ...any)
@@ -201,11 +194,6 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 	customResource = string(b)
 	istioNamespace = mergedIOPS.Namespace
 	return
-}
-
-// createNamespace creates a namespace using the given k8s interface.
-func createNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
-	return helmreconciler.CreateNamespace(cs, namespace, network, dryRun)
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.

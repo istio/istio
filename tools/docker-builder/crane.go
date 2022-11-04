@@ -57,7 +57,7 @@ func RunCrane(a Args) error {
 	// First, construct our build plan. Doing this first allows us to figure out which base images we will need,
 	// so we can pull them in the background
 	builds := []builder.BuildSpec{}
-	bases := sets.New()
+	bases := sets.New[string]()
 	for _, v := range a.Variants {
 		for _, t := range a.Targets {
 			b := builder.BuildSpec{
@@ -101,7 +101,7 @@ func RunCrane(a Args) error {
 
 	// Warm up our base images while we are building everything. This isn't pulling them -- we actually
 	// never pull them -- but it is pulling the config file from the remote registry.
-	builder.WarmBase(a.Architectures, bases.SortedList()...)
+	builder.WarmBase(a.Architectures, sets.SortedList(bases)...)
 
 	// Build all dependencies
 	makeStart := time.Now()

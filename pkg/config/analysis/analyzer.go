@@ -68,7 +68,7 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 // should be disabled. Any analyzers that require those output collections will be removed.
 // 2. The analyzer requires a collection not available in the current snapshot(s)
 func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
-	s := sets.New()
+	s := sets.New[string]()
 	for _, sc := range schemas.All() {
 		s.Insert(sc.Name().String())
 	}

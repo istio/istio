@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -7,6 +7,11 @@ metadata:
 spec: null
 status:
   conditions:
+  - lastTransitionTime: fake
+    message: Resources not yet deployed to the cluster
+    reason: Accepted
+    status: "False"
+    type: Accepted
   - lastTransitionTime: fake
     message: 'failed to assign to any requested addresses: hostname "gateway.istio-system.svc.domain.suffix"
       not found'
@@ -21,6 +26,11 @@ status:
   listeners:
   - attachedRoutes: 1
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
@@ -46,7 +56,7 @@ status:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null

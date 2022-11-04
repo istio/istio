@@ -91,6 +91,11 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// output/working dir
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
 		"Set a specific directory for temporary artifact storage.")
+
+	// requests per second limit
+	cmd.PersistentFlags().IntVar(&args.RequestsPerSecondLimit, "rps-limit", 0,
+		"Requests per second limit to the Kubernetes API server, defaults to 10."+
+			"A higher limit can make bug report collection much faster.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {

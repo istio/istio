@@ -68,9 +68,9 @@ func (s *DiscoveryServer) compareDiff(
 	watched := sets.New(w.ResourceNames...)
 
 	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
-	wantDeleted := sets.New()
-	wantChanged := sets.New()
-	wantUnchanged := sets.New()
+	wantDeleted := sets.New[string]()
+	wantChanged := sets.New[string]()
+	wantUnchanged := sets.New[string]()
 	for _, c := range current {
 		n := newByName[c.Name]
 		if n == nil {
@@ -94,22 +94,22 @@ func (s *DiscoveryServer) compareDiff(
 		}
 	}
 
-	gotDeleted := sets.New()
+	gotDeleted := sets.New[string]()
 	if usedDelta {
 		gotDeleted.InsertAll(deleted...)
 	}
-	gotChanged := sets.New()
+	gotChanged := sets.New[string]()
 	for _, v := range resp {
 		gotChanged.Insert(v.Name)
 	}
 
 	// BUGS
-	extraDeletes := gotDeleted.Difference(wantDeleted).SortedList()
-	missedDeletes := wantDeleted.Difference(gotDeleted).SortedList()
-	missedChanges := wantChanged.Difference(gotChanged).SortedList()
+	extraDeletes := sets.SortedList(gotDeleted.Difference(wantDeleted))
+	missedDeletes := sets.SortedList(wantDeleted.Difference(gotDeleted))
+	missedChanges := sets.SortedList(wantChanged.Difference(gotChanged))
 
 	// Optimization Potential
-	extraChanges := gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps).SortedList()
+	extraChanges := sets.SortedList(gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps))
 	if len(delta.Subscribed) > 0 {
 		// Delta is configured to build only the request resources. Make sense we didn't build anything extra
 		if !wantChanged.SupersetOf(gotChanged) {

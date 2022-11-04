@@ -164,32 +164,37 @@ var (
 
 	HTTPMx = buildHTTPMxFilter()
 
-	CaptureTLSFilter = &listener.Filter{
+	CaptureTLS = &listener.Filter{
 		Name: "capture_tls",
 		ConfigType: &listener.Filter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.CaptureTLS"),
 		},
 	}
 
-	RestoreTLSFilter = &listener.Filter{
+	RestoreTLS = &listener.Filter{
 		Name: "restore_tls",
 		ConfigType: &listener.Filter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.RestoreTLS"),
 		},
 	}
 
-	BaggageFilter = &hcm.HttpFilter{
+	Baggage = &hcm.HttpFilter{
 		Name: "istio.filters.http.baggage_handler",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.baggagehandler.v1.Config"),
 		},
 	}
 
-	MetadataToPeerNodeListenerFilter = &listener.ListenerFilter{
-		Name: "envoy.filters.listener.metadata_to_peer_node",
+	SetDstAddress = &listener.ListenerFilter{
+		Name: "set_dst_address",
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config"),
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.set_internal_dst_address.v1.Config"),
 		},
+	}
+
+	MetadataToPeerNode = &listener.ListenerFilter{
+		Name:       "envoy.filters.listener.metadata_to_peer_node",
+		ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config")},
 	}
 )
 

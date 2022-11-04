@@ -20,8 +20,8 @@ import (
 	"os"
 	"testing"
 
-	envoycorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/google/uuid"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -242,13 +242,13 @@ func statusInputProxyVersion() []xds.SyncStatus {
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   map[string]*xdsapi.DiscoveryResponse
+		input   map[string]*discovery.DiscoveryResponse
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
-			input: map[string]*xdsapi.DiscoveryResponse{
+			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
 						proxyID:        "proxy1",
@@ -287,7 +287,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 		},
 		{
 			name: "prints single istiod input to buffer in alphabetical order by pod name",
-			input: map[string]*xdsapi.DiscoveryResponse{
+			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
 						proxyID:        "proxy1",
@@ -316,7 +316,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			sw := XdsStatusWriter{Writer: got}
-			input := map[string]*xdsapi.DiscoveryResponse{}
+			input := map[string]*discovery.DiscoveryResponse{}
 			for key, ss := range tt.input {
 				input[key] = ss
 			}
@@ -353,7 +353,7 @@ func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 		ClusterID: cluster.ID(config.clusterID),
 	}
 	return &status.ClientConfig{
-		Node: &envoycorev3.Node{
+		Node: &core.Node{
 			Id:       config.proxyID,
 			Metadata: meta.ToStruct(),
 		},
@@ -382,7 +382,7 @@ func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 	}
 }
 
-func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *xdsapi.DiscoveryResponse {
+func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *discovery.DiscoveryResponse {
 	icp := &xds.IstioControlPlaneInstance{
 		Component: "istiod",
 		ID:        istiodID,
@@ -397,11 +397,11 @@ func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *xdsapi
 		resources = append(resources, protoconv.MessageToAny(newXdsClientConfig(input)))
 	}
 
-	return &xdsapi.DiscoveryResponse{
+	return &discovery.DiscoveryResponse{
 		VersionInfo: "1.1",
 		TypeUrl:     clientConfigType,
 		Resources:   resources,
-		ControlPlane: &envoycorev3.ControlPlane{
+		ControlPlane: &core.ControlPlane{
 			Identifier: string(identifier),
 		},
 	}

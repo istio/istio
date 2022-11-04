@@ -66,6 +66,11 @@ spec:
           - name: foo
             value: bar
         type: RequestHeaderModifier
+      - responseHeaderModifier:
+          add:
+          - name: response
+            value: header
+        type: ResponseHeaderModifier
       port: 8000
       name: foo-svc
       weight: 100

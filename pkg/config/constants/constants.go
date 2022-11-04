@@ -21,6 +21,15 @@ const (
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
 
+	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations
+	PilotWellKnownDNSCertPath   = "./var/run/secrets/istiod/tls/"
+	PilotWellKnownDNSCaCertPath = "./var/run/secrets/istiod/ca/"
+
+	DefaultPilotTLSCert                = PilotWellKnownDNSCertPath + "tls.crt"
+	DefaultPilotTLSKey                 = PilotWellKnownDNSCertPath + "tls.key"
+	DefaultPilotTLSCaCert              = PilotWellKnownDNSCaCertPath + "root-cert.pem"
+	DefaultPilotTLSCaCertAlternatePath = PilotWellKnownDNSCertPath + "ca.crt"
+
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"
 
@@ -120,8 +129,9 @@ const (
 	// Label to skip config comparison.
 	AlwaysPushLabel = "internal.istio.io/always-push"
 
-	// InternalParentName declares the original resource of an internally-generate config. This is used by ingress and the gateway-api.
-	InternalParentName     = "internal.istio.io/parent"
+	// InternalParentNames declares the original resources of an internally-generate config. This is used by k8s gateway-api.
+	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
+	InternalParentNames    = "internal.istio.io/parents"
 	InternalRouteSemantics = "internal.istio.io/route-semantics"
 	RouteSemanticsIngress  = "ingress"
 	RouteSemanticsGateway  = "gateway"

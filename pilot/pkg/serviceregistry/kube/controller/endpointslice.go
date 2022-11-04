@@ -32,10 +32,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	kubelib "istio.io/istio/pkg/kube"
+	filterinformer "istio.io/istio/pkg/kube/informer"
 )
 
 type endpointSliceController struct {
@@ -62,7 +62,7 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
 	}
 
-	filteredInformer := filter.NewFilteredSharedIndexInformer(
+	filteredInformer := filterinformer.NewFilteredSharedIndexInformer(
 		c.opts.DiscoveryNamespacesFilter.Filter,
 		informer,
 	)
@@ -80,10 +80,10 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 
 // TODO use this to automatically switch to EndpointSlice mode
 func endpointSliceV1Available(client kubelib.Client) bool {
-	return client != nil && kubelib.IsAtLeastVersion(client, 21)
+	return client != nil && !kubelib.IsLessThanVersion(client, 21)
 }
 
-func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
+func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedIndexInformer {
 	return esc.informer
 }
 
@@ -228,12 +228,24 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
 	}
-	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
+	svc := esc.c.GetService(hostName)
+	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	for _, e := range slice.Endpoints() {
+		// Draining tracking is only enabled if persistent sessions is enabled.
+		// If we start using them for other features, this can be adjusted.
+		draining := features.PersistentSessionLabel != "" &&
+			svc != nil &&
+			svc.Attributes.Labels != nil &&
+			svc.Attributes.Labels[features.PersistentSessionLabel] != "" &&
+			e.Conditions.Ready != nil &&
+			e.Conditions.Serving != nil &&
+			*e.Conditions.Serving &&
+			!*e.Conditions.Ready
 		if !features.SendUnhealthyEndpoints.Load() {
-			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
-				// Ignore not ready endpoints
+			if !draining && e.Conditions.Ready != nil && !*e.Conditions.Ready {
+				// Ignore not ready endpoints. Draining endpoints are tracked, but not returned
+				// except for persistent-session clusters.
 				continue
 			}
 		}
@@ -258,6 +270,8 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy)
 				if ready {
 					istioEndpoint.HealthStatus = model.Healthy
+				} else if draining {
+					istioEndpoint.HealthStatus = model.Draining
 				} else {
 					istioEndpoint.HealthStatus = model.UnHealthy
 				}
@@ -445,6 +459,8 @@ func wrapEndpointSlice(slice any) *endpointSliceWrapper {
 		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1: es}
 	case *v1beta1.EndpointSlice:
 		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1beta1: es}
+	default:
+		log.Fatalf("unknown type %T", es)
 	}
 	return nil
 }

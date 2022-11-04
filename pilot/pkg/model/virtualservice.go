@@ -17,8 +17,9 @@ package model
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -30,11 +31,11 @@ import (
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
-// This is a common function used by both sidecar converter and http route.
-func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
+// This function is used by sidecar converter.
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
-	vsset := sets.New()
+	vsset := sets.New[string]()
 	addVirtualService := func(vs config.Config, hosts host.Names) {
 		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)
@@ -54,23 +55,31 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 			}
 		}
 	}
-	for _, c := range virtualServices {
-		configNamespace := c.Namespace
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// if any host in the list matches one service hostname, select the virtual service
-		// and break out of the loop.
 
-		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			addVirtualService(c, importedHosts)
-		}
+	loopAndAdd := func(vses []config.Config) {
+		for _, c := range vses {
+			configNamespace := c.Namespace
+			// Selection algorithm:
+			// virtualservices have a list of hosts in the API spec
+			// if any host in the list matches one service hostname, select the virtual service
+			// and break out of the loop.
 
-		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			addVirtualService(c, importedHosts)
+			// Check if there is an explicit import of form ns/* or ns/host
+			if importedHosts, nsFound := hosts[configNamespace]; nsFound {
+				addVirtualService(c, importedHosts)
+			}
+
+			// Check if there is an import of form */host or */*
+			if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
+				addVirtualService(c, importedHosts)
+			}
 		}
 	}
+
+	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
+	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
+	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
 
 	return importedVirtualServices
 }

@@ -6,9 +6,9 @@ metadata:
 spec:
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       creationTimestamp: null
+      labels:
+        sidecar.istio.io/inject: "false"
       name: pi
     spec:
       containers:

@@ -17,7 +17,7 @@ package kube
 import (
 	"strings"
 
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -45,7 +45,7 @@ const (
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
 )
 
-func convertPort(port coreV1.ServicePort) *model.Port {
+func convertPort(port corev1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
@@ -53,18 +53,18 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
+func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addr := constants.UnspecifiedIP
 	var extrAddrs []string
 	resolution := model.ClientSideLB
 	meshExternal := false
 
-	if svc.Spec.Type == coreV1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
+	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		resolution = model.DNSLB
 		meshExternal = true
 	}
 
-	if svc.Spec.ClusterIP == coreV1.ClusterIPNone { // headless services should not be load balanced
+	if svc.Spec.ClusterIP == corev1.ClusterIPNone { // headless services should not be load balanced
 		resolution = model.Passthrough
 	} else if svc.Spec.ClusterIP != "" {
 		addr = svc.Spec.ClusterIP
@@ -126,7 +126,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	switch svc.Spec.Type {
-	case coreV1.ServiceTypeNodePort:
+	case corev1.ServiceTypeNodePort:
 		if _, ok := svc.Annotations[NodeSelectorAnnotation]; !ok {
 			// only do this for istio ingress-gateway services
 			break
@@ -138,7 +138,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		}
 		istioService.Attributes.ClusterExternalPorts = map[cluster.ID]map[uint32]uint32{clusterID: portMap}
 		// address mappings will be done elsewhere
-	case coreV1.ServiceTypeLoadBalancer:
+	case corev1.ServiceTypeLoadBalancer:
 		if len(svc.Status.LoadBalancer.Ingress) > 0 {
 			var lbAddrs []string
 			for _, ingress := range svc.Status.LoadBalancer.Ingress {
@@ -164,8 +164,8 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	return istioService
 }
 
-func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc == nil || k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []*model.ServiceInstance {
+	if k8sSvc == nil || k8sSvc.Spec.Type != corev1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
@@ -216,12 +216,12 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 }
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func SecureNamingSAN(pod *coreV1.Pod) string {
+func SecureNamingSAN(pod *corev1.Pod) string {
 	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
 // PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar
-func PodTLSMode(pod *coreV1.Pod) string {
+func PodTLSMode(pod *corev1.Pod) string {
 	if pod == nil {
 		return model.DisabledTLSModeLabel
 	}

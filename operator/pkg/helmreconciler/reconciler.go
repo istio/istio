@@ -22,14 +22,12 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
@@ -87,10 +85,17 @@ type Options struct {
 	SkipPrune bool
 }
 
-var defaultOptions = &Options{
-	Log:         clog.NewDefaultLogger(),
-	ProgressLog: progress.NewLog(),
-}
+var (
+	defaultOptions = &Options{
+		Log:         clog.NewDefaultLogger(),
+		ProgressLog: progress.NewLog(),
+	}
+	conflictBackoff = wait.Backoff{
+		Duration: time.Millisecond * 10,
+		Factor:   2,
+		Steps:    3,
+	}
+)
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -143,7 +148,7 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 
 // Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
-	if err := h.createNamespace(istioV1Alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
+	if err := util.CreateNamespace(h.kubeClient.Kube(), istioV1Alpha1.Namespace(h.iop.Spec), h.networkName(), h.opts.DryRun); err != nil {
 		return nil, err
 	}
 	manifestMap, err := h.RenderCharts()
@@ -248,7 +253,7 @@ func (h *HelmReconciler) CheckSSAEnabled() bool {
 			// todo(kebe7jun) a more general test method
 			// API Server does not support detecting whether ServerSideApply is enabled
 			// through the API for the time being.
-			ns, err := h.kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, v12.GetOptions{})
+			ns, err := h.kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, metav1.GetOptions{})
 			if err != nil {
 				scope.Warnf("failed to get namespace: %v", err)
 				return false
@@ -510,39 +515,6 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	}
 }
 
-// CreateNamespace creates a namespace using the given k8s interface.
-func CreateNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
-	if dryRun {
-		scope.Infof("Not applying Namespace %s because of dry run.", namespace)
-		return nil
-	}
-	if namespace == "" {
-		// Setup default namespace
-		namespace = name.IstioDefaultNamespace
-	}
-	// check if the namespace already exists. If yes, do nothing. If no, create a new one.
-	_, err := cs.CoreV1().Namespaces().Get(context.TODO(), namespace, v12.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{
-				Name:   namespace,
-				Labels: map[string]string{},
-			}}
-			if network != "" {
-				ns.Labels[label.TopologyNetwork.Name] = network
-			}
-			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
-			}
-		} else {
-			return fmt.Errorf("failed to check if namespace %v exists: %v", namespace, err)
-		}
-	}
-
-	return nil
-}
-
 func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	if len(whs) == 0 {
 		return nil
@@ -593,11 +565,6 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return fmt.Errorf("creating default tag would conflict:\n%v", o)
 	}
 	return nil
-}
-
-// createNamespace creates a namespace using the given k8s client.
-func (h *HelmReconciler) createNamespace(namespace string, network string) error {
-	return CreateNamespace(h.kubeClient.Kube(), namespace, network, h.opts.DryRun)
 }
 
 func (h *HelmReconciler) networkName() string {

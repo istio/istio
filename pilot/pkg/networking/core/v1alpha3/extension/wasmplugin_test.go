@@ -17,15 +17,15 @@ package extension
 import (
 	"testing"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 var (
@@ -48,18 +48,18 @@ var (
 )
 
 func TestInsertedExtensionConfigurations(t *testing.T) {
-	wasm, _ := anypb.New(&extensionsv3.Wasm{})
+	wasm := protoconv.MessageToAny(&wasm.Wasm{})
 	testCases := []struct {
 		name        string
 		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
 		names       []string
-		expectedECs []*envoy_config_core_v3.TypedExtensionConfig
+		expectedECs []*core.TypedExtensionConfig
 	}{
 		{
 			name:        "empty",
 			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{},
 			names:       []string{someAuthNFilter.Name},
-			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{},
+			expectedECs: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "authn",
@@ -70,7 +70,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 				},
 			},
 			names: []string{someAuthNFilter.Namespace + "." + someAuthNFilter.Name},
-			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
+			expectedECs: []*core.TypedExtensionConfig{
 				{
 					Name:        "istio-system.someAuthNFilter",
 					TypedConfig: wasm,
