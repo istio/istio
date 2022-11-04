@@ -243,7 +243,7 @@ func buildHBONEConnectionManager(vhost *route.VirtualHost) *listener.Filter {
 			ValidateClusters: proto.BoolFalse,
 		},
 	}
-	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.Baggage, xdsfilters.Router}
+	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.Router}
 	connMgr.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
 	}
