@@ -73,10 +73,9 @@ func (e WorkloadGenerator) GenerateDeltas(
 		if isReq {
 			// We need to respond for requests, even if we have nothing to respond with
 			return make(model.Resources, 0), nil, model.XdsLogDetails{}, false, nil
-		} else {
-			// For NOP pushes, no need
-			return nil, nil, model.XdsLogDetails{}, false, nil
 		}
+		// For NOP pushes, no need
+		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 
 	resources := make(model.Resources, 0)

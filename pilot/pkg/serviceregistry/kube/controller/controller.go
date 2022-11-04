@@ -28,7 +28,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -52,8 +51,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/informer"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
@@ -1825,14 +1824,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
 }
-
-var proxyLbl = func() klabels.Selector {
-	proxyLbl, err := klabels.Parse("gateway.istio.io/managed=istio.io-mesh-controller")
-	if err != nil {
-		panic(err.Error())
-	}
-	return proxyLbl
-}()
 
 // TODO: optimize this, we can easily cache the Pods.List
 func (c *Controller) proxiesForWorkload(pod *v1.Pod, waypoints []*v1.Pod) []string {

@@ -217,6 +217,7 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string) {
 	}
 }
 
+// nolint: unparam
 func createService(s *FakeDiscoveryServer, name, namespace string, selector map[string]string) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

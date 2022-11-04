@@ -159,7 +159,7 @@ func (a *DeltaAdsTest) ExpectEmptyResponse() *discovery.DeltaDiscoveryResponse {
 		if resp == nil {
 			a.t.Fatalf("expected response")
 		}
-		if len(resp.RemovedResources) > 0 || len(resp.Resources) > 0 {
+		if resp != nil && (len(resp.RemovedResources) > 0 || len(resp.Resources) > 0) {
 			a.t.Fatalf("expected empty response")
 		}
 		return resp
