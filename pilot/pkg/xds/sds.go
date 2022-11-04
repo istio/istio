@@ -82,7 +82,10 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretResource {
 	res := make([]SecretResource, 0, len(names))
 	pkpConf := (*mesh.ProxyConfig)(proxy.Metadata.ProxyConfig).GetPrivateKeyProvider()
-	pkpConfHash := xxhashv2.Sum64String(pkpConf.String())
+	pkpConfHashStr := ""
+	if pkpConf != nil {
+		pkpConfHashStr = strconv.FormatUint(xxhashv2.Sum64String(pkpConf.String()), 10)
+	}
 	for _, resource := range names {
 		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
 		if err != nil {
@@ -90,7 +93,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 			log.Warnf("error parsing resource name: %v", err)
 			continue
 		}
-		res = append(res, SecretResource{sr, strconv.FormatUint(pkpConfHash, 10)})
+		res = append(res, SecretResource{sr, pkpConfHashStr})
 	}
 	return res
 }
