@@ -177,7 +177,7 @@ func (d *deployment) Restart() error {
 				}
 			}
 			return nil
-		}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second)); err != nil {
+		}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
 				d.cfg.Namespace.Name(), deploymentName, err))
 		}
