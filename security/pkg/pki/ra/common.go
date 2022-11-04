@@ -77,6 +77,9 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	if err != nil {
 		return false
 	}
+	if err := csr.CheckSignature(); err != nil {
+		return false
+	}
 	csrIDs, err := util.ExtractIDs(csr.Extensions)
 	if err != nil {
 		return false
