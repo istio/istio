@@ -60,8 +60,11 @@ func (key ConfigKey) HashCode() ConfigHash {
 	hash := xxhashv2.New()
 	// the error will always return nil
 	_, _ = hash.Write([]byte{byte(key.Kind)})
-	_, _ = hash.Write([]byte(key.Name))
+	// Add separator / to avoid collision.
+	_, _ = hash.Write([]byte("/"))
 	_, _ = hash.Write([]byte(key.Namespace))
+	_, _ = hash.Write([]byte("/"))
+	_, _ = hash.Write([]byte(key.Name))
 	return ConfigHash(hash.Sum64())
 }
 

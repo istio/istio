@@ -577,3 +577,21 @@ func BenchmarkHashCode(b *testing.B) {
 		})
 	}
 }
+
+func TestHashCodeCollision(t *testing.T) {
+	config1 := model.ConfigKey{
+		Kind:      kind.VirtualService,
+		Name:      "abc",
+		Namespace: "ns-foo",
+	}
+
+	config2 := model.ConfigKey{
+		Kind:      kind.VirtualService,
+		Name:      "ab",
+		Namespace: "cns-foo",
+	}
+
+	if config1.HashCode() == config2.HashCode() {
+		t.Fatalf("Hash code of config1 %s should not be equal to config2 %s", config1.String(), config2.String())
+	}
+}
