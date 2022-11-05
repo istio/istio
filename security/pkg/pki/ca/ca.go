@@ -412,6 +412,22 @@ func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 			"requested TTL %s is greater than the max allowed TTL %s", requestedLifetime, ca.maxCertTTL))
 	}
 
+	// check identities against those in the SAN URI extension only create
+	// a certificate if spiffe://<trustDomain>/ns/<namespace>/sa/<serviceAccountName>
+	// exists that matches the JWT provided by the workload in the metadata.Pair
+	spiffeMatch := false
+	for _, subjectID := range subjectIDs {
+		for _, uri := range csr.URIs {
+			if uri.String() == subjectID {
+				spiffeMatch = true
+				break
+			}
+		}
+	}
+	if !spiffeMatch {
+		return nil, caerror.NewError(caerror.CertGenError, fmt.Errorf("CSR does not contain identity: %v", subjectIDs))
+	}
+
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, lifetime, forCA)
 	if err != nil {
 		return nil, caerror.NewError(caerror.CertGenError, err)

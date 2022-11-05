@@ -400,11 +400,27 @@ func TestSignCSR(t *testing.T) {
 		verifyFields  util.VerifyFields
 		expectedError string
 	}{
+		"Workload identity not in CSR": {
+			forCA: false,
+			certOpts: util.CertOptions{
+				Host:       "spiffe://different.com/test",
+				RSAKeySize: 2048,
+				IsCA:       false,
+			},
+			maxTTL:       time.Hour,
+			requestedTTL: 30 * time.Minute,
+			verifyFields: util.VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				IsCA:        false,
+				Host:        subjectID,
+			},
+			expectedError: "CSR does not contain identity: [spiffe://example.com/ns/foo/sa/bar]",
+		},
 		"Workload uses RSA": {
 			forCA: false,
 			certOpts: util.CertOptions{
-				// This value is not used, instead, subjectID should be used in certificate.
-				Host:       "spiffe://different.com/test",
+				Host:       subjectID,
 				RSAKeySize: 2048,
 				IsCA:       false,
 			},
@@ -421,8 +437,7 @@ func TestSignCSR(t *testing.T) {
 		"Workload uses EC": {
 			forCA: false,
 			certOpts: util.CertOptions{
-				// This value is not used, instead, subjectID should be used in certificate.
-				Host:     "spiffe://different.com/test",
+				Host:     subjectID,
 				ECSigAlg: util.EcdsaSigAlg,
 				IsCA:     false,
 			},
@@ -439,6 +454,7 @@ func TestSignCSR(t *testing.T) {
 		"CA uses RSA": {
 			forCA: true,
 			certOpts: util.CertOptions{
+				Host:       subjectID,
 				RSAKeySize: 2048,
 				IsCA:       true,
 			},
@@ -454,6 +470,7 @@ func TestSignCSR(t *testing.T) {
 		"CA uses EC": {
 			forCA: true,
 			certOpts: util.CertOptions{
+				Host:     subjectID,
 				ECSigAlg: util.EcdsaSigAlg,
 				IsCA:     true,
 			},
@@ -469,6 +486,7 @@ func TestSignCSR(t *testing.T) {
 		"CSR uses RSA TTL error": {
 			forCA: false,
 			certOpts: util.CertOptions{
+				Host:       subjectID,
 				Org:        "istio.io",
 				RSAKeySize: 2048,
 			},
@@ -479,6 +497,7 @@ func TestSignCSR(t *testing.T) {
 		"CSR uses EC TTL error": {
 			forCA: false,
 			certOpts: util.CertOptions{
+				Host:     subjectID,
 				Org:      "istio.io",
 				ECSigAlg: util.EcdsaSigAlg,
 			},
@@ -600,7 +619,7 @@ func TestSignWithCertChain(t *testing.T) {
 
 	opts := util.CertOptions{
 		// This value is not used, instead, subjectID should be used in certificate.
-		Host:       "spiffe://different.com/test",
+		//Host:       "spiffe://different.com/test",
 		RSAKeySize: 2048,
 		IsCA:       false,
 	}
