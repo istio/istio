@@ -344,6 +344,10 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLi
 		RSAKeySize: rsaKeySize,
 	}
 
+	if len(hostnames) > 0 {
+		opts.Host = hostnames[0]
+	}
+
 	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
 	// cause intermediate CAs using RSA to be generated)
 	_, signingKey, _, _ := ca.keyCertBundle.GetAll()

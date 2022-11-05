@@ -618,8 +618,7 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 
 	opts := util.CertOptions{
-		// This value is not used, instead, subjectID should be used in certificate.
-		//Host:       "spiffe://different.com/test",
+		Host:       "spiffe://different.com/test",
 		RSAKeySize: 2048,
 		IsCA:       false,
 	}
@@ -629,7 +628,7 @@ func TestSignWithCertChain(t *testing.T) {
 	}
 
 	caCertOpts := CertOpts{
-		SubjectIDs: []string{"localhost"},
+		SubjectIDs: []string{"spiffe://different.com/test"},
 		TTL:        time.Hour,
 		ForCA:      false,
 	}
@@ -715,7 +714,7 @@ func TestGenKeyCert(t *testing.T) {
 			t.Fatalf("failed to create a plugged-cert CA.")
 		}
 
-		certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, tc.certLifetime, tc.checkCertLifetime)
+		certPEM, privPEM, err := ca.GenKeyCert([]string{"spiffe://different.com/test"}, tc.certLifetime, tc.checkCertLifetime)
 		if err != nil {
 			if tc.expectedError == "" {
 				t.Fatalf("[%s] Unexpected error: %v", id, err)
