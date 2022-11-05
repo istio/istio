@@ -1,0 +1,20 @@
+# This example envoy filter enables hystrix sink based on https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/metrics/v3/stats.proto#extension-envoy-stat-sinks-hystrix
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: hystrix-sink-bootstrap-filter
+spec:
+  workloadSelector:
+    labels:
+      app: helloworld
+      version: v1
+  configPatches:
+  - applyTo: BOOTSTRAP
+    patch:
+      operation: MERGE
+      value:
+        stats_sinks:
+        - name: envoy.stat_sinks.hystrix
+          typed_config:
+            "@type": "type.googleapis.com/envoy.config.metrics.v3.HystrixSink"
+            num_buckets: 10

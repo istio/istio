@@ -1,6 +1,8 @@
 # Custom Envoy Bootstrap Configuration
 
-This sample creates a simple helloworld service that bootstraps the Envoy proxy with a custom configuration file.
+This sample creates a simple helloworld service that bootstraps the Envoy proxy. There are 2 ways to implement this:
+1. With a custom configuration file. 
+2. With envoy filter
 
 ## Starting the service
 
@@ -8,11 +10,13 @@ First, we need to create a `ConfigMap` resource with our bootstrap configuration
 
 ```bash
 kubectl apply -f custom-bootstrap.yaml
+kubectl apply -f custom-bootstrap-envoy-filter.yaml
 ```
 
 Next, we can create a service that uses this bootstrap configuration.
 
-To do this, we need to add an annotation, `sidecar.istio.io/bootstrapOverride`, with the name of our ConfigMap as the value.
+- For using `custom-bootstrap.yaml` we need to add an annotation, `sidecar.istio.io/bootstrapOverride` to pod spec with the name of our ConfigMap as the value.
+- For using `custom-bootstrap-envoy-filter.yaml`, we need to enable `BOOTSTRAP_XDS_AGENT` [environment variable](https://istio.io/latest/docs/reference/commands/pilot-agent/#envvars).
 
 We can create our helloworld app, using the custom config, with:
 
@@ -48,5 +52,6 @@ For reference, [the default bootstrap configuration](../../tools/packaging/commo
 
 ```bash
 kubectl delete -f custom-bootstrap.yaml
+kubectl delete -f custom-bootstrap-envoy-filter.yaml
 kubectl delete -f example-app.yaml
 ```
