@@ -50,7 +50,7 @@ func (p *tapProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) err
 		log.Errorf("failed to recv: %v", err)
 		return err
 	}
-	if strings.HasPrefix(req.TypeUrl, "istio.io/debug/") {
+	if strings.HasPrefix(req.TypeUrl, xds.TypeDebugPrefix) {
 		if resp, err := p.xdsProxy.tapRequest(req, timeout); err == nil {
 			err := downstream.Send(resp)
 			if err != nil {

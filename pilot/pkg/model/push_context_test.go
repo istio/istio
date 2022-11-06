@@ -39,6 +39,7 @@ import (
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -50,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -283,7 +285,7 @@ func TestEnvoyFilters(t *testing.T) {
 
 func TestEnvoyFilterOrder(t *testing.T) {
 	env := &Environment{}
-	store := istioConfigStore{ConfigStore: NewFakeStore()}
+	store := NewFakeStore()
 
 	ctime := time.Now()
 
@@ -437,7 +439,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	for _, cfg := range envoyFilters {
 		_, _ = store.Create(cfg)
 	}
-	env.ConfigStore = &store
+	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
@@ -465,7 +467,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 func TestWasmPlugins(t *testing.T) {
 	env := &Environment{}
-	store := istioConfigStore{ConfigStore: NewFakeStore()}
+	store := NewFakeStore()
 
 	wasmPlugins := map[string]config.Config{
 		"invalid-type": {
@@ -525,6 +527,12 @@ func TestWasmPlugins(t *testing.T) {
 						"app": "productpage",
 					},
 				},
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode:  selectorpb.WorkloadMode_SERVER,
+						Ports: []*selectorpb.PortSelector{{Number: 1234}},
+					},
+				},
 			},
 		},
 		"global-authz-med-prio-app": {
@@ -535,6 +543,12 @@ func TestWasmPlugins(t *testing.T) {
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
+					},
+				},
+				Match: []*extensions.WasmPlugin_TrafficSelector{
+					{
+						Mode:  selectorpb.WorkloadMode_SERVER,
+						Ports: []*selectorpb.PortSelector{{Number: 1235}},
 					},
 				},
 			},
@@ -551,11 +565,13 @@ func TestWasmPlugins(t *testing.T) {
 	testCases := []struct {
 		name               string
 		node               *Proxy
+		listenerInfo       WasmPluginListenerInfo
 		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
+			listenerInfo:       anyListener,
 			expectedExtensions: nil,
 		},
 		{
@@ -564,6 +580,7 @@ func TestWasmPlugins(t *testing.T) {
 				ConfigNamespace: "other",
 				Metadata:        &NodeMetadata{},
 			},
+			listenerInfo:       anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
 		},
 		{
@@ -579,6 +596,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
+			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
@@ -598,6 +616,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
+			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
@@ -619,6 +638,7 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
+			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -629,12 +649,44 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 		},
+		{
+			// Detailed tests regarding TrafficSelector are in extension_test.go
+			// Just test the integrity here.
+			// This testcase is identical with "testns-2", but `listenerInfo`` is specified.
+			// 1. `global-authn-high-prio-app` matched, because it has a port matching clause with "1234"
+			// 2. `authz-high-prio-ingress` matched, because it does not have any `match` clause
+			// 3. `global-authz-med-prio-app` not matched, because it has a port matching clause with "1235"
+			name: "testns-2-with-port-match",
+			node: &Proxy{
+				ConfigNamespace: "testns-2",
+				Labels: map[string]string{
+					"app": "productpage",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+			listenerInfo: WasmPluginListenerInfo{
+				Port:  1234,
+				Class: istionetworking.ListenerClassSidecarInbound,
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+				},
+				extensions.PluginPhase_AUTHZ: {
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
+				},
+			},
+		},
 	}
 
 	for _, config := range wasmPlugins {
 		store.Create(config)
 	}
-	env.ConfigStore = &store
+	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
@@ -648,7 +700,7 @@ func TestWasmPlugins(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPlugins(tc.node)
+			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
 				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}
@@ -659,9 +711,7 @@ func TestWasmPlugins(t *testing.T) {
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := NewEnvironment()
-	store := istioConfigStore{ConfigStore: NewFakeStore()}
-
-	env.ConfigStore = &store
+	env.ConfigStore = NewFakeStore()
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -958,9 +1008,7 @@ func TestInitPushContext(t *testing.T) {
 		},
 	})
 
-	store := istioConfigStore{ConfigStore: configStore}
-
-	env.ConfigStore = &store
+	env.ConfigStore = configStore
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1014,7 +1062,8 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
+			ClusterLocalHosts{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1072,9 +1121,7 @@ func TestSidecarScope(t *testing.T) {
 	_, _ = configStore.Create(configWithWorkloadSelector)
 	_, _ = configStore.Create(rootConfig)
 
-	store := istioConfigStore{ConfigStore: configStore}
-
-	env.ConfigStore = &store
+	env.ConfigStore = configStore
 	if err := ps.initSidecarScopes(env); err != nil {
 		t.Fatalf("init sidecar scope failed: %v", err)
 	}
@@ -1119,6 +1166,120 @@ func TestSidecarScope(t *testing.T) {
 	}
 }
 
+func TestRootSidecarScopePropagation(t *testing.T) {
+	rootNS := "istio-system"
+	defaultNS := "default"
+	otherNS := "foo"
+
+	verifyServices := func(sidecarScopeEnabled bool, desc string, ns string, push *PushContext) {
+		t.Run(desc, func(t *testing.T) {
+			scScope := push.getSidecarScope(&Proxy{Type: SidecarProxy, ConfigNamespace: ns}, nil)
+			services := scScope.Services()
+			numSvc := 0
+			svcList := []string{}
+			for _, service := range services {
+				svcName := service.Attributes.Name
+				svcNS := service.Attributes.Namespace
+				if svcNS != ns && svcNS != rootNS {
+					numSvc++
+				}
+				svcList = append(svcList, fmt.Sprintf("%v.%v.cluster.local", svcName, svcNS))
+			}
+			if sidecarScopeEnabled && numSvc > 0 {
+				t.Fatalf("For namespace:%v, should not see services from other ns. Instead got these services: %v", ns, svcList)
+			}
+		})
+	}
+
+	env := NewEnvironment()
+	configStore := NewFakeStore()
+
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(m)
+
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc1",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc1",
+					Namespace: defaultNS,
+				},
+			},
+			{
+				Hostname: "svc2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc2",
+					Namespace: otherNS,
+				},
+			},
+			{
+				Hostname: "svc3",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc3",
+					Namespace: otherNS,
+				},
+			},
+			{
+				Hostname: "svc4",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Name:      "svc4",
+					Namespace: rootNS,
+				},
+			},
+		},
+	}
+	env.Init()
+	globalSidecar := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"./*", fmt.Sprintf("%v/*", rootNS)},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
+	rootConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			Name:             "global",
+			Namespace:        constants.IstioSystemNamespace,
+		},
+		Spec: globalSidecar,
+	}
+
+	_, _ = configStore.Create(rootConfig)
+	env.ConfigStore = configStore
+
+	testDesc := "Testing root SidecarScope for ns:%v enabled when %v is called."
+	when := "createNewContext"
+	newPush := NewPushContext()
+	newPush.Mesh = env.Mesh()
+	newPush.InitContext(env, nil, nil)
+	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
+	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
+
+	oldPush := newPush
+	newPush = NewPushContext()
+	newPush.Mesh = env.Mesh()
+	svcName := "svc6.foo.cluster.local"
+	if err := newPush.InitContext(env, oldPush, &PushRequest{
+		ConfigsUpdated: map[ConfigKey]struct{}{
+			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
+		},
+		Reason: nil,
+		Full:   true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	when = "updateContext(with no changes)"
+	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
+	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
+}
+
 func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	const partialNS string = "partial"
 	const wholeNS string = "whole"
@@ -1140,8 +1301,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 		},
 	}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
-	store := istioConfigStore{ConfigStore: configStore}
-	env.ConfigStore = &store
+	env.ConfigStore = configStore
 	if err := ps.initAuthnPolicies(env); err != nil {
 		t.Fatalf("init authn policies failed: %v", err)
 	}
@@ -1723,8 +1883,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		{Namespace: "test", Name: "rule2"},
 	}
 	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	private := ps.destinationRuleIndex.namespaceLocal["test"].destRules[host.Name(testhost)]
-	public := ps.destinationRuleIndex.exportedByNamespace["test"].destRules[host.Name(testhost)]
+	private := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
+	public := ps.destinationRuleIndex.exportedByNamespace["test"].specificDestRules[host.Name(testhost)]
 	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
 	subsetsExport := public[0].rule.Spec.(*networking.DestinationRule).Subsets
 	assert.Equal(t, private[0].from, expectedDestRules)
@@ -1887,11 +2047,50 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
+
+	destinationRule5ExportToRootNamespace := config.Config{
+		Meta: config.Meta{
+			Name:      "rule5",
+			Namespace: "test5",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     "api.test.com",
+			ExportTo: []string{"istio-system"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset5-0",
+				},
+				{
+					Name: "subset5-1",
+				},
+			},
+		},
+	}
+
+	destinationRule6ExportToRootNamespace := config.Config{
+		Meta: config.Meta{
+			Name:      "rule6",
+			Namespace: "test6",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     "api.test.com",
+			ExportTo: []string{"istio-system"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset6-0",
+				},
+				{
+					Name: "subset6-1",
+				},
+			},
+		},
+	}
 	ps.setDestinationRules([]config.Config{
 		destinationRuleNamespace1, destinationRuleNamespace2,
 		destinationRuleNamespace3, destinationRuleNamespace4Local,
 		destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
 		destinationRuleRootNamespaceLocalWithWildcardHost1, destinationRuleRootNamespaceLocalWithWildcardHost2,
+		destinationRule5ExportToRootNamespace, destinationRule6ExportToRootNamespace,
 	})
 	cases := []struct {
 		proxyNs     string
@@ -1971,19 +2170,48 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			host:        appHost,
 			wantSubsets: []string{"subset13", "subset14"},
 		},
+		// dr in the svc ns takes effect on proxy in root ns
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "test5",
+			host:        "api.test.com",
+			wantSubsets: []string{"subset5-0", "subset5-1"},
+		},
+		// dr in the svc ns takes effect on proxy in root ns
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "test6",
+			host:        "api.test.com",
+			wantSubsets: []string{"subset6-0", "subset6-1"},
+		},
+		// both svc and dr namespace is not equal to proxy ns, the dr will not take effect on the proxy
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "test7",
+			host:        "api.test.com",
+			wantSubsets: nil,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			destRuleConfig := ps.destinationRule(tt.proxyNs,
+			out := ps.destinationRule(tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
 						Namespace: tt.serviceNs,
 					},
-				})[0]
-			if destRuleConfig == nil {
+				})
+			if tt.wantSubsets == nil {
+				if len(out) != 0 {
+					t.Fatalf("proxy in %s namespace: unexpected dr found %+v", tt.proxyNs, out)
+				}
+				return
+			}
+
+			if len(out) == 0 {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
+			destRuleConfig := out[0]
 			destRule := destRuleConfig.rule.Spec.(*networking.DestinationRule)
 			var gotSubsets []string
 			for _, ss := range destRule.Subsets {
@@ -2078,8 +2306,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		}
 	}
 
-	store := istioConfigStore{ConfigStore: configStore}
-	env.ConfigStore = &store
+	env.ConfigStore = configStore
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
@@ -2216,8 +2443,7 @@ func TestInitVirtualService(t *testing.T) {
 		}
 	}
 
-	store := istioConfigStore{ConfigStore: configStore}
-	env.ConfigStore = &store
+	env.ConfigStore = configStore
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
@@ -2410,15 +2636,15 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		}
 	}
 
-	store := istioConfigStore{ConfigStore: configStore}
-	env.ConfigStore = &store
+	env.ConfigStore = configStore
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
-	got := getHostsFromMeshConfig(ps)
-	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, got.SortedList())
+	got := sets.String{}
+	addHostsFromMeshConfig(ps, got)
+	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
 // TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
@@ -2497,6 +2723,10 @@ func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInsta
 
 func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Instance {
 	panic("implement me")
+}
+
+func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service) []string {
+	return nil
 }
 
 func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {

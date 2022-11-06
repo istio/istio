@@ -20,6 +20,7 @@ import (
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	sm "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
@@ -33,7 +34,7 @@ type generator interface {
 type destIPGenerator struct{}
 
 func (destIPGenerator) permission(_, value string, _ bool) (*rbacpb.Permission, error) {
-	cidrRange, err := matcher.CidrRange(value)
+	cidrRange, err := util.AddrStrToCidrRange(value)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (srcIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error
 }
 
 func (srcIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, error) {
-	cidr, err := matcher.CidrRange(value)
+	cidr, err := util.AddrStrToCidrRange(value)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func (remoteIPGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, er
 }
 
 func (remoteIPGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, error) {
-	cidr, err := matcher.CidrRange(value)
+	cidr, err := util.AddrStrToCidrRange(value)
 	if err != nil {
 		return nil, err
 	}

@@ -27,9 +27,7 @@ import (
 )
 
 func FuzzCreateCertificate(f *testing.F) {
-	fuzz.BaseCases(f)
-	f.Fuzz(func(t *testing.T, data []byte) {
-		fg := fuzz.New(t, data)
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		csr := fuzz.Struct[pb.IstioCertificateRequest](fg)
 		ca := fuzz.Struct[mockca.FakeCA](fg)
 		ca.SignErr = caerror.NewError(caerror.CSRError, fmt.Errorf("cannot sign"))

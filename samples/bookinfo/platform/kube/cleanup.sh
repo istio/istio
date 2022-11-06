@@ -38,12 +38,24 @@ fi
 
 echo "using NAMESPACE=${NAMESPACE}"
 
+# clean up Istio traffic management resources that may have been used
 protos=( destinationrules virtualservices gateways )
 for proto in "${protos[@]}"; do
   for resource in $(kubectl get -n ${NAMESPACE} "$proto" -o name); do
     kubectl delete -n ${NAMESPACE} "$resource";
   done
 done
+
+# clean up Gateway API resources that may have been used
+if kubectl get crd gateways.gateway.networking.k8s.io >/dev/null 2>&1; then
+  protos=( httproutes gateways.gateway.networking.k8s.io )
+  for proto in "${protos[@]}"; do
+    for resource in $(kubectl get -n ${NAMESPACE} "$proto" -o name); do
+      kubectl delete -n ${NAMESPACE} "$resource";
+    done
+  done
+  kubectl delete -n ${NAMESPACE} -f "$SCRIPTDIR/bookinfo-versions.yaml" >/dev/null 2>&1
+fi
 
 OUTPUT=$(mktemp)
 export OUTPUT

@@ -23,9 +23,9 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 
@@ -40,8 +40,8 @@ const (
 var re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
 
 type filterChain struct {
-	rbacHTTP []*rbac_http_filter.RBAC
-	rbacTCP  []*rbac_tcp_filter.RBAC
+	rbacHTTP []*rbachttp.RBAC
+	rbacTCP  []*rbactcp.RBAC
 }
 
 type parsedListener struct {
@@ -58,8 +58,8 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectionManager {
-	cm := &hcm_filter.HttpConnectionManager{}
+func getHTTPConnectionManager(filter *listener.Filter) *hcm.HttpConnectionManager {
+	cm := &hcm.HttpConnectionManager{}
 	if err := getFilterConfig(filter, cm); err != nil {
 		log.Errorf("failed to get HTTP connection manager config: %s", err)
 		return nil
@@ -67,9 +67,9 @@ func getHTTPConnectionManager(filter *listener.Filter) *hcm_filter.HttpConnectio
 	return cm
 }
 
-func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error {
+func getHTTPFilterConfig(filter *hcm.HttpFilter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
-	case *hcm_filter.HttpFilter_TypedConfig:
+	case *hcm.HttpFilter_TypedConfig:
 		if err := c.TypedConfig.UnmarshalTo(out); err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func parse(listeners []*listener.Listener) []*parsedListener {
 						for _, httpFilter := range cm.GetHttpFilters() {
 							switch httpFilter.GetName() {
 							case wellknown.HTTPRoleBasedAccessControl:
-								rbacHTTP := &rbac_http_filter.RBAC{}
+								rbacHTTP := &rbachttp.RBAC{}
 								if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
 									log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
 								} else {
@@ -100,7 +100,7 @@ func parse(listeners []*listener.Listener) []*parsedListener {
 						}
 					}
 				case wellknown.RoleBasedAccessControl:
-					rbacTCP := &rbac_tcp_filter.RBAC{}
+					rbacTCP := &rbactcp.RBAC{}
 					if err := getFilterConfig(filter, rbacTCP); err != nil {
 						log.Errorf("found RBAC network filter but failed to parse: %s", err)
 					} else {

@@ -46,6 +46,12 @@ type Failer interface {
 	Cleanup(func())
 }
 
+// Fuzzer abstracts *testing.F
+type Fuzzer interface {
+	Fuzz(ff any)
+	Add(args ...any)
+}
+
 // errorWrapper is a Failer that can be used to just extract an `error`. This allows mixing
 // functions that take in a Failer and those that take an error.
 // The function must be called within a goroutine, or calls to Fatal will try to terminate the outer

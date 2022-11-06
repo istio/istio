@@ -16,7 +16,7 @@ package security
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // JwksInfo provides values resulting from parsing a jwks URI.
@@ -153,11 +154,11 @@ func ValidateIPs(ips []string) error {
 	var errs *multierror.Error
 	for _, v := range ips {
 		if strings.Contains(v, "/") {
-			if _, _, err := net.ParseCIDR(v); err != nil {
+			if _, err := netip.ParsePrefix(v); err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("bad CIDR range (%s): %v", v, err))
 			}
 		} else {
-			if ip := net.ParseIP(v); ip == nil {
+			if _, err := netip.ParseAddr(v); err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("bad IP address (%s)", v))
 			}
 		}
@@ -214,4 +215,25 @@ func IsValidCipherSuite(cs string) bool {
 		return true
 	}
 	return ValidCipherSuites.Contains(cs)
+}
+
+// FilterCipherSuites filters out invalid cipher suites which would lead Envoy to NACKing.
+func FilterCipherSuites(suites []string) []string {
+	if len(suites) == 0 {
+		return nil
+	}
+	ret := make([]string, 0, len(suites))
+	validCiphers := sets.New[string]()
+	for _, s := range suites {
+		if IsValidCipherSuite(s) {
+			if !validCiphers.InsertContains(s) {
+				ret = append(ret, s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q", s)
+			}
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q", s)
+		}
+	}
+	return ret
 }

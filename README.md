@@ -60,8 +60,8 @@ Follow [Getting Started with Ambient](https://istio.io/latest/blog/2022/get-star
 HUB=my-hub # examples: localhost:5000, gcr.io/my-project
 TAG=ambient
 # Build the images
-tools/docker --targets=pilot,proxyv2,app,install-cni --hub=$HUB --tag=$TAG --push
-go run istioctl/cmd/istioctl install  --set hub=$HUB --set tag=$TAG --set profile=ambient -y
+tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push
+go run ./istioctl/cmd/istioctl install  --set hub=$HUB --set tag=$TAG --set profile=ambient -y
 ```
 
 ## Limitations

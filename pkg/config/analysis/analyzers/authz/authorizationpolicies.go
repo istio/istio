@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
@@ -61,7 +61,7 @@ func (a *AuthorizationPoliciesAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.Instance, c analysis.Context, podLabelsMap map[string][]k8s_labels.Set) {
+func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.Instance, c analysis.Context, podLabelsMap map[string][]klabels.Set) {
 	ap := r.Message.(*v1beta1.AuthorizationPolicy)
 	apNs := r.Metadata.FullName.Namespace.String()
 
@@ -69,7 +69,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 	if meshWidePolicy(apNs, c) {
 		// If it has selector, need further analysis
 		if ap.Selector != nil {
-			apSelector := k8s_labels.SelectorFromSet(ap.Selector.MatchLabels)
+			apSelector := klabels.SelectorFromSet(ap.Selector.MatchLabels)
 			// If there is at least one pod matching the selector within the whole mesh
 			if !hasMatchingPodsRunning(apSelector, podLabelsMap) {
 				c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
@@ -91,7 +91,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 	}
 
 	// If the AuthzPolicy has Selector, then need to find a matching Pod.
-	apSelector := k8s_labels.SelectorFromSet(ap.Selector.MatchLabels)
+	apSelector := klabels.SelectorFromSet(ap.Selector.MatchLabels)
 	if !hasMatchingPodsRunningIn(apSelector, podLabelsMap[apNs]) {
 		c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
 	}
@@ -117,7 +117,7 @@ func fetchMeshConfig(c analysis.Context) *v1alpha1.MeshConfig {
 	return meshConfig
 }
 
-func hasMatchingPodsRunning(selector k8s_labels.Selector, podLabelsMap map[string][]k8s_labels.Set) bool {
+func hasMatchingPodsRunning(selector klabels.Selector, podLabelsMap map[string][]klabels.Set) bool {
 	for _, setList := range podLabelsMap {
 		if hasMatchingPodsRunningIn(selector, setList) {
 			return true
@@ -126,7 +126,7 @@ func hasMatchingPodsRunning(selector k8s_labels.Selector, podLabelsMap map[strin
 	return false
 }
 
-func hasMatchingPodsRunningIn(selector k8s_labels.Selector, setList []k8s_labels.Set) bool {
+func hasMatchingPodsRunningIn(selector klabels.Selector, setList []klabels.Set) bool {
 	hasMatchingPods := false
 	for _, labels := range setList {
 		if selector.Matches(labels) {
@@ -188,15 +188,15 @@ func namespaceMatch(ns, exp string) bool {
 }
 
 // Build a map indexed by namespace with in-mesh Pod's labels
-func initPodLabelsMap(c analysis.Context) map[string][]k8s_labels.Set {
-	podLabelsMap := make(map[string][]k8s_labels.Set)
+func initPodLabelsMap(c analysis.Context) map[string][]klabels.Set {
+	podLabelsMap := make(map[string][]klabels.Set)
 
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		pLabels := k8s_labels.Set(r.Metadata.Labels)
+		pLabels := klabels.Set(r.Metadata.Labels)
 
 		ns := r.Metadata.FullName.Namespace.String()
 		if podLabelsMap[ns] == nil {
-			podLabelsMap[ns] = make([]k8s_labels.Set, 0)
+			podLabelsMap[ns] = make([]klabels.Set, 0)
 		}
 
 		if util.PodInMesh(r, c) {

@@ -64,9 +64,10 @@ func initWorkloadCache(opts Options) *workloadCache {
 func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 	pod, err := wc.pods(key.Namespace).Get(key.Name)
 	if kubeErrors.IsNotFound(err) {
+		log.Debugf("trigger full push on delete pod %s", key)
 		wc.removeFromAll(key)
 		wc.xds.ConfigUpdate(&model.PushRequest{
-			Full: false,
+			Full: true, // TODO: find a better way?
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      kind.Pod,
 				Name:      key.Name,
@@ -94,8 +95,9 @@ func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
 		wc.removeFromAll(key)
 	}
 	if update {
+		log.Debugf("trigger full push on update pod %s", key)
 		wc.xds.ConfigUpdate(&model.PushRequest{
-			Full: false,
+			Full: true, // TODO: find a better way?
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      kind.Pod,
 				Name:      key.Name,

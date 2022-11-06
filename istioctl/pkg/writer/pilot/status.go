@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -150,7 +150,7 @@ func xdsStatus(sent, acked string) string {
 }
 
 // PrintAll takes a slice of Istiod syncz responses and outputs them using a tabwriter
-func (s *XdsStatusWriter) PrintAll(statuses map[string]*xdsapi.DiscoveryResponse) error {
+func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*xdsapi.DiscoveryResponse
 	return nil
 }
 
-func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, error) {
+func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, error) {
 	// Gather the statuses before printing so they may be sorted
 	var fullStatus []*xdsWriterStatus
 	mappedResp := map[string]string{}

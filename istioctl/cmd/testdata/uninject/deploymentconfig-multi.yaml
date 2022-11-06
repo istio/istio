@@ -26,11 +26,10 @@ items:
       type: Rolling
     template:
       metadata:
-        annotations:
-          sidecar.istio.io/inject: "false"
         creationTimestamp: null
         labels:
           app: hello
+          sidecar.istio.io/inject: "false"
           tier: backend
           track: stable
       spec:

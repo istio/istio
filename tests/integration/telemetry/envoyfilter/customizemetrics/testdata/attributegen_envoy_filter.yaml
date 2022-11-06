@@ -1,0 +1,121 @@
+{{- if .WasmRemoteLoad }}
+---
+apiVersion: v1
+data:
+  .dockerconfigjson: {{ .DockerConfigJson }}
+kind: Secret
+metadata:
+  name: regcred
+type: kubernetes.io/dockerconfigjson
+---
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: istio.attributegen
+spec:
+  phase: STATS
+  selector:
+    matchLabels:
+      app: server
+  url: {{ .AttributeGenURL }}
+  imagePullSecret: regcred
+  pluginConfig:
+    attributes:
+    - output_attribute: istio_responseClass
+      match:
+      - value: 2xx
+        condition: response.code >= 200 && response.code <= 299
+    - output_attribute: istio_operationId
+      match:
+      - value: getoperation
+        condition: request.method == 'GET'
+    - output_attribute: istio_grpcResponseStatus
+      match:
+      - value: OK
+        condition: response.grpc_status == 0
+{{- else }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-attributegen-filter
+spec:
+  workloadSelector:
+    labels:
+      app: server
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "istio.stats"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.attributegen
+          config_discovery:
+            config_source:
+              ads: {}
+              initial_fetch_timeout: 0s # wait indefinitely to prevent filter chain being disabled
+            type_urls: [ "type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-attributegen-filter-config
+spec:
+  workloadSelector:
+    labels:
+      app: server
+  configPatches:
+    - applyTo: EXTENSION_CONFIG
+      match:
+        context: SIDECAR_INBOUND
+      patch:
+        operation: ADD
+        value:
+          name: istio.attributegen
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration:
+                  "@type": "type.googleapis.com/google.protobuf.StringValue"
+                  value: |
+                    {
+                      "attributes": [
+                      {
+                        "output_attribute": "istio_responseClass",
+                        "match": [
+                         {
+                             "value": "2xx",
+                             "condition": "response.code >= 200 && response.code <= 299"
+                         }]
+                      },
+                      {
+                        "output_attribute": "istio_operationId",
+                        "match": [
+                        {
+                            "value": "getoperation",
+                            "condition": "request.method == 'GET'"
+                        }]
+                      },
+                      {
+                        "output_attribute": "istio_grpcResponseStatus",
+                        "match": [
+                        {
+                            "value": "OK",
+                            "condition": "response.grpc_status == 0"
+                        }]
+                      }]
+                    }
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.attributegen
+{{- end }}

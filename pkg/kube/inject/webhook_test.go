@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1beta12 "istio.io/api/networking/v1beta1"
 	"istio.io/istio/operator/pkg/manifest"
@@ -471,8 +472,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: metav1.ObjectMeta{
 				Name:      "policy-disabled-label-enabled",
 				Namespace: "test-namespace",
-				// Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:    map[string]string{label.SidecarInject.Name: "true"},
 			},
 			want: true,
 		},
@@ -485,7 +485,7 @@ func TestInjectRequired(t *testing.T) {
 				Name:        "policy-disabled-both-enabled",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{label.SidecarInject.Name: "true"},
 			},
 			want: true,
 		},
@@ -498,7 +498,7 @@ func TestInjectRequired(t *testing.T) {
 				Name:        "policy-disabled-label-enabled-annotation-disabled",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
-				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{label.SidecarInject.Name: "true"},
 			},
 			want: true,
 		},
@@ -511,7 +511,7 @@ func TestInjectRequired(t *testing.T) {
 				Name:        "policy-disabled-label-disabled-annotation-enabled",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
-				Labels:      map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels:      map[string]string{label.SidecarInject.Name: "false"},
 			},
 			want: false,
 		},
@@ -904,7 +904,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 		PushContext: &model.PushContext{
 			ProxyConfigs: pcs,
 		},
-		ConfigStore: model.MakeIstioStore(store),
+		ConfigStore: store,
 	}
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {

@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -95,7 +94,7 @@ type MergedGateway struct {
 	// reside in the same namespace and trust boundary.
 	// Note: Secrets that are not referenced by any Gateway, but are in the same namespace as the pod, are explicitly *not*
 	// included. This ensures we don't give permission to unexpected secrets, such as the citadel root key/cert.
-	VerifiedCertificateReferences sets.Set
+	VerifiedCertificateReferences sets.String
 }
 
 var (
@@ -140,8 +139,8 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
-	verifiedCertificateReferences := sets.New()
-	http3AdvertisingRoutes := sets.New()
+	verifiedCertificateReferences := sets.New[string]()
+	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
 
@@ -151,14 +150,12 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
-		snames := sets.Set{}
+		snames := sets.String{}
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
-				if snames.Contains(s.Name) {
+				if snames.InsertContains(s.Name) {
 					log.Warnf("Server name %s is not unique in gateway %s and may create possible issues like stat prefix collision ",
 						s.Name, gatewayName)
-				} else {
-					snames.Insert(s.Name)
 				}
 			}
 			if s.Port == nil {
@@ -178,6 +175,9 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				if gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && parse.Namespace == proxy.VerifiedIdentity.Namespace {
 					// Same namespace is always allowed
 					verifiedCertificateReferences.Insert(rn)
+					if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+						verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+					}
 				} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
 					// Explicitly allowed by some policy
 					verifiedCertificateReferences.Insert(rn)
@@ -397,24 +397,16 @@ func GetSNIHostsForServer(server *networking.Server) []string {
 		return nil
 	}
 	// sanitize the server hosts as it could contain hosts of form ns/host
-	sniHosts := make(map[string]bool)
+	sniHosts := sets.String{}
 	for _, h := range server.Hosts {
 		if strings.Contains(h, "/") {
 			parts := strings.Split(h, "/")
 			h = parts[1]
 		}
 		// do not add hosts, that have already been added
-		if !sniHosts[h] {
-			sniHosts[h] = true
-		}
+		sniHosts.Insert(h)
 	}
-	sniHostsSlice := make([]string, 0, len(sniHosts))
-	for host := range sniHosts {
-		sniHostsSlice = append(sniHostsSlice, host)
-	}
-	sort.Strings(sniHostsSlice)
-
-	return sniHostsSlice
+	return sets.SortedList(sniHosts)
 }
 
 // CheckDuplicates returns all of the hosts provided that are already known

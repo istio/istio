@@ -335,7 +335,7 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
 		cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
 		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
-		caNamespace, -1, client, rootCertFile, false, rsaKeySize)
+		caNamespace, client, rootCertFile, false, rsaKeySize)
 	return caopts
 }
 

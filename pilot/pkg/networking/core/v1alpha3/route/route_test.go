@@ -910,7 +910,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		var totalWeight uint32
 		for i, expectResult := range expectResults {
 			cluster := weightedCluster.GetClusters()[i]
 			g.Expect(cluster.RequestHeadersToAdd).To(gomega.Equal(expectResult.reqAdd))
@@ -918,10 +917,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(cluster.ResponseHeadersToAdd).To(gomega.Equal(expectResult.respAdd))
 			g.Expect(cluster.RequestHeadersToRemove).To(gomega.Equal(expectResult.reqRemove))
 			g.Expect(cluster.GetHostRewriteLiteral()).To(gomega.Equal(expectResult.authority))
-			totalWeight += cluster.Weight.GetValue()
 		}
-		// total weight must be set
-		g.Expect(weightedCluster.GetTotalWeight().GetValue()).To(gomega.Equal(totalWeight))
 	})
 
 	t.Run("for redirect code", func(t *testing.T) {
@@ -952,7 +948,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
 		// nolint: staticcheck
-		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
+		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
 	})
@@ -988,7 +984,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(directResponseAction.DirectResponse.Body.Specifier.(*core.DataSource_InlineString).InlineString).To(gomega.Equal("hello"))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
 		// nolint: staticcheck
-		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
+		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
 	})

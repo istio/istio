@@ -110,7 +110,7 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 }
 
 func TestFuzzers(t *testing.T) {
-	testedFuzzers := sets.New()
+	testedFuzzers := sets.New[string]()
 	cases := []struct {
 		name   string
 		fuzzer func([]byte) int
@@ -167,10 +167,9 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzCRDRoundtrip", FuzzCRDRoundtrip},
 	}
 	for _, tt := range cases {
-		if testedFuzzers.Contains(tt.name) {
+		if testedFuzzers.InsertContains(tt.name) {
 			t.Fatalf("dupliate fuzzer test %v", tt.name)
 		}
-		testedFuzzers.Insert(tt.name)
 		t.Run(tt.name, func(t *testing.T) {
 			runRegressionTest(t, tt.name, tt.fuzzer)
 		})

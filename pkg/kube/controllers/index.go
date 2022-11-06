@@ -27,7 +27,7 @@ import (
 // Index maintains a simple index over an informer
 type Index[O runtime.Object, K comparable] struct {
 	mu       sync.RWMutex
-	objects  map[K]sets.Set
+	objects  map[K]sets.String
 	informer cache.SharedIndexInformer
 }
 
@@ -54,7 +54,7 @@ func CreateIndex[O runtime.Object, K comparable](
 	extract func(o O) []K,
 ) *Index[O, K] {
 	idx := Index[O, K]{
-		objects:  make(map[K]sets.Set),
+		objects:  make(map[K]sets.String),
 		informer: informer,
 		mu:       sync.RWMutex{},
 	}
@@ -64,7 +64,7 @@ func CreateIndex[O runtime.Object, K comparable](
 		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {
 			if _, f := idx.objects[indexKey]; !f {
-				idx.objects[indexKey] = sets.New()
+				idx.objects[indexKey] = sets.New[string]()
 			}
 			idx.objects[indexKey].Insert(objectKey)
 		}

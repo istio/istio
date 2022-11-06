@@ -87,7 +87,7 @@ type Agent struct {
 	adminPort int
 	localhost string
 
-	knownIstioListeners sets.Set
+	knownIstioListeners sets.String
 
 	exitOnZeroActiveConnections bool
 }

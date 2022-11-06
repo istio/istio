@@ -31,12 +31,11 @@ import (
 
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
 	t.Helper()
-	found := sets.New()
+	found := sets.New[string]()
 	for _, l := range ls {
-		if found.Contains(l.Name) {
+		if found.InsertContains(l.Name) {
 			t.Errorf("duplicate listener name %v", l.Name)
 		}
-		found.Insert(l.Name)
 		ValidateListener(t, l)
 	}
 }
@@ -54,13 +53,12 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 }
 
 func validateListenerFilters(t testing.TB, l *listener.Listener) {
-	found := sets.New()
+	found := sets.New[string]()
 	for _, lf := range l.GetListenerFilters() {
-		if found.Contains(lf.GetName()) {
+		if found.InsertContains(lf.GetName()) {
 			// Technically legal in Envoy but should always be a bug when done in Istio based on our usage
 			t.Errorf("listener contains duplicate listener filter: %v", lf.GetName())
 		}
-		found.Insert(lf.GetName())
 	}
 }
 
@@ -110,22 +108,22 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 	// other FCM sets it. Therefore, we should ensure we explicitly set the FCM on
 	// all match clauses if its set on any other match clause See
 	// https://github.com/envoyproxy/envoy/issues/12572 for details
-	destPorts := sets.NewIntSet()
+	destPorts := sets.New[uint32]()
 	for _, fc := range l.FilterChains {
 		if fc.GetFilterChainMatch().GetDestinationPort() != nil {
-			destPorts.Insert(int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()))
+			destPorts.Insert(fc.GetFilterChainMatch().GetDestinationPort().GetValue())
 		}
 	}
 	for p := range destPorts {
 		hasTLSInspector := false
 		for _, fc := range l.FilterChains {
-			if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() != "" {
+			if p == fc.GetFilterChainMatch().GetDestinationPort().GetValue() && fc.GetFilterChainMatch().GetTransportProtocol() != "" {
 				hasTLSInspector = true
 			}
 		}
 		if hasTLSInspector {
 			for _, fc := range l.FilterChains {
-				if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() == "" {
+				if p == fc.GetFilterChainMatch().GetDestinationPort().GetValue() && fc.GetFilterChainMatch().GetTransportProtocol() == "" {
 					// Note: matches [{transport=tls},{}] and [{transport=tls},{transport=buffer}]
 					// are equivalent, so technically this error is overly sensitive. However, for
 					// more complicated use cases its generally best to be explicit rather than
@@ -182,7 +180,7 @@ func validateInspector(t testing.TB, l *listener.Listener) {
 }
 
 func ValidateClusters(t testing.TB, ls []*cluster.Cluster) {
-	found := sets.New()
+	found := sets.New[string]()
 	for _, l := range ls {
 		if found.Contains(l.Name) {
 			t.Errorf("duplicate cluster name %v", l.Name)
@@ -218,12 +216,11 @@ func ValidateRoute(t testing.TB, r *route.Route) {
 }
 
 func ValidateRouteConfigurations(t testing.TB, ls []*route.RouteConfiguration) {
-	found := sets.New()
+	found := sets.New[string]()
 	for _, l := range ls {
-		if found.Contains(l.Name) {
+		if found.InsertContains(l.Name) {
 			t.Errorf("duplicate route config name %v", l.Name)
 		}
-		found.Insert(l.Name)
 		ValidateRouteConfiguration(t, l)
 	}
 }
@@ -239,18 +236,16 @@ func ValidateRouteConfiguration(t testing.TB, l *route.RouteConfiguration) {
 func validateRouteConfigurationDomains(t testing.TB, l *route.RouteConfiguration) {
 	t.Helper()
 
-	vhosts := sets.New()
-	domains := sets.New()
+	vhosts := sets.New[string]()
+	domains := sets.New[string]()
 	for _, vhost := range l.VirtualHosts {
-		if vhosts.Contains(vhost.Name) {
+		if vhosts.InsertContains(vhost.Name) {
 			t.Errorf("duplicate virtual host found %s", vhost.Name)
 		}
-		vhosts.Insert(vhost.Name)
 		for _, domain := range vhost.Domains {
-			if domains.Contains(domain) {
+			if domains.InsertContains(domain) {
 				t.Errorf("duplicate virtual host domain found %s", domain)
 			}
-			domains.Insert(domain)
 		}
 	}
 }

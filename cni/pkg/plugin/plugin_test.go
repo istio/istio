@@ -26,6 +26,8 @@ import (
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/testutils"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/api/label"
 )
 
 var (
@@ -229,6 +231,15 @@ func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 
 	testContainers = []string{"mockContainer", "mockContainer2"}
 	testAnnotations[injectAnnotationKey] = "false"
+
+	testCmdAdd(t)
+}
+
+func TestCmdAddTwoContainersWithLabel(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testAnnotations[label.SidecarInject.Name] = "false"
 
 	testCmdAdd(t)
 }

@@ -15,7 +15,7 @@
 package authn
 
 import (
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -49,7 +49,18 @@ func (b *Builder) ForPort(port uint32) authn.MTLSSettings {
 			Mode: model.MTLSDisable,
 		}
 	}
-	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains)
+	return b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains, authn.NoOverride)
+}
+
+func (b *Builder) ForHBONE() authn.MTLSSettings {
+	if b == nil {
+		return authn.MTLSSettings{
+			Port: model.HBoneInboundListenPort,
+			Mode: model.MTLSDisable,
+		}
+	}
+	// HBONE is always strict
+	return b.applier.InboundMTLSSettings(model.HBoneInboundListenPort, b.proxy, b.trustDomains, model.MTLSStrict)
 }
 
 func (b *Builder) ForPassthrough() []authn.MTLSSettings {
@@ -64,7 +75,7 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 
 	resp := []authn.MTLSSettings{
 		// Full passthrough - no port match
-		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains),
+		b.applier.InboundMTLSSettings(0, b.proxy, b.trustDomains, authn.NoOverride),
 	}
 
 	// Then generate the per-port passthrough filter chains.
@@ -75,12 +86,12 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 		}
 
 		authnLog.Debugf("InboundMTLSConfiguration: build extra pass through filter chain for %v:%d", b.proxy.ID, port)
-		resp = append(resp, b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains))
+		resp = append(resp, b.applier.InboundMTLSSettings(port, b.proxy, b.trustDomains, authn.NoOverride))
 	}
 	return resp
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter {
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	if b == nil {
 		return nil
 	}
@@ -88,7 +99,7 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter
 		// Only applies to inbound and gateways
 		return nil
 	}
-	res := []*httppb.HttpFilter{}
+	res := []*hcm.HttpFilter{}
 	if filter := b.applier.JwtFilter(); filter != nil {
 		res = append(res, filter)
 	}

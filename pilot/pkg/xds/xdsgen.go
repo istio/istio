@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -41,10 +41,10 @@ type IstioControlPlaneInstance struct {
 	Info istioversion.BuildInfo
 }
 
-var controlPlane *corev3.ControlPlane
+var controlPlane *core.ControlPlane
 
 // ControlPlane identifies the instance and Istio version.
-func ControlPlane() *corev3.ControlPlane {
+func ControlPlane() *core.ControlPlane {
 	return controlPlane
 }
 
@@ -59,7 +59,7 @@ func init() {
 	if err != nil {
 		log.Warnf("XDS: Could not serialize control plane id: %v", err)
 	}
-	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
+	controlPlane = &core.ControlPlane{Identifier: string(byVersion)}
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
@@ -75,7 +75,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 	// some types to use custom generators - for example EDS.
 	g := con.proxy.XdsResourceGenerator
 	if g == nil {
-		if strings.HasPrefix(typeURL, "istio.io/debug/") {
+		if strings.HasPrefix(typeURL, TypeDebugPrefix) {
 			g = s.Generators["event"]
 		} else {
 			// TODO move this to just directly using the resource TypeUrl

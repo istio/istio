@@ -49,8 +49,8 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
 	}
-	foundInternal := sets.New()
-	foundExternal := sets.New()
+	foundInternal := sets.New[string]()
+	foundExternal := sets.New[string]()
 	warnings := []string{}
 	for _, g := range gwsvcs {
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
@@ -82,7 +82,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 				if instancesEmpty(instancesByPort) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
-					hintPort := sets.New()
+					hintPort := sets.New[string]()
 					for _, instances := range instancesByPort {
 						for _, i := range instances {
 							if i.Endpoint.EndpointPort == uint32(port) {
@@ -93,7 +93,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 					if len(hintPort) > 0 {
 						warnings = append(warnings, fmt.Sprintf(
 							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
-							port, g, hintPort.SortedList()))
+							port, g, sets.SortedList(hintPort)))
 					} else {
 						warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
 					}
@@ -102,7 +102,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 		}
 	}
 	sort.Strings(warnings)
-	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
+	return sets.SortedList(foundInternal), sets.SortedList(foundExternal), warnings
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {

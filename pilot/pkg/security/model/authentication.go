@@ -51,7 +51,7 @@ const (
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
-	SdsCaSuffix = "-cacert"
+	SdsCaSuffix = credentials.SdsCaSuffix
 
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter. This should be the same as the name defined
 	// in https://github.com/envoyproxy/envoy/blob/v1.9.1/source/extensions/filters/http/well_known_names.h#L48

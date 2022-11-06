@@ -60,13 +60,13 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 // newClusterFilter maps a non-subset cluster name to the list of actual cluster names (default or subset) actually
 // requested by the client. gRPC will usually request a group of clusters that are used in the same route; in some
 // cases this means subsets associated with the same default cluster aren't all expected in the same CDS response.
-func newClusterFilter(names []string) map[string]sets.Set {
-	filter := map[string]sets.Set{}
+func newClusterFilter(names []string) map[string]sets.String {
+	filter := map[string]sets.String{}
 	for _, name := range names {
 		dir, _, hn, p := model.ParseSubsetKey(name)
 		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
 		if _, ok := filter[defaultKey]; !ok {
-			filter[defaultKey] = sets.New()
+			filter[defaultKey] = sets.New[string]()
 		}
 		filter[defaultKey].Insert(name)
 	}
@@ -85,18 +85,17 @@ type clusterBuilder struct {
 	node *model.Proxy
 
 	// guaranteed to be set in init
-	defaultClusterName   string
-	requestedClusterName string
-	hostname             host.Name
-	portNum              int
+	defaultClusterName string
+	hostname           host.Name
+	portNum            int
 
 	// may not be set
 	svc    *model.Service
 	port   *model.Port
-	filter sets.Set
+	filter sets.String
 }
 
-func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultClusterName string, filter sets.Set) (*clusterBuilder, error) {
+func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultClusterName string, filter sets.String) (*clusterBuilder, error) {
 	_, _, hostname, portNum := model.ParseSubsetKey(defaultClusterName)
 	if hostname == "" || portNum == 0 {
 		return nil, fmt.Errorf("failed parsing subset key: %s", defaultClusterName)
@@ -127,15 +126,6 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 		svc:  svc,
 		port: port,
 	}, nil
-}
-
-// subsetFilter returns the requestedClusterName if it isn't the default cluster
-// for subset clusters, gRPC may request them individually
-func (b *clusterBuilder) subsetFilter() string {
-	if b.defaultClusterName == b.requestedClusterName {
-		return ""
-	}
-	return b.requestedClusterName
 }
 
 func (b *clusterBuilder) build() []*cluster.Cluster {
@@ -236,7 +226,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	case networking.ClientTLSSettings_MUTUAL:
 		// TODO support this
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts[b.hostname][b.portNum])
+		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts(b.hostname, b.svc.Attributes.Namespace, b.portNum))
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsCtx)},

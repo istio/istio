@@ -264,9 +264,9 @@ type ProxyConnection struct {
 	conID              uint32
 	upstreamError      chan error
 	downstreamError    chan error
-	requestsChan       *channels.Unbounded
+	requestsChan       *channels.Unbounded[*discovery.DiscoveryRequest]
 	responsesChan      chan *discovery.DiscoveryResponse
-	deltaRequestsChan  *channels.Unbounded
+	deltaRequestsChan  *channels.Unbounded[*discovery.DeltaDiscoveryRequest]
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
@@ -328,7 +328,7 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		// the control plane requires substantial changes. Instead, we make the requests channel
 		// unbounded. This is the least likely to cause issues as the messages we store here are the
 		// smallest relative to other channels.
-		requestsChan: channels.NewUnbounded(),
+		requestsChan: channels.NewUnbounded[*discovery.DiscoveryRequest](),
 		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
 		responsesChan: make(chan *discovery.DiscoveryResponse, 1),
 		stopChan:      make(chan struct{}),
@@ -479,9 +479,8 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
-		case requ := <-con.requestsChan.Get():
+		case req := <-con.requestsChan.Get():
 			con.requestsChan.Load()
-			req := requ.(*discovery.DiscoveryRequest)
 			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
 				// only send healthcheck probe after LDS request has been sent
 				continue
@@ -553,7 +552,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				if strings.HasPrefix(resp.TypeUrl, "istio.io/debug") {
+				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
 					p.forwardToTap(resp)
 				} else {
 					forwardToEnvoy(con, resp)
@@ -683,7 +682,9 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
 	}
 
-	dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
+	if sa.secOpts.CredFetcher != nil {
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
+	}
 	return dialOptions, nil
 }
 
@@ -727,7 +728,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err != nil {
+	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err == nil {
 		config.ServerName = host
 	}
 	// For debugging on localhost (with port forward)

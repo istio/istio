@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -221,7 +221,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 }
 
 func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
-	if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
+	if _, err := c.Kube().CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   n.name,
 			Labels: createNamespaceLabels(n.ctx, cfg),
@@ -253,7 +253,7 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 
 func (n *kubeNamespace) forEachCluster(fn func(i int, c cluster.Cluster) error) error {
 	errG := multierror.Group{}
-	for i, c := range n.ctx.Clusters().Kube() {
+	for i, c := range n.ctx.AllClusters().Kube() {
 		i, c := i, c
 		errG.Go(func() error {
 			return fn(i, c)

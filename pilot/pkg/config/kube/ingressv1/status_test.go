@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -36,68 +36,68 @@ var (
 
 func setupFake(t *testing.T, client kubelib.Client) {
 	t.Helper()
-	if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &coreV1.Pod{
-		ObjectMeta: metaV1.ObjectMeta{
+	if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ingressgateway",
 			Namespace: "istio-system",
 			Labels: map[string]string{
 				"istio": "ingressgateway",
 			},
 		},
-		Spec: coreV1.PodSpec{
+		Spec: corev1.PodSpec{
 			NodeName: "foo_node",
 		},
-		Status: coreV1.PodStatus{
-			Phase: coreV1.PodRunning,
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
 		},
-	}, metaV1.CreateOptions{}); err != nil {
+	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-ingress",
 			Namespace: testNamespace,
 		},
-		Status: coreV1.ServiceStatus{
-			LoadBalancer: coreV1.LoadBalancerStatus{
-				Ingress: []coreV1.LoadBalancerIngress{{
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{{
 					IP: serviceIP,
 				}},
 			},
 		},
-	}, metaV1.CreateOptions{}); err != nil {
+	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-ingress-hostname",
 			Namespace: testNamespace,
 		},
-		Status: coreV1.ServiceStatus{
-			LoadBalancer: coreV1.LoadBalancerStatus{
-				Ingress: []coreV1.LoadBalancerIngress{{
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{{
 					Hostname: hostname,
 				}},
 			},
 		},
-	}, metaV1.CreateOptions{}); err != nil {
+	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Kube().CoreV1().Nodes().Create(context.TODO(), &coreV1.Node{
-		ObjectMeta: metaV1.ObjectMeta{
+	if _, err := client.Kube().CoreV1().Nodes().Create(context.TODO(), &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo_node",
 		},
-		Status: coreV1.NodeStatus{
-			Addresses: []coreV1.NodeAddress{
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
 				{
-					Type:    coreV1.NodeExternalIP,
+					Type:    corev1.NodeExternalIP,
 					Address: nodeIP,
 				},
 			},
 		},
-	}, metaV1.CreateOptions{}); err != nil {
+	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }

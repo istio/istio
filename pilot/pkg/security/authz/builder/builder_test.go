@@ -18,8 +18,8 @@ import (
 	"os"
 	"testing"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -273,12 +273,10 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				Logger:          &AuthzLogger{},
 				IsAmbient:       tc.ambient,
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(tc.version)
-			defer option.Logger.Report(proxy)
 			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
@@ -342,11 +340,9 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				Logger:          &AuthzLogger{},
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
-			defer option.Logger.Report(proxy)
 			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
@@ -409,20 +405,20 @@ func yamlConfig(t *testing.T, filename string, forTCP bool) proto.Message {
 		t.Fatalf("failed to read file: %v", err)
 	}
 	if forTCP {
-		out := &tcppb.Filter{}
+		out := &listener.Filter{}
 		if err := protomarshal.ApplyYAML(string(data), out); err != nil {
 			t.Fatalf("failed to parse YAML: %v", err)
 		}
 		return out
 	}
-	out := &httppb.HttpFilter{}
+	out := &hcm.HttpFilter{}
 	if err := protomarshal.ApplyYAML(string(data), out); err != nil {
 		t.Fatalf("failed to parse YAML: %v", err)
 	}
 	return out
 }
 
-func convertHTTP(in []*httppb.HttpFilter) []proto.Message {
+func convertHTTP(in []*hcm.HttpFilter) []proto.Message {
 	ret := make([]proto.Message, len(in))
 	for i := range in {
 		ret[i] = in[i]
@@ -430,7 +426,7 @@ func convertHTTP(in []*httppb.HttpFilter) []proto.Message {
 	return ret
 }
 
-func convertTCP(in []*tcppb.Filter) []proto.Message {
+func convertTCP(in []*listener.Filter) []proto.Message {
 	ret := make([]proto.Message, len(in))
 	for i := range in {
 		ret[i] = in[i]
@@ -439,7 +435,7 @@ func convertTCP(in []*tcppb.Filter) []proto.Message {
 }
 
 func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.AuthorizationPolicies {
-	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	store := memory.Make(collections.Pilot)
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("newAuthzPolicies: %v", err)

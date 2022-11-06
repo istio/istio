@@ -24,6 +24,7 @@ const (
 	XDS       Instance = "xds"
 	WebSocket Instance = "ws"
 	TCP       Instance = "tcp"
+	UDP       Instance = "udp"
 	// TLS sends a TLS connection and reports back the properties of the TLS connection
 	// This is similar to `openssl s_client`
 	// Response data is not returned; only information about the TLS handshake.

@@ -68,7 +68,6 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	if model.ConfigsHaveKind(updates, kind.Secret) ||
-		model.ConfigsHaveKind(updates, kind.ReferencePolicy) ||
 		model.ConfigsHaveKind(updates, kind.ReferenceGrant) {
 		return true
 	}

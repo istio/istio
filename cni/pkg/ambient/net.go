@@ -164,18 +164,6 @@ func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
 	}, nil
 }
 
-func (s *Server) routesAdd(routes []*netlink.Route) error {
-	for _, route := range routes {
-		log.Debugf("Adding route: %+v", route)
-		err := netlink.RouteAdd(route)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func getDeviceWithDestinationOf(ip string) (string, error) {
 	routes, err := netlink.RouteListFiltered(
 		netlink.FAMILY_V4,

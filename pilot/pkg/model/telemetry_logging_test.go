@@ -78,6 +78,17 @@ func TestAccessLogging(t *testing.T) {
 		Labels:          labels,
 		Metadata:        &NodeMetadata{Labels: labels},
 	}
+	prometheus := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy",
+					},
+				},
+			},
+		},
+	}
 	envoy := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -371,6 +382,43 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"empty",
 			nil,
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
+		},
+		{
+			"prometheus-mesh",
+			[]config.Config{newTelemetry("istio-system", prometheus)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
+		},
+		{
+			"prometheus-namespace",
+			[]config.Config{newTelemetry("default", prometheus)},
+			networking.ListenerClassSidecarOutbound,
+			sidecar,
+			nil,
+			nil, // No Telemetry API configured, fall back to legacy mesh config setting
+		},
+		{
+			"prometheus-workload",
+			[]config.Config{newTelemetry("default", &tpb.Telemetry{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: labels,
+				},
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{
+							{
+								Name: "envoy",
+							},
+						},
+					},
+				},
+			})},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			nil,
@@ -1014,7 +1062,8 @@ func TestTelemetryAccessLog(t *testing.T) {
 
 	labels := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
-			"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"protocol":   {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"start_time": {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
 		},
 	}
 
@@ -1062,7 +1111,16 @@ func TestTelemetryAccessLog(t *testing.T) {
 			},
 		},
 		Attributes: &otlpcommon.KeyValueList{
-			Values: ConvertStructToAttributeKeyValues(labels.Fields),
+			Values: []*otlpcommon.KeyValue{
+				{
+					Key:   "protocol",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%PROTOCOL%"}},
+				},
+				{
+					Key:   "start_time",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%START_TIME%"}},
+				},
+			},
 		},
 	}
 
@@ -1312,26 +1370,54 @@ func TestTelemetryAccessLog(t *testing.T) {
 			},
 		},
 		{
-			name: "default-envoy-provider",
+			name: "builtin-fallback",
 			ctx:  ctx,
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_JSON,
 				AccessLogFormat:   defaultFormatJSON,
-				ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
-					{
-						Name: "envoy",
-						Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
-							EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
-								Path: "/dev/stdout",
-							},
-						},
-					},
-				},
 			},
 			fp: defaultEnvoyProvider,
 			expected: &accesslog.AccessLog{
 				Name:       wellknown.FileAccessLog,
 				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+			},
+		},
+		{
+			name: "builtin-not-fallback",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_JSON,
+				AccessLogFormat:   defaultFormatJSON,
+			},
+			fp: &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
+								Text: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%",
+							},
+						},
+					},
+				},
+			},
+			expected: &accesslog.AccessLog{
+				Name: wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+					Path: DevStdout,
+					AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+						LogFormat: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &core.DataSource{
+									Specifier: &core.DataSource_InlineString{
+										InlineString: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
+									},
+								},
+							},
+						},
+					},
+				})},
 			},
 		},
 	} {

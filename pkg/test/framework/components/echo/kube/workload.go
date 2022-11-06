@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -43,7 +43,7 @@ const (
 var _ echo.Workload = &workload{}
 
 type workloadConfig struct {
-	pod        kubeCore.Pod
+	pod        corev1.Pod
 	hasSidecar bool
 	grpcPort   uint16
 	cluster    cluster.Cluster
@@ -93,7 +93,7 @@ func (w *workload) Client() (c *echoClient.Client, err error) {
 	return
 }
 
-func (w *workload) Update(pod kubeCore.Pod) error {
+func (w *workload) Update(pod corev1.Pod) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -142,6 +142,7 @@ func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRe
 	w.mutex.Lock()
 	c := w.client
 	if c == nil {
+		w.mutex.Unlock()
 		return nil, fmt.Errorf("failed forwarding echo for disconnected pod %s/%s",
 			w.pod.Namespace, w.pod.Name)
 	}
@@ -174,7 +175,7 @@ func (w *workload) LogsOrFail(t test.Failer) string {
 	return logs
 }
 
-func isPodReady(pod kubeCore.Pod) bool {
+func isPodReady(pod corev1.Pod) bool {
 	return istioKube.CheckPodReady(&pod) == nil
 }
 
@@ -182,7 +183,7 @@ func (w *workload) isConnected() bool {
 	return w.forwarder != nil
 }
 
-func (w *workload) connect(pod kubeCore.Pod) (err error) {
+func (w *workload) connect(pod corev1.Pod) (err error) {
 	defer func() {
 		if err != nil {
 			_ = w.disconnect()
