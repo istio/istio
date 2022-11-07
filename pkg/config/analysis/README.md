@@ -88,13 +88,13 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
 ### 2. Add the Analyzer to All()
 
-In order to be run, analyzers need to be registered in the [analyzers.All()](https://github.com/istio/istio/blob/master/galley/pkg/config/analysis/analyzers/all.go) function. Add your analyzer as an entry there.
+In order to be run, analyzers need to be registered in the [analyzers.All()](https://github.com/istio/istio/blob/master/pkg/config/analysis/analyzers/all.go) function. Add your analyzer as an entry there.
 
 ### 3. Create new message types
 
 If your analyzer requires any new message types (meaning a unique template and error code), you will need to do the following:
 
-1. Add an entry to [galley/pkg/config/analysis/msg/messages.yaml](https://github.com/istio/istio/blob/master/galley/pkg/config/analysis/msg/messages.yaml) e.g.
+1. Add an entry to [galley/pkg/config/analysis/msg/messages.yaml](https://github.com/istio/istio/blob/master/pkg/config/analysis/msg/messages.yaml) e.g.
 
     ```yaml
       - name: "SandwichNotFound"
@@ -126,7 +126,7 @@ Also note:
 ### 4. Add path templates
 
 If your analyzer requires to display the exact error line number, but the path template is not available, you should
-add the template in [galley/pkg/config/analysis/analyzers/util/find_errorline_utils.go](https://github.com/istio/istio/blob/master/galley/pkg/config/analysis/analyzers/util/find_errorline_utils.go)
+add the template in [galley/pkg/config/analysis/analyzers/util/find_errorline_utils.go](https://github.com/istio/istio/blob/master/pkg/config/analysis/analyzers/util/find_errorline_utils.go)
 
 e.g for the GatewayAnalyzer used as an example above, you would add something like this to `find_errorline_utils.go`:
 
@@ -139,7 +139,7 @@ e.g for the GatewayAnalyzer used as an example above, you would add something li
 ### 5. Adding unit tests
 
 For each new analyzer, you should add an entry to the test grid in
-[analyzers_test.go](https://github.com/istio/istio/blob/master/galley/pkg/config/analysis/analyzers/analyzers_test.go).
+[analyzers_test.go](https://github.com/istio/istio/blob/master/pkg/config/analysis/analyzers/analyzers_test.go).
 If you want to add additional unit testing beyond this, you can, but analyzers are required to be covered in this test grid.
 
 e.g. for the GatewayAnalyzer used as an example above, you would add something like this to `analyzers_test.go`:
