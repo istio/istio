@@ -14,6 +14,7 @@ docs:
 
 releaseNotes:
 - |
+  **Added** Add feature flags EnableDualStack to support Dual Stack for both istiod and istio-agent 
   **Added** to support the multiple addresses for single listener by adding additional addresses in LDS configuration
   **Added** to support the smarter way to pick endpoints based on its IP families by adding extra source addresses in Inbound cluster BindConfig
   **Enabled** enable the dual stack support in Istio for normal Istio service in service mesh

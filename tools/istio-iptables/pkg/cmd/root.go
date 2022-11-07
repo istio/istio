@@ -43,6 +43,8 @@ var (
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
+	DualStackEnv = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false,
+		"Enable pilot-agent to work in dual-stack clusters").Get()
 )
 
 // mock net.InterfaceAddrs to make its unit test become available
@@ -177,10 +179,14 @@ func constructConfig() *config.Config {
 		panic(err)
 	}
 
-	for _, podIP := range podIPs {
-		if netutil.IsIPv6Address(podIP.String()) {
-			cfg.EnableInboundIPv6 = true
-			break
+	if !DualStackEnv {
+		cfg.EnableInboundIPv6 = podIPs[0].To4() == nil
+	} else {
+		for _, podIP := range podIPs {
+			if netutil.IsIPv6Address(podIP.String()) {
+				cfg.EnableInboundIPv6 = true
+				break
+			}
 		}
 	}
 
@@ -209,6 +215,9 @@ func getLocalIPs() ([]net.IP, error) {
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
 			ipAddrs = append(ipAddrs, ipnet.IP)
+			if !DualStackEnv {
+				return ipAddrs, nil
+			}
 		}
 	}
 

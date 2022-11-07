@@ -483,7 +483,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 			},
 		}
 		// add extra source addresses to cluster builder
-		if len(cb.extraPassThroughBindIPs) > 0 {
+		if features.EnableDualStack && len(cb.extraPassThroughBindIPs) > 0 {
 			var extraSrcAddrs []*core.ExtraSourceAddress
 			for _, extraBdIP := range cb.extraPassThroughBindIPs {
 				extraSrcAddr := &core.ExtraSourceAddress{
@@ -613,11 +613,12 @@ func addUint32(left, right uint32) (uint32, bool) {
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*cluster.Cluster, 0, 2)
-	if cb.supportsIPv4 {
-		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.Filters = nil
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+	// if Dual Stack enables
+	if features.EnableDualStack {
+		inboundPassthroughCluster := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughCluster.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughCluster.Filters = nil
+		inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
 				PortSpecifier: &core.SocketAddress_PortValue{
@@ -625,21 +626,45 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 				},
 			},
 		}
-		clusters = append(clusters, inboundPassthroughClusterIpv4)
-	}
-	if cb.supportsIPv6 {
-		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.Filters = nil
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
+		extraSrcAddr := &core.ExtraSourceAddress{
+			Address: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv6,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
 		}
-		clusters = append(clusters, inboundPassthroughClusterIpv6)
+		inboundPassthroughCluster.UpstreamBindConfig.ExtraSourceAddresses = []*core.ExtraSourceAddress{extraSrcAddr}
+		clusters = append(clusters, inboundPassthroughCluster)
+	} else {
+		if cb.supportsIPv4 {
+			inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
+			inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+			inboundPassthroughClusterIpv4.Filters = nil
+			inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: InboundPassthroughBindIpv4,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
+			clusters = append(clusters, inboundPassthroughClusterIpv4)
+		}
+		if cb.supportsIPv6 {
+			inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
+			inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+			inboundPassthroughClusterIpv6.Filters = nil
+			inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: InboundPassthroughBindIpv6,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
+			clusters = append(clusters, inboundPassthroughClusterIpv6)
+		}
 	}
 	return clusters
 }

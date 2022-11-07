@@ -338,7 +338,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 		Address:          address,
 		TrafficDirection: core.TrafficDirection_INBOUND,
 	}
-	if len(addresses) > 1 {
+	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort, lb.node)
 	}
