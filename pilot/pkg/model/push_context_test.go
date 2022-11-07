@@ -2699,7 +2699,7 @@ type localServiceDiscovery struct {
 	NetworkGatewaysHandler
 }
 
-func (l *localServiceDiscovery) PodInformation(podsUpdated map[ConfigKey]struct{}) ([]WorkloadInfo, []string) {
+func (l *localServiceDiscovery) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*WorkloadInfo, []string) {
 	return nil, nil
 }
 

@@ -18,9 +18,11 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -50,7 +52,10 @@ import (
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 const (
@@ -1909,7 +1914,12 @@ func createService(controller *FakeController, name, namespace string, annotatio
 
 	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+		if errors.IsAlreadyExists(err) {
+			_, err = controller.client.Kube().CoreV1().Services(namespace).Update(context.TODO(), service, metav1.UpdateOptions{})
+		}
+		if err != nil {
+			t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+		}
 	}
 }
 
@@ -2597,4 +2607,154 @@ func clearDiscoverabilityPolicy(ep *model.IstioEndpoint) {
 	if ep != nil {
 		ep.DiscoverabilityPolicy = nil
 	}
+}
+
+func TestAmbientIndex(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	assertWorkloads := func(lookup string, names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		assert.EventuallyEqual(t, func() sets.String {
+			var workloads []*model.WorkloadInfo
+			if lookup == "" {
+				workloads = controller.ambientIndex.All()
+			} else {
+				workloads = controller.ambientIndex.Lookup(lookup)
+			}
+			have := sets.New[string]()
+			for _, wl := range workloads {
+				have.Insert(wl.Name)
+			}
+			return have
+		}, want, retry.Timeout(time.Second*3))
+	}
+	assertEvent := func(ip ...string) {
+		t.Helper()
+		want := strings.Join(ip, ",")
+		attempts := 0
+		for attempts < 10 {
+			attempts++
+			ev := fx.WaitOrFail(t, "xds")
+			if ev.ID != want {
+				t.Logf("skip event %v", ev.ID)
+			} else {
+				return
+			}
+		}
+		t.Fatalf("didn't find event for %v", ip)
+	}
+	deletePod := func(name string) {
+		if err := controller.client.Kube().CoreV1().Pods("ns1").Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	addPods := func(ip string, name string, labels map[string]string) {
+		t.Helper()
+		pod := generatePod(ip, name, "ns1", "sa1", "node1", labels, nil)
+
+		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if p == nil {
+			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
+			pod.Status = corev1.PodStatus{}
+			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			if err != nil {
+				t.Fatalf("Cannot create %s: %v", pod.ObjectMeta.Name, err)
+			}
+			setPodReady(newPod)
+			newPod.Status.PodIP = ip
+			newPod.Status.Phase = corev1.PodRunning
+			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{}); err != nil {
+				t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
+			}
+		} else {
+			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("Cannot update %s: %v", pod.ObjectMeta.Name, err)
+			}
+		}
+	}
+	addPods("127.0.0.1", "name1", map[string]string{"app": "a"})
+	assertWorkloads("", "name1")
+	assertEvent("127.0.0.1")
+
+	addPods("127.0.0.2", "name2", map[string]string{"app": "a", "other": "label"})
+	addPods("127.0.0.3", "name3", map[string]string{"app": "other"})
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("127.0.0.1", "name1")
+	assertWorkloads("127.0.0.2", "name2")
+	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3"), []*model.WorkloadInfo{{
+		Workload: &workloadapi.Workload{
+			Name:              "name3",
+			Namespace:         "ns1",
+			Address:           netip.MustParseAddr("127.0.0.3").AsSlice(),
+			ServiceAccount:    "sa1",
+			Node:              "node1",
+			CanonicalName:     "other",
+			CanonicalRevision: "latest",
+			WorkloadType:      workloadapi.WorkloadType_POD,
+			WorkloadName:      "name3",
+		},
+		Labels: map[string]string{"app": "other"},
+	}})
+	assertEvent("127.0.0.2")
+	assertEvent("127.0.0.3")
+
+	// Non-existent IP should have no response
+	assertWorkloads("10.0.0.1")
+	fx.Clear()
+
+	createService(controller, "svc1", "ns1",
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, t)
+	// Service shouldn't change workload list
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("127.0.0.1", "name1")
+	// Now we should be able to look up a VIP as well
+	assertWorkloads("10.0.0.1", "name1", "name2")
+	// We should get an event for the two *Pod* IPs impacted
+	assertEvent("127.0.0.1", "127.0.0.2")
+
+	// Add a new pod to the service, we should see it
+	addPods("127.0.0.4", "name4", map[string]string{"app": "a"})
+	assertWorkloads("", "name1", "name2", "name3", "name4")
+	assertWorkloads("10.0.0.1", "name1", "name2", "name4")
+	assertEvent("127.0.0.4")
+
+	// Delete it, should remove from the Service as well
+	deletePod("name4")
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("10.0.0.1", "name1", "name2")
+	assertWorkloads("127.0.0.4") // Should not be accessible anymore
+	assertEvent("127.0.0.4")
+
+	fx.Clear()
+	// Update Service to have a more restrictive label selector
+	createService(controller, "svc1", "ns1",
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a", "other": "label"}, t)
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("10.0.0.1", "name2")
+	// Need to update the *old* workload only
+	assertEvent("127.0.0.1", "127.0.0.2")
+	// assertEvent("127.0.0.2") TODO: This should be the event, but we are not efficient here.
+
+	// Update an existing pod into the service
+	addPods("127.0.0.3", "name3", map[string]string{"app": "a", "other": "label"})
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("10.0.0.1", "name2", "name3")
+	assertEvent("127.0.0.3")
+
+	// And remove it again
+	addPods("127.0.0.3", "name3", map[string]string{"app": "a"})
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("10.0.0.1", "name2")
+	assertEvent("127.0.0.3")
+
+	t.Log("delete")
+	// Delete the service entirely
+	controller.client.Kube().CoreV1().Services("ns1").Delete(context.Background(), "svc1", metav1.DeleteOptions{})
+	assertWorkloads("", "name1", "name2", "name3")
+	assertWorkloads("10.0.0.1")
+	assertEvent("127.0.0.2")
+	assert.Equal(t, len(controller.ambientIndex.byService), 0)
 }

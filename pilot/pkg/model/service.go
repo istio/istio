@@ -24,12 +24,14 @@ package model
 
 import (
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -710,7 +712,7 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
-	PodInformation(podsUpdated map[ConfigKey]struct{}) ([]WorkloadInfo, []string)
+	PodInformation(addresses map[types.NamespacedName]struct{}) ([]*WorkloadInfo, []string)
 }
 
 type WorkloadInfo struct {
@@ -719,7 +721,8 @@ type WorkloadInfo struct {
 }
 
 func (i WorkloadInfo) ResourceName() string {
-	return i.Name + "/" + i.Namespace
+	ii, _ := netip.AddrFromSlice(i.Address)
+	return ii.String()
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
