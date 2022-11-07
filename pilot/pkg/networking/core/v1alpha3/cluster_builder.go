@@ -365,7 +365,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		if len(localityLbEndpoints) != 1 || len(localityLbEndpoints[0].LbEndpoints) != 1 {
 			log.Warnf("%s cluster of type DNS_ROUND_ROBIN should have a single locality_lb_endpoint and a single lb_endpoint."+
 				" This can happen if two Service Entries are created with same host name, resolution as DNS_ROUND_ROBIN and with"+
-				" different endpoints.", name)
+				" same/different endpoints.", name)
 			return nil
 		}
 		fallthrough
