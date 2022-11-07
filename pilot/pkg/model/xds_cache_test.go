@@ -114,7 +114,6 @@ func TestAddTwoEntries(t *testing.T) {
 }
 
 func TestCleanIndexesOnAddExistant(t *testing.T) {
-	test.SetForTest(t, &features.XDSCacheMaxSize, 1)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
@@ -148,7 +147,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 		dependentTypes:   []kind.Kind{kind.DestinationRule},
 		dependentConfigs: []ConfigHash{ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode()},
 	}
-
+	req = &PushRequest{Start: zeroTime.Add(time.Duration(2))}
 	// after adding an entry with the same key, previous indexes are correctly cleaned
 	c.Add(&secondEntry, req, res)
 
