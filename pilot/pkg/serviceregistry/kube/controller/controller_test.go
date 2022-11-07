@@ -1915,7 +1915,7 @@ func createService(controller *FakeController, name, namespace string, annotatio
 	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.Kube().CoreV1().Services(namespace).Update(context.TODO(), service, metaV1.UpdateOptions{})
+			_, err = controller.client.Kube().CoreV1().Services(namespace).Update(context.TODO(), service, metav1.UpdateOptions{})
 		}
 		if err != nil {
 			t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
@@ -2614,14 +2614,14 @@ func TestAmbientIndex(t *testing.T) {
 	assertWorkloads := func(lookup string, names ...string) {
 		t.Helper()
 		want := sets.New(names...)
-		assert.EventuallyEqual(t, func() sets.Set {
+		assert.EventuallyEqual(t, func() sets.String {
 			var workloads []*model.WorkloadInfo
 			if lookup == "" {
 				workloads = controller.ambientIndex.All()
 			} else {
 				workloads = controller.ambientIndex.Lookup(lookup)
 			}
-			have := sets.New()
+			have := sets.New[string]()
 			for _, wl := range workloads {
 				have.Insert(wl.Name)
 			}
@@ -2644,7 +2644,7 @@ func TestAmbientIndex(t *testing.T) {
 		t.Fatalf("didn't find event for %v", ip)
 	}
 	deletePod := func(name string) {
-		if err := controller.client.Kube().CoreV1().Pods("ns1").Delete(context.TODO(), name, metaV1.DeleteOptions{}); err != nil {
+		if err := controller.client.Kube().CoreV1().Pods("ns1").Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -2652,22 +2652,22 @@ func TestAmbientIndex(t *testing.T) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", "sa1", "node1", labels, nil)
 
-		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metaV1.GetOptions{})
+		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
-			pod.Status = coreV1.PodStatus{}
-			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metaV1.CreateOptions{})
+			pod.Status = corev1.PodStatus{}
+			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 			if err != nil {
 				t.Fatalf("Cannot create %s: %v", pod.ObjectMeta.Name, err)
 			}
 			setPodReady(newPod)
 			newPod.Status.PodIP = ip
-			newPod.Status.Phase = coreV1.PodRunning
-			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metaV1.UpdateOptions{}); err != nil {
+			newPod.Status.Phase = corev1.PodRunning
+			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
 			}
 		} else {
-			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metaV1.UpdateOptions{})
+			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
 			if err != nil {
 				t.Fatalf("Cannot update %s: %v", pod.ObjectMeta.Name, err)
 			}
@@ -2752,7 +2752,7 @@ func TestAmbientIndex(t *testing.T) {
 
 	t.Log("delete")
 	// Delete the service entirely
-	controller.client.Kube().CoreV1().Services("ns1").Delete(context.Background(), "svc1", metaV1.DeleteOptions{})
+	controller.client.Kube().CoreV1().Services("ns1").Delete(context.Background(), "svc1", metav1.DeleteOptions{})
 	assertWorkloads("", "name1", "name2", "name3")
 	assertWorkloads("10.0.0.1")
 	assertEvent("127.0.0.2")

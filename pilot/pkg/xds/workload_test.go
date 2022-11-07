@@ -36,22 +36,22 @@ func TestWorkload(t *testing.T) {
 		expect := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 			t.Helper()
 			want := sets.New(names...)
-			have := sets.New()
+			have := sets.New[string]()
 			for _, r := range resp.Resources {
 				w := &workloadapi.Workload{}
 				r.Resource.UnmarshalTo(w)
 				have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
 			}
-			assert.Equal(t, have.SortedList(), want.SortedList())
+			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 		}
 		expectRemoved := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 			t.Helper()
 			want := sets.New(names...)
-			have := sets.New()
+			have := sets.New[string]()
 			for _, r := range resp.RemovedResources {
 				have.Insert(r)
 			}
-			assert.Equal(t, have.SortedList(), want.SortedList())
+			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 		}
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
@@ -120,7 +120,7 @@ func TestWorkload(t *testing.T) {
 		expect := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 			t.Helper()
 			want := sets.New(names...)
-			have := sets.New()
+			have := sets.New[string]()
 			for _, r := range resp.Resources {
 				w := &workloadapi.Workload{}
 				r.Resource.UnmarshalTo(w)
@@ -129,16 +129,16 @@ func TestWorkload(t *testing.T) {
 			if len(resp.RemovedResources) > 0 {
 				t.Logf("warn: expected resources but got removals: %v", resp.RemovedResources)
 			}
-			assert.Equal(t, have.SortedList(), want.SortedList())
+			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 		}
 		expectRemoved := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 			t.Helper()
 			want := sets.New(names...)
-			have := sets.New()
+			have := sets.New[string]()
 			for _, r := range resp.RemovedResources {
 				have.Insert(r)
 			}
-			assert.Equal(t, have.SortedList(), want.SortedList())
+			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 		}
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)

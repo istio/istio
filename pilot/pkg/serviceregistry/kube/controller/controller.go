@@ -54,7 +54,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	kubelabels "istio.io/istio/pkg/kube/labels"
-	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/spiffe"
@@ -154,7 +154,7 @@ type Options struct {
 	SyncTimeout time.Duration
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
-	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
 
 	GetPods func() []cache.Indexer
 }
@@ -288,7 +288,7 @@ type Controller struct {
 	initialSync *atomic.Bool
 	meshWatcher mesh.Watcher
 	podLister   listerv1.PodLister
-	podInformer filter.FilteredSharedIndexInformer
+	podInformer informer.FilteredSharedIndexInformer
 
 	ambientIndex *AmbientIndex
 }
@@ -739,7 +739,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 
 	if c.opts.DiscoveryNamespacesFilter == nil {
-		c.opts.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
+		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
 
 	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
