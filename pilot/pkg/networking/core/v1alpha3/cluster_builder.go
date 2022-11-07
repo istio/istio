@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -67,6 +68,9 @@ var hboneTransportSocketMatch = &structpb.Struct{
 // nolint
 // revive:disable-next-line
 var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
 	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
 			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
@@ -361,7 +365,15 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 	ec := NewMutableCluster(c)
 	switch discoveryType {
-	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
+	case cluster.Cluster_LOGICAL_DNS:
+		if len(localityLbEndpoints) != 1 || len(localityLbEndpoints[0].LbEndpoints) != 1 {
+			log.Warnf("%s cluster of type DNS_ROUND_ROBIN should have a single locality_lb_endpoint and a single lb_endpoint."+
+				" This can happen if two Service Entries are created with same host name, resolution as DNS_ROUND_ROBIN and with"+
+				" same/different endpoints.", name)
+			return nil
+		}
+		fallthrough
+	case cluster.Cluster_STRICT_DNS:
 		if cb.supportsIPv4 {
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		} else {
@@ -381,13 +393,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
 		}
-	}
-
-	if discoveryType == cluster.Cluster_ORIGINAL_DST {
-		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
-		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
-		// infrequently accessed services.
-		c.CleanupInterval = &durationpb.Duration{Seconds: 60}
 	}
 
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
