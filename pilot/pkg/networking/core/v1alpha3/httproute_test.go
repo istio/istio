@@ -438,18 +438,17 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			}},
 			map[string][]string{
 				"allow_any": {"*"},
-				"test-duplicate-domains.default.svc.cluster.local:80": {
+				"test-duplicate-domains.default:80": {
+					"test-duplicate-domains.default",
 					"test-duplicate-domains.default.svc.cluster.local",
 					"test-duplicate-domains",
 					"test-duplicate-domains.default.svc",
 				},
-				"test-duplicate-domains.default:80": {"test-duplicate-domains.default"},
 			},
 			map[string]string{
 				"allow_any": "PassthroughCluster",
 				// Virtual service destination takes precedence
-				"test-duplicate-domains.default.svc.cluster.local:80": "outbound|80||test-duplicate-domains.default",
-				"test-duplicate-domains.default:80":                   "outbound|80||test-duplicate-domains.default",
+				"test-duplicate-domains.default:80": "outbound|80||test-duplicate-domains.default",
 			},
 		},
 		{
@@ -1280,11 +1279,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         nil,
 			virtualServiceConfigs: []*config.Config{&virtualService4},
 			expectedHosts: map[string]map[string]bool{
-				"test-headless.com:8888": {
-					"test-headless.com": true, "*.test-headless.com": true,
-				},
 				"example.com:8888": {
-					"example.com": true,
+					"example.com":         true,
+					"test-headless.com":   true,
+					"*.test-headless.com": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1368,17 +1366,11 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"allow_any": {
 					"*": true,
 				},
-				"service-A.default.svc.cluster.local:7777": {
-					"service-A.default.svc.cluster.local": true,
-				},
 				"service-A.v2:7777": {
-					"service-A.v2": true,
-				},
-				"service-A.v3:7777": {
-					"service-A.v3": true,
+					"service-A.default.svc.cluster.local": true, "service-A.v2": true, "service-A.v3": true,
 				},
 			},
-			expectedRoutes: 7,
+			expectedRoutes: 3,
 			registryOnly:   false,
 		},
 	}
