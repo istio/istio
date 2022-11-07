@@ -145,3 +145,40 @@ func TestLazy(t *testing.T) {
 	slices.Sort(results)
 	assert.Equal(t, results, []int32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
 }
+
+func TestLazyGetter(t *testing.T) {
+	// Return non nil result when err happens
+	l := New(func() (*int, error) {
+		res := 0
+		return &res, fmt.Errorf("not yet")
+	})
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			res, _ := l.Get()
+			if res != nil {
+				t.Fatal("Got non empty result", *res)
+			}
+		}()
+	}
+	wg.Wait()
+
+	l = NewWithRetry(func() (*int, error) {
+		res := 0
+		return &res, fmt.Errorf("not yet")
+	})
+	wg = sync.WaitGroup{}
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			res, _ := l.Get()
+			if res != nil {
+				t.Fatal("Got non empty result", *res)
+			}
+		}()
+	}
+	wg.Wait()
+}

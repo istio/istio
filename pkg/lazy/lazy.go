@@ -87,7 +87,7 @@ func (l *lazyImpl[T]) doSlow() (T, error) {
 				l.err = err
 			}
 		}
-		return res, err
+		return l.res, err
 	}
 	return l.res, l.err
 }
