@@ -492,6 +492,20 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 	}
 
 	instances := cb.req.Push.ServiceInstancesByPort(service, port, labels)
+	if service.Resolution == model.DNSRoundRobinLB {
+		instancesByService := map[*model.Service][]*model.ServiceInstance{}
+		for _, instance := range instances {
+			instancesByService[instance.Service] = append(instancesByService[instance.Service], instance)
+		}
+		if len(instancesByService) > 0 {
+			services := make([]*model.Service, 0, len(instancesByService))
+			for svc := range instancesByService {
+				services = append(services, svc)
+			}
+			model.SortServicesByCreationTime(services)
+			instances = instancesByService[services[0]]
+		}
+	}
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
