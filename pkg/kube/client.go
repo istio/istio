@@ -575,7 +575,7 @@ func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	}
 	// Initial attempt failed, retry on each call to this function
 	v, err := c.kube.Discovery().ServerVersion()
-	if err != nil {
+	if err == nil {
 		c.version = v
 	}
 	return c.version, err
