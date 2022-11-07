@@ -459,6 +459,8 @@ func wrapEndpointSlice(slice any) *endpointSliceWrapper {
 		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1: es}
 	case *v1beta1.EndpointSlice:
 		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1beta1: es}
+	default:
+		log.Fatalf("unknown type %T", es)
 	}
 	return nil
 }

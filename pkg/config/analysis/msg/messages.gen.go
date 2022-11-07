@@ -216,6 +216,14 @@ var (
 	// EnvoyFilterUsesRelativeOperationWithProxyVersion defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperationWithProxyVersion".
 	// Description: This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.
 	EnvoyFilterUsesRelativeOperationWithProxyVersion = diag.NewMessageType(diag.Warning, "IST0155", "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.")
+
+	// UnsupportedGatewayAPIVersion defines a diag.MessageType for message "UnsupportedGatewayAPIVersion".
+	// Description: The Gateway API CRD version is not supported
+	UnsupportedGatewayAPIVersion = diag.NewMessageType(diag.Error, "IST0156", "The Gateway API CRD version %v is lower than the minimum version: %v")
+
+	// InvalidTelemetryProvider defines a diag.MessageType for message "InvalidTelemetryProvider".
+	// Description: The Telemetry with empty providers will be ignored
+	InvalidTelemetryProvider = diag.NewMessageType(diag.Warning, "IST0157", "The Telemetry %v in namespace %q with empty providers will be ignored.")
 )
 
 // All returns a list of all known message types.
@@ -273,6 +281,8 @@ func All() []*diag.MessageType {
 		EnvoyFilterUsesAddOperationIncorrectly,
 		EnvoyFilterUsesRemoveOperationIncorrectly,
 		EnvoyFilterUsesRelativeOperationWithProxyVersion,
+		UnsupportedGatewayAPIVersion,
+		InvalidTelemetryProvider,
 	}
 }
 
@@ -783,5 +793,25 @@ func NewEnvoyFilterUsesRelativeOperationWithProxyVersion(r *resource.Instance) d
 	return diag.NewMessage(
 		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 		r,
+	)
+}
+
+// NewUnsupportedGatewayAPIVersion returns a new diag.Message based on UnsupportedGatewayAPIVersion.
+func NewUnsupportedGatewayAPIVersion(r *resource.Instance, version string, minimumVersion string) diag.Message {
+	return diag.NewMessage(
+		UnsupportedGatewayAPIVersion,
+		r,
+		version,
+		minimumVersion,
+	)
+}
+
+// NewInvalidTelemetryProvider returns a new diag.Message based on InvalidTelemetryProvider.
+func NewInvalidTelemetryProvider(r *resource.Instance, name string, namespace string) diag.Message {
+	return diag.NewMessage(
+		InvalidTelemetryProvider,
+		r,
+		name,
+		namespace,
 	)
 }

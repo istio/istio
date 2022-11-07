@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/retry"
 	kubectlutil "k8s.io/kubectl/pkg/util"
@@ -190,7 +190,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		err := h.client.Get(context.TODO(), objectKey, receiver)
 
 		switch {
-		case apierrors.IsNotFound(err):
+		case kerrors.IsNotFound(err):
 			scope.Infof("Creating %s (%s/%s)", objectStr, h.iop.Name, h.iop.Spec.Revision)
 			err = h.client.Create(context.TODO(), obj)
 			if err != nil {

@@ -29,8 +29,8 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
-	kubeApiCore "k8s.io/api/core/v1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "istio.io/api/operator/v1alpha1"
@@ -90,12 +90,12 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: ""})
 
-			if _, err := cs.Kube().CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-				ObjectMeta: kubeApiMeta.ObjectMeta{
+			if _, err := cs.Kube().CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: IstioNamespace,
 				},
-			}, kubeApiMeta.CreateOptions{}); err != nil {
-				_, err := cs.Kube().CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
+			}, metav1.CreateOptions{}); err != nil {
+				_, err := cs.Kube().CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, metav1.GetOptions{})
 				if err == nil {
 					log.Info("istio namespace already exist")
 				} else {
@@ -127,15 +127,16 @@ func TestController(t *testing.T) {
 			removeCmd := []string{
 				"operator", "remove",
 				"--skip-confirmation",
+				"--purge",
 			}
 			istioCtl.InvokeOrFail(t, removeCmd)
 
 			retry.UntilSuccessOrFail(t, func() error {
 				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
-					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); svc.Name != "" {
+					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); svc.Name != "" {
 						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
 					}
-					if dp, _ := cs.Kube().AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, kubeApiMeta.GetOptions{}); dp.Name != "" {
+					if dp, _ := cs.Kube().AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); dp.Name != "" {
 						return fmt.Errorf("got operator deployment %s from cluster, expected to be removed", dp.Name)
 					}
 				}
@@ -163,11 +164,11 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 	var err error
 	// clean up dynamically created secret and configmaps
 	if e := cs.Kube().CoreV1().Secrets(IstioNamespace).DeleteCollection(
-		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+		context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 		err = multierror.Append(err, e)
 	}
 	if e := cs.Kube().CoreV1().ConfigMaps(IstioNamespace).DeleteCollection(
-		context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+		context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 		err = multierror.Append(err, e)
 	}
 	if err != nil {
@@ -186,14 +187,14 @@ func checkInstallStatus(cs istioKube.CLIClient, revision string) error {
 
 	var unhealthyCN []string
 	retryFunc := func() error {
-		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), revName("test-istiocontrolplane", revision), kubeApiMeta.GetOptions{})
+		us, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), revName("test-istiocontrolplane", revision), metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get istioOperator resource: %v", err)
 		}
 		usIOPStatus := us.UnstructuredContent()["status"]
 		if usIOPStatus == nil {
 			if _, err := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), revName("istio-operator", revision),
-				kubeApiMeta.GetOptions{}); err != nil {
+				metav1.GetOptions{}); err != nil {
 				return fmt.Errorf("istio operator svc is not ready: %v", err)
 			}
 			if _, err := kube2.CheckPodsAreReady(kube2.NewPodFetch(cs, OperatorNamespace, "")); err != nil {
@@ -243,12 +244,12 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		Resource: "istiooperators",
 	}
 	crList, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).List(context.TODO(),
-		kubeApiMeta.ListOptions{})
+		metav1.ListOptions{})
 	if err == nil {
 		for _, obj := range crList.Items {
 			t.Logf("deleting CR %v", obj.GetName())
 			if err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(), obj.GetName(),
-				kubeApiMeta.DeleteOptions{}); err != nil {
+				metav1.DeleteOptions{}); err != nil {
 				t.Logf("failed to delete existing CR: %v", err)
 			}
 		}
@@ -259,7 +260,7 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("waiting for pods in istio-system to be deleted")
 	// wait for pods in istio-system to be deleted
 	err = retry.UntilSuccess(func() error {
-		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
+		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -383,43 +384,43 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 			var err error
 			switch kind {
 			case "Service":
-				_, err = cs.Kube().CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+				_, err = cs.Kube().CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 			case "ServiceAccount":
-				_, err = cs.Kube().CoreV1().ServiceAccounts(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+				_, err = cs.Kube().CoreV1().ServiceAccounts(ns).Get(context.TODO(), name, metav1.GetOptions{})
 			case "Deployment":
 				_, err = cs.Kube().AppsV1().Deployments(IstioNamespace).Get(context.TODO(), name,
-					kubeApiMeta.GetOptions{})
+					metav1.GetOptions{})
 			case "ConfigMap":
-				_, err = cs.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+				_, err = cs.Kube().CoreV1().ConfigMaps(ns).Get(context.TODO(), name, metav1.GetOptions{})
 			case "ValidatingWebhookConfiguration":
 				_, err = cs.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
-					name, kubeApiMeta.GetOptions{})
+					name, metav1.GetOptions{})
 			case "MutatingWebhookConfiguration":
 				_, err = cs.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(),
-					name, kubeApiMeta.GetOptions{})
+					name, metav1.GetOptions{})
 			case "CustomResourceDefinition":
 				_, err = cs.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name,
-					kubeApiMeta.GetOptions{})
+					metav1.GetOptions{})
 			case "EnvoyFilter":
 				_, err = cs.Dynamic().Resource(efgvr).Namespace(ns).Get(context.TODO(), name,
-					kubeApiMeta.GetOptions{})
+					metav1.GetOptions{})
 			case "PodDisruptionBudget":
 				// policy/v1 is available on >=1.21
 				if cs.MinKubeVersion(21) {
 					_, err = cs.Kube().PolicyV1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
-						kubeApiMeta.GetOptions{})
+						metav1.GetOptions{})
 				} else {
 					_, err = cs.Kube().PolicyV1beta1().PodDisruptionBudgets(ns).Get(context.TODO(), name,
-						kubeApiMeta.GetOptions{})
+						metav1.GetOptions{})
 				}
 			case "HorizontalPodAutoscaler":
 				// autoscaling v2 API is available on >=1.23
 				if cs.MinKubeVersion(23) {
 					_, err = cs.Kube().AutoscalingV2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
-						kubeApiMeta.GetOptions{})
+						metav1.GetOptions{})
 				} else {
 					_, err = cs.Kube().AutoscalingV2beta2().HorizontalPodAutoscalers(ns).Get(context.TODO(), name,
-						kubeApiMeta.GetOptions{})
+						metav1.GetOptions{})
 				}
 			}
 			if err != nil && !expectRemoved {

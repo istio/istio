@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -43,10 +43,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/sets"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -65,12 +64,6 @@ const (
 	AutoOverHTTP
 	// AutoOverTCP represents incoming AUTO existing TCP
 	AutoOverTCP
-)
-
-const (
-	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
-	// TODO: allow configuration through mesh config
-	ProxyInboundListenPort = 15006
 )
 
 // MutableListener represents a listener that is being built.
@@ -200,24 +193,6 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	return ctx
 }
 
-// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredSidecarCipherSuites(suites []string) []string {
-	ret := make([]string, 0, len(suites))
-	validCiphers := sets.New[string]()
-	for _, s := range suites {
-		if security.IsValidCipherSuite(s) {
-			if !validCiphers.InsertContains(s) {
-				ret = append(ret, s)
-			} else if log.DebugEnabled() {
-				log.Debugf("ignoring duplicated cipherSuite: %q", s)
-			}
-		} else if log.DebugEnabled() {
-			log.Debugf("ignoring unsupported cipherSuite: %q", s)
-		}
-	}
-	return ret
-}
-
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.push.Mesh.ProxyListenPort > 0 {
@@ -336,6 +311,28 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			}
 		}
 
+		// If capture mode is NONE i.e., bindToPort is true, and
+		// Bind IP + Port is specified, we will bind to the specified IP and Port.
+		// This specified IP is ideally expected to be a loopback IP.
+		//
+		// If capture mode is NONE i.e., bindToPort is true, and
+		// only Port is specified, we will bind to the default loopback IP
+		// 127.0.0.1 and the specified Port.
+		//
+		// If capture mode is NONE, i.e., bindToPort is true, and
+		// only Bind IP is specified, we will bind to the specified IP
+		// for each port as defined in the service registry.
+		//
+		// If captureMode is not NONE, i.e., bindToPort is false, then
+		// we will bind to user specified IP (if any) or to the VIPs of services in
+		// this egress listener.
+		var bind string
+		if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
+			bind = egressListener.IstioListener.Bind
+		} else if bindToPort {
+			bind = actualLocalHosts[0]
+		}
+
 		if egressListener.IstioListener != nil &&
 			egressListener.IstioListener.Port != nil {
 			// We have a non catch all listener on some user specified port
@@ -358,35 +355,17 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
-			// If capture mode is NONE i.e., bindToPort is true, and
-			// Bind IP + Port is specified, we will bind to the specified IP and Port.
-			// This specified IP is ideally expected to be a loopback IP.
-			//
-			// If capture mode is NONE i.e., bindToPort is true, and
-			// only Port is specified, we will bind to the default loopback IP
-			// 127.0.0.1 and the specified Port.
-			//
-			// If capture mode is NONE, i.e., bindToPort is true, and
-			// only Bind IP is specified, we will bind to the specified IP
-			// for each port as defined in the service registry.
-			//
-			// If captureMode is not NONE, i.e., bindToPort is false, then
-			// we will bind to user specified IP (if any) or to the VIPs of services in
-			// this egress listener.
 			var extraBind []string
-			bind := egressListener.IstioListener.Bind
-			if bind == "" {
+			if egressListener.IstioListener.Bind == "" {
 				if bindToPort {
 					// the first local host would be the binding address and
 					// the rest would be the additional addresses
-					bind = actualLocalHosts[0]
 					if len(actualLocalHosts) > 1 {
 						extraBind = actualLocalHosts[1:]
 					}
 				} else {
 					// the first wildcard address would be the binding address and
 					// the rest would be the additional addresses
-					bind = actualWildcards[0]
 					if len(actualWildcards) > 1 {
 						extraBind = actualWildcards[1:]
 					}
@@ -431,14 +410,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			// with locked bit set to true
 			for _, e := range listenerMap {
 				e.locked = true
-			}
-
-			var bind string
-			if egressListener.IstioListener != nil && egressListener.IstioListener.Bind != "" {
-				bind = egressListener.IstioListener.Bind
-			}
-			if bindToPort && bind == "" {
-				bind = actualLocalHosts[0]
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
@@ -499,7 +470,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).
-							if net.ParseIP(instance.Endpoint.Address) == nil {
+							if !netutil.IsValidIPAddress(instance.Endpoint.Address) {
 								continue
 							}
 							// Skip build outbound listener to the node itself,
@@ -1098,6 +1069,7 @@ type httpListenerOpts struct {
 
 	class istionetworking.ListenerClass
 	port  int
+	hbone bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1656,4 +1628,42 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
+}
+
+const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
+
+// outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
+func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	name := "outbound-tunnel"
+	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
+	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
+	p := &tcp.TcpProxy{
+		StatPrefix:       name,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
+			HeadersToAdd: []*core.HeaderValueOption{
+				{Header: &core.HeaderValue{
+					Key: "baggage",
+					Value: fmt.Sprintf(baggageFormat,
+						proxy.Metadata.ClusterID, proxy.ConfigNamespace,
+						// TODO do not hardcode deployment. But I think we ignore it anyways?
+						"deployment", proxy.Metadata.WorkloadName,
+						canonicalName, canonicalRevision,
+					),
+				}},
+			},
+		},
+	}
+
+	l := &listener.Listener{
+		Name:              name,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.SetDstAddress},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
+		}},
+	}
+	return l
 }

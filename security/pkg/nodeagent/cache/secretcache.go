@@ -773,7 +773,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 		anchors.Insert(cert)
 	}
 	anchorBytes := []byte{}
-	for _, cert := range anchors.SortedList() {
+	for _, cert := range sets.SortedList(anchors) {
 		anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))
 	}
 	return anchorBytes

@@ -166,11 +166,11 @@ func TestWasmCache(t *testing.T) {
 			name:                   "download failure",
 			initialCachedModules:   map[moduleKey]cacheEntry{},
 			initialCachedChecksums: map[string]*checksumEntry{},
-			fetchURL:               "https://dummyurl",
+			fetchURL:               "https://-invalid-url",
 			requestTimeout:         time.Second * 10,
 			wantCachedModules:      map[moduleKey]*cacheEntry{},
 			wantCachedChecksums:    map[string]*checksumEntry{},
-			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://dummyurl\"",
+			wantErrorMsgPrefix:     "wasm module download failed after 5 attempts, last error: Get \"https://-invalid-url\"",
 			wantVisitServer:        false,
 		},
 		{
@@ -717,7 +717,7 @@ func TestWasmCache(t *testing.T) {
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
 					t.Errorf("Wasm module cache lookup got no error, want error prefix `%v`", c.wantErrorMsgPrefix)
-				} else if !strings.HasPrefix(gotErr.Error(), c.wantErrorMsgPrefix) {
+				} else if !strings.Contains(gotErr.Error(), c.wantErrorMsgPrefix) {
 					t.Errorf("Wasm module cache lookup got error `%v`, want error prefix `%v`", gotErr, c.wantErrorMsgPrefix)
 				}
 			} else if gotFilePath != wantFilePath {
@@ -737,7 +737,7 @@ func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCII
 	// Push *compat* variant docker image (others are well tested in imagefetcher's test and the behavior is consistent).
 	ref := fmt.Sprintf("%s/test/valid/docker:v0.1.0", host)
 	binary := append(wasmHeader, []byte("this is wasm plugin")...)
-	transport := remote.DefaultTransport.Clone()
+	transport := remote.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	fetchOpt := crane.WithTransport(transport)
 

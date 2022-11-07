@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Index reprensents an index over workload instances from workload entries.
@@ -113,7 +114,7 @@ func (i *index) GetByIP(ip string) []*model.WorkloadInstance {
 		return nil
 	}
 	instances := make([]*model.WorkloadInstance, 0, len(keys))
-	for _, key := range keys.SortedList() {
+	for _, key := range sets.SortedList(keys) {
 		if instance, exists := i.keyToInstance[key]; exists {
 			instances = append(instances, instance)
 		}

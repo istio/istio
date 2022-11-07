@@ -552,6 +552,16 @@ var (
 			"Regardless of this setting, the configuration can be overridden with the Sidecar.Ingress.DefaultEndpoint configuration.",
 	).Get()
 
+	// EnableHBONE provides a global Pilot flag for enabling HBONE.
+	// Generally, this could be a per-proxy setting (and is, via ENABLE_HBONE node metadata).
+	// However, there are some code paths that impact all clients, hence the global flag.
+	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
+	EnableHBONE = env.Register(
+		"PILOT_ENABLE_HBONE",
+		false,
+		"If enabled, HBONE support can be configured for proxies. "+
+			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
+
 	StripHostPort = env.Register("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
 		"If enabled, Gateway will remove any port from host/authority header "+
 			"before any processing of request by HTTP filters or routing. Deprecated: in Istio 1.15+ port is ignored in domain matching.").Get()
@@ -667,12 +677,18 @@ var (
 	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
 
 	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", false,
-		"If enabled, meshConfig.discoverySelectors will also limit the configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
-			"that can be processed by pilot.").Get()
+		"If enabled, meshConfig.discoverySelectors will limit the CustomResource configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
+			"that can be processed by pilot. This will also restrict the root-ca certificate distribution.").Get()
 
 	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
 		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
 			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
+
+	EnableSidecarServiceInboundListenerMerge = env.Register(
+		"PILOT_ALLOW_SIDECAR_SERVICE_INBOUND_LISTENER_MERGE",
+		false,
+		"If set, it allows creating inbound listeners for service ports and sidecar ingress listeners ",
+	).Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

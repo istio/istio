@@ -26,7 +26,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
-	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,6 +41,7 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
@@ -196,15 +197,21 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
-
+	webhookConfigName := util.GetWebhookConfigName(features.ValidationWebhookConfigName, o.Revision, o.WatchedNamespace)
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				if features.EnableEnhancedResourceScoping {
+					opts.FieldSelector = fmt.Sprintf("metadata.name=%s", webhookConfigName)
+				}
 				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				if features.EnableEnhancedResourceScoping {
+					opts.FieldSelector = fmt.Sprintf("metadata.name=%s", webhookConfigName)
+				}
 				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
@@ -320,7 +327,7 @@ func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	configuration, err := c.client.Kube().
 		AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
 	if err != nil {
-		if kubeErrors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
 			return false, nil
 		}
@@ -380,7 +387,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	istioClient := c.client.Istio().NetworkingV1alpha3()
 	_, err := istioClient.Gateways(c.o.WatchedNamespace).Create(context.TODO(), invalidGateway, createOptions)
-	if kubeErrors.IsAlreadyExists(err) {
+	if kerrors.IsAlreadyExists(err) {
 		updateOptions := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 		_, err = istioClient.Gateways(c.o.WatchedNamespace).Update(context.TODO(), invalidGateway, updateOptions)
 	}
@@ -433,7 +440,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 	if err != nil {
 		scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
 			updated.Name, failurePolicy, updated.ResourceVersion, err)
-		reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
+		reportValidationConfigUpdateError(kerrors.ReasonForError(err))
 		return err
 	}
 

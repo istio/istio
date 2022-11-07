@@ -77,14 +77,14 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 	err := h.InstallChart(BaseReleaseName, filepath.Join(relPath, version, BaseChart+suffix),
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
-		t.Fatalf("failed to install istio %s chart", BaseChart)
+		t.Fatalf("failed to install istio %s chart: %v", BaseChart, err)
 	}
 
 	// Install discovery chart
 	err = h.InstallChart(IstiodReleaseName, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChart)+suffix,
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
-		t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChart, err)
 	}
 
 	if installGateways {
@@ -92,14 +92,14 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, IngressGatewayChart)+suffix,
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", IngressGatewayChart)
+			t.Fatalf("failed to install istio %s chart: %v", IngressGatewayChart, err)
 		}
 
 		// Install egress gateway chart
 		err = h.InstallChart(EgressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, EgressGatewayChart)+suffix,
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", EgressGatewayChart)
+			t.Fatalf("failed to install istio %s chart: %v", EgressGatewayChart, err)
 		}
 	}
 }
@@ -165,16 +165,16 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release", EgressReleaseName)
+		t.Errorf("failed to delete %s release: %v", EgressReleaseName, err)
 	}
 	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release", IngressReleaseName)
+		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
 	}
 	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release", IstiodReleaseName)
+		t.Errorf("failed to delete %s release: %v", IstiodReleaseName, err)
 	}
 	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release", BaseReleaseName)
+		t.Errorf("failed to delete %s release: %v", BaseReleaseName, err)
 	}
 	if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), IstioNamespace, metav1.DeleteOptions{}); err != nil {
 		t.Errorf("failed to delete istio namespace: %v", err)

@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -81,7 +81,7 @@ func TestAPIGen(t *testing.T) {
 			t.Fatal("ADSC: failed running ", err)
 		}
 
-		adscConn.Send(&xdsapi.DiscoveryRequest{
+		adscConn.Send(&discovery.DiscoveryRequest{
 			TypeUrl: v3.ListenerType,
 		})
 

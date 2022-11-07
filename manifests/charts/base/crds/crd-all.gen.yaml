@@ -3027,6 +3027,7 @@ spec:
                       - CLUSTER
                       - EXTENSION_CONFIG
                       - BOOTSTRAP
+                      - LISTENER_FILTER
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -3111,6 +3112,9 @@ spec:
                                   description: Applies only to `SIDECAR_INBOUND` context.
                                   type: string
                               type: object
+                            listenerFilter:
+                              description: Match a specific listener filter.
+                              type: string
                             name:
                               description: Match a specific listener by its name.
                               type: string

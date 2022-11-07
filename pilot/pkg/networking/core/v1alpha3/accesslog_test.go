@@ -21,7 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -142,7 +142,7 @@ func TestListenerAccessLog(t *testing.T) {
 							// Verify tcp proxy access log.
 							verify(t, tc.encoding, tcpConfig.AccessLog[0], tc.wantFormat)
 						case wellknown.HTTPConnectionManager:
-							httpConfig := &httppb.HttpConnectionManager{}
+							httpConfig := &hcm.HttpConnectionManager{}
 							if err := filter.GetTypedConfig().UnmarshalTo(httpConfig); err != nil {
 								t.Fatal(err)
 							}
@@ -387,9 +387,9 @@ func TestSetHttpAccessLog(t *testing.T) {
 		name     string
 		push     *model.PushContext
 		proxy    *model.Proxy
-		hcm      *httppb.HttpConnectionManager
+		hcm      *hcm.HttpConnectionManager
 		class    networking.ListenerClass
-		expected *httppb.HttpConnectionManager
+		expected *hcm.HttpConnectionManager
 	}{
 		{
 			name: "telemetry",
@@ -399,9 +399,9 @@ func TestSetHttpAccessLog(t *testing.T) {
 				Labels:          map[string]string{"app": "test"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
 			},
-			hcm:   &httppb.HttpConnectionManager{},
+			hcm:   &hcm.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarInbound,
-			expected: &httppb.HttpConnectionManager{
+			expected: &hcm.HttpConnectionManager{
 				AccessLog: []*accesslog.AccessLog{
 					{
 						Name:       wellknown.FileAccessLog,
@@ -418,9 +418,9 @@ func TestSetHttpAccessLog(t *testing.T) {
 				Labels:          map[string]string{"app": "without-telemetry"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
 			},
-			hcm:   &httppb.HttpConnectionManager{},
+			hcm:   &hcm.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarInbound,
-			expected: &httppb.HttpConnectionManager{
+			expected: &hcm.HttpConnectionManager{
 				AccessLog: []*accesslog.AccessLog{
 					{
 						Name:       wellknown.FileAccessLog,

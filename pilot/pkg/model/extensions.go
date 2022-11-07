@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	envoyCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyWasmFilterV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -203,12 +203,12 @@ func toSecretResourceName(name, pluginNamespace string) string {
 	return sr.KubernetesResourceName()
 }
 
-func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.AsyncDataSource {
+func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncDataSource {
 	if u.Scheme == fileScheme {
-		return &envoyCoreV3.AsyncDataSource{
-			Specifier: &envoyCoreV3.AsyncDataSource_Local{
-				Local: &envoyCoreV3.DataSource{
-					Specifier: &envoyCoreV3.DataSource_Filename{
+		return &core.AsyncDataSource{
+			Specifier: &core.AsyncDataSource_Local{
+				Local: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
 						Filename: strings.TrimPrefix(wasmPlugin.Url, "file://"),
 					},
 				},
@@ -216,13 +216,13 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 		}
 	}
 
-	return &envoyCoreV3.AsyncDataSource{
-		Specifier: &envoyCoreV3.AsyncDataSource_Remote{
-			Remote: &envoyCoreV3.RemoteDataSource{
-				HttpUri: &envoyCoreV3.HttpUri{
+	return &core.AsyncDataSource{
+		Specifier: &core.AsyncDataSource_Remote{
+			Remote: &core.RemoteDataSource{
+				HttpUri: &core.HttpUri{
 					Uri:     u.String(),
 					Timeout: durationpb.New(30 * time.Second),
-					HttpUpstreamType: &envoyCoreV3.HttpUri_Cluster{
+					HttpUpstreamType: &core.HttpUri_Cluster{
 						// this will be fetched by the agent anyway, so no need for a cluster
 						Cluster: "_",
 					},
@@ -234,7 +234,7 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3
 }
 
 func buildVMConfig(
-	datasource *envoyCoreV3.AsyncDataSource,
+	datasource *core.AsyncDataSource,
 	resourceVersion string,
 	wasmPlugin *extensions.WasmPlugin,
 ) *envoyExtensionsWasmV3.PluginConfig_VmConfig {

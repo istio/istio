@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/tests/util/sanitycheck"
 )
@@ -76,6 +77,14 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)
 		}
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				namespace.Dump(t, IstioNamespace)
+			}
+		})
 		InstallIstio(t, cs, h, "", overrideValuesFile, ManifestsChartPath, "", true)
 
 		VerifyInstallation(t, cs, true)

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Builder of configuration.
@@ -251,7 +252,7 @@ func (b *Builder) checkMissing(s Source) {
 	tpl := s.TemplateOrFail(b.t)
 	missing := tpl.MissingParams(s.Params())
 	if missing.Len() > 0 {
-		b.t.Fatalf("config template requires missing params: %v", missing.SortedList())
+		b.t.Fatalf("config template requires missing params: %v", sets.SortedList(missing))
 	}
 }
 

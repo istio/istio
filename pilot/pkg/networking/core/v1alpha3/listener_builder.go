@@ -90,11 +90,17 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 	lb.inboundListeners = lb.buildInboundListeners()
+	if lb.node.EnableHBONE() {
+		lb.inboundListeners = append(lb.inboundListeners, lb.buildInboundHBONEListeners()...)
+	}
 	return lb
 }
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
 	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	if lb.node.EnableHBONE() {
+		lb.outboundListeners = append(lb.outboundListeners, outboundTunnelListener(lb.push, lb.node))
+	}
 	return lb
 }
 
@@ -361,6 +367,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	})
+
+	// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
+	// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
+	if features.MetadataExchange && !httpOpts.hbone {
+		filters = append(filters, xdsfilters.HTTPMx)
+	}
+
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
@@ -371,10 +384,6 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-
-	if features.MetadataExchange {
-		filters = append(filters, xdsfilters.HTTPMx)
-	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
 		filters = append(filters, xdsfilters.GrpcWeb)

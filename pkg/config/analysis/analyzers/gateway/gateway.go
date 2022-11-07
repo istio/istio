@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
@@ -67,9 +67,9 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	gwSelectorMatches := 0
 
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
-	gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
+	gwSelector := klabels.SelectorFromSet(gw.Selector)
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
-		podLabels := k8s_labels.Set(rPod.Metadata.Labels)
+		podLabels := klabels.Set(rPod.Metadata.Labels)
 		if gwSelector.Matches(podLabels) {
 			gwSelectorMatches++
 			c.ForEach(collections.K8SCoreV1Services.Name(), func(rSvc *resource.Instance) bool {
@@ -80,7 +80,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 				service := rSvc.Message.(*v1.ServiceSpec)
 				// TODO I want to match service.Namespace to pod.ObjectMeta.Namespace
-				svcSelector := k8s_labels.SelectorFromSet(service.Selector)
+				svcSelector := klabels.SelectorFromSet(service.Selector)
 				if svcSelector.Matches(podLabels) {
 					for _, port := range service.Ports {
 						if port.Protocol == "TCP" {

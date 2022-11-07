@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/security/pkg/k8s"
 )
 
@@ -47,13 +48,19 @@ type NamespaceController struct {
 	configMapInformer  cache.SharedInformer
 	namespaceLister    listerv1.NamespaceLister
 	configmapLister    listerv1.ConfigMapLister
+
+	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
+	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *NamespaceController {
+func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher,
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
+) *NamespaceController {
 	c := &NamespaceController{
-		client:          kubeClient.Kube().CoreV1(),
-		caBundleWatcher: caBundleWatcher,
+		client:                    kubeClient.Kube().CoreV1(),
+		caBundleWatcher:           caBundleWatcher,
+		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 	}
 	c.queue = controllers.NewQueue("namespace controller", controllers.WithReconciler(c.insertDataForNamespace))
 
@@ -72,10 +79,22 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			// skip special kubernetes system namespaces
 			return false
 		}
+		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.Filter(o) {
+			// This is a change to a configmap we don't watch, ignore it
+			return false
+		}
 		return true
 	}))
 	c.namespacesInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		return !inject.IgnoredNamespaces.Contains(o.GetName())
+		if inject.IgnoredNamespaces.Contains(o.GetName()) {
+			// skip special kubernetes system namespaces
+			return false
+		}
+		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.FilterNamespace(o.(*v1.Namespace).ObjectMeta) {
+			// This is a change to a namespace we don't watch, ignore it
+			return false
+		}
+		return true
 	}))
 
 	return c
@@ -129,14 +148,18 @@ func (nc *NamespaceController) insertDataForNamespace(o types.NamespacedName) er
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
 	if ns.Status.Phase != v1.NamespaceTerminating {
-		nc.syncNamespace(ns.Name)
+		nc.syncNamespace(ns)
 	}
 }
 
-func (nc *NamespaceController) syncNamespace(ns string) {
+func (nc *NamespaceController) syncNamespace(ns *v1.Namespace) {
 	// skip special kubernetes system namespaces
-	if inject.IgnoredNamespaces.Contains(ns) {
+	if inject.IgnoredNamespaces.Contains(ns.Name) {
 		return
 	}
-	nc.queue.Add(types.NamespacedName{Name: ns})
+	// skip namespaces we don't watch
+	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.FilterNamespace(ns.ObjectMeta) {
+		return
+	}
+	nc.queue.Add(types.NamespacedName{Name: ns.Name})
 }

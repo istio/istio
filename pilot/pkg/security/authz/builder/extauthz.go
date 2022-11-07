@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	extauthzhttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	extauthztcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
@@ -238,12 +238,12 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 ) *builtExtAuthz {
 	service := &extauthzhttp.HttpService{
 		PathPrefix: config.PathPrefix,
-		ServerUri: &envoy_config_core_v3.HttpUri{
+		ServerUri: &core.HttpUri{
 			// Timeout is required.
 			Timeout: timeoutOrDefault(config.Timeout),
 			// Uri is required but actually not used in the ext_authz filter.
 			Uri: fmt.Sprintf("http://%s", hostname),
-			HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
+			HttpUpstreamType: &core.HttpUri_Cluster{
 				Cluster: cluster,
 			},
 		},
@@ -254,14 +254,14 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		// TODO: Remove the IncludeHeadersInCheck field before promoting to beta.
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
-	var headersToAdd []*envoy_config_core_v3.HeaderValue
+	var headersToAdd []*core.HeaderValue
 	var additionalHeaders []string
 	for k := range config.IncludeAdditionalHeadersInCheck {
 		additionalHeaders = append(additionalHeaders, k)
 	}
 	sort.Strings(additionalHeaders)
 	for _, k := range additionalHeaders {
-		headersToAdd = append(headersToAdd, &envoy_config_core_v3.HeaderValue{
+		headersToAdd = append(headersToAdd, &core.HeaderValue{
 			Key:   k,
 			Value: config.IncludeAdditionalHeadersInCheck[k],
 		})
@@ -284,7 +284,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	http := &extauthzhttp.ExtAuthz{
 		StatusOnError:       status,
 		FailureModeAllow:    config.FailOpen,
-		TransportApiVersion: envoy_config_core_v3.ApiVersion_V3,
+		TransportApiVersion: core.ApiVersion_V3,
 		Services: &extauthzhttp.ExtAuthz_HttpService{
 			HttpService: service,
 		},
@@ -301,9 +301,9 @@ func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionP
 	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
 	// use the cluster name as default authority.
 	authority := strings.ReplaceAll(cluster, "|", "_.")
-	grpc := &envoy_config_core_v3.GrpcService{
-		TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-			EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+	grpc := &core.GrpcService{
+		TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+			EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 				ClusterName: cluster,
 				Authority:   authority,
 			},
@@ -317,13 +317,13 @@ func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionP
 			GrpcService: grpc,
 		},
 		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
-		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
+		TransportApiVersion:   core.ApiVersion_V3,
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
 	tcp := &extauthztcp.ExtAuthz{
 		StatPrefix:            "tcp.",
 		FailureModeAllow:      config.FailOpen,
-		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
+		TransportApiVersion:   core.ApiVersion_V3,
 		GrpcService:           grpc,
 		FilterEnabledMetadata: generateFilterMatcher(wellknown.RoleBasedAccessControl),
 	}

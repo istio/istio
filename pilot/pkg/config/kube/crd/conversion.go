@@ -23,7 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/api/meta/v1alpha1"
@@ -133,20 +133,20 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 	}
 	namespace := cfg.Namespace
 	if namespace == "" {
-		namespace = meta_v1.NamespaceDefault
+		namespace = metav1.NamespaceDefault
 	}
 	return &IstioKind{
-		TypeMeta: meta_v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       cfg.GroupVersionKind.Kind,
 			APIVersion: cfg.GroupVersionKind.Group + "/" + cfg.GroupVersionKind.Version,
 		},
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:              cfg.Name,
 			Namespace:         namespace,
 			ResourceVersion:   cfg.ResourceVersion,
 			Labels:            cfg.Labels,
 			Annotations:       cfg.Annotations,
-			CreationTimestamp: meta_v1.NewTime(cfg.CreationTimestamp),
+			CreationTimestamp: metav1.NewTime(cfg.CreationTimestamp),
 		},
 		Spec:   spec,
 		Status: status,

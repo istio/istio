@@ -42,6 +42,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -3570,6 +3571,10 @@ func TestBuildExternalSDSClusters(t *testing.T) {
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
 			cluster := cb.buildExternalSDSCluster(security.CredentialNameSocketPath)
 			path := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetPipe().Path
+			anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+			if anyOptions == nil {
+				t.Errorf("cluster has no httpProtocolOptions")
+			}
 			if cluster.Name != tt.expectedName {
 				t.Errorf("Unexpected cluster name, got: %v, want: %v", cluster.Name, tt.expectedName)
 			}

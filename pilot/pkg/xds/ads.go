@@ -590,11 +590,11 @@ func connectionID(node string) string {
 func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, error) {
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
-		return nil, err
+		return nil, status.New(codes.InvalidArgument, err.Error()).Err()
 	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
-		return nil, err
+		return nil, status.New(codes.InvalidArgument, err.Error()).Err()
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
@@ -684,7 +684,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			switch conf.Kind {
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
 				sidecar = true
-			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferencePolicy, kind.ReferenceGrant:
+			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant:
 				gateway = true
 			case kind.Ingress:
 				sidecar = true
@@ -853,7 +853,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 		// Make sure the ConfigsUpdated map exists
 		if req.ConfigsUpdated == nil {
-			req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+			req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
 		}
 	}
 
@@ -904,10 +904,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	}
 	err := istiogrpc.Send(conn.stream.Context(), sendHandler)
 	if err == nil {
-		sz := 0
-		for _, rc := range res.Resources {
-			sz += len(rc.Value)
-		}
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {

@@ -161,8 +161,8 @@ metadata:
   name: b
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
+  - kind: Service
+    name: b
   - name: gateway
     namespace: istio-system
   hostnames: ["b"]

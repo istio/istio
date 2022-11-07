@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -157,6 +158,25 @@ const (
 	LocalityLabel = "istio-locality"
 	// k8s istio-locality label separator
 	k8sSeparator = "."
+)
+
+const (
+	// TunnelLabel defines the label workloads describe to indicate that they support tunneling.
+	// Values are expected to be a CSV list, sorted by preference, of protocols supported.
+	// Currently supported values:
+	// * "http": indicates tunneling over HTTP over TCP. HTTP/2 vs HTTP/1.1 may be supported by ALPN negotiation.
+	// Planned future values:
+	// * "http3": indicates tunneling over HTTP over QUIC. This is distinct from "http", since we cannot do ALPN
+	//   negotiation for QUIC vs TCP.
+	// Users should appropriately parse the full list rather than doing a string literal check to
+	// ensure future-proofing against new protocols being added.
+	TunnelLabel = "networking.istio.io/tunnel"
+	// TunnelLabelShortName is a short name for TunnelLabel to be used in optimized scenarios.
+	TunnelLabelShortName = "tunnel"
+	// TunnelHTTP indicates tunneling over HTTP over TCP. HTTP/2 vs HTTP/1.1 may be supported by ALPN
+	// negotiation. Note: ALPN negotiation is not currently implemented; HTTP/2 will always be used.
+	// This is future-proofed, however, because only the `h2` ALPN is exposed.
+	TunnelHTTP = "http"
 )
 
 const (
@@ -473,6 +493,10 @@ type IstioEndpoint struct {
 
 	// Indicatesthe endpoint health status.
 	HealthStatus HealthStatus
+}
+
+func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
+	return sets.New(strings.Split(ep.Labels[TunnelLabel], ",")...).Contains(tunnelType)
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.

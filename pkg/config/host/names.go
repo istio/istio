@@ -32,7 +32,11 @@ func (h Names) Len() int {
 }
 
 func (h Names) Less(i, j int) bool {
-	a, b := h[i], h[j]
+	return MoreSpecific(h[i], h[j])
+}
+
+// MoreSpecific returns true if hostname a is more specific than b.
+func MoreSpecific(a, b Name) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string
 	}
