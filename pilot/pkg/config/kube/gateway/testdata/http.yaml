@@ -50,6 +50,12 @@ spec:
         - name: my-added-header
           value: added-value
         remove: [my-removed-header]
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: my-added-resp-header
+          value: added-resp-value
+        remove: [my-removed-header]
     backendRefs:
     - name: httpbin
       port: 80

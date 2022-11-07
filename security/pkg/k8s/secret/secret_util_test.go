@@ -77,12 +77,11 @@ iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
 func TestBuildSecret(t *testing.T) {
 	CertPem := []byte(cert1Pem)
 	KeyPem := []byte(key1Pem)
-	serviceAccount := ""
 	namespace := "default"
 	secretType := "secret-type"
 	scrtName := "istio-ca-secret"
 
-	caSecret := BuildSecret(serviceAccount, scrtName, namespace,
+	caSecret := BuildSecret(scrtName, namespace,
 		nil, nil, nil, CertPem, KeyPem, v1.SecretType(secretType))
 	if caSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", caSecret)
@@ -100,7 +99,7 @@ func TestBuildSecret(t *testing.T) {
 		t.Fatalf("CA cert does not match, want %v got %v", KeyPem, caSecret.Data[caPrivateKeyID])
 	}
 
-	serverSecret := BuildSecret(serviceAccount, scrtName, namespace,
+	serverSecret := BuildSecret(scrtName, namespace,
 		CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
 	if serverSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", serverSecret)
@@ -116,19 +115,5 @@ func TestBuildSecret(t *testing.T) {
 	}
 	if !bytes.Equal(serverSecret.Data[privateKeyID], KeyPem) {
 		t.Fatalf("Private key does not match, want %v got %v", KeyPem, serverSecret.Data[privateKeyID])
-	}
-
-	serviceAccount = "account"
-	serverSecret = BuildSecret(serviceAccount, scrtName, namespace,
-		CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
-	if serverSecret.ObjectMeta.Annotations == nil {
-		t.Fatal("Annotation should not be nil")
-	}
-	val, ok := serverSecret.ObjectMeta.Annotations[serviceAccountNameAnnotationKey]
-	if !ok {
-		t.Fatalf("Failed to find annotation for %s", serviceAccountNameAnnotationKey)
-	}
-	if val != serviceAccount {
-		t.Fatalf("annotation does not match, got %s want %s", val, serviceAccount)
 	}
 }

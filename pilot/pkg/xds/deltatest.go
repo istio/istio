@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var knownOptimizationGaps = sets.New[string](
+var knownOptimizationGaps = sets.New(
 	"BlackHoleCluster",
 	"InboundPassthroughClusterIpv4",
 	"InboundPassthroughClusterIpv6",
@@ -104,12 +104,12 @@ func (s *DiscoveryServer) compareDiff(
 	}
 
 	// BUGS
-	extraDeletes := gotDeleted.Difference(wantDeleted).SortedList()
-	missedDeletes := wantDeleted.Difference(gotDeleted).SortedList()
-	missedChanges := wantChanged.Difference(gotChanged).SortedList()
+	extraDeletes := sets.SortedList(gotDeleted.Difference(wantDeleted))
+	missedDeletes := sets.SortedList(wantDeleted.Difference(gotDeleted))
+	missedChanges := sets.SortedList(wantChanged.Difference(gotChanged))
 
 	// Optimization Potential
-	extraChanges := gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps).SortedList()
+	extraChanges := sets.SortedList(gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps))
 	if len(delta.Subscribed) > 0 {
 		// Delta is configured to build only the request resources. Make sense we didn't build anything extra
 		if !wantChanged.SupersetOf(gotChanged) {

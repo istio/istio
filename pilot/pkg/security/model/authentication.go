@@ -51,7 +51,7 @@ const (
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
-	SdsCaSuffix = "-cacert"
+	SdsCaSuffix = credentials.SdsCaSuffix
 
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter. This should be the same as the name defined
 	// in https://github.com/envoyproxy/envoy/blob/v1.9.1/source/extensions/filters/http/well_known_names.h#L48
@@ -99,7 +99,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	}
 }
 
-// ConstructSdsSecretConfigForSDSEndpoint constructs SDS Secret Configuration based on CredentialNameSocketPath
+// ConstructSdsSecretConfigForCredentialSocket constructs SDS Secret Configuration based on CredentialNameSocketPath
 // if CredentialNameSocketPath exists, use a static cluster 'sds-external'
 func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConfig {
 	return &tls.SdsSecretConfig{

@@ -30,7 +30,7 @@ func FuzzDeepCopyService(f *testing.F) {
 }
 
 func FuzzDeepCopyServiceInstance(f *testing.F) {
-	fuzzDeepCopy[*ServiceInstance](f, cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+	fuzzDeepCopy[*ServiceInstance](f, protocmp.Transform(), cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
 }
 
 func FuzzDeepCopyWorkloadInstance(f *testing.F) {

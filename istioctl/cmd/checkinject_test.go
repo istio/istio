@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -300,13 +300,13 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 		"testdata/check-inject/rev-16-injector.yaml",
 		"testdata/check-inject/never-match-injector.yaml",
 	}
-	var whs []admit_v1.MutatingWebhookConfiguration
+	var whs []admitv1.MutatingWebhookConfiguration
 	for _, whName := range whFiles {
 		file, err := os.ReadFile(whName)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var wh *admit_v1.MutatingWebhookConfiguration
+		var wh *admitv1.MutatingWebhookConfiguration
 		if err := yaml.Unmarshal(file, &wh); err != nil {
 			t.Fatal(err)
 		}

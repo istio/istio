@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/version"
@@ -142,12 +141,6 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	if sfp := GetValueForSetFlag(setFlags, "installPackagePath"); sfp != "" {
 		// set flag installPackagePath has the highest precedence, if set.
 		installPackagePath = sfp
-	}
-
-	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
-	installPackagePath, profileOrPath, err = RewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
-	if err != nil {
-		return "", nil, err
 	}
 
 	// To generate the base profileOrPath for overlaying with user values, we need the installPackagePath where the profiles
@@ -361,45 +354,6 @@ func validateSetFlags(setFlags []string) error {
 		}
 	}
 	return nil
-}
-
-// fetchExtractInstallPackageHTTP downloads installation tar from the URL specified and extracts it to a local
-// filesystem dir. If successful, it returns the path to the filesystem path where the charts were extracted.
-func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
-	uf := helm.NewURLFetcher(releaseTarURL, "")
-	if err := uf.Fetch(); err != nil {
-		return "", err
-	}
-	return uf.DestDir(), nil
-}
-
-// RewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
-// Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
-// installation charts and profile file.
-// If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
-func RewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
-	isURL, err := util.IsHTTPURL(installPackagePath)
-	if err != nil && !skipValidation {
-		return "", "", err
-	}
-	if isURL {
-		installPackagePath, err = fetchExtractInstallPackageHTTP(installPackagePath)
-		if err != nil {
-			return "", "", err
-		}
-		// Transform a profileOrPath like "default" or "demo" into a filesystem path like
-		// /tmp/istio-install-packages/istio-1.5.1/manifests/profiles/default.yaml OR
-		// /tmp/istio-install-packages/istio-1.5.1/install/kubernetes/operator/profiles/default.yaml (before 1.6).
-		baseDir := filepath.Join(installPackagePath, helm.OperatorSubdirFilePath15)
-		if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-			baseDir = filepath.Join(installPackagePath, helm.OperatorSubdirFilePath)
-		}
-		profileOrPath = filepath.Join(baseDir, "profiles", profileOrPath+".yaml")
-		// Rewrite installPackagePath to the local file path for further processing.
-		installPackagePath = baseDir
-	}
-
-	return installPackagePath, profileOrPath, nil
 }
 
 // Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional

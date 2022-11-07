@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -28,7 +28,7 @@ import (
 	"istio.io/api/label"
 )
 
-func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: IstioTagLabel,
 	})
@@ -39,7 +39,7 @@ func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v
 }
 
 // GetWebhooksWithTag returns webhooks tagged with istio.io/tag=<tag>.
-func GetWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func GetWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]admitv1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", IstioTagLabel, tag),
 	})
@@ -51,7 +51,7 @@ func GetWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 
 // GetWebhooksWithRevision returns webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
 // this retrieves the webhook created at revision installation rather than tag webhooks
-func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
+func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admitv1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, IstioTagLabel),
 	})
@@ -78,7 +78,7 @@ func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 }
 
 // GetWebhookTagName extracts tag name from webhook object.
-func GetWebhookTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
+func GetWebhookTagName(wh admitv1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[IstioTagLabel]; ok {
 		return tagName, nil
 	}
@@ -86,7 +86,7 @@ func GetWebhookTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error)
 }
 
 // GetWebhookRevision extracts tag target revision from webhook object.
-func GetWebhookRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
+func GetWebhookRevision(wh admitv1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[label.IoIstioRev.Name]; ok {
 		return tagName, nil
 	}

@@ -910,7 +910,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		var totalWeight uint32
 		for i, expectResult := range expectResults {
 			cluster := weightedCluster.GetClusters()[i]
 			g.Expect(cluster.RequestHeadersToAdd).To(gomega.Equal(expectResult.reqAdd))
@@ -918,10 +917,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(cluster.ResponseHeadersToAdd).To(gomega.Equal(expectResult.respAdd))
 			g.Expect(cluster.RequestHeadersToRemove).To(gomega.Equal(expectResult.reqRemove))
 			g.Expect(cluster.GetHostRewriteLiteral()).To(gomega.Equal(expectResult.authority))
-			totalWeight += cluster.Weight.GetValue()
 		}
-		// total weight must be set
-		g.Expect(weightedCluster.GetTotalWeight().GetValue()).To(gomega.Equal(totalWeight))
 	})
 
 	t.Run("for redirect code", func(t *testing.T) {

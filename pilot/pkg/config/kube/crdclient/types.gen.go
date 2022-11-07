@@ -130,11 +130,6 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
-		return sc.GatewayV1alpha2().ReferencePolicies(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.ReferencePolicy{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}, metav1.CreateOptions{})
 	case collections.K8SGatewayApiV1Alpha2Tcproutes.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TCPRoute{
 			ObjectMeta: objMeta,
@@ -239,11 +234,6 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 		}, metav1.UpdateOptions{})
 	case collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
-		return sc.GatewayV1alpha2().ReferencePolicies(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferencePolicy{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}, metav1.UpdateOptions{})
@@ -629,21 +619,6 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1alpha2().ReferenceGrants(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
-		oldRes := &gatewayv1alpha2.ReferencePolicy{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}
-		modRes := &gatewayv1alpha2.ReferencePolicy{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1alpha2().ReferencePolicies(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.K8SGatewayApiV1Alpha2Tcproutes.Resource().GroupVersionKind():
 		oldRes := &gatewayv1alpha2.TCPRoute{
 			ObjectMeta: origMeta,
@@ -760,8 +735,6 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 		return ic.TelemetryV1alpha1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind():
-		return sc.GatewayV1alpha2().ReferencePolicies(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SGatewayApiV1Alpha2Tcproutes.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.K8SGatewayApiV1Alpha2Tlsroutes.Resource().GroupVersionKind():
@@ -1049,24 +1022,6 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Referencegrants.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1alpha2.ReferencePolicy)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Referencepolicies.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

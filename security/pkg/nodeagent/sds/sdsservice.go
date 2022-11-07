@@ -25,6 +25,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -58,6 +59,8 @@ var _ model.XdsResourceGenerator = &sdsservice{}
 
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
 	s := xds.NewXDS(stop)
+	// No ratelimit for SDS calls in agent.
+	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(0, 1)
 	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,
 	}

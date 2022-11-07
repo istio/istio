@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -108,7 +109,6 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		// but Envoy does not respect this (https://github.com/envoyproxy/envoy/issues/20885).
 		// To counter this, we bump up the default to 60s to avoid overloading DNS servers.
 		DnsRefreshRate:  durationpb.New(60 * time.Second),
-		ThriftConfig:    &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings: make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
 		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
@@ -242,10 +242,14 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		}
 	}
 
-	defaultConfig.TrustDomainAliases = sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
+	defaultConfig.TrustDomainAliases = sets.SortedList(sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...))
 
-	if err := validation.ValidateMeshConfig(defaultConfig); err != nil {
+	warn, err := validation.ValidateMeshConfig(defaultConfig)
+	if err != nil {
 		return nil, err
+	}
+	if warn != nil {
+		log.Warnf("warnings occurred during mesh validation: %v", warn)
 	}
 
 	return defaultConfig, nil

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -41,9 +41,9 @@ const (
 var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *xdsapi.DiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
+func GetXdsResponse(dr *discovery.DiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
 	grpcOpts []grpc.DialOption,
-) (*xdsapi.DiscoveryResponse, error) {
+) (*discovery.DiscoveryResponse, error) {
 	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.Config{
 		Meta: model.NodeMetadata{
 			Generator:      "event",

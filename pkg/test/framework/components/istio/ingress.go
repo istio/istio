@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"time"
 
@@ -119,8 +120,8 @@ func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 			return "", 0, err
 		}
 		return host, mappedPort, nil
-	case net.TCPAddr:
-		return v.IP.String(), v.Port, nil
+	case netip.AddrPort:
+		return v.Addr().String(), int(v.Port()), nil
 	}
 
 	return "", 0, fmt.Errorf("failed to get address for port %v", port)
@@ -156,14 +157,13 @@ func (c *ingressImpl) HTTPSAddress() (string, int) {
 }
 
 // DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
-func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
+func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
 	host, port := c.AddressForPort(discoveryPort)
-	ip := net.ParseIP(host)
-	if ip.String() == "<nil>" {
-		// TODO support hostname based discovery address
-		return net.TCPAddr{}
+	ip, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.AddrPort{}
 	}
-	return net.TCPAddr{IP: ip, Port: port}
+	return netip.AddrPortFrom(ip, uint16(port))
 }
 
 func (c *ingressImpl) Call(options echo.CallOptions) (echo.CallResult, error) {

@@ -67,6 +67,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -492,14 +493,9 @@ func (s *Server) initSDSServer() {
 		creds := kubecredentials.NewMulticluster(s.clusterID)
 		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
-				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{
-						Kind:      kind.Secret,
-						Name:      name,
-						Namespace: namespace,
-					}: {},
-				},
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: name, Namespace: namespace}),
+
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
 		})
@@ -852,13 +848,9 @@ func (s *Server) initRegistryEventHandlers() {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
-				Name:      string(svc.Hostname),
-				Namespace: svc.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
+			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	}
@@ -880,13 +872,9 @@ func (s *Server) initRegistryEventHandlers() {
 				return
 			}
 			pushReq := &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{{
-					Kind:      kind.FromGvk(curr.GroupVersionKind),
-					Name:      curr.Name,
-					Namespace: curr.Namespace,
-				}: {}},
-				Reason: []model.TriggerReason{model.ConfigUpdate},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.FromGvk(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
 		}

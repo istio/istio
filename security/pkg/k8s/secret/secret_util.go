@@ -20,6 +20,8 @@ import (
 )
 
 const (
+	// TODO: reuse that defined in security/pkg/pki/ca/ca.go
+
 	// caCertID is the CA certificate chain file.
 	caCertID = "ca-cert.pem"
 	// caPrivateKeyID is the private key file of CA.
@@ -30,18 +32,10 @@ const (
 	privateKeyID = "key.pem"
 	// rootCertID is the ID/name for the CA root certificate file.
 	rootCertID = "root-cert.pem"
-	// serviceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
-	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 )
 
 // BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
-func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
-	var ServiceAccountNameAnnotation map[string]string
-	if saName == "" {
-		ServiceAccountNameAnnotation = nil
-	} else {
-		ServiceAccountNameAnnotation = map[string]string{serviceAccountNameAnnotationKey: saName}
-	}
+func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
 	return &v1.Secret{
 		Data: map[string][]byte{
 			certChainID:    certChain,
@@ -51,9 +45,8 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 			caPrivateKeyID: caPrivateKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: ServiceAccountNameAnnotation,
-			Name:        scrtName,
-			Namespace:   namespace,
+			Name:      scrtName,
+			Namespace: namespace,
 		},
 		Type: secretType,
 	}

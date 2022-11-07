@@ -31,24 +31,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
-  hostnames: ["echo.default.svc.cluster.local"]
-  rules:
-  - backendRefs:
-    - name: echo
-      port: 80
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TLSRoute
-metadata:
-  name: echo
-  namespace: default
-spec:
-  parentRefs:
-  - kind: Mesh
-    name: istio
-  hostnames: ["some-sni.com"]
+  - kind: Service
+    name: echo
   rules:
   - backendRefs:
     - name: echo
@@ -61,8 +45,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
+  - kind: Service
+    name: example
   - name: gateway
     namespace: istio-system
   hostnames: ["foo.example.com"]
@@ -74,13 +58,23 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
-  name: no-hostname
+  name: header
   namespace: default
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
+  - kind: Service
+    name: echo
   rules:
-  - backendRefs:
-    - name: example
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /path
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: my-added-header
+          value: added-value
+    backendRefs:
+    - name: echo
       port: 80

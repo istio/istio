@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -140,7 +140,7 @@ func TestConversion(t *testing.T) {
 	exact := v1beta1.PathTypeExact
 
 	ingress := v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
 		},
 		Spec: v1beta1.IngressSpec{
@@ -205,7 +205,7 @@ func TestConversion(t *testing.T) {
 		},
 	}
 	ingress2 := v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
 		Spec: v1beta1.IngressSpec{
@@ -326,7 +326,7 @@ func TestEncoding(t *testing.T) {
 func TestIngressClass(t *testing.T) {
 	istio := mesh.DefaultMeshConfig().IngressClass
 	ingressClassIstio := &v1beta1.IngressClass{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "istio",
 		},
 		Spec: v1beta1.IngressClassSpec{
@@ -334,7 +334,7 @@ func TestIngressClass(t *testing.T) {
 		},
 	}
 	ingressClassOther := &v1beta1.IngressClass{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo",
 		},
 		Spec: v1beta1.IngressClassSpec{
@@ -379,7 +379,7 @@ func TestIngressClass(t *testing.T) {
 		}
 		t.Run(fmt.Sprintf("%d %s %s %s", i, c.ingressMode, c.annotation, className), func(t *testing.T) {
 			ing := v1beta1.Ingress{
-				ObjectMeta: metaV1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
 					Annotations: make(map[string]string),
@@ -412,7 +412,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	defer cancel()
 
 	ingress := v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
 		Spec: v1beta1.IngressSpec{
@@ -436,13 +436,13 @@ func TestNamedPortIngressConversion(t *testing.T) {
 			},
 		},
 	}
-	service := &coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "mock",
 		},
-		Spec: coreV1.ServiceSpec{
-			Ports: []coreV1.ServicePort{
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
 					Name:     "test-svc-port",
 					Protocol: "TCP",

@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -43,8 +43,11 @@ import (
 
 const (
 	stableRevision       = "stable"
+	notFoundRevision     = "not-found"
 	checkResourceTimeout = time.Second * 120
 	checkResourceDelay   = time.Millisecond * 100
+
+	revisionNotFound = "could not find target revision"
 )
 
 var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
@@ -69,6 +72,25 @@ func TestUninstallByRevision(t *testing.T) {
 				cs := t.Clusters().Default()
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
 				checkCPResourcesUninstalled(t, cs, allGVKs, ls, false)
+			})
+		})
+}
+
+func TestUninstallByNotFoundRevision(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.istioctl.uninstall_revision").
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("uninstall_revision_notfound").Run(func(t framework.TestContext) {
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				uninstallCmd := []string{
+					"uninstall",
+					"--revision=" + notFoundRevision, "--dry-run",
+				}
+				_, actualError, _ := istioCtl.Invoke(uninstallCmd)
+				if !strings.Contains(actualError, revisionNotFound) {
+					scopes.Framework.Errorf("istioctl uninstall command expects to fail with error message: %s, but got: %s", revisionNotFound, actualError)
+				}
 			})
 		})
 }
@@ -131,7 +153,7 @@ func checkCPResourcesUninstalled(t test.Failer, cs cluster.Cluster, gvkResources
 
 // getRemainingResourcesCluster get specific resources from the cluster
 func getRemainingResourcesCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) ([]unstructured.Unstructured, []string) {
-	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
+	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), metav1.ListOptions{LabelSelector: ls})
 	var remainingResources []unstructured.Unstructured
 	var staleList []string
 	if usList != nil && len(usList.Items) != 0 {

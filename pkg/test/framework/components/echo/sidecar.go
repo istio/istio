@@ -15,7 +15,7 @@
 package echo
 
 import (
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/pkg/test"
@@ -25,26 +25,26 @@ import (
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
 type Sidecar interface {
 	// Info about the Envoy instance.
-	Info() (*envoyAdmin.ServerInfo, error)
-	InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo
+	Info() (*admin.ServerInfo, error)
+	InfoOrFail(t test.Failer) *admin.ServerInfo
 
 	// Config of the Envoy instance.
-	Config() (*envoyAdmin.ConfigDump, error)
-	ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump
+	Config() (*admin.ConfigDump, error)
+	ConfigOrFail(t test.Failer) *admin.ConfigDump
 
 	// WaitForConfig queries the Envoy configuration an executes the given accept handler. If the
 	// response is not accepted, the request will be retried until either a timeout or a response
 	// has been accepted.
-	WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error
-	WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option)
+	WaitForConfig(accept func(*admin.ConfigDump) (bool, error), options ...retry.Option) error
+	WaitForConfigOrFail(t test.Failer, accept func(*admin.ConfigDump) (bool, error), options ...retry.Option)
 
 	// Clusters for the Envoy instance
-	Clusters() (*envoyAdmin.Clusters, error)
-	ClustersOrFail(t test.Failer) *envoyAdmin.Clusters
+	Clusters() (*admin.Clusters, error)
+	ClustersOrFail(t test.Failer) *admin.Clusters
 
 	// Listeners for the Envoy instance
-	Listeners() (*envoyAdmin.Listeners, error)
-	ListenersOrFail(t test.Failer) *envoyAdmin.Listeners
+	Listeners() (*admin.Listeners, error)
+	ListenersOrFail(t test.Failer) *admin.Listeners
 
 	// Logs returns the logs for the sidecar container
 	Logs() (string, error)

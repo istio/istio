@@ -26,6 +26,11 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
@@ -38,6 +43,11 @@ status:
   listeners:
   - attachedRoutes: 1
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
@@ -85,8 +95,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: example
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -125,23 +135,23 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: echo
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: no-hostname
+  name: header
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: mesh requires hostname to be set
-      reason: NoMatchingListenerHostname
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -150,31 +160,6 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TLSRoute
-metadata:
-  creationTimestamp: null
-  name: echo
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: mesh requires hostname to be set
-      reason: NoMatchingListenerHostname
-      status: "False"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: echo
 ---

@@ -21,7 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -111,21 +111,21 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		// custom cacerts, custom kubeconfigs, etc.
 		// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
 		if e := c.Kube().CoreV1().Secrets(i.cfg.SystemNamespace).DeleteCollection(
-			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
 		if e := c.Kube().CoreV1().ConfigMaps(i.cfg.SystemNamespace).DeleteCollection(
-			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
 		// Delete validating and mutating webhook configurations. These can be created outside of generated manifests
 		// when installing with istioctl and must be deleted separately.
 		if e := c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
-			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
 		if e := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
-			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
 		return

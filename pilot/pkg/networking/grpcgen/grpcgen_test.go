@@ -27,7 +27,7 @@ import (
 	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	stateful_sessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -247,7 +247,7 @@ func TestGRPC(t *testing.T) {
 		}
 		// Extract the cookie name from 4 layers of marshaling...
 		hcm := &hcm.HttpConnectionManager{}
-		ss := &stateful_sessionv3.StatefulSession{}
+		ss := &statefulsession.StatefulSession{}
 		sc := &cookiev3.CookieBasedSessionState{}
 		for _, rsc := range msg.Resources {
 			valBytes := rsc.Value

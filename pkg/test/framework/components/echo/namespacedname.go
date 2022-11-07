@@ -92,5 +92,5 @@ func (n NamespacedNames) uniqueSortedNames(getName func(NamespacedName) string) 
 		name := getName(nn)
 		set.Insert(name)
 	}
-	return set.SortedList()
+	return sets.SortedList(set)
 }

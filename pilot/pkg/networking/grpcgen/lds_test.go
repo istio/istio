@@ -97,7 +97,7 @@ func TestListenerNameFilter(t *testing.T) {
 				"bar":        {RequestedNames: sets.New("bar")},
 				"bar.ns":     {RequestedNames: sets.New("bar.ns")},
 				"bar.ns.svc": {RequestedNames: sets.New("bar.ns.svc")},
-				"bar.ns.svc.cluster.local": {RequestedNames: sets.New[string](
+				"bar.ns.svc.cluster.local": {RequestedNames: sets.New(
 					"bar",
 					"bar.ns",
 					"bar.ns.svc",
@@ -107,13 +107,13 @@ func TestListenerNameFilter(t *testing.T) {
 				"foo.ns":     {RequestedNames: sets.New("foo.ns"), Ports: sets.New("81")},
 				"foo.ns.svc": {RequestedNames: sets.New("foo.ns.svc"), Ports: sets.New("82")},
 				"foo.ns.svc.cluster.local": {
-					RequestedNames: sets.New[string](
+					RequestedNames: sets.New(
 						"foo",
 						"foo.ns",
 						"foo.ns.svc",
 						"foo.ns.svc.cluster.local",
 					),
-					Ports: sets.New[string]("80", "81", "82", "83"),
+					Ports: sets.New("80", "81", "82", "83"),
 				},
 			},
 		},

@@ -166,6 +166,17 @@ func TestInboundListenerConfig(t *testing.T) {
 		testInboundListenerConfigWithGrpc(t, getProxy(),
 			buildService("test1.com", wildcardIPv4, protocol.GRPC, tnow.Add(1*time.Second)))
 	})
+
+	t.Run("merge sidecar ingress ports and service ports", func(t *testing.T) {
+		features.EnableSidecarServiceInboundListenerMerge = true
+		testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t, getProxy(),
+			buildService("test1.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second)))
+	})
+	t.Run("merge sidecar ingress and service ports, same port in both sidecar and service", func(t *testing.T) {
+		features.EnableSidecarServiceInboundListenerMerge = true
+		testInboundListenerConfigWithSidecar(t, getProxy(),
+			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
+	})
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
@@ -1433,6 +1444,48 @@ func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, service
 			},
 		},
 	})
+}
+
+func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	sidecarConfig := config.Config{
+		Meta: config.Meta{
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   8083,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:8083",
+				},
+				{
+					Port: &networking.Port{
+						Number:   8084,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:8084",
+				},
+			},
+		},
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services: services,
+		Configs:  []config.Config{sidecarConfig},
+	}, proxy)
+	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+	if len(l.FilterChains) != 12 {
+		t.Fatalf("expected %d listener filter chains, found %d", 12, len(l.FilterChains))
+	}
+	verifyFilterChainMatch(t, l)
 }
 
 func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -2995,6 +3048,116 @@ func TestFilterChainMatchEqual(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := filterChainMatchEqual(tt.first, tt.second); got != tt.want {
 				t.Fatalf("Expected filter chain match to return %v, but got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
+	const tcpPort = 79
+	services := []*model.Service{
+		{
+			CreationTime:             tnow.Add(1 * time.Second),
+			Hostname:                 host.Name("test1.com"),
+			DefaultAddress:           wildcardIPv4,
+			AutoAllocatedIPv4Address: "240.240.0.100",
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "tcp",
+					Port:     tcpPort,
+					Protocol: protocol.TCP,
+				},
+			},
+			Resolution: model.DNSLB,
+			Attributes: model.ServiceAttributes{
+				Namespace: "default",
+			},
+		},
+	}
+
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
+			Name:             "sidecar-with-tcp",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"default/*"},
+				},
+			},
+		},
+	}
+
+	sidecarConfigWithPort := &config.Config{
+		Meta: config.Meta{
+			Name:             "sidecar-with-tcp-port",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"default/*"},
+					Port: &networking.Port{
+						Number:   tcpPort,
+						Protocol: "TCP",
+						Name:     "tcp",
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name                      string
+		services                  []*model.Service
+		sidecar                   *config.Config
+		numListenersOnServicePort int
+		useAutoAllocatedAddress   bool
+	}{
+		{
+			name:                      "egress tcp with auto allocated address",
+			services:                  services,
+			sidecar:                   sidecarConfig,
+			numListenersOnServicePort: 1,
+			useAutoAllocatedAddress:   true,
+		},
+		{
+			name:                      "egress tcp and port with auto allocated address",
+			services:                  services,
+			sidecar:                   sidecarConfigWithPort,
+			numListenersOnServicePort: 1,
+			useAutoAllocatedAddress:   true,
+		},
+	}
+
+	proxy := getProxy()
+	proxy.Metadata.DNSCapture = true
+	proxy.Metadata.DNSAutoAllocate = true
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listeners := buildOutboundListeners(t, proxy, tt.sidecar, nil, services...)
+
+			listenersToCheck := make([]string, 0)
+			for _, l := range listeners {
+				if l.Address.GetSocketAddress().GetPortValue() == tcpPort {
+					listenersToCheck = append(listenersToCheck, l.Address.GetSocketAddress().GetAddress())
+				}
+			}
+
+			if len(listenersToCheck) != tt.numListenersOnServicePort {
+				t.Errorf("Expected %d listeners, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
+			}
+
+			if tt.useAutoAllocatedAddress {
+				for _, addr := range listenersToCheck {
+					if !strings.HasPrefix(addr, "240.240") {
+						t.Errorf("Expected %d listeners on service port 79, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
+					}
+				}
 			}
 		})
 	}

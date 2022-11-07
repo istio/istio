@@ -32,8 +32,7 @@ var (
 settings (--set meshConfig.enableTracing=true). See documentation for more info:` + url.IstioOperatorSpec
 	// ManifestsFlagHelpStr is the command line description for --manifests
 	ManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles
-(e.g. ~/Downloads/istio-` + baseVersion + `/manifests)
-or release tar URL (e.g. ` + url.ReleaseTar + `).
+(e.g. ~/Downloads/istio-` + baseVersion + `/manifests).
 `
 )
 
@@ -54,10 +53,11 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	TagFlagHelpStr                     = `The tag for the operator controller image.`
 	ImagePullSecretsHelpStr            = `The imagePullSecrets are used to pull the operator image from the private registry,
 could be secret list separated by comma, eg. '--imagePullSecrets imagePullSecret1,imagePullSecret2'`
-	OperatorNamespaceHelpstr = `The namespace the operator controller is installed into.`
-	OperatorRevFlagHelpStr   = `Target revision for the operator.`
-	ComponentFlagHelpStr     = "Specify which component to generate manifests for."
-	VerifyCRInstallHelpStr   = "Verify the Istio control plane after installation/in-place upgrade"
+	OperatorNamespaceHelpstr  = `The namespace the operator controller is installed into.`
+	OperatorRevFlagHelpStr    = `Target revision for the operator.`
+	AllOperatorRevFlagHelpStr = `Remove all versions of Istio operator.`
+	ComponentFlagHelpStr      = "Specify which component to generate manifests for."
+	VerifyCRInstallHelpStr    = "Verify the Istio control plane after installation/in-place upgrade"
 )
 
 type RootArgs struct {

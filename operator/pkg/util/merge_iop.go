@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	yaml2 "sigs.k8s.io/yaml"
 
@@ -37,8 +37,8 @@ import (
 // that alone would not be sufficient.
 // Only non-scalar types require tags, therefore most fields are omitted here.
 type iopMergeStructType struct {
-	v11.ObjectMeta `json:"metadata" patchStrategy:"merge"`
-	Spec           istioOperatorSpec `json:"spec" patchStrategy:"merge"`
+	metav1.ObjectMeta `json:"metadata" patchStrategy:"merge"`
+	Spec              istioOperatorSpec `json:"spec" patchStrategy:"merge"`
 }
 
 type istioOperatorSpec struct {
@@ -147,7 +147,6 @@ type meshConfig struct {
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting                     `json:"localityLbSetting" patchStrategy:"merge"`
 	DNSRefreshRate                 *durationpb.Duration                                      `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
-	ThriftConfig                   *meshConfigThriftConfig                                   `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
 	DefaultProviders               *meshConfigDefaultProviders                               `json:"defaultProviders" patchStrategy:"merge"`
 	ExtensionProviders             []*meshConfigExtensionProvider                            `json:"extensionProviders" patchStrategy:"merge" patchMergeKey:"name"`
@@ -182,10 +181,6 @@ type (
 	}
 )
 
-type meshConfigThriftConfig struct {
-	RateLimitTimeout *durationpb.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`
-}
-
 type proxyConfig struct {
 	DrainDuration                  *durationpb.Duration                    `json:"drainDuration" patchStrategy:"replace"`
 	ParentShutdownDuration         *durationpb.Duration                    `json:"parentShutdownDuration" patchStrategy:"replace"`
@@ -201,7 +196,6 @@ type proxyConfig struct {
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting   `json:"localityLbSetting" patchStrategy:"merge"`
 	DNSRefreshRate                 *durationpb.Duration                    `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                `json:"certificates" patchStrategy:"replace"`
-	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig      `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
 	Tracing                        *tracing                                `json:"tracing" patchStrategy:"replace"`
 	Sds                            *v1alpha13.SDS                          `json:"sds" patchStrategy:"replace"`

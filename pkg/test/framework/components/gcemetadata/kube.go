@@ -19,7 +19,7 @@ import (
 	"io"
 	"net"
 
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	environ "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -74,7 +74,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.GCEMetadataServerInstallFilePath, err)
 	}
 
-	var svc *kubeApiCore.Service
+	var svc *corev1.Service
 	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), "gce-metadata-server"); err != nil {
 		scopes.Framework.Infof("Error waiting for GCE Metadata service to be available: %v", err)
 		return nil, err

@@ -42,7 +42,7 @@ func (v Instance) Validate() (errs error) {
 		return fmt.Errorf("exportTo ~ (none) is not allowed for Istio configuration objects")
 	default:
 		if !labels.IsDNS1123Label(string(v)) {
-			return fmt.Errorf("only .,*,~, or a valid DNS 1123 label is allowed as exportTo entry")
+			return fmt.Errorf("only .,*, or a valid DNS 1123 label is allowed as exportTo entry")
 		}
 	}
 	return nil

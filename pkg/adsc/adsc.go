@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -335,7 +336,7 @@ func (a *ADSC) Dial() error {
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
-func getPrivateIPIfAvailable() net.IP {
+func getPrivateIPIfAvailable() netip.Addr {
 	addrs, _ := net.InterfaceAddrs()
 	for _, addr := range addrs {
 		var ip net.IP
@@ -347,11 +348,17 @@ func getPrivateIPIfAvailable() net.IP {
 		default:
 			continue
 		}
-		if !ip.IsLoopback() {
-			return ip
+		ipAddr, ok := netip.AddrFromSlice(ip)
+		if !ok {
+			continue
+		}
+		// unwrap the IPv4-mapped IPv6 address
+		unwrapAddr := ipAddr.Unmap()
+		if !unwrapAddr.IsLoopback() {
+			return unwrapAddr
 		}
 	}
-	return net.IPv4zero
+	return netip.IPv4Unspecified()
 }
 
 func (a *ADSC) tlsConfig() (*tls.Config, error) {

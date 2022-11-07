@@ -15,7 +15,7 @@
 package serviceentry
 
 import (
-	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 func convertPort(port *networking.Port) *model.Port {
@@ -184,14 +185,13 @@ func convertServices(cfg config.Config) []*model.Service {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
 				// Check if address is an IP first because that is the most common case.
-				if net.ParseIP(address) != nil {
+				if netutil.IsValidIPAddress(address) {
 					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
-				} else if ip, network, cidrErr := net.ParseCIDR(address); cidrErr == nil {
+				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
-					ones, zeroes := network.Mask.Size()
-					if ones == zeroes {
+					if cidr.Bits() == cidr.Addr().BitLen() {
 						// /32 mask. Remove the /32 and make it a normal IP address
-						newAddress = ip.String()
+						newAddress = cidr.Addr().String()
 					}
 					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress})
 				}
@@ -413,7 +413,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		// k8s can't use uds for service objects
 		dnsServiceEntryOnly = true
 	}
-	if net.ParseIP(addr) == nil {
+	if !netutil.IsValidIPAddress(addr) {
 		// k8s can't use workloads with hostnames in the address field.
 		dnsServiceEntryOnly = true
 	}

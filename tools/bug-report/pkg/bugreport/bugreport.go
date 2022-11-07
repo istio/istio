@@ -29,6 +29,7 @@ import (
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 
+	label2 "istio.io/api/label"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -49,13 +50,12 @@ import (
 
 const (
 	bugReportDefaultTimeout = 30 * time.Minute
-	istioRevisionLabel      = "istio.io/rev"
 )
 
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(inject.IgnoredNamespaces.SortedList(), ",")}
+	bugReportDefaultExclude        = []string{strings.Join(sets.SortedList(inject.IgnoredNamespaces), ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -215,12 +215,12 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 	revMap := sets.New[string]()
 	for _, podLabels := range resources.Labels {
 		for label, value := range podLabels {
-			if label == istioRevisionLabel {
+			if label == label2.IoIstioRev.Name {
 				revMap.Insert(value)
 			}
 		}
 	}
-	return revMap.SortedList()
+	return sets.SortedList(revMap)
 }
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to

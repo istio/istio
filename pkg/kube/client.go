@@ -800,7 +800,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
+	fw, err := c.NewPortForwarder(podName, podNamespace, "", 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -1048,8 +1048,8 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		return err
 	}
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
-	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamFieldValidation)
+	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
+	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamFieldValidation)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -1180,7 +1180,7 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	opts.WaitForDeletion = true
 	opts.WarnClusterScope = enforceNamespace
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.discoveryClient, resource.QueryParamDryRun)
+	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
 
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer

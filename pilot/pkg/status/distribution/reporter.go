@@ -22,7 +22,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -105,7 +105,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 		scope.Errorf("can't identify pod %s context: %s", podname, err)
 	} else {
 		r.cm.OwnerReferences = []metav1.OwnerReference{
-			*metav1.NewControllerRef(x, metav1.SchemeGroupVersion.WithKind("Pod")),
+			*metav1.NewControllerRef(x, corev1.SchemeGroupVersion.WithKind("Pod")),
 		}
 	}
 	go func() {
@@ -247,7 +247,7 @@ func (r *Reporter) writeReport(ctx context.Context) {
 // CreateOrUpdateConfigMap is lifted with few modifications from kubeadm's apiclient
 func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v1.ConfigMapInterface) (res *corev1.ConfigMap, err error) {
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
-		if !apierrors.IsAlreadyExists(err) {
+		if !kerrors.IsAlreadyExists(err) {
 			scope.Errorf("%v", err)
 			return nil, fmt.Errorf("unable to create ConfigMap: %w", err)
 		}

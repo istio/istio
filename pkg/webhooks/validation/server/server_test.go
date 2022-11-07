@@ -27,8 +27,8 @@ import (
 	"strings"
 	"testing"
 
-	kubeApiAdmission "k8s.io/api/admission/v1beta1"
-	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -145,7 +145,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.validate,
 			in: &kube.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kube.Create,
 			},
@@ -155,7 +155,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.validate,
 			in: &kube.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kube.Update,
 			},
@@ -165,7 +165,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.validate,
 			in: &kube.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kube.Delete,
 			},
@@ -175,7 +175,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.validate,
 			in: &kube.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: kube.Create,
 			},
@@ -185,7 +185,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.validate,
 			in: &kube.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
 				Operation: kube.Create,
 			},
@@ -195,7 +195,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid extra key create",
 			admit: wh.validate,
 			in: &kube.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: kube.Create,
 			},
@@ -215,21 +215,21 @@ func TestAdmitPilot(t *testing.T) {
 
 func makeTestReview(t *testing.T, valid bool, apiVersion string) []byte {
 	t.Helper()
-	review := kubeApiAdmission.AdmissionReview{
-		TypeMeta: kubeApisMeta.TypeMeta{
+	review := admissionv1.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "AdmissionReview",
 			APIVersion: fmt.Sprintf("admission.k8s.io/%s", apiVersion),
 		},
-		Request: &kubeApiAdmission.AdmissionRequest{
-			Kind: kubeApisMeta.GroupVersionKind{
-				Group:   kubeApiAdmission.GroupName,
+		Request: &admissionv1.AdmissionRequest{
+			Kind: metav1.GroupVersionKind{
+				Group:   admissionv1.GroupName,
 				Version: apiVersion,
 				Kind:    "AdmissionRequest",
 			},
 			Object: runtime.RawExtension{
 				Raw: makePilotConfig(t, 0, valid, false),
 			},
-			Operation: kubeApiAdmission.Create,
+			Operation: admissionv1.Create,
 		},
 	}
 	reviewJSON, err := json.Marshal(review)
@@ -328,7 +328,7 @@ func TestServe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%v: could not read body: %v", c.name, err)
 			}
-			var gotReview kubeApiAdmission.AdmissionReview
+			var gotReview admissionv1.AdmissionReview
 			if err := json.Unmarshal(gotBody, &gotReview); err != nil {
 				t.Fatalf("%v: could not decode response body: %v", c.name, err)
 			}
