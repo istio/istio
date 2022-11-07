@@ -36,7 +36,7 @@ type lazyImpl[T any] struct {
 	res T
 	err error
 
-	done uint32
+	done *atomic.Bool
 	m    sync.Mutex
 }
 
@@ -44,17 +44,24 @@ var _ Lazy[any] = &lazyImpl[any]{}
 
 // New returns a new lazily computed value. The value is guaranteed to only be computed a single time.
 func New[T any](f func() (T, error)) Lazy[T] {
-	return &lazyImpl[T]{getter: f}
+	return &lazyImpl[T]{
+		getter: f,
+		done:   &atomic.Bool{},
+	}
 }
 
 // NewWithRetry returns a new lazily computed value. The value will be computed on each call until a
 // non-nil error is returned.
 func NewWithRetry[T any](f func() (T, error)) Lazy[T] {
-	return &lazyImpl[T]{getter: f, retry: true}
+	return &lazyImpl[T]{
+		getter: f,
+		retry:  true,
+		done:   &atomic.Bool{},
+	}
 }
 
 func (l *lazyImpl[T]) Get() (T, error) {
-	if atomic.LoadUint32(&l.done) == 0 {
+	if !l.done.Load() {
 		// Outlined slow-path to allow inlining of the fast-path.
 		return l.doSlow()
 	}
@@ -64,17 +71,21 @@ func (l *lazyImpl[T]) Get() (T, error) {
 func (l *lazyImpl[T]) doSlow() (T, error) {
 	l.m.Lock()
 	defer l.m.Unlock()
-	if l.done == 0 {
-		done := uint32(1)
+	if !l.done.Load() {
+		done := true
 		// Defer in case of panic
 		defer func() {
-			atomic.StoreUint32(&l.done, done)
+			l.done.Store(done)
 		}()
 		res, err := l.getter()
-		if l.retry && err != nil {
-			done = 0
+		if err == nil {
+			l.res = res
 		} else {
-			l.res, l.err = res, err
+			if l.retry {
+				done = false
+			} else {
+				l.err = err
+			}
 		}
 		return res, err
 	}
