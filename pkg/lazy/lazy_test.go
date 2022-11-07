@@ -39,11 +39,11 @@ func TestLazySerial(t *testing.T) {
 		})
 		res, err := l.Get()
 		assert.Error(t, err)
-		assert.Equal(t, res, 1)
+		assert.Equal(t, res, 0)
 
 		res, err = l.Get()
 		assert.Error(t, err)
-		assert.Equal(t, res, 2)
+		assert.Equal(t, res, 0)
 
 		res, err = l.Get()
 		assert.NoError(t, err)
@@ -62,15 +62,15 @@ func TestLazySerial(t *testing.T) {
 		})
 		res, err := l.Get()
 		assert.Error(t, err)
-		assert.Equal(t, res, 1)
+		assert.Equal(t, res, 0)
 
 		res, err = l.Get()
 		assert.Error(t, err)
-		assert.Equal(t, res, 1)
+		assert.Equal(t, res, 0)
 
 		res, err = l.Get()
 		assert.Error(t, err)
-		assert.Equal(t, res, 1)
+		assert.Equal(t, res, 0)
 	})
 }
 
@@ -107,7 +107,7 @@ func TestLazyRetry(t *testing.T) {
 		results = append(results, r)
 	}
 	slices.Sort(results)
-	assert.Equal(t, results, []int32{1, 2, 3, 4, 5, 6, 6, 6, 6, 6})
+	assert.Equal(t, results, []int32{0, 0, 0, 0, 0, 6, 6, 6, 6, 6})
 }
 
 func TestLazy(t *testing.T) {
@@ -143,7 +143,7 @@ func TestLazy(t *testing.T) {
 		results = append(results, r)
 	}
 	slices.Sort(results)
-	assert.Equal(t, results, []int32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+	assert.Equal(t, results, []int32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 }
 
 func TestLazyGetter(t *testing.T) {

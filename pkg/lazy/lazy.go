@@ -80,6 +80,7 @@ func (l *lazyImpl[T]) doSlow() (T, error) {
 		res, err := l.getter()
 		if err == nil {
 			l.res = res
+			l.err = nil
 		} else {
 			if l.retry {
 				done = false
