@@ -497,6 +497,9 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 	}
 
 	instances := cb.req.Push.ServiceInstancesByPort(service, port, labels)
+	// For DNSRoundRobinLB resolution type, pick service instances of old service, when
+	// service instances from multiple services exist. This can happen if two Service Entries
+	// are created with same host name, resolution as DNS_ROUND_ROBIN and with same/different endpoints.
 	if service.Resolution == model.DNSRoundRobinLB {
 		instancesByService := map[*model.Service][]*model.ServiceInstance{}
 		for _, instance := range instances {
