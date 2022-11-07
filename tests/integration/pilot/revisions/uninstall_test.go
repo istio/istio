@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -153,7 +153,7 @@ func checkCPResourcesUninstalled(t test.Failer, cs cluster.Cluster, gvkResources
 
 // getRemainingResourcesCluster get specific resources from the cluster
 func getRemainingResourcesCluster(cs cluster.Cluster, gvr schema.GroupVersionResource, ls string) ([]unstructured.Unstructured, []string) {
-	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
+	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), metav1.ListOptions{LabelSelector: ls})
 	var remainingResources []unstructured.Unstructured
 	var staleList []string
 	if usList != nil && len(usList.Items) != 0 {

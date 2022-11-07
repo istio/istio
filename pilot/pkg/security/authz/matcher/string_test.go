@@ -17,7 +17,7 @@ package matcher
 import (
 	"testing"
 
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -26,7 +26,7 @@ type testCase struct {
 	name   string
 	v      string
 	prefix string
-	want   *matcherpb.StringMatcher
+	want   *matcher.StringMatcher
 }
 
 func TestStringMatcherWithPrefix(t *testing.T) {
@@ -41,8 +41,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			name:   "prefix",
 			v:      "-prefix-*",
 			prefix: "abc",
-			want: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_Prefix{
+			want: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_Prefix{
 					Prefix: "abc-prefix-",
 				},
 			},
@@ -51,8 +51,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			name:   "suffix-empty-prefix",
 			v:      "*-suffix",
 			prefix: "",
-			want: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_Suffix{
+			want: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_Suffix{
 					Suffix: "-suffix",
 				},
 			},
@@ -67,8 +67,8 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			name:   "exact",
 			v:      "-exact",
 			prefix: "abc",
-			want: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_Exact{
+			want: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_Exact{
 					Exact: "abc-exact",
 				},
 			},
@@ -90,12 +90,12 @@ func TestStringMatcherRegex(t *testing.T) {
 		{
 			name: "wildcardAsRequired",
 			v:    "*",
-			want: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-					SafeRegex: &matcherpb.RegexMatcher{
+			want: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
 						Regex: "*",
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						EngineType: &matcher.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
 						},
 					},
 				},
@@ -104,12 +104,12 @@ func TestStringMatcherRegex(t *testing.T) {
 		{
 			name: "regexExpression",
 			v:    "+?",
-			want: &matcherpb.StringMatcher{
-				MatchPattern: &matcherpb.StringMatcher_SafeRegex{
-					SafeRegex: &matcherpb.RegexMatcher{
+			want: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
 						Regex: "+?",
-						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						EngineType: &matcher.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
 						},
 					},
 				},

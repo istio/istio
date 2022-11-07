@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -67,6 +68,9 @@ var hboneTransportSocketMatch = &structpb.Struct{
 // nolint
 // revive:disable-next-line
 var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
 	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
 			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
@@ -386,13 +390,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
 		}
-	}
-
-	if discoveryType == cluster.Cluster_ORIGINAL_DST {
-		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
-		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
-		// infrequently accessed services.
-		c.CleanupInterval = &durationpb.Duration{Seconds: 60}
 	}
 
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy

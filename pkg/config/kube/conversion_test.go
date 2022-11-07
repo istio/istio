@@ -17,7 +17,7 @@ package kube
 import (
 	"testing"
 
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -28,7 +28,7 @@ func TestConvertProtocol(t *testing.T) {
 		name          string
 		port          int32
 		portName      string
-		proto         coreV1.Protocol
+		proto         corev1.Protocol
 		appProto      *string
 		expectedProto protocol.Instance
 	}{
@@ -38,7 +38,7 @@ func TestConvertProtocol(t *testing.T) {
 		},
 		{
 			name:          "resolves from protocol directly",
-			proto:         coreV1.ProtocolUDP,
+			proto:         corev1.ProtocolUDP,
 			expectedProto: protocol.UDP,
 		},
 		{

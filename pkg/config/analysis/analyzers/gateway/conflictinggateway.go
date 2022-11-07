@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
@@ -63,7 +63,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	gw := r.Message.(*v1alpha3.Gateway)
 	gwName := r.Metadata.FullName.String()
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
-	gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
+	gwSelector := klabels.SelectorFromSet(gw.Selector)
 	sGWSelector := gwSelector.String()
 
 	// Check non-exist gateway with particular selector
@@ -128,7 +128,7 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 		gw := r.Message.(*v1alpha3.Gateway)
 		gwName := r.Metadata.FullName.String()
 
-		gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
+		gwSelector := klabels.SelectorFromSet(gw.Selector)
 		sGWSelector := gwSelector.String()
 		for _, server := range gw.Servers {
 			sPortNumber := strconv.Itoa(int(server.Port.Number))

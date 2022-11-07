@@ -28,7 +28,7 @@ import (
 )
 
 type profileDiffArgs struct {
-	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem with a release tgz.
 	manifestsPath string
 }
 

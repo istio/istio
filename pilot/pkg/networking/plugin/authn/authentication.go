@@ -15,7 +15,7 @@
 package authn
 
 import (
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -55,12 +55,12 @@ func (b *Builder) ForPort(port uint32) authn.MTLSSettings {
 func (b *Builder) ForHBONE() authn.MTLSSettings {
 	if b == nil {
 		return authn.MTLSSettings{
-			Port: 15008,
+			Port: model.HBoneInboundListenPort,
 			Mode: model.MTLSDisable,
 		}
 	}
 	// HBONE is always strict
-	return b.applier.InboundMTLSSettings(15008, b.proxy, b.trustDomains, model.MTLSStrict)
+	return b.applier.InboundMTLSSettings(model.HBoneInboundListenPort, b.proxy, b.trustDomains, model.MTLSStrict)
 }
 
 func (b *Builder) ForPassthrough() []authn.MTLSSettings {
@@ -91,7 +91,7 @@ func (b *Builder) ForPassthrough() []authn.MTLSSettings {
 	return resp
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter {
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	if b == nil {
 		return nil
 	}
@@ -99,7 +99,7 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*httppb.HttpFilter
 		// Only applies to inbound and gateways
 		return nil
 	}
-	res := []*httppb.HttpFilter{}
+	res := []*hcm.HttpFilter{}
 	if filter := b.applier.JwtFilter(); filter != nil {
 		res = append(res, filter)
 	}

@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
 	goversion "github.com/hashicorp/go-version"
@@ -489,12 +489,12 @@ func getColumn(line string, col int) string {
 
 func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
 	ports := map[int]bindStatus{}
-	cd := &adminapi.ConfigDump{}
+	cd := &admin.ConfigDump{}
 	if err := protomarshal.Unmarshal(configdump, cd); err != nil {
 		return nil, err
 	}
 	for _, cdump := range cd.Configs {
-		clw := &adminapi.ClustersConfigDump_DynamicCluster{}
+		clw := &admin.ClustersConfigDump_DynamicCluster{}
 		if err := cdump.UnmarshalTo(clw); err != nil {
 			return nil, err
 		}

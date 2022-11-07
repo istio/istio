@@ -32,8 +32,7 @@ var (
 settings (--set meshConfig.enableTracing=true). See documentation for more info:` + url.IstioOperatorSpec
 	// ManifestsFlagHelpStr is the command line description for --manifests
 	ManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles
-(e.g. ~/Downloads/istio-` + baseVersion + `/manifests)
-or release tar URL (e.g. ` + url.ReleaseTar + `).
+(e.g. ~/Downloads/istio-` + baseVersion + `/manifests).
 `
 )
 

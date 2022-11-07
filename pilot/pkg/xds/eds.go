@@ -110,13 +110,9 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 	if pushType == IncrementalPush || pushType == FullPush {
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
-			Full: pushType == FullPush,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
-				Name:      serviceName,
-				Namespace: namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.EndpointUpdate},
+			Full:           pushType == FullPush,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
+			Reason:         []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
 }
@@ -233,11 +229,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// moving forward in version. In practice, this is pretty rare and self corrects nearly
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
-	s.Cache.Clear(map[model.ConfigKey]struct{}{{
-		Kind:      kind.ServiceEntry,
-		Name:      hostname,
-		Namespace: namespace,
-	}: {}})
+	s.Cache.Clear(sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: namespace}))
 
 	return pushType
 }

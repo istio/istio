@@ -15,7 +15,7 @@
 package deployment
 
 import (
-	apps_v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/analysis"
@@ -81,7 +81,7 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Ins
 }
 
 func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resource.Instance, context analysis.Context) {
-	d := resource.Message.(*apps_v1.DeploymentSpec)
+	d := resource.Message.(*appsv1.DeploymentSpec)
 	// Skip analyzing control plane for IST0144
 	if util.IsIstioControlPlane(resource) {
 		return

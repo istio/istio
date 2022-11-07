@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
@@ -76,9 +76,9 @@ func HostMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
 	return &routepb.HeaderMatcher{
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &matcherpb.RegexMatcher{
-				EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-					GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+			SafeRegexMatch: &matcher.RegexMatcher{
+				EngineType: &matcher.RegexMatcher_GoogleRe2{
+					GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
 				},
 				Regex: `(?i)` + regex,
 			},
@@ -101,9 +101,9 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcherpb.StringMatcher{
+				StringMatch: &matcher.StringMatcher{
 					IgnoreCase: true,
-					MatchPattern: &matcherpb.StringMatcher_Suffix{
+					MatchPattern: &matcher.StringMatcher_Suffix{
 						Suffix: v[1:],
 					},
 				},
@@ -113,9 +113,9 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcherpb.StringMatcher{
+				StringMatch: &matcher.StringMatcher{
 					IgnoreCase: true,
-					MatchPattern: &matcherpb.StringMatcher_Prefix{
+					MatchPattern: &matcher.StringMatcher_Prefix{
 						Prefix: v[:len(v)-1],
 					},
 				},
@@ -125,9 +125,9 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 	return &routepb.HeaderMatcher{
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: &matcherpb.StringMatcher{
+			StringMatch: &matcher.StringMatcher{
 				IgnoreCase: true,
-				MatchPattern: &matcherpb.StringMatcher_Exact{
+				MatchPattern: &matcher.StringMatcher_Exact{
 					Exact: v,
 				},
 			},
@@ -136,9 +136,9 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 }
 
 // PathMatcher creates a path matcher for a path.
-func PathMatcher(path string) *matcherpb.PathMatcher {
-	return &matcherpb.PathMatcher{
-		Rule: &matcherpb.PathMatcher_Path{
+func PathMatcher(path string) *matcher.PathMatcher {
+	return &matcher.PathMatcher{
+		Rule: &matcher.PathMatcher_Path{
 			Path: StringMatcher(path),
 		},
 	}

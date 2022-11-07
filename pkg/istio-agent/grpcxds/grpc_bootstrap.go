@@ -21,7 +21,7 @@ import (
 	"path"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -45,7 +45,7 @@ const (
 // TODO use structs from gRPC lib if created/exported
 type Bootstrap struct {
 	XDSServers                 []XdsServer                    `json:"xds_servers,omitempty"`
-	Node                       *corev3.Node                   `json:"node,omitempty"`
+	Node                       *core.Node                     `json:"node,omitempty"`
 	CertProviders              map[string]CertificateProvider `json:"certificate_providers,omitempty"`
 	ServerListenerNameTemplate string                         `json:"server_listener_resource_name_template,omitempty"`
 }
@@ -173,7 +173,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 			ChannelCreds:   []ChannelCreds{{Type: "insecure"}},
 			ServerFeatures: []string{"xds_v3"},
 		}},
-		Node: &corev3.Node{
+		Node: &core.Node{
 			Id:       opts.Node.ID,
 			Locality: opts.Node.Locality,
 			Metadata: xdsMeta,

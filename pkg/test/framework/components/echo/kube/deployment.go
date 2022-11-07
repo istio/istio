@@ -26,9 +26,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	kubeCore "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
@@ -46,7 +48,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -118,8 +119,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}, nil
 }
 
-// Restart performs a `kubectl rollout restart` on the echo deployment and waits for
-// `kubectl rollout status` to complete before returning.
+// Restart performs restarts of all the pod of the deployment.
+// This is analogous to `kubectl rollout restart` on the echo deployment and waits for
+// `kubectl rollout status` to complete before returning, but uses direct API calls.
 func (d *deployment) Restart() error {
 	var errs error
 	var deploymentNames []string
@@ -127,21 +129,55 @@ func (d *deployment) Restart() error {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
+	curTimestamp := time.Now().Format(time.RFC3339)
 	for _, deploymentName := range deploymentNames {
-		wlType := "deployment"
+		patchOpts := metav1.PatchOptions{}
+		patchData := fmt.Sprintf(`{
+			"spec": {
+				"template": {
+					"metadata": {
+						"annotations": {
+							"kubectl.kubernetes.io/restartedAt": %q
+						}
+					}
+				}
+			}
+		}`, curTimestamp) // e.g., “2006-01-02T15:04:05Z07:00”
+		var err error
+		appsv1Client := d.cfg.Cluster.Kube().AppsV1()
+
 		if d.cfg.IsStatefulSet() {
-			wlType = "statefulset"
+			_, err = appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+				types.StrategicMergePatchType, []byte(patchData), patchOpts)
+		} else {
+			_, err = appsv1Client.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		}
-		rolloutCmd := fmt.Sprintf("kubectl rollout restart %s/%s -n %s",
-			wlType, deploymentName, d.cfg.Namespace.Name())
-		if _, err := shell.Execute(true, rolloutCmd); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v",
-				d.cfg.Namespace.Name(), deploymentName, err))
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp))
 			continue
 		}
-		waitCmd := fmt.Sprintf("kubectl rollout status %s/%s -n %s",
-			wlType, deploymentName, d.cfg.Namespace.Name())
-		if _, err := shell.Execute(true, waitCmd); err != nil {
+
+		if err := retry.UntilSuccess(func() error {
+			if d.cfg.IsStatefulSet() {
+				sts, err := appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if sts.Spec.Replicas == nil || !statefulsetComplete(sts) {
+					return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
+				}
+			} else {
+				dep, err := appsv1Client.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if dep.Spec.Replicas == nil || !deploymentComplete(dep) {
+					return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
+				}
+			}
+			return nil
+		}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
 				d.cfg.Namespace.Name(), deploymentName, err))
 		}
@@ -524,7 +560,7 @@ spec:
 			}
 		}
 		cmName := fmt.Sprintf("%s-%s-vm-bootstrap", cfg.Service, subset.Version)
-		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
+		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
 		_, err = cfg.Cluster.Kube().CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed creating configmap %s: %v", cm.Name, err)
@@ -536,7 +572,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	secret := &kubeCore.Secret{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfg.Service + "-istio-token",
 			Namespace: cfg.Namespace.Name(),
@@ -589,7 +625,7 @@ func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
 
 func createServiceAccount(client kubernetes.Interface, ns string, serviceAccount string) error {
 	scopes.Framework.Debugf("Creating service account for: %s/%s", ns, serviceAccount)
-	_, err := client.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &kubeCore.ServiceAccount{
+	_, err := client.CoreV1().ServiceAccounts(ns).Create(context.TODO(), &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{Name: serviceAccount},
 	}, metav1.CreateOptions{})
 	return err
@@ -704,4 +740,20 @@ func getIstioRevision(n namespace.Instance) string {
 		return ""
 	}
 	return nsLabels[label.IoIstioRev.Name]
+}
+
+func statefulsetComplete(statefulset *appsv1.StatefulSet) bool {
+	return statefulset.Status.UpdatedReplicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.Replicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.AvailableReplicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.ReadyReplicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.ObservedGeneration >= statefulset.Generation
+}
+
+func deploymentComplete(deployment *appsv1.Deployment) bool {
+	return deployment.Status.UpdatedReplicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.Replicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.AvailableReplicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.ReadyReplicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.ObservedGeneration >= deployment.Generation
 }

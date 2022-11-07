@@ -60,8 +60,11 @@ func (key ConfigKey) HashCode() ConfigHash {
 	hash := xxhashv2.New()
 	// the error will always return nil
 	_, _ = hash.Write([]byte{byte(key.Kind)})
-	_, _ = hash.Write([]byte(key.Name))
+	// Add separator / to avoid collision.
+	_, _ = hash.Write([]byte("/"))
 	_, _ = hash.Write([]byte(key.Namespace))
+	_, _ = hash.Write([]byte("/"))
+	_, _ = hash.Write([]byte(key.Name))
 	return ConfigHash(hash.Sum64())
 }
 
@@ -70,8 +73,8 @@ func (key ConfigKey) String() string {
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey]struct{} {
-	ret := make(map[ConfigKey]struct{})
+func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigKey] {
+	ret := make(sets.Set[ConfigKey])
 
 	for conf := range configs {
 		if conf.Kind == kind {
@@ -83,7 +86,7 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey
 }
 
 // ConfigsHaveKind checks if configurations have the specified kind.
-func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
+func ConfigsHaveKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
 	for conf := range configs {
 		if conf.Kind == kind {
 			return true
@@ -93,7 +96,7 @@ func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
+func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String {
 	ret := sets.New[string]()
 
 	for conf := range configs {

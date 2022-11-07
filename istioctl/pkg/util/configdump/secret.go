@@ -18,18 +18,18 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	extapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // GetSecretsConfigDump retrieves a secret dump from a config dump wrapper
-func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
+func (w *Wrapper) GetSecretConfigDump() (*admin.SecretsConfigDump, error) {
 	secretDumpAny, err := w.getSection(secrets)
 	if err != nil {
 		return nil, err
 	}
-	secretDump := &adminapi.SecretsConfigDump{}
+	secretDump := &admin.SecretsConfigDump{}
 	err = secretDumpAny.UnmarshalTo(secretDump)
 	if err != nil {
 		return nil, err

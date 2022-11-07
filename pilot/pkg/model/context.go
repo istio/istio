@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
@@ -211,7 +212,7 @@ func ResourcesToAny(r Resources) []*anypb.Any {
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
-type XdsUpdates = map[ConfigKey]struct{}
+type XdsUpdates = sets.Set[ConfigKey]
 
 // XdsLogDetails contains additional metadata that is captured by Generators and used by xds processors
 // like Ads and Delta to uniformly log.

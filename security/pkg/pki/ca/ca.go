@@ -397,6 +397,10 @@ func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 		return nil, caerror.NewError(caerror.CSRError, err)
 	}
 
+	if err := csr.CheckSignature(); err != nil {
+		return nil, caerror.NewError(caerror.CSRError, err)
+	}
+
 	lifetime := requestedLifetime
 	// If the requested requestedLifetime is non-positive, apply the default TTL.
 	if requestedLifetime.Seconds() <= 0 {

@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -38,11 +38,11 @@ var (
 )
 
 // PodFetchFunc fetches pods from a k8s Client.
-type PodFetchFunc func() ([]kubeApiCore.Pod, error)
+type PodFetchFunc func() ([]corev1.Pod, error)
 
 // NewPodFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
 func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
-	return func() ([]kubeApiCore.Pod, error) {
+	return func() ([]corev1.Pod, error) {
 		pods, err := a.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			return nil, err
@@ -53,7 +53,7 @@ func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) P
 
 // NewSinglePodFetch creates a new PodFetchFunction that fetches a single pod matching the given label selectors.
 func NewSinglePodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
-	return func() ([]kubeApiCore.Pod, error) {
+	return func() ([]corev1.Pod, error) {
 		pods, err := a.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			return nil, err
@@ -67,14 +67,14 @@ func NewSinglePodFetch(a istioKube.CLIClient, namespace string, selectors ...str
 			scopes.Framework.Warnf("More than one pod found matching selectors: %v", selectors)
 		}
 
-		return []kubeApiCore.Pod{pods.Items[0]}, nil
+		return []corev1.Pod{pods.Items[0]}, nil
 	}
 }
 
 // NewPodMustFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
 // If no pods are found, an error is returned
 func NewPodMustFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
-	return func() ([]kubeApiCore.Pod, error) {
+	return func() ([]corev1.Pod, error) {
 		pods, err := a.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			return nil, err
@@ -87,7 +87,7 @@ func NewPodMustFetch(a istioKube.CLIClient, namespace string, selectors ...strin
 }
 
 // CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.
-func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
+func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 	scopes.Framework.Infof("Checking pods ready...")
 
 	fetched, err := fetchFunc()
@@ -118,18 +118,18 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
 }
 
 // DeleteOptionsForeground creates new delete options that will block until the operation completes.
-func DeleteOptionsForeground() kubeApiMeta.DeleteOptions {
-	propagationPolicy := kubeApiMeta.DeletePropagationForeground
+func DeleteOptionsForeground() metav1.DeleteOptions {
+	propagationPolicy := metav1.DeletePropagationForeground
 	gracePeriod := int64(0)
-	return kubeApiMeta.DeleteOptions{
+	return metav1.DeleteOptions{
 		PropagationPolicy:  &propagationPolicy,
 		GracePeriodSeconds: &gracePeriod,
 	}
 }
 
 // WaitUntilPodsAreReady waits until the pod with the name/namespace is in ready state.
-func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kubeApiCore.Pod, error) {
-	var pods []kubeApiCore.Pod
+func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]corev1.Pod, error) {
+	var pods []corev1.Pod
 	err := retry.UntilSuccess(func() error {
 		scopes.Framework.Infof("Checking pods ready...")
 
@@ -148,16 +148,16 @@ func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kube
 // one usable endpoint.
 func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name string,
 	opts ...retry.Option,
-) (*kubeApiCore.Service, *kubeApiCore.Endpoints, error) {
-	var service *kubeApiCore.Service
-	var endpoints *kubeApiCore.Endpoints
+) (*corev1.Service, *corev1.Endpoints, error) {
+	var service *corev1.Service
+	var endpoints *corev1.Endpoints
 	err := retry.UntilSuccess(func() error {
-		s, err := a.CoreV1().Services(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+		s, err := a.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 
-		eps, err := a.CoreV1().Endpoints(ns).Get(context.TODO(), name, kubeApiMeta.GetOptions{})
+		eps, err := a.CoreV1().Endpoints(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -182,10 +182,10 @@ func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name s
 }
 
 // WaitForSecretToExist waits for the given secret up to the given waitTime.
-func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTime time.Duration) (*kubeApiCore.Secret, error) {
+func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTime time.Duration) (*corev1.Secret, error) {
 	secret := a.CoreV1().Secrets(namespace)
 
-	watch, err := secret.Watch(context.TODO(), kubeApiMeta.ListOptions{})
+	watch, err := secret.Watch(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
 	}
@@ -195,7 +195,7 @@ func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTi
 	for {
 		select {
 		case event := <-events:
-			secret := event.Object.(*kubeApiCore.Secret)
+			secret := event.Object.(*corev1.Secret)
 			if secret.GetName() == name {
 				return secret, nil
 			}
@@ -209,7 +209,7 @@ func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTi
 // WaitForSecretToExistOrFail calls WaitForSecretToExist and fails the given test.Failer if an error occurs.
 func WaitForSecretToExistOrFail(t test.Failer, a kubernetes.Interface, namespace, name string,
 	waitTime time.Duration,
-) *kubeApiCore.Secret {
+) *corev1.Secret {
 	t.Helper()
 	s, err := WaitForSecretToExist(a, namespace, name, waitTime)
 	if err != nil {
@@ -221,7 +221,7 @@ func WaitForSecretToExistOrFail(t test.Failer, a kubernetes.Interface, namespace
 // WaitForNamespaceDeletion waits until a namespace is deleted.
 func WaitForNamespaceDeletion(a kubernetes.Interface, ns string, opts ...retry.Option) error {
 	return retry.UntilSuccess(func() error {
-		_, err := a.CoreV1().Namespaces().Get(context.TODO(), ns, kubeApiMeta.GetOptions{})
+		_, err := a.CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{})
 		if err == nil {
 			return fmt.Errorf("namespace %v still exists", ns)
 		}
@@ -236,7 +236,7 @@ func WaitForNamespaceDeletion(a kubernetes.Interface, ns string, opts ...retry.O
 
 // NamespaceExists returns true if the given namespace exists.
 func NamespaceExists(a kubernetes.Interface, ns string) bool {
-	allNs, err := a.CoreV1().Namespaces().List(context.TODO(), kubeApiMeta.ListOptions{})
+	allNs, err := a.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return false
 	}
@@ -257,7 +257,7 @@ func newRetryOptions(opts ...retry.Option) []retry.Option {
 
 // MutatingWebhookConfigurationsExists returns true if all the given mutating webhook configs exist.
 func MutatingWebhookConfigurationsExists(a kubernetes.Interface, names []string) bool {
-	cfgs, err := a.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), kubeApiMeta.ListOptions{})
+	cfgs, err := a.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return false
 	}
@@ -278,7 +278,7 @@ func MutatingWebhookConfigurationsExists(a kubernetes.Interface, names []string)
 
 // ValidatingWebhookConfigurationsExists returns true if all the given validating webhook configs exist.
 func ValidatingWebhookConfigurationsExists(a kubernetes.Interface, names []string) bool {
-	cfgs, err := a.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), kubeApiMeta.ListOptions{})
+	cfgs, err := a.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return false
 	}

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -34,16 +34,16 @@ import (
 
 const istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 
-var revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
+var revisionCanonicalWebhook = admitv1.MutatingWebhookConfiguration{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:   "istio-sidecar-injector-revision",
 		Labels: map[string]string{label.IoIstioRev.Name: "revision"},
 	},
-	Webhooks: []admit_v1.MutatingWebhook{
+	Webhooks: []admitv1.MutatingWebhook{
 		{
 			Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
-			ClientConfig: admit_v1.WebhookClientConfig{
-				Service: &admit_v1.ServiceReference{
+			ClientConfig: admitv1.WebhookClientConfig{
+				Service: &admitv1.ServiceReference{
 					Namespace: "default",
 					Name:      "istiod-revision",
 				},
@@ -52,8 +52,8 @@ var revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
 		},
 		{
 			Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
-			ClientConfig: admit_v1.WebhookClientConfig{
-				Service: &admit_v1.ServiceReference{
+			ClientConfig: admitv1.WebhookClientConfig{
+				Service: &admitv1.ServiceReference{
 					Namespace: "default",
 					Name:      "istiod-revision",
 				},
@@ -66,7 +66,7 @@ var revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
 func TestTagList(t *testing.T) {
 	tcs := []struct {
 		name           string
-		webhooks       admit_v1.MutatingWebhookConfigurationList
+		webhooks       admitv1.MutatingWebhookConfigurationList
 		namespaces     corev1.NamespaceList
 		outputMatches  []string
 		outputExcludes []string
@@ -74,8 +74,8 @@ func TestTagList(t *testing.T) {
 	}{
 		{
 			name: "TestBasicTag",
-			webhooks: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooks: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-sample",
@@ -95,8 +95,8 @@ func TestTagList(t *testing.T) {
 		},
 		{
 			name: "TestNonTagWebhooksExcluded",
-			webhooks: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooks: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-test",
@@ -112,8 +112,8 @@ func TestTagList(t *testing.T) {
 		},
 		{
 			name: "TestNamespacesIncluded",
-			webhooks: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooks: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-test",
@@ -178,8 +178,8 @@ func TestRemoveTag(t *testing.T) {
 	tcs := []struct {
 		name             string
 		tag              string
-		webhooksBefore   admit_v1.MutatingWebhookConfigurationList
-		webhooksAfter    admit_v1.MutatingWebhookConfigurationList
+		webhooksBefore   admitv1.MutatingWebhookConfigurationList
+		webhooksAfter    admitv1.MutatingWebhookConfigurationList
 		namespaces       corev1.NamespaceList
 		outputMatches    []string
 		skipConfirmation bool
@@ -188,8 +188,8 @@ func TestRemoveTag(t *testing.T) {
 		{
 			name: "TestSimpleRemove",
 			tag:  "sample",
-			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-sample",
@@ -198,7 +198,7 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			webhooksAfter:    admit_v1.MutatingWebhookConfigurationList{},
+			webhooksAfter:    admitv1.MutatingWebhookConfigurationList{},
 			namespaces:       corev1.NamespaceList{},
 			outputMatches:    []string{},
 			skipConfirmation: true,
@@ -207,8 +207,8 @@ func TestRemoveTag(t *testing.T) {
 		{
 			name: "TestWrongTagLabelNotRemoved",
 			tag:  "sample",
-			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
@@ -217,8 +217,8 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooksAfter: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
@@ -235,8 +235,8 @@ func TestRemoveTag(t *testing.T) {
 		{
 			name: "TestDeleteTagWithDependentNamespace",
 			tag:  "match",
-			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
@@ -245,8 +245,8 @@ func TestRemoveTag(t *testing.T) {
 					},
 				},
 			},
-			webhooksAfter: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{
+			webhooksAfter: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
@@ -309,7 +309,7 @@ func TestSetTagErrors(t *testing.T) {
 		name           string
 		tag            string
 		revision       string
-		webhooksBefore admit_v1.MutatingWebhookConfigurationList
+		webhooksBefore admitv1.MutatingWebhookConfigurationList
 		namespaces     corev1.NamespaceList
 		outputMatches  []string
 		error          string
@@ -318,8 +318,8 @@ func TestSetTagErrors(t *testing.T) {
 			name:     "TestErrorWhenRevisionWithNameCollision",
 			tag:      "revision",
 			revision: "revision",
-			webhooksBefore: admit_v1.MutatingWebhookConfigurationList{
-				Items: []admit_v1.MutatingWebhookConfiguration{revisionCanonicalWebhook},
+			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{revisionCanonicalWebhook},
 			},
 			namespaces:    corev1.NamespaceList{},
 			outputMatches: []string{},

@@ -24,7 +24,7 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"sigs.k8s.io/yaml"
@@ -256,7 +256,7 @@ func retrieveListenerMatches(l *listener.Listener) []filterchain {
 func getFilterType(filters []*listener.Filter) string {
 	for _, filter := range filters {
 		if filter.Name == HTTPListener {
-			httpProxy := &httpConn.HttpConnectionManager{}
+			httpProxy := &hcm.HttpConnectionManager{}
 			// Allow Unmarshal to work even if Envoy and istioctl are different
 			filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
 			err := filter.GetTypedConfig().UnmarshalTo(httpProxy)

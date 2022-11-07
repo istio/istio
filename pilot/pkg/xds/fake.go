@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type FakeOptions struct {
@@ -134,13 +135,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.ServiceEntry,
-				Name:      string(svc.Hostname),
-				Namespace: svc.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
+			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -249,13 +246,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// TODO code re-use from server.go
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.FromGvk(curr.GroupVersionKind),
-				Name:      curr.Name,
-				Namespace: curr.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ConfigUpdate},
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.FromGvk(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		}
 		s.ConfigUpdate(pushReq)
 	}

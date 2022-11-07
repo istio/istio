@@ -344,7 +344,7 @@ type PushRequest struct {
 	// If this is empty, then all proxies will get an update.
 	// Otherwise only proxies depend on these configs will get an update.
 	// The kind of resources are defined in pkg/config/schemas.
-	ConfigsUpdated map[ConfigKey]struct{}
+	ConfigsUpdated sets.Set[ConfigKey]
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
@@ -477,7 +477,7 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		for conf := range pr.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
 		}

@@ -17,7 +17,7 @@ package configdump
 import (
 	"testing"
 
-	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 )
@@ -45,9 +45,9 @@ func TestListenerFilter_Verify(t *testing.T) {
 				Address: "0.0.0.0",
 			},
 			inListener: &listener.Listener{
-				Address: &v3.Address{
-					Address: &v3.Address_SocketAddress{
-						SocketAddress: &v3.SocketAddress{Address: "1.1.1.1"},
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{Address: "1.1.1.1"},
 					},
 				},
 			},
@@ -59,10 +59,10 @@ func TestListenerFilter_Verify(t *testing.T) {
 				Port: 10,
 			},
 			inListener: &listener.Listener{
-				Address: &v3.Address{
-					Address: &v3.Address_SocketAddress{
-						SocketAddress: &v3.SocketAddress{
-							PortSpecifier: &v3.SocketAddress_PortValue{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							PortSpecifier: &core.SocketAddress_PortValue{
 								PortValue: 11,
 							},
 						},
@@ -145,9 +145,9 @@ func TestListenerFilter_Verify(t *testing.T) {
 				Type:    "",
 			},
 			inListener: &listener.Listener{
-				Address: &v3.Address{
-					Address: &v3.Address_Pipe{
-						Pipe: &v3.Pipe{Path: "unix:///dev/shm/uds.socket"},
+				Address: &core.Address{
+					Address: &core.Address_Pipe{
+						Pipe: &core.Pipe{Path: "unix:///dev/shm/uds.socket"},
 					},
 				},
 			},

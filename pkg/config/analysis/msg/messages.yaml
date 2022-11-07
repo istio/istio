@@ -597,3 +597,14 @@ messages:
       type: string
     - name: minimumVersion
       type: string
+
+  - name: "InvalidTelemetryProvider"
+    code: IST0157
+    level: Warning
+    description: "The Telemetry with empty providers will be ignored"
+    template: "The Telemetry %v in namespace %q with empty providers will be ignored."
+    args:
+    - name: name
+      type: string
+    - name: namespace
+      type: string
