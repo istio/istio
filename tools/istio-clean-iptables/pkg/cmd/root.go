@@ -145,7 +145,6 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.IstioInboundTproxyMark.Name, constants.IstioInboundTproxyMark.DefaultValue)
-
 }
 
 // https://github.com/spf13/viper/issues/233.
