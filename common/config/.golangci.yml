@@ -237,6 +237,7 @@ linters-settings:
   depguard:
     packages-with-error-message:
     - github.com/gogo/protobuf: "gogo/protobuf is deprecated, use golang/protobuf"
+    - golang.org/x/net/http2/h2c: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
   # But independently from this option we use default exclude patterns,
