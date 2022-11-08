@@ -3582,7 +3582,7 @@ spec:
       jsonPath: .spec.location
       name: Location
       type: string
-    - description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    - description: Service resolution mode for the hosts (NONE, STATIC, or DNS)
       jsonPath: .spec.resolution
       name: Resolution
       type: string
@@ -3668,7 +3668,7 @@ spec:
                   type: object
                 type: array
               resolution:
-                description: Service discovery mode for the hosts.
+                description: Service resolution mode for the hosts.
                 enum:
                 - NONE
                 - STATIC
@@ -3706,7 +3706,7 @@ spec:
       jsonPath: .spec.location
       name: Location
       type: string
-    - description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    - description: Service resolution mode for the hosts (NONE, STATIC, or DNS)
       jsonPath: .spec.resolution
       name: Resolution
       type: string
@@ -3792,7 +3792,7 @@ spec:
                   type: object
                 type: array
               resolution:
-                description: Service discovery mode for the hosts.
+                description: Service resolution mode for the hosts.
                 enum:
                 - NONE
                 - STATIC
