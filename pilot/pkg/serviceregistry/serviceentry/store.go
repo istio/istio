@@ -63,6 +63,14 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 		if _, f := s.instances[ikey]; !f {
 			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
+		if instance.Service.Resolution == model.DNSRoundRobinLB {
+			for ikey := range s.instances {
+				if ikey.hostname == instance.Service.Hostname {
+					// instance already exists. Do not add
+					return
+				}
+			}
+		}
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
 		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
 	}
