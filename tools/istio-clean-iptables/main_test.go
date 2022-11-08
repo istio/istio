@@ -58,6 +58,17 @@ func TestConfig_Valid(t *testing.T) {
 				"ip6tables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN",
 			},
 		},
+		{
+			name: "inbound-interception-mode-tproxy",
+			env:  []string{"INBOUND_INTERCEPTION_MODE=TPROXY", "INBOUND_TPROXY_MARK=1336"},
+			args: []string{"--dry-run"},
+			expect: []string{
+				"iptables -t mangle -D PREROUTING -p tcp -m mark --mark 1336 -j CONNMARK --save-mark",
+				"iptables -t mangle -D OUTPUT -p tcp -m connmark --mark 1336 -j CONNMARK --restore-mark",
+				"ip6tables -t mangle -D PREROUTING -p tcp -m mark --mark 1336 -j CONNMARK --save-mark",
+				"ip6tables -t mangle -D OUTPUT -p tcp -m connmark --mark 1336 -j CONNMARK --restore-mark",
+			},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
