@@ -4955,7 +4955,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Endpoints: []*networking.WorkloadEntry{
 					{
-						Address: "1.1.1.1",
+						Address: "api-v1.istio.io",
 						Ports: map[string]uint32{
 							"http-valid1": 8081,
 						},
