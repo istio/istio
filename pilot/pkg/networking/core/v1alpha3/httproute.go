@@ -448,12 +448,11 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
-		// virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+
 		virtualHost := &route.VirtualHost{
 			Routes:                     virtualHostWrapper.Routes,
 			IncludeRequestAttemptCount: true,
 		}
-
 		var domains []string
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			if virtualHost.Name == "" {
