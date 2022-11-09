@@ -22,11 +22,6 @@ import (
 
 // Copies file by reading the file then writing atomically into the target directory
 func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
-	info, err := os.Stat(srcFilepath)
-	if err != nil {
-		return err
-	}
-
 	input, err := os.ReadFile(srcFilepath)
 	if err != nil {
 		return err
@@ -36,11 +31,6 @@ func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
 }
 
 func Copy(srcFilepath, targetDir, targetFilename string) error {
-	info, err := os.Stat(srcFilepath)
-	if err != nil {
-		return err
-	}
-
 	input, err := os.ReadFile(srcFilepath)
 	if err != nil {
 		return err
