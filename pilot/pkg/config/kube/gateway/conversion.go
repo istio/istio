@@ -38,9 +38,12 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+var (
+	DefaultClassName = features.GatewayAPIDefaultGatewayClass
+	ControllerName   = k8sbeta.GatewayController(features.GatewayAPIControllerName)
+)
+
 const (
-	DefaultClassName             = "istio"
-	ControllerName               = "istio.io/gateway-controller"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 )
