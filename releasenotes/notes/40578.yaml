@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - 40577
+
+releaseNotes:
+  - |
+    **Fixed** an issue when user deletes a custom gateway by iop CR, other gateways are restarted.
