@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // stores all the service instances from SE, WLE and pods
@@ -27,6 +28,8 @@ type serviceInstancesStore struct {
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// instances only for serviceentry
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
+	// instancesByHost tells whether the host has already instances.
+	instancesByHost sets.Set[string]
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
@@ -51,6 +54,8 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 
 func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, i := range instances {
+		ikey := makeInstanceKey(i)
+		s.instancesByHost.Delete(ikey.hostname.String())
 		delete(s.instances[makeInstanceKey(i)], key)
 		delete(s.ip2instance, i.Endpoint.Address)
 	}
@@ -60,17 +65,19 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
+		// For DNSRoundRobinLB resolution type, check if service instances already exist and do not add
+		// if it already exist. This can happen if two Service Entries are created with same host name,
+		// resolution as DNS_ROUND_ROBIN and with same/different endpoints.
+		if instance.Service.Resolution == model.DNSRoundRobinLB &&
+			s.instancesByHost.Contains(ikey.hostname.String()) {
+			log.Warnf("skipping service %s from service entry %s with DnsRoundRobinLB as it can only have one end points",
+				ikey.hostname, key.name+"/"+key.namespace)
+			return
+		}
 		if _, f := s.instances[ikey]; !f {
 			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
-		if instance.Service.Resolution == model.DNSRoundRobinLB {
-			for ikey := range s.instances {
-				if ikey.hostname == instance.Service.Hostname {
-					// instance already exists. Do not add
-					return
-				}
-			}
-		}
+		s.instancesByHost.Insert(ikey.hostname.String())
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
 		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
 	}
