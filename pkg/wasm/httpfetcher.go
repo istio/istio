@@ -100,7 +100,10 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			if err != nil {
 				return nil, err
 			}
-			resp.Body.Close()
+			err = resp.Body.Close()
+			if err != nil {
+				wasmLog.Infof("wasm server connection is not closed with error: %s", err)
+			}
 			return unboxIfPossible(body), err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
@@ -111,11 +114,17 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 				return nil, err
 			}
 			wasmLog.Debugf("wasm module download failed: status code %v, body %v", resp.StatusCode, string(body))
-			resp.Body.Close()
+			err = resp.Body.Close()
+			if err != nil {
+				wasmLog.Infof("wasm server connection is not closed with error: %s", err)
+			}
 			time.Sleep(b.NextBackOff())
 			continue
 		}
-		resp.Body.Close()
+		err = resp.Body.Close()
+		if err != nil {
+			wasmLog.Infof("wasm server connection is not closed with error: %s", err)
+		}
 		break
 	}
 	return nil, fmt.Errorf("wasm module download failed after %v attempts, last error: %v", attempts, lastError)

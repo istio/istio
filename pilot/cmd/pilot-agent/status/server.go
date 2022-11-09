@@ -493,10 +493,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoyCancel, appCancel context.CancelFunc
 	defer func() {
 		if envoy != nil {
-			envoy.Close()
+			err = envoy.Close()
+			if err != nil {
+				log.Infof("envoy connection is not closed successfully with error : %s", err)
+			}
 		}
 		if application != nil {
-			application.Close()
+			err = application.Close()
+			if err != nil {
+				log.Infof("app connection is not closed successfully with error : %s", err)
+			}
 		}
 		if envoyCancel != nil {
 			envoyCancel()
@@ -755,7 +761,10 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		conn.Close()
+		err = conn.Close()
+		if err != nil {
+			log.Infof("tcp connection is not closed successfully with error : %s", err)
+		}
 	}
 }
 

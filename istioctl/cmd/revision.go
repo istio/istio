@@ -393,9 +393,9 @@ func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*tag.Revis
 func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*tag.RevisionDescription) error {
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	if verbose {
-		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
+		_, _ = tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
 	} else {
-		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\n"))
+		_, _ = tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\n"))
 	}
 	for r, ri := range revisions {
 		rowID, tags := 0, []string{}

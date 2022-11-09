@@ -177,7 +177,7 @@ func tlsDial(ctx context.Context, netDialer Dialer, network, addr string, config
 
 	conn := tls.Client(rawConn, config)
 	if err := conn.HandshakeContext(ctx); err != nil {
-		rawConn.Close()
+		_ = rawConn.Close()
 		return nil, err
 	}
 	return conn, nil

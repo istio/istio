@@ -121,7 +121,10 @@ func (cl *googleCAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 
 func (cl *googleCAClient) Close() {
 	if cl.conn != nil {
-		cl.conn.Close()
+		err := cl.conn.Close()
+		if err != nil {
+			googleCAClientLog.Infof("CAClient Connection is not closed with error : %s", err)
+		}
 	}
 }
 

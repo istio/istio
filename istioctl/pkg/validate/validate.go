@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/url"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -289,7 +290,10 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		reader.Close()
+		err = reader.Close()
+		if err != nil {
+			log.Infof("file : %s is not closed successfully with error : %s", filename, err)
+		}
 		warningsByFilename[filename] = warning
 	}
 
