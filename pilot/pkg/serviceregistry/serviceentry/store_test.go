@@ -137,3 +137,49 @@ func TestServiceStore(t *testing.T) {
 		t.Errorf("expected no allocate needed")
 	}
 }
+
+// Tests that when multiple service entries with "DNSRounbRobinLB" resolution type
+// are created with different/same endpoints, we only consider the first service because
+// Envoy's LogicalDNS type of cluster does not allow more than one locality LB Enpoint.
+func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
+	store := serviceInstancesStore{
+		ip2instance:     map[string][]*model.ServiceInstance{},
+		instances:       map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instancesBySE:   map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHost: sets.Set[string]{},
+	}
+	instances := []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+	}
+	cKey := configKey{
+		namespace: "dns",
+		name:      "dns-round-robin-1",
+	}
+	// Add instance related to first Service Entry and validate they are added correctly.
+	store.addInstances(cKey, instances)
+	gotInstances := store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	})
+	expected := []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+	}
+
+	// Add instance related to second Service Entry and validate it is not ignored.
+	instances = []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE2, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+	}
+	cKey = configKey{
+		namespace: "dns",
+		name:      "dns-round-robin-2",
+	}
+	store.addInstances(cKey, instances)
+
+	gotInstances = store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	})
+	if !reflect.DeepEqual(gotInstances, expected) {
+		t.Errorf("got unexpected instances : %v", gotInstances)
+	}
+}

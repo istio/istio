@@ -71,9 +71,10 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 		// resolution as DNS_ROUND_ROBIN and with same/different endpoints.
 		if instance.Service.Resolution == model.DNSRoundRobinLB &&
 			s.instancesByHost.Contains(ikey.hostname.String()) {
-			log.Warnf("skipping service %s from service entry %s with DnsRoundRobinLB as it can only have one end points",
+			log.Warnf("skipping service %s from service entry %s with DnsRoundRobinLB. A service entry with the same host "+
+				"already exists. Only one locality lb end point is allowed for DnsRoundRobinLB services.",
 				ikey.hostname, key.name+"/"+key.namespace)
-			return
+			continue
 		}
 		if _, f := s.instances[ikey]; !f {
 			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
