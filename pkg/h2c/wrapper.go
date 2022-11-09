@@ -29,10 +29,10 @@ import (
 // see https://github.com/golang/go/issues/56352.
 // This means we allow only HTTP/1.1 or HTTP/2 prior knowledge.
 func NewHandler(h http.Handler, s *http2.Server) http.Handler {
-	return denyH2cUpdate(h2c.NewHandler(h, s))
+	return denyH2cUpgrade(h2c.NewHandler(h, s))
 }
 
-func denyH2cUpdate(h http.Handler) http.Handler {
+func denyH2cUpgrade(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isH2CUpgrade(r.Header) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
