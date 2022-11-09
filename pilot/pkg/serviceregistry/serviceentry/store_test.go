@@ -164,6 +164,9 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expected := []*model.ServiceInstance{
 		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
+	if !reflect.DeepEqual(gotInstances, expected) {
+		t.Errorf("got unexpected instances : %v", gotInstances)
+	}
 
 	// Add instance related to second Service Entry and validate it is not ignored.
 	instances = []*model.ServiceInstance{
