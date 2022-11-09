@@ -25,9 +25,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -471,14 +471,14 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*tag
 
 func getAllIstioOperatorCRs(client kube.CLIClient) ([]*iopv1alpha1.IstioOperator, error) {
 	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
-		List(context.Background(), meta_v1.ListOptions{})
+		List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return []*iopv1alpha1.IstioOperator{}, fmt.Errorf("cannot retrieve IstioOperator CRs: %v", err)
 	}
 	iopCRs := []*iopv1alpha1.IstioOperator{}
 	for _, u := range ucrs.Items {
-		u.SetCreationTimestamp(meta_v1.Time{})
-		u.SetManagedFields([]meta_v1.ManagedFieldsEntry{})
+		u.SetCreationTimestamp(metav1.Time{})
+		u.SetManagedFields([]metav1.ManagedFieldsEntry{})
 		iop, err := operator_istio.UnmarshalIstioOperator(util.ToYAML(u.Object), true)
 		if err != nil {
 			return []*iopv1alpha1.IstioOperator{},
@@ -558,7 +558,7 @@ func annotateWithNamespaceAndPodInfo(revDescription *tag.RevisionDescription, re
 	}
 	nsMap := make(map[string]*tag.NsInfo)
 	for _, ra := range revisionAliases {
-		pods, err := getPodsWithSelector(client, "", &meta_v1.LabelSelector{
+		pods, err := getPodsWithSelector(client, "", &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				label.IoIstioRev.Name: ra,
 			},
@@ -619,7 +619,7 @@ func annotateWithIOPCustomization(revDesc *tag.RevisionDescription, manifestsPat
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admit_v1.MutatingWebhookConfiguration,
+	mutatingWebhooks []admitv1.MutatingWebhookConfiguration,
 ) *tag.RevisionDescription {
 	revDescription := &tag.RevisionDescription{
 		IstioOperatorCRs: []*tag.IstioOperatorCRInfo{},
@@ -654,8 +654,8 @@ func printJSON(w io.Writer, res any) error {
 	return nil
 }
 
-func filterWebhooksWithRevision(webhooks []admit_v1.MutatingWebhookConfiguration, revision string) []admit_v1.MutatingWebhookConfiguration {
-	whFiltered := []admit_v1.MutatingWebhookConfiguration{}
+func filterWebhooksWithRevision(webhooks []admitv1.MutatingWebhookConfiguration, revision string) []admitv1.MutatingWebhookConfiguration {
+	whFiltered := []admitv1.MutatingWebhookConfiguration{}
 	for _, wh := range webhooks {
 		if wh.GetLabels()[label.IoIstioRev.Name] == revision {
 			whFiltered = append(whFiltered, wh)
@@ -910,7 +910,7 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 }
 
 func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, error) {
-	return getPodsWithSelector(client, istioNamespace, &meta_v1.LabelSelector{
+	return getPodsWithSelector(client, istioNamespace, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),
 			label.OperatorComponent.Name: component,
@@ -918,13 +918,13 @@ func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, err
 	})
 }
 
-func getPodsWithSelector(client kube.CLIClient, ns string, selector *meta_v1.LabelSelector) ([]v1.Pod, error) {
-	labelSelector, err := meta_v1.LabelSelectorAsSelector(selector)
+func getPodsWithSelector(client kube.CLIClient, ns string, selector *metav1.LabelSelector) ([]v1.Pod, error) {
+	labelSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return []v1.Pod{}, err
 	}
 	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
-		meta_v1.ListOptions{LabelSelector: labelSelector.String()})
+		metav1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
 		return []v1.Pod{}, err
 	}
@@ -1018,7 +1018,7 @@ func pathComponent(component string) string {
 }
 
 // Human-readable age.  (This is from kubectl pkg/describe/describe.go)
-func translateTimestampSince(timestamp meta_v1.Time) string {
+func translateTimestampSince(timestamp metav1.Time) string {
 	if timestamp.IsZero() {
 		return "<unknown>"
 	}

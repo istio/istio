@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
-	coreV1 "k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -30,11 +30,11 @@ import (
 
 var (
 	cannedK8sConfig = []runtime.Object{
-		&coreV1.ConfigMapList{Items: []coreV1.ConfigMap{}},
+		&corev1.ConfigMapList{Items: []corev1.ConfigMap{}},
 
 		&appsv1.DeploymentList{Items: []appsv1.Deployment{
 			{
-				ObjectMeta: metaV1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "details-v1",
 					Namespace: "default",
 					Labels: map[string]string{
@@ -43,19 +43,19 @@ var (
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &one,
-					Selector: &metaV1.LabelSelector{
+					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"app": "details"},
 					},
-					Template: coreV1.PodTemplateSpec{
-						ObjectMeta: metaV1.ObjectMeta{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"app": "details"},
 						},
-						Spec: coreV1.PodSpec{
-							Containers: []coreV1.Container{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
 								{Name: "details", Image: "docker.io/istio/examples-bookinfo-details-v1:1.15.0"},
 								{Name: "istio-proxy", Image: "docker.io/istio/proxyv2:1.2.2"},
 							},
-							InitContainers: []coreV1.Container{
+							InitContainers: []corev1.Container{
 								{Name: "istio-init", Image: "docker.io/istio/proxy_init:1.2.2"},
 							},
 						},
@@ -63,14 +63,14 @@ var (
 				},
 			},
 		}},
-		&coreV1.ServiceList{Items: []coreV1.Service{
+		&corev1.ServiceList{Items: []corev1.Service{
 			{
-				ObjectMeta: metaV1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "details",
 					Namespace: "default",
 				},
-				Spec: coreV1.ServiceSpec{
-					Ports: []coreV1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Port: 9080,
 							Name: "http",
@@ -80,12 +80,12 @@ var (
 				},
 			},
 			{
-				ObjectMeta: metaV1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dummyservice",
 					Namespace: "default",
 				},
-				Spec: coreV1.ServiceSpec{
-					Ports: []coreV1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Port: 9080,
 							Name: "http",
@@ -95,12 +95,12 @@ var (
 				},
 			},
 			{
-				ObjectMeta: metaV1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vmtest",
 					Namespace: "default",
 				},
-				Spec: coreV1.ServiceSpec{
-					Ports: []coreV1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Port: 9999,
 							Name: "http",

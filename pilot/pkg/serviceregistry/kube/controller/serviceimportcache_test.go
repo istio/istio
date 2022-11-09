@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	envoyCore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
-	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -270,7 +270,7 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 
 func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 	t.Helper()
-	svc, _ := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Get(context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+	svc, _ := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Get(context.TODO(), serviceImportName, metav1.GetOptions{})
 	if svc == nil {
 		t.Fatalf("failed to find k8s service: %s/%s", serviceImportNamespace, serviceImportName)
 	}
@@ -279,7 +279,7 @@ func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 	svc.Labels = map[string]string{
 		"foo": "bar",
 	}
-	if _, err := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Update(context.TODO(), svc, kubeMeta.UpdateOptions{}); err != nil {
+	if _, err := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -308,11 +308,11 @@ func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T, anotherCluster
 	t.Helper()
 
 	if err := anotherCluster.client.Kube().
-		CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+		CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	// Wait for the resources to be processed by the controller.
-	if err := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+	if err := ic.client.Kube().CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -338,7 +338,7 @@ func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 	return ic.GetProxyServiceInstances(&model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{serviceImportPodIP},
-		Locality:        &envoyCore.Locality{Region: "r", Zone: "z"},
+		Locality:        &core.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceImportNamespace,
 		Labels: map[string]string{
 			"app":                      "prod-app",
@@ -360,7 +360,7 @@ func (ic *serviceImportCacheImpl) getServiceImport(t *testing.T) *mcsapi.Service
 
 	// Get the ServiceImport as unstructured
 	u, err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Get(
-		context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+		context.TODO(), serviceImportName, metav1.GetOptions{})
 	if err != nil {
 		return nil
 	}
@@ -414,7 +414,7 @@ func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType m
 	// Create the ServiceImport resource in the cluster.
 	_, err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Create(context.TODO(),
 		newServiceImport(importType, vips),
-		kubeMeta.CreateOptions{})
+		metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -448,7 +448,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 	// Apply the ClusterSet IPs.
 	si.Spec.IPs = vips
 	if _, err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Update(
-		context.TODO(), toUnstructured(si), kubeMeta.UpdateOptions{}); err != nil {
+		context.TODO(), toUnstructured(si), metav1.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -484,7 +484,7 @@ func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 	t.Helper()
 
 	if err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Delete(
-		context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+		context.TODO(), serviceImportName, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -533,11 +533,11 @@ func (ic *serviceImportCacheImpl) clusterLocalHost() host.Name {
 
 func newServiceImport(importType mcsapi.ServiceImportType, vips []string) *unstructured.Unstructured {
 	si := &mcsapi.ServiceImport{
-		TypeMeta: kubeMeta.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceImport",
 			APIVersion: "multicluster.x-k8s.io/v1alpha1",
 		},
-		ObjectMeta: kubeMeta.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceImportName,
 			Namespace: serviceImportNamespace,
 		},

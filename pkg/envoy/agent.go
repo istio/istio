@@ -37,7 +37,7 @@ var activeConnectionCheckDelay = 1 * time.Second
 func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
 	adminPort, statusPort, prometheusPort int, exitOnZeroActiveConnections bool,
 ) *Agent {
-	knownIstioListeners := sets.New[string](
+	knownIstioListeners := sets.New(
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", statusPort),
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", prometheusPort),
 		"listener.admin.downstream_cx_active",

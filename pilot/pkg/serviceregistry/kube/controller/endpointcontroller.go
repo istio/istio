@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -72,11 +73,8 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full: true,
 						// TODO: extend and set service instance type, so no need to re-init push context
-						ConfigsUpdated: map[model.ConfigKey]struct{}{{
-							Kind:      kind.ServiceEntry,
-							Name:      modelSvc.Hostname.String(),
-							Namespace: svc.Namespace,
-						}: {}},
+						ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+
 						Reason: []model.TriggerReason{model.EndpointUpdate},
 					})
 					return nil

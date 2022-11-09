@@ -15,7 +15,7 @@
 package authn
 
 import (
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/api/security/v1beta1"
@@ -33,11 +33,11 @@ type PolicyApplier interface {
 
 	// JwtFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
-	JwtFilter() *http_conn.HttpFilter
+	JwtFilter() *hcm.HttpFilter
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(forSidecar bool) *http_conn.HttpFilter
+	AuthNFilter(forSidecar bool) *hcm.HttpFilter
 
 	// PortLevelSetting returns port level mTLS settings.
 	PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS

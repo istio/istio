@@ -15,9 +15,9 @@
 package extension
 
 import (
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -29,11 +29,11 @@ import (
 	_ "istio.io/istio/pkg/wasm" // include for registering wasm logging scope
 )
 
-var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
-	ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-		Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+var defaultConfigSource = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
 	},
-	ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
+	ResourceApiVersion: core.ApiVersion_V3,
 	// we block proxy init until WasmPlugins are loaded because they might be
 	// critical for security (e.g. authn/authz)
 	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
@@ -41,10 +41,10 @@ var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
 
 // PopAppend takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
 // plugins of a provided phase from the WASM plugin set and append them to the list of filters
-func PopAppend(list []*hcm_filter.HttpFilter,
+func PopAppend(list []*hcm.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase,
-) []*hcm_filter.HttpFilter {
+) []*hcm.HttpFilter {
 	for _, ext := range filterMap[phase] {
 		list = append(list, toEnvoyHTTPFilter(ext))
 	}
@@ -52,13 +52,16 @@ func PopAppend(list []*hcm_filter.HttpFilter,
 	return list
 }
 
-func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
-	return &hcm_filter.HttpFilter{
+func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
 		Name: wasmPlugin.ResourceName,
-		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
-			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
+		ConfigType: &hcm.HttpFilter_ConfigDiscovery{
+			ConfigDiscovery: &core.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{xds.WasmHTTPFilterType},
+				TypeUrls: []string{
+					xds.WasmHTTPFilterType,
+					xds.RBACHTTPFilterType,
+				},
 			},
 		},
 	}
@@ -68,8 +71,8 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	names []string, pullSecrets map[string][]byte,
-) []*envoy_config_core_v3.TypedExtensionConfig {
-	result := make([]*envoy_config_core_v3.TypedExtensionConfig, 0)
+) []*core.TypedExtensionConfig {
+	result := make([]*core.TypedExtensionConfig, 0)
 	if len(wasmPlugins) == 0 {
 		return result
 	}
@@ -79,7 +82,7 @@ func InsertedExtensionConfigurations(
 			if !hasName.Contains(p.ResourceName) {
 				continue
 			}
-			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*extensionsv3.Wasm)
+			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*wasm.Wasm)
 			// Find the pull secret resource name from wasm vm env variables.
 			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
 			// at in the VM env variables, with value being the secret resource name. We try to find the actual
@@ -96,7 +99,7 @@ func InsertedExtensionConfigurations(
 				}
 			}
 			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
-			ec := &envoy_config_core_v3.TypedExtensionConfig{
+			ec := &core.TypedExtensionConfig{
 				Name:        p.ResourceName,
 				TypedConfig: typedConfig,
 			}

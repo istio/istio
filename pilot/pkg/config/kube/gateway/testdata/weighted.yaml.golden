@@ -61,6 +61,9 @@ spec:
         request:
           add:
             foo: bar
+        response:
+          add:
+            response: header
   - match:
     - uri:
         prefix: /get

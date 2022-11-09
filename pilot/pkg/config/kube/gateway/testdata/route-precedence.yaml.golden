@@ -138,7 +138,7 @@ spec:
   gateways:
   - mesh
   hosts:
-  - a.domain.example
+  - a-example.allowed-1.svc.domain.suffix
   http:
   - match:
     - uri:
@@ -173,7 +173,7 @@ spec:
   gateways:
   - mesh
   hosts:
-  - b.domain.example
+  - b-example.allowed-1.svc.domain.suffix
   http:
   - match:
     - uri:
@@ -208,7 +208,7 @@ spec:
   gateways:
   - mesh
   hosts:
-  - a.domain.example
+  - a-example.allowed-2.svc.domain.suffix
   http:
   - match:
     - uri:

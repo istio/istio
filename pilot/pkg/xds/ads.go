@@ -684,7 +684,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			switch conf.Kind {
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
 				sidecar = true
-			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferencePolicy, kind.ReferenceGrant:
+			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant:
 				gateway = true
 			case kind.Ingress:
 				sidecar = true
@@ -853,7 +853,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 		// Make sure the ConfigsUpdated map exists
 		if req.ConfigsUpdated == nil {
-			req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+			req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
 		}
 	}
 

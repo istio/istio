@@ -268,8 +268,12 @@ type PushContext struct {
 type consolidatedDestRules struct {
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
-	// Map of dest rule host and the merged destination rules for that host
-	destRules map[host.Name][]*ConsolidatedDestRule
+	// Map of dest rule host and the merged destination rules for that host.
+	// Only stores specific non-wildcard destination rules
+	specificDestRules map[host.Name][]*ConsolidatedDestRule
+	// Map of dest rule host and the merged destination rules for that host.
+	// Only stores wildcard destination rules
+	wildcardDestRules map[host.Name][]*ConsolidatedDestRule
 }
 
 // ConsolidatedDestRule represents a dr and from which it is consolidated.
@@ -340,7 +344,7 @@ type PushRequest struct {
 	// If this is empty, then all proxies will get an update.
 	// Otherwise only proxies depend on these configs will get an update.
 	// The kind of resources are defined in pkg/config/schemas.
-	ConfigsUpdated map[ConfigKey]struct{}
+	ConfigsUpdated sets.Set[ConfigKey]
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
@@ -473,7 +477,7 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		for conf := range pr.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
 		}
@@ -1027,20 +1031,22 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if proxyNameSpace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
-			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules,
+			if _, drs, ok := MostSpecificHostMatch(service.Hostname,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].specificDestRules,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].wildcardDestRules,
 			); ok {
-				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules[hostname]
+				return drs
 			}
 		}
 	} else {
 		// If this is a namespace local DR in the same namespace, this must be meant for this proxy, so we do not
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
-		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.destinationRuleIndex.rootNamespaceLocal.destRules,
+		if _, drs, ok := MostSpecificHostMatch(service.Hostname,
+			ps.destinationRuleIndex.rootNamespaceLocal.specificDestRules,
+			ps.destinationRuleIndex.rootNamespaceLocal.wildcardDestRules,
 		); ok {
-			return ps.destinationRuleIndex.rootNamespaceLocal.destRules[hostname]
+			return drs
 		}
 	}
 
@@ -1090,8 +1096,9 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
-		if specificHostname, ok := MostSpecificHostMatch(hostname,
-			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules,
+		if specificHostname, drs, ok := MostSpecificHostMatch(hostname,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].specificDestRules,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].wildcardDestRules,
 		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
@@ -1104,7 +1111,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
 					}
 					var inheritedDrList []*ConsolidatedDestRule
-					for _, child := range ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname] {
+					for _, child := range drs {
 						inheritedDr := ps.inheritDestinationRule(parent, child)
 						if inheritedDr != nil {
 							inheritedDrList = append(inheritedDrList, inheritedDr)
@@ -1113,9 +1120,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 					}
 					return inheritedDrList
 				}
-				if dr, ok := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname]; ok {
-					return dr
-				}
+				return drs
 			}
 		}
 	}
@@ -1253,7 +1258,7 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferencePolicy, kind.ReferenceGrant:
+		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
@@ -1714,8 +1719,9 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 
 func newConsolidatedDestRules() *consolidatedDestRules {
 	return &consolidatedDestRules{
-		exportTo:  map[host.Name]map[visibility.Instance]bool{},
-		destRules: map[host.Name][]*ConsolidatedDestRule{},
+		exportTo:          map[host.Name]map[visibility.Instance]bool{},
+		specificDestRules: map[host.Name][]*ConsolidatedDestRule{},
+		wildcardDestRules: map[host.Name][]*ConsolidatedDestRule{},
 	}
 }
 
@@ -1805,9 +1811,14 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 		for ns := range namespaceLocalDestRules {
 			nsRule := inheritedConfigs[ns]
 			inheritedRule := ps.inheritDestinationRule(globalRule, nsRule)
-			for hostname, cfgList := range namespaceLocalDestRules[ns].destRules {
+			for hostname, cfgList := range namespaceLocalDestRules[ns].specificDestRules {
 				for i, cfg := range cfgList {
-					namespaceLocalDestRules[ns].destRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
+					namespaceLocalDestRules[ns].specificDestRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
+				}
+			}
+			for hostname, cfgList := range namespaceLocalDestRules[ns].wildcardDestRules {
+				for i, cfg := range cfgList {
+					namespaceLocalDestRules[ns].wildcardDestRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
 				}
 			}
 			// update namespace rule after it has been merged with mesh rule

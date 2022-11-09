@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -563,7 +564,7 @@ func BenchmarkPushRequest(b *testing.B) {
 		for i := 0; i < pushesMerged; i++ {
 			trigger := allTriggers[i%len(allTriggers)]
 			nreq := &model.PushRequest{
-				ConfigsUpdated: map[model.ConfigKey]struct{}{},
+				ConfigsUpdated: sets.New[model.ConfigKey](),
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {

@@ -26,6 +26,11 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
@@ -38,6 +43,11 @@ status:
   listeners:
   - attachedRoutes: 1
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
@@ -66,6 +76,11 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
@@ -90,6 +105,11 @@ status:
       kind: HTTPRoute
   - attachedRoutes: 1
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
@@ -118,6 +138,11 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
       reason: NoConflicts
       status: "False"
       type: Conflicted
@@ -140,6 +165,11 @@ status:
     supportedKinds: []
   - attachedRoutes: 2
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts

@@ -66,12 +66,6 @@ const (
 	AutoOverTCP
 )
 
-const (
-	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
-	// TODO: allow configuration through mesh config
-	ProxyInboundListenPort = 15006
-)
-
 // MutableListener represents a listener that is being built.
 type MutableListener struct {
 	istionetworking.MutableObjects

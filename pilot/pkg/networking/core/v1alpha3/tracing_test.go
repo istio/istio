@@ -17,9 +17,9 @@ package v1alpha3
 import (
 	"testing"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
-	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
@@ -55,7 +55,7 @@ func TestConfigureTracing(t *testing.T) {
 		name            string
 		opts            buildListenerOpts
 		inSpec          *model.TracingConfig
-		want            *hpb.HttpConnectionManager_Tracing
+		want            *hcm.HttpConnectionManager_Tracing
 		wantRfCtx       *xdsfilters.RouterFilterContext
 		wantReqIDExtCtx *requestidextension.UUIDRequestIDExtensionContext
 	}{
@@ -165,7 +165,7 @@ func TestConfigureTracing(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			hcm := &hpb.HttpConnectionManager{}
+			hcm := &hcm.HttpConnectionManager{}
 			gotRfCtx, gotReqIDExtCtx := configureTracingFromSpec(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -345,7 +345,7 @@ func fakeOptsOnlyDatadogTelemetryAPI() buildListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
-		XdsNode: &envoy_config_core_v3.Node{
+		XdsNode: &core.Node{
 			Cluster: "fake-cluster",
 		},
 	}
@@ -527,12 +527,12 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 	return t
 }
 
-func fakeTracingConfigNoProvider(randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hpb.HttpConnectionManager_Tracing {
+func fakeTracingConfigNoProvider(randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hcm.HttpConnectionManager_Tracing {
 	return fakeTracingConfig(nil, randomSampling, maxLen, tags)
 }
 
-func fakeTracingConfig(provider *tracingcfg.Tracing_Http, randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hpb.HttpConnectionManager_Tracing {
-	t := &hpb.HttpConnectionManager_Tracing{
+func fakeTracingConfig(provider *tracingcfg.Tracing_Http, randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hcm.HttpConnectionManager_Tracing {
+	t := &hcm.HttpConnectionManager_Tracing{
 		ClientSampling: &xdstype.Percent{
 			Value: 100.0,
 		},
@@ -580,9 +580,9 @@ func fakeZipkinProvider(expectClusterName, expectAuthority string) *tracingcfg.T
 
 func fakeSkywalkingProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
 	fakeSkywalkingProviderConfig := &tracingcfg.SkyWalkingConfig{
-		GrpcService: &envoy_config_core_v3.GrpcService{
-			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 					ClusterName: expectClusterName,
 					Authority:   expectAuthority,
 				},

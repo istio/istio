@@ -20,7 +20,7 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -85,7 +85,7 @@ func init() {
 	}
 }
 
-func reportValidationConfigUpdateError(reason kubeMeta.StatusReason) {
+func reportValidationConfigUpdateError(reason metav1.StatusReason) {
 	ctx, err := tag.New(context.Background(), tag.Insert(reasonTag, string(reason)))
 	if err != nil {
 		scope.Errorf("Error creating monitoring context for reportValidationConfigUpdateError: %v", err)

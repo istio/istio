@@ -99,7 +99,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	}
 }
 
-// ConstructSdsSecretConfigForSDSEndpoint constructs SDS Secret Configuration based on CredentialNameSocketPath
+// ConstructSdsSecretConfigForCredentialSocket constructs SDS Secret Configuration based on CredentialNameSocketPath
 // if CredentialNameSocketPath exists, use a static cluster 'sds-external'
 func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConfig {
 	return &tls.SdsSecretConfig{

@@ -20,11 +20,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
 )
 
 type profileListArgs struct {
-	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem with a release tgz.
 	manifestsPath string
 }
 
@@ -49,12 +48,7 @@ func profileListCmd(rootArgs *RootArgs, plArgs *profileListArgs) *cobra.Command 
 func profileList(cmd *cobra.Command, args *RootArgs, plArgs *profileListArgs) error {
 	initLogsOrExit(args)
 
-	manifestsPath, _, err := manifest.RewriteURLToLocalInstallPath(plArgs.manifestsPath, "" /*profileOrPath*/, false /*skipValidation */)
-	if err != nil {
-		return err
-	}
-
-	profiles, err := helm.ListProfiles(manifestsPath)
+	profiles, err := helm.ListProfiles(plArgs.manifestsPath)
 	if err != nil {
 		return err
 	}

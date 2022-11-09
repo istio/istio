@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"strings"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	emptypb "github.com/golang/protobuf/ptypes/empty"
@@ -49,7 +49,7 @@ func (m *nonstrictResolver) Resolve(typeURL string) (legacyproto.Message, error)
 // Wrapper is a wrapper around the Envoy ConfigDump
 // It has extra helper functions for handling any/struct/marshal protobuf pain
 type Wrapper struct {
-	*adminapi.ConfigDump
+	*admin.ConfigDump
 }
 
 // MarshalJSON is a custom marshaller to handle protobuf pain
@@ -64,7 +64,7 @@ func (w *Wrapper) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
-	cd := &adminapi.ConfigDump{}
+	cd := &admin.ConfigDump{}
 	err := (&jsonpb.Unmarshaler{
 		AllowUnknownFields: true,
 		AnyResolver:        &envoyResolver,

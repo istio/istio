@@ -27,7 +27,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
@@ -61,6 +61,9 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
+	// OutboundTunnel is HBONE's outbound cluster.
+	OutboundTunnel = "outbound-tunnel"
+
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -684,8 +687,8 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
-	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
 // ByteCount returns a human readable byte format

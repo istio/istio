@@ -215,16 +215,16 @@ func TestAdsPushScoping(t *testing.T) {
 	)
 
 	removeServiceByNames := func(ns string, names ...string) {
-		configsUpdated := map[model.ConfigKey]struct{}{}
+		configsUpdated := sets.New[model.ConfigKey]()
 
 		for _, name := range names {
 			hostname := host.Name(name)
 			s.Discovery.MemRegistry.RemoveService(hostname)
-			configsUpdated[model.ConfigKey{
+			configsUpdated.Insert(model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
-			}] = struct{}{}
+			})
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
@@ -239,7 +239,7 @@ func TestAdsPushScoping(t *testing.T) {
 		removeServiceByNames(ns, names...)
 	}
 	addServiceByNames := func(ns string, names ...string) {
-		configsUpdated := map[model.ConfigKey]struct{}{}
+		configsUpdated := sets.New[model.ConfigKey]()
 
 		for _, name := range names {
 			hostname := host.Name(name)
@@ -280,9 +280,7 @@ func TestAdsPushScoping(t *testing.T) {
 			s.Discovery.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
-		}})
+		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace})})
 	}
 
 	addVirtualService := func(i int, hosts []string, dest string) {

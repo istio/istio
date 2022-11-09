@@ -17,7 +17,7 @@ package kube
 import (
 	"strings"
 
-	coreV1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -44,8 +44,8 @@ var (
 )
 
 // ConvertProtocol from k8s protocol and port name
-func ConvertProtocol(port int32, portName string, proto coreV1.Protocol, appProto *string) protocol.Instance {
-	if proto == coreV1.ProtocolUDP {
+func ConvertProtocol(port int32, portName string, proto corev1.Protocol, appProto *string) protocol.Instance {
+	if proto == corev1.ProtocolUDP {
 		return protocol.UDP
 	}
 

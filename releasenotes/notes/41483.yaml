@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** manifest URL path displays `amd64` package for arm users.

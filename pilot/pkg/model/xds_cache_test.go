@@ -114,7 +114,6 @@ func TestAddTwoEntries(t *testing.T) {
 }
 
 func TestCleanIndexesOnAddExistant(t *testing.T) {
-	test.SetForTest(t, &features.XDSCacheMaxSize, 1)
 	zeroTime := time.Time{}
 	res := &discovery.Resource{Name: "test"}
 	req := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
@@ -148,7 +147,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 		dependentTypes:   []kind.Kind{kind.DestinationRule},
 		dependentConfigs: []ConfigHash{ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode()},
 	}
-
+	req = &PushRequest{Start: zeroTime.Add(time.Duration(2))}
 	// after adding an entry with the same key, previous indexes are correctly cleaned
 	c.Add(&secondEntry, req, res)
 
@@ -275,7 +274,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		kind.WasmPlugin:      sets.New(secondEntry.key),
 	})
 
-	cache.Clear(map[ConfigKey]struct{}{})
+	cache.Clear(sets.Set[ConfigKey]{})
 
 	// no change on empty clear
 	assert.Equal(t, cache.store.Len(), 2)
@@ -297,7 +296,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// clear only DestinationRule dependencies, should clear all firstEntry references
-	cache.Clear(map[ConfigKey]struct{}{{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}: {}})
+	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, len(cache.configIndex), 3)
@@ -335,7 +334,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// clear only EnvoyFilter dependencies, should clear all secondEntry references
-	cache.Clear(map[ConfigKey]struct{}{{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}: {}})
+	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, len(cache.configIndex), 3)
@@ -373,7 +372,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// clear only Service dependencies, should clear both firstEntry and secondEntry references
-	cache.Clear(map[ConfigKey]struct{}{{Kind: kind.Service, Name: "name", Namespace: "namespace"}: {}})
+	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.Service, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, len(cache.configIndex), 0)
 	assert.Equal(t, len(cache.typesIndex), 0)
