@@ -246,15 +246,6 @@ var httpDNSRR = &config.Config{
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
 				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
-			{
-				Address: "api-v2.istio.io",
-				Ports:   map[string]uint32{"http-port": 1080},
-				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
-			{
-				Address: "api-v3.istio.io",
-				Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
