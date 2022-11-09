@@ -75,7 +75,7 @@ func handleConnect(w http.ResponseWriter, r *http.Request) bool {
 		copyBuffered(w, dst, log.WithLabels("name", "dst to w"))
 		err = r.Body.Close()
 		if err != nil {
-			log.Infof("connection to hbone client is not closed successfully with error: %v", err)
+			log.Infof("connection to hbone client is not closed: %v", err)
 		}
 		wg.Done()
 	}()

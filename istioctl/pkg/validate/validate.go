@@ -292,7 +292,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 		}
 		err = reader.Close()
 		if err != nil {
-			log.Infof("file: %s is not closed successfully with error: %v", filename, err)
+			log.Infof("file: %s is not closed: %v", filename, err)
 		}
 		warningsByFilename[filename] = warning
 	}

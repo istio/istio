@@ -102,7 +102,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			}
 			err = resp.Body.Close()
 			if err != nil {
-				wasmLog.Infof("wasm server connection is not closed with error: %v", err)
+				wasmLog.Infof("wasm server connection is not closed: %v", err)
 			}
 			return unboxIfPossible(body), err
 		}
@@ -116,14 +116,14 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			wasmLog.Debugf("wasm module download failed: status code %v, body %v", resp.StatusCode, string(body))
 			err = resp.Body.Close()
 			if err != nil {
-				wasmLog.Infof("wasm server connection is not closed with error: %v", err)
+				wasmLog.Infof("wasm server connection is not closed: %v", err)
 			}
 			time.Sleep(b.NextBackOff())
 			continue
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			wasmLog.Infof("wasm server connection is not closed with error: %v", err)
+			wasmLog.Infof("wasm server connection is not closed: %v", err)
 		}
 		break
 	}

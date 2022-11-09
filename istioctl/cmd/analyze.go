@@ -369,7 +369,7 @@ func gatherFile(f string) (local.ReaderSource, error) {
 	runtime.SetFinalizer(r, func(x *os.File) {
 		err = x.Close()
 		if err != nil {
-			log.Infof("file : %s is not closed successfully with error: %v", f, err)
+			log.Infof("file : %s is not closed: %v", f, err)
 		}
 	})
 	return local.ReaderSource{Name: f, Reader: r}, nil
@@ -403,7 +403,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		runtime.SetFinalizer(r, func(x *os.File) {
 			err = x.Close()
 			if err != nil {
-				log.Infof("file: %s is not closed successfully with error: %v", path, err)
+				log.Infof("file: %s is not closed: %v", path, err)
 			}
 		})
 		readers = append(readers, local.ReaderSource{Name: path, Reader: r})

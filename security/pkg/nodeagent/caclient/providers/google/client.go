@@ -123,7 +123,7 @@ func (cl *googleCAClient) Close() {
 	if cl.conn != nil {
 		err := cl.conn.Close()
 		if err != nil {
-			googleCAClientLog.Infof("CAClient Connection is not closed with error: %v", err)
+			googleCAClientLog.Infof("CAClient Connection is not closed: %v", err)
 		}
 	}
 }
