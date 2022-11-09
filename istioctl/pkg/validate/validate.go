@@ -176,14 +176,21 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 			if p["protocol"] != nil && strings.EqualFold(p["protocol"].(string), serviceProtocolUDP) {
 				continue
 			}
-			if p["name"] == nil {
-				errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
-					" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
-				continue
-			}
-			if servicePortPrefixed(p["name"].(string)) {
-				errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
-					" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
+			if ap := p["appProtocol"]; ap != nil {
+				if protocol.Parse(ap.(string)).IsUnsupported() {
+					errs = multierror.Append(errs, fmt.Errorf("service %q doesn't follow Istio protocol selection. "+
+						"This is not recommended, See "+url.ProtocolSelection, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
+				}
+			} else {
+				if p["name"] == nil {
+					errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
+						" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
+					continue
+				}
+				if servicePortPrefixed(p["name"].(string)) {
+					errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
+						" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
+				}
 			}
 		}
 	}
