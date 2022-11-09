@@ -58,14 +58,3 @@ func VerifyCABundle(caBundle []byte) error {
 	}
 	return nil
 }
-
-func GetWebhookConfigName(webhookPrefix string, revision string, namespace string) string {
-	name := webhookPrefix
-	if revision != "default" {
-		name += "-" + revision
-	}
-	if namespace != "istio-system" {
-		name += "-" + namespace
-	}
-	return name
-}
