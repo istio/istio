@@ -301,7 +301,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" {
 			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, m.opts.SystemNamespace, webhookName, m.caBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {

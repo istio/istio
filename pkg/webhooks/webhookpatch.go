@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -65,7 +64,7 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, systemNameSpace string, webhookName string, caBundleWatcher *keycertbundle.Watcher,
+	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
@@ -78,10 +77,6 @@ func NewWebhookCertPatcher(
 		controllers.WithMaxAttempts(5))
 	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
-		if features.EnableEnhancedResourceScoping {
-			options.FieldSelector = fmt.Sprintf("metadata.name=%s",
-				util.GetWebhookConfigName(features.InjectionWebhookConfigName, revision, systemNameSpace))
-		}
 	})
 	p.informer = informer
 	informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
