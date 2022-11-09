@@ -28,7 +28,8 @@ type serviceInstancesStore struct {
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// instances only for serviceentry
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
-	// instancesByHost tells whether the host has already instances.
+	// instancesByHost tells whether the host has instances.
+	// This is used to validate that we only have one instance for DNS_ROUNDROBIN_LB.
 	instancesByHost sets.Set[string]
 }
 
