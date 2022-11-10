@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** an issue when user deletes a custom gateway by iop CR, other gateways are restarted.
+    **Fixed** an issue when deleting a custom gateway using an Istio Operator custom resource, other gateways are restarted.
