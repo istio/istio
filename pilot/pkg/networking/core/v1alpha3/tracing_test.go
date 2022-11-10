@@ -133,7 +133,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "basic config (with datadog provider)",
 			inSpec:          fakeTracingSpec(fakeDatadog(), 99.999, false, true),
 			opts:            fakeOptsOnlyDatadogTelemetryAPI(),
-			want:            fakeTracingConfig(fakeDatadogProvider("fake-cluster", clusterName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeDatadogProvider("fake-cluster", "testhost", clusterName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -596,10 +596,11 @@ func fakeSkywalkingProvider(expectClusterName, expectAuthority string) *tracingc
 	}
 }
 
-func fakeDatadogProvider(expectServcieName, expectClusterName string) *tracingcfg.Tracing_Http {
+func fakeDatadogProvider(expectServcieName, expectHostName, expectClusterName string) *tracingcfg.Tracing_Http {
 	fakeDatadogProviderConfig := &tracingcfg.DatadogConfig{
-		CollectorCluster: expectClusterName,
-		ServiceName:      expectServcieName,
+		CollectorCluster:  expectClusterName,
+		ServiceName:       expectServcieName,
+		CollectorHostname: expectHostName,
 	}
 	fakeAny := protoconv.MessageToAny(fakeDatadogProviderConfig)
 	return &tracingcfg.Tracing_Http{
