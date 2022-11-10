@@ -15,14 +15,15 @@
 package ambientpod
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/ambient"
-	"istio.io/pkg/log"
 )
 
 func WorkloadFromPod(pod *corev1.Pod) ambient.Workload {
@@ -113,14 +114,8 @@ func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
 	return false
 }
 
-func HasSelectors(lbls map[string]string, selectors []*v1.LabelSelector) bool {
-	for _, selector := range selectors {
-		sel, err := v1.LabelSelectorAsSelector(selector)
-		if err != nil {
-			log.Errorf("Failed to parse selector: %v", err)
-			return false
-		}
-
+func HasSelectors(lbls map[string]string, selectors []labels.Selector) bool {
+	for _, sel := range selectors {
 		if sel.Matches(labels.Set(lbls)) {
 			return true
 		}
@@ -128,39 +123,44 @@ func HasSelectors(lbls map[string]string, selectors []*v1.LabelSelector) bool {
 	return false
 }
 
-var LegacySelectors = []*v1.LabelSelector{
-	{
-		MatchExpressions: []v1.LabelSelectorRequirement{
-			{
-				Key:      "istio-injection",
-				Operator: v1.LabelSelectorOpIn,
-				Values: []string{
-					"enabled",
+var LegacySelectors = func() []labels.Selector {
+	ls := []*metav1.LabelSelector{
+		{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "istio-injection",
+					Operator: metav1.LabelSelectorOpIn,
+					Values: []string{
+						"enabled",
+					},
 				},
 			},
 		},
-	},
-	{
-		MatchExpressions: []v1.LabelSelectorRequirement{
-			{
-				Key:      label.IoIstioRev.Name,
-				Operator: v1.LabelSelectorOpExists,
+		{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      label.IoIstioRev.Name,
+					Operator: metav1.LabelSelectorOpExists,
+				},
 			},
 		},
-	},
-}
+	}
+	res := make([]labels.Selector, 0, len(ls))
+	for _, k := range ls {
+		s, err := metav1.LabelSelectorAsSelector(k)
+		if err != nil {
+			panic(fmt.Sprintf("conversion failed: %v", err))
+		}
+		res = append(res, s)
+	}
+	return res
+}()
 
 // We do not support the istio.io/rev or istio-injection sidecar labels
 // If a pod or namespace has these labels, ambient mesh will not be applied
 // to that namespace
 func HasLegacyLabel(lbl map[string]string) bool {
-	for _, ls := range LegacySelectors {
-		sel, err := v1.LabelSelectorAsSelector(ls)
-		if err != nil {
-			log.Errorf("Failed to parse legacy selector: %v", err)
-			return false
-		}
-
+	for _, sel := range LegacySelectors {
 		if sel.Matches(labels.Set(lbl)) {
 			return true
 		}

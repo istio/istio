@@ -73,6 +73,10 @@ func AddPodToMesh(pod *corev1.Pod, ip string) {
 	if ip == "" {
 		ip = pod.Status.PodIP
 	}
+	if ip == "" {
+		log.Debugf("skip adding pod %s/%s, IP not yet allocated", pod.Name, pod.Namespace)
+		return
+	}
 
 	if !IsPodInIpset(pod) {
 		log.Infof("Adding pod '%s/%s' (%s) to ipset", pod.Name, pod.Namespace, string(pod.UID))

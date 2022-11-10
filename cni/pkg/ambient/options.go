@@ -15,7 +15,7 @@
 package ambient
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
@@ -50,11 +50,9 @@ var Ipset = &ipsetlib.IPSet{
 	Name: "ztunnel-pods-ips",
 }
 
-var ambientSelectors metav1.LabelSelector = metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		label.IoIstioDataplaneMode.Name: dataplaneLabelAmbientValue,
-	},
-}
+var ambientSelectors = klabels.SelectorFromValidatedSet(map[string]string{
+	label.IoIstioDataplaneMode.Name: dataplaneLabelAmbientValue,
+})
 
 type AmbientArgs struct {
 	SystemNamespace string
