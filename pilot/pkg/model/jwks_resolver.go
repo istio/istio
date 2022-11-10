@@ -176,6 +176,7 @@ func newJwksResolverWithCABundlePaths(
 ) *JwksResolver {
 	// nolint: gosec
 	// it's effectively dead code and cannot actually be used.
+	// TODO: https://github.com/istio/istio/issues/41938
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
 		refreshInterval:          refreshDefaultInterval,
