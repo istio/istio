@@ -35,7 +35,6 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1907,28 +1906,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
-}
-
-// TODO: optimize this, we can easily cache the Pods.List
-func (c *Controller) proxiesForWorkload(pod *v1.Pod, waypoints []*v1.Pod) []string {
-	if pod.Labels[ambient.LabelType] != ambient.TypeWorkload {
-		// Not in the mesh
-		return nil
-	}
-	var ips []string
-
-	for _, p := range waypoints {
-		if !IsPodReady(p) {
-			continue
-		}
-		if p.Namespace != pod.Namespace {
-			continue
-		}
-		if p.Spec.ServiceAccountName == pod.Spec.ServiceAccountName {
-			ips = append(ips, p.Status.PodIP)
-		}
-	}
-	return ips
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
