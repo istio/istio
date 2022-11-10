@@ -1378,7 +1378,7 @@ func (ps *PushContext) updateContext(
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change.
 	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
-		if !gatewayAPIChanged {
+		if gatewayAPIChanged {
 			// TODO: we cannot currently tell which sidecars are affected when gatewayAPI changed,
 			// we need to rebuild all sidecars
 			if err := ps.initSidecarScopes(env); err != nil {
