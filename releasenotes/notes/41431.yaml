@@ -6,15 +6,4 @@ issue: []
 # release notes.
 releaseNotes:
   - |
-    **Added** new env configuration to `istio-clean-iptables`
-    
-    clean iptables need consider inbound Interception mode.
-    
-    `istio-iptables` build iptables rule when InboundInterceptionMode is TPROXY 
-    like this :
-    `
-    * mangle
-    -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
-    -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark
-    `    
-    so clean-iptables need clean this iptables rule
+    **Fixed** `istio-clean-iptables` to properly cleanup when InboundInterceptionMode is TPROXY.
