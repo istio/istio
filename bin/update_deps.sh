@@ -44,6 +44,7 @@ go get -u "istio.io/pkg@${UPDATE_BRANCH}"
 go mod tidy
 
 sed -i "s/^BUILDER_SHA=.*\$/BUILDER_SHA=$(getSha release-builder)/" prow/release-commit.sh
+chmod +x prow/release-commit.sh
 sed -i '/PROXY_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha proxy)"'"/  }' istio.deps
 
 # shellcheck disable=SC1001
