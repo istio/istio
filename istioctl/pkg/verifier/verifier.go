@@ -132,6 +132,8 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 		if err != nil {
 			return err
 		}
+	} else if v.controlPlaneOpts.Revision == "default" {
+		v.controlPlaneOpts.Revision = ""
 	}
 	iop, err := v.operatorFromCluster(v.controlPlaneOpts.Revision)
 	if err != nil {
