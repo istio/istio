@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/pkg/log"
 )
 
 // AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
@@ -365,7 +366,12 @@ func gatherFile(f string) (local.ReaderSource, error) {
 	if err != nil {
 		return local.ReaderSource{}, err
 	}
-	runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+	runtime.SetFinalizer(r, func(x *os.File) {
+		err = x.Close()
+		if err != nil {
+			log.Infof("file : %s is not closed: %v", f, err)
+		}
+	})
 	return local.ReaderSource{Name: f, Reader: r}, nil
 }
 
@@ -394,7 +400,12 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
+		runtime.SetFinalizer(r, func(x *os.File) {
+			err = x.Close()
+			if err != nil {
+				log.Infof("file: %s is not closed: %v", path, err)
+			}
+		})
 		readers = append(readers, local.ReaderSource{Name: path, Reader: r})
 		return nil
 	})
