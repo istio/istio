@@ -397,7 +397,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.XDSSAN != "" {
 		shost = a.cfg.XDSSAN
 	}
+
 	// nolint: gosec
+	// it's insecure only when a user explicitly enable insecure mode.
 	return &tls.Config{
 		GetClientCertificate: getClientCertificate,
 		Certificates:         clientCerts,
