@@ -70,8 +70,6 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	"GatewaySecretMissingReferencedSecret": "https://github.com/istio/istio/issues/40714",
-	// Broken upstream
-	"HTTPRouteResponseHeaderModifier": "https://github.com/kubernetes-sigs/gateway-api/pull/1472",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -103,14 +101,16 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			opts := suite.Options{
-				Client:               c,
-				GatewayClassName:     "istio",
-				Debug:                scopes.Framework.DebugEnabled(),
-				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
-				SupportedFeatures: []suite.SupportedFeature{
-					suite.SupportHTTPRouteQueryParamMatching,
-					suite.SupportHTTPRouteMethodMatching,
-					suite.SupportHTTPResponseHeaderModification,
+				Client:           c,
+				GatewayClassName: "istio",
+				Debug:            scopes.Framework.DebugEnabled(),
+				// CleanupBaseResources: gatewayConformanceInputs.Cleanup,
+				SupportedFeatures: map[suite.SupportedFeature]bool{
+					suite.SupportReferenceGrant:                 true,
+					suite.SupportTLSRoute:                       true,
+					suite.SupportHTTPRouteQueryParamMatching:    true,
+					suite.SupportHTTPRouteMethodMatching:        true,
+					suite.SupportHTTPResponseHeaderModification: true,
 				},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
