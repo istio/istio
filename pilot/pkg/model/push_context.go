@@ -795,6 +795,11 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 }
 
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if proxy.MergedGateway == nil {
+		return false
+	}
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
 			if hosts.Contains(hostname) {
