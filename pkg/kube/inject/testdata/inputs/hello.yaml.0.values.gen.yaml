@@ -3,6 +3,7 @@
     "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
+    "certSigners": [],
     "configCluster": false,
     "configValidation": true,
     "defaultNodeSelector": {},
