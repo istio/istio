@@ -49,6 +49,11 @@ func flushAndDeleteChains(ext dep.Dependencies, cmd string, table string, chains
 	}
 }
 
+func DeleteRule(ext dep.Dependencies, cmd string, table string, chain string, rulespec ...string) {
+	args := append([]string{"-t", table, "-D", chain}, rulespec...)
+	ext.RunQuietlyAndIgnore(cmd, args...)
+}
+
 func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	// Remove the old TCP rules
 	for _, table := range []string{constants.NAT, constants.MANGLE} {
@@ -71,6 +76,14 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	// Flush and delete the istio chains from MANGLE table.
 	chains = []string{constants.ISTIOINBOUND, constants.ISTIODIVERT, constants.ISTIOTPROXY}
 	flushAndDeleteChains(ext, cmd, constants.MANGLE, chains)
+
+	//
+	if cfg.InboundInterceptionMode == constants.TPROXY {
+		DeleteRule(ext, cmd, constants.MANGLE, constants.PREROUTING,
+			"-p", constants.TCP, "-m", "mark", "--mark", cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
+		DeleteRule(ext, cmd, constants.MANGLE, constants.OUTPUT,
+			"-p", constants.TCP, "-m", "connmark", "--mark", cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
+	}
 
 	// Must be last, the others refer to it
 	chains = []string{constants.ISTIOREDIRECT, constants.ISTIOINREDIRECT}
