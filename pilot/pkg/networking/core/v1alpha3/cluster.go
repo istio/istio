@@ -88,7 +88,8 @@ func getDefaultCircuitBreakerThresholds() []*cluster.CircuitBreakers_Thresholds 
 			MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
 			MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 			TrackRemaining:     true,
-		}}
+		},
+	}
 }
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output

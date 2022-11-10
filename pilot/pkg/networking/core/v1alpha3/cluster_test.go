@@ -1645,7 +1645,8 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					MaxConnections:     &wrappers.UInt32Value{Value: 100},
 					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 					TrackRemaining:     true,
-				}},
+				},
+			},
 		},
 		{
 			name:   "port-level policy not matched",
@@ -1688,7 +1689,8 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					MaxConnections:     &wrappers.UInt32Value{Value: 100},
 					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 					TrackRemaining:     true,
-				}},
+				},
+			},
 		},
 	}
 
