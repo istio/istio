@@ -141,7 +141,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		req:              req,
 		cache:            cache,
 	}
-	passthrougBindIPs := getPassthroughBindIPsForDualStack(proxy.GetIPMode())
+	passthrougBindIPs := getPassthroughBindIPs(proxy.GetIPMode())
 	cb.passThroughBindIP = passthrougBindIPs[0]
 	if len(passthrougBindIPs) > 1 {
 		cb.extraPassThroughBindIPs = passthrougBindIPs[1:]

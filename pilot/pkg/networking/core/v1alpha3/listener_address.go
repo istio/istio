@@ -52,7 +52,7 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
 
-func getPassthroughBindIPsForDualStack(ipMode model.IPMode) []string {
+func getPassthroughBindIPs(ipMode model.IPMode) []string {
 	passthroughBindIPAddresses := passthroughBindIPs[ipMode]
 	if len(passthroughBindIPAddresses) == 0 {
 		if ipMode == model.IPv4 || ipMode == model.Dual {
@@ -71,11 +71,11 @@ func getSidecarInboundBindIPs(node *model.Proxy) []string {
 	if len(node.GlobalUnicastIP) > 0 {
 		return []string{node.GlobalUnicastIP}
 	}
-	defaultInboundIPs, _ := getWildcardsAndLocalHostForDualStack(node.GetIPMode())
+	defaultInboundIPs, _ := getWildcardsAndLocalHost(node.GetIPMode())
 	return defaultInboundIPs
 }
 
-func getWildcardsAndLocalHostForDualStack(ipMode model.IPMode) ([]string, []string) {
+func getWildcardsAndLocalHost(ipMode model.IPMode) ([]string, []string) {
 	return wildCards[ipMode], localHosts[ipMode]
 }
 

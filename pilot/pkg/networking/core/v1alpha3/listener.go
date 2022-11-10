@@ -266,7 +266,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 ) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	actualWildcards, actualLocalHosts := getWildcardsAndLocalHostForDualStack(node.GetIPMode())
+	actualWildcards, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
 
 	var tcpListeners, httpListeners []*listener.Listener
 	// For conflict resolution
@@ -525,7 +525,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	_, actualLocalHosts := getWildcardsAndLocalHostForDualStack(node.GetIPMode())
+	_, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
 
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
@@ -581,7 +581,7 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
-		actualWildcards, _ := getWildcardsAndLocalHostForDualStack(listenerOpts.proxy.GetIPMode())
+		actualWildcards, _ := getWildcardsAndLocalHost(listenerOpts.proxy.GetIPMode())
 		listenerOpts.bind = actualWildcards[0]
 		if len(actualWildcards) > 0 {
 			listenerOpts.extraBind = actualWildcards[1:]
