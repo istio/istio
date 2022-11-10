@@ -717,7 +717,6 @@ type ServiceDiscovery interface {
 
 type WorkloadInfo struct {
 	*workloadapi.Workload
-	Labels labels.Instance
 }
 
 func (i WorkloadInfo) ResourceName() string {

@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
@@ -119,7 +120,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
+				options.LabelSelector = constants.ManagedGatewayLabel + "=" + constants.ManagedGatewayController
 			},
 		)
 	})
