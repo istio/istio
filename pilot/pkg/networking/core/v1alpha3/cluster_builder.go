@@ -835,7 +835,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		return
 	}
 
-	threshold := getDefaultCircuitBreakerThresholds()
+	thresholds := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
 	var maxConnectionDuration *duration.Duration
@@ -843,16 +843,20 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
 			// Envoy only applies MaxRequests in HTTP/2 clusters
-			threshold.MaxRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+			thresholds[0].MaxRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
+			thresholds[1].MaxRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
 			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
-			threshold.MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
+			thresholds[0].MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
+			thresholds[1].MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.
+				Http1MaxPendingRequests)}
 		}
 
 		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default
 		if settings.Http.MaxRetries > 0 {
-			threshold.MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
+			thresholds[0].MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
+			thresholds[1].MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 
 		idleTimeout = settings.Http.IdleTimeout
@@ -866,7 +870,8 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
-			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+			thresholds[0].MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
+			thresholds[1].MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 		if settings.Tcp.MaxConnectionDuration != nil {
 			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
@@ -875,7 +880,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
 
 	mc.cluster.CircuitBreakers = &cluster.CircuitBreakers{
-		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
+		Thresholds: thresholds,
 	}
 
 	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 {

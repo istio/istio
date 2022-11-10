@@ -231,6 +231,13 @@ func TestApplyDestinationRule(t *testing.T) {
 					CircuitBreakers: &cluster.CircuitBreakers{
 						Thresholds: []*cluster.CircuitBreakers_Thresholds{
 							{
+								Priority: core.RoutingPriority_DEFAULT,
+								MaxRetries: &wrappers.UInt32Value{
+									Value: 10,
+								},
+							},
+							{
+								Priority: core.RoutingPriority_DEFAULT,
 								MaxRetries: &wrappers.UInt32Value{
 									Value: 10,
 								},
@@ -920,7 +927,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+					Thresholds: getDefaultCircuitBreakerThresholds(),
 				},
 				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LbPolicy: defaultLBAlgorithm(),
@@ -1031,7 +1038,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 					},
 				},
 				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+					Thresholds: getDefaultCircuitBreakerThresholds(),
 				},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{

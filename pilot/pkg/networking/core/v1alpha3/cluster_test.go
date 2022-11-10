@@ -1594,7 +1594,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		name     string
 		filter   func(c *cluster.Cluster) bool
 		destRule *networking.DestinationRule
-		expected *cluster.CircuitBreakers_Thresholds
+		expected []*cluster.CircuitBreakers_Thresholds
 	}{
 		{
 			name: "defaults",
@@ -1629,13 +1629,23 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: &cluster.CircuitBreakers_Thresholds{
-				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-				MaxConnections:     &wrappers.UInt32Value{Value: 100},
-				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
-			},
+			expected: []*cluster.CircuitBreakers_Thresholds{
+				{
+					Priority:           core.RoutingPriority_DEFAULT,
+					MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxConnections:     &wrappers.UInt32Value{Value: 100},
+					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+					TrackRemaining:     true,
+				},
+				{
+					Priority:           core.RoutingPriority_HIGH,
+					MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxConnections:     &wrappers.UInt32Value{Value: 100},
+					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+					TrackRemaining:     true,
+				}},
 		},
 		{
 			name:   "port-level policy not matched",
@@ -1662,13 +1672,23 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					},
 				},
 			},
-			expected: &cluster.CircuitBreakers_Thresholds{
-				MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
-				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
-			},
+			expected: []*cluster.CircuitBreakers_Thresholds{
+				{
+					Priority:           core.RoutingPriority_DEFAULT,
+					MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxConnections:     &wrappers.UInt32Value{Value: 100},
+					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+					TrackRemaining:     true,
+				},
+				{
+					Priority:           core.RoutingPriority_HIGH,
+					MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+					MaxConnections:     &wrappers.UInt32Value{Value: 100},
+					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+					TrackRemaining:     true,
+				}},
 		},
 	}
 

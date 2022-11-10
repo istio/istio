@@ -66,19 +66,29 @@ var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
 const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
-func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
-	return &cluster.CircuitBreakers_Thresholds{
-		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
-		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
-		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
-		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
-		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-		TrackRemaining:     true,
-	}
+func getDefaultCircuitBreakerThresholds() []*cluster.CircuitBreakers_Thresholds {
+	// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
+	// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
+	// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
+	// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
+	// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
+	return []*cluster.CircuitBreakers_Thresholds{
+		{
+			Priority:           core.RoutingPriority_DEFAULT,
+			MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+			MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+			MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+			MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+			TrackRemaining:     true,
+		},
+		{
+			Priority:           core.RoutingPriority_HIGH,
+			MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+			MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+			MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+			MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+			TrackRemaining:     true,
+		}}
 }
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
