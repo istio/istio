@@ -69,7 +69,7 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"GatewaySecretMissingReferencedSecret": "https://github.com/istio/istio/issues/40714",
+	"GatewayInvalidTLSConfiguration": "https://github.com/istio/istio/issues/40714",
 }
 
 func TestGatewayConformance(t *testing.T) {
