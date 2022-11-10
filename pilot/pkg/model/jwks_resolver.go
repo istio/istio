@@ -174,7 +174,7 @@ func newJwksResolverWithCABundlePaths(
 	retryInterval time.Duration,
 	caBundlePaths []string,
 ) *JwksResolver {
-	// #nosec G402
+	// nolint: gosec
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
 		refreshInterval:          refreshDefaultInterval,

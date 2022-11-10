@@ -250,7 +250,7 @@ func NewServer(config Options) (*Server, error) {
 			d := &net.Dialer{
 				LocalAddr: s.upstreamLocalAddress,
 			}
-			// #nosec G402
+			// nolint: gosec
 			transport, err := setTransportDefaults(&http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				DialContext:     d.DialContext,

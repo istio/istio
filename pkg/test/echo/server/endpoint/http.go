@@ -161,7 +161,7 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 		}
 	} else if s.Port.TLS {
 		url = fmt.Sprintf("https://%s", address)
-		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // #nosec G402
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // nolint: gosec
 	} else {
 		url = fmt.Sprintf("http://%s", address)
 	}

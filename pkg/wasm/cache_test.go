@@ -738,7 +738,7 @@ func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCII
 	ref := fmt.Sprintf("%s/test/valid/docker:v0.1.0", host)
 	binary := append(wasmHeader, []byte("this is wasm plugin")...)
 	transport := remote.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // nolint: gosec
 	fetchOpt := crane.WithTransport(transport)
 
 	// Create docker layer.

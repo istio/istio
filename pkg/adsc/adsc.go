@@ -397,7 +397,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.XDSSAN != "" {
 		shost = a.cfg.XDSSAN
 	}
-	// #nosec G402
+	// nolint: gosec
 	return &tls.Config{
 		GetClientCertificate: getClientCertificate,
 		Certificates:         clientCerts,

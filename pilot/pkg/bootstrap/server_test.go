@@ -552,7 +552,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 
-			// #nosec G402
+			// nolint: gosec
 			httpsReadyClient := &http.Client{
 				Timeout: time.Second,
 				Transport: &http.Transport{
