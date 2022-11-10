@@ -69,6 +69,7 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
 	// otherwise set up an empty one.
 	if cfg.Scheme == string(scheme.HTTPS) {
 		// nolint: gosec
+		// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
 		h.Transport = &http.Transport{
 			DisableKeepAlives: true,
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},

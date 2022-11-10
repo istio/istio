@@ -175,6 +175,7 @@ func newJwksResolverWithCABundlePaths(
 	caBundlePaths []string,
 ) *JwksResolver {
 	// nolint: gosec
+	// it's effectively dead code and cannot actually be used.
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
 		refreshInterval:          refreshDefaultInterval,

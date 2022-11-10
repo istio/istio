@@ -101,6 +101,7 @@ func DialOptions(opts clioptions.CentralControlPlaneOptions,
 	}
 	return []grpc.DialOption{
 		// nolint: gosec
+		// Only runs over istioctl experimental
 		grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{
 				// Always skip verifying, because without it we always get "certificate signed by unknown authority".
