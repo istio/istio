@@ -1373,7 +1373,7 @@ func TestUpdateSidecarScope(t *testing.T) {
 	}
 
 	// update sidecar configs on new context
-	if err := ps2.updateSidecarScopes(env, ps.sidecarIndex, changedSidecars); err != nil {
+	if err := ps2.updateSidecarScopes(env, ps.sidecarIndex, changedSidecars, nil, nil, nil); err != nil {
 		t.Fatalf("init sidecar scope failed: %v", err)
 	}
 
