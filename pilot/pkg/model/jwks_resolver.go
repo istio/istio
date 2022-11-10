@@ -174,6 +174,7 @@ func newJwksResolverWithCABundlePaths(
 	retryInterval time.Duration,
 	caBundlePaths []string,
 ) *JwksResolver {
+	// #nosec G402
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
 		refreshInterval:          refreshDefaultInterval,
@@ -213,7 +214,8 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
+					RootCAs:    caCertPool,
+					MinVersion: tls.VersionTLS12,
 				},
 			},
 		}

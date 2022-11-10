@@ -75,8 +75,9 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 
 	if opt.Insecure {
 		t := remote.DefaultTransport.(*http.Transport).Clone()
+		// #nosec G402
 		t.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: opt.Insecure, //nolint: gosec
+			InsecureSkipVerify: opt.Insecure,
 		}
 		fetchOpts = append(fetchOpts, remote.WithTransport(t))
 	}

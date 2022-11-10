@@ -74,6 +74,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	s.httpsMux.HandleFunc(HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	// #nosec G402
 	s.httpsReadyClient = &http.Client{
 		Timeout: time.Second,
 		Transport: &http.Transport{

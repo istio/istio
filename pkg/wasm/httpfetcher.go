@@ -51,7 +51,7 @@ func NewHTTPFetcher(requestTimeout time.Duration, requestMaxRetry int) *HTTPFetc
 		requestTimeout = 5 * time.Second
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
 	return &HTTPFetcher{
 		client: &http.Client{
 			Timeout: requestTimeout,

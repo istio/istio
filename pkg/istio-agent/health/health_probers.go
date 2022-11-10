@@ -68,6 +68,7 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
 	// Create an http.Transport with TLSClientConfig for HTTPProber if the scheme is https,
 	// otherwise set up an empty one.
 	if cfg.Scheme == string(scheme.HTTPS) {
+		// #nosec G402
 		h.Transport = &http.Transport{
 			DisableKeepAlives: true,
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},

@@ -100,6 +100,7 @@ func DialOptions(opts clioptions.CentralControlPlaneOptions,
 		return mcpDialOptions(ctx, opts.GCPProject, k8sCreds)
 	}
 	return []grpc.DialOption{
+		// #nosec G402
 		grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{
 				// Always skip verifying, because without it we always get "certificate signed by unknown authority".

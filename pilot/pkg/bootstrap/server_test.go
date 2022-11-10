@@ -552,6 +552,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 
+			// #nosec G402
 			httpsReadyClient := &http.Client{
 				Timeout: time.Second,
 				Transport: &http.Transport{
