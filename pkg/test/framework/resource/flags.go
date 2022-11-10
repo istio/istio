@@ -177,6 +177,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
 		"Indicate the use of ambient mesh.")
 
+	flag.BoolVar(&settingsFromCommandLine.AmbientNativeZtunnel, "istio.test.ambientNativeZtunnel", settingsFromCommandLine.AmbientNativeZtunnel,
+		"Indicate the use of ambient mesh with the native ztunnel implementation.")
+
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
 		"Transparently deploy echo instances pointing to each revision set in `Revisions`")
 
