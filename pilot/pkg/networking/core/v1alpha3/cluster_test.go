@@ -119,30 +119,36 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 				if cluster == nil {
 					t.Fatalf("cluster %v not found", c)
 				}
-				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
-				thresholds := cluster.CircuitBreakers.Thresholds[0]
+				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(2))
+				thresholds := cluster.CircuitBreakers.Thresholds
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
 					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds()))
 				} else {
 					// Verify that the values were set correctly.
-					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
-					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
-					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
-					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
+					verifyThresholds(g, thresholds[0], s)
+					verifyThresholds(g, thresholds[1], s)
 					g.Expect(cluster.TypedExtensionProtocolOptions).To(Not(BeNil()))
 					anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
 					g.Expect(anyOptions).To(Not(BeNil()))
 					httpProtocolOptions := &http.HttpProtocolOptions{}
 					anyOptions.UnmarshalTo(httpProtocolOptions)
 					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
-					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
-					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
+
 				}
 			}
 		})
 	}
+}
+
+func verifyThresholds(g *WithT, thresholds *cluster.CircuitBreakers_Thresholds, s *networking.ConnectionPoolSettings) {
+	g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
+	g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
+	g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
+	g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
+	g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
+	g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
 }
 
 func TestCommonHttpProtocolOptions(t *testing.T) {
@@ -1678,7 +1684,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					Priority:           core.RoutingPriority_DEFAULT,
 					MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 					MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-					MaxConnections:     &wrappers.UInt32Value{Value: 100},
+					MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 					TrackRemaining:     true,
 				},
@@ -1686,7 +1692,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 					Priority:           core.RoutingPriority_HIGH,
 					MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 					MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-					MaxConnections:     &wrappers.UInt32Value{Value: 100},
+					MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 					MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 					TrackRemaining:     true,
 				},
@@ -1722,7 +1728,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-				g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
+				g.Expect(cluster.CircuitBreakers.Thresholds).To(Equal(c.expected))
 			}
 		})
 	}
