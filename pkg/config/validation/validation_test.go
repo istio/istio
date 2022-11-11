@@ -5037,6 +5037,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		annotations map[string]string
 		in          proto.Message
 		valid       bool
+		Warning     bool
 	}{
 		{
 			name: "good",
@@ -5847,18 +5848,132 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "L7DenyWithFrom",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RequestPrincipals: []string{"example.com/sub-1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithTo",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithFromAndTo",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithFromAndToWithPort",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
 	}
 
 	for _, c := range cases {
-		if _, got := ValidateAuthorizationPolicy(config.Config{
+		war, got := ValidateAuthorizationPolicy(config.Config{
 			Meta: config.Meta{
 				Name:        "name",
 				Namespace:   "namespace",
 				Annotations: c.annotations,
 			},
 			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("got: %v\nwant: %v", got, c.valid)
+		})
+		if (got == nil) != c.valid {
+			t.Errorf("error: got: %v\nwant: %v", got, c.valid)
+		} else if (war != nil) != c.Warning {
+			t.Errorf("warning: got: %v\nwant: %v", war, c.valid)
 		}
 	}
 }
