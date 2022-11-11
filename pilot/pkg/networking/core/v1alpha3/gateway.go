@@ -720,6 +720,7 @@ func buildGatewayListenerTLSContext(
 	}
 
 	server.Tls.CipherSuites = security.FilterCipherSuites(server.Tls.CipherSuites)
+	server.Tls.EcdhCurves = security.FilterEcdhCurves(server.Tls.EcdhCurves)
 	return BuildListenerTLSContext(server.Tls, proxy, transportProtocol, gateway.IsTCPServerWithTLSTermination(server))
 }
 

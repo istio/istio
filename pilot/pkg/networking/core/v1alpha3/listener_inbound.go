@@ -459,6 +459,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				// User provided custom TLS settings
 				cc.tlsSettings = i.Tls.DeepCopy()
 				cc.tlsSettings.CipherSuites = security.FilterCipherSuites(cc.tlsSettings.CipherSuites)
+				cc.tlsSettings.EcdhCurves = security.FilterEcdhCurves(cc.tlsSettings.EcdhCurves)
 				cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			}
 

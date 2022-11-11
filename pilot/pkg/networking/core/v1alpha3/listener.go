@@ -192,12 +192,14 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	// Set TLS parameters if they are non-default
 	if len(serverTLSSettings.CipherSuites) > 0 ||
+		len(serverTLSSettings.EcdhCurves) > 0 ||
 		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
 		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
 			CipherSuites:              serverTLSSettings.CipherSuites,
+			EcdhCurves:                serverTLSSettings.EcdhCurves,
 		}
 	}
 

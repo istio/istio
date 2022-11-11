@@ -1541,6 +1541,33 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"requires a private key", "not-a-cipher-suite",
 		},
+		{
+			"invalid ecdh curves",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				EcdhCurves:     []string{"not-an-ecdh-curve"},
+			},
+			"", "not-an-ecdh-curve",
+		},
+		{
+			"valid ecdh curves",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"P-256"},
+			},
+			"", "",
+		},
+		{
+			"duplicate ecdh curves",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"P-256", "P-256"},
+			},
+			"", "P-256",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
