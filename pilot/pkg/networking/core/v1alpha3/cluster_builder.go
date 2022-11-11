@@ -1069,7 +1069,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				}
 			}
 		}
-
+		if len(tls.EcdhCurves) > 0 {
+			tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tls.EcdhCurves
+		}
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1122,7 +1124,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				}
 			}
 		}
-
+		if len(tls.EcdhCurves) > 0 {
+			tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tls.EcdhCurves
+		}
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only

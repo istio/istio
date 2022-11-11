@@ -810,6 +810,13 @@ spec:
                                     type: string
                                   credentialName:
                                     type: string
+                                  ecdhCurves:
+                                    description: 'Optional: If specified, the TLS
+                                      connection will only support the specified ECDH
+                                      curves.'
+                                    items:
+                                      type: string
+                                    type: array
                                   insecureSkipVerify:
                                     nullable: true
                                     type: boolean
@@ -845,6 +852,12 @@ spec:
                               type: string
                             credentialName:
                               type: string
+                            ecdhCurves:
+                              description: 'Optional: If specified, the TLS connection
+                                will only support the specified ECDH curves.'
+                              items:
+                                type: string
+                              type: array
                             insecureSkipVerify:
                               nullable: true
                               type: boolean
@@ -1481,6 +1494,12 @@ spec:
                               type: string
                             credentialName:
                               type: string
+                            ecdhCurves:
+                              description: 'Optional: If specified, the TLS connection
+                                will only support the specified ECDH curves.'
+                              items:
+                                type: string
+                              type: array
                             insecureSkipVerify:
                               nullable: true
                               type: boolean
@@ -1516,6 +1535,12 @@ spec:
                         type: string
                       credentialName:
                         type: string
+                      ecdhCurves:
+                        description: 'Optional: If specified, the TLS connection will
+                          only support the specified ECDH curves.'
+                        items:
+                          type: string
+                        type: array
                       insecureSkipVerify:
                         nullable: true
                         type: boolean
@@ -2219,6 +2244,13 @@ spec:
                                     type: string
                                   credentialName:
                                     type: string
+                                  ecdhCurves:
+                                    description: 'Optional: If specified, the TLS
+                                      connection will only support the specified ECDH
+                                      curves.'
+                                    items:
+                                      type: string
+                                    type: array
                                   insecureSkipVerify:
                                     nullable: true
                                     type: boolean
@@ -2254,6 +2286,12 @@ spec:
                               type: string
                             credentialName:
                               type: string
+                            ecdhCurves:
+                              description: 'Optional: If specified, the TLS connection
+                                will only support the specified ECDH curves.'
+                              items:
+                                type: string
+                              type: array
                             insecureSkipVerify:
                               nullable: true
                               type: boolean
@@ -2890,6 +2928,12 @@ spec:
                               type: string
                             credentialName:
                               type: string
+                            ecdhCurves:
+                              description: 'Optional: If specified, the TLS connection
+                                will only support the specified ECDH curves.'
+                              items:
+                                type: string
+                              type: array
                             insecureSkipVerify:
                               nullable: true
                               type: boolean
@@ -2925,6 +2969,12 @@ spec:
                         type: string
                       credentialName:
                         type: string
+                      ecdhCurves:
+                        description: 'Optional: If specified, the TLS connection will
+                          only support the specified ECDH curves.'
+                        items:
+                          type: string
+                        type: array
                       insecureSkipVerify:
                         nullable: true
                         type: boolean
@@ -3307,6 +3357,12 @@ spec:
                           type: array
                         credentialName:
                           type: string
+                        ecdhCurves:
+                          description: 'Optional: If specified, the TLS connection
+                            will only support the specified ECDH curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           type: boolean
                         maxProtocolVersion:
@@ -3423,6 +3479,12 @@ spec:
                           type: array
                         credentialName:
                           type: string
+                        ecdhCurves:
+                          description: 'Optional: If specified, the TLS connection
+                            will only support the specified ECDH curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           type: boolean
                         maxProtocolVersion:
@@ -3930,6 +3992,12 @@ spec:
                           type: array
                         credentialName:
                           type: string
+                        ecdhCurves:
+                          description: 'Optional: If specified, the TLS connection
+                            will only support the specified ECDH curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           type: boolean
                         maxProtocolVersion:
@@ -4103,6 +4171,12 @@ spec:
                           type: array
                         credentialName:
                           type: string
+                        ecdhCurves:
+                          description: 'Optional: If specified, the TLS connection
+                            will only support the specified ECDH curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           type: boolean
                         maxProtocolVersion:
