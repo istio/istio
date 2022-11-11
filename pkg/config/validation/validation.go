@@ -3324,6 +3324,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 					}
 				}
 			}
+			if serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN && len(serviceEntry.Endpoints) != 1 {
+				errs = appendValidation(errs,
+					fmt.Errorf("there must only endpoint for resolution mode %s", serviceEntry.Resolution))
+			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
 				if !netutil.IsValidIPAddress(endpoint.Address) {

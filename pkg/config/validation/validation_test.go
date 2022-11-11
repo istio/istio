@@ -4420,7 +4420,6 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Endpoints: []*networking.WorkloadEntry{
 					{Address: "api-v1.istio.io", Ports: map[string]uint32{"http-valid1": 8080}},
-					{Address: "api-v2.istio.io", Ports: map[string]uint32{"http-valid2": 9080}},
 				},
 				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 			},
@@ -4521,7 +4520,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
@@ -4947,6 +4945,32 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid:   true,
 			warning: true,
+		},
+		{
+			name: "dns round robin with more than one endpoint", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 8081, Protocol: "http", Name: "http-valid1"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "api-v1.istio.io",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+					{
+						Address: "1.1.1.2",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+				},
+				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+			},
+			valid:   false,
+			warning: false,
 		},
 	}
 
