@@ -174,9 +174,6 @@ func newJwksResolverWithCABundlePaths(
 	retryInterval time.Duration,
 	caBundlePaths []string,
 ) *JwksResolver {
-	// nolint: gosec
-	// it's effectively dead code and cannot actually be used.
-	// TODO: https://github.com/istio/istio/issues/41938
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
 		refreshInterval:          refreshDefaultInterval,
@@ -188,7 +185,6 @@ func newJwksResolverWithCABundlePaths(
 			Transport: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
-				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			},
 		},
 	}
