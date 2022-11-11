@@ -95,13 +95,21 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			body, err := io.ReadAll(resp.Body)
+			// Limit wasm module to 256mb; in reality it must be much smaller
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
+			if err != nil {
+				return nil, err
+			}
 			resp.Body.Close()
 			return unboxIfPossible(body), err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
-			body, _ := io.ReadAll(resp.Body)
+			// Limit wasm module to 256mb; in reality it must be much smaller
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
+			if err != nil {
+				return nil, err
+			}
 			wasmLog.Debugf("wasm module download failed: status code %v, body %v", resp.StatusCode, string(body))
 			resp.Body.Close()
 			time.Sleep(b.NextBackOff())
@@ -128,7 +136,8 @@ func isPosixTar(b []byte) bool {
 func getFirstFileFromTar(b []byte) []byte {
 	buf := bytes.NewBuffer(b)
 
-	tr := tar.NewReader(buf)
+	// Limit wasm module to 256mb; in reality it must be much smaller
+	tr := tar.NewReader(io.LimitReader(buf, 1024*1024*256))
 
 	h, err := tr.Next()
 	if err != nil {
