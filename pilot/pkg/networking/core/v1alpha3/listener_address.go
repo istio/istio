@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -37,9 +38,24 @@ const (
 )
 
 var (
-	wildCards          map[model.IPMode][]string
-	localHosts         map[model.IPMode][]string
-	passthroughBindIPs map[model.IPMode][]string
+	// maintain 3 maps to return wildCards, localHosts and passthroughBindIPs according to IP mode of proxy
+	wildCards = map[model.IPMode][]string{
+		model.IPv4: {WildcardAddress},
+		model.IPv6: {WildcardIPv6Address},
+		model.Dual: {WildcardAddress, WildcardIPv6Address},
+	}
+
+	localHosts = map[model.IPMode][]string{
+		model.IPv4: {LocalhostAddress},
+		model.IPv6: {LocalhostIPv6Address},
+		model.Dual: {LocalhostAddress, LocalhostIPv6Address},
+	}
+
+	passthroughBindIPs = map[model.IPMode][]string{
+		model.IPv4: {InboundPassthroughBindIpv4},
+		model.IPv6: {InboundPassthroughBindIpv6},
+		model.Dual: {InboundPassthroughBindIpv4, InboundPassthroughBindIpv6},
+	}
 )
 
 // TODO: getActualWildcardAndLocalHost would be removed once the dual stack support in Istio
@@ -54,12 +70,16 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 
 func getPassthroughBindIPs(ipMode model.IPMode) []string {
 	passthroughBindIPAddresses := passthroughBindIPs[ipMode]
+
+	// it means that ipMode is empty if passthroughBindIPAddresses is empty
 	if len(passthroughBindIPAddresses) == 0 {
-		if ipMode == model.IPv4 || ipMode == model.Dual {
-			return []string{InboundPassthroughBindIpv4}
-		}
-		return []string{InboundPassthroughBindIpv6}
+		return []string{InboundPassthroughBindIpv4}
 	}
+
+	if !features.EnableDualStack && ipMode == model.Dual {
+		return []string{InboundPassthroughBindIpv4}
+	}
+
 	return passthroughBindIPAddresses
 }
 
@@ -77,23 +97,4 @@ func getSidecarInboundBindIPs(node *model.Proxy) []string {
 
 func getWildcardsAndLocalHost(ipMode model.IPMode) ([]string, []string) {
 	return wildCards[ipMode], localHosts[ipMode]
-}
-
-func init() {
-	// maintain 3 maps to return wildCards, localHosts and passthroughBindIPs according to IP mode of proxy
-	wildCards = make(map[model.IPMode][]string)
-	localHosts = make(map[model.IPMode][]string)
-	passthroughBindIPs = make(map[model.IPMode][]string)
-
-	wildCards[model.IPv4] = []string{WildcardAddress}
-	wildCards[model.IPv6] = []string{WildcardIPv6Address}
-	wildCards[model.Dual] = []string{WildcardAddress, WildcardIPv6Address}
-
-	localHosts[model.IPv4] = []string{LocalhostAddress}
-	localHosts[model.IPv6] = []string{LocalhostIPv6Address}
-	localHosts[model.Dual] = []string{LocalhostAddress, LocalhostIPv6Address}
-
-	passthroughBindIPs[model.IPv4] = []string{InboundPassthroughBindIpv4}
-	passthroughBindIPs[model.IPv6] = []string{InboundPassthroughBindIpv6}
-	passthroughBindIPs[model.Dual] = []string{InboundPassthroughBindIpv4, InboundPassthroughBindIpv6}
 }

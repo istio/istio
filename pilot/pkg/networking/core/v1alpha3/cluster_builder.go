@@ -99,23 +99,22 @@ type metadataCerts struct {
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	// Proxy related information used to build clusters.
-	serviceInstances        []*model.ServiceInstance // Service instances of Proxy.
-	metadataCerts           *metadataCerts           // Client certificates specified in metadata.
-	clusterID               string                   // Cluster in which proxy is running.
-	proxyID                 string                   // Identifier that uniquely identifies a proxy.
-	proxyVersion            string                   // Version of Proxy.
-	proxyType               model.NodeType           // Indicates whether the proxy is sidecar or gateway.
-	sidecarScope            *model.SidecarScope      // Computed sidecar for the proxy.
-	passThroughBindIP       string                   // Passthrough IP to be used while building clusters.
-	extraPassThroughBindIPs []string
-	supportsIPv4            bool              // Whether Proxy IPs has IPv4 address.
-	supportsIPv6            bool              // Whether Proxy IPs has IPv6 address.
-	hbone                   bool              // Does the proxy support HBONE
-	locality                *core.Locality    // Locality information of proxy.
-	proxyLabels             map[string]string // Proxy labels.
-	proxyView               model.ProxyView   // Proxy view of endpoints.
-	proxyIPAddresses        []string          // IP addresses on which proxy is listening on.
-	configNamespace         string            // Proxy config namespace.
+	serviceInstances   []*model.ServiceInstance // Service instances of Proxy.
+	metadataCerts      *metadataCerts           // Client certificates specified in metadata.
+	clusterID          string                   // Cluster in which proxy is running.
+	proxyID            string                   // Identifier that uniquely identifies a proxy.
+	proxyVersion       string                   // Version of Proxy.
+	proxyType          model.NodeType           // Indicates whether the proxy is sidecar or gateway.
+	sidecarScope       *model.SidecarScope      // Computed sidecar for the proxy.
+	passThroughBindIPs []string                 // Passthrough IPs to be used while building clusters.
+	supportsIPv4       bool                     // Whether Proxy IPs has IPv4 address.
+	supportsIPv6       bool                     // Whether Proxy IPs has IPv6 address.
+	hbone              bool                     // Does the proxy support HBONE
+	locality           *core.Locality           // Locality information of proxy.
+	proxyLabels        map[string]string        // Proxy labels.
+	proxyView          model.ProxyView          // Proxy view of endpoints.
+	proxyIPAddresses   []string                 // IP addresses on which proxy is listening on.
+	configNamespace    string                   // Proxy config namespace.
 	// PushRequest to look for updates.
 	req                   *model.PushRequest
 	cache                 model.XdsCache
@@ -141,11 +140,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		req:              req,
 		cache:            cache,
 	}
-	passthrougBindIPs := getPassthroughBindIPs(proxy.GetIPMode())
-	cb.passThroughBindIP = passthrougBindIPs[0]
-	if len(passthrougBindIPs) > 1 {
-		cb.extraPassThroughBindIPs = passthrougBindIPs[1:]
-	}
+	cb.passThroughBindIPs = getPassthroughBindIPs(proxy.GetIPMode())
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
 			cb.metadataCerts = &metadataCerts{
@@ -476,28 +471,26 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// config which will be skipped.
 		localCluster.cluster.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
-				Address: cb.passThroughBindIP,
+				Address: cb.passThroughBindIPs[0],
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
 		}
 		// add extra source addresses to cluster builder
-		if features.EnableDualStack && len(cb.extraPassThroughBindIPs) > 0 {
-			var extraSrcAddrs []*core.ExtraSourceAddress
-			for _, extraBdIP := range cb.extraPassThroughBindIPs {
-				extraSrcAddr := &core.ExtraSourceAddress{
-					Address: &core.SocketAddress{
-						Address: extraBdIP,
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: uint32(0),
-						},
+		var extraSrcAddrs []*core.ExtraSourceAddress
+		for _, extraBdIP := range cb.passThroughBindIPs[1:] {
+			extraSrcAddr := &core.ExtraSourceAddress{
+				Address: &core.SocketAddress{
+					Address: extraBdIP,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
 					},
-				}
-				extraSrcAddrs = append(extraSrcAddrs, extraSrcAddr)
+				},
 			}
-			localCluster.cluster.UpstreamBindConfig.ExtraSourceAddresses = extraSrcAddrs
+			extraSrcAddrs = append(extraSrcAddrs, extraSrcAddr)
 		}
+		localCluster.cluster.UpstreamBindConfig.ExtraSourceAddresses = extraSrcAddrs
 	}
 	return localCluster
 }
@@ -613,29 +606,29 @@ func addUint32(left, right uint32) (uint32, bool) {
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*cluster.Cluster, 0, 2)
-	// if Dual Stack enables
 	if features.EnableDualStack {
-		inboundPassthroughCluster := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughCluster.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughCluster.Filters = nil
-		inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
+		inboundPassthroughClusterForDS := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterForDS.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterForDS.Filters = nil
+		inboundPassthroughClusterForDS.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
-		}
-		extraSrcAddr := &core.ExtraSourceAddress{
-			Address: &core.SocketAddress{
-				Address: InboundPassthroughBindIpv6,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
+			ExtraSourceAddresses: []*core.ExtraSourceAddress{
+				{
+					Address: &core.SocketAddress{
+						Address: InboundPassthroughBindIpv6,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: uint32(0),
+						},
+					},
 				},
 			},
 		}
-		inboundPassthroughCluster.UpstreamBindConfig.ExtraSourceAddresses = []*core.ExtraSourceAddress{extraSrcAddr}
-		clusters = append(clusters, inboundPassthroughCluster)
+		clusters = append(clusters, inboundPassthroughClusterForDS)
 	} else {
 		if cb.supportsIPv4 {
 			inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
