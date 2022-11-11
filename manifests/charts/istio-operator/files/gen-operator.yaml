@@ -120,6 +120,7 @@ rules:
   - secrets
   - services
   - serviceaccounts
+  - resourcequotas
   verbs:
   - '*'
 ---
