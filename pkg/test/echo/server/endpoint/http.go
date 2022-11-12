@@ -401,6 +401,8 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) (
 	for _, flavor := range codes {
 		totalSlices += flavor.slices
 	}
+	// nolint: gosec
+	// Test only code
 	slice := rand.Intn(totalSlices)
 
 	// What flavor is that slice?
