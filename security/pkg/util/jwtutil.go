@@ -107,7 +107,7 @@ func ExtractJwtAud(jwt string) ([]string, bool) {
 	}
 	payload := jwtSplit[1]
 
-	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	payloadBytes, err := base64.URLEncoding.DecodeString(payload)
 	if err != nil {
 		return nil, false
 	}
