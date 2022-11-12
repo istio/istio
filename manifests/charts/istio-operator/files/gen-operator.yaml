@@ -120,6 +120,7 @@ rules:
   - secrets
   - services
   - serviceaccounts
+  - resourcequotas
   verbs:
   - '*'
 ---
@@ -170,6 +171,9 @@ spec:
     metadata:
       labels:
         name: istio-operator
+      annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
     spec:
       serviceAccountName: istio-operator
       containers:
@@ -178,6 +182,8 @@ spec:
           command:
           - operator
           - server
+          - --monitoring-host=127.0.0.1
+          - --monitoring-port=15014
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

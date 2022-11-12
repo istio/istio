@@ -25,7 +25,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v20.10.21+incompatible
-	github.com/envoyproxy/go-control-plane v0.10.3-0.20221102231857-7c4facc13f86
+	github.com/envoyproxy/go-control-plane v0.10.3-0.20221109183938-2935a23e638f
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.3
@@ -86,8 +86,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.1
-	istio.io/api v0.0.0-20221109211642-7c8dc83e0555
-	istio.io/client-go v1.12.0-alpha.5.0.20221109212442-23681e5ef331
+	istio.io/api v0.0.0-20221111212010-5aaa0b4aa156
+	istio.io/client-go v1.12.0-alpha.5.0.20221111212410-40ef30fb8461
 	istio.io/pkg v0.0.0-20221031153201-960bb47e80ce
 	k8s.io/api v0.25.3
 	k8s.io/apiextensions-apiserver v0.25.2
@@ -100,7 +100,7 @@ require (
 	k8s.io/kubectl v0.25.3
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85
 	sigs.k8s.io/controller-runtime v0.13.0
-	sigs.k8s.io/gateway-api v0.5.1-0.20221021174151-21bba43681b3
+	sigs.k8s.io/gateway-api v0.5.1-0.20221110151456-3daef509bcc9
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
