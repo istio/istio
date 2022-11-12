@@ -82,12 +82,12 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIPs, err := getLocalIPs()
+			hostIP, _, err := getLocalIP()
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
-			validator := validation.NewValidator(cfg, hostIPs[0])
+			validator := validation.NewValidator(cfg, hostIP)
 
 			if err := validator.Run(); err != nil {
 				// nolint: revive, stylecheck
@@ -174,21 +174,12 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	podIPs, err := getLocalIPs()
+	_, isIPv6, err := getLocalIP()
 	if err != nil {
 		panic(err)
 	}
 
-	if !DualStackEnv {
-		cfg.EnableInboundIPv6 = podIPs[0].To4() == nil
-	} else {
-		for _, podIP := range podIPs {
-			if netutil.IsIPv6Address(podIP.String()) {
-				cfg.EnableInboundIPv6 = true
-				break
-			}
-		}
-	}
+	cfg.EnableInboundIPv6 = isIPv6
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
@@ -204,27 +195,33 @@ func constructConfig() *config.Config {
 	return cfg
 }
 
-// getLocalIP returns the local IP address
-func getLocalIPs() ([]net.IP, error) {
+// getLocalIP returns one of the local IP address and it should support IPv6 or not
+func getLocalIP() (net.IP, bool, error) {
+	var isIPv6 bool
 	var ipAddrs []net.IP
 	addrs, err := LocalIPAddrs()
 	if err != nil {
-		return nil, err
+		return nil, isIPv6, err
 	}
 
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
+			isIPv6 = ipnet.IP.To4() == nil
 			ipAddrs = append(ipAddrs, ipnet.IP)
 			if !DualStackEnv {
-				return ipAddrs, nil
+				return ipnet.IP, isIPv6, nil
+			}
+			if isIPv6 {
+				break
 			}
 		}
 	}
 
 	if len(ipAddrs) > 0 {
-		return ipAddrs, nil
+		return ipAddrs[0], isIPv6, nil
 	}
-	return nil, fmt.Errorf("no valid local IP address found")
+
+	return nil, isIPv6, fmt.Errorf("no valid local IP address found")
 }
 
 func handleError(err error) {

@@ -608,7 +608,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0, 2)
 	if features.EnableDualStack {
 		inboundPassthroughClusterForDS := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterForDS.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterForDS.Name = util.InboundPassthroughClusterDualStack
 		inboundPassthroughClusterForDS.Filters = nil
 		inboundPassthroughClusterForDS.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
