@@ -257,7 +257,11 @@ func (c *LocalFileCache) Get(
 			imgFetcherOps.PullSecret = pullSecret
 		}
 		wasmLog.Debugf("fetching oci image from %s with options: %v", downloadURL, imgFetcherOps)
-		fetcher := NewImageFetcher(ctx, imgFetcherOps)
+		fetcher, err := NewImageFetcher(ctx, imgFetcherOps)
+		if err != nil {
+			return "", fmt.Errorf("could not initialize Wasm OCI image fetcher: %w", err)
+		}
+
 		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(manifestFailure)).Increment()

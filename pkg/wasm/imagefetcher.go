@@ -31,6 +31,7 @@ import (
 	"github.com/docker/cli/cli/config/configfile"
 	dtypes "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -41,6 +42,7 @@ import (
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
+
 type ImageFetcherOption struct {
 	// TODO(mathetake) Add signature verification stuff.
 	PullSecret []byte
@@ -62,13 +64,19 @@ type ImageFetcher struct {
 	fetchOpts []remote.Option
 }
 
-func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher {
+func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) (*ImageFetcher, error) {
 	fetchOpts := make([]remote.Option, 0, 2)
 	// TODO(mathetake): have "Anonymous" option?
 	if opt.useDefaultKeyChain() {
-		// Note that default key chain reads the docker config from DOCKER_CONFIG
-		// so must set the envvar when reaching this branch is expected.
-		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		// The k8schain includes credential helpers for all major cloud providers as well
+		// as the default keychain.
+		// Note that default keychain reads the docker config from DOCKER_CONFIG
+		// so must set the env var when reaching this branch is expected.
+		keychain, err := k8schain.NewNoClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not initialize k8s keychain: %w", err)
+		}
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(keychain))
 	} else {
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
@@ -83,7 +91,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 
 	return &ImageFetcher{
 		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
-	}
+	}, nil
 }
 
 // PrepareFetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
