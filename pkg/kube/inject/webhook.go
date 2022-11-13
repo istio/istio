@@ -420,8 +420,14 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			return nil, err
 		}
 	}
-
+	 _, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
 	for _, c := range templatePod.Spec.Containers {
+		// sidecarStatus annotation is added on the pod by webhook. We should use new container template
+		// instead of restoring what maybe previously injected. Doing this ensures we are correctly calculating
+		// env variables like ISTIO_META_APP_CONTAINERS and ISTIO_META_POD_PORTS.
+		if c.Name == ProxyContainerName && alreadyInjected {
+			continue
+		}
 		match := FindContainer(c.Name, existingOverrides.Containers)
 		if match == nil {
 			match = FindContainer(c.Name, originalPod.Spec.Containers)
@@ -441,6 +447,9 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod = newMergedPod
 	}
 	for _, c := range templatePod.Spec.InitContainers {
+		if c.Name == InitContainerName && alreadyInjected {
+			continue
+		}
 		match := FindContainer(c.Name, existingOverrides.InitContainers)
 		if match == nil {
 			match = FindContainer(c.Name, originalPod.Spec.InitContainers)
@@ -460,7 +469,6 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod = newMergedPod
 	}
 
-	_, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
 	if !alreadyInjected && (len(overrides.Containers) > 0 || len(overrides.InitContainers) > 0) {
 		// We found any overrides. Put them in the pod annotation so we can re-apply them on re-injection
 		js, err := json.Marshal(overrides)

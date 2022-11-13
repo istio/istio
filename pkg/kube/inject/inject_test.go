@@ -308,6 +308,14 @@ func TestInjection(t *testing.T) {
 			want:        "hello-host-network-with-ns.yaml.injected",
 			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
 		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			in:   "merge-probers.yaml",
+			want: "merge-probers.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
