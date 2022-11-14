@@ -38,56 +38,83 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
-			// Test bad wasm remote load in only one cluster.
-			// There is no need to repeat the same testing logic in multiple clusters.
-			cltInstance := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
-			// Verify that echo server could return 200
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(cltInstance); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
-			t.Log("echo server returns OK, apply bad wasm remote load filter.")
-
-			// Apply bad filter config
-			t.ConfigIstio().File(common.GetAppNamespace().Name(), "testdata/bad-filter.yaml").ApplyOrFail(t)
-
-			// Wait until there is agent metrics for wasm download failure
-			retry.UntilSuccessOrFail(t, func() error {
-				q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
-				c := cltInstance.Config().Cluster
-				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-					util.PromDiff(t, common.GetPromInstance(), c, q)
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-
-			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
-
-			if t.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
-				// Verify that istiod has a stats about rejected ECDS update
-				// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
-				retry.UntilSuccessOrFail(t, func() error {
-					q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
-					c := cltInstance.Config().Cluster
-					if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-						util.PromDiff(t, common.GetPromInstance(), c, q)
-						return err
-					}
-					return nil
-				}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-			}
-
-			// Verify that echo server could still return 200
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(cltInstance); err != nil {
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(10*time.Second))
-
-			t.Log("echo server still returns ok after bad wasm filter is applied.")
+			badWasmTestHelper(t, "testdata/bad-filter.yaml", false, true)
 		})
+}
+
+// TestBadWasmWithFailOpen is basically the same with TestBadWasmRemoteLoad except
+// it tests with "fail_open = true". To test the fail_open, the target pod is restarted
+// after applying the Wasm filter.
+// At this moment, there is no "fail_open" option in WasmPlugin API. So, we test it using
+// EnvoyFilter. When WasmPlugin has a "fail_open" option in the API plane, we need to change
+// this test to use the WasmPlugin API
+func TestBadWasmWithFailOpen(t *testing.T) {
+	framework.NewTest(t).
+		Features("extensibility.wasm.remote-load").
+		Run(func(t framework.TestContext) {
+			// since this case is for "fail_open=true", ecds is not rejected.
+			badWasmTestHelper(t, "testdata/bad-wasm-envoy-filter-fail-open.yaml", true, false)
+		})
+}
+
+func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restartTarget bool, ecdsShouldReject bool) {
+	t.Helper()
+	// Test bad wasm remote load in only one cluster.
+	// There is no need to repeat the same testing logic in multiple clusters.
+	to := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
+	// Verify that echo server could return 200
+	retry.UntilSuccessOrFail(t, func() error {
+		if err := common.SendTraffic(to); err != nil {
+			return err
+		}
+		return nil
+	}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
+	t.Log("echo server returns OK, apply bad wasm remote load filter.")
+
+	// Apply bad filter config
+	t.Logf("use config in %s.", filterConfigPath)
+	t.ConfigIstio().File(common.GetAppNamespace().Name(), filterConfigPath).ApplyOrFail(t)
+	if restartTarget {
+		target := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetTarget().Instances())
+		if err := target.Restart(); err != nil {
+			t.Fatalf("failed to restart the target pod: %v", err)
+		}
+	}
+
+	// Wait until there is agent metrics for wasm download failure
+	retry.UntilSuccessOrFail(t, func() error {
+		q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
+		c := to.Config().Cluster
+		if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+			util.PromDiff(t, common.GetPromInstance(), c, q)
+			return err
+		}
+		return nil
+	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+
+	if ecdsShouldReject && t.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
+		// Verify that istiod has a stats about rejected ECDS update
+		// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
+		retry.UntilSuccessOrFail(t, func() error {
+			q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
+			c := to.Config().Cluster
+			if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+				util.PromDiff(t, common.GetPromInstance(), c, q)
+				return err
+			}
+			return nil
+		}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+	}
+
+	t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
+
+	// Verify that echo server could still return 200
+	retry.UntilSuccessOrFail(t, func() error {
+		if err := common.SendTraffic(to); err != nil {
+			return err
+		}
+		return nil
+	}, retry.Delay(1*time.Millisecond), retry.Timeout(10*time.Second))
+
+	t.Log("echo server still returns ok after bad wasm filter is applied.")
 }

@@ -1,0 +1,42 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: bad-wasm-example
+spec:
+  configPatches:
+  - applyTo: EXTENSION_CONFIG
+    patch:
+      operation: ADD
+      value:
+        name: my-bad-wasm-extension
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          config:
+            root_id: my-bad-wasm-root-id
+            vm_config:
+              vm_id: my-bad-wasm-vm-id
+              runtime: envoy.wasm.runtime.v8
+              code:
+                remote:
+                  http_uri:
+                    uri: http://bad-url.wasm
+            fail_open: true
+            configuration:
+              "@type": "type.googleapis.com/google.protobuf.StringValue"
+              value: |
+                {}
+  # The second patch instructs to apply the above Wasm filter to the listener/http connection manager.
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: my-bad-wasm-extension # This must match the name above
+        config_discovery:
+          config_source:
+            ads: {}
+          type_urls:
+            - "envoy.extensions.filters.http.wasm.v3.Wasm"
+            - "envoy.extensions.filters.http.rbac.v3.RBAC"
+
