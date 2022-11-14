@@ -430,6 +430,8 @@ func GenerateBaseID() BaseID {
 
 	// A random number is needed to avoid BaseID collisions for multiple Envoys started from the same
 	// process.
+	// nolint: gosec
+	// Not security sensitive code
 	randNum := rand.Uint32()
 
 	// Pick a prime number to give more of the 32-bits of entropy to the PID, and the

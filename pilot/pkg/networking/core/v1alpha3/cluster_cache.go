@@ -59,6 +59,8 @@ type clusterCache struct {
 }
 
 func (t *clusterCache) Key() string {
+	// nolint: gosec
+	// Not security sensitive code
 	hash := md5.New()
 	hash.Write([]byte(t.clusterName))
 	hash.Write(Separator)

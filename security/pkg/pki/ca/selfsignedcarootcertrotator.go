@@ -56,6 +56,8 @@ type SelfSignedCARootCertRotator struct {
 
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
 // rotates self-signed root cert periodically.
+// nolint: gosec
+// Not security sensitive code
 func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 	ca *IstioCA,
 ) *SelfSignedCARootCertRotator {
