@@ -6805,6 +6805,9 @@ spec:
                             type: string
                         type: object
                       type: array
+                    reportingInterval:
+                      description: Optional.
+                      type: string
                   type: object
                 type: array
               selector:
