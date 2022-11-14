@@ -20,12 +20,19 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -36,10 +43,14 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -51,6 +62,8 @@ import (
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
 var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
+
+const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
@@ -170,6 +183,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+		if proxy.EnableHBONE() {
+			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, instances)...)
+		}
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
@@ -182,10 +198,17 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
+
+	// OutboundTunnel cluster is needed for sidecar and gateway.
+	if proxy.EnableHBONE() {
+		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
+	}
+
 	// if credential socket exists, create a cluster for it
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
+
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
@@ -202,7 +225,7 @@ func shouldUseDelta(updates *model.PushRequest) bool {
 }
 
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
-func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
+func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey]) bool {
 	for k := range cfgs {
 		if !deltaConfigTypes.Contains(k.Kind.String()) {
 			return false
@@ -1001,4 +1024,103 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 		}
 	}
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
+}
+
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, instances []*model.ServiceInstance) []*cluster.Cluster {
+	clusters := make([]*cluster.Cluster, 0)
+	names := sets.New[string]()
+	for _, i := range instances {
+		p := i.Endpoint.EndpointPort
+		name := "inbound-hbone" + "|" + strconv.Itoa(int(p))
+		if !names.InsertContains(name) {
+			clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
+		}
+	}
+	return clusters
+}
+
+func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
+	clusterType := cluster.Cluster_STATIC
+	port := &model.Port{}
+	localCluster := cb.buildDefaultCluster(clusterName, clusterType, util.BuildInternalEndpoint(listenerName, nil),
+		model.TrafficDirectionInbound, port, nil, nil)
+	// no TLS
+	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = InternalUpstreamSocket
+	return localCluster
+}
+
+var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
+	{
+		Name:            "hbone",
+		Match:           hboneTransportSocketMatch,
+		TransportSocket: InternalUpstreamSocket,
+	},
+	defaultTransportSocketMatch(),
+}
+
+var InternalUpstreamSocket = &core.TransportSocket{
+	Name: TransportSocketInternalUpstream,
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
+				Name: "tunnel",
+			},
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
+					Cluster: &metadata.MetadataKind_Cluster{},
+				}},
+				Name: "istio",
+			},
+			{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
+					Host: &metadata.MetadataKind_Host{},
+				}},
+				Name: "istio",
+			},
+		},
+		TransportSocket: xdsfilters.RawBufferTransportSocket,
+	})},
+}
+
+func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 util.OutboundTunnel,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       push.Mesh.ConnectTimeout,
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+						Http2ProtocolOptions: &core.Http2ProtocolOptions{
+							AllowConnect: true,
+						},
+					},
+				}},
+			}),
+		},
+		TransportSocket: &core.TransportSocket{
+			Name: wellknown.TransportSocketTls,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+				CommonTlsContext: buildHBONECommonTLSContext(proxy, push),
+			})},
+		},
+	}
+}
+
+func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
+	ctx := &tls.CommonTlsContext{}
+	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), false)
+
+	ctx.AlpnProtocols = util.ALPNH2Only
+
+	ctx.TlsParams = &tls.TlsParameters{
+		// Ensure TLS 1.3 is used everywhere for HBONE
+		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+	}
+	return ctx
 }

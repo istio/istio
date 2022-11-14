@@ -76,10 +76,8 @@ func TestIncrementalPush(t *testing.T) {
 	t.Run("Incremental Push with updated services", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
-			Full: false,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: kind.ServiceEntry}: {},
-			},
+			Full:           false,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "testns"}),
 		})
 		if err := ads.WaitSingle(time.Second*5, v3.EndpointType, v3.ClusterType); err != nil {
 			t.Fatal(err)
@@ -89,10 +87,8 @@ func TestIncrementalPush(t *testing.T) {
 		ads.WaitClear()
 
 		s.Discovery.Push(&model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: kind.ServiceEntry}: {},
-			},
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "weighted.static.svc.cluster.local", Namespace: "default"}),
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
@@ -105,10 +101,9 @@ func TestIncrementalPush(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "foo.bar", Namespace: "default", Kind: kind.ServiceEntry}:   {},
-				{Name: "destall", Namespace: "testns", Kind: kind.DestinationRule}: {},
-			},
+			ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo.bar", Namespace: "default"},
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
@@ -120,10 +115,8 @@ func TestIncrementalPush(t *testing.T) {
 	t.Run("Full Push without updated services", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{
-				{Name: "destall", Namespace: "testns", Kind: kind.DestinationRule}: {},
-			},
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
 		})
 		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
 			t.Fatal(err)
@@ -799,10 +792,10 @@ func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testin
 
 	s.Discovery.Push(&model.PushRequest{
 		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+		ConfigsUpdated: sets.New(model.ConfigKey{
 			Kind: kind.ServiceEntry,
 			Name: "overlapping.cluster.local",
-		}: {}},
+		}),
 	})
 	_, _ = adsc.Wait(5 * time.Second)
 
@@ -1055,10 +1048,10 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			// This will be throttled - we want to trigger a single push
 			s.Discovery.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
 				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: kind.ServiceEntry,
 					Name: edsIncSvc,
-				}: {}},
+				}),
 				Push: s.Discovery.Env.PushContext,
 			})
 		} else {

@@ -69,7 +69,7 @@ type InstallArgs struct {
 	// Set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
 	Set []string
-	// ManifestsPath is a path to a ManifestsPath and profiles directory in the local filesystem, or URL with a release tgz.
+	// ManifestsPath is a path to a ManifestsPath and profiles directory in the local filesystem with a release tgz.
 	ManifestsPath string
 	// Revision is the Istio control plane revision the command targets.
 	Revision string

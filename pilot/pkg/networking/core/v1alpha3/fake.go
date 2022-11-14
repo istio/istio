@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type TestOptions struct {
@@ -215,7 +216,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.16.0"
+		p.Metadata.IstioVersion = "1.17.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -267,7 +268,7 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 
 func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
-	configUpdated map[model.ConfigKey]struct{},
+	configUpdated sets.Set[model.ConfigKey],
 	watched *model.WatchedResource,
 ) ([]*cluster.Cluster, []string, bool) {
 	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,

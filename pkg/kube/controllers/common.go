@@ -17,7 +17,7 @@ package controllers
 import (
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -199,7 +199,7 @@ func extractObject(obj any) Object {
 // IgnoreNotFound returns nil on NotFound errors.
 // All other values that are not NotFound errors or nil are returned unmodified.
 func IgnoreNotFound(err error) error {
-	if apierrors.IsNotFound(err) {
+	if kerrors.IsNotFound(err) {
 		return nil
 	}
 	return err

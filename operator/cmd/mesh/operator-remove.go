@@ -42,6 +42,8 @@ type operatorRemoveArgs struct {
 	operatorNamespace string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// purge if set to true, all revisions of Istio operator will be specified.
+	purge bool
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
@@ -51,6 +53,7 @@ func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
 	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "", OperatorRevFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&oiArgs.purge, "purge", false, AllOperatorRevFlagHelpStr)
 }
 
 func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
@@ -75,11 +78,20 @@ func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveAr
 		l.LogAndFatal(err)
 	}
 
+	// If the user is performing purge but also specified a revision, an error message
+	// should be displayed and do nothing
+	if orArgs.purge && orArgs.revision != "" {
+		orArgs.revision = ""
+		l.LogAndFatal("At most one of the --revision (or --set revision=<revision>) or --purge flags could be set\n")
+	} else if !orArgs.purge && orArgs.revision == "" {
+		orArgs.revision = "default"
+	}
+
 	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
-	if !installed {
+	if !installed && !orArgs.purge {
 		l.LogAndPrintf("Operator controller is not installed in %s namespace (no Deployment detected).", orArgs.operatorNamespace)
 		if !orArgs.force {
 			l.LogAndFatal("Aborting, use --force to override.")
@@ -87,7 +99,7 @@ func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveAr
 	}
 
 	var message string
-	message = "Istio operator will be removed from cluster, Proceed? (y/N)"
+	message = "All revisions of Istio operator will be removed from cluster, Proceed? (y/N)"
 	if orArgs.revision != "" {
 		message = "Istio operator revision " + orArgs.revision + " will be removed from cluster, Proceed? (y/N)"
 	}

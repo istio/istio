@@ -20,6 +20,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
@@ -27,8 +28,19 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
 )
+
+var allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
+
+func createAllowAllFilter(name string) (*anypb.Any, error) {
+	ec := &core.TypedExtensionConfig{
+		Name:        name,
+		TypedConfig: allowTypedConfig,
+	}
+	return anypb.New(ec)
+}
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
@@ -68,6 +80,16 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		wasmConfigConversionCount.
 			With(resultTag.Value(status)).
 			Increment()
+
+		if newExtensionConfig == resource && !sendNack && status != noRemoteLoad {
+			var err error
+			newExtensionConfig, err = createAllowAllFilter(ec.GetName())
+			if err != nil {
+				// If the fallback is failing, send the Nack regardless of fail_open.
+				wasmLog.Infof("failed to create allow-all filter as a fallback of %s Wasm Module.", ec.GetName())
+				sendNack = true
+			}
+		}
 	}()
 	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)

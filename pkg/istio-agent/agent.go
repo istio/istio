@@ -691,7 +691,10 @@ func socketHealthCheck(ctx context.Context, socketPath string) error {
 	if err != nil {
 		return err
 	}
-	conn.Close()
+	err = conn.Close()
+	if err != nil {
+		log.Infof("connection is not closed: %v", err)
+	}
 
 	return nil
 }

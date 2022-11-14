@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,14 +47,14 @@ func TestECDS(t *testing.T) {
 		ClusterID: "Kubernetes",
 	}
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
-		Node: &corev3.Node{
+		Node: &core.Node{
 			Id:       ads.ID,
 			Metadata: md.ToStruct(),
 		},
 		ResourceNames: []string{wantExtensionConfigName},
 	})
 
-	var ec corev3.TypedExtensionConfig
+	var ec core.TypedExtensionConfig
 	err := res.Resources[0].UnmarshalTo(&ec)
 	if err != nil {
 		t.Fatal("Failed to unmarshal extension config", err)
@@ -177,10 +177,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "no_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
 			wantExtensions:   sets.String{},
@@ -190,11 +188,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "has_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-					{Kind: kind.WasmPlugin}:          {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.WasmPlugin}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
@@ -204,11 +199,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "non_relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.AuthorizationPolicy}: {},
-					{Kind: kind.Secret}:              {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.Secret}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{},
@@ -218,10 +210,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
-				},
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
@@ -231,10 +221,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "relevant_secret_update_non_full_push",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
-				},
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
@@ -246,10 +234,8 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "multi_wasmplugin_update_secret",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}: {},
-				},
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
 			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
@@ -281,9 +267,9 @@ func TestECDSGenerate(t *testing.T) {
 			gotSecrets := sets.String{}
 			for _, res := range resources {
 				gotExtensions.Insert(res.Name)
-				ec := &corev3.TypedExtensionConfig{}
+				ec := &core.TypedExtensionConfig{}
 				res.Resource.UnmarshalTo(ec)
-				wasm := &extensionsv3.Wasm{}
+				wasm := &wasm.Wasm{}
 				ec.TypedConfig.UnmarshalTo(wasm)
 				gotsecret := wasm.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()[model.WasmSecretEnv]
 				if gotsecret != "" {

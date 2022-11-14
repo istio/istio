@@ -552,24 +552,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SGatewayApiV1Alpha2Referencepolicies describes the collection
-	// k8s/gateway_api/v1alpha2/referencepolicies
-	K8SGatewayApiV1Alpha2Referencepolicies = collection.Builder{
-		Name:         "k8s/gateway_api/v1alpha2/referencepolicies",
-		VariableName: "K8SGatewayApiV1Alpha2Referencepolicies",
-		Resource: resource.Builder{
-			Group:         "gateway.networking.k8s.io",
-			Kind:          "ReferencePolicy",
-			Plural:        "referencepolicies",
-			Version:       "v1alpha2",
-			Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec",
-			ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec{}).Elem(),
-			ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
 	// K8SGatewayApiV1Alpha2Tcproutes describes the collection
 	// k8s/gateway_api/v1alpha2/tcproutes
 	K8SGatewayApiV1Alpha2Tcproutes = collection.Builder{
@@ -699,7 +681,6 @@ var (
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
-		MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
 		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		MustAdd(K8SGatewayApiV1Beta1Gatewayclasses).
@@ -741,7 +722,6 @@ var (
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
-		MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
 		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		MustAdd(K8SGatewayApiV1Beta1Gatewayclasses).
@@ -800,7 +780,6 @@ var (
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
 			MustAdd(IstioTelemetryV1Alpha1Telemetries).
 			MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
-			MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
 			MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 			MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 			MustAdd(K8SGatewayApiV1Beta1Gatewayclasses).

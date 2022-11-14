@@ -4420,7 +4420,6 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Endpoints: []*networking.WorkloadEntry{
 					{Address: "api-v1.istio.io", Ports: map[string]uint32{"http-valid1": 8080}},
-					{Address: "api-v2.istio.io", Ports: map[string]uint32{"http-valid2": 9080}},
 				},
 				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 			},
@@ -4521,7 +4520,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
@@ -4923,6 +4921,42 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "valid endpoint port", in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "1.1.1.1",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "invalid endpoint port", in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "1.1.1.1",
+						Ports: map[string]uint32{
+							"http-valid1": 65536,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "protocol unset for addresses empty", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
@@ -4947,6 +4981,32 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid:   true,
 			warning: true,
+		},
+		{
+			name: "dns round robin with more than one endpoint", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 8081, Protocol: "http", Name: "http-valid1"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "api-v1.istio.io",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+					{
+						Address: "1.1.1.2",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+				},
+				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+			},
+			valid:   false,
+			warning: false,
 		},
 	}
 
@@ -4977,6 +5037,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		annotations map[string]string
 		in          proto.Message
 		valid       bool
+		Warning     bool
 	}{
 		{
 			name: "good",
@@ -5787,18 +5848,132 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "L7DenyWithFrom",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RequestPrincipals: []string{"example.com/sub-1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithTo",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithFromAndTo",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithFromAndToWithPort",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
 	}
 
 	for _, c := range cases {
-		if _, got := ValidateAuthorizationPolicy(config.Config{
+		war, got := ValidateAuthorizationPolicy(config.Config{
 			Meta: config.Meta{
 				Name:        "name",
 				Namespace:   "namespace",
 				Annotations: c.annotations,
 			},
 			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("got: %v\nwant: %v", got, c.valid)
+		})
+		if (got == nil) != c.valid {
+			t.Errorf("error: got: %v\nwant: %v", got, c.valid)
+		} else if (war != nil) != c.Warning {
+			t.Errorf("warning: got: %v\nwant: %v", war, c.valid)
 		}
 	}
 }

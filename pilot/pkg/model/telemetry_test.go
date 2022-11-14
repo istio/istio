@@ -15,18 +15,20 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var (
@@ -796,40 +799,58 @@ func TestTelemetryFilters(t *testing.T) {
 			telemetry.meshConfig.DefaultProviders = tt.defaultProviders
 			got := telemetry.telemetryFilters(tt.proxy, tt.class, tt.protocol)
 			res := map[string]string{}
-			http, ok := got.([]*httppb.HttpFilter)
+			http, ok := got.([]*hcm.HttpFilter)
 			if ok {
 				for _, f := range http {
-					w := &httpwasm.Wasm{}
+					if strings.HasSuffix(f.GetTypedConfig().GetTypeUrl(), "/stats.PluginConfig") {
+						w := &stats.PluginConfig{}
+						if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
+							t.Fatal(err)
+						}
+						cfgJSON, _ := protomarshal.MarshalProtoNames(w)
+						res[f.GetName()] = string(cfgJSON)
+					} else {
+						w := &httpwasm.Wasm{}
 
-					if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
-						t.Fatal(err)
+						if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
+							t.Fatal(err)
+						}
+						cfg := &wrappers.StringValue{}
+						if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
+							t.Fatal(err)
+						}
+						if _, dupe := res[f.GetName()]; dupe {
+							t.Fatalf("duplicate filter found: %v", f.GetName())
+						}
+						res[f.GetName()] = cfg.GetValue()
 					}
-					cfg := &wrappers.StringValue{}
-					if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
-						t.Fatal(err)
-					}
-					if _, dupe := res[f.GetName()]; dupe {
-						t.Fatalf("duplicate filter found: %v", f.GetName())
-					}
-					res[f.GetName()] = cfg.GetValue()
 				}
 			}
 			tcp, ok := got.([]*listener.Filter)
 			if ok {
 				for _, f := range tcp {
-					w := &wasmfilter.Wasm{}
+					if strings.HasSuffix(f.GetTypedConfig().GetTypeUrl(), "/stats.PluginConfig") {
+						w := &stats.PluginConfig{}
+						if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
+							t.Fatal(err)
+						}
+						cfgJSON, _ := protomarshal.MarshalProtoNames(w)
+						res[f.GetName()] = string(cfgJSON)
+					} else {
+						w := &wasmfilter.Wasm{}
 
-					if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
-						t.Fatal(err)
+						if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
+							t.Fatal(err)
+						}
+						cfg := &wrappers.StringValue{}
+						if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
+							t.Fatal(err)
+						}
+						if _, dupe := res[f.GetName()]; dupe {
+							t.Fatalf("duplicate filter found: %v", f.GetName())
+						}
+						res[f.GetName()] = cfg.GetValue()
 					}
-					cfg := &wrappers.StringValue{}
-					if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
-						t.Fatal(err)
-					}
-					if _, dupe := res[f.GetName()]; dupe {
-						t.Fatalf("duplicate filter found: %v", f.GetName())
-					}
-					res[f.GetName()] = cfg.GetValue()
 				}
 			}
 			if diff := cmp.Diff(res, tt.want); diff != "" {

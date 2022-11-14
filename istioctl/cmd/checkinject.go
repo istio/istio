@@ -23,7 +23,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -42,16 +42,16 @@ func checkInjectCommand() *cobra.Command {
 		Long: `
 Checks associated resources of the given resource, and running webhooks to examine whether the pod can be or will be injected or not.`,
 		Example: `	# Check the injection status of a pod
-	istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
+  istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
 	
-	# Check the injection status of a pod under a deployment
-	istioctl x check-inject deployment/details-v1
+  # Check the injection status of a pod under a deployment
+  istioctl x check-inject deployment/details-v1
 
-	# Check the injection status of a pod under a deployment in namespace test
-	istioctl x check-inject deployment/details-v1 -n test
+  # Check the injection status of a pod under a deployment in namespace test
+  istioctl x check-inject deployment/details-v1 -n test
 
-   # Check the injection status of label pairs in a specific namespace before actual injection 
-	istioctl x check-inject -n test -l app=helloworld,version=v1
+  # Check the injection status of label pairs in a specific namespace before actual injection 
+  istioctl x check-inject -n test -l app=helloworld,version=v1
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 && labelPairs == "" || len(args) > 1 {
@@ -154,7 +154,7 @@ type webhookAnalysis struct {
 	Reason   string
 }
 
-func analyzeRunningWebhooks(whs []admit_v1.MutatingWebhookConfiguration, podLabels, nsLabels map[string]string) []webhookAnalysis {
+func analyzeRunningWebhooks(whs []admitv1.MutatingWebhookConfiguration, podLabels, nsLabels map[string]string) []webhookAnalysis {
 	results := make([]webhookAnalysis, 0)
 	for _, mwc := range whs {
 		if !isIstioWebhook(&mwc) {
@@ -175,7 +175,7 @@ func analyzeRunningWebhooks(whs []admit_v1.MutatingWebhookConfiguration, podLabe
 	return results
 }
 
-func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, podLabels, nsLabels map[string]string) (reason string, injected bool) {
+func analyzeWebhooksMatchStatus(whs []admitv1.MutatingWebhook, podLabels, nsLabels map[string]string) (reason string, injected bool) {
 	for _, wh := range whs {
 		nsMatched, nsLabel := extractMatchedSelectorInfo(wh.NamespaceSelector, nsLabels)
 		podMatched, podLabel := extractMatchedSelectorInfo(wh.ObjectSelector, podLabels)
@@ -216,7 +216,7 @@ func analyzeWebhooksMatchStatus(whs []admit_v1.MutatingWebhook, podLabels, nsLab
 			}
 		}
 	}
-	noMatchingReason := func(whs []admit_v1.MutatingWebhook) string {
+	noMatchingReason := func(whs []admitv1.MutatingWebhook) string {
 		nsMatchedLabels := make([]string, 0)
 		podMatchedLabels := make([]string, 0)
 		extractMatchLabels := func(selector *metav1.LabelSelector) []string {
@@ -267,11 +267,11 @@ func extractMatchedSelectorInfo(ls *metav1.LabelSelector, objLabels map[string]s
 	return matched, ""
 }
 
-func extractRevision(wh *admit_v1.MutatingWebhookConfiguration) string {
+func extractRevision(wh *admitv1.MutatingWebhookConfiguration) string {
 	return wh.GetLabels()[label.IoIstioRev.Name]
 }
 
-func isIstioWebhook(wh *admit_v1.MutatingWebhookConfiguration) bool {
+func isIstioWebhook(wh *admitv1.MutatingWebhookConfiguration) bool {
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, "istio.io") {
 			return true

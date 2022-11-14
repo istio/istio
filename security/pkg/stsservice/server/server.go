@@ -135,7 +135,11 @@ func (s *Server) validateStsRequest(req *http.Request) (security.StsRequestParam
 	}
 
 	if stsServerLog.DebugEnabled() {
-		reqDump, _ := httputil.DumpRequest(req, true)
+		var dummyWrite http.ResponseWriter
+		debugReq := req
+		// Limit req body to 10 mb
+		debugReq.Body = http.MaxBytesReader(dummyWrite, debugReq.Body, 1024*1024*10)
+		reqDump, _ := httputil.DumpRequest(debugReq, true)
 		stsServerLog.Debugf("Received STS request: %s", string(reqDump))
 	}
 	if req.Method != "POST" {
@@ -210,7 +214,11 @@ func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte)
 // tokens being fetched.
 func (s *Server) DumpStsStatus(w http.ResponseWriter, req *http.Request) {
 	if stsServerLog.DebugEnabled() {
-		reqDump, _ := httputil.DumpRequest(req, true)
+		var dummyWrite http.ResponseWriter
+		debugReq := req
+		// Limit req body to 10 mb
+		debugReq.Body = http.MaxBytesReader(dummyWrite, debugReq.Body, 1024*1024*10)
+		reqDump, _ := httputil.DumpRequest(debugReq, true)
 		stsServerLog.Debugf("Received STS request: %s", string(reqDump))
 	}
 

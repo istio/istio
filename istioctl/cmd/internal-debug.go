@@ -19,8 +19,8 @@ import (
 	"io"
 	"strings"
 
-	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -33,11 +33,11 @@ import (
 func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
-) (map[string]*xdsapi.DiscoveryResponse, error) {
+) (map[string]*discovery.DiscoveryResponse, error) {
 	var namespace, serviceAccount string
-	xdsRequest := xdsapi.DiscoveryRequest{
+	xdsRequest := discovery.DiscoveryRequest{
 		ResourceNames: []string{"list"},
-		Node: &envoy_corev3.Node{
+		Node: &core.Node{
 			Id: "debug~0.0.0.0~istioctl~cluster.local",
 		},
 		TypeUrl: v3.DebugType,
@@ -54,8 +54,8 @@ func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
-	xdsResponses map[string]*xdsapi.DiscoveryResponse,
-) (map[string]*xdsapi.DiscoveryResponse, error) {
+	xdsResponses map[string]*discovery.DiscoveryResponse,
+) (map[string]*discovery.DiscoveryResponse, error) {
 	for _, response := range xdsResponses {
 		for _, resource := range response.Resources {
 			eString := string(resource.Value)
@@ -121,12 +121,12 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					e: fmt.Errorf("debug type is required"),
 				}
 			}
-			var xdsRequest xdsapi.DiscoveryRequest
+			var xdsRequest discovery.DiscoveryRequest
 			var namespace, serviceAccount string
 
-			xdsRequest = xdsapi.DiscoveryRequest{
+			xdsRequest = discovery.DiscoveryRequest{
 				ResourceNames: []string{args[0]},
-				Node: &envoy_corev3.Node{
+				Node: &core.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
 				TypeUrl: v3.DebugType,

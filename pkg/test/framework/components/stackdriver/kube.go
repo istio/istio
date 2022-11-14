@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
+	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	cloudtracepb "cloud.google.com/go/trace/apiv1/tracepb"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
-	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
 	environ "istio.io/istio/pkg/test/env"
@@ -111,7 +111,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c.forwarder = forwarder
 	scopes.Framework.Debugf("initialized stackdriver port forwarder: %v", forwarder.Address())
 
-	var svc *kubeApiCore.Service
+	var svc *corev1.Service
 	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), "stackdriver"); err != nil {
 		scopes.Framework.Infof("Error waiting for Stackdriver service to be available: %v", err)
 		return nil, err

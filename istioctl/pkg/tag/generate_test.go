@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -29,16 +29,16 @@ import (
 )
 
 var (
-	defaultRevisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
+	defaultRevisionCanonicalWebhook = admitv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector",
 			Labels: map[string]string{label.IoIstioRev.Name: "default"},
 		},
-		Webhooks: []admit_v1.MutatingWebhook{
+		Webhooks: []admitv1.MutatingWebhook{
 			{
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
 						Namespace: "default",
 						Name:      "istiod",
 					},
@@ -47,8 +47,8 @@ var (
 			},
 			{
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
 						Namespace: "default",
 						Name:      "istiod",
 					},
@@ -58,16 +58,16 @@ var (
 		},
 	}
 	samplePath               = "/sample/path"
-	revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
+	revisionCanonicalWebhook = admitv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
 			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
 		},
-		Webhooks: []admit_v1.MutatingWebhook{
+		Webhooks: []admitv1.MutatingWebhook{
 			{
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
 						Namespace: "default",
 						Name:      "istiod-revision",
 						Path:      &samplePath,
@@ -77,8 +77,8 @@ var (
 			},
 			{
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
 						Namespace: "default",
 						Name:      "istiod-revision",
 					},
@@ -88,22 +88,22 @@ var (
 		},
 	}
 	remoteInjectionURL             = "https://random.host.com/inject/cluster/cluster1/net/net1"
-	revisionCanonicalWebhookRemote = admit_v1.MutatingWebhookConfiguration{
+	revisionCanonicalWebhookRemote = admitv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
 			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
 		},
-		Webhooks: []admit_v1.MutatingWebhook{
+		Webhooks: []admitv1.MutatingWebhook{
 			{
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
+				ClientConfig: admitv1.WebhookClientConfig{
 					URL:      &remoteInjectionURL,
 					CABundle: []byte("ca"),
 				},
 			},
 			{
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
+				ClientConfig: admitv1.WebhookClientConfig{
 					URL:      &remoteInjectionURL,
 					CABundle: []byte("ca"),
 				},
@@ -117,7 +117,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 	tcs := []struct {
 		name           string
 		istioNamespace string
-		webhook        admit_v1.MutatingWebhookConfiguration
+		webhook        admitv1.MutatingWebhookConfiguration
 		whURL          string
 		whSVC          string
 		whCA           string
@@ -162,11 +162,11 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
 
-			vwhObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admit_v1.ValidatingWebhookConfiguration{})
+			vwhObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admitv1.ValidatingWebhookConfiguration{})
 			if err != nil {
 				t.Fatalf("could not parse webhook from generated YAML: %s", vwhObject)
 			}
-			wh := vwhObject.(*admit_v1.ValidatingWebhookConfiguration)
+			wh := vwhObject.(*admitv1.ValidatingWebhookConfiguration)
 
 			for _, webhook := range wh.Webhooks {
 				validationWhConf := webhook.ClientConfig
@@ -202,7 +202,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 func TestGenerateMutatingWebhook(t *testing.T) {
 	tcs := []struct {
 		name        string
-		webhook     admit_v1.MutatingWebhookConfiguration
+		webhook     admitv1.MutatingWebhookConfiguration
 		tagName     string
 		whURL       string
 		whSVC       string
@@ -260,11 +260,11 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}
 
-		whObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admit_v1.MutatingWebhookConfiguration{})
+		whObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admitv1.MutatingWebhookConfiguration{})
 		if err != nil {
 			t.Fatalf("could not parse webhook from generated YAML: %s", webhookYAML)
 		}
-		wh := whObject.(*admit_v1.MutatingWebhookConfiguration)
+		wh := whObject.(*admitv1.MutatingWebhookConfiguration)
 
 		// expect both namespace.sidecar-injector.istio.io and object.sidecar-injector.istio.io webhooks
 		if len(wh.Webhooks) != tc.numWebhooks {

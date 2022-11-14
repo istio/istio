@@ -1917,6 +1917,7 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
 	func(cfg config.Config) (Warning, error) {
+		var warning Warning
 		in, ok := cfg.Spec.(*security_beta.AuthorizationPolicy)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to AuthorizationPolicy")
@@ -1978,6 +1979,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 			if rule.From != nil && len(rule.From) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d", i))
 			}
+			tcpRulesInFrom := false
+			tcpRulesInTo := false
+			fromRuleExist := false
+			toRuleExist := false
 			for _, from := range rule.From {
 				if from == nil {
 					errs = appendErrors(errs, fmt.Errorf("`from` must not be nil, found at rule %d", i))
@@ -1986,6 +1991,7 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				if from.Source == nil {
 					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d", i))
 				} else {
+					fromRuleExist = true
 					src := from.Source
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
 						len(src.RemoteIpBlocks) == 0 && len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 &&
@@ -2006,6 +2012,11 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRemoteIpBlocks", src.NotRemoteIpBlocks))
+					if src.NotPrincipals != nil || src.Principals != nil || src.IpBlocks != nil ||
+						src.NotIpBlocks != nil || src.Namespaces != nil ||
+						src.NotNamespaces != nil || src.RemoteIpBlocks != nil || src.NotRemoteIpBlocks != nil {
+						tcpRulesInFrom = true
+					}
 				}
 			}
 			if rule.To != nil && len(rule.To) == 0 {
@@ -2019,6 +2030,7 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				if to.Operation == nil {
 					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d", i))
 				} else {
+					toRuleExist = true
 					op := to.Operation
 					if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 &&
 						len(op.NotPorts) == 0 && len(op.NotMethods) == 0 && len(op.NotPaths) == 0 && len(op.NotHosts) == 0 {
@@ -2034,6 +2046,9 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, security.CheckEmptyValues("NotMethods", op.NotMethods))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPaths", op.NotPaths))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotHosts", op.NotHosts))
+					if op.Ports != nil || op.NotPorts != nil {
+						tcpRulesInTo = true
+					}
 				}
 			}
 			for _, condition := range rule.GetWhen() {
@@ -2054,8 +2069,15 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					}
 				}
 			}
+
+			if ((fromRuleExist && !toRuleExist && !tcpRulesInFrom) || (toRuleExist && !tcpRulesInTo)) &&
+				in.Action == security_beta.AuthorizationPolicy_DENY {
+				warning = fmt.Errorf("configured AuthorizationPolicy will deny all traffic " +
+					"to TCP ports under its scope due to the use of only HTTP attributes in a DENY rule; " +
+					"it is recommended to explicitly specify the port")
+			}
 		}
-		return nil, multierror.Prefix(errs, fmt.Sprintf("invalid policy %s.%s:", cfg.Name, cfg.Namespace))
+		return warning, multierror.Prefix(errs, fmt.Sprintf("invalid policy %s.%s:", cfg.Name, cfg.Namespace))
 	})
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
@@ -3308,6 +3330,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						if !servicePorts[name] {
 							errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 						}
+						errs = appendValidation(errs,
+							ValidatePortName(name),
+							ValidatePort(int(port)))
 					}
 				}
 				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
@@ -3323,6 +3348,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s", serviceEntry.Resolution))
 					}
 				}
+			}
+			if serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN && len(serviceEntry.Endpoints) != 1 {
+				errs = appendValidation(errs,
+					fmt.Errorf("there must only endpoint for resolution mode %s", serviceEntry.Resolution))
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {

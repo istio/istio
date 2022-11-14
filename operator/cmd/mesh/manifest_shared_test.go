@@ -101,12 +101,12 @@ func recreateTestEnv() error {
 
 	var err error
 	testenv = &envtest.Environment{}
-	testRestConfig, err = testenv.Start()
+	testRestConfig, err := testenv.Start()
 	if err != nil {
 		return err
 	}
 
-	testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
+	_, err = kubernetes.NewForConfig(testRestConfig)
 	testRestConfig.QPS = 50
 	testRestConfig.Burst = 100
 	if err != nil {

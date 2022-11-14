@@ -23,6 +23,15 @@
           }
       ]
   },
+  "bootstrap_extensions": [
+    {
+      "name": "envoy.bootstrap.internal_listener",
+      "typed_config": {
+        "@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
+        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+      }
+    }
+  ],
   "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [
@@ -245,6 +254,9 @@
           },
           {
           "prefix": "component"
+          },
+          {
+          "prefix": "istio"
           }
         ]
       }

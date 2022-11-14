@@ -73,7 +73,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-6363b97c6bc60b7a3a8d52c5e08322d8394149e2
+  IMAGE_VERSION=master-65b95c3425a26e633081b2d0834cc0df6e81fd8a
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools
@@ -93,7 +93,7 @@ IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 
-ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|^PATH=\|^GOPATH=\|^GOROOT=\|^SHELL=\|^EDITOR=\|^TMUX=\|^USER=\|^HOME=\|^PWD=\|^TERM=\|^rvm=\|^SSH=\|^TMPDIR=\|^CC=\|^CXX=\|^MAKEFILE_LIST=}"
+ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|^PATH=\|^GOPATH=\|^GOROOT=\|^SHELL=\|^EDITOR=\|^TMUX=\|^USER=\|^HOME=\|^PWD=\|^TERM=\|^RUBY_\|^GEM_\|^rvm_\|^SSH=\|^TMPDIR=\|^CC=\|^CXX=\|^MAKEFILE_LIST=}"
 
 # Remove functions from the list of exported variables, they mess up with the `env` command.
 for f in $(declare -F -x | cut -d ' ' -f 3);

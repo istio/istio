@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
@@ -280,7 +280,7 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	// This also preserves iopYAML if it is ""; we don't want iopYAML to be the string "null"
 	if len(mapIOP) > 0 {
 		un := &unstructured.Unstructured{Object: mapIOP}
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 		iopYAML = util.ToYAML(un)
 	}
 	iop := &v1alpha1.IstioOperator{}

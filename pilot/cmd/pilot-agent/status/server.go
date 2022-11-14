@@ -493,10 +493,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoyCancel, appCancel context.CancelFunc
 	defer func() {
 		if envoy != nil {
-			envoy.Close()
+			err = envoy.Close()
+			if err != nil {
+				log.Infof("envoy connection is not closed: %v", err)
+			}
 		}
 		if application != nil {
-			application.Close()
+			err = application.Close()
+			if err != nil {
+				log.Infof("app connection is not closed: %v", err)
+			}
 		}
 		if envoyCancel != nil {
 			envoyCancel()
@@ -627,6 +633,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, cancel, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
 	format := resp.Header.Get("Content-Type")
@@ -754,7 +761,10 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		conn.Close()
+		err = conn.Close()
+		if err != nil {
+			log.Infof("tcp connection is not closed: %v", err)
+		}
 	}
 }
 

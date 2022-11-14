@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
@@ -314,7 +314,7 @@ func clusterName(target echo.Instance, port echo.Port) string {
 // Wait for the server to NOT be callable by the client. This allows us to simulate external traffic.
 // This essentially just waits for the Sidecar to be applied, without sleeping.
 func WaitUntilNotCallable(c echo.Instance, dest echo.Instance) error {
-	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
+	accept := func(cfg *admin.ConfigDump) (bool, error) {
 		validator := structpath.ForProto(cfg)
 		for _, port := range dest.Config().Ports {
 			clusterName := clusterName(dest, port)

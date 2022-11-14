@@ -270,7 +270,7 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 	}
 
 	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
-		context.TODO(), "cacerts", metav1.GetOptions{})
+		context.TODO(), ca.ExternalCASecret, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -441,7 +441,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 				selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 				maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-				opts.Namespace, -1, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
+				opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
 				enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		} else {
 			log.Warnf(

@@ -17,7 +17,7 @@ package kube
 import (
 	"time"
 
-	kubeCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -29,7 +29,7 @@ import (
 
 var _ cache.Controller = &podController{}
 
-type podHandler func(pod *kubeCore.Pod) error
+type podHandler func(pod *corev1.Pod) error
 
 type podHandlers struct {
 	added   podHandler
@@ -54,10 +54,10 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			options.LabelSelector += s.String()
 		})
 	q := queue.NewQueue(1 * time.Second)
-	_, informer := cache.NewInformer(podListWatch, &kubeCore.Pod{}, 0, cache.ResourceEventHandlerFuncs{
+	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj any) {
 			q.Push(func() error {
-				return handlers.added(newObj.(*kubeCore.Pod))
+				return handlers.added(newObj.(*corev1.Pod))
 			})
 		},
 		UpdateFunc: func(old, cur any) {
@@ -66,21 +66,21 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 				newObj := cur.(metav1.Object)
 
 				if oldObj.GetResourceVersion() != newObj.GetResourceVersion() {
-					return handlers.updated(newObj.(*kubeCore.Pod))
+					return handlers.updated(newObj.(*corev1.Pod))
 				}
 				return nil
 			})
 		},
 		DeleteFunc: func(curr any) {
 			q.Push(func() error {
-				pod, ok := curr.(*kubeCore.Pod)
+				pod, ok := curr.(*corev1.Pod)
 				if !ok {
 					tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 					if !ok {
 						log.Errorf("Couldn't get object from tombstone %#v", curr)
 						return nil
 					}
-					pod, ok = tombstone.Obj.(*kubeCore.Pod)
+					pod, ok = tombstone.Obj.(*corev1.Pod)
 					if !ok {
 						log.Errorf("Tombstone contained object that is not a pod %#v", curr)
 						return nil

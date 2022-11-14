@@ -22,7 +22,8 @@ import (
 
 func TestURL(t *testing.T) {
 	assert.Equal(t, ReleaseTar,
-		`https://github.com/istio/istio/releases/download/`+patchVersion+`/istio-`+patchVersion+`-linux-amd64.tar.gz`,
+		`https://github.com/istio/istio/releases/download/`+patchVersion+`/istio-`+patchVersion+`-`+buildOS+`-`+
+			buildArch+`.tar.gz`,
 		"base url should be equal")
 
 	assert.Equal(t, BaseURL, "https://istio.io/", "base url should be equal")
@@ -46,6 +47,7 @@ func TestURL(t *testing.T) {
 	assert.Equal(t, ConfigureSAToken,
 		"https://istio.io/"+DocsVersion+"/docs/ops/best-practices/security/#configure-third-party-service-account-tokens",
 		"ConfigureSAToken url should be equal")
+	assert.Equal(t, ProtocolSelection, "https://istio.io/"+DocsVersion+"/docs/ops/configuration/traffic-management/protocol-selection/")
 
 	assert.Equal(t, ReferenceURL, "https://istio.io/"+DocsVersion+"/docs/reference/", "reference url should be equal")
 	assert.Equal(t, IstioOperatorSpec,

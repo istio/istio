@@ -176,10 +176,6 @@ collections:
     name: "k8s/gateway_api/v1alpha2/tlsroutes"
     group: "gateway.networking.k8s.io"
 
-  - kind: "ReferencePolicy"
-    name: "k8s/gateway_api/v1alpha2/referencepolicies"
-    group: "gateway.networking.k8s.io"
-
   - kind: "ReferenceGrant"
     name: "k8s/gateway_api/v1alpha2/referencegrants"
     group: "gateway.networking.k8s.io"
@@ -315,13 +311,6 @@ resources:
     proto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec"
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus"
-
-  - kind: "ReferencePolicy"
-    plural: "referencepolicies"
-    group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
   - kind: "ReferenceGrant"
     plural: "referencegrants"

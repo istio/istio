@@ -37,7 +37,7 @@ type profileDumpArgs struct {
 	configPath string
 	// outputFormat controls the format of profile dumps
 	outputFormat string
-	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem with a release tgz.
 	manifestsPath string
 }
 

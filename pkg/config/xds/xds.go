@@ -19,12 +19,12 @@ import (
 	"errors"
 	"fmt"
 
-	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -50,7 +50,7 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_FILTER_CHAIN:
 		obj = &listener.FilterChain{}
 	case networking.EnvoyFilter_HTTP_FILTER:
-		obj = &httpConn.HttpFilter{}
+		obj = &hcm.HttpFilter{}
 	case networking.EnvoyFilter_NETWORK_FILTER:
 		obj = &listener.Filter{}
 	case networking.EnvoyFilter_VIRTUAL_HOST:
@@ -60,7 +60,9 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_EXTENSION_CONFIG:
 		obj = &core.TypedExtensionConfig{}
 	case networking.EnvoyFilter_BOOTSTRAP:
-		obj = &bootstrapv3.Bootstrap{}
+		obj = &bootstrap.Bootstrap{}
+	case networking.EnvoyFilter_LISTENER_FILTER:
+		obj = &listener.ListenerFilter{}
 	default:
 		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: stylecheck
 	}

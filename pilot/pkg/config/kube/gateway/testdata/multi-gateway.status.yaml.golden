@@ -26,6 +26,11 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
+    message: Resources available
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
       and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
       to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
@@ -41,6 +46,11 @@ status:
   listeners:
   - attachedRoutes: 0
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts
@@ -67,6 +77,11 @@ status:
       kind: HTTPRoute
   - attachedRoutes: 0
     conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
     - lastTransitionTime: fake
       message: No errors found
       reason: NoConflicts

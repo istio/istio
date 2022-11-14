@@ -18,8 +18,8 @@ import (
 	"os"
 	"testing"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -385,20 +385,20 @@ func yamlConfig(t *testing.T, filename string, forTCP bool) proto.Message {
 		t.Fatalf("failed to read file: %v", err)
 	}
 	if forTCP {
-		out := &tcppb.Filter{}
+		out := &listener.Filter{}
 		if err := protomarshal.ApplyYAML(string(data), out); err != nil {
 			t.Fatalf("failed to parse YAML: %v", err)
 		}
 		return out
 	}
-	out := &httppb.HttpFilter{}
+	out := &hcm.HttpFilter{}
 	if err := protomarshal.ApplyYAML(string(data), out); err != nil {
 		t.Fatalf("failed to parse YAML: %v", err)
 	}
 	return out
 }
 
-func convertHTTP(in []*httppb.HttpFilter) []proto.Message {
+func convertHTTP(in []*hcm.HttpFilter) []proto.Message {
 	ret := make([]proto.Message, len(in))
 	for i := range in {
 		ret[i] = in[i]
@@ -406,7 +406,7 @@ func convertHTTP(in []*httppb.HttpFilter) []proto.Message {
 	return ret
 }
 
-func convertTCP(in []*tcppb.Filter) []proto.Message {
+func convertTCP(in []*listener.Filter) []proto.Message {
 	ret := make([]proto.Message, len(in))
 	for i := range in {
 		ret[i] = in[i]

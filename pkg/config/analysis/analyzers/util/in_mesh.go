@@ -15,7 +15,7 @@
 package util
 
 import (
-	apps_v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
@@ -26,7 +26,7 @@ import (
 
 // DeploymentinMesh returns true if deployment is in the service mesh (has sidecar)
 func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
-	d := r.Message.(*apps_v1.DeploymentSpec)
+	d := r.Message.(*appsv1.DeploymentSpec)
 	return inMesh(d.Template.Annotations, d.Template.Labels,
 		resource.Namespace(r.Metadata.FullName.Namespace.String()), d.Template.Spec.Containers, c)
 }

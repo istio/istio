@@ -62,7 +62,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--local-address-ip-version", "v4",
 		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart",
-		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
+		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
 		"--config-yaml", `{"key": "value"}`,

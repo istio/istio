@@ -27,7 +27,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
@@ -61,6 +61,9 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
+	// OutboundTunnel is HBONE's outbound cluster.
+	OutboundTunnel = "outbound-tunnel"
+
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -131,6 +134,7 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	cidr, err := AddrStrToCidrRange(addr)
 	if err != nil {
 		log.Errorf("failed to convert address %s to CidrRange: %v", addr, err)
+		return nil
 	}
 
 	return cidr
@@ -514,6 +518,10 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 	}
 	epTLSMode := ""
 	if ep.Metadata.FilterMetadata != nil {
+		if _, f := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey].GetFields()[model.TunnelLabelShortName]; f {
+			// Tunnel > MTLS
+			return nil, false
+		}
 		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
@@ -679,8 +687,8 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
-	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
 // ByteCount returns a human readable byte format
@@ -710,4 +718,57 @@ func IPv6Compliant(host string) string {
 // DomainName builds the domain name for a given host and port
 func DomainName(host string, port int) string {
 	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+// BuildInternalEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.LocalityLbEndpoints {
+	llb := []*endpoint.LocalityLbEndpoints{{
+		LbEndpoints: []*endpoint.LbEndpoint{BuildInternalLbEndpoint(dest, meta)},
+	}}
+	return llb
+}
+
+// BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
+// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpoint {
+	var endpointID string
+	if tunnel, ok := meta.GetFilterMetadata()["tunnel"]; ok {
+		if dest, ok := tunnel.GetFields()["destination"]; ok {
+			endpointID = dest.GetStringValue()
+		}
+	}
+	address := BuildInternalAddressWithIdentifier(dest, endpointID)
+
+	return &endpoint.LbEndpoint{
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: address,
+			},
+		},
+		Metadata: meta,
+	}
+}
+
+func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
+	return &core.Address{
+		Address: &core.Address_EnvoyInternalAddress{
+			EnvoyInternalAddress: &core.EnvoyInternalAddress{
+				AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+					ServerListenerName: name,
+				},
+				EndpointId: identifier,
+			},
+		},
+	}
+}
+
+func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort int) *structpb.Struct {
+	st, _ := structpb.NewStruct(map[string]interface{}{
+		// ORIGINAL_DST destination address to tunnel on (usually only differs from "destination" by port)
+		"address": net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
+		// logical destination behind the tunnel, on which policy and telemetry will be applied
+		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
+	})
+	return st
 }

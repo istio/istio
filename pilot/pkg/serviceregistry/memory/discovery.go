@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // ServiceController is a mock service controller
@@ -136,12 +137,9 @@ func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
 	sd.AddService(svc)
 	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
 	pushReq := &model.PushRequest{
-		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      kind.ServiceEntry,
-			Name:      string(svc.Hostname),
-			Namespace: svc.Attributes.Namespace,
-		}: {}},
+		Full:           true,
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
+
 		Reason: []model.TriggerReason{model.ServiceUpdate},
 	}
 	sd.XdsUpdater.ConfigUpdate(pushReq)

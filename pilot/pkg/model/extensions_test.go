@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	envoyCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -36,17 +36,17 @@ func TestBuildDataSource(t *testing.T) {
 		url        string
 		wasmPlugin *extensions.WasmPlugin
 
-		expected *envoyCoreV3.AsyncDataSource
+		expected *core.AsyncDataSource
 	}{
 		{
 			url: "file://fake.wasm",
 			wasmPlugin: &extensions.WasmPlugin{
 				Url: "file://fake.wasm",
 			},
-			expected: &envoyCoreV3.AsyncDataSource{
-				Specifier: &envoyCoreV3.AsyncDataSource_Local{
-					Local: &envoyCoreV3.DataSource{
-						Specifier: &envoyCoreV3.DataSource_Filename{
+			expected: &core.AsyncDataSource{
+				Specifier: &core.AsyncDataSource_Local{
+					Local: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
 							Filename: "fake.wasm",
 						},
 					},
@@ -58,13 +58,13 @@ func TestBuildDataSource(t *testing.T) {
 			wasmPlugin: &extensions.WasmPlugin{
 				Sha256: "fake-sha256",
 			},
-			expected: &envoyCoreV3.AsyncDataSource{
-				Specifier: &envoyCoreV3.AsyncDataSource_Remote{
-					Remote: &envoyCoreV3.RemoteDataSource{
-						HttpUri: &envoyCoreV3.HttpUri{
+			expected: &core.AsyncDataSource{
+				Specifier: &core.AsyncDataSource_Remote{
+					Remote: &core.RemoteDataSource{
+						HttpUri: &core.HttpUri{
 							Uri:     "oci://ghcr.io/istio/fake-wasm:latest",
 							Timeout: durationpb.New(30 * time.Second),
-							HttpUpstreamType: &envoyCoreV3.HttpUri_Cluster{
+							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: "_",
 							},
 						},

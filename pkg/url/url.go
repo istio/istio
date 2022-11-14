@@ -16,17 +16,22 @@ package url
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/operator/version"
+	buildversion "istio.io/pkg/version"
 )
 
 var (
 	v            = version.OperatorBinaryVersion
 	baseVersion  = v.MinorVersion.String()
 	patchVersion = v.PatchVersion.String()
+	buildArch    = buildversion.DockerInfo.Arch
+	buildOS      = buildversion.DockerInfo.OS
 
 	// ReleaseTar is a URL to download latest istio version from Github release
-	ReleaseTar = `https://github.com/istio/istio/releases/download/` + patchVersion + `/istio-` + patchVersion + `-linux-amd64.tar.gz`
+	releasePackageName = fmt.Sprintf("istio-%s.tar.gz", strings.Join([]string{patchVersion, buildOS, buildArch}, "-"))
+	ReleaseTar         = `https://github.com/istio/istio/releases/download/` + patchVersion + `/` + releasePackageName
 )
 
 // istio.io related URLs
@@ -84,6 +89,10 @@ var (
 	// ConfigureSAToken should generate
 	// https://istio.io/v1.7/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
 	ConfigureSAToken = fmt.Sprintf("%s%s", OpsURL, "best-practices/security/#configure-third-party-service-account-tokens")
+
+	// ProtocolSelection should generate
+	// https://istio.io/v1.15/docs/ops/configuration/traffic-management/protocol-selection/
+	ProtocolSelection = fmt.Sprintf("%s%s", OpsURL, "configuration/traffic-management/protocol-selection/")
 
 	// #####################################
 	// Reference related URLs for istio.io

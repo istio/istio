@@ -16,7 +16,7 @@ package xds_test
 import (
 	"testing"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -79,7 +79,7 @@ func TestNDS(t *testing.T) {
 
 			ads := s.ConnectADS().WithType(v3.NameTableType)
 			res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
-				Node: &corev3.Node{
+				Node: &core.Node{
 					Id:       ads.ID,
 					Metadata: tt.meta.ToStruct(),
 				},

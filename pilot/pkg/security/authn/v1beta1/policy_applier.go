@@ -22,7 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -59,7 +59,7 @@ type v1beta1PolicyApplier struct {
 	push *model.PushContext
 }
 
-func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
@@ -69,9 +69,9 @@ func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	if filterConfigProto == nil {
 		return nil
 	}
-	return &http_conn.HttpFilter{
+	return &hcm.HttpFilter{
 		Name:       authn_model.EnvoyJwtFilterName,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
 	}
 }
 
@@ -124,7 +124,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // AuthNFilter returns the Istio authn filter config:
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with request authentication, if applicable.
@@ -139,14 +139,22 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilte
 	// Note: in previous Istio versions, the authn filter also handled PeerAuthentication, to extract principal.
 	// This has been modified to rely on the TCP filter
 
-	return &http_conn.HttpFilter{
+	return &hcm.HttpFilter{
 		Name:       authn_model.AuthnFilterName,
-		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) authn.MTLSSettings {
-	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
+func (a *v1beta1PolicyApplier) InboundMTLSSettings(
+	endpointPort uint32,
+	node *model.Proxy,
+	trustDomainAliases []string,
+	modeOverride model.MutualTLSMode,
+) authn.MTLSSettings {
+	effectiveMTLSMode := modeOverride
+	if effectiveMTLSMode == model.MTLSUnknown {
+		effectiveMTLSMode = a.GetMutualTLSModeForPort(endpointPort)
+	}
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	var mc *meshconfig.MeshConfig
 	if a.push != nil {

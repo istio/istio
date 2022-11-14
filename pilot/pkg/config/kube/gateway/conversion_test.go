@@ -380,7 +380,7 @@ func TestReferencePolicy(t *testing.T) {
 		{
 			name: "simple",
 			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
   namespace: default
@@ -405,7 +405,7 @@ spec:
 		{
 			name: "multiple in one",
 			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
   namespace: default
@@ -430,7 +430,7 @@ spec:
 		{
 			name: "multiple",
 			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: ns1
   namespace: default
@@ -444,7 +444,7 @@ spec:
     kind: Secret
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: ns2
   namespace: default
@@ -466,7 +466,7 @@ spec:
 		{
 			name: "same namespace",
 			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
   namespace: default
@@ -488,7 +488,7 @@ spec:
 		{
 			name: "same name",
 			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: ReferencePolicy
+kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
   namespace: default
@@ -584,8 +584,6 @@ func splitInput(configs []config.Config) KubernetesResources {
 			out.TCPRoute = append(out.TCPRoute, c)
 		case gvk.TLSRoute:
 			out.TLSRoute = append(out.TLSRoute, c)
-		case gvk.ReferencePolicy:
-			out.ReferencePolicy = append(out.ReferencePolicy, c)
 		case gvk.ReferenceGrant:
 			out.ReferenceGrant = append(out.ReferenceGrant, c)
 		}

@@ -246,15 +246,6 @@ var httpDNSRR = &config.Config{
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
 				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
-			{
-				Address: "api-v2.istio.io",
-				Ports:   map[string]uint32{"http-port": 1080},
-				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
-			{
-				Address: "api-v3.istio.io",
-				Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
@@ -451,6 +442,41 @@ var dnsSelector = &config.Config{
 			Labels: map[string]string{"app": "dns-wle"},
 		},
 		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
+// Service Entry with DNSRoundRobinLB
+var dnsRoundRobinLBSE1 = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-round-robin-1",
+		Namespace:         "dns",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.Port{
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+	},
+}
+
+var dnsRoundRobinLBSE2 = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-round-robin-2",
+		Namespace:         "dns",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.Port{
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 	},
 }
 

@@ -3028,6 +3028,7 @@ spec:
                       - CLUSTER
                       - EXTENSION_CONFIG
                       - BOOTSTRAP
+                      - LISTENER_FILTER
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -3112,6 +3113,9 @@ spec:
                                   description: Applies only to `SIDECAR_INBOUND` context.
                                   type: string
                               type: object
+                            listenerFilter:
+                              description: Match a specific listener filter.
+                              type: string
                             name:
                               description: Match a specific listener by its name.
                               type: string
@@ -3579,7 +3583,7 @@ spec:
       jsonPath: .spec.location
       name: Location
       type: string
-    - description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    - description: Service resolution mode for the hosts (NONE, STATIC, or DNS)
       jsonPath: .spec.resolution
       name: Resolution
       type: string
@@ -3665,7 +3669,7 @@ spec:
                   type: object
                 type: array
               resolution:
-                description: Service discovery mode for the hosts.
+                description: Service resolution mode for the hosts.
                 enum:
                 - NONE
                 - STATIC
@@ -3703,7 +3707,7 @@ spec:
       jsonPath: .spec.location
       name: Location
       type: string
-    - description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    - description: Service resolution mode for the hosts (NONE, STATIC, or DNS)
       jsonPath: .spec.resolution
       name: Resolution
       type: string
@@ -3789,7 +3793,7 @@ spec:
                   type: object
                 type: array
               resolution:
-                description: Service discovery mode for the hosts.
+                description: Service resolution mode for the hosts.
                 enum:
                 - NONE
                 - STATIC

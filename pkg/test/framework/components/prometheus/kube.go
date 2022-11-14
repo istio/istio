@@ -27,7 +27,7 @@ import (
 	prometheusApi "github.com/prometheus/client_golang/api"
 	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
@@ -110,7 +110,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		}
 		pod := pods[0]
 
-		svc, err := cls.Kube().CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, kubeApiMeta.GetOptions{})
+		svc, err := cls.Kube().CoreV1().Services(cfg.TelemetryNamespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}

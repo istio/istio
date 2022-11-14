@@ -586,3 +586,25 @@ messages:
     level: Warning
     description: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
     template: "This EnvoyFilter does not have a priority and has a relative patch operation (NSTERT_BEFORE/AFTER, REPLACE, MERGE, DELETE) and proxyVersion set which can cause the EnvoyFilter not to be applied during an upgrade. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
+
+  - name: "UnsupportedGatewayAPIVersion"
+    code: IST0156
+    level: Error
+    description: "The Gateway API CRD version is not supported"
+    template: "The Gateway API CRD version %v is lower than the minimum version: %v"
+    args:
+    - name: version
+      type: string
+    - name: minimumVersion
+      type: string
+
+  - name: "InvalidTelemetryProvider"
+    code: IST0157
+    level: Warning
+    description: "The Telemetry with empty providers will be ignored"
+    template: "The Telemetry %v in namespace %q with empty providers will be ignored."
+    args:
+    - name: name
+      type: string
+    - name: namespace
+      type: string

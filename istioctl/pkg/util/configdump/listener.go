@@ -17,20 +17,20 @@ package configdump
 import (
 	"sort"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetDynamicListenerDump retrieves a listener dump with just dynamic active listeners in it
-func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.ListenersConfigDump, error) {
+func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*admin.ListenersConfigDump, error) {
 	listenerDump, err := w.GetListenerConfigDump()
 	if err != nil {
 		return nil, err
 	}
 
-	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
+	dal := make([]*admin.ListenersConfigDump_DynamicListener, 0)
 	for _, l := range listenerDump.DynamicListeners {
 		// If a listener was reloaded, it would contain both the active and draining state
 		// delete the draining state for proper comparison
@@ -64,16 +64,16 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 			dal[i].Name = "" // In Istio 1.5, Envoy creates this; suppress it
 		}
 	}
-	return &adminapi.ListenersConfigDump{DynamicListeners: dal}, nil
+	return &admin.ListenersConfigDump{DynamicListeners: dal}, nil
 }
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump
-func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error) {
+func (w *Wrapper) GetListenerConfigDump() (*admin.ListenersConfigDump, error) {
 	listenerDumpAny, err := w.getSection(listeners)
 	if err != nil {
 		return nil, err
 	}
-	listenerDump := &adminapi.ListenersConfigDump{}
+	listenerDump := &admin.ListenersConfigDump{}
 	err = listenerDumpAny.UnmarshalTo(listenerDump)
 	if err != nil {
 		return nil, err

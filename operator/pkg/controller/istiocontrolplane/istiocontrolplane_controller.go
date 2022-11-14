@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -166,9 +165,11 @@ var (
 
 	operatorPredicates = predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
+			metrics.IncrementReconcileRequest("create")
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
+			metrics.IncrementReconcileRequest("delete")
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -182,11 +183,18 @@ var (
 				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
 			}
-			if !reflect.DeepEqual(oldIOP.Spec, newIOP.Spec) ||
-				oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() ||
-				oldIOP.GetGeneration() != newIOP.GetGeneration() {
+
+			if oldIOP.GetDeletionTimestamp() != newIOP.GetDeletionTimestamp() {
+				metrics.IncrementReconcileRequest("update_deletion_timestamp")
 				return true
 			}
+
+			if oldIOP.GetGeneration() != newIOP.GetGeneration() {
+				metrics.IncrementReconcileRequest("update_generation")
+				return true
+			}
+
+			// if generation unchanged, spec also unchanged
 			return false
 		},
 	}
@@ -365,9 +373,11 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, helmReconcilerOptions)
 	if err != nil {
+		scope.Errorf("Error during reconcile. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 	if err := reconciler.SetStatusBegin(); err != nil {
+		scope.Errorf("Error during reconcile, failed to update status to Begin. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 	status, err := reconciler.Reconcile()
@@ -375,6 +385,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		scope.Errorf("Error during reconcile: %s", err)
 	}
 	if err := reconciler.SetStatusComplete(status); err != nil {
+		scope.Errorf("Error during reconcile, failed to update status to Complete. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 
