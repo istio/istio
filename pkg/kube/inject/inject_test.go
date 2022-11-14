@@ -309,7 +309,7 @@ func TestInjection(t *testing.T) {
 			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
 		},
 		{
-			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			// Verifies ISTIO_KUBE_APP_PROBERS are correctly merged during multiple injections.
 			in:   "merge-probers.yaml",
 			want: "merge-probers.yaml.injected",
 			setFlags: []string{

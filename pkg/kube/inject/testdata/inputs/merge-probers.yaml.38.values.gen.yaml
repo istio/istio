@@ -52,7 +52,7 @@
       "excludeOutboundPorts": "",
       "holdApplicationUntilProxyStarts": true,
       "image": "proxyv2",
-      "includeIPRanges": "129.1.2.3/32",
+      "includeIPRanges": "*",
       "includeInboundPorts": "*",
       "includeOutboundPorts": "",
       "logLevel": "warning",
