@@ -47,6 +47,8 @@ type unweightedLeastRequest struct {
 	r *rand.Rand
 }
 
+// nolint: gosec
+// Test only code
 func newUnweightedLeastRequest(conn *weightedConnections) network.Connection {
 	return &unweightedLeastRequest{
 		weightedConnections: conn,

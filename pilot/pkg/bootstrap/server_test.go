@@ -552,6 +552,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 
+			// nolint: gosec // test only code
 			httpsReadyClient := &http.Client{
 				Timeout: time.Second,
 				Transport: &http.Transport{
