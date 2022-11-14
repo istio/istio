@@ -712,7 +712,6 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		return out, nil
 	}
 
-
 	pod := &corev1.Pod{
 		ObjectMeta: *metadata,
 		Spec:       *podSpec,

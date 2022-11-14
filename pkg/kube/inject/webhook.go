@@ -420,7 +420,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			return nil, err
 		}
 	}
-	 _, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
+	_, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
 	for _, c := range templatePod.Spec.Containers {
 		// sidecarStatus annotation is added on the pod by webhook. We should use new container template
 		// instead of restoring what maybe previously injected. Doing this ensures we are correctly calculating
