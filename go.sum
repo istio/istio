@@ -82,8 +82,8 @@ github.com/Masterminds/semver/v3 v3.2.0/go.mod h1:qvl/7zhW3nngYb5+80sSMF+FG2BjYr
 github.com/Masterminds/sprig/v3 v3.2.3 h1:eL2fZNezLomi0uOLqjQoN6BfsDD+fyLtgbJMAj9n6YA=
 github.com/Masterminds/sprig/v3 v3.2.3/go.mod h1:rXcFaZ2zZbLRJv/xSysmlgIM1u11eBaRMhvYXJNkGuM=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
-github.com/Nordix/api v0.0.0-20221107164712-4aa3c1ea7485 h1:kNFSoSZKXFZVwW53TchdPZg4Y78bBwQe34exr8lXMiM=
-github.com/Nordix/api v0.0.0-20221107164712-4aa3c1ea7485/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
+github.com/Nordix/api v0.0.0-20221114083657-53e8eedf5fdb h1:QywV+pcLSjeFhd8p8giQMmRBR3/LeQBYcbPotaJtea4=
+github.com/Nordix/api v0.0.0-20221114083657-53e8eedf5fdb/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
@@ -1443,12 +1443,6 @@ istio.io/api v0.0.0-20221113063412-23dd52b23d5a h1:KpKECzQJdZN9nOvpnKVo7EvE7z/UN
 istio.io/api v0.0.0-20221113063412-23dd52b23d5a/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
 istio.io/client-go v1.12.0-alpha.5.0.20221113063831-97fac30fd4f8 h1:lEISPcUEXnDkvSlk8DLPQTIUYGud9Ai1YpDQdX+sxVU=
 istio.io/client-go v1.12.0-alpha.5.0.20221113063831-97fac30fd4f8/go.mod h1:o5C0o7mJTi48i+cHHYhKCxLwbymo2sU5Y8726yyMz7o=
-istio.io/api v0.0.0-20221109211642-7c8dc83e0555 h1:p2DqrzRoVW+ZzUFYMEmjX6B23ml4wEH9IBjphvN5UOY=
-istio.io/api v0.0.0-20221109211642-7c8dc83e0555/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
-istio.io/client-go v1.12.0-alpha.5.0.20221109212442-23681e5ef331 h1:oUpWSz8CzVXrfYHdG+izyAP55bqtBJVFtgxOr6l8X/w=
-istio.io/client-go v1.12.0-alpha.5.0.20221109212442-23681e5ef331/go.mod h1:SHUbA4ekG0woEyXLgXH2BA5Xkeooyo+DXoTpw7q5tEc=
-istio.io/client-go v1.12.0-alpha.5.0.20221106003811-238de72f18c1 h1:rLRzzWHnT/YFem69ikYtAqbPnIFNUvNYPVh0yljpPbc=
-istio.io/client-go v1.12.0-alpha.5.0.20221106003811-238de72f18c1/go.mod h1:ppgOnEXOb0KxWQsD4OD7kxeBfjDmBjXL1hWP7WTtEr8=
 istio.io/pkg v0.0.0-20221031153201-960bb47e80ce h1:02zEXUBorwpjZSNpms4JeLwgKPBt99XSr/YGudxZU2U=
 istio.io/pkg v0.0.0-20221031153201-960bb47e80ce/go.mod h1:1297yENoCcROUAWFZEdwD4VFN8Qa/if1UtzwvVgah7I=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
