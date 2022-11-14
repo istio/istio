@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.18
+go 1.19
 
 // https://github.com/containerd/containerd/issues/5781
 exclude k8s.io/kubernetes v1.13.0
