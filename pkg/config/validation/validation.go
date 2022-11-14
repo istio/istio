@@ -605,6 +605,25 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", sets.SortedList(duplicateCiphers))
 	}
 
+	invalidEcdhCurves := sets.New[string]()
+	validEcdhCurves := sets.New[string]()
+	duplicateEcdhCurves := sets.New[string]()
+	for _, cs := range tls.EcdhCurves {
+		if !security.IsValidEcdhCurve(cs) {
+			invalidEcdhCurves.Insert(cs)
+		} else if validEcdhCurves.InsertContains(cs) {
+			duplicateEcdhCurves.Insert(cs)
+		}
+	}
+
+	if len(invalidEcdhCurves) > 0 {
+		v = appendWarningf(v, "ignoring invalid ecdh curves: %v", sets.SortedList(invalidEcdhCurves))
+	}
+
+	if len(duplicateEcdhCurves) > 0 {
+		v = appendWarningf(v, "ignoring duplicate ecdh curves: %v", sets.SortedList(duplicateEcdhCurves))
+	}
+
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set

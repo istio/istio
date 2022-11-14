@@ -1555,7 +1555,7 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
 				CredentialName: "sds-name",
-				CipherSuites:   []string{"P-256"},
+				EcdhCurves:     []string{"P-256"},
 			},
 			"", "",
 		},
@@ -1564,7 +1564,7 @@ func TestValidateTlsOptions(t *testing.T) {
 			&networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
 				CredentialName: "sds-name",
-				CipherSuites:   []string{"P-256", "P-256"},
+				EcdhCurves:     []string{"P-256", "P-256"},
 			},
 			"", "P-256",
 		},
