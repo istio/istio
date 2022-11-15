@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 41772
+releaseNotes:
+  - |
+    **Added** arguments `--tlsMinVersion`, `--tlsMaxVersion` and `--tlsEcdhCurves` for istiod
+    to configure TLS min/max version and ECDH curves in SDS and webhook servers.
