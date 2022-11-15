@@ -148,7 +148,7 @@ func TestBase64UrlPartDecoding(t *testing.T) {
 	if err != nil {
 		t.Error("Expected DecodeJwtPart success, got failure", err)
 	}
-	if (payloadBytes == nil) {
+	if payloadBytes == nil {
 		t.Error("Expected DecodeJwtPart to return non-nil, got nil")
 	}
 
@@ -157,4 +157,3 @@ func TestBase64UrlPartDecoding(t *testing.T) {
 		t.Errorf("want audience %v but got %v", expectedAud, got)
 	}
 }
-

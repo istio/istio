@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ra"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	"istio.io/istio/security/pkg/util"	
+	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
