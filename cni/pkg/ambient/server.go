@@ -47,14 +47,17 @@ type Server struct {
 
 	meshMode          v1alpha1.MeshConfig_AmbientMeshConfig_AmbientMeshMode
 	disabledSelectors []labels.Selector
-	mu                sync.Mutex
-	ztunnelPod        *corev1.Pod
+	// disabledSelectors can be used to filter objects, but not to marshal. So we have 2 copies:
+	// one that can be marshalled, and one that can select.
+	marshallableDisabledSelectors []*metav1.LabelSelector
+	mu                            sync.Mutex
+	ztunnelPod                    *corev1.Pod
 }
 
 type AmbientConfigFile struct {
-	Mode              string            `json:"mode"`
-	DisabledSelectors []labels.Selector `json:"disabledSelectors"`
-	ZTunnelReady      bool              `json:"ztunnelReady"`
+	Mode              string                  `json:"mode"`
+	DisabledSelectors []*metav1.LabelSelector `json:"disabledSelectors"`
+	ZTunnelReady      bool                    `json:"ztunnelReady"`
 }
 
 func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
@@ -67,11 +70,12 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	}
 	// Set some defaults
 	s := &Server{
-		environment:       e,
-		ctx:               ctx,
-		meshMode:          v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
-		disabledSelectors: ambientpod.LegacySelectors,
-		kubeClient:        client,
+		environment:                   e,
+		ctx:                           ctx,
+		meshMode:                      v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
+		disabledSelectors:             ambientpod.LegacySelectors,
+		marshallableDisabledSelectors: ambientpod.LegacyLabelSelector,
+		kubeClient:                    client,
 	}
 
 	// We need to find our Host IP -- is there a better way to do this?
@@ -89,26 +93,14 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	if s.environment.Mesh().AmbientMesh != nil {
 		s.mu.Lock()
 		s.meshMode = s.environment.Mesh().AmbientMesh.Mode
-		s.disabledSelectors = convertDisabledSelectors(s.environment.Mesh().AmbientMesh.DisabledSelectors)
+		s.disabledSelectors = ambientpod.ConvertDisabledSelectors(s.environment.Mesh().AmbientMesh.DisabledSelectors)
+		s.marshallableDisabledSelectors = s.environment.Mesh().AmbientMesh.DisabledSelectors
 		s.mu.Unlock()
 	}
 
 	s.UpdateConfig()
 
 	return s, nil
-}
-
-func convertDisabledSelectors(selectors []*metav1.LabelSelector) []labels.Selector {
-	res := make([]labels.Selector, 0, len(selectors))
-	for _, k := range selectors {
-		s, err := metav1.LabelSelectorAsSelector(k)
-		if err != nil {
-			log.Errorf("failed to convert label selector: %v", err)
-			continue
-		}
-		res = append(res, s)
-	}
-	return res
 }
 
 func (s *Server) isZTunnelRunning() bool {
@@ -149,7 +141,7 @@ func (s *Server) UpdateConfig() {
 
 	cfg := &AmbientConfigFile{
 		Mode:              s.meshMode.String(),
-		DisabledSelectors: s.disabledSelectors,
+		DisabledSelectors: s.marshallableDisabledSelectors,
 		ZTunnelReady:      s.isZTunnelRunning(),
 	}
 
