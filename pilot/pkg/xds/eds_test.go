@@ -163,7 +163,7 @@ func TestSAUpdate(t *testing.T) {
 	}
 	transport := &tls.UpstreamTlsContext{}
 	ads.GetEdsClusters()["outbound|80||test1"].GetTransportSocketMatches()[0].GetTransportSocket().GetTypedConfig().UnmarshalTo(transport)
-	sans := transport.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() //nolint: staticcheck
+	sans := transport.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchTypedSubjectAltNames() //nolint: staticcheck
 	if len(sans) != 1 {
 		t.Fatalf("expected 1 san, got %v", sans)
 	}

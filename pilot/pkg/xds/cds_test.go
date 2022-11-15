@@ -215,8 +215,8 @@ func TestSAN(t *testing.T) {
 				tl := xdstest.UnmarshalAny[tls.UpstreamTlsContext](t, cluster.GetTransportSocket().GetTypedConfig())
 				names := sets.New[string]()
 				// nolint: staticcheck
-				for _, n := range tl.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() {
-					names.Insert(n.GetExact())
+				for _, n := range tl.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchTypedSubjectAltNames() {
+					names.Insert(n.Matcher.GetExact())
 				}
 				assert.Equal(t, sets.SortedList(names), sets.SortedList(sets.New(sans...)))
 			}
