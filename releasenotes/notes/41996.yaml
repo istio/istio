@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+- 41763
+releaseNotes:
+- |
+  **Added** support for `reporting_interval`.

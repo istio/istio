@@ -130,9 +130,14 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 	return telemetries, nil
 }
 
+// Reporting interval allows configuration of the time between calls out to for metrics reporting.
+// This currently only supports TCP metrics, we may use this for long duration HTTP streams in the future.
+var statsReportingInterval = durationpb.New(5 * time.Second)
+
 type metricsConfig struct {
-	ClientMetrics []metricsOverride
-	ServerMetrics []metricsOverride
+	ClientMetrics     []metricsOverride
+	ServerMetrics     []metricsOverride
+	ReportingInterval *durationpb.Duration
 }
 
 type telemetryFilterConfig struct {
@@ -655,12 +660,19 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
 	disabledAllMetricsProviders := sets.New[string]()
+	reportingIntervals := map[string]*durationpb.Duration{}
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		// If providers is not set, use parent's
 		if len(providerNames) == 0 {
 			providerNames = parentProviders
 		}
+
+		reportInterval := statsReportingInterval
+		if m.ReportingInterval != nil {
+			reportInterval = m.ReportingInterval
+		}
+
 		parentProviders = providerNames
 		for _, provider := range providerNames {
 			if !inScopeProviders.Contains(provider) {
@@ -668,6 +680,8 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 				// This occurs when a top level provider is later disabled by a lower level
 				continue
 			}
+
+			reportingIntervals[provider] = reportInterval
 			if _, f := providers[provider]; !f {
 				providers[provider] = map[tpb.WorkloadMode]map[string]metricOverride{
 					tpb.WorkloadMode_CLIENT: {},
@@ -756,12 +770,14 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 				default:
 					tmm.ServerMetrics = append(tmm.ServerMetrics, mo)
 				}
+
 				processed[provider] = tmm
 			}
 		}
 
 		// Keep order deterministic
 		tmm := processed[provider]
+		tmm.ReportingInterval = reportingIntervals[provider]
 		sort.Slice(tmm.ServerMetrics, func(i, j int) bool {
 			return tmm.ServerMetrics[i].Name < tmm.ServerMetrics[j].Name
 		})
@@ -1013,6 +1029,7 @@ var metricToPrometheusMetric = map[string]string{
 func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
+		TcpReportingDuration:      metricsCfg.ReportingInterval,
 	}
 	for _, override := range metricsCfg.MetricsForClass(class) {
 		metricName, f := metricToPrometheusMetric[override.Name]
