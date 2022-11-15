@@ -590,6 +590,133 @@ func TestIstiodCipherSuites(t *testing.T) {
 	}
 }
 
+func TestIstiodECDHCurves(t *testing.T) {
+	cases := []struct {
+		name          string
+		serverCurves  []tls.CurveID
+		clientCurves  []tls.CurveID
+		tlsVersion    uint16
+		expectSuccess bool
+	}{
+		{
+			name:          "default ECDH curves",
+			tlsVersion:    tls.VersionTLS12,
+			expectSuccess: true,
+		},
+		{
+			name:          "client and istiod ECDH curves match (TLS v1.2)",
+			serverCurves:  []tls.CurveID{tls.CurveP384, tls.CurveP521},
+			clientCurves:  []tls.CurveID{tls.CurveP521, tls.X25519},
+			tlsVersion:    tls.VersionTLS12,
+			expectSuccess: true,
+		},
+		{
+			name:          "client and istiod ECDH curves mismatch (TLS v1.2)",
+			serverCurves:  []tls.CurveID{tls.CurveP384},
+			clientCurves:  []tls.CurveID{tls.CurveP521},
+			tlsVersion:    tls.VersionTLS12,
+			expectSuccess: true,
+		},
+		{
+			name:          "client and istiod ECDH curves mismatch (TLS v1.3)",
+			serverCurves:  []tls.CurveID{tls.CurveP384, tls.CurveP521},
+			clientCurves:  []tls.CurveID{tls.CurveP521, tls.X25519},
+			tlsVersion:    tls.VersionTLS13,
+			expectSuccess: true,
+		},
+		{
+			name:          "client and istiod ECDH curves mismatch (TLS v1.3)",
+			serverCurves:  []tls.CurveID{tls.CurveP384},
+			clientCurves:  []tls.CurveID{tls.CurveP521},
+			tlsVersion:    tls.VersionTLS13,
+			expectSuccess: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir := t.TempDir()
+
+			port, err := findFreePort()
+			if err != nil {
+				t.Errorf("unable to find a free port: %v", err)
+				return
+			}
+
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+					HTTPSAddr:      fmt.Sprintf(":%d", port),
+					TLSOptions: TLSOptions{
+						ECDHCurves: c.serverCurves,
+						MinVersion: c.tlsVersion,
+						MaxVersion: c.tlsVersion,
+					},
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeConfig: "config",
+					FileDir:    configDir,
+				}
+
+				// Include all of the default plugins
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
+			g.Expect(err).To(Succeed())
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			// nolint: gosec // test only code
+			httpsReadyClient := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+						CurvePreferences:   c.clientCurves,
+						MinVersion:         c.tlsVersion,
+						MaxVersion:         c.tlsVersion,
+					},
+				},
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				req := &http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Scheme: "https",
+						Host:   s.httpsServer.Addr,
+						Path:   HTTPSHandlerReadyPath,
+					},
+				}
+				response, err := httpsReadyClient.Do(req)
+				if c.expectSuccess && err != nil {
+					return fmt.Errorf("expect success but got err %v", err)
+				}
+				if !c.expectSuccess && err == nil {
+					return fmt.Errorf("expect failure but succeeded")
+				}
+				if response != nil {
+					response.Body.Close()
+				}
+				return nil
+			})
+		})
+	}
+}
+
 func TestInitOIDC(t *testing.T) {
 	tests := []struct {
 		name      string
