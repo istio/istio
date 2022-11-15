@@ -606,6 +606,11 @@ func addUint32(left, right uint32) (uint32, bool) {
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*cluster.Cluster, 0, 2)
+	// There is an usage doc here:
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
+	// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
+	// https://github.com/envoyproxy/envoy/issues/9811
+	// https://github.com/envoyproxy/envoy/pull/22639
 	if features.EnableDualStack {
 		inboundPassthroughClusterForDS := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterForDS.Name = util.InboundPassthroughClusterDualStack
