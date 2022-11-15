@@ -181,6 +181,10 @@ func addFlags(c *cobra.Command) {
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.TLSMaxVersion, "tlsMaxVersion", "TLSv1_3",
 		"Maximum TLS version used in exposed SDS and webhook severs. "+
 			"Allowed values are: TLSv1_0, TLSv1_1, TLSv1_2, TLSv1_3. TLSv1_3 is used by default.")
+	c.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSECDHCurves, "tlsEcdhCurves", nil,
+		"Comma-separated list of cipher suites for SDS and webhook servers. "+
+			"If omitted, the default Go ECDH curves will be used. \n"+
+			"Allowed values are: P-256, P-384, P-521, X25519")
 	c.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCipherSuites, "tls-cipher-suites", nil,
 		"Comma-separated list of cipher suites for istiod TLS server. "+
 			"If omitted, the default Go cipher suites will be used. \n"+

@@ -109,10 +109,12 @@ type TLSOptions struct {
 	TLSMinVersion   string
 	TLSMaxVersion   string
 	TLSCipherSuites []string
+	TLSECDHCurves   []string
 	// Parsed settings
 	MinVersion   uint16
 	MaxVersion   uint16
 	CipherSuites []uint16
+	ECDHCurves   []tls.CurveID
 }
 
 var (
@@ -154,12 +156,6 @@ func (p *PilotArgs) applyDefaults() {
 }
 
 func (p *PilotArgs) Complete() error {
-	cipherSuites, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
-	if err != nil {
-		return err
-	}
-	p.ServerOptions.TLSOptions.CipherSuites = cipherSuites
-
 	minVersion, err := TLSVersion(p.ServerOptions.TLSOptions.TLSMinVersion)
 	if err != nil {
 		return err
@@ -171,6 +167,18 @@ func (p *PilotArgs) Complete() error {
 		return err
 	}
 	p.ServerOptions.TLSOptions.MaxVersion = maxVersion
+
+	cipherSuites, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.CipherSuites = cipherSuites
+
+	ecdhCurves, err := TLSECDHCurves(p.ServerOptions.TLSOptions.TLSECDHCurves)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.ECDHCurves = ecdhCurves
 
 	return nil
 }
@@ -203,6 +211,29 @@ func TLSCipherSuites(cipherNames []string) ([]uint16, error) {
 	return ciphersIntSlice, nil
 }
 
+// TLSECDHCurves returns a list of ECDH curve IDs from the curve names passed.
+func TLSECDHCurves(ecdhCurves []string) ([]tls.CurveID, error) {
+	if len(ecdhCurves) == 0 {
+		return nil, nil
+	}
+	ecdhCurveIDs := make([]tls.CurveID, 0)
+	allowedCurves := map[string]tls.CurveID{
+		"P-256":  tls.CurveP256,
+		"P-384":  tls.CurveP384,
+		"P-521":  tls.CurveP521,
+		"X25519": tls.X25519,
+	}
+	for _, curve := range ecdhCurves {
+		curveID, ok := allowedCurves[curve]
+		if !ok {
+			return nil, fmt.Errorf("ECDH curve %s is not supported or does not exist", curve)
+		}
+		ecdhCurveIDs = append(ecdhCurveIDs, curveID)
+	}
+	return ecdhCurveIDs, nil
+}
+
+// TLSVersion returns an uint16 code of a given TLS version in string format.
 func TLSVersion(tlsVersion string) (uint16, error) {
 	switch tlsVersion {
 	case "TLSv1_0":

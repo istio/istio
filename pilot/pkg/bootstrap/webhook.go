@@ -64,10 +64,11 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		ErrorLog: log.New(&httpServerErrorLogWriter{}, "", 0),
 		Handler:  s.httpsMux,
 		TLSConfig: &tls.Config{
-			GetCertificate: s.getIstiodCertificate,
-			MinVersion:     args.ServerOptions.TLSOptions.MinVersion,
-			MaxVersion:     args.ServerOptions.TLSOptions.MaxVersion,
-			CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
+			GetCertificate:   s.getIstiodCertificate,
+			MinVersion:       args.ServerOptions.TLSOptions.MinVersion,
+			MaxVersion:       args.ServerOptions.TLSOptions.MaxVersion,
+			CipherSuites:     args.ServerOptions.TLSOptions.CipherSuites,
+			CurvePreferences: args.ServerOptions.TLSOptions.ECDHCurves,
 		},
 	}
 
