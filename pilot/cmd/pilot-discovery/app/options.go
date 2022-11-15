@@ -57,6 +57,9 @@ func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 	if _, err := bootstrap.TLSVersion(serverArgs.ServerOptions.TLSOptions.TLSMinVersion); err != nil {
 		return err
 	}
+	if _, err := bootstrap.TLSVersion(serverArgs.ServerOptions.TLSOptions.TLSMaxVersion); err != nil {
+		return err
+	}
 
 	// TODO: add validation for other flags
 	return nil

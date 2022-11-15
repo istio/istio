@@ -66,6 +66,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		TLSConfig: &tls.Config{
 			GetCertificate: s.getIstiodCertificate,
 			MinVersion:     args.ServerOptions.TLSOptions.MinVersion,
+			MaxVersion:     args.ServerOptions.TLSOptions.MaxVersion,
 			CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
 		},
 	}

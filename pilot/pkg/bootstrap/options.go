@@ -107,9 +107,12 @@ type TLSOptions struct {
 	CertFile        string
 	KeyFile         string
 	TLSMinVersion   string
-	MinVersion      uint16
+	TLSMaxVersion   string
 	TLSCipherSuites []string
-	CipherSuites    []uint16 // This is the parsed cipher suites
+	// Parsed settings
+	MinVersion   uint16
+	MaxVersion   uint16
+	CipherSuites []uint16
 }
 
 var (
@@ -162,6 +165,12 @@ func (p *PilotArgs) Complete() error {
 		return err
 	}
 	p.ServerOptions.TLSOptions.MinVersion = minVersion
+
+	maxVersion, err := TLSVersion(p.ServerOptions.TLSOptions.TLSMaxVersion)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.MaxVersion = maxVersion
 
 	return nil
 }
