@@ -51,6 +51,8 @@ func NewHTTPFetcher(requestTimeout time.Duration, requestMaxRetry int) *HTTPFetc
 		requestTimeout = 5 * time.Second
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// nolint: gosec
+	// This is only when a user explicitly sets a flag to enable insecure mode
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	return &HTTPFetcher{
 		client: &http.Client{

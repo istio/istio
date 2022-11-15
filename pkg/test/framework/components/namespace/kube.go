@@ -37,6 +37,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+// nolint: gosec
+// Test only code
 var (
 	idctr int64
 	rnd   = rand.New(rand.NewSource(time.Now().UnixNano()))

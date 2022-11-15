@@ -94,6 +94,7 @@ func tlsOptions(t *testing.T) grpc.ServerOption {
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tls.VerifyClientCertIfGiven,
 		ClientCAs:    peerCertVerifier.GetGeneralCertPool(),
+		MinVersion:   tls.VersionTLS12,
 	}))
 }
 

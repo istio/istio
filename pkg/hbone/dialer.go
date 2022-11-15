@@ -164,7 +164,7 @@ func tlsDial(ctx context.Context, netDialer Dialer, network, addr string, config
 	hostname := addr[:colonPos]
 
 	if config == nil {
-		config = &tls.Config{}
+		config = &tls.Config{MinVersion: tls.VersionTLS12}
 	}
 	// If no ServerName is set, infer the ServerName
 	// from the hostname we're connecting to.

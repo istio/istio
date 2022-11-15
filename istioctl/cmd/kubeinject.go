@@ -91,7 +91,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 			return nil, err
 		}
 	}
-	tlsClientConfig := &tls.Config{RootCAs: certPool}
+	tlsClientConfig := &tls.Config{RootCAs: certPool, MinVersion: tls.VersionTLS12}
 	client := http.Client{
 		Timeout: time.Second * 5,
 		Transport: &http.Transport{

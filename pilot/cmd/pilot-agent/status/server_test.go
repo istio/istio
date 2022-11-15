@@ -900,6 +900,7 @@ func TestHttpsAppProbe(t *testing.T) {
 		serverTLSConfig := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   alpn,
+			MinVersion:   tls.VersionTLS12,
 		}
 		tlsListener := tls.NewListener(listener, serverTLSConfig)
 		h := &handler{lastAlpn: atomic.NewString("")}

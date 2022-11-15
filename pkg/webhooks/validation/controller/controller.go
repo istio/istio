@@ -41,7 +41,6 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
@@ -197,21 +196,15 @@ func newController(
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
-	webhookConfigName := util.GetWebhookConfigName(features.ValidationWebhookConfigName, o.Revision, o.WatchedNamespace)
+
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				if features.EnableEnhancedResourceScoping {
-					opts.FieldSelector = fmt.Sprintf("metadata.name=%s", webhookConfigName)
-				}
 				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
-				if features.EnableEnhancedResourceScoping {
-					opts.FieldSelector = fmt.Sprintf("metadata.name=%s", webhookConfigName)
-				}
 				return client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
