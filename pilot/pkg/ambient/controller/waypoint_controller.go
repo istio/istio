@@ -57,7 +57,7 @@ type WaypointProxyController struct {
 	injectConfig func() inject.WebhookConfig
 }
 
-var waypointLog = istiolog.RegisterScope("waypointProxy", "", 0)
+var waypointLog = istiolog.RegisterScope("waypointproxy", "", 0)
 
 func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig) *WaypointProxyController {
 	rc := &WaypointProxyController{
