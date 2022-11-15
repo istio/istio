@@ -85,11 +85,6 @@ func TestValidation(t *testing.T) {
 			}
 
 			for _, cluster := range t.Clusters().Configs() {
-
-				ns := namespace.NewOrFail(t, t, namespace.Config{
-					Prefix: "validation",
-				})
-
 				for i := range dataset {
 					d := dataset[i]
 
@@ -103,6 +98,10 @@ func TestValidation(t *testing.T) {
 						if err != nil {
 							t.Fatalf("Unable to load test data: %v", err)
 						}
+
+						ns := namespace.NewOrFail(t, t, namespace.Config{
+							Prefix: "validation",
+						})
 
 						applyFiles := t.WriteYAMLOrFail(t, "apply", ym)
 						dryRunErr := cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
