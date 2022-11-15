@@ -106,8 +106,10 @@ type TLSOptions struct {
 	CaCertFile      string
 	CertFile        string
 	KeyFile         string
+	TLSMinVersion   string
+	MinVersion      uint16
 	TLSCipherSuites []string
-	CipherSuits     []uint16 // This is the parsed cipher suites
+	CipherSuites    []uint16 // This is the parsed cipher suites
 }
 
 var (
@@ -149,11 +151,18 @@ func (p *PilotArgs) applyDefaults() {
 }
 
 func (p *PilotArgs) Complete() error {
-	cipherSuits, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
+	cipherSuites, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
 	if err != nil {
 		return err
 	}
-	p.ServerOptions.TLSOptions.CipherSuits = cipherSuits
+	p.ServerOptions.TLSOptions.CipherSuites = cipherSuites
+
+	minVersion, err := TLSVersion(p.ServerOptions.TLSOptions.TLSMinVersion)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.MinVersion = minVersion
+
 	return nil
 }
 
@@ -183,4 +192,19 @@ func TLSCipherSuites(cipherNames []string) ([]uint16, error) {
 		ciphersIntSlice = append(ciphersIntSlice, intValue)
 	}
 	return ciphersIntSlice, nil
+}
+
+func TLSVersion(tlsVersion string) (uint16, error) {
+	switch tlsVersion {
+	case "TLSv1_0":
+		return tls.VersionTLS10, nil
+	case "TLSv1_1":
+		return tls.VersionTLS11, nil
+	case "TLSv1_2":
+		return tls.VersionTLS12, nil
+	case "TLSv1_3":
+		return tls.VersionTLS13, nil
+	default:
+		return 0, fmt.Errorf("TLS version %s is not supported or does not exist", tlsVersion)
+	}
 }

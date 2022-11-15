@@ -51,9 +51,13 @@ func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 	if err := validation.ValidateMaxServerConnectionAge(serverArgs.KeepaliveOptions.MaxServerConnectionAge); err != nil {
 		return err
 	}
-
-	_, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites)
+	if _, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites); err != nil {
+		return err
+	}
+	if _, err := bootstrap.TLSVersion(serverArgs.ServerOptions.TLSOptions.TLSMinVersion); err != nil {
+		return err
+	}
 
 	// TODO: add validation for other flags
-	return err
+	return nil
 }

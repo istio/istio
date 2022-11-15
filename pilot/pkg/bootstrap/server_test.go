@@ -527,7 +527,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 					GRPCAddr:       ":0",
 					HTTPSAddr:      fmt.Sprintf(":%d", port),
 					TLSOptions: TLSOptions{
-						CipherSuits: c.serverCipherSuites,
+						CipherSuites: c.serverCipherSuites,
 					},
 				}
 				p.RegistryOptions = RegistryOptions{

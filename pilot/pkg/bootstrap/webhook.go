@@ -65,8 +65,8 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		Handler:  s.httpsMux,
 		TLSConfig: &tls.Config{
 			GetCertificate: s.getIstiodCertificate,
-			MinVersion:     tls.VersionTLS12,
-			CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
+			MinVersion:     args.ServerOptions.TLSOptions.MinVersion,
+			CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
 		},
 	}
 

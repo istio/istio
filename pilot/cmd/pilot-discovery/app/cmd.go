@@ -175,6 +175,9 @@ func addFlags(c *cobra.Command) {
 		"File containing the x509 Server Certificate")
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.KeyFile, "tlsKeyFile", "",
 		"File containing the x509 private key matching --tlsCertFile")
+	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.TLSMinVersion, "tlsMinVersion", "TLSv1_2",
+		"Minimum TLS version used in exposed SDS and webhook severs. "+
+			"Allowed values are: TLSv1_0, TLSv1_1, TLSv1_2, TLSv1_3. TLSv1_2 is used by default.")
 	c.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCipherSuites, "tls-cipher-suites", nil,
 		"Comma-separated list of cipher suites for istiod TLS server. "+
 			"If omitted, the default Go cipher suites will be used. \n"+

@@ -747,8 +747,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 			}
 			return err
 		},
-		MinVersion:   tls.VersionTLS12,
-		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
+		MinVersion:   args.ServerOptions.TLSOptions.MinVersion,
+		CipherSuites: args.ServerOptions.TLSOptions.CipherSuites,
 	}
 
 	tlsCreds := credentials.NewTLS(cfg)
