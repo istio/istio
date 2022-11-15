@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -108,10 +109,15 @@ func NewController(
 
 	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
-			gatewayController.namespaceEvent(nil, obj)
+			ns := obj.(*corev1.Namespace)
+			gatewayController.namespaceEvent(nil, ns)
 		},
 		UpdateFunc: func(oldObj, newObj any) {
-			gatewayController.namespaceEvent(oldObj, newObj)
+			oldNs := oldObj.(*corev1.Namespace)
+			newNs := newObj.(*corev1.Namespace)
+			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
+				gatewayController.namespaceEvent(oldNs, newNs)
+			}
 		},
 	})
 
@@ -312,12 +318,12 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 // when the labels change.
 // Note: we don't handle delete as a delete would also clean up any relevant gateway-api types which will
 // trigger its own event.
-func (c *Controller) namespaceEvent(oldObj any, newObj any) {
+func (c *Controller) namespaceEvent(oldNs, newNs *corev1.Namespace) {
 	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
 	// since we have special logic to always allow this on namespace.
 	touchedNamespaceLabels := sets.New(NamespaceNameLabel)
-	touchedNamespaceLabels.InsertAll(getLabelKeys(oldObj)...)
-	touchedNamespaceLabels.InsertAll(getLabelKeys(newObj)...)
+	touchedNamespaceLabels.InsertAll(getLabelKeys(oldNs)...)
+	touchedNamespaceLabels.InsertAll(getLabelKeys(newNs)...)
 
 	// Next, we find all keys our Gateways actually reference.
 	c.stateMu.RLock()
@@ -334,20 +340,9 @@ func (c *Controller) namespaceEvent(oldObj any, newObj any) {
 }
 
 // getLabelKeys extracts all label keys from a namespace object.
-func getLabelKeys(obj any) []string {
-	if obj == nil {
+func getLabelKeys(ns *corev1.Namespace) []string {
+	if ns == nil {
 		return nil
-	}
-	ns, ok := obj.(*corev1.Namespace)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return nil
-		}
-		ns, ok = tombstone.Obj.(*corev1.Namespace)
-		if !ok {
-			return nil
-		}
 	}
 	keys := make([]string, 0, len(ns.Labels))
 	for k := range ns.Labels {
