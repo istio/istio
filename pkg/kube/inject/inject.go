@@ -45,6 +45,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/pkg/log"
 )
@@ -381,6 +382,11 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	// explicit label takes highest precedence
 	if n, ok := metadata.Labels[label.TopologyNetwork.Name]; ok {
 		network = n
+	}
+
+	// inject the delta xds env variable.
+	if features.DeltaXds {
+		params.proxyEnvs["ISTIO_DELTA_XDS"] = "true"
 	}
 
 	// use network in values for template, and proxy env variables
