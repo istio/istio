@@ -219,6 +219,9 @@ type CLIClient interface {
 
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
+
+	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
+	InvalidateDiscovery()
 }
 
 type PortManager func() (uint16, error)
@@ -1105,11 +1108,15 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 			log.Warnf("Failed to read %s: %v", file, err)
 		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
-			c.discoveryClient.Invalidate()
-			c.mapper.Reset()
+			c.InvalidateDiscovery()
 		}
 	}
 	return nil
+}
+
+func (c *client) InvalidateDiscovery() {
+	c.discoveryClient.Invalidate()
+	c.mapper.Reset()
 }
 
 func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {

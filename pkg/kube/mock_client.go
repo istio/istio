@@ -237,6 +237,10 @@ func (c MockClient) DeleteYAMLFilesDryRun(string, ...string) error {
 	panic("not implemented by mock")
 }
 
+func (c MockClient) InvalidateDiscovery() {
+	panic("not implemented by mock")
+}
+
 func (c MockClient) Ext() clientset.Interface {
 	panic("not implemented by mock")
 }
