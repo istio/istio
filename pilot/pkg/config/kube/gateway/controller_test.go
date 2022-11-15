@@ -233,12 +233,15 @@ func TestNamespaceEvent(t *testing.T) {
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
 
 	ns2.Annotations = map[string]string{"foo": "bar"}
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
 
 	ns1.Labels["bar"] = "foo"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
 
 	ns2.Labels["foo"] = "bar"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
