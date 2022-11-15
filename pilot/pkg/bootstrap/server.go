@@ -736,6 +736,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		return nil
 	}
 	log.Info("initializing secure discovery service")
+	// #nosec G402 - to disable warning "TLS MinVersion too low"
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,

@@ -63,6 +63,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		Addr:     args.ServerOptions.HTTPSAddr,
 		ErrorLog: log.New(&httpServerErrorLogWriter{}, "", 0),
 		Handler:  s.httpsMux,
+		// #nosec G402 - to disable warning "TLS MinVersion too low"
 		TLSConfig: &tls.Config{
 			GetCertificate:   s.getIstiodCertificate,
 			MinVersion:       args.ServerOptions.TLSOptions.MinVersion,
