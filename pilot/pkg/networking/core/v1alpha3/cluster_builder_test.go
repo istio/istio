@@ -1870,7 +1870,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
@@ -1945,7 +1947,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
@@ -2125,7 +2129,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: fmt.Sprintf("file-root:%s", rootCert),
 									SdsConfig: &core.ConfigSource{
@@ -2176,7 +2182,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: fmt.Sprintf("file-root:%s", rootCert),
 									SdsConfig: &core.ConfigSource{
@@ -2227,7 +2235,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: fmt.Sprintf("file-root:%s", rootCert),
 									SdsConfig: &core.ConfigSource{
@@ -2278,7 +2288,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"se-san.com"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"se-san.com"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: fmt.Sprintf("file-root:%s", rootCert),
 									SdsConfig: &core.ConfigSource{
@@ -2431,7 +2443,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
+								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name: fmt.Sprintf("file-root:%s", rootCert),
 									SdsConfig: &core.ConfigSource{
@@ -2483,7 +2497,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
-									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
 								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
@@ -2562,7 +2576,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
-									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
 								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
@@ -2669,7 +2683,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
-									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
 								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
@@ -2712,7 +2726,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
-									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+									MatchTypedSubjectAltNames: util.StringsToSanExactMatchers([]string{"SAN"}),
 								},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
 									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,

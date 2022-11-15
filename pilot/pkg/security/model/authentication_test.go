@@ -177,10 +177,16 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: []*matcher.StringMatcher{
-							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-1.domain" + "/"}},
-							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "some-other-alias-1.domain" + "/"}},
-							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-2.domain" + "/"}},
+						DefaultValidationContext: &auth.CertificateValidationContext{MatchTypedSubjectAltNames: []*auth.SubjectAltNameMatcher{
+							{SanType: auth.SubjectAltNameMatcher_URI, Matcher: &matcher.StringMatcher{
+								MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-1.domain" + "/"},
+							}},
+							{SanType: auth.SubjectAltNameMatcher_URI, Matcher: &matcher.StringMatcher{
+								MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "some-other-alias-1.domain" + "/"},
+							}},
+							{SanType: auth.SubjectAltNameMatcher_URI, Matcher: &matcher.StringMatcher{
+								MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-2.domain" + "/"},
+							}},
 						}},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",

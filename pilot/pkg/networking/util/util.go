@@ -28,6 +28,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
@@ -771,4 +772,21 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
 	})
 	return st
+}
+
+// Create a URI typed SubjectAltNameMatcher per each one of the provided StringMatcher
+func StringMatchersToSanMatchers(stringMatchers []*matcher.StringMatcher) []*auth.SubjectAltNameMatcher {
+	sanMatchers := []*auth.SubjectAltNameMatcher{}
+	for _, matcher := range stringMatchers {
+		sanMatchers = append(sanMatchers, &auth.SubjectAltNameMatcher{
+			SanType: auth.SubjectAltNameMatcher_URI,
+			Matcher: matcher,
+		})
+	}
+	return sanMatchers
+}
+
+// Create a URI typed SubjectAltNameMatcher with an exact string matcher per each one of the provided strings
+func StringsToSanExactMatchers(sans []string) []*auth.SubjectAltNameMatcher {
+	return StringMatchersToSanMatchers(StringToExactMatch(sans))
 }

@@ -239,7 +239,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	if validateClient {
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				DefaultValidationContext: &tls.CertificateValidationContext{
+					MatchTypedSubjectAltNames: util.StringMatchersToSanMatchers(matchSAN),
+				},
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
 			},
 		}
@@ -263,7 +265,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
 	defaultValidationContext := &tls.CertificateValidationContext{
-		MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
+		MatchTypedSubjectAltNames: util.StringsToSanExactMatchers(tlsOpts.SubjectAltNames),
 	}
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
@@ -287,9 +289,9 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 	// at gateway agent. Otherwise, use the static certificate validation context config.
 	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL {
 		defaultValidationContext := &tls.CertificateValidationContext{
-			MatchSubjectAltNames:  util.StringToExactMatch(tlsOpts.SubjectAltNames),
-			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
-			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
+			MatchTypedSubjectAltNames: util.StringsToSanExactMatchers(tlsOpts.SubjectAltNames),
+			VerifyCertificateSpki:     tlsOpts.VerifyCertificateSpki,
+			VerifyCertificateHash:     tlsOpts.VerifyCertificateHash,
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
@@ -301,7 +303,7 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 	} else if len(tlsOpts.SubjectAltNames) > 0 {
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{
-				MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
+				MatchTypedSubjectAltNames: util.StringsToSanExactMatchers(tlsOpts.SubjectAltNames),
 			},
 		}
 	}
