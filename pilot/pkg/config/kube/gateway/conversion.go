@@ -350,26 +350,21 @@ func buildHTTPVirtualServices(
 			}
 		}
 		if zero && vs.Redirect == nil {
-			// The spec requires us to 503 when there are no >0 weight backends
-			vs.Fault = &istio.HTTPFaultInjection{Abort: &istio.HTTPFaultInjection_Abort{
-				Percentage: &istio.Percent{
-					Value: 100,
-				},
-				ErrorType: &istio.HTTPFaultInjection_Abort_HttpStatus{
-					HttpStatus: 503,
-				},
-			}}
-		}
-
-		route, err := buildHTTPDestination(ctx, r.BackendRefs, ns, zero)
-		if err != nil {
-			if isInvalidBackend(err) {
-				invalidBackendErr = err
-			} else {
-				return err
+			// The spec requires us to return 500 when there are no >0 weight backends
+			vs.DirectResponse = &istio.HTTPDirectResponse{
+				Status: 500,
 			}
+		} else {
+			route, err := buildHTTPDestination(ctx, r.BackendRefs, ns, zero)
+			if err != nil {
+				if isInvalidBackend(err) {
+					invalidBackendErr = err
+				} else {
+					return err
+				}
+			}
+			vs.Route = route
 		}
-		vs.Route = route
 
 		httproutes = append(httproutes, vs)
 		return nil
