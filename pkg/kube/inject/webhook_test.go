@@ -1309,10 +1309,12 @@ func TestMergeOrAppendProbers(t *testing.T) {
 			name:               "Append Prober",
 			perviouslyInjected: false,
 			in:                 []corev1.EnvVar{},
-			probers:            `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+			probers: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},` +
+				`"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
 			want: []corev1.EnvVar{{
-				Name:  status.KubeAppProberEnvName,
-				Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+				Name: status.KubeAppProberEnvName,
+				Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},` +
+					`"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
 			}},
 		},
 		{
@@ -1339,8 +1341,9 @@ func TestMergeOrAppendProbers(t *testing.T) {
 					Value: "value1",
 				},
 				{
-					Name:  status.KubeAppProberEnvName,
-					Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+					Name: status.KubeAppProberEnvName,
+					Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},` +
+						`"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
 				},
 				{
 					Name:  "TEST_ENV_VAR2",
