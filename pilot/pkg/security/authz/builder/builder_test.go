@@ -125,7 +125,6 @@ var (
 )
 
 func TestGenerator_GenerateHTTP(t *testing.T) {
-	t.Skip()
 	testCases := []struct {
 		name       string
 		tdBundle   trustdomain.Bundle
@@ -270,7 +269,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 }
 
 func TestGenerator_GenerateTCP(t *testing.T) {
-	t.Skip()
 	testCases := []struct {
 		name       string
 		tdBundle   trustdomain.Bundle

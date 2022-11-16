@@ -13,29 +13,34 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/istio-system/.*
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: .+
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*/ns/foo/sa/all-td
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*-td/ns/foo/sa/prefix-td
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       exact: spiffe://some-trustdomain/ns/foo/sa/prefix-td
   shadowRulesStatPrefix: istio_dry_run_allow_

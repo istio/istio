@@ -77,11 +77,13 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       exact: spiffe://principals1
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       exact: spiffe://principals2
       ns[foo]-policy[httpbin-6]-rule[0]:
         permissions:
@@ -117,13 +119,15 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/namespaces1/.*
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/namespaces2/.*

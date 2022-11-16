@@ -15,8 +15,9 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filter_state:
+                    key: io.istio.peer_principal
+                    string_match:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-1/.*
