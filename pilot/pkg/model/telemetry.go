@@ -668,11 +668,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 			providerNames = parentProviders
 		}
 
-		reportInterval := statsReportingInterval
-		if m.ReportingInterval != nil {
-			reportInterval = m.ReportingInterval
-		}
-
+		reportInterval := m.GetReportingInterval()
 		parentProviders = providerNames
 		for _, provider := range providerNames {
 			if !inScopeProviders.Contains(provider) {
@@ -681,7 +677,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 				continue
 			}
 
-			reportingIntervals[provider] = reportInterval
+			if reportInterval != nil {
+				reportingIntervals[provider] = reportInterval
+			}
+
 			if _, f := providers[provider]; !f {
 				providers[provider] = map[tpb.WorkloadMode]map[string]metricOverride{
 					tpb.WorkloadMode_CLIENT: {},

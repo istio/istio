@@ -597,7 +597,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 	}
 
-	cfg := `{"tcp_reporting_duration":"5s","metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
+	cfg := `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
 
 	tests := []struct {
 		name             string
@@ -660,7 +660,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"tcp_reporting_duration":"5s"}`,
+				"istio.stats": "{}",
 			},
 		},
 		{
