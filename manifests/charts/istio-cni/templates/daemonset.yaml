@@ -43,6 +43,16 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/os: linux
+      # Allows for excluding instio-cni from being scheduled on specified nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: istio.io/exclude-cni
+                operator: NotIn
+                values:
+                - "true"
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule
