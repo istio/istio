@@ -117,8 +117,9 @@ func TestGenerator(t *testing.T) {
 			g:     srcNamespaceGenerator{},
 			value: "foo",
 			want: yamlPrincipal(t, `
-         authenticated:
-          principalName:
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
             safeRegex:
               googleRe2: {}
               regex: .*/ns/foo/.*`),
@@ -129,8 +130,9 @@ func TestGenerator(t *testing.T) {
 			value:  "foo",
 			forTCP: true,
 			want: yamlPrincipal(t, `
-         authenticated:
-          principalName:
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
             safeRegex:
               googleRe2: {}
               regex: .*/ns/foo/.*`),
@@ -141,8 +143,9 @@ func TestGenerator(t *testing.T) {
 			key:   "source.principal",
 			value: "foo",
 			want: yamlPrincipal(t, `
-         authenticated:
-          principalName:
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
             exact: spiffe://foo`),
 		},
 		{
@@ -152,8 +155,9 @@ func TestGenerator(t *testing.T) {
 			value:  "foo",
 			forTCP: true,
 			want: yamlPrincipal(t, `
-         authenticated:
-          principalName:
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
             exact: spiffe://foo`),
 		},
 		{

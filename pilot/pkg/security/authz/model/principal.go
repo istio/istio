@@ -59,9 +59,12 @@ func principalNot(principal *rbacpb.Principal) *rbacpb.Principal {
 
 func principalAuthenticated(name *matcher.StringMatcher) *rbacpb.Principal {
 	return &rbacpb.Principal{
-		Identifier: &rbacpb.Principal_Authenticated_{
-			Authenticated: &rbacpb.Principal_Authenticated{
-				PrincipalName: name,
+		Identifier: &rbacpb.Principal_FilterState{
+			FilterState: &matcher.FilterStateMatcher{
+				Key: "io.istio.peer_principal",
+				Matcher: &matcher.FilterStateMatcher_StringMatch{
+					StringMatch: name,
+				},
 			},
 		},
 	}

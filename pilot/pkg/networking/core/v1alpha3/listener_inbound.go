@@ -845,6 +845,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 
+	filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 	if cc.hbone {
 		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {
@@ -879,6 +880,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 
 	var filters []*listener.Filter
 
+	filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 	if fcc.hbone {
 		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {
