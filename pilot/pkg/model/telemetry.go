@@ -130,10 +130,6 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 	return telemetries, nil
 }
 
-// Reporting interval allows configuration of the time between calls out to for metrics reporting.
-// This currently only supports TCP metrics, we may use this for long duration HTTP streams in the future.
-var statsReportingInterval = durationpb.New(5 * time.Second)
-
 type metricsConfig struct {
 	ClientMetrics     []metricsOverride
 	ServerMetrics     []metricsOverride
