@@ -240,46 +240,46 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       exact: spiffe://principal
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       prefix: spiffe://principal-prefix-
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*-suffix-principal
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
                   ids:
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         exact: spiffe://not-principal
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         prefix: spiffe://not-principal-prefix-
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: spiffe://.*-not-suffix-principal
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .+
@@ -350,54 +350,54 @@ typedConfig:
                             regex: .+
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns/.*
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-prefix-.*/.*
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/.*-ns-suffix/.*
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
                   ids:
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/not-ns/.*
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/not-ns-prefix-.*/.*
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/.*-not-ns-suffix/.*
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/.*/.*
@@ -500,99 +500,99 @@ typedConfig:
                       prefixLen: 24
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns/.*
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-prefix-.*/.*
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/.*-ns-suffix/.*
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
                   ids:
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/not-ns/.*
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/not-ns-prefix-.*/.*
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/.*-not-ns-suffix/.*
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       exact: spiffe://principal
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       prefix: spiffe://principal-prefix-
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*-suffix-principal
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
                   ids:
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         exact: spiffe://not-principal
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         prefix: spiffe://not-principal-prefix-
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: spiffe://.*-not-suffix-principal
-                  - filter_state:
+                  - filterState:
                       key: io.istio.peer_principal
-                      string_match:
+                      stringMatch:
                         safeRegex:
                           googleRe2: {}
                           regex: .+

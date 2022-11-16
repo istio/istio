@@ -14,8 +14,8 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       exact: spiffe://deny
   shadowRulesStatPrefix: istio_dry_run_allow_

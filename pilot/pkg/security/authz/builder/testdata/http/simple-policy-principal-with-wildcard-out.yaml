@@ -13,9 +13,9 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .+
@@ -23,19 +23,19 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*/ns/foo/sa/rule[0]-from[1]-principal[0]
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       exact: spiffe://td1/ns/foo/sa/rule[0]-from[1]-principal[1]
-                - filter_state:
+                - filterState:
                     key: io.istio.peer_principal
-                    string_match:
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*bar/ns/foo/sa/rule[0]-from[1]-principal[1]
