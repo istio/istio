@@ -14,4 +14,4 @@ docs:
 
 releaseNotes:
 - |
-  **Added** Enabled dual stack support behind feature flags ISTIO_DUAL_STACK and ISTIO_AGENT_DUAL_STACK for normal generic service in service mesh.
+  **Added** dual stack support behind feature flags `ISTIO_DUAL_STACK` and `ISTIO_AGENT_DUAL_STACK` for normal generic service in service mesh.
