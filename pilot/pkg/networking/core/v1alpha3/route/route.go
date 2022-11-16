@@ -28,7 +28,6 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/duration"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -465,8 +464,10 @@ func applyHTTPRouteDestination(
 		Cors:        translateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
-
-	setTimeout(action, in.Timeout, node)
+	action.Timeout = features.DefaultRequestTimeout
+	if in.Timeout != nil {
+		action.Timeout = in.Timeout
+	}
 
 	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
 		// return 500 for invalid backends
@@ -1061,13 +1062,8 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	return val
 }
 
-// setTimeout sets timeout for a route.
-func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
-	if vsTimeout != nil {
-		action.Timeout = vsTimeout
-	}
+// SetTimeout sets timeout for a route.
+func SetTimeout(action *route.RouteAction, node *model.Proxy) {
 	if node != nil && node.IsProxylessGrpc() {
 		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
 		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
@@ -1095,7 +1091,7 @@ func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *m
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
-	setTimeout(out.GetRoute(), nil, nil)
+	out.GetRoute().Timeout = features.DefaultRequestTimeout
 	return out
 }
 
