@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** the ability to exclude (opt-out) istio-cni from specified nodes upon installation by adding the istio.io/exclude-cni label to that node and setting to true
