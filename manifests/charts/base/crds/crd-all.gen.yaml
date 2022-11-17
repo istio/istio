@@ -6801,6 +6801,7 @@ spec:
                       type: string
                     jwksUri:
                       type: string
+<<<<<<< HEAD
                     outputClaimToHeaders:
                       description: This field specifies a list of operations to copy
                         the claim to HTTP headers on a successfully verified token.
@@ -6814,6 +6815,8 @@ spec:
                             type: string
                         type: object
                       type: array
+=======
+>>>>>>> e1adac4d0d (policies graduation to v1)
                     outputPayloadToHeader:
                       type: string
                   type: object

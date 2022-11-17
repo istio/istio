@@ -273,7 +273,10 @@ var (
 			Kind:    "AuthorizationPolicy",
 			Plural:  "authorizationpolicies",
 			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			VersionAliases: []string{
+				"v1",
+			},
+			Proto: "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
@@ -309,7 +312,10 @@ var (
 			Kind:    "RequestAuthentication",
 			Plural:  "requestauthentications",
 			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			VersionAliases: []string{
+				"v1",
+			},
+			Proto: "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
