@@ -1037,17 +1037,13 @@ func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *m
 			MaxStreamDuration: action.Timeout,
 		}
 	} else {
-		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
+		// If not configured at all, the grpc-timeout header is not used and
+		// gRPC requests time out like any other requests using timeout or its default.
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
 		if action.Timeout.AsDuration().Nanoseconds() == 0 {
-			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-				MaxStreamDuration:    notimeout,
-				GrpcTimeoutHeaderMax: notimeout,
-			}
+			action.MaxGrpcTimeout = notimeout
 		} else {
-			// If not configured at all, the grpc-timeout header is not used and
-			// gRPC requests time out like any other requests using timeout or its default.
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
 			action.MaxGrpcTimeout = action.Timeout
 		}
 	}
