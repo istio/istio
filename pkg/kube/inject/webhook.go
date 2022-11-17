@@ -497,7 +497,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	return finalPod, nil
 }
 
-// parseStatus converts injected SidecarStatus annotation
+// parseStatus extracts containers from injected SidecarStatus annotation
 func parseStatus(status string) ParsedContainers {
 	parsedContainers := ParsedContainers{}
 	var unMarshalledStatus map[string]interface{}
