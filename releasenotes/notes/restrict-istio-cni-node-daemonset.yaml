@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Added** the ability to exclude (opt-out) istio-cni from specified nodes upon installation by adding the istio.io/exclude-cni label to that node and setting to true
+    **Added** label `istio.io/exclude-cni=true` node affinity to allow excluding istio-cni from being scheduled on specific nodes.
