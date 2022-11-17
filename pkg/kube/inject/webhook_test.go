@@ -1369,8 +1369,9 @@ func TestParseStatus(t *testing.T) {
 		want   ParsedContainers
 	}{
 		{
-			name:   "Regular Containers only",
-			status: `{"containers":["istio-proxy", "random-container"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			name: "Regular Containers only",
+			status: `{"containers":["istio-proxy", "random-container"],` +
+				`"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
 			want: ParsedContainers{
 				Containers: []corev1.Container{
 					{Name: "istio-proxy"},
@@ -1380,8 +1381,9 @@ func TestParseStatus(t *testing.T) {
 			},
 		},
 		{
-			name:   "Init Containers only",
-			status: `{"initContainers":["istio-init", "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			name: "Init Containers only",
+			status: `{"initContainers":["istio-init", "istio-validation"],` +
+				`"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
 			want: ParsedContainers{
 				Containers: []corev1.Container{},
 				InitContainers: []corev1.Container{
@@ -1391,8 +1393,9 @@ func TestParseStatus(t *testing.T) {
 			},
 		},
 		{
-			name:   "All Containers",
-			status: `{"containers":["istio-proxy", "random-container"],"initContainers":["istio-init", "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			name: "All Containers",
+			status: `{"containers":["istio-proxy", "random-container"],"initContainers":["istio-init",` +
+				` "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
 			want: ParsedContainers{
 				Containers: []corev1.Container{
 					{Name: "istio-proxy"},
@@ -1412,7 +1415,6 @@ func TestParseStatus(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			actual := parseStatus(tc.status)
 
 			if !reflect.DeepEqual(actual, tc.want) {
