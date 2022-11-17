@@ -57,7 +57,16 @@ func principalNot(principal *rbacpb.Principal) *rbacpb.Principal {
 	}
 }
 
-func principalAuthenticated(name *matcher.StringMatcher) *rbacpb.Principal {
+func principalAuthenticated(name *matcher.StringMatcher, forGRPC bool) *rbacpb.Principal {
+	if forGRPC {
+		return &rbacpb.Principal{
+			Identifier: &rbacpb.Principal_Authenticated_{
+				Authenticated: &rbacpb.Principal_Authenticated{
+					PrincipalName: name,
+				},
+			},
+		}
+	}
 	return &rbacpb.Principal{
 		Identifier: &rbacpb.Principal_FilterState{
 			FilterState: &matcher.FilterStateMatcher{

@@ -225,7 +225,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
 				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
 			}
-			generated, err := m.Generate(forTCP, action)
+			generated, err := m.Generate(forTCP, false, action)
 			if err != nil {
 				b.logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
 				continue

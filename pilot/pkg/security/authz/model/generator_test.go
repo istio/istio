@@ -289,12 +289,12 @@ func TestGenerator(t *testing.T) {
 					t.Errorf("both permission and principal returned error")
 				}
 			} else if _, ok := tc.want.(*rbacpb.Principal); ok {
-				got, err = tc.g.principal(tc.key, tc.value, tc.forTCP)
+				got, err = tc.g.principal(tc.key, tc.value, tc.forTCP, false)
 				if err != nil {
 					t.Errorf("both permission and principal returned error")
 				}
 			} else {
-				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP)
+				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP, false)
 				_, err2 := tc.g.permission(tc.key, tc.value, tc.forTCP)
 				if err1 == nil || err2 == nil {
 					t.Fatalf("wanted error")
