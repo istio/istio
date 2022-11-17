@@ -17,12 +17,10 @@ package ambient
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os/exec"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -78,33 +76,20 @@ func execute(cmd string, args ...string) error {
 	return nil
 }
 
-func (s *Server) matchesAmbientSelectors(lbl map[string]string) (bool, error) {
-	sel, err := metav1.LabelSelectorAsSelector(&ambientSelectors)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse ambient selectors: %v", err)
-	}
-
-	return sel.Matches(labels.Set(lbl)), nil
+func (s *Server) matchesAmbientSelectors(lbl map[string]string) bool {
+	return ambientSelectors.Matches(labels.Set(lbl))
 }
 
-func (s *Server) matchesDisabledSelectors(lbl map[string]string) (bool, error) {
+func (s *Server) matchesDisabledSelectors(lbl map[string]string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, selector := range s.disabledSelectors {
-		sel, err := metav1.LabelSelectorAsSelector(selector)
-		if err != nil {
-			return false, fmt.Errorf("failed to parse disabled selectors: %v", err)
-		}
+	for _, sel := range s.disabledSelectors {
 		if sel.Matches(labels.Set(lbl)) {
-			return true, nil
+			return true
 		}
 	}
 
-	return false, nil
-}
-
-func podOnMyNode(pod *corev1.Pod) bool {
-	return pod.Spec.NodeName == NodeName
+	return false
 }
 
 func (s *Server) isAmbientGlobal() bool {

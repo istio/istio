@@ -56,7 +56,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, fmt.Errorf("ambient: pod %s/%s or namespace has legacy labels", podNamespace, podName)
 	}
 
-	if ambientpod.HasSelectors(ns.Labels, ambientConfig.DisabledSelectors) {
+	if ambientpod.HasSelectors(ns.Labels, ambientpod.ConvertDisabledSelectors(ambientConfig.DisabledSelectors)) {
 		return false, fmt.Errorf("ambient: namespace %s/%s has disabled selectors", podNamespace, podName)
 	}
 
