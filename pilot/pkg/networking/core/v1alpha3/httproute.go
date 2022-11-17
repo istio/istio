@@ -91,11 +91,6 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 			rc := configgen.buildGatewayHTTPRouteConfig(node, req.Push, routeName)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
-				for _, vs := range rc.VirtualHosts {
-					for _, r := range vs.Routes {
-						istio_route.SetTimeout(r.GetRoute(), node)
-					}
-				}
 				resource := &discovery.Resource{
 					Name:     routeName,
 					Resource: protoconv.MessageToAny(rc),
@@ -217,7 +212,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	// apply envoy filter patches
 	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
-
 	resource = &discovery.Resource{
 		Name:     out.Name,
 		Resource: protoconv.MessageToAny(out),

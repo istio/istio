@@ -23,6 +23,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/sets"
@@ -57,6 +58,28 @@ func ApplyRouteConfigurationPatches(
 		}
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
+
+			// If route timeout is set through routeconfig patch,
+			// skip default initialization of route.maxStreamDuration
+			// otherwise that would make envoy to disable the timeout
+			efValue := rp.Value.(*route.RouteConfiguration)
+			timeoutSetThroughPatch := false
+			for _, vh := range efValue.VirtualHosts {
+				for _, r := range vh.Routes {
+					if r.GetRoute().GetTimeout() != nil {
+						timeoutSetThroughPatch = true
+						break
+					}
+				}
+			}
+			if !timeoutSetThroughPatch {
+				for _, vh := range routeConfiguration.VirtualHosts {
+					for _, r := range vh.Routes {
+						istio_route.SetTimeout(r.GetRoute(), proxy)
+					}
+				}
+			}
+
 			merge.Merge(routeConfiguration, rp.Value)
 			IncrementEnvoyFilterMetric(rp.Key(), Route, true)
 		} else {
