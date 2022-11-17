@@ -28,7 +28,7 @@ import (
 
 type generator interface {
 	permission(key, value string, forTCP bool) (*rbacpb.Permission, error)
-	principal(key, value string, forTCP bool, forGRPC bool) (*rbacpb.Principal, error)
+	principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error)
 }
 
 type destIPGenerator struct{}
@@ -128,10 +128,10 @@ func (srcNamespaceGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (srcNamespaceGenerator) principal(_, value string, _ bool, forGRPC bool) (*rbacpb.Principal, error) {
+func (srcNamespaceGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
 	v := strings.Replace(value, "*", ".*", -1)
 	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
-	return principalAuthenticated(m, forGRPC), nil
+	return principalAuthenticated(m, useAuthenticated), nil
 }
 
 type srcPrincipalGenerator struct{}
@@ -140,9 +140,9 @@ func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (srcPrincipalGenerator) principal(key, value string, _ bool, forGRPC bool) (*rbacpb.Principal, error) {
+func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
 	m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
-	return principalAuthenticated(m, forGRPC), nil
+	return principalAuthenticated(m, useAuthenticated), nil
 }
 
 type requestPrincipalGenerator struct{}
@@ -166,8 +166,8 @@ func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rb
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
 }
 
-func (requestAudiencesGenerator) principal(key, value string, forTCP bool, forGRPC bool) (*rbacpb.Principal, error) {
-	return requestPrincipalGenerator{}.principal(key, value, forTCP, forGRPC)
+func (requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	return requestPrincipalGenerator{}.principal(key, value, forTCP, useAuthenticated)
 }
 
 type requestPresenterGenerator struct{}
@@ -176,8 +176,8 @@ func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rb
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
 }
 
-func (requestPresenterGenerator) principal(key, value string, forTCP bool, forGRPC bool) (*rbacpb.Principal, error) {
-	return requestPrincipalGenerator{}.principal(key, value, forTCP, forGRPC)
+func (requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	return requestPrincipalGenerator{}.principal(key, value, forTCP, useAuthenticated)
 }
 
 type requestHeaderGenerator struct{}

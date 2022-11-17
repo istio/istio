@@ -145,7 +145,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 
 			for cnum := range mutable.FilterChains {
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
+				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
+				}
 				if mutable.FilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, builder.authzCustomBuilder.BuildTCP()...)
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, builder.authzBuilder.BuildTCP()...)
