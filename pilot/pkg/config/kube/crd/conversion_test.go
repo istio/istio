@@ -17,44 +17,106 @@ package crd
 import (
 	"testing"
 
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestConvert(t *testing.T) {
+func TestConvertIstioKind(t *testing.T) {
 	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]any{"x": 1}}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
-	cfg := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-			Name:             "test",
-			Namespace:        "default",
-			Domain:           "cluster",
-			ResourceVersion:  "1234",
-			Labels:           map[string]string{"label": "value"},
-			Annotations:      map[string]string{"annotation": "value"},
+}
+
+func TestConvert(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  config.Config
+	}{
+		{
+			name: "istio",
+			cfg: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test",
+					Namespace:        "default",
+					Domain:           "cluster",
+					ResourceVersion:  "1234",
+					Labels:           map[string]string{"label": "value"},
+					Annotations:      map[string]string{"annotation": "value"},
+				},
+				Spec: mock.ExampleVirtualService,
+			},
 		},
-		Spec: mock.ExampleVirtualService,
-		Status: &v1alpha1.IstioStatus{
-			Conditions: []*v1alpha1.IstioCondition{
-				{Type: "Health"},
+		{
+			name: "istio status",
+			cfg: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test",
+					Namespace:        "default",
+					Domain:           "cluster",
+					ResourceVersion:  "1234",
+					Labels:           map[string]string{"label": "value"},
+					Annotations:      map[string]string{"annotation": "value"},
+				},
+				Spec: mock.ExampleVirtualService,
+				Status: &v1alpha1.IstioStatus{
+					Conditions: []*v1alpha1.IstioCondition{
+						{Type: "Health"},
+					},
+				},
+			},
+		},
+		{
+			name: "gateway",
+			cfg: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "test",
+					Namespace:        "default",
+					Domain:           "cluster",
+				},
+				Spec: &gateway.HTTPRouteSpec{
+					Hostnames: []gateway.Hostname{"example.com"},
+				},
+			},
+		},
+		{
+			name: "gateway status",
+			cfg: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "test",
+					Namespace:        "default",
+					Domain:           "cluster",
+				},
+				Spec: &gateway.HTTPRouteSpec{
+					Hostnames: []gateway.Hostname{"example.com"},
+				},
+				Status: &gateway.HTTPRouteStatus{},
 			},
 		},
 	}
-
-	obj, err := ConvertConfig(cfg)
-	if err != nil {
-		t.Errorf("ConvertConfig() => unexpected error %v", err)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			obj, err := ConvertConfig(tt.cfg)
+			if err != nil {
+				t.Errorf("ConvertConfig() => unexpected error %v", err)
+			}
+			col, _ := collections.All.FindByGroupVersionAliasesKind(tt.cfg.GroupVersionKind)
+			got, err := ConvertObject(col, obj, "cluster")
+			if err != nil {
+				t.Errorf("ConvertObject() => unexpected error %v", err)
+			}
+			assert.Equal(t, &tt.cfg, got)
+		})
 	}
-	got, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
-	if err != nil {
-		t.Errorf("ConvertObject() => unexpected error %v", err)
-	}
-	assert.Equal(t, &cfg, got)
 }
 
 func TestParseInputs(t *testing.T) {
