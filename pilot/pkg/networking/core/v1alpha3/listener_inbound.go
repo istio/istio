@@ -882,7 +882,9 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 
 	var filters []*listener.Filter
 
-	filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	}
 	if fcc.hbone {
 		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {
