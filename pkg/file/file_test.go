@@ -23,13 +23,13 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func copyTest(t *testing.T, copy func(srcFilepath, targetDir, targetFilename string) error) {
+func copyTest(t *testing.T, copyFn func(srcFilepath, targetDir, targetFilename string) error) {
 	t.Helper()
 	d := t.TempDir()
 	if err := os.WriteFile(filepath.Join(d, "in"), []byte("hello world"), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if err := copy(filepath.Join(d, "in"), d, "out"); err != nil {
+	if err := copyFn(filepath.Join(d, "in"), d, "out"); err != nil {
 		t.Fatal(err)
 	}
 	f, err := os.Open(filepath.Join(d, "out"))
