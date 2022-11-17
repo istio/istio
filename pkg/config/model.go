@@ -308,6 +308,20 @@ func (meta *Meta) Key() string {
 		meta.Name, meta.Namespace)
 }
 
+func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:              meta.Name,
+		Namespace:         meta.Namespace,
+		UID:               kubetypes.UID(meta.UID),
+		ResourceVersion:   meta.ResourceVersion,
+		Generation:        meta.Generation,
+		CreationTimestamp: metav1.NewTime(meta.CreationTimestamp),
+		Labels:            meta.Labels,
+		Annotations:       meta.Annotations,
+		OwnerReferences:   meta.OwnerReferences,
+	}
+}
+
 func (c Config) DeepCopy() Config {
 	var clone Config
 	clone.Meta = c.Meta

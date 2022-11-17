@@ -87,6 +87,7 @@ func TestValidation(t *testing.T) {
 			for _, cluster := range t.Clusters().Configs() {
 				for i := range dataset {
 					d := dataset[i]
+
 					t.NewSubTest(string(d)).RunParallel(func(t framework.TestContext) {
 						if d.isSkipped() {
 							t.SkipNow()

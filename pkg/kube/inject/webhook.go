@@ -1043,8 +1043,10 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		ar, err = kube.AdmissionReviewKubeToAdapter(out)
 		if err != nil {
 			handleError(fmt.Sprintf("Could not decode object: %v", err))
+			reviewResponse = toAdmissionResponse(err)
+		} else {
+			reviewResponse = wh.inject(ar, path)
 		}
-		reviewResponse = wh.inject(ar, path)
 	}
 
 	response := kube.AdmissionReview{}

@@ -219,6 +219,9 @@ type CLIClient interface {
 
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
+
+	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
+	InvalidateDiscovery()
 }
 
 type PortManager func() (uint16, error)
@@ -1105,11 +1108,15 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 			log.Warnf("Failed to read %s: %v", file, err)
 		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
-			c.discoveryClient.Invalidate()
-			c.mapper.Reset()
+			c.InvalidateDiscovery()
 		}
 	}
 	return nil
+}
+
+func (c *client) InvalidateDiscovery() {
+	c.discoveryClient.Invalidate()
+	c.mapper.Reset()
 }
 
 func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {
@@ -1274,13 +1281,18 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	nParts := len(versionParts)
 	if nParts >= 3 {
 		// The format will be like 1.12.0-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty-Modified
-		// version is '1.12.0'
-		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
-		// status is 'Modified'
-		serverInfo.Version = versionParts[0]
-		serverInfo.GitTag = serverInfo.Version
-		serverInfo.GitRevision = strings.Join(versionParts[1:nParts-1], "-")
+		// version is '1.12.0' || '1.12.0-custom-build'
+		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a' || '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
+		// status is 'Modified' || 'Clean'
+		// Ref From common/scripts/report_build_info.sh
+		serverInfo.Version = strings.Join(versionParts[:nParts-2], "-")
+		serverInfo.GitRevision = versionParts[nParts-2]
 		serverInfo.BuildStatus = versionParts[nParts-1]
+		if serverInfo.GitRevision == "dirty" {
+			serverInfo.GitRevision = strings.Join([]string{versionParts[nParts-3], "dirty"}, "-")
+			serverInfo.Version = strings.Join(versionParts[:nParts-3], "-")
+		}
+		serverInfo.GitTag = serverInfo.Version
 	} else {
 		serverInfo.Version = istioInfo
 	}

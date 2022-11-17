@@ -161,7 +161,7 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 }
 
 // Generate generates the Envoy RBAC config from the model.
-func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
+func (m Model) Generate(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
 	for _, rl := range m.permissions {
 		permission, err := generatePermission(rl, forTCP, action)
@@ -176,7 +176,7 @@ func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy,
 
 	var principals []*rbacpb.Principal
 	for _, rl := range m.principals {
-		principal, err := generatePrincipal(rl, forTCP, action)
+		principal, err := generatePrincipal(rl, forTCP, useAuthenticated, action)
 		if err != nil {
 			return nil, err
 		}
@@ -207,10 +207,10 @@ func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*r
 	return permissionAnd(and), nil
 }
 
-func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error) {
+func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error) {
 	var and []*rbacpb.Principal
 	for _, r := range rl.rules {
-		ret, err := r.principal(forTCP, action)
+		ret, err := r.principal(forTCP, useAuthenticated, action)
 		if err != nil {
 			return nil, err
 		}
@@ -254,11 +254,11 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 	return permissions, nil
 }
 
-func (r rule) principal(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
+func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
 	var principals []*rbacpb.Principal
 	var or []*rbacpb.Principal
 	for _, value := range r.values {
-		p, err := r.g.principal(r.key, value, forTCP)
+		p, err := r.g.principal(r.key, value, forTCP, false)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
@@ -272,7 +272,7 @@ func (r rule) principal(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Princ
 
 	or = nil
 	for _, notValue := range r.notValues {
-		p, err := r.g.principal(r.key, notValue, forTCP)
+		p, err := r.g.principal(r.key, notValue, forTCP, useAuthenticated)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}

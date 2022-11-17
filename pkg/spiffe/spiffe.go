@@ -214,6 +214,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 		config := &tls.Config{
 			ServerName: u.Hostname(),
 			RootCAs:    caCertPool,
+			MinVersion: tls.VersionTLS12,
 		}
 
 		httpClient.Transport = &http.Transport{
