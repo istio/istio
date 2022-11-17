@@ -81,6 +81,14 @@ const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
+const (
+	// InitContainers is the name of the property in k8s pod spec
+	InitContainers = "initContainers"
+
+	// Containers is the name of the property in k8s pod spec
+	Containers = "containers"
+)
+
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
 	mu           sync.RWMutex
@@ -92,6 +100,12 @@ type Webhook struct {
 
 	env      *model.Environment
 	revision string
+}
+
+// ParsedContainers holds the unmarshalled containers and initContainers
+type ParsedContainers struct {
+	Containers     []corev1.Container `json:"containers,omitempty"`
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 }
 
 // nolint directives: interfacer
@@ -408,24 +422,23 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 // Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
 // the user has defined an `istio-proxy` container in their own pod spec.
 func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
-	type podOverrides struct {
-		Containers     []corev1.Container `json:"containers,omitempty"`
-		InitContainers []corev1.Container `json:"initContainers,omitempty"`
-	}
-
-	overrides := podOverrides{}
-	existingOverrides := podOverrides{}
+	overrides := ParsedContainers{}
+	existingOverrides := ParsedContainers{}
 	if annotationOverrides, f := originalPod.Annotations[annotation.ProxyOverrides.Name]; f {
 		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
 			return nil, err
 		}
 	}
-	_, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
+	parsedInjectedStatus := ParsedContainers{}
+	status, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
+	if alreadyInjected {
+		parsedInjectedStatus = parseStatus(status)
+	}
 	for _, c := range templatePod.Spec.Containers {
 		// sidecarStatus annotation is added on the pod by webhook. We should use new container template
 		// instead of restoring what maybe previously injected. Doing this ensures we are correctly calculating
 		// env variables like ISTIO_META_APP_CONTAINERS and ISTIO_META_POD_PORTS.
-		if c.Name == ProxyContainerName && alreadyInjected {
+		if match := FindContainer(c.Name, parsedInjectedStatus.Containers); match != nil {
 			continue
 		}
 		match := FindContainer(c.Name, existingOverrides.Containers)
@@ -447,7 +460,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod = newMergedPod
 	}
 	for _, c := range templatePod.Spec.InitContainers {
-		if c.Name == InitContainerName && alreadyInjected {
+		if match := FindContainer(c.Name, parsedInjectedStatus.InitContainers); match != nil {
 			continue
 		}
 		match := FindContainer(c.Name, existingOverrides.InitContainers)
@@ -482,6 +495,30 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	}
 
 	return finalPod, nil
+}
+
+// parseStatus converts injected SidecarStatus annotation
+func parseStatus(status string) ParsedContainers {
+	parsedContainers := ParsedContainers{}
+	var unMarshalledStatus map[string]interface{}
+	if err := json.Unmarshal([]byte(status), &unMarshalledStatus); err != nil {
+		log.Errorf("Failed to unmarshal %s : %v", annotation.SidecarStatus.Name, err)
+		return parsedContainers
+	}
+	parser := func(key string, obj map[string]interface{}) []corev1.Container {
+		out := make([]corev1.Container, 0)
+		if value, exist := obj[key]; exist {
+			for _, v := range value.([]interface{}) {
+				out = append(out, corev1.Container{Name: v.(string)})
+			}
+			return out
+		}
+		return out
+	}
+	parsedContainers.Containers = parser(Containers, unMarshalledStatus)
+	parsedContainers.InitContainers = parser(InitContainers, unMarshalledStatus)
+
+	return parsedContainers
 }
 
 // reinsertOverrides applies the containers listed in OverrideAnnotation to a pod. This is to achieve

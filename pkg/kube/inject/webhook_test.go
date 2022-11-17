@@ -1362,6 +1362,66 @@ func TestMergeOrAppendProbers(t *testing.T) {
 	}
 }
 
+func TestParseStatus(t *testing.T) {
+	cases := []struct {
+		name   string
+		status string
+		want   ParsedContainers
+	}{
+		{
+			name:   "Regular Containers only",
+			status: `{"containers":["istio-proxy", "random-container"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{
+					{Name: "istio-proxy"},
+					{Name: "random-container"},
+				},
+				InitContainers: []corev1.Container{},
+			},
+		},
+		{
+			name:   "Init Containers only",
+			status: `{"initContainers":["istio-init", "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{},
+				InitContainers: []corev1.Container{
+					{Name: "istio-init"},
+					{Name: "istio-validation"},
+				},
+			},
+		},
+		{
+			name:   "All Containers",
+			status: `{"containers":["istio-proxy", "random-container"],"initContainers":["istio-init", "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{
+					{Name: "istio-proxy"},
+					{Name: "random-container"},
+				},
+				InitContainers: []corev1.Container{
+					{Name: "istio-init"},
+					{Name: "istio-validation"},
+				},
+			},
+		},
+		{
+			name:   "Empty String",
+			status: ``,
+			want:   ParsedContainers{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			actual := parseStatus(tc.status)
+
+			if !reflect.DeepEqual(actual, tc.want) {
+				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
+			}
+		})
+	}
+}
+
 func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
