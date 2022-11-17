@@ -48,10 +48,10 @@ type Server struct {
 	meshMode          v1alpha1.MeshConfig_AmbientMeshConfig_AmbientMeshMode
 	disabledSelectors []labels.Selector
 	// disabledSelectors can be used to filter objects, but not to marshal. So we have 2 copies:
-	// one that can be marshalled, and one that can select.
-	marshallableDisabledSelectors []*metav1.LabelSelector
-	mu                            sync.Mutex
-	ztunnelPod                    *corev1.Pod
+	// one that can be marshaled, and one that can select.
+	marshalableDisabledSelectors []*metav1.LabelSelector
+	mu                           sync.Mutex
+	ztunnelPod                   *corev1.Pod
 }
 
 type AmbientConfigFile struct {
@@ -70,12 +70,12 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	}
 	// Set some defaults
 	s := &Server{
-		environment:                   e,
-		ctx:                           ctx,
-		meshMode:                      v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
-		disabledSelectors:             ambientpod.LegacySelectors,
-		marshallableDisabledSelectors: ambientpod.LegacyLabelSelector,
-		kubeClient:                    client,
+		environment:                  e,
+		ctx:                          ctx,
+		meshMode:                     v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
+		disabledSelectors:            ambientpod.LegacySelectors,
+		marshalableDisabledSelectors: ambientpod.LegacyLabelSelector,
+		kubeClient:                   client,
 	}
 
 	// We need to find our Host IP -- is there a better way to do this?
@@ -94,7 +94,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		s.mu.Lock()
 		s.meshMode = s.environment.Mesh().AmbientMesh.Mode
 		s.disabledSelectors = ambientpod.ConvertDisabledSelectors(s.environment.Mesh().AmbientMesh.DisabledSelectors)
-		s.marshallableDisabledSelectors = s.environment.Mesh().AmbientMesh.DisabledSelectors
+		s.marshalableDisabledSelectors = s.environment.Mesh().AmbientMesh.DisabledSelectors
 		s.mu.Unlock()
 	}
 
@@ -141,7 +141,7 @@ func (s *Server) UpdateConfig() {
 
 	cfg := &AmbientConfigFile{
 		Mode:              s.meshMode.String(),
-		DisabledSelectors: s.marshallableDisabledSelectors,
+		DisabledSelectors: s.marshalableDisabledSelectors,
 		ZTunnelReady:      s.isZTunnelRunning(),
 	}
 

@@ -54,7 +54,7 @@ func (s *Server) newConfigMapWatcher() {
 	s.mu.Lock()
 	s.meshMode = newAmbientMeshConfig.Mode
 	s.disabledSelectors = ambientpod.ConvertDisabledSelectors(newAmbientMeshConfig.DisabledSelectors)
-	s.marshallableDisabledSelectors = newAmbientMeshConfig.DisabledSelectors
+	s.marshalableDisabledSelectors = newAmbientMeshConfig.DisabledSelectors
 	s.mu.Unlock()
 	s.UpdateConfig()
 }
