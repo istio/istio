@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** `istioctl x revision list` the data is not accurate  of column with `REQD-COMPONENTS`
+    **Fixed** the `istioctl experimental revision list` `REQD-COMPONENTS` column data being incomplete and general output format.
