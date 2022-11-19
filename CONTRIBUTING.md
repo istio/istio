@@ -6,6 +6,18 @@ to find out how you can help.
 
 The contents below is copied from the old readme for building/running/testing ambient from source:
 
+## NOTE: local-test-utils
+
+Many of the following commands reference a `local-test-utils` directory that was removed to lessen the diff from the master branch. To retrieve the directory, run the following command:
+
+Retrieve the local-test-utils directory with the following command:
+
+```shell
+git checkout b03aa0 -- local-test-utils
+```
+
+The file is gitignored, so feel free to keep it around in your local copy
+
 ## Build
 
 ```shell
