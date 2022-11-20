@@ -21,7 +21,10 @@ import (
 	"os"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
@@ -39,12 +42,16 @@ type Server struct {
 	ctx         context.Context
 	queue       controllers.Queue
 
-	nsLister listerv1.NamespaceLister
+	nsLister  listerv1.NamespaceLister
+	podLister listerv1.PodLister
 
 	meshMode          v1alpha1.MeshConfig_AmbientMeshConfig_AmbientMeshMode
-	disabledSelectors []*metav1.LabelSelector
-	mu                sync.Mutex
-	ztunnelRunning    bool
+	disabledSelectors []labels.Selector
+	// disabledSelectors can be used to filter objects, but not to marshal. So we have 2 copies:
+	// one that can be marshaled, and one that can select.
+	marshalableDisabledSelectors []*metav1.LabelSelector
+	mu                           sync.Mutex
+	ztunnelPod                   *corev1.Pod
 }
 
 type AmbientConfigFile struct {
@@ -63,12 +70,12 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	}
 	// Set some defaults
 	s := &Server{
-		environment:       e,
-		ctx:               ctx,
-		meshMode:          v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
-		disabledSelectors: ambientpod.LegacySelectors,
-		ztunnelRunning:    false,
-		kubeClient:        client,
+		environment:                  e,
+		ctx:                          ctx,
+		meshMode:                     v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
+		disabledSelectors:            ambientpod.LegacySelectors,
+		marshalableDisabledSelectors: ambientpod.LegacyLabelSelector,
+		kubeClient:                   client,
 	}
 
 	// We need to find our Host IP -- is there a better way to do this?
@@ -86,7 +93,8 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	if s.environment.Mesh().AmbientMesh != nil {
 		s.mu.Lock()
 		s.meshMode = s.environment.Mesh().AmbientMesh.Mode
-		s.disabledSelectors = s.environment.Mesh().AmbientMesh.DisabledSelectors
+		s.disabledSelectors = ambientpod.ConvertDisabledSelectors(s.environment.Mesh().AmbientMesh.DisabledSelectors)
+		s.marshalableDisabledSelectors = s.environment.Mesh().AmbientMesh.DisabledSelectors
 		s.mu.Unlock()
 	}
 
@@ -95,17 +103,10 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) setZTunnelRunning(running bool) {
-	s.mu.Lock()
-	s.ztunnelRunning = running
-	s.mu.Unlock()
-	s.UpdateConfig()
-}
-
 func (s *Server) isZTunnelRunning() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.ztunnelRunning
+	return s.ztunnelPod != nil
 }
 
 // buildKubeClient creates the kube client
@@ -140,7 +141,7 @@ func (s *Server) UpdateConfig() {
 
 	cfg := &AmbientConfigFile{
 		Mode:              s.meshMode.String(),
-		DisabledSelectors: s.disabledSelectors,
+		DisabledSelectors: s.marshalableDisabledSelectors,
 		ZTunnelReady:      s.isZTunnelRunning(),
 	}
 
@@ -148,6 +149,76 @@ func (s *Server) UpdateConfig() {
 		log.Errorf("Failed to write config file: %v", err)
 	}
 	log.Debug("Done")
+}
+
+var ztunnelLabels = labels.SelectorFromValidatedSet(labels.Set{"app": "ztunnel"})
+
+func (s *Server) ReconcileZtunnel() error {
+	pods, err := s.podLister.Pods(metav1.NamespaceAll).List(ztunnelLabels)
+	if err != nil {
+		return err
+	}
+	var activePod *corev1.Pod
+	for _, p := range pods {
+		ready := kube.CheckPodReady(p) == nil
+		if !ready {
+			continue
+		}
+		if activePod == nil {
+			// Only pod ready, mark this as active
+			activePod = p
+		} else if p.CreationTimestamp.After(activePod.CreationTimestamp.Time) {
+			// If we have multiple pods that are ready, use the newest one.
+			// This ensures on a rolling update we start sending traffic to the new pod and drain the old one.
+			activePod = p
+		}
+	}
+
+	needsUpdate := false
+	s.mu.Lock()
+	if getUID(s.ztunnelPod) != getUID(activePod) {
+		// Active pod change
+		s.ztunnelPod = activePod
+		needsUpdate = true
+	}
+	s.mu.Unlock()
+
+	if !needsUpdate {
+		log.Debugf("active ztunnel unchanged")
+		return nil
+	}
+	s.UpdateConfig()
+	if activePod == nil {
+		log.Infof("active ztunnel updated, no ztunnel running on the node")
+		s.cleanup()
+		return nil
+	}
+	log.Infof("active ztunnel updated to %v", activePod.Name)
+	// TODO: we should not cleanup and recreate; this has downtime. We should mutate the existing rules in place
+	s.cleanup()
+	veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP)
+	if err != nil {
+		return fmt.Errorf("failed to get device: %v", err)
+	}
+
+	captureDNS := getEnvFromPod(activePod, "ISTIO_META_DNS_CAPTURE") == "true"
+	err = s.CreateRulesOnNode(veth, activePod.Status.PodIP, captureDNS)
+	if err != nil {
+		return fmt.Errorf("failed to configure node for ztunnel: %v", err)
+	}
+	// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a
+	// small pod to have started up before ztunnel is running... so we need to go back and make sure we
+	// catch the existing pods
+	s.ReconcileNamespaces()
+	return nil
+}
+
+// getUID is a nil safe UID accessor
+func getUID(o *corev1.Pod) types.UID {
+	if o == nil {
+		return ""
+	}
+	return o.GetUID()
 }
 
 func (c *AmbientConfigFile) write() error {

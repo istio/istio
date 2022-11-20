@@ -17,6 +17,8 @@ package aggregate
 import (
 	"sync"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -51,11 +53,11 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
-	i := []model.WorkloadInfo{}
+func (c *Controller) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
+	i := []*model.WorkloadInfo{}
 	removed := sets.New[string]()
 	for _, p := range c.registries {
-		wis, r := p.PodInformation(podsUpdated)
+		wis, r := p.PodInformation(addresses)
 		i = append(i, wis...)
 		removed.InsertAll(r...)
 	}

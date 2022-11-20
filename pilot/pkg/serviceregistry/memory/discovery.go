@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -81,7 +83,7 @@ type ServiceDiscovery struct {
 	mutex sync.Mutex
 }
 
-func (sd *ServiceDiscovery) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
+func (sd *ServiceDiscovery) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
 	return nil, nil
 }
 

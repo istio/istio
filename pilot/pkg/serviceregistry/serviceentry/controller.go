@@ -113,7 +113,7 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (s *Controller) PodInformation(podsUpdated map[model.ConfigKey]struct{}) ([]model.WorkloadInfo, []string) {
+func (s *Controller) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
 	return nil, nil
 }
 

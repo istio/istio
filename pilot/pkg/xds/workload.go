@@ -15,11 +15,15 @@
 package xds
 
 import (
+	"fmt"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type WorkloadGenerator struct {
@@ -31,47 +35,78 @@ var (
 	_ model.XdsDeltaResourceGenerator = &WorkloadGenerator{}
 )
 
+// GenerateDeltas computes Workload resources. This is design to be highly optimized to delta updates,
+// and supports *on-demand* client usage. A client can subscribe with a wildcard subscription and get all
+// resources (with delta updates), or on-demand and only get responses for specifically subscribed resources.
+//
+// Incoming requests may be for VIP or Pod IP addresses. However, all responses are Workload resources, which are pod based.
+// This means subscribing to a VIP may end up pushing many resources of different name than the request.
+// On-demand clients are expected to handle this (for wildcard, this is not applicable, as they don't specify any resources at all).
 func (e WorkloadGenerator) GenerateDeltas(
 	proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	// TODO: wdsNeedsPush
+	updatedAddresses := model.ConfigNamespacedNameOfKind(req.ConfigsUpdated, kind.Address)
+	subs := sets.New(w.ResourceNames...)
+	isReq := req.IsRequest()
+
+	addresses := map[types.NamespacedName]struct{}{}
+	for ip := range updatedAddresses {
+		// IP was updated. We need to include it for this client if we are subscribed or a wildcard
+		if w.Wildcard || subs.Contains(ip.Name) {
+			addresses[ip] = struct{}{}
+		}
+	}
+	// Specific requested resource: always include
+	for ip := range req.Delta.Subscribed {
+		addresses[types.NamespacedName{Name: ip}] = struct{}{}
+	}
+
+	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
+	// The only things that can really trigger a "full" push here is trust domain or network changing, which is extremely rare
+	// We do a full push for wildcard requests (initial proxy sync) or for full pushes with no ConfigsUpdates (since we don't know what changed)
+	full := (isReq && w.Wildcard) || (!isReq && req.Full && len(req.ConfigsUpdated) == 0)
+
+	// Nothing to do
+	if len(addresses) == 0 && !full {
+		if isReq {
+			// We need to respond for requests, even if we have nothing to respond with
+			return make(model.Resources, 0), nil, model.XdsLogDetails{}, false, nil
+		}
+		// For NOP pushes, no need
+		return nil, nil, model.XdsLogDetails{}, false, nil
+	}
+
 	resources := make(model.Resources, 0)
-	// Workload consists of two dependencies: Pod and Service
-	// For now, we optimize Pod updates but not Service
-	// As long as there are no Service updates, we will do a delta push
-	pods := model.ConfigsOfKind(req.ConfigsUpdated, kind.Pod)
-	svcs := model.ConfigsOfKind(req.ConfigsUpdated, kind.Service)
-	if len(req.ConfigsUpdated) == 0 {
-		pods = nil
-	}
-	if len(svcs) > 0 {
-		pods = nil
-	}
-	usedDelta := pods != nil
-	wls, removed := e.s.Env.ServiceDiscovery.PodInformation(pods)
+	wls, removed := e.s.Env.ServiceDiscovery.PodInformation(addresses)
+	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
+	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
+
+	have := sets.New[string]()
 	for _, wl := range wls {
+		n := wl.ResourceName()
+		have.Insert(n)
 		resources = append(resources, &discovery.Resource{
-			Name:     wl.ResourceName(),
-			Resource: protoconv.MessageToAny(wl),
+			Name:     n,
+			Resource: protoconv.MessageToAny(wl), // TODO: pre-marshal
 		})
 	}
-	return resources, removed, model.XdsLogDetails{}, usedDelta, nil
+
+	if !w.Wildcard {
+		// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
+		// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
+		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have))
+	}
+	if full {
+		// If it's a full push, PodInformation won't have info to compute the full set of removals.
+		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
+		removes := subs.Difference(have).InsertAll(removed...)
+		removed = sets.SortedList(removes)
+	}
+	return resources, removed, model.XdsLogDetails{}, true, nil
 }
 
 func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	rr := &model.PushRequest{
-		Full:           req.Full,
-		ConfigsUpdated: nil,
-		Push:           req.Push,
-		Start:          req.Start,
-		Reason:         req.Reason,
-		Delta:          req.Delta,
-	}
-	res, deleted, log, usedDelta, err := e.GenerateDeltas(proxy, rr, w)
-	if len(deleted) > 0 || usedDelta {
-		panic("invalid delta usage")
-	}
-	return res, log, err
+	return nil, model.XdsLogDetails{}, fmt.Errorf("WDS is only available over Delta XDS")
 }

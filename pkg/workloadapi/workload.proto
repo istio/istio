@@ -45,7 +45,7 @@ message Workload {
   string service_account = 7;
 
   // If present, the waypoint proxy for this workload.
-  bytes waypoint_address = 8;
+  repeated bytes waypoint_addresses = 8;
 
   // Name of the node the workload runs on
   string node = 9;
