@@ -108,10 +108,7 @@ var (
 			Kind:    "EnvoyFilter",
 			Plural:  "envoyfilters",
 			Version: "v1alpha3",
-			VersionAliases: []string{
-				"v1beta1",
-			},
-			Proto: "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			Proto:   "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,

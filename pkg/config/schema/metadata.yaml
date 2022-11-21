@@ -414,8 +414,6 @@ resources:
     plural: "envoyfilters"
     group: "networking.istio.io"
     version: "v1alpha3"
-    versionAliases:
-      - "v1beta1"
     proto: "istio.networking.v1alpha3.EnvoyFilter"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes additional envoy filters to be inserted by Pilot"

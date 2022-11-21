@@ -148,8 +148,6 @@ github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed h1:u
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
-github.com/aryan16/api v0.0.0-20221117005705-357959bc25a1 h1:WIWyY0QoX/ivw19F+3kWaKVZFS6SsV3jAE1DdHF8Qa0=
-github.com/aryan16/api v0.0.0-20221117005705-357959bc25a1/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
 github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d h1:Byv0BzEl3/e6D5CLfI0j/7hiIEtvGVFPCZ7Ei2oq8iQ=
@@ -1583,16 +1581,6 @@ istio.io/api v0.0.0-20221122200323-bd9c37f95e1d h1:vEdAVX0Xhbpz4iXBOq2wukmp5csck
 istio.io/api v0.0.0-20221122200323-bd9c37f95e1d/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
 istio.io/client-go v1.12.0-alpha.5.0.20221122200723-34d2275972d7 h1:6HqSRcvuaWg77PlStXn4AT7+aHRka4iv+lbgtVRsdFc=
 istio.io/client-go v1.12.0-alpha.5.0.20221122200723-34d2275972d7/go.mod h1:JWiQWtaKaeZkokGuVI5qaymxYoUCu3RJGd75yHHIUv8=
-istio.io/api v0.0.0-20221117224403-9c7e8716fa61 h1:EZxM3P9wo30jxHVbNwmqISgcWoYTQjcbBV/7nP0w52M=
-istio.io/api v0.0.0-20221117224403-9c7e8716fa61/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
-istio.io/client-go v1.12.0-alpha.5.0.20221117224804-2bd12ec1b829 h1:dFZKTQpFUfmAY2/FaNC/Ws/p2SC02JY9bakXkCOQGxc=
-istio.io/client-go v1.12.0-alpha.5.0.20221117224804-2bd12ec1b829/go.mod h1:PCcH1e9IARiNMI+/mX8CRTWw/6r523TY9D0FLfo/2Oo=
-istio.io/api v0.0.0-20221117195257-5cbad44e0b04 h1:TEYn8+XVjoWwvdBfj2OE0Yx83+bmZ46ZMRlx+c1QQ+A=
-istio.io/api v0.0.0-20221117195257-5cbad44e0b04/go.mod h1:oV64LW9BQmwkiP2KxXeOrktfTuLlHaV4ee3xPshNZuw=
-istio.io/client-go v1.12.0-alpha.5.0.20221117195657-f5708319a7e0 h1:1eKtZfumTN1pMGft7hPMxaMQxyhfVQQHjecXdORYbn0=
-istio.io/client-go v1.12.0-alpha.5.0.20221117195657-f5708319a7e0/go.mod h1:JafYfaZdHEu5engkwWiqJlvIb+4UJrvjGi/xVbx5GZo=
-istio.io/client-go v1.12.0-alpha.5.0.20221116211857-91ee57e2c782 h1:++4K0bWHrkn7RPR2hEb8nbB30uspAclDCAyoWpqNwVc=
-istio.io/client-go v1.12.0-alpha.5.0.20221116211857-91ee57e2c782/go.mod h1:pNqKo+RKhtzDm6QxnCLtqfMvH4CzILSjV9pxc6w4AOA=
 istio.io/pkg v0.0.0-20221115162234-5e468deffb77 h1:2l0ufc1Lj/pnzxlQMtQx9cjdt4lrvcNMSg5sy/1zjoM=
 istio.io/pkg v0.0.0-20221115162234-5e468deffb77/go.mod h1:1297yENoCcROUAWFZEdwD4VFN8Qa/if1UtzwvVgah7I=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
