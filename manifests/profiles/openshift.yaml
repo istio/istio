@@ -4,7 +4,7 @@ spec:
   components:
     cni:
       enabled: true
-      namespace: kube-system
+      namespace: openshift-operators
   values:
     cni:
       cniBinDir: /var/lib/cni/bin
