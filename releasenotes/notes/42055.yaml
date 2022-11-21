@@ -8,7 +8,8 @@ issue:
 - 42055
 
 releaseNotes:
-- **Modified** the default directory that OpenShift is installed to from kube-system to istio-operators. Please see the OCP platform documentation for further information.
+- |
+  **Modified** the default directory that OpenShift is installed to from kube-system to openshift-operators. Please see the OCP platform documentation for further information.
 
 upgradeNotes:
 - title: istio-cni chart needs to be installed to a different namespace in OCP 4.12
