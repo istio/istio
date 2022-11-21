@@ -667,8 +667,8 @@ func logCmd() *cobra.Command {
 
 	logCmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
-		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
-		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
+		Short: "(Experimental) Retrieves logging levels of the Envoy in the specified pod",
+		Long:  "(Experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
   istioctl proxy-config log <pod-name[.namespace]>
 
