@@ -52,7 +52,7 @@ func TestServerTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(t, appNsInst.Name(), cluster.Name(), traces) {
+						if !tracing.VerifyEchoTraces(t, appNsInst.Name(), cluster.Name(), traces, nil) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil

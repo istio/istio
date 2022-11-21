@@ -124,7 +124,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
+func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace, expectedTags map[string]string) bool {
 	t.Helper()
 	wtr := WantTraceRoot(namespace, clName)
 	for _, trace := range traces {
@@ -133,6 +133,12 @@ func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces 
 			// find the root span of candidate trace and do recursive comparison
 			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
 				return true
+			}
+
+			for k, v := range expectedTags {
+				if s.Tags[k] != v {
+					return false
+				}
 			}
 		}
 	}

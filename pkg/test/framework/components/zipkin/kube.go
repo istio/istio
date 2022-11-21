@@ -317,6 +317,11 @@ func buildSpan(obj any) Span {
 			s.ServiceName = em["serviceName"].(string)
 		}
 	}
+	if tagsObj, ok := spanSpec["tags"]; ok {
+		if tags, ok := tagsObj.(map[string]string); ok {
+			s.Tags = tags
+		}
+	}
 	if name, ok := spanSpec["name"]; ok {
 		s.Name = name.(string)
 	}

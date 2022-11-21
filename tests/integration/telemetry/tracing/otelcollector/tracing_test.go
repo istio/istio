@@ -58,7 +58,7 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces, nil) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil
@@ -90,8 +90,14 @@ spec:
   - providers:
     - name: test-otel
     randomSamplingPercentage: 100.0
+    customTags:
+      "provider":
+        literal:
+          value: "otel"
 `
 			t.ConfigIstio().YAML(appNsInst.Name(), config).ApplyOrFail(t)
+
+			expectedTags := map[string]string{"provider": "otel"}
 
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
@@ -109,7 +115,8 @@ spec:
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+						// double check span tags, make sure telemetry validated
+						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces, expectedTags) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil

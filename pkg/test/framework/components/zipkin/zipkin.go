@@ -45,6 +45,7 @@ type Span struct {
 	ParentSpanID string
 	ServiceName  string
 	Name         string
+	Tags         map[string]string
 	ChildSpans   []*Span
 }
 
