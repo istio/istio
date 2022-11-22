@@ -97,9 +97,8 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 						}
 
 						// the OTel collector exports to Zipkin
-						// with OTel provider, service name present in <service>.<namespace>, see more details in otelConfigGen
 						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-							fmt.Sprintf("server.%s", appNsInst.Name()), "provider=otel")
+							fmt.Sprintf("egress server.%s.svc.cluster.local", appNsInst.Name()), "provider=otel")
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}

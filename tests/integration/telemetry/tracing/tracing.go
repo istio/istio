@@ -140,6 +140,36 @@ func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces 
 	return false
 }
 
+func VerifyOtelEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
+	t.Helper()
+	wtr := WantOtelTraceRoot(namespace, clName)
+	for _, trace := range traces {
+		// compare each candidate trace with the wanted trace
+		for _, s := range trace.Spans {
+			// find the root span of candidate trace and do recursive comparison
+			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func WantOtelTraceRoot(namespace, clName string) (root zipkin.Span) {
+	serverSpan := zipkin.Span{
+		Name:        "ingress",
+		ServiceName: fmt.Sprintf("server.%s", namespace),
+	}
+
+	root = zipkin.Span{
+		Name:        fmt.Sprintf("egress server.%s.svc.cluster.local", namespace),
+		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
+		ChildSpans:  []*zipkin.Span{&serverSpan},
+	}
+	return
+}
+
 // compareTrace recursively compares the two given spans
 func CompareTrace(t framework.TestContext, got, want zipkin.Span) bool {
 	t.Helper()
@@ -164,7 +194,7 @@ func CompareTrace(t framework.TestContext, got, want zipkin.Span) bool {
 	return true
 }
 
-// wantTraceRoot constructs the wanted trace and returns the root span of that trace
+// WantTraceRoot constructs the wanted trace and returns the root span of that trace
 func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 	serverSpan := zipkin.Span{
 		Name:        fmt.Sprintf("server.%s.svc.cluster.local:80/*", namespace),
