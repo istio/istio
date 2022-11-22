@@ -388,7 +388,7 @@ spec:
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
     {{- end }}
-    {{ - if eq .Values.global.pilotCertProvider "kubernetes" }}
+    {{- if eq .Values.global.pilotCertProvider "kubernetes" }}
     - mountPath: /var/run/secrets/istio/kubernetes
       name: kube-ca-cert
     {{- end }}
@@ -475,7 +475,6 @@ spec:
   - name: kube-ca-cert
     configMap:
       name: kube-root-ca.crt
-      optional: true
   {{- end }}
   {{- if .Values.global.mountMtlsCerts }}
   # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
