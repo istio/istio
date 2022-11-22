@@ -97,8 +97,8 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 						}
 
 						// the OTel collector exports to Zipkin
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-							fmt.Sprintf("egress server.%s.svc.cluster.local", appNsInst.Name()), "provider=otel")
+						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel")
+						t.Logf("got traces %v from %s", traces, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
@@ -142,6 +142,7 @@ meshConfig:
 `
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "openCensusAgent"
+	cfg.Values["global.imagePullPolicy"] = "IfNotPresent"
 }
 
 func testSetup(ctx resource.Context) (err error) {
