@@ -19,12 +19,7 @@ set -o pipefail
 set -o errexit
 set -x
 
-
-cd $SRC
-git clone --branch=dev https://github.com/AdamKorcz/go-118-fuzz-build $SRC/go-118-fuzz-build
-cd $SRC/istio
-go mod edit -replace github.com/AdamKorcz/go-118-fuzz-build=/src/go-118-fuzz-build
-sed -i 's/\"testing\"/\"github.com\/AdamKorcz\/go-118-fuzz-build\/testing\"/g' $SRC/istio/pkg/fuzz/util.go
+sed -i 's/\"testing\"/\"github.com\/AdamKorcz\/go-118-fuzz-build\/testing\"/g' "${SRC}"/istio/pkg/fuzz/util.go
 
 sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
 # Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/testing"
