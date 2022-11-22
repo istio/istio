@@ -57,7 +57,7 @@ func watchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan 
 			if !ok {
 				return
 			}
-			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+			if event.Has(fsnotify.Create) || event.Has(fsnotify.Write) || event.Has(fsnotify.Remove) {
 				fileModified <- true
 			}
 		case err, ok := <-watcher.Errors:
