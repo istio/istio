@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -1449,8 +1450,24 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 			if len(addressesToReport) == 0 {
 				// There are no external addresses, so report the internal ones
 				// TODO: should we always report both?
-				addressesToReport = internal
 				addrType = k8s.HostnameAddressType
+				for _, hostport := range internal {
+					svcname, _, _ := net.SplitHostPort(hostport)
+					svc := r.Context.ps.ServiceIndex.HostnameAndNamespace[host.Name(svcname)][obj.Namespace]
+					if svc.Attributes.ClusterExternalPorts != nil {
+						// Add internal hostname if not LoadBalancer type service and not duplicate
+						found := false
+						for _, name := range addressesToReport {
+							if name == svcname {
+								found = true
+								break
+							}
+						}
+						if !found {
+							addressesToReport = append(addressesToReport, svcname)
+						}
+					}
+				}
 			}
 			gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
