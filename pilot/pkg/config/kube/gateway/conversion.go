@@ -1454,7 +1454,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				for _, hostport := range internal {
 					svchost, _, _ := net.SplitHostPort(hostport)
 					svc := r.Context.ps.ServiceIndex.HostnameAndNamespace[host.Name(svchost)][obj.Namespace]
-					if svc.Attributes.ClusterExternalPorts != nil {
+					if svc.Attributes.Type != corev1.ServiceTypeLoadBalancer {
 						// Add internal hostname if not LoadBalancer type service and not duplicate
 						found := false
 						for _, addr := range addressesToReport {

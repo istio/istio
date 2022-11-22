@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 
@@ -590,6 +592,9 @@ type ServiceAttributes struct {
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
+
+	// Type of Kubernetes service
+	Type corev1.ServiceType
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
