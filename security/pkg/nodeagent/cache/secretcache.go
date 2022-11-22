@@ -578,6 +578,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	options := pkiutil.CertOptions{
 		Host:       csrHostName.String(),
 		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
+		IsDualUse:  sc.configOptions.IsDualUse,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
 	}

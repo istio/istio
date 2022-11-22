@@ -78,6 +78,8 @@ var (
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
 	workloadRSAKeySizeEnv = env.Register("WORKLOAD_RSA_KEY_SIZE", 2048,
 		"Specify the RSA key size to use for workload certificates.").Get()
+	isDualUseEnv = env.Register("IS_DUAL_USE", false,
+		"Enable dual-use mode, which generates workload certificates with a CommonName identical to the SAN.").Get()
 	pkcs8KeysEnv = env.Register("PKCS8_KEY", false,
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.Register("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()

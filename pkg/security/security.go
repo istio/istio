@@ -163,6 +163,10 @@ type Options struct {
 	// WorkloadRSAKeySize is the size of a private key for a workload certificate.
 	WorkloadRSAKeySize int
 
+	// Whether to enable dual-use mode. Generates workload certificates with a CommonName identical to the 
+	// SAN.
+	IsDualUse bool
+
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
