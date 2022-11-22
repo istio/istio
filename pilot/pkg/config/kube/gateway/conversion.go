@@ -1452,19 +1452,19 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				// TODO: should we always report both?
 				addrType = k8s.HostnameAddressType
 				for _, hostport := range internal {
-					svcname, _, _ := net.SplitHostPort(hostport)
-					svc := r.Context.ps.ServiceIndex.HostnameAndNamespace[host.Name(svcname)][obj.Namespace]
+					svchost, _, _ := net.SplitHostPort(hostport)
+					svc := r.Context.ps.ServiceIndex.HostnameAndNamespace[host.Name(svchost)][obj.Namespace]
 					if svc.Attributes.ClusterExternalPorts != nil {
 						// Add internal hostname if not LoadBalancer type service and not duplicate
 						found := false
-						for _, name := range addressesToReport {
-							if name == svcname {
+						for _, addr := range addressesToReport {
+							if addr == svchost {
 								found = true
 								break
 							}
 						}
 						if !found {
-							addressesToReport = append(addressesToReport, svcname)
+							addressesToReport = append(addressesToReport, svchost)
 						}
 					}
 				}
