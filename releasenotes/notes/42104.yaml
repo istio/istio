@@ -3,7 +3,7 @@ kind: feature
 area: telemetry
 
 issue:
-- 41763
+- 42080
 releaseNotes:
 - |
-  **Added** support for `reporting_interval`.
+  **Fixed** OpenTelemetry tracer not working.
