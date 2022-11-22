@@ -62,3 +62,4 @@ var/
 ._*
 # MacOS Desktop Services Store
 .DS_Store
+local-test-utils
