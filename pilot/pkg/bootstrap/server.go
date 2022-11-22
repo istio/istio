@@ -906,6 +906,19 @@ func (s *Server) initRegistryEventHandlers() {
 					Reason: []model.TriggerReason{model.NamespaceUpdate},
 				})
 			})
+			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Secret, func(_ config.Config, secret config.Config, _ model.Event) {
+				s.XDSServer.ConfigUpdate(&model.PushRequest{
+					Full: true,
+					ConfigsUpdated: map[model.ConfigKey]struct{}{
+						{
+							Kind:      kind.Secret,
+							Name:      secret.Name,
+							Namespace: secret.Namespace,
+						}: {},
+					},
+					Reason: []model.TriggerReason{model.SecretTrigger},
+				})
+			})
 		}
 	}
 }

@@ -26,6 +26,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
@@ -67,6 +69,11 @@ type Controller struct {
 	namespaceInformer cache.SharedIndexInformer
 	namespaceHandler  model.EventHandler
 
+	// Gateway-api types reference secrets directly, so we need access to these
+	secretLister   listerv1.SecretLister
+	secretInformer cache.SharedIndexInformer
+	secretHandler  model.EventHandler
+
 	// domain stores the cluster domain, typically cluster.local
 	domain string
 
@@ -95,11 +102,14 @@ func NewController(
 	var ctl *status.Controller
 
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
+	secretInformer := credentials.GetSecretInformer(client)
 	gatewayController := &Controller{
 		client:            client,
 		cache:             c,
 		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
 		namespaceInformer: nsInformer,
+		secretLister:      listerv1.NewSecretLister(secretInformer.GetIndexer()),
+		secretInformer:    secretInformer,
 		domain:            options.DomainSuffix,
 		statusController:  ctl,
 		// Disabled by default, we will enable only if we win the leader election
@@ -118,6 +128,14 @@ func NewController(
 			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
 				gatewayController.namespaceEvent(oldNs, newNs)
 			}
+		},
+	})
+	secretInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			gatewayController.secretEvent(obj)
+		},
+		DeleteFunc: func(obj any) {
+			gatewayController.secretEvent(obj)
 		},
 	})
 
@@ -219,11 +237,23 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type Namespaces: %v", err)
 	}
-	namespaces := map[string]*corev1.Namespace{}
+	namespaces := make(map[string]*corev1.Namespace, len(nsl))
 	for _, ns := range nsl {
 		namespaces[ns.Name] = ns
 	}
+
+	secretList, err := c.secretLister.List(klabels.Everything())
+	if err != nil {
+		return fmt.Errorf("failed to list type Secrets: %v", err)
+	}
+	secrets := sets.NewWithLength[model.NamespacedName](len(secretList))
+	for _, s := range secretList {
+		secrets.Insert(model.NamespacedName{Name: s.Name, Namespace: s.Namespace})
+	}
+
 	input.Namespaces = namespaces
+	input.Secrets = secrets
+
 	output := convertResources(input)
 
 	// Handle all status updates
@@ -280,6 +310,8 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 	switch typ {
 	case gvk.Namespace:
 		c.namespaceHandler = handler
+	case gvk.Secret:
+		c.secretHandler = handler
 	}
 	// For all other types, do nothing as c.cache has been registered
 }
@@ -298,6 +330,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		}
 	}()
 	kube.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
+	kube.WaitForCacheSync(stop, c.secretInformer.HasSynced)
 }
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -331,7 +364,7 @@ func (c *Controller) namespaceEvent(oldNs, newNs *corev1.Namespace) {
 	c.stateMu.RUnlock()
 
 	// If there was any overlap, then a relevant namespace label may have changed, and we trigger a
-	// push A more exact check could actually determine if the label selection result actually changed.
+	// push. A more exact check could actually determine if the label selection result actually changed.
 	// However, this is a much simpler approach that is likely to scale well enough for now.
 	if !intersection.IsEmpty() && c.namespaceHandler != nil {
 		log.Debugf("namespace labels changed, triggering namespace handler: %v", intersection.UnsortedList())
@@ -349,6 +382,42 @@ func getLabelKeys(ns *corev1.Namespace) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (c *Controller) secretEvent(obj any) {
+	if obj == nil {
+		return
+	}
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return
+		}
+		secret, ok = tombstone.Obj.(*corev1.Secret)
+		if !ok {
+			return
+		}
+	}
+
+	push := false
+	c.stateMu.RLock()
+	if ref := c.state.ReferencedResources[kind.Secret]; ref != nil {
+		if ref.Contains(model.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}) {
+			push = true
+		}
+	}
+	c.stateMu.RUnlock()
+	if push {
+		log.Debugf("secret %s/%s changed, triggering secret handler", secret.Namespace, secret.Name)
+		cfg := config.Config{
+			Meta: config.Meta{
+				Name:      secret.Name,
+				Namespace: secret.Namespace,
+			},
+		}
+		c.secretHandler(cfg, cfg, model.EventUpdate)
+	}
 }
 
 // deepCopyStatus creates a copy of all configs, with a copy of the status field that we can mutate.

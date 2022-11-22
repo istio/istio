@@ -282,6 +282,17 @@ var services = []*model.Service{
 	},
 }
 
+var secrets = sets.Set[model.NamespacedName]{
+	model.NamespacedName{
+		Name:      "my-cert-http",
+		Namespace: "istio-system",
+	}: struct{}{},
+	model.NamespacedName{
+		Name:      "cert",
+		Namespace: "cert",
+	}: struct{}{},
+}
+
 func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
@@ -331,6 +342,7 @@ func TestConvertResources(t *testing.T) {
 			output := convertResources(kr)
 			output.AllowedReferences = AllowedReferences{} // Not tested here
 			output.ReferencedNamespaceKeys = nil           // Not tested here
+			output.ReferencedResources = nil               // Not tested here
 
 			// sort virtual services to make the order deterministic
 			sort.Slice(output.VirtualService, func(i, j int) bool {
@@ -599,6 +611,7 @@ func splitInput(configs []config.Config) KubernetesResources {
 			},
 		}
 	}
+	out.Secrets = secrets
 	out.Domain = "domain.suffix"
 	return out
 }

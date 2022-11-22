@@ -76,7 +76,19 @@ type authorizationResponse struct {
 var _ credentials.Controller = &CredentialsController{}
 
 func NewCredentialsController(client kube.Client, clusterID cluster.ID) *CredentialsController {
-	informer := client.KubeInformer().InformerFor(&v1.Secret{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+	informer := GetSecretInformer(client)
+	_ = informer.SetTransform(kube.StripUnusedFields)
+
+	return &CredentialsController{
+		secretInformer:     informer,
+		secretLister:       listersv1.NewSecretLister(informer.GetIndexer()),
+		sar:                client.Kube().AuthorizationV1().SubjectAccessReviews(),
+		authorizationCache: make(map[authorizationKey]authorizationResponse),
+	}
+}
+
+func GetSecretInformer(client kube.Client) cache.SharedIndexInformer {
+	return client.KubeInformer().InformerFor(&v1.Secret{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return informersv1.NewFilteredSecretInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
@@ -94,14 +106,6 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 			},
 		)
 	})
-	_ = informer.SetTransform(kube.StripUnusedFields)
-
-	return &CredentialsController{
-		secretInformer:     informer,
-		secretLister:       listersv1.NewSecretLister(informer.GetIndexer()),
-		sar:                client.Kube().AuthorizationV1().SubjectAccessReviews(),
-		authorizationCache: make(map[authorizationKey]authorizationResponse),
-	}
 }
 
 const cacheTTL = time.Minute

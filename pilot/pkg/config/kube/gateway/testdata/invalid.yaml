@@ -75,7 +75,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
-  name: invalid-tls
+  name: invalid-cert-kind
   namespace: istio-system
 spec:
   addresses:
@@ -93,6 +93,27 @@ spec:
       - name: my-cert-http
         group: core
         kind: unknown
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: invalid-cert-notfound
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "domain.example"
+    port: 34001
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: nonexistent
+        kind: Secret
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute

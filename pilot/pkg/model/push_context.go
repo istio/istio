@@ -1242,7 +1242,7 @@ func (ps *PushContext) updateContext(
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, secretsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1274,6 +1274,8 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case kind.ProxyConfig:
 			proxyConfigsChanged = true
+		case kind.Secret:
+			secretsChanged = true
 		}
 	}
 
@@ -1288,8 +1290,8 @@ func (ps *PushContext) updateContext(
 		ps.serviceAccounts = oldPushContext.serviceAccounts
 	}
 
-	if servicesChanged || gatewayAPIChanged {
-		// Gateway status depends on services, so recompute if they change as well
+	if servicesChanged || gatewayAPIChanged || secretsChanged {
+		// Gateway status depends on services and secrets, so recompute if they change as well
 		if err := ps.initKubernetesGateways(env); err != nil {
 			return err
 		}
