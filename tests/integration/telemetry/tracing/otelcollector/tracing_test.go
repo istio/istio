@@ -102,7 +102,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+						if !tracing.VerifyOtelEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil
