@@ -35,6 +35,7 @@ data:
           exporters: [logging]
         traces:
           receivers:
+          - otlp
           - opencensus
           exporters:
           - zipkin
