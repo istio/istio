@@ -67,9 +67,9 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 	updateEDS(c, epc, ep, event)
 	if features.EnableHeadlessService {
 		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
-			for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
-				// if the service is headless service, trigger a full push.
-				if svc.Spec.ClusterIP == v1.ClusterIPNone {
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full: true,
 						// TODO: extend and set service instance type, so no need to re-init push context
