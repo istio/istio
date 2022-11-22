@@ -16,7 +16,7 @@ Retrieve the local-test-utils directory with the following command:
 git checkout b03aa0 -- local-test-utils
 ```
 
-The file is gitignored, so feel free to keep it around in your local copy
+The file is gitignored, so feel free to keep it around in your local copy of the repo.
 
 ## Build
 
@@ -31,6 +31,14 @@ export BUILD_ZTUNNEL=1
 
 # Build Istiod and proxy
 tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push # consider --builder=crane
+```
+
+### Notes when using Docker for Mac
+
+Docker Desktop on macOS is ~special~, so if you're using it to build Rust ztunnel, you'll have to override some settings. The following one-liner should generally work (assuming the Rust ztunnel directory is siblings with this direectory) on recent versions of Docker Desktop on macOS:
+
+```shell
+DOCKER_SOCKET_MOUNT="-v /var/run/docker.sock.raw:/var/run/docker.sock" CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=${PWD}/../ztunnel,destination=/ztunnel " BUILD_ZTUNNEL=1 BUILD_ZTUNNEL_REPO="/ztunnel" ./common/scripts/run.sh tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push
 ```
 
 ## Cluster Setup and Install
