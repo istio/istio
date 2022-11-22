@@ -84,7 +84,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 			config := `apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
-  name: logs
+  name: tracing
 spec:
   tracing:
   - providers:
@@ -110,7 +110,7 @@ spec:
 						}
 
 						// the OTel collector exports to Zipkin
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
+						traces, err := tracing.GetZipkinInstance().QueryTraces(3000,
 							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
