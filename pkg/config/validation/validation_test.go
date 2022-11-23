@@ -7381,6 +7381,77 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name:       "null outputClaimToHeader",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:               "foo.com",
+						JwksUri:              "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{{}},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "null claim value in outputClaimToHeader ",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{
+							{
+								Header: "x-jwt-claim",
+								Claim:  "",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "null header value in outputClaimToHeader ",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{
+							{
+								Header: "",
+								Claim:  "sub",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "invalid header value in outputClaimToHeader ",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{
+							{
+								Header: "abc%123",
+								Claim:  "sub",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {

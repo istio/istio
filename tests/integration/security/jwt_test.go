@@ -40,6 +40,7 @@ import (
 func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
+	payload3 := strings.Split(jwt.TokenIssuer1WithNestedClaims2, ".")[1]
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("security.authentication.jwt").
@@ -93,6 +94,8 @@ func TestRequestAuthentication(t *testing.T) {
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "",
 								"X-Test-Payload":      payload1,
+								"X-Jwt-Iss":           "test-issuer-1@istio.io",
+								"X-Jwt-Iat":           "1562182722",
 							}))
 					},
 				},
@@ -153,6 +156,27 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.Check = check.And(
 							check.OK(),
 							check.ReachedTargetClusters(t))
+					},
+				},
+				{
+					name: "valid-nested-claim-token",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/valid-token-noauthz"
+						opts.HTTP.Headers = headers.New().
+							With("Authorization", "Bearer "+jwt.TokenIssuer1WithNestedClaims2).
+							With("X-Jwt-Nested-Claim", "value_to_be_replaced").
+							Build()
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1WithNestedClaims2).Build()
+						opts.Check = check.And(
+							check.OK(),
+							check.ReachedTargetClusters(t),
+							check.RequestHeaders(map[string]string{
+								headers.Authorization: "",
+								"X-Test-Payload":      payload3,
+								"X-Jwt-Iss":           "test-issuer-1@istio.io",
+								"X-Jwt-Iat":           "1604008018",
+								"X-Jwt-Nested-Claim":  "valueC",
+							}))
 					},
 				},
 			}))
