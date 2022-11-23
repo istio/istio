@@ -115,6 +115,9 @@ type Config struct {
 	// for the deployment.
 	ServiceAccount bool
 
+	// DisableAutomountSAToken indicates to opt out of auto mounting ServiceAccount's API credentials
+	DisableAutomountSAToken bool
+
 	// Ports for this application. Port numbers may or may not be used, depending
 	// on the implementation.
 	Ports Ports
