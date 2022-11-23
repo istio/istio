@@ -142,7 +142,6 @@ meshConfig:
 `
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "openCensusAgent"
-	cfg.Values["global.imagePullPolicy"] = "IfNotPresent"
 }
 
 func testSetup(ctx resource.Context) (err error) {
