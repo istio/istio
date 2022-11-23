@@ -129,8 +129,15 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		},
 	}
 
-	// TODO(https://github.com/envoyproxy/envoy/issues/23809) support this in Envoy
 	ctx.RequireClientCertificate = proto.BoolFalse
+	if serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL ||
+		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		ctx.RequireClientCertificate = proto.BoolTrue
+	}
+	if transportProtocol == istionetworking.TransportProtocolQUIC {
+		// TODO(https://github.com/envoyproxy/envoy/issues/23809) support this in Envoy
+		ctx.RequireClientCertificate = proto.BoolFalse
+	}
 	credentialSocketExist := false
 	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
 		credentialSocketExist = true
