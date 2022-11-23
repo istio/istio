@@ -67,10 +67,11 @@ type EchoDeployments struct {
 
 func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
 	out := echo.Config{
-		Service:        name,
-		Namespace:      ns,
-		ServiceAccount: true,
-		Headless:       headless,
+		Service:                 name,
+		Namespace:               ns,
+		ServiceAccount:          true,
+		Headless:                headless,
+		DisableAutomountSAToken: name == ASvc,
 		Subsets: []echo.SubsetConfig{
 			{
 				Version:     "v1",
