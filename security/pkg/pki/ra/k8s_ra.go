@@ -127,7 +127,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
 		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error())
+			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error()))
 		}
 		rootCertFromMeshConfig, err = r.GetRootCertFromMeshConfig(certSigner)
 		if err != nil {
@@ -139,10 +139,10 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 			possibleRootCert = rootCertFromCertChain
 		}
 		if possibleRootCert == nil {
-			return nil, fmt.Errorf("failed to find root cert from either signed cert-chain or mesh config")
+			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("failed to find root cert from either signed cert-chain or mesh config"))
 		}
 		if verifyErr := util.VerifyCertificate(nil, cert, possibleRootCert, nil); verifyErr != nil {
-			return nil, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr)
+			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr))
 		}
 		if !bytes.Equal(possibleRootCert, rootCertFromCertChain) {
 			respCertChain = append(respCertChain, string(possibleRootCert))
