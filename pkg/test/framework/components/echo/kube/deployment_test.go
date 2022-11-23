@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -168,6 +168,24 @@ func TestDeploymentYAML(t *testing.T) {
 				"rev-b": resource.IstioVersion("1.9.0"),
 			},
 			compatibility: true,
+		},
+		{
+			name:         "disable-automount-sa",
+			wantFilePath: "testdata/disable-automount-sa.yaml",
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						WorkloadPort: 8090,
+						ServicePort:  8090,
+					},
+				},
+				ServiceAccount:          true,
+				DisableAutomountSAToken: true,
+			},
 		},
 	}
 	for _, tc := range testCase {

@@ -147,6 +147,9 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
+{{- if $.DisableAutomountSAToken }}
+      automountServiceAccountToken: false
+{{- end }}
 {{- if ne $.ImagePullSecretName "" }}
       imagePullSecrets:
       - name: {{ $.ImagePullSecretName }}
@@ -700,27 +703,28 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		return nil, err
 	}
 	params := map[string]interface{}{
-		"ImageHub":            settings.Image.Hub,
-		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
-		"ImagePullPolicy":     settings.Image.PullPolicy,
-		"ImagePullSecretName": imagePullSecretName,
-		"Service":             cfg.Service,
-		"Version":             cfg.Version,
-		"Headless":            cfg.Headless,
-		"StatefulSet":         cfg.StatefulSet,
-		"ProxylessGRPC":       cfg.IsProxylessGRPC(),
-		"GRPCMagicPort":       grpcMagicPort,
-		"Locality":            cfg.Locality,
-		"ServiceAccount":      cfg.ServiceAccount,
-		"ServicePorts":        cfg.Ports.GetServicePorts(),
-		"ContainerPorts":      getContainerPorts(cfg),
-		"ServiceAnnotations":  cfg.ServiceAnnotations,
-		"Subsets":             cfg.Subsets,
-		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.Cluster.Name(),
-		"Namespace":           namespace,
-		"ReadinessTCPPort":    cfg.ReadinessTCPPort,
-		"ReadinessGRPCPort":   cfg.ReadinessGRPCPort,
+		"ImageHub":                settings.Image.Hub,
+		"ImageTag":                strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImagePullPolicy":         settings.Image.PullPolicy,
+		"ImagePullSecretName":     imagePullSecretName,
+		"Service":                 cfg.Service,
+		"Version":                 cfg.Version,
+		"Headless":                cfg.Headless,
+		"StatefulSet":             cfg.StatefulSet,
+		"ProxylessGRPC":           cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":           grpcMagicPort,
+		"Locality":                cfg.Locality,
+		"ServiceAccount":          cfg.ServiceAccount,
+		"DisableAutomountSAToken": cfg.DisableAutomountSAToken,
+		"ServicePorts":            cfg.Ports.GetServicePorts(),
+		"ContainerPorts":          getContainerPorts(cfg),
+		"ServiceAnnotations":      cfg.ServiceAnnotations,
+		"Subsets":                 cfg.Subsets,
+		"TLSSettings":             cfg.TLSSettings,
+		"Cluster":                 cfg.Cluster.Name(),
+		"Namespace":               namespace,
+		"ReadinessTCPPort":        cfg.ReadinessTCPPort,
+		"ReadinessGRPCPort":       cfg.ReadinessGRPCPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
