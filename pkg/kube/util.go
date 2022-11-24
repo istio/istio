@@ -177,6 +177,10 @@ func CheckPodReadyOrComplete(pod *corev1.Pod) error {
 func CheckPodReady(pod *corev1.Pod) error {
 	switch pod.Status.Phase {
 	case corev1.PodRunning:
+		// Delete endpoint when pod is going to be deleted.
+		if !pod.DeletionTimestamp.IsZero() {
+			return fmt.Errorf("pod is deleted")
+		}
 		// Wait until all containers are ready.
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
