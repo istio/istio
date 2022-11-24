@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 42141
+releaseNotes:
+  - |
+    **Added** Endpoint will be deleted when pod DeletionTimestamp is not zero.
+
