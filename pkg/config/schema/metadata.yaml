@@ -414,8 +414,6 @@ resources:
     plural: "envoyfilters"
     group: "networking.istio.io"
     version: "v1alpha3"
-    versionAliases:
-      - "v1beta1"
     proto: "istio.networking.v1alpha3.EnvoyFilter"
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes additional envoy filters to be inserted by Pilot"
@@ -464,6 +462,8 @@ resources:
     plural: "authorizationpolicies"
     group: "security.istio.io"
     version: "v1beta1"
+    versionAliases:
+      - "v1"
     proto: "istio.security.v1beta1.AuthorizationPolicy"
     protoPackage: "istio.io/api/security/v1beta1"
     description: "describes the authorization policy."
@@ -474,6 +474,8 @@ resources:
     plural: "requestauthentications"
     group: "security.istio.io"
     version: "v1beta1"
+    versionAliases:
+      - "v1"
     proto: "istio.security.v1beta1.RequestAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
     description: "describes the request authentication."
