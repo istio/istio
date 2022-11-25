@@ -1419,17 +1419,17 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 		}
 
 		// TODO: we lose address if servers is empty due to an error
-		internal, external, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+		internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
 		if len(skippedAddresses) > 0 {
 			warnings = append(warnings, fmt.Sprintf("Only Hostname is supported, ignoring %v", skippedAddresses))
 		}
 		if len(warnings) > 0 {
 			var msg string
-			if len(internal) > 0 {
+			if len(internal) != 0 {
 				msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
 					humanReadableJoin(internal), strings.Join(warnings, "; "))
 			} else {
-				msg = fmt.Sprintf("failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
+				msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 			}
 			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
 				Reason:  string(k8s.GatewayReasonAddressNotAssigned),
@@ -1453,19 +1453,8 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				addrType = k8s.HostnameAddressType
 				for _, hostport := range internal {
 					svchost, _, _ := net.SplitHostPort(hostport)
-					svc := r.Context.ps.ServiceIndex.HostnameAndNamespace[host.Name(svchost)][obj.Namespace]
-					if svc.Attributes.Type != corev1.ServiceTypeLoadBalancer {
-						// Add internal hostname if not LoadBalancer type service and not duplicate
-						found := false
-						for _, addr := range addressesToReport {
-							if addr == svchost {
-								found = true
-								break
-							}
-						}
-						if !found {
-							addressesToReport = append(addressesToReport, svchost)
-						}
+					if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
+						addressesToReport = append(addressesToReport, svchost)
 					}
 				}
 			}
@@ -1812,6 +1801,15 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
+}
+
+func contains(ss []string, s string) bool {
+	for _, str := range ss {
+		if str == s {
+			return true
+		}
+	}
+	return false
 }
 
 // NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters

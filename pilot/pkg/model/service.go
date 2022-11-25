@@ -30,7 +30,6 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
-	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -592,8 +591,8 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
-	// Type of Kubernetes service
-	Type corev1.ServiceType
+	// Type holds the value of the corev1.Type of the Kubernetes service
+	Type string
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
