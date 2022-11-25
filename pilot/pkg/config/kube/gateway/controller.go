@@ -134,6 +134,9 @@ func NewController(
 		AddFunc: func(obj any) {
 			gatewayController.secretEvent(obj)
 		},
+		UpdateFunc: func(_, obj any) {
+			gatewayController.secretEvent(obj)
+		},
 		DeleteFunc: func(obj any) {
 			gatewayController.secretEvent(obj)
 		},
