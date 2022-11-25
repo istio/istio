@@ -47,7 +47,11 @@ func NewGatewayContext(ps *model.PushContext) GatewayContext {
 // * External addresses (eg 1.2.3.4), this comes from LoadBalancer services. There may be multiple in some cases (especially multi cluster).
 // * Pending addresses (eg istio-ingressgateway.istio-system.svc), are LoadBalancer-type services with pending external addresses.
 // * Warnings for references that could not be resolved. These are intended to be user facing.
-func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []string, servers []*networking.Server) (internal, external, pending, warns []string) {
+func (gc GatewayContext) ResolveGatewayInstances(
+	namespace string,
+	gwsvcs []string,
+	servers []*networking.Server,
+) (internal, external, pending, warns []string) {
 	ports := map[int]struct{}{}
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
