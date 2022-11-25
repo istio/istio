@@ -15,6 +15,7 @@
 package gateway
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"sort"
@@ -28,6 +29,7 @@ import (
 
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -57,8 +59,8 @@ type KubernetesResources struct {
 	ReferenceGrant []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace
-	// Secrets stores all secrets in the cluster
-	Secrets sets.Set[model.NamespacedName]
+	// Secrets stores all credentials in the cluster
+	Secrets map[model.NamespacedName]*corev1.Secret
 
 	// Domain for the cluster. Typically, cluster.local
 	Domain  string
@@ -107,9 +109,10 @@ type OutputResources struct {
 	// determine if a namespace update could have impacted any Gateways. See namespaceEvent.
 	ReferencedNamespaceKeys sets.String
 
-	// ReferencedResources stores all resources referenced by gateway-api resources. This allows us to quickly
+	// ResourceReferences stores all resources referenced by gateway-api resources. This allows us to quickly
 	// determine if a resource update could have impacted any Gateways.
-	ReferencedResources map[kind.Kind]sets.Set[model.NamespacedName]
+	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
+	ResourceReferences map[model.ConfigKey][]model.ConfigKey
 }
 
 // Reference stores a reference to a namespaced GVK, as used by ReferencePolicy
@@ -120,9 +123,11 @@ type Reference struct {
 
 type ConfigContext struct {
 	KubernetesResources
-	AllowedReferences   AllowedReferences
-	GatewayReferences   map[parentKey]map[k8s.SectionName]*parentInfo
-	referencedResources map[kind.Kind]sets.Set[model.NamespacedName]
+	AllowedReferences AllowedReferences
+	GatewayReferences map[parentKey]map[k8s.SectionName]*parentInfo
+
+	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
+	resourceReferences map[model.ConfigKey][]model.ConfigKey
 }
 
 // convertResources is the top level entrypoint to our conversion logic, computing the full state based
@@ -141,7 +146,7 @@ func convertResources(r KubernetesResources) OutputResources {
 	ctx := ConfigContext{
 		KubernetesResources: r,
 		AllowedReferences:   convertReferencePolicies(r),
-		referencedResources: make(map[kind.Kind]sets.Set[model.NamespacedName]),
+		resourceReferences:  make(map[model.ConfigKey][]model.ConfigKey),
 	}
 
 	gw, gwMap, nsReferences := convertGateways(ctx)
@@ -161,7 +166,7 @@ func convertResources(r KubernetesResources) OutputResources {
 	}
 	result.AllowedReferences = ctx.AllowedReferences
 	result.ReferencedNamespaceKeys = nsReferences
-	result.ReferencedResources = ctx.referencedResources
+	result.ResourceReferences = ctx.resourceReferences
 	return result
 }
 
@@ -1613,7 +1618,7 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 	}
 
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
-	tls, err := buildTLS(r, l.TLS, obj.Namespace, isAutoPassthrough(obj, l))
+	tls, err := buildTLS(r, l.TLS, obj, isAutoPassthrough(obj, l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionReady)].error = err
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
@@ -1658,7 +1663,7 @@ func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
 	return string(protocol)
 }
 
-func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, namespace string, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -1671,6 +1676,7 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, namespace string, is
 	if tls.Mode != nil {
 		mode = *tls.Mode
 	}
+	namespace := gw.Namespace
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
@@ -1681,7 +1687,7 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, namespace string, is
 			// This is required in the API, should be rejected in validation
 			return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
-		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], namespace)
+		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw)
 		if err != nil {
 			return nil, err
 		}
@@ -1706,23 +1712,27 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, namespace string, is
 	return out, nil
 }
 
-func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, defaultNamespace string) (string, *ConfigError) {
+func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw config.Config) (string, *ConfigError) {
 	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
 	}
 
-	key := model.NamespacedName{
+	key := model.ConfigKey{
+		Kind:      kind.Secret,
 		Name:      string(ref.Name),
-		Namespace: defaultIfNil((*string)(ref.Namespace), defaultNamespace),
+		Namespace: defaultIfNil((*string)(ref.Namespace), gw.Namespace),
 	}
 
-	if _, f := ctx.referencedResources[kind.Secret]; !f {
-		ctx.referencedResources[kind.Secret] = sets.New[model.NamespacedName]()
-	}
-	ctx.referencedResources[kind.Secret].Insert(key)
+	ctx.resourceReferences[key] = append(ctx.resourceReferences[key], model.ConfigKey{
+		Kind:      kind.KubernetesGateway,
+		Namespace: gw.Namespace,
+		Name:      gw.Name,
+	})
 
-	if !ctx.KubernetesResources.Secrets.Contains(key) {
+	if secret, f := ctx.KubernetesResources.Secrets[model.NamespacedName{Name: key.Name, Namespace: key.Namespace}]; !f {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, the secret does not exist", objectReferenceString(ref))}
+	} else if err := checkMalformedCert(secret); err != nil {
+		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err)}
 	}
 
 	return credentials.ToKubernetesGatewayResource(key.Namespace, key.Name), nil
@@ -1858,6 +1868,17 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 	}
 	ret[NamespaceNameLabel] = name
 	return ret
+}
+
+func checkMalformedCert(secret *corev1.Secret) error {
+	key, cert, err := kube.ExtractKeyAndCert(secret)
+	if err != nil {
+		return err
+	}
+	if _, err = tls.X509KeyPair(cert, key); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (kr KubernetesResources) FuzzValidate() bool {

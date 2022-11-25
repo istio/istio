@@ -186,7 +186,7 @@ func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byt
 		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 
-	return extractKeyAndCert(k8sSecret)
+	return ExtractKeyAndCert(k8sSecret)
 }
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
@@ -237,8 +237,8 @@ func hasValue(d map[string][]byte, keys ...string) bool {
 	return true
 }
 
-// extractKeyAndCert extracts server key, certificate
-func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
+// ExtractKeyAndCert extracts server key, certificate
+func ExtractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
 	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
 		return scrt.Data[GenericScrtKey], scrt.Data[GenericScrtCert], nil
 	}

@@ -246,9 +246,9 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type Secrets: %v", err)
 	}
-	secrets := sets.NewWithLength[model.NamespacedName](len(secretList))
+	secrets := make(map[model.NamespacedName]*corev1.Secret, len(secretList))
 	for _, s := range secretList {
-		secrets.Insert(model.NamespacedName{Name: s.Name, Namespace: s.Namespace})
+		secrets[model.NamespacedName{Name: s.Name, Namespace: s.Namespace}] = s
 	}
 
 	input.Namespaces = namespaces
@@ -400,23 +400,26 @@ func (c *Controller) secretEvent(obj any) {
 		}
 	}
 
-	push := false
+	var impactedConfigs []model.ConfigKey
 	c.stateMu.RLock()
-	if ref := c.state.ReferencedResources[kind.Secret]; ref != nil {
-		if ref.Contains(model.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}) {
-			push = true
-		}
-	}
+	impactedConfigs = c.state.ResourceReferences[model.ConfigKey{
+		Kind:      kind.Secret,
+		Namespace: secret.Namespace,
+		Name:      secret.Name,
+	}]
 	c.stateMu.RUnlock()
-	if push {
+	if len(impactedConfigs) > 0 {
 		log.Debugf("secret %s/%s changed, triggering secret handler", secret.Namespace, secret.Name)
-		cfg := config.Config{
-			Meta: config.Meta{
-				Name:      secret.Name,
-				Namespace: secret.Namespace,
-			},
+		for _, cfg := range impactedConfigs {
+			gw := config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.KubernetesGateway,
+					Namespace:        cfg.Namespace,
+					Name:             cfg.Name,
+				},
+			}
+			c.secretHandler(gw, gw, model.EventUpdate)
 		}
-		c.secretHandler(cfg, cfg, model.EventUpdate)
 	}
 }
 

@@ -393,6 +393,65 @@ status:
       kind: HTTPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: invalid-cert-malformed
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Invalid listeners: [default]'
+    reason: ListenersNotValid
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Attached
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: 'invalid certificate reference /Secret/malformed., the certificate
+        is malformed: tls: failed to find any PEM data in certificate input'
+      reason: InvalidCertificateRef
+      status: "False"
+      type: Ready
+    - lastTransitionTime: fake
+      message: 'invalid certificate reference /Secret/malformed., the certificate
+        is malformed: tls: failed to find any PEM data in certificate input'
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
