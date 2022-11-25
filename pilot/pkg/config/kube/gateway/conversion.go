@@ -1730,9 +1730,15 @@ func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw c
 	})
 
 	if secret, f := ctx.KubernetesResources.Secrets[model.NamespacedName{Name: key.Name, Namespace: key.Namespace}]; !f {
-		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, the secret does not exist", objectReferenceString(ref))}
+		return "", &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, the secret does not exist", objectReferenceString(ref)),
+		}
 	} else if err := checkMalformedCert(secret); err != nil {
-		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err)}
+		return "", &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+		}
 	}
 
 	return credentials.ToKubernetesGatewayResource(key.Namespace, key.Name), nil

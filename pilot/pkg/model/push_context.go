@@ -1289,7 +1289,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if servicesChanged || gatewayAPIChanged {
-		// Gateway status depends on services and secrets, so recompute if they change as well
+		// Gateway status depends on services, so recompute if they change as well
 		if err := ps.initKubernetesGateways(env); err != nil {
 			return err
 		}
