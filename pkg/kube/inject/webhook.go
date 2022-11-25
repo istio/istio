@@ -507,7 +507,7 @@ func parseStatus(status string) ParsedContainers {
 	}
 	parser := func(key string, obj map[string]interface{}) []corev1.Container {
 		out := make([]corev1.Container, 0)
-		if value, exist := obj[key]; exist {
+		if value, exist := obj[key]; exist && value != nil {
 			log.Errorf("Status string failed to parse %s", status)
 			for _, v := range value.([]interface{}) {
 				out = append(out, corev1.Container{Name: v.(string)})

@@ -1408,6 +1408,18 @@ func TestParseStatus(t *testing.T) {
 			},
 		},
 		{
+			name: "Containers is null",
+			status: `{"containers":null,"initContainers":["istio-init",` +
+				` "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{},
+				InitContainers: []corev1.Container{
+					{Name: "istio-init"},
+					{Name: "istio-validation"},
+				},
+			},
+		},
+		{
 			name:   "Empty String",
 			status: ``,
 			want:   ParsedContainers{},
