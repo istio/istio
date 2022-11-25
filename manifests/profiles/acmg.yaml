@@ -1,0 +1,19 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+spec:
+  components:
+    base:
+      enabled: true
+
+    pilot:
+      enabled: true
+
+    acmg:
+      enabled: true
+      hub: acmg-registry.us-west-1.cr.aliyuncs.com/istio-testing
+      tag: latest
+
+    acmgGateway:
+      enabled: true

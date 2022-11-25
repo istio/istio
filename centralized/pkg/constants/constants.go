@@ -1,0 +1,5 @@
+package constants
+
+const (
+	EnableDebug = ""
+)

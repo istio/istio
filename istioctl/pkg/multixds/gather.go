@@ -205,18 +205,16 @@ func queryDebugSynczViaAgents(all bool, dr *xdsapi.DiscoveryRequest, istioNamesp
 				if options.XdsViaAgentsLimit != 0 && touchedPods > options.XdsViaAgentsLimit {
 					fmt.Fprintf(options.MessageWriter, "Some proxies may be missing from the list"+
 						" because the number of visited pod hits the limit %d,"+
-						" which can be set by `--xds-via-agents-limit` flag.\n", options.XdsViaAgentsLimit)
+						" which can be set by `--xds-via-agents-limit` flag.", options.XdsViaAgentsLimit)
 					break GetProxyLoop
 				}
-				namespacedName := pod.Name + "." + pod.Namespace
-				if visited[namespacedName] {
+				if visited[pod.Name+"."+pod.Namespace] {
 					// If we alredy have information about the pod, skip it.
 					continue
 				}
 				resp, err := queryToOnePod(&pod)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Skip the agent in Pod %s due to the error: %s\n", namespacedName, err.Error())
-					continue
+					return nil, err
 				}
 				responses = append(responses, resp)
 			}

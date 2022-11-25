@@ -35,7 +35,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.15-dev
+export VERSION ?= 0.0.0
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.15-2022-11-02T00-18-32
@@ -205,6 +205,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
+  ./centralized/cmd/acmg \
   ./tools/istio-iptables \
   ./tools/bug-report
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)

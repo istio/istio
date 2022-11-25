@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.acmg.name }}-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  labels:
+    app: acmg
+    operator.istio.io/component: "acmg-hijack"
+rules:
+- apiGroups: [ "" ]
+  resources: [ "configmaps", "services" ]
+  verbs: [ "create", "get", "list", "watch", "update", "delete" ]
+- apiGroups: [ "networking.istio.io" ]
+  resources: [ "gateways", "virtualservices" ]
+  verbs: [ "create", "get", "list", "watch", "patch" ]

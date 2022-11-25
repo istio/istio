@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.acmg.name }}-rolebinding
+  labels:
+    app: acmg
+    operator.istio.io/component: "acmg-hijack"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.acmg.name }}-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.acmg.name }}-service-account
+    namespace: {{ .Release.Namespace }}

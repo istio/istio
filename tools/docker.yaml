@@ -67,6 +67,11 @@ images:
   - ${TARGET_OUT_LINUX}/install-cni
   - ${TARGET_OUT_LINUX}/istio-cni-taint
 
+- name: acmg
+  dockerfile: centralized/docker/Dockerfile.acmg
+  targets:
+    - ${TARGET_OUT_LINUX}/acmg
+
 # Test images
 - name: app
   dockerfile: pkg/test/echo/docker/Dockerfile.app

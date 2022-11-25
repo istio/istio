@@ -1,0 +1,53 @@
+acmg:
+  name: "acmg"
+  replicaCount: 1
+  hub: ""
+  tag: ""
+
+  image: acmg
+
+  gatewayName: "acmg-gateway"
+
+  gatewayServiceName: "acmg-gateway"
+
+  centralizedGateWayAppName: "acmg-traffic-gateway"
+
+  gatewayNamespace: "istio-system"
+
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
+
+global:
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Dev builds from prow are on gcr.io
+  hub: acmg-registry.us-west-1.cr.aliyuncs.com/istio-testing
+  # Default tag for Istio images.
+  tag: latest
+
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: "Always"
+
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
+  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+
+  # To output all istio components logs in json format by adding --log_as_json argument to each container argument
+  logAsJson: false
+
+  # change acmg scope level to control logging out of acmg deployment
+  logging:
+    level: default:info

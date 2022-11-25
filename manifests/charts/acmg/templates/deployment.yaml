@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acmg-controller{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: acmg
+    operator.istio.io/component: "acmg-hijack"
+spec:
+  replicas: {{ .Values.acmg.replicaCount }}
+  selector:
+    matchLabels:
+      app: acmg
+  template:
+    metadata:
+      labels:
+        app: acmg
+    spec:
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      containers:
+        - name: acmg-controller
+{{- if contains "/" .Values.acmg.image }}
+          image: "{{ .Values.acmg.image }}"
+{{- else }}
+          image: "{{ .Values.acmg.hub | default .Values.global.hub }}/{{ .Values.acmg.image | default "acmg" }}:{{ .Values.acmg.tag | default .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+{{- if .Values.global.logging.level }}
+            - --log_output_level={{ .Values.global.logging.level }}
+{{- end}}
+{{- if .Values.global.logAsJson }}
+            - --log_as_json
+{{- end }}
+          env:
+          - name: REVISION
+            value: "{{ .Values.revision | default `default` }}"
+          - name: GATEWAY_NAME
+            value: "{{ .Values.acmg.gatewayName }}"
+          - name: GATEWAY_SERVICE_NAME
+            value: "{{ .Values.acmg.gatewayServiceName }}"
+          - name: CENTRALIZED_GATEWAY_APP_NAME
+            value: "{{ .Values.acmg.centralizedGateWayAppName }}"
+          - name: GATEWAY_NAMESPACE
+            value: "{{ .Values.acmg.gatewayNamespace }}"
+
+      serviceAccountName: {{ .Values.acmg.name }}-service-account

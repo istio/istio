@@ -156,6 +156,20 @@ func NewTranslator() *Translator {
 				ToHelmValuesTreeRoot: "global",
 				SkipReverseTranslate: true,
 			},
+			name.AcmgComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "acmg-controller",
+				ContainerName:        "acmg-controller",
+				HelmSubdir:           "acmg",
+				ToHelmValuesTreeRoot: "acmg",
+			},
+			name.AcmgGatewayComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "acmg-gateway",
+				ContainerName:        "acmg-gateway",
+				HelmSubdir:           "acmg-gateway",
+				ToHelmValuesTreeRoot: "acmg-gateway",
+			},
 		},
 		// nolint: lll
 		KubernetesMapping: map[string]*Translation{

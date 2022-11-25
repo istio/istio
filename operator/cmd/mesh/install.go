@@ -198,6 +198,10 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
 
+	if !operatorManageWebhooks && isDefaultInstallation {
+		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient.Kube(), revtag.DefaultRevisionName)
+	}
+
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
@@ -393,6 +397,7 @@ func GetTagVersion(tagInfo string) (string, error) {
 // getProfileNSAndEnabledComponents get the profile and all the enabled components
 // from the given input files and --set flag overlays.
 func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, string, []string, error) {
+	// TODO Check Acmg Config
 	var enabledComponents []string
 	if iop.Spec.Components != nil {
 		for _, c := range name.AllCoreComponentNames {
