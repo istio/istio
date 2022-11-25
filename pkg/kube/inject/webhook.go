@@ -508,7 +508,12 @@ func parseStatus(status string) ParsedContainers {
 	parser := func(key string, obj map[string]interface{}) []corev1.Container {
 		out := make([]corev1.Container, 0)
 		if value, exist := obj[key]; exist {
-			for _, v := range value.([]interface{}) {
+			castedValue, ok := value.([]interface{})
+			if !ok {
+				log.Warnf("Failed to type cast %s", value)
+				return out
+			}
+			for _, v := range castedValue {
 				out = append(out, corev1.Container{Name: v.(string)})
 			}
 			return out
