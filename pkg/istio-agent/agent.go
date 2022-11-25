@@ -113,12 +113,11 @@ type Agent struct {
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentOptions struct {
 	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
-	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
+	// to XDS istio.io/debug.
 	ProxyXDSDebugViaAgent bool
 	// Port value for the debugging endpoint.
 	ProxyXDSDebugViaAgentPort int
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
-	// This option will not be considered if proxyXDSViaAgent is false.
 	DNSCapture bool
 	// DNSAddr is the DNS capture address
 	DNSAddr string
