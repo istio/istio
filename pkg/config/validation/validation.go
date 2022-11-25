@@ -2138,6 +2138,20 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
 		}
 	}
+
+	for _, claimAndHeaders := range rule.OutputClaimToHeaders {
+		if claimAndHeaders == nil {
+			errs = multierror.Append(errs, errors.New("outputClaimToHeaders must not be null"))
+			continue
+		}
+		if claimAndHeaders.Claim == "" || claimAndHeaders.Header == "" {
+			errs = multierror.Append(errs, errors.New("outputClaimToHeaders header and claim value must be non-empty string"))
+			continue
+		}
+		if err := ValidateHTTPHeaderValue(claimAndHeaders.Header); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
 	return
 }
 

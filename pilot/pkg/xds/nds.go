@@ -57,7 +57,8 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 	if !req.Full {
-		// NDS only handles full push
+		// NDS only handles full push. For headless services, we trigger a full push
+		// when endpoint changes. So pushing NDS on full pushes is sufficient.
 		return false
 	}
 	// If none set, we will always push

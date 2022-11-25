@@ -1,6 +1,6 @@
 # The following policy selects all workloads in namespace 1
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .Namespace.Prefix }}-all
