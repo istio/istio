@@ -511,7 +511,6 @@ func parseStatus(status string) ParsedContainers {
 			for _, v := range value.([]interface{}) {
 				out = append(out, corev1.Container{Name: v.(string)})
 			}
-			return out
 		}
 		return out
 	}
