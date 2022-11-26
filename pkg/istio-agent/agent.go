@@ -546,10 +546,14 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 				if _, exists := nt.Table[host]; !exists {
 					addresses := make([]string, len(ipv4)+len(ipv6))
 					for _, addr := range ipv4 {
-						addresses = append(addresses, addr.String())
+						if len(addr.String()) > 0 {
+							addresses = append(addresses, addr.String())
+						}
 					}
 					for _, addr := range ipv6 {
-						addresses = append(addresses, addr.String())
+						if len(addr.String()) > 0 {
+							addresses = append(addresses, addr.String())
+						}
 					}
 					nt.Table[host] = &dnsProto.NameTable_NameInfo{
 						Ips:      addresses,
