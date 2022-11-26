@@ -444,7 +444,9 @@ func (c *LocalFileCache) purge() {
 					for downloadURL := range m.referencingURLs {
 						delete(c.checksums, downloadURL)
 					}
+					c.mux.Lock()
 					delete(c.modules, k)
+					c.mux.Unlock()
 					wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
 				}
 			}
