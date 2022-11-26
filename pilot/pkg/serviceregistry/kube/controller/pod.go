@@ -65,13 +65,13 @@ func newPodCache(c *Controller, informer informer.FilteredSharedIndexInformer, q
 
 // Copied from kubernetes/kubernetes/pkg/controller/util/endpoint/controller_utils.go
 //
-// ShouldPodBeInEndpoints returns true if a specified pod should be in an
+// shouldPodBeInEndpoints returns true if a specified pod should be in an
 // Endpoints or EndpointSlice resource. Terminating pods are not included.
-func ShouldPodBeInEndpoints(pod *v1.Pod) bool {
+func shouldPodBeInEndpoints(pod *v1.Pod) bool {
 	// "Terminal" describes when a Pod is complete (in a succeeded or failed phase).
 	// This is distinct from the "Terminating" condition which represents when a Pod
 	// is being terminated (metadata.deletionTimestamp is non nil).
-	if IsPodPhaseTerminal(pod.Status.Phase) {
+	if isPodPhaseTerminal(pod.Status.Phase) {
 		return false
 	}
 
@@ -86,8 +86,8 @@ func ShouldPodBeInEndpoints(pod *v1.Pod) bool {
 	return true
 }
 
-// IsPodPhaseTerminal returns true if the pod's phase is terminal.
-func IsPodPhaseTerminal(phase v1.PodPhase) bool {
+// isPodPhaseTerminal returns true if the pod's phase is terminal.
+func isPodPhaseTerminal(phase v1.PodPhase) bool {
 	return phase == v1.PodFailed || phase == v1.PodSucceeded
 }
 
@@ -166,17 +166,17 @@ func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	key := kube.KeyFunc(pod.Name, pod.Namespace)
 	switch ev {
 	case model.EventAdd:
-		if ShouldPodBeInEndpoints(pod) && IsPodReady(pod) {
+		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
 			pc.update(ip, key)
 		} else {
 			return nil
 		}
 	case model.EventUpdate:
-		if !ShouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
+		if !shouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
 			// delete only if this pod was in the cache
 			pc.deleteIP(ip, key)
 			ev = model.EventDelete
-		} else if ShouldPodBeInEndpoints(pod) && IsPodReady(pod) {
+		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
 			pc.update(ip, key)
 		} else {
 			return nil
