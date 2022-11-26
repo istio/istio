@@ -772,9 +772,11 @@ func TestWasmCachePrune(t *testing.T) {
 	c.Reset()
 
 	retry.UntilOrFail(t, func() bool {
+		c.mux.Lock()
 		if len(c.usingModules) == 0 && len(c.modules) == 0 {
 			return true
 		}
+		c.mux.Unlock()
 		return false
 	}, retry.BackoffDelay(options.ModuleExpiry))
 }
