@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
-kind: feature
-area: bug-fix
+kind: bug-fix
+area: extensibility
 
 issue:
 - 42154
