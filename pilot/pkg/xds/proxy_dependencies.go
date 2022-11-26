@@ -35,6 +35,14 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 
+	// When endpoints for headless service change, we should push if EnableHeadlessService is true
+	// so that we create updated listeners or when DNSCapture is enabled for proxy so that the NDS
+	// table is updated.
+	if req.Full && len(req.Reason) == 1 && req.Reason[0] == model.HeadlessEndpointUpdate &&
+		(features.EnableHeadlessService || bool(proxy.Metadata.DNSCapture)) {
+		return true
+	}
+
 	for config := range req.ConfigsUpdated {
 		affected := true
 

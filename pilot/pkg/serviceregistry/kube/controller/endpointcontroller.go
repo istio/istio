@@ -65,20 +65,18 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 	// Update internal endpoint cache no matter what kind of service, even headless service.
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
 	updateEDS(c, epc, ep, event)
-	if features.EnableHeadlessService {
-		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
-					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-						Full: true,
-						// TODO: extend and set service instance type, so no need to re-init push context
-						ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+	if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
+		// if the service is headless service, trigger a full push.
+		if svc.Spec.ClusterIP == v1.ClusterIPNone {
+			for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full: true,
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
 
-						Reason: []model.TriggerReason{model.EndpointUpdate},
-					})
-					return nil
-				}
+					Reason: []model.TriggerReason{model.HeadlessEndpointUpdate},
+				})
+				return nil
 			}
 		}
 	}

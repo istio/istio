@@ -383,6 +383,8 @@ type TriggerReason string
 const (
 	// EndpointUpdate describes a push triggered by an Endpoint change
 	EndpointUpdate TriggerReason = "endpoint"
+	// HeadlessEndpointUpdate describes a push triggered by an Endpoint change for headless service
+	HeadlessEndpointUpdate TriggerReason = "headlessendpoint"
 	// ConfigUpdate describes a push triggered by a config (generally and Istio CRD) change.
 	ConfigUpdate TriggerReason = "config"
 	// ServiceUpdate describes a push triggered by a Service change
