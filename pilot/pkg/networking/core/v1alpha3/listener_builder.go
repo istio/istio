@@ -97,6 +97,9 @@ func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 	dummy := &model.Proxy{
 		ConfigNamespace: wl.Namespace,
 		Labels:          wl.Labels,
+		Metadata: &model.NodeMetadata{
+			AmbientType: lb.node.Metadata.AmbientType,
+		},
 	}
 	return &ListenerBuilder{
 		node:                    lb.node,

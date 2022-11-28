@@ -47,6 +47,7 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 type Option struct {
 	IsCustomBuilder bool
 	SkippedIdentity string
+	IsAmbient       bool
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -226,6 +227,10 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			m.MigrateTrustDomain(b.trustDomainBundle)
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
 				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
+			}
+			if b.option.IsAmbient {
+				m.AmbientAdaptations()
+				b.logger.AppendDebugf("adapted rules to Ambient")
 			}
 			generated, err := m.Generate(forTCP, action)
 			if err != nil {

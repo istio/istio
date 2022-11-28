@@ -709,12 +709,12 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 
 // IsWaypointProxy returns true if the proxy is acting as a waypoint proxy in an ambient mesh.
 func (node *Proxy) IsWaypointProxy() bool {
-	return node.Metadata.AmbientType == ambient.TypeWaypoint
+	return node.Metadata != nil && node.Metadata.AmbientType == ambient.TypeWaypoint
 }
 
 // IsZTunnel returns true if the proxy is acting as a ztunnel in an ambient mesh.
 func (node *Proxy) IsZTunnel() bool {
-	return node.Metadata.AmbientType == ambient.TypeZTunnel
+	return node.Metadata != nil && node.Metadata.AmbientType == ambient.TypeZTunnel
 }
 
 // IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.

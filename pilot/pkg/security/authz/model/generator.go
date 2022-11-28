@@ -182,8 +182,17 @@ func (requestPresenterGenerator) principal(key, value string, forTCP bool) (*rba
 
 type requestHeaderGenerator struct{}
 
-func (requestHeaderGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
-	return nil, fmt.Errorf("unimplemented")
+func (requestHeaderGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+
+	header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
+	if err != nil {
+		return nil, err
+	}
+	m := matcher.HeaderMatcher(header, value)
+	return permissionHeader(m), nil
 }
 
 func (requestHeaderGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
