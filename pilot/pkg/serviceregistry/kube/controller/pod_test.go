@@ -298,15 +298,11 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Error(err)
 	}
 
-	if pod, exists := podCache.getPodKey(ip); !exists || pod != "default/pod2" {
-		t.Errorf("getPodKey => got %s, pod2 not found or incorrect", pod)
+	if pod, exists := podCache.getPodKey(ip); exists {
+		t.Errorf("getPodKey => got %s, want none", pod)
 	}
 
 	if err := f(&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{Conditions: podCondition, PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
 		t.Error(err)
-	}
-
-	if pod, exists := podCache.getPodKey(ip); exists {
-		t.Errorf("getPodKey => got %s, want none", pod)
 	}
 }
