@@ -88,7 +88,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: hostname "fake-service.com"
+    message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
     reason: AddressNotAssigned
     status: "False"
@@ -146,7 +146,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: port 8080 not found for
+    message: 'Failed to assign to any requested addresses: port 8080 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
@@ -206,7 +206,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: Only Hostname is supported,
+    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
       ignoring [1.2.3.4]'
     reason: AddressNotAssigned
     status: "False"
