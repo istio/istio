@@ -545,7 +545,7 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {
-					addresses := make([]string, len(ipv4)+len(ipv6))
+					addresses := make([]string, 0, len(ipv4)+len(ipv6))
 					for _, addr := range ipv4 {
 						addresses = append(addresses, addr.String())
 					}
