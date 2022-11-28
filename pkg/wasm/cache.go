@@ -49,13 +49,15 @@ const (
 // Cache models a Wasm module cache.
 type Cache interface {
 	Get(url, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
+	Reset()
 	Cleanup()
 }
 
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
 type LocalFileCache struct {
 	// Map from Wasm module checksum to cache entry.
-	modules map[moduleKey]*cacheEntry
+	modules      map[moduleKey]*cacheEntry
+	usingModules sets.Set[moduleKey]
 	// Map from tagged URL to checksum
 	checksums map[string]*checksumEntry
 
@@ -156,6 +158,7 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 		dir:          dir,
 		cacheOptions: cacheOptions.sanitize(),
 		stopChan:     make(chan struct{}),
+		usingModules: sets.New[moduleKey](),
 	}
 
 	go func() {
@@ -304,7 +307,20 @@ func (c *LocalFileCache) Get(
 	if err := c.addEntry(key, b, modulePath); err != nil {
 		return "", err
 	}
+	c.updateUsing(key.moduleKey)
 	return modulePath, nil
+}
+
+func (c *LocalFileCache) updateUsing(key moduleKey) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	c.usingModules.Insert(key)
+}
+
+func (c *LocalFileCache) Reset() {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	c.usingModules = sets.New[moduleKey]()
 }
 
 // Cleanup closes background Wasm module purge routine.
