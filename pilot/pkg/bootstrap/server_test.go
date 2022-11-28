@@ -29,18 +29,20 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
+	cert "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
@@ -622,6 +624,57 @@ func TestInitOIDC(t *testing.T) {
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
+			}
+		})
+	}
+}
+
+func TestWatchDNSCertForK8sCA(t *testing.T) {
+	tests := []struct {
+		name        string
+		certToWatch []byte
+		certRotated bool
+	}{
+		{
+			name:        "expired cert rotation",
+			certToWatch: testcerts.ExpiredServerCert,
+			certRotated: true,
+		},
+		{
+			name:        "valid cert no rotation",
+			certToWatch: testcerts.ServerCert,
+			certRotated: false,
+		},
+	}
+
+	csr := &cert.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "abc.xyz",
+		},
+		Status: cert.CertificateSigningRequestStatus{
+			Certificate: testcerts.ServerCert,
+		},
+	}
+	s := &Server{
+		server:                  server.New(),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+		kubeClient:              kube.NewFakeClient(csr),
+		dnsNames:                []string{"abc.xyz"},
+	}
+
+	for _, tt := range tests {
+		stop := make(chan struct{})
+		t.Run(tt.name, func(t *testing.T) {
+			s.istiodCertBundleWatcher.SetAndNotify(testcerts.ServerKey, tt.certToWatch, testcerts.CACert)
+
+			go s.watchDNSCertForK8sCA(2*time.Second, stop, "", "test-signer", true, time.Duration(0))
+			sleep.Until(stop, 10*time.Second)
+			close(stop)
+
+			st := string(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem)
+			certRotated := st != string(tt.certToWatch)
+			if certRotated != tt.certRotated {
+				t.Fatalf("expect certRotated is %v while actual certRotated is %v", tt.certRotated, certRotated)
 			}
 		})
 	}

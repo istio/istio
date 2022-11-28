@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -41,6 +42,9 @@ const (
 
 	// the interval polling root cert and re sign istiod cert when it changes.
 	rootCertPollingInterval = 60 * time.Second
+
+	// the interval polling Istiod server DNS cert for k8s CA and re-sign when it expires.
+	k8sCADnsCertPollingInterval = 10 * time.Minute
 
 	// Default CA certificate path
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
@@ -129,6 +133,14 @@ func (s *Server) initDNSCerts() error {
 				s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
 			}
 		})
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			go func() {
+				// Track TTL of DNS cert and renew cert in accordance to grace period.
+				s.watchDNSCertForK8sCA(k8sCADnsCertPollingInterval, stop, "", signerName, true, SelfSignedCACertTTL.Get())
+			}()
+			return nil
+		})
 	} else if pilotCertProviderName == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
@@ -140,6 +152,14 @@ func (s *Server) initDNSCerts() error {
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			go func() {
+				// Track TTL of DNS cert and renew cert in accordance to grace period.
+				s.watchDNSCertForK8sCA(k8sCADnsCertPollingInterval, stop, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
+			}()
+			return nil
+		})
 	} else if pilotCertProviderName == constants.CertProviderIstiod {
 		certChain, keyPEM, err = s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
@@ -201,6 +221,26 @@ func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 				s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
 				log.Infof("regenerated istiod dns cert: %s", certChain)
 			}
+		}
+	}
+}
+
+func (s *Server) watchDNSCertForK8sCA(pollingInterval time.Duration, stop <-chan struct{}, defaultCACertPath string, signerName string, approveCsr bool, requestedLifetime time.Duration) {
+	certUtil := certutil.NewCertUtil(int(defaultCertGracePeriodRatio * 100))
+	for {
+		if !sleep.Until(stop, pollingInterval) {
+			return
+		}
+
+		_, waitErr := certUtil.GetWaitTime(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem, time.Now(), time.Duration(0))
+		if waitErr != nil {
+			certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
+				strings.Join(s.dnsNames, ","), defaultCACertPath, signerName, approveCsr, requestedLifetime)
+			if err != nil {
+				log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
+			}
+
+			s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, s.istiodCertBundleWatcher.GetCABundle())
 		}
 	}
 }
