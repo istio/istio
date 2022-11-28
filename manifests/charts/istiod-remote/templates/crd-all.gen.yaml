@@ -50,9 +50,12 @@ spec:
                 description: Credentials to use for OCI image pulling.
                 type: string
               match:
+                description: Specifies the criteria to determine which traffic is
+                  passed to WasmPlugin.
                 items:
                   properties:
                     mode:
+                      description: Criteria for selecting traffic by their direction.
                       enum:
                       - UNDEFINED
                       - CLIENT
@@ -60,6 +63,8 @@ spec:
                       - CLIENT_AND_SERVER
                       type: string
                     ports:
+                      description: Criteria for selecting traffic by their destination
+                        port.
                       items:
                         properties:
                           number:
