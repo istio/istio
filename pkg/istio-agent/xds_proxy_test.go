@@ -447,6 +447,7 @@ type fakeAckCache struct{}
 func (f *fakeAckCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "test", nil
 }
+func (f *fakeAckCache) Reset()   {}
 func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
@@ -454,6 +455,7 @@ type fakeNackCache struct{}
 func (f *fakeNackCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "", errors.New("errror")
 }
+func (f *fakeNackCache) Reset()   {}
 func (f *fakeNackCache) Cleanup() {}
 
 func TestECDSWasmConversion(t *testing.T) {

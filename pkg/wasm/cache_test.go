@@ -40,6 +40,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -731,6 +733,52 @@ func TestWasmCache(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWasmCachePrune(t *testing.T) {
+	tmpDir := t.TempDir()
+	options := defaultOptions()
+	options.ModuleExpiry = time.Second
+	options.PurgeInterval = 500 * time.Millisecond
+	c := NewLocalFileCache(tmpDir, options)
+	c.httpFetcher.initialBackoff = time.Microsecond
+	defer c.Cleanup()
+
+	gotNumRequest := 0
+	binary1 := append(wasmHeader, 1)
+	binary2 := append(wasmHeader, 2)
+
+	// Create a test server which returns 0 for the first two calls, and returns 1 for the following calls.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if gotNumRequest <= 1 {
+			w.Write(binary1)
+		} else {
+			w.Write(binary2)
+		}
+		gotNumRequest++
+	}))
+	defer ts.Close()
+
+	_, err := c.Get(ts.URL, "", "namespace.resource", "1", time.Second*10, []byte{}, 1)
+	assert.NoError(t, err)
+
+	retry.UntilOrFail(t, func() bool {
+		if len(c.usingModules) == 1 && len(c.modules) == 1 {
+			return true
+		}
+		return false
+	}, retry.BackoffDelay(options.ModuleExpiry))
+
+	c.Reset()
+
+	retry.UntilOrFail(t, func() bool {
+		c.mux.Lock()
+		if len(c.usingModules) == 0 && len(c.modules) == 0 {
+			return true
+		}
+		c.mux.Unlock()
+		return false
+	}, retry.BackoffDelay(options.ModuleExpiry))
 }
 
 func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCIImageDigest string) {
