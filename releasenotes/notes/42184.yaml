@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 42184
+
+releaseNotes:
+- |
+  **Fixed** ServiceEntries using DNS_ROUND_ROBIN to specify 1 endpoint address
