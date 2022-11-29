@@ -57,9 +57,8 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 	if !req.Full {
-		// NDS only handles full push. For headless services, we trigger a full push
-		// when endpoint changes. So pushing NDS on full pushes is sufficient.
-		return false
+		// NDS generally handles full push. We only allow partial pushes, when headless endpoints change.
+		return headlessEndpointsUpdated(req)
 	}
 	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {
@@ -67,6 +66,15 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 	}
 	for config := range req.ConfigsUpdated {
 		if _, f := skippedNdsConfigs[config.Kind]; !f {
+			return true
+		}
+	}
+	return false
+}
+
+func headlessEndpointsUpdated(req *model.PushRequest) bool {
+	for _, reason := range req.Reason {
+		if reason == model.HeadlessEndpointUpdate {
 			return true
 		}
 	}
