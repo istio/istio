@@ -216,6 +216,14 @@ func readFile(filename string) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
+func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+	data, err := readFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return setupConfigdumpZtunnelConfigWriter(data, out)
+}
+
 func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
 	data, err := readFile(filename)
 	if err != nil {
@@ -591,7 +599,7 @@ func workloadConfigCmd() *cobra.Command {
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 			} else {
-				//configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
