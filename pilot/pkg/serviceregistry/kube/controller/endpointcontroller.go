@@ -66,11 +66,12 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
 	updateEDS(c, epc, ep, event)
 	if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
-		// if the service is headless service, trigger a full push.
+		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
+		// otherwise push endpoint updates - needed for NDS output.
 		if svc.Spec.ClusterIP == v1.ClusterIPNone {
 			for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full: true,
+					Full: features.EnableHeadlessService,
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
 
