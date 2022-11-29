@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
@@ -1289,6 +1290,145 @@ func TestParseInjectEnvs(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := parseInjectEnvs(tc.in)
+			if !reflect.DeepEqual(actual, tc.want) {
+				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
+			}
+		})
+	}
+}
+
+func TestMergeOrAppendProbers(t *testing.T) {
+	cases := []struct {
+		name               string
+		perviouslyInjected bool
+		in                 []corev1.EnvVar
+		probers            string
+		want               []corev1.EnvVar
+	}{
+		{
+			name:               "Append Prober",
+			perviouslyInjected: false,
+			in:                 []corev1.EnvVar{},
+			probers: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},` +
+				`"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+			want: []corev1.EnvVar{{
+				Name: status.KubeAppProberEnvName,
+				Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},` +
+					`"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+			}},
+		},
+		{
+			name:               "Merge Prober",
+			perviouslyInjected: true,
+			in: []corev1.EnvVar{
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name:  status.KubeAppProberEnvName,
+					Value: `{"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
+			},
+			probers: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}}}`,
+			want: []corev1.EnvVar{
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name: status.KubeAppProberEnvName,
+					Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}},` +
+						`"/app-health/foo/livez":{"httpGet":{"path":"/","port":8000,"scheme":"HTTP"}}}`,
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := mergeOrAppendProbers(tc.perviouslyInjected, tc.in, tc.probers)
+			if !reflect.DeepEqual(actual, tc.want) {
+				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
+			}
+		})
+	}
+}
+
+func TestParseStatus(t *testing.T) {
+	cases := []struct {
+		name   string
+		status string
+		want   ParsedContainers
+	}{
+		{
+			name: "Regular Containers only",
+			status: `{"containers":["istio-proxy", "random-container"],` +
+				`"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{
+					{Name: "istio-proxy"},
+					{Name: "random-container"},
+				},
+				InitContainers: []corev1.Container{},
+			},
+		},
+		{
+			name: "Init Containers only",
+			status: `{"initContainers":["istio-init", "istio-validation"],` +
+				`"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{},
+				InitContainers: []corev1.Container{
+					{Name: "istio-init"},
+					{Name: "istio-validation"},
+				},
+			},
+		},
+		{
+			name: "All Containers",
+			status: `{"containers":["istio-proxy", "random-container"],"initContainers":["istio-init",` +
+				` "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{
+					{Name: "istio-proxy"},
+					{Name: "random-container"},
+				},
+				InitContainers: []corev1.Container{
+					{Name: "istio-init"},
+					{Name: "istio-validation"},
+				},
+			},
+		},
+		{
+			name: "Containers is null",
+			status: `{"containers":null,"initContainers":["istio-init",` +
+				` "istio-validation"],"volumes":["workload-socket","istio-token","istiod-ca-cert"]}`,
+			want: ParsedContainers{
+				Containers: []corev1.Container{},
+				InitContainers: []corev1.Container{
+					{Name: "istio-init"},
+					{Name: "istio-validation"},
+				},
+			},
+		},
+		{
+			name:   "Empty String",
+			status: ``,
+			want:   ParsedContainers{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := parseStatus(tc.status)
+
 			if !reflect.DeepEqual(actual, tc.want) {
 				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
 			}
