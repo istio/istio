@@ -358,7 +358,7 @@ func datadogConfigGen(serviceName, _, cluster string) (*anypb.Any, error) {
 	return protoconv.MessageToAnyWithError(dc)
 }
 
-func otelConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
+func otelConfigGen(serviceName, hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.OpenTelemetryConfig{
 		GrpcService: &envoy_config_core_v3.GrpcService{
 			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
@@ -368,6 +368,7 @@ func otelConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
 				},
 			},
 		},
+		ServiceName: serviceName,
 	}
 	return anypb.New(dc)
 }
