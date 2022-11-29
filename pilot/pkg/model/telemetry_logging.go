@@ -114,7 +114,7 @@ var (
 	}
 )
 
-func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
+func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
@@ -129,7 +129,8 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
 		al = tcpGrpcAccessLogFromTelemetry(push, prov.EnvoyTcpAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-		al = openTelemetryLog(push, prov.EnvoyOtelAls)
+		otelResourceAttributes := resourceAttributes(proxy)
+		al = openTelemetryLog(push, otelResourceAttributes, prov.EnvoyOtelAls)
 	}
 
 	return al
@@ -365,6 +366,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 }
 
 func openTelemetryLog(pushCtx *PushContext,
+	attributes *otlpcommon.KeyValueList,
 	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
 ) *accesslog.AccessLog {
 	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
@@ -388,7 +390,7 @@ func openTelemetryLog(pushCtx *PushContext,
 		labels = provider.LogFormat.Labels
 	}
 
-	cfg := buildOpenTelemetryAccessLogConfig(logName, hostname, cluster, f, labels)
+	cfg := buildOpenTelemetryAccessLogConfig(logName, hostname, cluster, attributes, f, labels)
 
 	return &accesslog.AccessLog{
 		Name:       OtelEnvoyALSName,
@@ -396,7 +398,9 @@ func openTelemetryLog(pushCtx *PushContext,
 	}
 }
 
-func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName string,
+	resourceAttributes *otlpcommon.KeyValueList,
+	format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
 	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: logName,
@@ -411,6 +415,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		ResourceAttributes: resourceAttributes,
 	}
 
 	if format != "" {

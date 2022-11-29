@@ -953,7 +953,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname, tc.clusterName, tc.body, tc.labels)
+			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname, tc.clusterName, nil, tc.body, tc.labels)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
@@ -1104,6 +1104,27 @@ func TestTelemetryAccessLog(t *testing.T) {
 			},
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+		ResourceAttributes: &otlpcommon.KeyValueList{
+			Values: []*otlpcommon.KeyValue{
+				{
+					Key:   "k8s.cluster.name",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-cluster"}},
+				},
+				{
+					Key: "k8s.service.name",
+					// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
+				},
+				{
+					Key:   "k8s.pod.namespace",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-ns"}},
+				},
+				{
+					Key:   "k8s.pod.name",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
+				},
+			},
 		},
 		Body: &otlpcommon.AnyValue{
 			Value: &otlpcommon.AnyValue_StringValue{
@@ -1273,6 +1294,19 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
+	sidecar := &Proxy{
+		Labels: map[string]string{"app": "test"},
+		Metadata: &NodeMetadata{
+			Labels:       map[string]string{"app": "test"},
+			Namespace:    "fake-ns",
+			WorkloadName: "fake-name",
+			ClusterID:    "fake-cluster",
+		},
+		XdsNode: &core.Node{
+			Cluster: "fake-service",
+		},
+	}
+
 	for _, tc := range []struct {
 		name       string
 		ctx        *PushContext
@@ -1428,7 +1462,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			}
 			push.Mesh = tc.meshConfig
 
-			got := telemetryAccessLog(push, tc.fp)
+			got := telemetryAccessLog(push, sidecar, tc.fp)
 			if got == nil {
 				t.Fatalf("get nil accesslog")
 			}

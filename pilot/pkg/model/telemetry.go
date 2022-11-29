@@ -26,6 +26,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -255,7 +256,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 			Filter:   f,
 		}
 
-		al := telemetryAccessLog(push, fp)
+		al := telemetryAccessLog(push, proxy, fp)
 		if al == nil {
 			// stackdriver will be handled in HTTPFilters/TCPFilters
 			continue
@@ -1051,4 +1052,33 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {
 	return class == networking.ListenerClassSidecarInbound || class == networking.ListenerClassGateway
+}
+
+func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
+	// TODO(zirain): generate resource attributes for VM
+	if proxy.IsVM() {
+		return nil
+	}
+
+	return &otlpcommon.KeyValueList{
+		Values: []*otlpcommon.KeyValue{
+			{
+				Key:   "k8s.cluster.name",
+				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.ClusterID.String()}},
+			},
+			{
+				Key: "k8s.service.name",
+				// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
+				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.XdsNode.Cluster}},
+			},
+			{
+				Key:   "k8s.pod.namespace",
+				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.Namespace}},
+			},
+			{
+				Key:   "k8s.pod.name",
+				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.WorkloadName}},
+			},
+		},
+	}
 }

@@ -26,6 +26,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	"github.com/google/go-cmp/cmp"
+	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -35,6 +36,7 @@ import (
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -902,6 +904,64 @@ func TestTelemetryFilters(t *testing.T) {
 			if diff := cmp.Diff(res, tt.want); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
+		})
+	}
+}
+
+func TestResourceAttributes(t *testing.T) {
+	cases := []struct {
+		name     string
+		proxy    *Proxy
+		expected *otlpcommon.KeyValueList
+	}{
+		{
+			name: "vm",
+			proxy: &Proxy{
+				Labels:   map[string]string{"app": "test"},
+				Metadata: &NodeMetadata{Labels: map[string]string{constants.TestVMLabel: "fake-vm-service"}, Namespace: "fake-ns", WorkloadName: "fake-name"},
+			},
+		},
+		{
+			name: "sidecar",
+			proxy: &Proxy{
+				Labels: map[string]string{"app": "test"},
+				Metadata: &NodeMetadata{
+					Labels:       map[string]string{"app": "test"},
+					Namespace:    "fake-ns",
+					WorkloadName: "fake-name",
+					ClusterID:    "fake-cluster",
+				},
+				XdsNode: &core.Node{
+					Cluster: "fake-service",
+				},
+			},
+			expected: &otlpcommon.KeyValueList{
+				Values: []*otlpcommon.KeyValue{
+					{
+						Key:   "k8s.cluster.name",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-cluster"}},
+					},
+					{
+						Key:   "k8s.service.name",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
+					},
+					{
+						Key:   "k8s.pod.namespace",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-ns"}},
+					},
+					{
+						Key:   "k8s.pod.name",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := resourceAttributes(tc.proxy)
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }
