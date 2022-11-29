@@ -22,6 +22,7 @@
 package otelcollector
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"testing"
@@ -68,6 +69,9 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 		})
 }
 
+//go:embed testdata/otel-tracing.yaml
+var otelTracingCfg string
+
 // TestProxyTracingOpenTelemetryProvider validates that Telemetry API configuration
 // referencing an OpenTelemetry provider will generate traces appropriately.
 // NOTE: This test relies on the priority of Telemetry API over MeshConfig tracing
@@ -80,18 +84,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 			appNsInst := tracing.GetAppNamespace()
 
 			// apply Telemetry resource with OTel provider
-
-			config := `apiVersion: telemetry.istio.io/v1alpha1
-kind: Telemetry
-metadata:
-  name: logs
-spec:
-  tracing:
-  - providers:
-    - name: test-otel
-    randomSamplingPercentage: 100.0
-`
-			t.ConfigIstio().YAML(appNsInst.Name(), config).ApplyOrFail(t)
+			t.ConfigIstio().YAML(appNsInst.Name(), otelTracingCfg).ApplyOrFail(t)
 
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
@@ -104,20 +97,18 @@ spec:
 						}
 
 						// the OTel collector exports to Zipkin
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
+						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel")
+						t.Logf("got traces %v from %s", traces, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+						if !tracing.VerifyOtelEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil
 					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 				})
 			}
-
-			t.ConfigIstio().YAML(appNsInst.Name(), config).DeleteOrFail(t)
 		})
 }
 
