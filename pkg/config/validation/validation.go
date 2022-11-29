@@ -1770,6 +1770,18 @@ func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
 			}
 		}
+	case *meshconfig.PrivateKeyProvider_Qat:
+		qatConf := pkpConf.GetQat()
+		if qatConf == nil {
+			errs = multierror.Append(errs, errors.New("qat confguration is required"))
+		} else {
+			pollDelay := qatConf.GetPollDelay()
+			if pollDelay == nil {
+				errs = multierror.Append(errs, errors.New("pollDelay is required"))
+			} else if pollDelay.GetSeconds() == 0 && pollDelay.GetNanos() == 0 {
+				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
+			}
+		}
 	default:
 		errs = multierror.Append(errs, errors.New("unknown private key provider"))
 	}

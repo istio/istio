@@ -873,6 +873,55 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			),
 			isValid: true,
 		},
+		{
+			name: "private key provider with qat without poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Qat{
+							Qat: &meshconfig.PrivateKeyProvider_QAT{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with qat zero poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Qat{
+							Qat: &meshconfig.PrivateKeyProvider_QAT{
+								PollDelay: &durationpb.Duration{
+									Seconds: 0,
+									Nanos:   0,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with qat",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Qat{
+							Qat: &meshconfig.PrivateKeyProvider_QAT{
+								PollDelay: &durationpb.Duration{
+									Seconds: 0,
+									Nanos:   1000,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
