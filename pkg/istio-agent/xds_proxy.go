@@ -567,7 +567,6 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse, forward func(resp *discovery.DiscoveryResponse)) {
-	p.wasmCache.Reset()
 	sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
