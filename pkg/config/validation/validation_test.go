@@ -4972,6 +4972,19 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   false,
 			warning: false,
 		},
+		{
+			name: "dns round robin with 0 endpoints", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 8081, Protocol: "http", Name: "http-valid1"},
+				},
+				Endpoints:  []*networking.WorkloadEntry{},
+				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+			},
+			valid:   true,
+			warning: false,
+		},
 	}
 
 	for _, c := range cases {
