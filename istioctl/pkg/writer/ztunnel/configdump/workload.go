@@ -61,12 +61,12 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		}
 	}
 
-	// Sort by addr, node
+	// Sort by name, node
 	sort.Slice(verifiedWorkloads, func(i, j int) bool {
-		iAddr := verifiedWorkloads[i].WorkloadIP
-		jAddr := verifiedWorkloads[j].WorkloadIP
-		if iAddr != jAddr {
-			return iAddr < jAddr
+		iName := verifiedWorkloads[i].Name
+		jName := verifiedWorkloads[j].Name
+		if iName != jName {
+			return iName < jName
 		}
 		iNode := verifiedWorkloads[i].Node
 		jNode := verifiedWorkloads[j].Node
@@ -74,17 +74,16 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		// TODO
-		fmt.Fprintln(w, "WORKLOAD IP\tNODE\tNAME\tPROTOCOL")
+		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tPROTOCOL")
 	} else {
-		fmt.Fprintln(w, "WORKLOAD IP\tNODE\tNAME\tPROTOCOL")
+		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE")
 	}
 	for _, wl := range verifiedWorkloads {
 		if filter.Verbose {
-			// TODO
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.WorkloadIP, wl.Node, wl.CanonicalName, wl.Protocol)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node, wl.Protocol)
+		} else {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node)
 		}
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.WorkloadIP, wl.Node, wl.CanonicalName, wl.Protocol)
 	}
 	return w.Flush()
 }
