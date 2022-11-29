@@ -26,6 +26,9 @@ spec:
         istio.io/rev: {{ . }}
         {{- end }}
         {{- include "gateway.selectorLabels" . | nindent 8 }}
+        {{- range $key, $val := .Values.labels }}
+        {{ $key }}: {{ $val | quote }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
