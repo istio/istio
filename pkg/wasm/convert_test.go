@@ -66,7 +66,6 @@ func (c *mockCache) Get(
 
 	return module, err
 }
-func (c *mockCache) Reset()   {}
 func (c *mockCache) Cleanup() {}
 
 func TestWasmConvert(t *testing.T) {

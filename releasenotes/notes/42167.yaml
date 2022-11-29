@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: extensibility
-
-issue:
-- 42154
-releaseNotes:
-- |
-  **Fixed** the wasm cache file will be marked as stale and deleted, even if it is still in use.
