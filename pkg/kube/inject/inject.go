@@ -712,23 +712,6 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		return out, nil
 	}
 
-	// skip injection for injected pods
-	if len(podSpec.Containers) > 1 {
-		_, hasStatus := metadata.Annotations[annotation.SidecarStatus.Name]
-		for _, c := range podSpec.Containers {
-			if c.Name == ProxyContainerName && hasStatus {
-				warningStr := fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
-					fullName, ProxyContainerName)
-				if kind != "" {
-					warningStr = fmt.Sprintf("===> Skipping injection because %s %s %q has host networking enabled\n",
-						kind, fullName, ProxyContainerName)
-				}
-				warningHandler(warningStr)
-				return out, nil
-			}
-		}
-	}
-
 	pod := &corev1.Pod{
 		ObjectMeta: *metadata,
 		Spec:       *podSpec,
