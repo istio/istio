@@ -278,7 +278,7 @@ rules:
   - security.istio.io
   - extensions.istio.io
   - telemetry.istio.io
-  - gateway.networking.k8s.io
+  - gateway.networking.k8s.io 
   resources: ["*"]
   verbs:
   - get
@@ -409,6 +409,7 @@ metadata:
     app.kubernetes.io/version: "v1.60.0"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
+  annotations:
 spec:
   ports:
   - name: http
