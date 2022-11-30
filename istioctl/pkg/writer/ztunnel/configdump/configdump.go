@@ -43,19 +43,19 @@ func (c *ConfigWriter) Prime(b []byte) error {
 
 // PrintBootstrapDump prints just the bootstrap config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
-	//TODO
+	// TODO
 	return nil
 }
 
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
-	//TODO
+	// TODO
 	return nil
 }
 
 // PrintSecretSummary prints a summary of dynamic active secrets from the config dump
 func (c *ConfigWriter) PrintSecretSummary() error {
-	//TODO
+	// TODO
 	return nil
 }
 
