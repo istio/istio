@@ -44,6 +44,7 @@ type Failer interface {
 	TempDir() string
 	Helper()
 	Cleanup(func())
+	Skip(args ...any)
 }
 
 // Fuzzer abstracts *testing.F
@@ -109,6 +110,10 @@ func (e *errorWrapper) Fatalf(format string, args ...any) {
 }
 
 func (e *errorWrapper) Helper() {
+}
+
+func (e *errorWrapper) Skip(args ...any) {
+	e.Fatal(args...)
 }
 
 func (e *errorWrapper) Cleanup(f func()) {
