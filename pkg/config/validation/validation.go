@@ -3324,9 +3324,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 					}
 				}
 			}
-			if serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN && len(serviceEntry.Endpoints) != 1 {
+			if serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN && len(serviceEntry.Endpoints) > 1 {
 				errs = appendValidation(errs,
-					fmt.Errorf("there must only endpoint for resolution mode %s", serviceEntry.Resolution))
+					fmt.Errorf("there must only be 0 or 1 endpoint for resolution mode %s", serviceEntry.Resolution))
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
