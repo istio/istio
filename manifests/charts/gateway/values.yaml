@@ -54,6 +54,7 @@ service:
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalTrafficPolicy: ""
+  healthCheckNodePort: 0
   externalIPs: []
 
 resources:

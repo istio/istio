@@ -26,6 +26,9 @@ spec:
 {{- if $gateway.externalTrafficPolicy }}
   externalTrafficPolicy: {{$gateway.externalTrafficPolicy }}
 {{- end }}
+{{- if and (eq $gateway.externalTrafficPolicy "Local") (eq $gateway.type "LoadBalancer") ($gateway.healthCheckNodePort)}}
+  healthCheckNodePort: {{ $gateway.healthCheckNodePort }}
+{{- end }}
   type: {{ $gateway.type }}
   selector:
 {{ $gateway.labels | toYaml | indent 4 }}

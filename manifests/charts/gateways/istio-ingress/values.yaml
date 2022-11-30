@@ -67,6 +67,7 @@ gateways:
 
     customService: false
     externalTrafficPolicy: ""
+    healthCheckNodePort: 0
 
     ingressPorts: []
     additionalContainers: []

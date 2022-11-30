@@ -22,6 +22,11 @@ spec:
 {{- with .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: "{{ . }}"
 {{- end }}
+{{- if and (eq .Values.service.externalTrafficPolicy "Local") (eq .Values.service.Type "LoadBalancer") }}
+{{- with .Values.service.healthCheckNodePort }}
+  healthCheckNodePort: {{.}}
+{{- end }}
+{{- end }}
   type: {{ .Values.service.type }}
   ports:
 {{- if .Values.networkGateway }}
