@@ -30,7 +30,7 @@ const panicPrefix = "go-fuzz-skip: "
 // Helper is a helper struct for fuzzing
 type Helper struct {
 	cf *fuzzheaders.ConsumeFuzzer
-	t  *testing.T
+	t  test.Failer
 }
 
 type Validator interface {
@@ -70,7 +70,7 @@ func Finalize() {
 }
 
 // New creates a new fuzz.Helper, capable of generating more complex types
-func New(t *testing.T, data []byte) Helper {
+func New(t test.Failer, data []byte) Helper {
 	return Helper{cf: fuzzheaders.NewConsumer(data), t: t}
 }
 
@@ -79,7 +79,7 @@ func New(t *testing.T, data []byte) Helper {
 func Struct[T any](h Helper, validators ...func(T) bool) T {
 	d := new(T)
 	if err := h.cf.GenerateStruct(d); err != nil {
-		h.skip(err.Error())
+		h.t.Skip(err.Error())
 	}
 	r := *d
 	validate(h, validators, r)
@@ -96,7 +96,7 @@ func Slice[T any](h Helper, count int, validators ...func(T) bool) []T {
 	for i := 0; i < count; i++ {
 		d := new(T)
 		if err := h.cf.GenerateStruct(d); err != nil {
-			h.skip(err.Error())
+			h.t.Skip(err.Error())
 		}
 		r := *d
 		validate(h, validators, r)
@@ -108,12 +108,12 @@ func Slice[T any](h Helper, count int, validators ...func(T) bool) []T {
 func validate[T any](h Helper, validators []func(T) bool, r T) {
 	if fz, ok := any(r).(Validator); ok {
 		if !fz.FuzzValidate() {
-			h.skip("struct didn't pass validator")
+			h.t.Skip("struct didn't pass validator")
 		}
 	}
 	for i, v := range validators {
 		if !v(r) {
-			h.skip(fmt.Sprintf("struct didn't pass validator %d", i))
+			h.t.Skip(fmt.Sprintf("struct didn't pass validator %d", i))
 		}
 	}
 }
@@ -129,7 +129,7 @@ func BaseCases(f test.Fuzzer) {
 	}
 }
 
-// Returns the underlying testing.T. Should be avoided where possible; in oss-fuzz many functions do not work.
-func (h Helper) T() *testing.T {
+// T Returns the underlying test.Failer. Should be avoided where possible; in oss-fuzz many functions do not work.
+func (h Helper) T() test.Failer {
 	return h.t
 }
