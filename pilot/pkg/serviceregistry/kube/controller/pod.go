@@ -174,7 +174,9 @@ func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	case model.EventUpdate:
 		if !shouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
 			// delete only if this pod was in the cache
-			pc.deleteIP(ip, key)
+			if !pc.deleteIP(ip, key) {
+				return nil
+			}
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
 			pc.update(ip, key)
