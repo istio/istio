@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
+	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
@@ -48,7 +49,7 @@ var (
 	verboseProxyConfig      bool
 	waypointProxyConfig     bool
 
-	address, listenerType, statsType string
+	address, listenerType, statsType, node string
 
 	routeName string
 
@@ -169,6 +170,27 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 	return debug, err
 }
 
+func extractZtunnelConfigDump(podName, podNamespace string) ([]byte, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create k8s client: %v", err)
+	}
+	path := "config_dump"
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15021)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute command on %s.%s ztunnel: %v", podName, podNamespace, err)
+	}
+	return debug, err
+}
+
+func setupZtunnelConfigDumpWriter(podName, podNamespace string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+	debug, err := extractZtunnelConfigDump(podName, podNamespace)
+	if err != nil {
+		return nil, err
+	}
+	return setupConfigdumpZtunnelConfigWriter(debug, out)
+}
+
 func setupPodConfigdumpWriter(podName, podNamespace string, includeEds bool, out io.Writer) (*configdump.ConfigWriter, error) {
 	debug, err := extractConfigDump(podName, podNamespace, includeEds)
 	if err != nil {
@@ -194,12 +216,29 @@ func readFile(filename string) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
+func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+	data, err := readFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return setupConfigdumpZtunnelConfigWriter(data, out)
+}
+
 func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
 	data, err := readFile(filename)
 	if err != nil {
 		return nil, err
 	}
 	return setupConfigdumpEnvoyConfigWriter(data, out)
+}
+
+func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+	cw := &ztunnelDump.ConfigWriter{Stdout: out}
+	err := cw.Prime(debug)
+	if err != nil {
+		return nil, err
+	}
+	return cw, nil
 }
 
 func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.ConfigWriter, error) {
@@ -518,6 +557,79 @@ func allConfigCmd() *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 
 	return allConfigCmd
+}
+
+func workloadConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
+	workloadConfigCmd := &cobra.Command{
+		Use:   "workload [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves workload configuration for the ztunnel in the specified pod",
+		Long:  `Retrieve information about workload configuration for the ztunnel instance in the specified pod.`,
+		Example: `  # Retrieve summary about workload configuration for a given pod from ztunnel.
+  istioctl proxy-config workload <pod-name[.namespace]>
+
+  # Retrieve workload summary for workload with port XXXX.
+  istioctl proxy-config listeners <pod-name[.namespace]> --port 9080
+
+  # Retrieve full workload dump for XXXXXX
+  istioctl proxy-config workload <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
+
+  # Retrieve workload summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > ztunnel-config.json
+  istioctl proxy-config workloads --file ztunnel-config.json
+`,
+		Aliases: []string{"workloads", "w"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) == 1) != (configDumpFile == "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("workload requires pod name or --file parameter")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			var configWriter *ztunnelDump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				if !strings.Contains(podName, "ztunnel") {
+					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
+				}
+				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
+			if err != nil {
+				return err
+			}
+			filter := ztunnelDump.WorkloadFilter{
+				Address: address,
+				Node:    node,
+				Verbose: verboseProxyConfig,
+			}
+
+			switch outputFormat {
+			case summaryOutput:
+				return configWriter.PrintWorkloadSummary(filter)
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintWorkloadDump(filter, outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", outputFormat)
+			}
+		},
+		ValidArgsFunction: validPodsNameArgs,
+	}
+
+	workloadConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	workloadConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
+	workloadConfigCmd.PersistentFlags().StringVar(&node, "node", "", "Filter workloads by node field")
+	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"ztunnel config dump JSON file")
+
+	return workloadConfigCmd
 }
 
 func listenerConfigCmd() *cobra.Command {
@@ -1228,7 +1340,7 @@ func proxyConfig() *cobra.Command {
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap|log|secret> <pod-name[.namespace]>`,
+  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap|log|secret|workload> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
 	}
 
@@ -1244,6 +1356,7 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(edsConfigCmd())
 	configCmd.AddCommand(secretConfigCmd())
 	configCmd.AddCommand(rootCACompareConfigCmd())
+	configCmd.AddCommand(workloadConfigCmd())
 
 	return configCmd
 }
