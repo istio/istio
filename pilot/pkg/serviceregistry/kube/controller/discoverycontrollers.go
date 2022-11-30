@@ -129,9 +129,12 @@ func (c *Controller) initMeshWatcherHandler(
 		}
 
 		if features.EnableEnhancedResourceScoping && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:   true,
-				Reason: []model.TriggerReason{model.GlobalUpdate},
+			c.queue.Push(func() error {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: []model.TriggerReason{model.GlobalUpdate},
+				})
+				return nil
 			})
 		}
 	})
