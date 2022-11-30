@@ -1117,7 +1117,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 				},
 				{
 					Key:   "k8s.pod.namespace",
-					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-ns"}},
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-namespace"}},
 				},
 				{
 					Key:   "k8s.pod.name",
