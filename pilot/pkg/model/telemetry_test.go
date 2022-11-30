@@ -924,6 +924,7 @@ func TestResourceAttributes(t *testing.T) {
 		{
 			name: "sidecar",
 			proxy: &Proxy{
+				ID:     "fake-name-xxxxx.fake-ns",
 				Labels: map[string]string{"app": "test"},
 				Metadata: &NodeMetadata{
 					Labels:       map[string]string{"app": "test"},
@@ -951,6 +952,10 @@ func TestResourceAttributes(t *testing.T) {
 					},
 					{
 						Key:   "k8s.pod.name",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name-xxxxx"}},
+					},
+					{
+						Key:   "k8s.deployment.name",
 						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
 					},
 				},

@@ -1112,8 +1112,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-cluster"}},
 				},
 				{
-					Key: "k8s.service.name",
-					// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
+					Key:   "k8s.service.name",
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
 				},
 				{
@@ -1122,6 +1121,10 @@ func TestTelemetryAccessLog(t *testing.T) {
 				},
 				{
 					Key:   "k8s.pod.name",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name-xxxxx"}},
+				},
+				{
+					Key:   "k8s.deployment.name",
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
 				},
 			},
@@ -1295,10 +1298,10 @@ func TestTelemetryAccessLog(t *testing.T) {
 	}
 
 	sidecar := &Proxy{
+		ID:     "fake-name-xxxxx.fake-namespace",
 		Labels: map[string]string{"app": "test"},
 		Metadata: &NodeMetadata{
 			Labels:       map[string]string{"app": "test"},
-			Namespace:    "fake-ns",
 			WorkloadName: "fake-name",
 			ClusterID:    "fake-cluster",
 		},

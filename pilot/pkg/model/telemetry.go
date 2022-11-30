@@ -1054,11 +1054,15 @@ func disableHostHeaderFallback(class networking.ListenerClass) bool {
 	return class == networking.ListenerClassSidecarInbound || class == networking.ListenerClassGateway
 }
 
+// resourceAttributes return semantic attributes follow OpenTelemetry specification
+// see more details here: https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/
 func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
 	// TODO(zirain): generate resource attributes for VM
 	if proxy.IsVM() {
 		return nil
 	}
+
+	podName, namespace := extractProxyID(proxy)
 
 	return &otlpcommon.KeyValueList{
 		Values: []*otlpcommon.KeyValue{
@@ -1073,12 +1077,27 @@ func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
 			},
 			{
 				Key:   "k8s.pod.namespace",
-				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.Namespace}},
+				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: namespace}},
 			},
 			{
 				Key:   "k8s.pod.name",
+				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: podName}},
+			},
+			{
+				Key:   "k8s.deployment.name",
 				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.WorkloadName}},
 			},
 		},
 	}
+}
+
+func extractProxyID(proxy *Proxy) (string, string) {
+	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
+	// namespace <podName.namespace>.
+	ids := strings.Split(proxy.ID, ".")
+	if len(ids) < 2 {
+		// should not happen, just incase
+		return proxy.ID, ""
+	}
+	return ids[0], ids[1]
 }
