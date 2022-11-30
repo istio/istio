@@ -215,7 +215,7 @@ meshConfig:
 global:
   # Used to locate istiod.
   istioNamespace: istio-system
-  # List of cert-signers to allow "approve" action in the istio cluster role                                                                                                                                                           ─╯
+  # List of cert-signers to allow "approve" action in the istio cluster role
   #
   # certSigners:
   #   - clusterissuers.cert-manager.io/istio-ca
