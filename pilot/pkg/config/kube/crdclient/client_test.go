@@ -338,7 +338,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 		t.Fatal(err)
 	}
 
-	// Metadata client fake is not kept in sync, so if using a fake clinet update that as well
+	// Metadata client fake is not kept in sync, so if using a fake client update that as well
 	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
 	if !ok {
 		return
