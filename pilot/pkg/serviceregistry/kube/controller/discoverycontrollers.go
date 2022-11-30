@@ -52,18 +52,8 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 		AddFunc: func(obj any) {
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)
-			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
-				c.queue.Push(func() error {
-					c.handleSelectedNamespace(endpointMode, ns.Name)
-					if features.EnableEnhancedResourceScoping {
-						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-							Full:   true,
-							Reason: []model.TriggerReason{model.NamespaceUpdate},
-						})
-					}
-					return nil
-				})
-			}
+			discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta)
+			// no need to invoke object handlers since objects within the namespace will trigger add events
 		},
 		UpdateFunc: func(old, new any) {
 			incrementEvent(otype, "update")
