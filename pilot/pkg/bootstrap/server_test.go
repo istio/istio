@@ -668,8 +668,8 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s.istiodCertBundleWatcher.SetAndNotify(testcerts.ServerKey, tt.certToWatch, testcerts.CACert)
 
-			go s.watchDNSCertForK8sCA(2*time.Second, stop, "", "test-signer", true, time.Duration(0))
-			sleep.Until(stop, 10*time.Second)
+			go s.watchDNSCertForK8sCA(stop, "", "test-signer", true, time.Duration(0))
+			sleep.Until(stop, 500*time.Millisecond)
 			close(stop)
 
 			st := string(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem)
