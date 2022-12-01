@@ -49,10 +49,13 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: istio.io/exclude-cni
+              - key: {{ .Values.cni.exclude_cni }}
                 operator: NotIn
                 values:
                 - "true"
+          {{- if .Values.cni.affinity }}
+{{ toYaml .Values.cni.affinity | indent 8 }}
+        {{- end }}
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule
