@@ -822,6 +822,81 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 	})
 }
 
+// TestServiceDiscoveryRevisions tests adding, updating, and deleting SEs in different revisions
+func TestServiceDiscoveryRevisions(t *testing.T) {
+	httpStaticWithRevisionLabel := func() *config.Config {
+		c := httpStatic.DeepCopy()
+		c.Labels = map[string]string{"istio.io/rev": "canary"}
+		return &c
+	}()
+
+	httpStaticWithRevisionLabelAndExtraLabel := func() *config.Config {
+		c := httpStaticWithRevisionLabel.DeepCopy()
+		c.Labels["extra"] = "label"
+		return &c
+	}()
+
+	httpStaticInstances := []*model.ServiceInstance{
+		makeInstance(httpStatic, "2.2.2.2", 7080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpStatic, "2.2.2.2", 18080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(httpStatic, "3.3.3.3", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], nil, MTLS),
+		makeInstance(httpStatic, "3.3.3.3", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], nil, MTLS),
+		makeInstance(httpStatic, "4.4.4.4", 1080, httpStatic.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"foo": "bar"}, PlainText),
+		makeInstance(httpStatic, "4.4.4.4", 8080, httpStatic.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"foo": "bar"}, PlainText),
+	}
+
+	runTests := func(testPrefix string, store model.ConfigStore, sd *Controller, events chan Event) {
+		t.Run(testPrefix+"create in different revision", func(t *testing.T) {
+			// Create a SE in a different revision
+			createConfigs([]*config.Config{httpStaticWithRevisionLabel}, store, t)
+			instances := []*model.ServiceInstance{}
+			expectServiceInstances(t, sd, httpStatic, 0, instances)
+			expectEvents(t, events)
+		})
+
+		t.Run(testPrefix+"update in different revision", func(t *testing.T) {
+			// Update the SE in a different revision
+			createConfigs([]*config.Config{httpStaticWithRevisionLabelAndExtraLabel}, store, t)
+			instances := []*model.ServiceInstance{}
+			expectServiceInstances(t, sd, httpStatic, 0, instances)
+			expectEvents(t, events)
+		})
+
+		t.Run(testPrefix+"update to our revision", func(t *testing.T) {
+			// Update the SE moving it to our revision
+			createConfigs([]*config.Config{httpStatic}, store, t)
+			instances := httpStaticInstances
+			expectServiceInstances(t, sd, httpStatic, 0, instances)
+			expectEvents(t, events, Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace})
+		})
+
+		t.Run(testPrefix+"update back into different revision", func(t *testing.T) {
+			// Update the SE in a different revision
+			createConfigs([]*config.Config{httpStaticWithRevisionLabel}, store, t)
+			instances := []*model.ServiceInstance{}
+			expectServiceInstances(t, sd, httpStatic, 0, instances)
+			expectEvents(t, events, Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace})
+		})
+
+		t.Run(testPrefix+"delete in different revision", func(t *testing.T) {
+			// Update the SE in a different revision
+			deleteConfigs([]*config.Config{httpStaticWithRevisionLabel}, store, t)
+			instances := []*model.ServiceInstance{}
+			expectServiceInstances(t, sd, httpStatic, 0, instances)
+			expectEvents(t, events)
+		})
+	}
+	// Run configured with both the default ("") revision and a custom revision
+	t.Run("default revision", func(t *testing.T) {
+		store, sd, events := initServiceDiscovery(t)
+		runTests("default revision ", store, sd, events)
+	})
+	t.Run("custom revision", func(t *testing.T) {
+		store, sd, events := initServiceDiscoveryWithOpts(t, false, WithRevision("prod"))
+		runTests("custom revision ", store, sd, events)
+	})
+}
+
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
