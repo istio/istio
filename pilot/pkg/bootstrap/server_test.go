@@ -29,6 +29,9 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
+	cert "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
@@ -41,8 +44,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
-	cert "k8s.io/api/certificates/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {

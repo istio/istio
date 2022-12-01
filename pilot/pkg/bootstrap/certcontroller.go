@@ -225,7 +225,11 @@ func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 	}
 }
 
-func (s *Server) watchDNSCertForK8sCA(pollingInterval time.Duration, stop <-chan struct{}, defaultCACertPath string, signerName string, approveCsr bool, requestedLifetime time.Duration) {
+func (s *Server) watchDNSCertForK8sCA(pollingInterval time.Duration, stop <-chan struct{},
+	defaultCACertPath string,
+	signerName string,
+	approveCsr bool,
+	requestedLifetime time.Duration) {
 	certUtil := certutil.NewCertUtil(int(defaultCertGracePeriodRatio * 100))
 	for {
 		if !sleep.Until(stop, pollingInterval) {
