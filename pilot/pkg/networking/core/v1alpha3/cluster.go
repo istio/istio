@@ -81,6 +81,13 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 	}
 }
 
+// getDefaultCircuitBreakerThresholdsRetryBudget returns a copy of the default circuit breaker thresholds retry budget for the given traffic direction.
+func getDefaultCircuitBreakerThresholdsRetryBudget() *cluster.CircuitBreakers_Thresholds_RetryBudget {
+	return &cluster.CircuitBreakers_Thresholds_RetryBudget{
+		MinRetryConcurrency: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
+}
+
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution

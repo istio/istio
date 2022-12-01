@@ -26,6 +26,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -853,6 +854,16 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default
 		if settings.Http.MaxRetries > 0 {
 			threshold.MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
+		}
+
+		if settings.Http.RetryBudget != nil {
+			threshold.RetryBudget = getDefaultCircuitBreakerThresholdsRetryBudget()
+			if settings.Http.RetryBudget.MinRetryConcurrency != nil {
+				threshold.RetryBudget.MinRetryConcurrency = &wrappers.UInt32Value{Value: settings.Http.RetryBudget.MinRetryConcurrency.Value}
+			}
+			if settings.Http.RetryBudget.BudgetPercent != nil {
+				threshold.RetryBudget.BudgetPercent = &xdstype.Percent{Value: settings.Http.RetryBudget.BudgetPercent.Value}
+			}
 		}
 
 		idleTimeout = settings.Http.IdleTimeout
