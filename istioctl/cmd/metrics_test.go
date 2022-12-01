@@ -167,7 +167,7 @@ func (client mockPromAPI) Flags(ctx context.Context) (promv1.FlagsResult, error)
 	return nil, nil
 }
 
-func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (prometheus_model.Value, promv1.Warnings, error) {
+func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
 		return prometheus_model.Vector{}, nil, nil
@@ -183,7 +183,6 @@ func (client mockPromAPI) QueryRange(
 	ctx context.Context,
 	query string,
 	r promv1.Range,
-	opts ...promv1.Option,
 ) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
