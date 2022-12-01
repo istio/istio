@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** ServiceEntries with with other revision labels were being processed.
+  **Fixed** ServiceEntries with other revision labels were being processed.
