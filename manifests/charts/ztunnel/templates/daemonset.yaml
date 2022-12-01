@@ -1,3 +1,5 @@
+{{- $mergedEnv := merge dict (.Values.ztunnel.env | default dict) (.Values.meshConfig.defaultConfig.proxyMetadata | default dict) }}
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -218,17 +220,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        {{- if .Values.meshConfig.defaultConfig.proxyMetadata }}
-        {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata}}
+        {{- range $key, $value := $mergedEnv }}
         - name: {{ $key }}
           value: "{{ $value }}"
-        {{- end }}
-        {{- end }}
-        {{- if .Values.ztunnel.env }}
-        {{- range $key, $val := .Values.ztunnel.env }}
-        - name: {{ $key }}
-          value: "{{ $val }}"
-        {{- end }}
         {{- end }}
       containers:
       - name: istio-proxy
@@ -282,17 +276,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        {{- if .Values.meshConfig.defaultConfig.proxyMetadata }}
-        {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata}}
+        {{- range $key, $value := $mergedEnv }}
         - name: {{ $key }}
           value: "{{ $value }}"
-        {{- end }}
-        {{- end }}
-        {{- if .Values.ztunnel.env }}
-        {{- range $key, $val := .Values.ztunnel.env }}
-        - name: {{ $key }}
-          value: "{{ $val }}"
-        {{- end }}
         {{- end }}
         volumeMounts:
         - mountPath: /var/lib/istio/data

@@ -75,7 +75,6 @@ values:
       mode: "DEFAULT"
     defaultConfig:
       proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
         DNS_PROXY_ADDR: "0.0.0.0:15053"
     accessLogFile: /dev/stdout`
 

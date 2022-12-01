@@ -4,14 +4,16 @@ ztunnel:
   variant: ""
 
   # Can be a full hub/image:tag
-  image: proxyv2
+  image: ztunnel
 
   resources:
     requests:
       cpu: 500m
       memory: 2048Mi
 
-  env: {}
+  env:
+    ISTIO_META_DNS_CAPTURE: "false"
+
   podAnnotations:
     prometheus.io/port: "15021"
     prometheus.io/scrape: "true"

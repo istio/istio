@@ -213,8 +213,9 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		RunID:    uuid.New(),
-		MaxDumps: 10,
+		RunID:                uuid.New(),
+		AmbientNativeZtunnel: true,
+		MaxDumps:             10,
 	}
 }
 
