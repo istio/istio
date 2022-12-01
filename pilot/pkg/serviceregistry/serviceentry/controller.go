@@ -112,8 +112,6 @@ type Controller struct {
 	workloadEntryController bool
 
 	model.NetworkGatewaysHandler
-
-	revision string
 }
 
 type Option func(*Controller)
@@ -127,12 +125,6 @@ func WithClusterID(clusterID cluster.ID) Option {
 func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.ID) Option {
 	return func(o *Controller) {
 		o.networkIDCallback = cb
-	}
-}
-
-func WithRevision(revision string) Option {
-	return func(o *Controller) {
-		o.revision = revision
 	}
 }
 
@@ -351,28 +343,8 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 }
 
 // serviceEntryHandler defines the handler for service entries
-func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
+func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
-
-	if config.ObjectInRevision(&curr, s.revision) {
-		s.processServiceEntryEvent(curr, event)
-		return
-	}
-
-	if event == model.EventUpdate && config.ObjectInRevision(&old, s.revision) {
-		// The service entry was in our revision, but has been moved to a different revision. For
-		// the purposes of this revision, it has been deleted, so process it as such.
-		log.Debugf("Service entry %s/%s has been moved to a different revision, deleting",
-			curr.Namespace, curr.Name)
-		s.processServiceEntryEvent(curr, model.EventDelete)
-		return
-	}
-
-	log.Debugf("Skipping event %s for service entry %s/%s from different revision",
-		event, curr.Namespace, curr.Name)
-}
-
-func (s *Controller) processServiceEntryEvent(curr config.Config, event model.Event) {
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := sets.New[model.ConfigKey]()
