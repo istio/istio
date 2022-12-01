@@ -229,7 +229,8 @@ func (s *Server) watchDNSCertForK8sCA(pollingInterval time.Duration, stop <-chan
 	defaultCACertPath string,
 	signerName string,
 	approveCsr bool,
-	requestedLifetime time.Duration) {
+	requestedLifetime time.Duration,
+) {
 	certUtil := certutil.NewCertUtil(int(defaultCertGracePeriodRatio * 100))
 	for {
 		if !sleep.Until(stop, pollingInterval) {
