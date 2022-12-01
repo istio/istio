@@ -160,7 +160,7 @@ ICN61cIhgz8wChQpF8/fFAI5Fjbjrz5C1Xw/EUHLf/TTn/7Yfp2BHsGm126Et+k+
 ZOQ5UvU=
 -----END CERTIFICATE-----`)
 
-// RotatedCert is a test cert for dynamic admission controller.
+// ExpiredServerCert is a test expired cert for testing certificate renewal upon expiry.
 var ExpiredServerCert = []byte(`-----BEGIN CERTIFICATE-----
 MIIF5TCCA82gAwIBAgIUEooicnB1HsRaXq2wqC7XwNiTZ4cwDQYJKoZIhvcNAQEL
 BQAwgYExCzAJBgNVBAYTAklOMQ4wDAYDVQQIDAVkdW1teTEOMAwGA1UEBwwFZHVt
