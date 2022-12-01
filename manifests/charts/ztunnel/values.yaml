@@ -11,9 +11,7 @@ ztunnel:
       cpu: 500m
       memory: 2048Mi
 
-  env:
-    ISTIO_META_DNS_CAPTURE: "false"
-
+  env: {}
   podAnnotations:
     prometheus.io/port: "15021"
     prometheus.io/scrape: "true"
