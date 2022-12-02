@@ -104,14 +104,15 @@ func TestNewServerCertInit(t *testing.T) {
 	tlsArgcaCertFile := filepath.Join(tlsArgCertsDir, "ca-cert.pem")
 
 	cases := []struct {
-		name         string
-		FSCertsPaths TLSFSLoadPaths
-		tlsOptions   *TLSOptions
-		enableCA     bool
-		certProvider string
-		expNewCert   bool
-		expCert      []byte
-		expKey       []byte
+		name                      string
+		FSCertsPaths              TLSFSLoadPaths
+		tlsOptions                *TLSOptions
+		enableCA                  bool
+		certProvider              string
+		expNewCert                bool
+		expCert                   []byte
+		expKey                    []byte
+		expSecureDiscoveryService bool
 	}{
 		{
 			name:         "Load from existing DNS cert",
@@ -121,11 +122,12 @@ func TestNewServerCertInit(t *testing.T) {
 				KeyFile:    tlsArgkeyFile,
 				CaCertFile: tlsArgcaCertFile,
 			},
-			enableCA:     false,
-			certProvider: constants.CertProviderKubernetes,
-			expNewCert:   false,
-			expCert:      testcerts.ServerCert,
-			expKey:       testcerts.ServerKey,
+			enableCA:                  false,
+			certProvider:              constants.CertProviderKubernetes,
+			expNewCert:                false,
+			expCert:                   testcerts.ServerCert,
+			expKey:                    testcerts.ServerKey,
+			expSecureDiscoveryService: true,
 		},
 		{
 			name:         "Create new DNS cert using Istiod",
@@ -135,11 +137,12 @@ func TestNewServerCertInit(t *testing.T) {
 				KeyFile:    "",
 				CaCertFile: "",
 			},
-			enableCA:     true,
-			certProvider: constants.CertProviderIstiod,
-			expNewCert:   true,
-			expCert:      []byte{},
-			expKey:       []byte{},
+			enableCA:                  true,
+			certProvider:              constants.CertProviderIstiod,
+			expNewCert:                true,
+			expCert:                   []byte{},
+			expKey:                    []byte{},
+			expSecureDiscoveryService: true,
 		},
 		{
 			name:         "No DNS cert created because CA is disabled",
@@ -158,12 +161,13 @@ func TestNewServerCertInit(t *testing.T) {
 				constants.DefaultPilotTLSKey,
 				constants.DefaultPilotTLSCaCert,
 			},
-			tlsOptions:   &TLSOptions{},
-			enableCA:     false,
-			certProvider: constants.CertProviderNone,
-			expNewCert:   false,
-			expCert:      testcerts.ServerCert,
-			expKey:       testcerts.ServerKey,
+			tlsOptions:                &TLSOptions{},
+			enableCA:                  false,
+			certProvider:              constants.CertProviderNone,
+			expNewCert:                false,
+			expCert:                   testcerts.ServerCert,
+			expKey:                    testcerts.ServerKey,
+			expSecureDiscoveryService: true,
 		},
 		{
 			name: "DNS cert loaded from known location, even if CA is Disabled, with a fallback CA path",
@@ -172,12 +176,13 @@ func TestNewServerCertInit(t *testing.T) {
 				constants.DefaultPilotTLSKey,
 				constants.DefaultPilotTLSCaCertAlternatePath,
 			},
-			tlsOptions:   &TLSOptions{},
-			enableCA:     false,
-			certProvider: constants.CertProviderNone,
-			expNewCert:   false,
-			expCert:      testcerts.ServerCert,
-			expKey:       testcerts.ServerKey,
+			tlsOptions:                &TLSOptions{},
+			enableCA:                  false,
+			certProvider:              constants.CertProviderNone,
+			expNewCert:                false,
+			expCert:                   testcerts.ServerCert,
+			expKey:                    testcerts.ServerKey,
+			expSecureDiscoveryService: true,
 		},
 		{
 			name:         "No cert provider",
@@ -247,6 +252,12 @@ func TestNewServerCertInit(t *testing.T) {
 					if _, err := s.getIstiodCertificate(nil); err == nil {
 						t.Errorf("Istiod should not generate new DNS cert")
 					}
+				}
+			}
+
+			if c.expSecureDiscoveryService {
+				if s.secureGrpcServer == nil {
+					t.Errorf("Istiod secure grpc server was not started.")
 				}
 			}
 		})
