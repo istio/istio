@@ -1581,6 +1581,10 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 			reason:  string(k8s.ListenerReasonAccepted),
 			message: "No errors found",
 		},
+		string(k8s.ListenerConditionProgrammed): {
+			reason:  string(k8s.ListenerReasonProgrammed),
+			message: "No errors found",
+		},
 		// nolint: staticcheck // Deprecated condition, set both until 1.17
 		string(k8s.ListenerConditionDetached): {
 			reason:  string(k8s.ListenerReasonAttached),
