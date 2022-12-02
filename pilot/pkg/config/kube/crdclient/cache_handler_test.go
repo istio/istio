@@ -17,6 +17,10 @@ package crdclient
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,9 +30,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var testServiceEntry = &clientnetworkingv1alpha3.ServiceEntry{
@@ -71,7 +72,8 @@ func TestObjectsFromOtherRevisionsSkipped(t *testing.T) {
 					schema.Resource().GroupVersionKind(),
 					func(old config.Config, cur config.Config, e model.Event) {
 						events = append(events, e)
-					})
+					},
+				)
 
 				err := h.onEvent(nil, cfg, event)
 				assert.NoError(t, err)
@@ -132,7 +134,8 @@ func TestUpdateInOtherRevision(t *testing.T) {
 				schema.Resource().GroupVersionKind(),
 				func(old config.Config, cur config.Config, e model.Event) {
 					events = append(events, e)
-				})
+				},
+			)
 
 			err := h.onEvent(tc.oldCfg(), cfg, model.EventUpdate)
 			assert.NoError(t, err)
