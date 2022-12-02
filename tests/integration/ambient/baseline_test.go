@@ -698,6 +698,35 @@ spec:
     - operation:
         paths: ["/denied-identity"]
         methods: ["GET"]
+  - to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/allowed-wildcard*"]
+  - to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/headers"]
+    when:
+    - key: request.headers[x-test-header]
+      values: ["match"]
+      notValues: ["do-not-match"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/explicit-deny"]
+    from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
 `).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -739,6 +768,42 @@ spec:
 				opt = opt.DeepCopy()
 				opt.HTTP.Path = "/allowed-identity"
 				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("explicit deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/explicit-deny"
+				opt.Check = CheckDeny
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("wildcard allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/allowed-wildcardtest"
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("headers allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/headers"
+				if opt.HTTP.Headers == nil {
+					opt.HTTP.Headers = map[string][]string{}
+				}
+				opt.HTTP.Headers.Set("x-test-header", "match")
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("headers deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/headers"
+				if opt.HTTP.Headers == nil {
+					opt.HTTP.Headers = map[string][]string{}
+				}
+				opt.HTTP.Headers.Set("x-test-header", "do-not-match")
+				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
