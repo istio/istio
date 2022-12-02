@@ -80,7 +80,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 						event = model.EventAdd
 						c.handleSelectedNamespace(endpointMode, newNs.Name)
 					} else {
-						event = model.EventAdd
+						event = model.EventDelete
 						c.handleDeselectedNamespace(kubeClient, endpointMode, newNs.Name)
 					}
 					if features.EnableEnhancedResourceScoping {
