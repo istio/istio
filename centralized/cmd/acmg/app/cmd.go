@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"istio.io/istio/centralized/pkg/server"
-	"istio.io/istio/centralized/pkg/signal"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -39,8 +38,6 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(c *cobra.Command, args []string) (err error) {
-		stopCh := signal.SetupSignalHandler()
-
 		cmd.PrintFlags(c.Flags())
 		ctx := c.Context()
 		server, err := server.NewServer(ctx, server.CoreDnsHijackArgs{
@@ -52,12 +49,19 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to create acmg informer service: %v", err)
 		}
-		if err := server.PreStartCheck(); err != nil {
+		if err = server.PreStartCheck(); err != nil {
 			log.Errorf(err)
-		} else {
-			server.Start()
+			return
 		}
-		<-stopCh
+
+		if err = server.Init(); err != nil {
+			log.Errorf(err)
+			return
+		}
+
+		server.Start()
+
+		<-ctx.Done()
 		return
 	},
 }

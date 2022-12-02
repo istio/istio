@@ -335,3 +335,23 @@ func (b *ACMGBuilder) OpenServicePortOnGateway(serviceOnAcmgs []ServiceOnAcmg) e
 	}
 	return nil
 }
+
+func (b *ACMGBuilder) InitServiceMap() error {
+	configMap, err := b.kubeClient.CoreV1().ConfigMaps("kube-system").Get(context.TODO(), "coredns", metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("get core dns configmap failed %s", err)
+		return fmt.Errorf("get core dns configmap failed")
+	}
+	for k, v := range configMap.Data {
+		if k == "Corefile" {
+			lines := strings.Split(v, "\n")
+			// line ex:rewrite name helloworld.default.svc.cluster.local acmg-gateway.istio-system.svc.cluster.local
+			for i := 0; i < len(lines); i++ {
+				if strings.Contains(lines[i], b.getGatewayDns()) {
+					Put(transDnsToServiceOnAcmg(strings.Split(lines[i], " ")[2]))
+				}
+			}
+		}
+	}
+	return nil
+}

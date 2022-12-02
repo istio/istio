@@ -72,6 +72,13 @@ func (s *Server) enqueueVSForAdd(obj any) {
 	})
 }
 
+func (s *Server) Init() error {
+	if err := s.coreDnsBuilder.InitServiceMap(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Server) enqueueVSForUpdate(new any, old any) {
 	var name string
 	var err error
@@ -295,9 +302,4 @@ func (s *Server) Start() {
 	go func() {
 		s.queue.Run(s.ctx.Done())
 	}()
-}
-
-// Run watch istio gateway config
-func (s *Server) Run() error {
-	return nil
 }

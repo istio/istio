@@ -1,110 +1,57 @@
-# Istio
-
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1395/badge)](https://bestpractices.coreinfrastructure.org/projects/1395)
-[![Go Report Card](https://goreportcard.com/badge/github.com/istio/istio)](https://goreportcard.com/report/github.com/istio/istio)
-[![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
-
-<a href="https://istio.io/">
-    <img src="https://github.com/istio/istio/raw/master/logo/istio-bluelogo-whitebackground-unframed.svg"
-         alt="Istio logo" title="Istio" height="100" width="100" />
-</a>
-
----
-
-An open platform to connect, manage, and secure microservices.
-
-- For in-depth information about how to use Istio, visit [istio.io](https://istio.io)
-- To ask questions and get assistance from our community, visit [discuss.istio.io](https://discuss.istio.io)
-- To learn how to participate in our overall community, visit [our community page](https://istio.io/about/community)
-
-In this README:
+# Table of Contents
 
 - [Introduction](#introduction)
-- [Repositories](#repositories)
-- [Issue management](#issue-management)
+- [Build](#build)
+- [Install Uninstall](#install uninstall)
+- [Example](#example)
+- [License](#license)
 
-In addition, here are some other documents you may wish to read:
+# Introduction
+The east-west traffic in Istio is carried by envoy sidecars, which are deployed in every pod together with the application containers. Sidecars provide the functions of secure service-to-service communication, load balancing for various protocols, flexible traffic control and policy, and complete tracing.
 
-- [Istio Community](https://github.com/istio/community#istio-community) - describes how to get involved and contribute to the Istio project
-- [Istio Developer's Guide](https://github.com/istio/istio/wiki/Preparing-for-Development) - explains how to set up and use an Istio development environment
-- [Project Conventions](https://github.com/istio/istio/wiki/Development-Conventions) - describes the conventions we use within the code base
-- [Creating Fast and Lean Code](https://github.com/istio/istio/wiki/Writing-Fast-and-Lean-Code) - performance-oriented advice and guidelines for the code base
+However, there are also a few disadvantages of sidecars. First of all, deploying one sidecar to every pod can be resource-consuming and introduce complexity, especially when the number of pods is huge. Not only must those resources be provisioned to the sidecars, but also the control plane to manage the sidecar and to push configurations can be demanding. Second, a query needs to go through two sidecars, one in the source pod and the other one in the destination pod,  in order to reach the destination. For delay-sensitive applications, sometimes, the extra time spent in the sidecars is not acceptable.
 
-You'll find many other useful documents on our [Wiki](https://github.com/istio/istio/wiki).
+We noted that, for the majority of our HTTP applications, many of the rich features in sidecars are unused. That's why we want to propose a light-weighted way to serve east-west traffic without the drawbacks mentioned in the previous paragraph. Our focus is on the HTTP applications that do not require advanced security features, like mTLS.
 
-## Introduction
+We propose the centralized east-west traffic gateway, which moves the sidecars and the functionalities they carry to nodes that are dedicated for sidecars, and no application container shares those nodes. This way, no modifications are required on the nodes, and we can save on the resources and the delay. In addition, we can decouple the network management from application management,  and also avoid the resource competition between application and networking. However, because we move the sidecars out of the nodes of applications, we at the same time lose some of the security and tracing abilities provided by the original sidecars. Our observation is that the majority of our applications do not require those features.
 
-[Istio](https://istio.io/latest/docs/concepts/what-is-istio/) is an open platform for providing a uniform way to [integrate
-microservices](https://istio.io/latest/docs/examples/microservices-istio/), manage [traffic flow](https://istio.io/latest/docs/concepts/traffic-management/) across microservices, enforce policies
-and aggregate telemetry data. Istio's control plane provides an abstraction
-layer over the underlying cluster management platform, such as Kubernetes.
+# Build
 
-Istio is composed of these components:
+Build binary
+```
+make build
+```
+Build acmg docker image
+```
+make docker.acmg
+```
 
-- **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
-   between services in the cluster and from a service to external
-   services. The proxies form a _secure microservice mesh_ providing a rich
-   set of functions like discovery, rich layer-7 routing, circuit breakers,
-   policy enforcement and telemetry recording/reporting
-   functions.
+# Install Uninstall
 
-  > Note: The service mesh is not an overlay network. It
-  > simplifies and enhances how microservices in an application talk to each
-  > other over the network provided by the underlying platform.
+1. Enter the directory ./out/$(arch)/
+```
+cd ./out/$(arch)/
+```
 
-- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
+2. Install acmg profile
+```
+istioctl install --set profile=acmg
+```
 
-    - **Pilot** - Responsible for configuring the proxies at runtime.
+3. Uninstall acmg profile
+```
+istioctl uninstall --purge -y
+```
 
-    - **Citadel** - Responsible for certificate issuance and rotation.
+# Example
+```
+cd samples/helloworld-acmg
+```
+```
+kubectl apply -f helloworld.yaml
+kubectl apply -f helloworld-virtualservice.yaml
+```
 
-    - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
+# License
+[Apache License 2.0](./LICENSE)
 
-- **Operator** - The component provides user friendly options to operate the Istio service mesh.
-
-## Repositories
-
-The Istio project is divided across a few GitHub repositories:
-
-- [istio/api](https://github.com/istio/api). This repository defines
-component-level APIs and common configuration formats for the Istio platform.
-
-- [istio/community](https://github.com/istio/community). This repository contains
-information on the Istio community, including the various documents that govern
-the Istio open source project.
-
-- [istio/istio](README.md). This is the main code repository. It hosts Istio's
-core components, install artifacts, and sample programs. It includes:
-
-    - [istioctl](istioctl/). This directory contains code for the
-[_istioctl_](https://istio.io/latest/docs/reference/commands/istioctl/) command line utility.
-
-    - [operator](operator/). This directory contains code for the
-[Istio Operator](https://istio.io/latest/docs/setup/install/operator/).
-
-    - [pilot](pilot/). This directory
-contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
-when the application topology changes, as well as translate
-[routing rules](https://istio.io/latest/docs/reference/config/networking/) into proxy specific configuration.
-
-    - [security](security/). This directory contains [security](https://istio.io/latest/docs/concepts/security/) related code,
-including Citadel (acting as Certificate Authority), citadel agent, etc.
-
-- [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
-extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
-Envoy filters) that support authentication, authorization, and telemetry collection.
-
-## Issue management
-
-We use GitHub to track all of our bugs and feature requests. Each issue we track has a variety of metadata:
-
-- **Epic**. An epic represents a feature area for Istio as a whole. Epics are fairly broad in scope and are basically product-level things.
-Each issue is ultimately part of an epic.
-
-- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, ..., or 'Nebulous Future'. The milestone indicates when we
-think the issue should get addressed.
-
-- **Priority**. Each issue has a priority which is represented by the column in the [Prioritization](https://github.com/orgs/istio/projects/6) project. Priority can be one of
-P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
-milestone cannot be considered achieved if the issue isn't resolved.
