@@ -238,6 +238,7 @@ func (s *Server) watchDNSCertForK8sCA(stop <-chan struct{},
 			strings.Join(s.dnsNames, ","), defaultCACertPath, signerName, approveCsr, requestedLifetime)
 		if err != nil {
 			log.Errorf("failed regenerating key and cert for istiod by kubernetes: %v", err)
+			continue
 		}
 		s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, s.istiodCertBundleWatcher.GetCABundle())
 	}
