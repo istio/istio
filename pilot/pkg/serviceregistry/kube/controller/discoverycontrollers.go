@@ -56,7 +56,11 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 				c.queue.Push(func() error {
 					c.handleSelectedNamespace(endpointMode, ns.Name)
 					if features.EnableEnhancedResourceScoping {
-						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+						for _, handler := range c.namespaceDiscoveryHandlers {
+							handler(ns.Name, model.EventAdd)
+						}
+						c.namespaceDiscoveryHandlers.
+							c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
 						})
@@ -72,12 +76,18 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			membershipChanged, namespaceAdded := discoveryNamespacesFilter.NamespaceUpdated(oldNs.ObjectMeta, newNs.ObjectMeta)
 			if membershipChanged {
 				handleFunc := func() error {
+					var event model.Event
 					if namespaceAdded {
+						event = model.EventAdd
 						c.handleSelectedNamespace(endpointMode, newNs.Name)
 					} else {
+						event = model.EventAdd
 						c.handleDeselectedNamespace(kubeClient, endpointMode, newNs.Name)
 					}
 					if features.EnableEnhancedResourceScoping {
+						for _, handler := range c.namespaceDiscoveryHandlers {
+							handler(newNs.Name, event)
+						}
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
