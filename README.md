@@ -2,7 +2,8 @@
 
 - [Introduction](#introduction)
 - [Build](#build)
-- [Install Uninstall](#install uninstall)
+- [Install](#install)
+- [Uninstall](#uninstall)
 - [Example](#example)
 - [License](#license)
 
@@ -26,7 +27,7 @@ Build acmg docker image
 make docker.acmg
 ```
 
-# Install Uninstall
+# Install
 
 1. Enter the directory ./out/$(arch)/
 ```
@@ -38,7 +39,14 @@ cd ./out/$(arch)/
 istioctl install --set profile=acmg
 ```
 
-3. Uninstall acmg profile
+# Uninstall
+
+1. Enter the directory ./out/$(arch)/
+```
+cd ./out/$(arch)/
+```
+
+2. Uninstall acmg profile
 ```
 istioctl uninstall --purge -y
 ```
