@@ -60,6 +60,11 @@ status:
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
       reason: Ready
       status: "True"
       type: Ready
@@ -89,6 +94,11 @@ status:
       reason: Attached
       status: "False"
       type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -122,6 +132,11 @@ status:
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
       reason: Ready
       status: "True"
       type: Ready
@@ -153,6 +168,11 @@ status:
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
       reason: Ready
       status: "True"
       type: Ready
@@ -180,6 +200,11 @@ status:
       reason: Attached
       status: "False"
       type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
