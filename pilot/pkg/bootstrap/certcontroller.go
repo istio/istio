@@ -237,7 +237,7 @@ func (s *Server) watchDNSCertForK8sCA(stop <-chan struct{},
 		certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
 			strings.Join(s.dnsNames, ","), defaultCACertPath, signerName, approveCsr, requestedLifetime)
 		if err != nil {
-			log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
+			log.Errorf("failed regenerating key and cert for istiod by kubernetes: %v", err)
 		}
 		s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, s.istiodCertBundleWatcher.GetCABundle())
 	}
