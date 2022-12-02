@@ -59,8 +59,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 						for _, handler := range c.namespaceDiscoveryHandlers {
 							handler(ns.Name, model.EventAdd)
 						}
-						c.namespaceDiscoveryHandlers.
-							c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
 						})
