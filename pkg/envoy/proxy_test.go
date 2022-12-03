@@ -57,7 +57,6 @@ func TestEnvoyArgs(t *testing.T) {
 		"-c", "test.json",
 		"--drain-time-s", "45",
 		"--drain-strategy", "immediate",
-		"--parent-shutdown-time-s", "60",
 		"--local-address-ip-version", "v4",
 		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart",

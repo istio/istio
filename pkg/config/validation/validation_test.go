@@ -275,64 +275,34 @@ func TestValidateDuration(t *testing.T) {
 	}
 }
 
-func TestValidateParentAndDrain(t *testing.T) {
+func TestValidateDrainDuration(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent *durationpb.Duration
-		Drain  *durationpb.Duration
-		Valid  bool
+		Drain *durationpb.Duration
+		Valid bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: &durationpb.Duration{Seconds: 2},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  true,
+			Drain: &durationpb.Duration{Seconds: 1},
+			Valid: true,
 		},
 		{
-			Parent: &durationpb.Duration{Seconds: 1},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  false,
+			Drain: &durationpb.Duration{Seconds: 1, Nanos: 1000000},
+			Valid: false,
 		},
 		{
-			Parent: &durationpb.Duration{Seconds: 1},
-			Drain:  &durationpb.Duration{Seconds: 2},
-			Valid:  false,
+			Drain: &durationpb.Duration{Seconds: -1},
+			Valid: false,
 		},
 		{
-			Parent: &durationpb.Duration{Seconds: 2},
-			Drain:  &durationpb.Duration{Seconds: 1, Nanos: 1000000},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: -2},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 2},
-			Drain:  &durationpb.Duration{Seconds: -1},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  &durationpb.Duration{Seconds: 10},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 10},
-			Drain:  &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Valid:  false,
+			Drain: &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Valid: false,
 		},
 	}
 	for _, combo := range combinations {
 		if got := ValidateDrainDuration(combo.Drain); (got == nil) != combo.Valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for Parent:%v Drain:%v",
-				got == nil, combo.Valid, got, combo.Parent, combo.Drain)
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for  Drain:%v",
+				got == nil, combo.Valid, got, combo.Drain)
 		}
 	}
 }
@@ -456,8 +426,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"config path must be set",
 			"binary path must be set",
 			"oneof service cluster or tracing service name must be specified",
-			"invalid parent and drain time combination invalid drain duration",
-			"invalid parent and drain time combination invalid parent shutdown duration",
+			"invalid drain duration: duration must be greater than 1ms",
 			"discovery address must be set to the proxy discovery service",
 			"invalid proxy admin port",
 			"invalid status port",
@@ -957,7 +926,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 13 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

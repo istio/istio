@@ -1790,7 +1790,7 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 	}
 
 	if err := ValidateDrainDuration(config.DrainDuration); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
+		errs = multierror.Append(errs, err)
 	}
 
 	// discovery address is mandatory since mutual TLS relies on CDS.
