@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -2597,5 +2598,220 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 func clearDiscoverabilityPolicy(ep *model.IstioEndpoint) {
 	if ep != nil {
 		ep.DiscoverabilityPolicy = nil
+	}
+}
+
+func TestStripNodeUnusedFields(t *testing.T) {
+	inputNode := &corev1.Node{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			Labels: map[string]string{
+				NodeZoneLabel:              "zone1",
+				NodeRegionLabel:            "region1",
+				label.TopologySubzone.Name: "subzone1",
+			},
+			Annotations: map[string]string{
+				"annotation1": "foo",
+				"annotation2": "bar",
+			},
+			ManagedFields: []metav1.ManagedFieldsEntry{
+				{
+					Manager: "test",
+				},
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Name: "test",
+				},
+			},
+		},
+		Status: corev1.NodeStatus{
+			Allocatable: map[corev1.ResourceName]resource.Quantity{
+				"cpu": {
+					Format: "500m",
+				},
+			},
+			Capacity: map[corev1.ResourceName]resource.Quantity{
+				"cpu": {
+					Format: "500m",
+				},
+			},
+			Images: []corev1.ContainerImage{
+				{
+					Names: []string{"test"},
+				},
+			},
+			Conditions: []corev1.NodeCondition{
+				{
+					Type: corev1.NodeMemoryPressure,
+				},
+			},
+		},
+	}
+
+	expectNode := &corev1.Node{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			Labels: map[string]string{
+				NodeZoneLabel:              "zone1",
+				NodeRegionLabel:            "region1",
+				label.TopologySubzone.Name: "subzone1",
+			},
+		},
+	}
+
+	controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	addNodes(t, controller, inputNode)
+
+	output, err := controller.nodeLister.Get(inputNode.Name)
+	if err != nil {
+		t.Fatalf("Node %s should be existed.", inputNode.Name)
+	}
+
+	if !reflect.DeepEqual(expectNode, output) {
+		t.Fatalf("Wanted: %v\n. Got: %v", expectNode, output)
+	}
+}
+
+func TestStripPodUnusedFields(t *testing.T) {
+	inputPod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app": "test",
+			},
+			Annotations: map[string]string{
+				"annotation1": "foo",
+				"annotation2": "bar",
+			},
+			ManagedFields: []metav1.ManagedFieldsEntry{
+				{
+					Manager: "test",
+				},
+			},
+		},
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				{
+					Name: "init-container",
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name: "container-1",
+					Ports: []corev1.ContainerPort{
+						{
+							Name: "http",
+						},
+					},
+				},
+				{
+					Name: "container-2",
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "test",
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			InitContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "init-container",
+				},
+			},
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "container-1",
+				},
+				{
+					Name: "container-2",
+				},
+			},
+			Conditions: []corev1.PodCondition{
+				{
+					Type:               corev1.PodReady,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+				},
+			},
+			PodIP:  "1.1.1.1",
+			HostIP: "1.1.1.1",
+			Phase:  corev1.PodRunning,
+		},
+	}
+
+	expectPod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app": "test",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "container-1",
+					Ports: []corev1.ContainerPort{
+						{
+							Name: "http",
+						},
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			InitContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "init-container",
+				},
+			},
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "container-1",
+				},
+				{
+					Name: "container-2",
+				},
+			},
+			Conditions: []corev1.PodCondition{
+				{
+					Type:               corev1.PodReady,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+				},
+			},
+			PodIP:  "1.1.1.1",
+			HostIP: "1.1.1.1",
+			Phase:  corev1.PodRunning,
+		},
+	}
+
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	addPods(t, controller, fx, inputPod)
+
+	output := controller.pods.getPodByKey("default/test")
+
+	if !reflect.DeepEqual(expectPod, output) {
+		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
 	}
 }

@@ -368,14 +368,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
-	_ = c.nodeInformer.SetTransform(stripNodeUnusedFields)
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	nodeInformer := informer.NewFilteredSharedIndexInformer(nil, c.nodeInformer)
+	_ = c.nodeInformer.SetTransform(stripNodeUnusedFields)
 	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
 
 	sharedPodInformer := kubeClient.KubeInformer().Core().V1().Pods().Informer()
-	_ = sharedPodInformer.SetTransform(stripPodUnusedFields)
 	podInformer := informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, sharedPodInformer)
+	_ = sharedPodInformer.SetTransform(stripPodUnusedFields)
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
