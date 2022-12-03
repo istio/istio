@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/filewatcher"
 )
 
@@ -670,9 +671,11 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			go s.RotateDNSCertForK8sCA(stop, "", "test-signer", true, time.Duration(0))
 
 			var certRotated bool
+			var rotatedCertBytes []byte
 			err := retry.Until(func() bool {
 				time.Sleep(time.Second)
-				st := string(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem)
+				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
+				st := string(rotatedCertBytes)
 				certRotated = st != string(tt.certToWatch)
 				return certRotated == tt.certRotated
 			}, retry.Timeout(10*time.Second))
@@ -680,6 +683,14 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			close(stop)
 			if err != nil {
 				t.Fatalf("expect certRotated is %v while actual certRotated is %v", tt.certRotated, certRotated)
+			}
+			cert, certErr := util.ParsePemEncodedCertificate(rotatedCertBytes)
+			if certErr != nil {
+				t.Fatalf("rotated cert is not valid")
+			}
+			timeToExpire := cert.NotAfter.Sub(time.Now())
+			if timeToExpire < 0 {
+				t.Fatalf("rotated cert is already expired")
 			}
 		})
 	}
