@@ -2742,13 +2742,6 @@ func TestStripPodUnusedFields(t *testing.T) {
 					Name: "container-2",
 				},
 			},
-			Conditions: []corev1.PodCondition{
-				{
-					Type:               corev1.PodReady,
-					Status:             corev1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-				},
-			},
 			PodIP:  "1.1.1.1",
 			HostIP: "1.1.1.1",
 			Phase:  corev1.PodRunning,
@@ -2770,7 +2763,6 @@ func TestStripPodUnusedFields(t *testing.T) {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name: "container-1",
 					Ports: []corev1.ContainerPort{
 						{
 							Name: "http",
@@ -2780,26 +2772,6 @@ func TestStripPodUnusedFields(t *testing.T) {
 			},
 		},
 		Status: corev1.PodStatus{
-			InitContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name: "init-container",
-				},
-			},
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name: "container-1",
-				},
-				{
-					Name: "container-2",
-				},
-			},
-			Conditions: []corev1.PodCondition{
-				{
-					Type:               corev1.PodReady,
-					Status:             corev1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-				},
-			},
 			PodIP:  "1.1.1.1",
 			HostIP: "1.1.1.1",
 			Phase:  corev1.PodRunning,
@@ -2810,7 +2782,9 @@ func TestStripPodUnusedFields(t *testing.T) {
 	addPods(t, controller, fx, inputPod)
 
 	output := controller.pods.getPodByKey("default/test")
-
+	// The final pod status conditions will be determined by the function addPods.
+	// So we assign these status conditions to expect pod.
+	expectPod.Status.Conditions = output.Status.Conditions
 	if !reflect.DeepEqual(expectPod, output) {
 		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
 	}
