@@ -15,6 +15,8 @@
 package version
 
 import (
+	"time"
+
 	pkgversion "istio.io/istio/operator/pkg/version"
 	buildversion "istio.io/pkg/version"
 )
@@ -22,6 +24,8 @@ import (
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
 	OperatorCodeBaseVersion = "1.19.0"
+	OperatorEOLYear         = 2023
+	OperatorEOLMonth        = time.January
 )
 
 var (
