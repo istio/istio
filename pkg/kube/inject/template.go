@@ -309,9 +309,6 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if proto.Equal(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
 		pc.TerminationDrainDuration = nil
 	}
-	if proto.Equal(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
-		pc.ParentShutdownDuration = nil
-	}
 	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
 		pc.DiscoveryAddress = ""
 	}

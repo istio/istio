@@ -330,7 +330,7 @@ func TestValidateParentAndDrain(t *testing.T) {
 		},
 	}
 	for _, combo := range combinations {
-		if got := ValidateParentAndDrain(combo.Drain, combo.Parent); (got == nil) != combo.Valid {
+		if got := ValidateDrainDuration(combo.Drain); (got == nil) != combo.Valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for Parent:%v Drain:%v",
 				got == nil, combo.Valid, got, combo.Parent, combo.Drain)
 		}
@@ -491,7 +491,6 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		DiscoveryAddress:       "istio-pilot.istio-system:15010",
 		ProxyAdminPort:         15000,
 		DrainDuration:          durationpb.New(45 * time.Second),
-		ParentShutdownDuration: durationpb.New(60 * time.Second),
 		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "istio-proxy"},
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
@@ -561,11 +560,6 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		{
 			name:    "drain duration invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DrainDuration = durationpb.New(-1 * time.Second) }),
-			isValid: false,
-		},
-		{
-			name:    "parent shutdown duration invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = durationpb.New(-1 * time.Second) }),
 			isValid: false,
 		},
 		{
@@ -941,7 +935,6 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		DiscoveryAddress:       "10.0.0.100",
 		ProxyAdminPort:         0,
 		DrainDuration:          durationpb.New(-1 * time.Second),
-		ParentShutdownDuration: durationpb.New(-1 * time.Second),
 		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: ""},
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},

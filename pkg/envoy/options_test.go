@@ -158,11 +158,6 @@ func TestGoodOptions(t *testing.T) {
 			expectedArgs: []string{"--config-yaml", "{}", "--drain-time-s", "15"},
 			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.DrainDuration(15 * time.Second)},
 		},
-		{
-			name:         "parent-shutdown-time-s",
-			expectedArgs: []string{"--config-yaml", "{}", "--parent-shutdown-time-s", "15"},
-			options:      envoy.Options{envoy.ConfigYaml("{}"), envoy.ParentShutdownDuration(15 * time.Second)},
-		},
 	}
 
 	for _, c := range cases {
@@ -221,13 +216,6 @@ func TestInvalidConcurrency(t *testing.T) {
 func TestInvalidDrainDuration(t *testing.T) {
 	g := NewWithT(t)
 	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--drain-time-s", "bad-int-value")
-	g.Expect(err).To(BeNil())
-	g.Expect(actuals.Validate()).ToNot(BeNil())
-}
-
-func TestInvalidParentShutdownDuration(t *testing.T) {
-	g := NewWithT(t)
-	actuals, err := envoy.NewOptions("--config-path", testConfigPath, "--parent-shutdown-time-s", "bad-int-value")
 	g.Expect(err).To(BeNil())
 	g.Expect(actuals.Validate()).ToNot(BeNil())
 }
