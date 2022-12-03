@@ -688,7 +688,8 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			if certErr != nil {
 				t.Fatalf("rotated cert is not valid")
 			}
-			timeToExpire := cert.NotAfter.Sub(time.Now())
+			currTime := time.Now()
+			timeToExpire := cert.NotAfter.Sub(currTime)
 			if timeToExpire < 0 {
 				t.Fatalf("rotated cert is already expired")
 			}
