@@ -38,7 +38,6 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -664,17 +663,22 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		stop := make(chan struct{})
 		t.Run(tt.name, func(t *testing.T) {
+			stop := make(chan struct{})
+
 			s.istiodCertBundleWatcher.SetAndNotify(testcerts.ServerKey, tt.certToWatch, testcerts.CACert)
+			go s.RotateDNSCertForK8sCA(stop, "", "test-signer", true, time.Duration(0))
 
-			go s.watchDNSCertForK8sCA(stop, "", "test-signer", true, time.Duration(0))
-			sleep.Until(stop, 1*time.Second)
+			var certRotated bool
+			err := retry.Until(func() bool {
+				time.Sleep(time.Second)
+				st := string(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem)
+				certRotated = st != string(tt.certToWatch)
+				return certRotated == tt.certRotated
+			}, retry.Timeout(10*time.Second))
+
 			close(stop)
-
-			st := string(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem)
-			certRotated := st != string(tt.certToWatch)
-			if certRotated != tt.certRotated {
+			if err != nil {
 				t.Fatalf("expect certRotated is %v while actual certRotated is %v", tt.certRotated, certRotated)
 			}
 		})

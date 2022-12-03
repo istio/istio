@@ -134,7 +134,7 @@ func (s *Server) initDNSCerts() error {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go func() {
 				// Track TTL of DNS cert and renew cert in accordance to grace period.
-				s.watchDNSCertForK8sCA(stop, "", signerName, true, SelfSignedCACertTTL.Get())
+				s.RotateDNSCertForK8sCA(stop, "", signerName, true, SelfSignedCACertTTL.Get())
 			}()
 			return nil
 		})
@@ -153,7 +153,7 @@ func (s *Server) initDNSCerts() error {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go func() {
 				// Track TTL of DNS cert and renew cert in accordance to grace period.
-				s.watchDNSCertForK8sCA(stop, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
+				s.RotateDNSCertForK8sCA(stop, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
 			}()
 			return nil
 		})
@@ -222,7 +222,7 @@ func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 	}
 }
 
-func (s *Server) watchDNSCertForK8sCA(stop <-chan struct{},
+func (s *Server) RotateDNSCertForK8sCA(stop <-chan struct{},
 	defaultCACertPath string,
 	signerName string,
 	approveCsr bool,
