@@ -64,6 +64,10 @@ resources:
     cpu: 2000m
     memory: 1024Mi
 
+lifecycle: {}
+
+terminationGracePeriodSeconds: 30
+
 autoscaling:
   enabled: true
   minReplicas: 1

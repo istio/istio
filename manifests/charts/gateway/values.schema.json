@@ -104,6 +104,12 @@
         }
       }
     },
+    "lifecycle": {
+      "type": "object"
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer"
+    },
     "revision": {
       "type": "string"
     },

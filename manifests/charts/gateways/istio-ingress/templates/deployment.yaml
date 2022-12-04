@@ -125,6 +125,10 @@ spec:
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
+{{- if $gateway.lifecycle }}
+          lifecycle: 
+{{ toYaml $gateway.lifecycle | indent 12 }}
+{{- end }}
         {{- if not $gateway.runAsRoot }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -269,6 +273,7 @@ spec:
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
+      terminationGracePeriodSeconds: {{ $gateway.terminationGracePeriodSeconds }}
       volumes:
       - emptyDir: {}
         name: workload-socket
