@@ -76,9 +76,12 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
-	if model.ConfigsHaveKind(updates, kind.Secret) ||
-		model.ConfigsHaveKind(updates, kind.ReferenceGrant) {
-		return true
+	for update := range updates {
+		switch update.Kind {
+		case kind.Secret:
+		case kind.ReferenceGrant:
+			return true
+		}
 	}
 	return false
 }

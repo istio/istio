@@ -66,23 +66,18 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	}
 
 	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
-	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
-	if !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
-		model.ConfigsHaveKind(req.ConfigsUpdated, kind.Secret) {
-		// Get the updated secrets
-		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
-		needsPush := false
-		for _, sr := range secretResources {
-			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
-				needsPush = true
-				break
-			}
-		}
-		if !needsPush {
-			return nil, model.DefaultXdsLogDetails, nil
+	// Get the updated secrets
+	updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+	needsPush := false
+	for _, sr := range secretResources {
+		if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
+			needsPush = true
+			break
 		}
 	}
-
+	if !needsPush {
+		return nil, model.DefaultXdsLogDetails, nil
+	}
 	var secrets map[string][]byte
 	if len(secretResources) > 0 {
 		// Generate the pull secrets first, which will be used when populating the extension config.
