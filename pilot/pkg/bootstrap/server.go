@@ -1012,7 +1012,8 @@ func getDNSNames(args *PilotArgs, host string) []string {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
+	customTLSCertsExists, _, _, _ := hasCustomTLSCerts(tlsOptions)
+	if !customTLSCertsExists && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
