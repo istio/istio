@@ -1083,10 +1083,6 @@ func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
 				Key:   "k8s.pod.name",
 				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: podName}},
 			},
-			{
-				Key:   "k8s.deployment.name",
-				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.WorkloadName}},
-			},
 		},
 	}
 }
