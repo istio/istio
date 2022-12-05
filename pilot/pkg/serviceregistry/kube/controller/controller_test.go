@@ -1509,7 +1509,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	}
 }
 
-func TestController_ENABLE_RESOURCE_SCOPING(t *testing.T) {
+func TestControllerEnableResourceScoping(t *testing.T) {
 	features.EnableEnhancedResourceScoping = true
 	defer func() {
 		features.EnableEnhancedResourceScoping = false
