@@ -28,6 +28,9 @@ cni:
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
 
+  # Custom Labels on pod level, if you need them
+  podLabels: {}
+
   # If this value is set a RoleBinding will be created
   # in the same namespace as the istio-cni DaemonSet is created.
   # This can be used to bind a preexisting ClusterRole to the istio/cni ServiceAccount

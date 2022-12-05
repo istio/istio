@@ -30,6 +30,10 @@ spec:
       labels:
         k8s-app: istio-cni-node
         sidecar.istio.io/inject: "false"
+        # Custom labels
+        {{- if .Values.cni.podLabels }}
+          {{-  toYaml .Values.cni.podLabels | nindent 8 }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
