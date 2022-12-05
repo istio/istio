@@ -55,10 +55,9 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
 				c.queue.Push(func() error {
 					c.handleSelectedNamespace(endpointMode, ns.Name)
+					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
+					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
 					if features.EnableEnhancedResourceScoping {
-						for _, handler := range c.namespaceDiscoveryHandlers {
-							handler(ns.Name, model.EventAdd)
-						}
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
@@ -75,18 +74,14 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			membershipChanged, namespaceAdded := discoveryNamespacesFilter.NamespaceUpdated(oldNs.ObjectMeta, newNs.ObjectMeta)
 			if membershipChanged {
 				handleFunc := func() error {
-					var event model.Event
 					if namespaceAdded {
-						event = model.EventAdd
 						c.handleSelectedNamespace(endpointMode, newNs.Name)
 					} else {
-						event = model.EventDelete
 						c.handleDeselectedNamespace(kubeClient, endpointMode, newNs.Name)
 					}
+					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
+					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
 					if features.EnableEnhancedResourceScoping {
-						for _, handler := range c.namespaceDiscoveryHandlers {
-							handler(newNs.Name, event)
-						}
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
@@ -204,6 +199,12 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		}
 	}
 
+	if features.EnableEnhancedResourceScoping {
+		for _, handler := range c.namespaceDiscoveryHandlers {
+			handler(ns, model.EventAdd)
+		}
+	}
+
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
 		log.Errorf("one or more errors while handling newly labeled discovery namespace %s: %v", ns, err)
 	}
@@ -253,6 +254,12 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		}
 		for _, ep := range endpointSlices {
 			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
+		}
+	}
+
+	if features.EnableEnhancedResourceScoping {
+		for _, handler := range c.namespaceDiscoveryHandlers {
+			handler(ns, model.EventDelete)
 		}
 	}
 
