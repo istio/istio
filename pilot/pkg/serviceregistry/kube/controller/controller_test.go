@@ -1511,9 +1511,6 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 
 func TestControllerEnableResourceScoping(t *testing.T) {
 	features.EnableEnhancedResourceScoping = true
-	defer func() {
-		features.EnableEnhancedResourceScoping = false
-	}()
 	svc1 := &model.Service{
 		Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
@@ -1597,7 +1594,6 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 		MeshWatcher:               meshWatcher,
 		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 	})
-
 	nsA := "nsA"
 	nsB := "nsB"
 	nsC := "nsC"
