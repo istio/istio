@@ -79,6 +79,7 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 	for update := range updates {
 		switch update.Kind {
 		case kind.Secret:
+			return true
 		case kind.ReferenceGrant:
 			return true
 		}
