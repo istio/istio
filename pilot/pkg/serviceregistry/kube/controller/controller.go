@@ -265,9 +265,6 @@ type Controller struct {
 	workloadInstancesIndex workloadinstances.Index
 
 	multinetwork
-	// informerInit is set to true once the controller is running successfully. This ensures we do not
-	// return HasSynced=true before we are running
-	informerInit *atomic.Bool
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
@@ -286,7 +283,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
-		informerInit:               atomic.NewBool(false),
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
 
@@ -740,10 +736,6 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
-	if !c.informerInit.Load() {
-		// registration/Run of informers hasn't occurred yet
-		return false
-	}
 	if (c.nsInformer != nil && !c.nsInformer.HasSynced()) ||
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
@@ -837,9 +829,9 @@ func (c *Controller) syncEndpoints() error {
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.opts.SyncTimeout != 0 {
 		time.AfterFunc(c.opts.SyncTimeout, func() {
-			if !c.informerInit.Load() {
+			if !c.initialSync.Load() {
 				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
-				c.informerInit.Store(true)
+				c.initialSync.Store(true)
 			}
 		})
 	}
@@ -849,7 +841,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.reloadMeshNetworks()
 		c.reloadNetworkGateways()
 	}
-	c.informerInit.Store(true)
 
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
