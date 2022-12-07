@@ -678,10 +678,17 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string) *workloa
 					vips[vip] = &workloadapi.PortList{}
 				}
 				for _, port := range svc.Spec.Ports {
-					// TODO: resolve named port
+					if port.Protocol != v1.ProtocolTCP {
+						continue
+					}
+					targetPort, err := FindPort(pod, &port)
+					if err != nil {
+						log.Debug(err)
+						continue
+					}
 					vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
 						ServicePort: uint32(port.Port),
-						TargetPort:  uint32(port.TargetPort.IntVal),
+						TargetPort:  uint32(targetPort),
 					})
 				}
 			}
