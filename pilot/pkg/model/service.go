@@ -713,7 +713,7 @@ type ServiceDiscovery interface {
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
 	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
-	AdditionalPodSubscriptions(allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
+	AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
 }
 
 type WorkloadInfo struct {

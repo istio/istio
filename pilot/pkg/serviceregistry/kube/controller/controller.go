@@ -640,8 +640,17 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	return &idx
 }
 
-func (c *Controller) AdditionalPodSubscriptions(allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (c *Controller) AdditionalPodSubscriptions(
+	proxy *model.Proxy,
+	allAddresses sets.Set[types.NamespacedName],
+	currentSubs sets.Set[types.NamespacedName],
+) sets.Set[types.NamespacedName] {
 	shouldSubscribe := sets.New[types.NamespacedName]()
+
+	// First, we want to handle VIP subscriptions. Example:
+	// Client subscribes to VIP1. Pod1, part of VIP1, is sent.
+	// The client wouldn't be explicitly subscribed to Pod1, so it would normally ignore it.
+	// Since it is a part of VIP1 which we are subscribe to, add it to the subscriptions
 	for s := range allAddresses {
 		for _, wl := range c.ambientIndex.Lookup(s.Name) {
 			// We may have gotten an update for Pod, but are subscribe to a Service.
@@ -655,6 +664,16 @@ func (c *Controller) AdditionalPodSubscriptions(allAddresses sets.Set[types.Name
 			}
 		}
 	}
+
+	// Next, as an optimization, we will send all node-local endpoints
+	if nodeName := proxy.Metadata.NodeName; nodeName != "" {
+		for _, wl := range c.ambientIndex.All() {
+			if wl.Node == nodeName {
+				shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
+			}
+		}
+	}
+
 	return shouldSubscribe
 }
 

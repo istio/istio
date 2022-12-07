@@ -53,10 +53,10 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) AdditionalPodSubscriptions(addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
 	res := sets.New[types.NamespacedName]()
 	for _, p := range c.registries {
-		res = res.Merge(p.AdditionalPodSubscriptions(addr, cur))
+		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
 	return res
 }

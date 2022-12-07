@@ -2703,7 +2703,7 @@ func (l *localServiceDiscovery) PodInformation(addresses sets.Set[types.Namespac
 	return nil, nil
 }
 
-func (l *localServiceDiscovery) AdditionalPodSubscriptions(_, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (l *localServiceDiscovery) AdditionalPodSubscriptions(_ *Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
 	return nil
 }
 

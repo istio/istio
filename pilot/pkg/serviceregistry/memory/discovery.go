@@ -88,7 +88,7 @@ func (sd *ServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedNa
 	return nil, nil
 }
 
-func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
 	return nil
 }
 

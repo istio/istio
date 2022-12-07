@@ -118,7 +118,7 @@ func (s *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 	return nil, nil
 }
 
-func (s *Controller) AdditionalPodSubscriptions(_, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
 	return nil
 }
 

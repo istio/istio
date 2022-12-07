@@ -66,7 +66,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	for ip := range req.Delta.Subscribed {
 		addresses.Insert(types.NamespacedName{Name: ip})
 	}
-	additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(updatedAddresses, typedSubs)
+	additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
 	addresses.Merge(additional)
 
 	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
