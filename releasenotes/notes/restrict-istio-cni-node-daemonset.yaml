@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Added** label `istio.io/exclude-cni=true` node affinity to allow excluding istio-cni from being scheduled on specific nodes.
+    **Added** configurable node affinity to istio-cni values.yaml. Can be used to allow excluding istio-cni from being scheduled on specific nodes.
