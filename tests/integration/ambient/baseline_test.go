@@ -1295,10 +1295,10 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 	})
 }
 
+// skipOnNativeZtunnel used to skip only when on rust based ztunnel; now this is the only option so it always skips
+// TODO: fix all these cases and remove
 func skipOnNativeZtunnel(tc framework.TestContext, reason string) {
-	if tc.Settings().AmbientNativeZtunnel {
-		tc.Skipf("Not currently supported: %v", reason)
-	}
+	tc.Skipf("Not currently supported: %v", reason)
 }
 
 func TestL7Telemetry(t *testing.T) {
