@@ -2772,7 +2772,6 @@ func TestAmbientIndex(t *testing.T) {
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
 		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice()})
 
-	t.Log("create svc")
 	createService(controller, "svc1", "ns1",
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, t)
@@ -2780,7 +2779,6 @@ func TestAmbientIndex(t *testing.T) {
 	// Send update for the workloads as well...
 	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.3")
 	// Make sure Service sees waypoints as well
-	log.Errorf("howardjohn: %v", controller.ambientIndex.Lookup("10.0.0.1")[0].Name)
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("10.0.0.1")[0].WaypointAddresses,
 		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice()})

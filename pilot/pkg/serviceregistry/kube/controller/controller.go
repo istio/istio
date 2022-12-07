@@ -640,9 +640,27 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	return &idx
 }
 
+func (c *Controller) AdditionalPodSubscriptions(allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	shouldSubscribe := sets.New[types.NamespacedName]()
+	for s := range allAddresses {
+		for _, wl := range c.ambientIndex.Lookup(s.Name) {
+			// We may have gotten an update for Pod, but are subscribe to a Service.
+			// We need to force a subscription on the Pod as well
+			for addr := range wl.VirtualIps {
+				t := types.NamespacedName{Name: addr}
+				if currentSubs.Contains(t) {
+					shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
+					break
+				}
+			}
+		}
+	}
+	return shouldSubscribe
+}
+
 // PodInformation returns all WorkloadInfo's in the cluster.
 // This may be scoped to specific subsets by specifying a non-empty addresses field
-func (c *Controller) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
+func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	if len(addresses) == 0 {
 		// Full update
 		return c.ambientIndex.All(), nil

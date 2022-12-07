@@ -59,7 +59,6 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 
 func TestWorkloadReconnect(t *testing.T) {
 	expect := buildExpect(t)
-	// expectRemoved := buildExpectExpectRemoved(t)
 	s := NewFakeDiscoveryServer(t, FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
 	createPod(s, "pod", "sa", "127.0.0.1")
@@ -139,7 +138,6 @@ func TestWorkload(t *testing.T) {
 
 		// Now create pods in the service...
 		createPod(s, "pod4", "not-sa", "127.0.0.4")
-		createPod(s, "pod5", "not-sa", "127.0.0.5")
 		// Not subscribed, no response
 		ads.ExpectNoResponse()
 
@@ -148,10 +146,12 @@ func TestWorkload(t *testing.T) {
 			ResourceNamesSubscribe: []string{"10.0.0.1"},
 		})
 		// Should get updates for all pods in the service
-		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
+		expect(ads.ExpectResponse(), "127.0.0.4")
+		// Adding a pod in the service should trigger an update for that pod, even if we didn't explicitly subscribe
+		createPod(s, "pod5", "not-sa", "127.0.0.5")
+		expect(ads.ExpectResponse(), "127.0.0.5")
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
-		t.Log("drop selecting")
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
 		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
 	})
@@ -178,17 +178,16 @@ func TestWorkload(t *testing.T) {
 		deletePod(s, "pod")
 		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
 
-		t.Log("add svc")
 		// Add service: we should not get any new resources, but updates to existing ones
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
 		expect(ads.ExpectResponse(), "127.0.0.2")
 		// Creating a pod in the service should send an update as usual
-		createPod(s, "pod", "sa", "127.0.0.1")
-		expect(ads.ExpectResponse(), "127.0.0.1")
+		createPod(s, "pod", "sa", "127.0.0.3")
+		expect(ads.ExpectResponse(), "127.0.0.3")
+
 		// Make service not select workload should also update things
-		t.Log("remove svc")
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "127.0.0.1", "127.0.0.2")
+		expect(ads.ExpectResponse(), "127.0.0.2", "127.0.0.3")
 	})
 }
 

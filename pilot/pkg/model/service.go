@@ -712,7 +712,8 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
-	PodInformation(addresses map[types.NamespacedName]struct{}) ([]*WorkloadInfo, []string)
+	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
+	AdditionalPodSubscriptions(allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
 }
 
 type WorkloadInfo struct {
