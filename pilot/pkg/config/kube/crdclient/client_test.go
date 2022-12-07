@@ -396,9 +396,7 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	slices.SortFunc(cfgsAdded, sortFunc)
 	slices.SortFunc(expectedCfgs, sortFunc)
 
-	if !reflect.DeepEqual(expectedCfgs, cfgsAdded) {
-		t.Fatalf("expected configs %v do not match those added %v", expectedCfgs, cfgsAdded)
-	}
+	assert.Equal(t, expectedCfgs, cfgsAdded)
 }
 
 func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
