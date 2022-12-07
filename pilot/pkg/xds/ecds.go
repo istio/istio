@@ -90,7 +90,6 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	// referred via WASM plugin.
 	if onlyReferencedConfigsUpdated(req) {
 		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
-		// Get the updated secrets
 		needsPush := false
 		for _, sr := range secretResources {
 			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
