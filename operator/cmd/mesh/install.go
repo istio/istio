@@ -163,9 +163,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	// return warning if current date is near the EOL date
 	t := time.Now()
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
-	if t.Year() > operatorVer.OperatorEOLYear {
-		fmt.Printf("%s You are installing a EOL version, see https://istio.io/latest/docs/releases/supported-releases/ for supported release\n", warnMarker)
-	} else if t.Year() == operatorVer.OperatorEOLYear && t.Month() >= operatorVer.OperatorEOLMonth {
+	if t.Year() > operatorVer.OperatorEOLYear || (t.Year() == operatorVer.OperatorEOLYear && t.Month() >= operatorVer.OperatorEOLMonth) {
 		fmt.Printf("%s may be installing an EOL version: see https://istio.io/latest/docs/releases/supported-releases/ for supported releases\n", warnMarker)
 	}
 
