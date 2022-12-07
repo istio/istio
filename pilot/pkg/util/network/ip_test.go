@@ -145,7 +145,7 @@ func TestResolveAddr(t *testing.T) {
 			name:     "Missing host",
 			input:    ":9080",
 			expected: "",
-			errStr:   "lookup failed for IP address: %!w(<nil>)",
+			errStr:   "lookup failed for IP address",
 			lookup:   nil,
 		},
 		{
@@ -169,11 +169,7 @@ func TestResolveAddr(t *testing.T) {
 		if err != nil {
 			if tc.errStr == "" {
 				t.Errorf("[%s] expected success, but saw error: %v", tc.name, err)
-			} else if err.Error() != tc.errStr {
-				if strings.Contains(err.Error(), "Temporary failure in name resolution") {
-					t.Logf("[%s] expected error %q, got %q", tc.name, tc.errStr, err.Error())
-					continue
-				}
+			} else if !strings.Contains(err.Error(), tc.errStr) {
 				t.Errorf("[%s] expected error %q, got %q", tc.name, tc.errStr, err.Error())
 			}
 		} else {
