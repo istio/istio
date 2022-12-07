@@ -31,28 +31,67 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+	return func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		have := sets.New[string]()
+		for _, r := range resp.Resources {
+			w := &workloadapi.Workload{}
+			r.Resource.UnmarshalTo(w)
+			have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
+		}
+		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
+	}
+}
+
+func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+	return func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		have := sets.New[string]()
+		for _, r := range resp.RemovedResources {
+			have.Insert(r)
+		}
+		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
+	}
+}
+
+func TestWorkloadReconnect(t *testing.T) {
+	expect := buildExpect(t)
+	// expectRemoved := buildExpectExpectRemoved(t)
+	s := NewFakeDiscoveryServer(t, FakeOptions{})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
+	createPod(s, "pod", "sa", "127.0.0.1")
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe:   []string{"*"},
+		ResourceNamesUnsubscribe: []string{"*"},
+	})
+	ads.ExpectEmptyResponse()
+
+	// Now subscribe to the pod, should get it back
+	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"127.0.0.1"},
+	})
+	expect(resp, "127.0.0.1")
+	ads.Cleanup()
+
+	// Reconnect
+	ads = s.ConnectDeltaADS().WithType(v3.WorkloadType)
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe:   []string{"*"},
+		ResourceNamesUnsubscribe: []string{"*"},
+		InitialResourceVersions: map[string]string{
+			"127.0.0.1": "",
+		},
+	})
+	expect(ads.ExpectResponse(), "127.0.0.1")
+}
+
 func TestWorkload(t *testing.T) {
 	t.Run("ondemand", func(t *testing.T) {
-		expect := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.Resources {
-				w := &workloadapi.Workload{}
-				r.Resource.UnmarshalTo(w)
-				have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
-		expectRemoved := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.RemovedResources {
-				have.Insert(r)
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
+		expect := buildExpect(t)
+		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
 
@@ -117,29 +156,8 @@ func TestWorkload(t *testing.T) {
 		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
 	})
 	t.Run("wildcard", func(t *testing.T) {
-		expect := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.Resources {
-				w := &workloadapi.Workload{}
-				r.Resource.UnmarshalTo(w)
-				have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
-			}
-			if len(resp.RemovedResources) > 0 {
-				t.Logf("warn: expected resources but got removals: %v", resp.RemovedResources)
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
-		expectRemoved := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.RemovedResources {
-				have.Insert(r)
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
+		expect := buildExpect(t)
+		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
 
