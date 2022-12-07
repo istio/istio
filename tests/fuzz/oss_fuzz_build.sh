@@ -19,6 +19,12 @@ set -o pipefail
 set -o errexit
 set -x
 
+cd "${SRC}"
+git clone https://github.com/AdamKorcz/instrumentation
+cd instrumentation
+go run main.go "${SRC}"/istio
+cd "${SRC}"/istio
+
 sed -i 's/\"testing\"/\"github.com\/AdamKorcz\/go-118-fuzz-build\/testing\"/g' "${SRC}"/istio/pkg/fuzz/util.go
 
 sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
