@@ -31,7 +31,6 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -1601,7 +1600,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 
 	// wait for namespaces to be created
 	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metaV1.ListOptions{})
 		if err != nil {
 			t.Fatalf("error listing namespaces: %v", err)
 		}
@@ -1649,7 +1648,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*metaV1.LabelSelector{
 				{
 					MatchLabels: map[string]string{
 						"app": "foo",
