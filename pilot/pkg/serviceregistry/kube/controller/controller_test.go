@@ -31,6 +31,7 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -1677,12 +1678,12 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	// expand namespaces to nsA and nsB with selectors (expect events svc3 and a full push event for nsB selected)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*metaV1.LabelSelector{
 				{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+					MatchExpressions: []metaV1.LabelSelectorRequirement{
 						{
 							Key:      "app",
-							Operator: metav1.LabelSelectorOpIn,
+							Operator: metaV1.LabelSelectorOpIn,
 							Values:   []string{"foo", "bar"},
 						},
 					},
