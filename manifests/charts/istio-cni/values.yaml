@@ -25,7 +25,10 @@ cni:
     - istio-system
     - kube-system
 
- # Allows user to set custom affinity for the DaemonSet
+  # Allows for changing node affinity of istio-cni DaemonSet
+  exclude_cni: false
+
+  # Allows user to set custom affinity for the DaemonSet
   affinity: {}
 
   # Custom annotations on pod level, if you need them
