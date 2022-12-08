@@ -1286,10 +1286,9 @@ func ecdsConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	ecdsConfigCmd := &cobra.Command{
-		Use:    "ecds [<type>/]<name>[.<namespace>]",
-		Hidden: true,
-		Short:  "Retrieves typed extension configuration for the Envoy in the specified pod",
-		Long:   `Retrieve information about typed extension configuration for the Envoy instance in the specified pod.`,
+		Use:   "ecds [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves typed extension configuration for the Envoy in the specified pod",
+		Long:  `Retrieve information about typed extension configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full typed extension configuration for a given pod from Envoy.
   istioctl proxy-config ecds <pod-name[.namespace]>
 
