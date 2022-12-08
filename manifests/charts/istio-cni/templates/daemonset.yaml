@@ -44,10 +44,10 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      {{- with .Values.cni.affinity }}
       affinity:
-          {{- if .Values.cni.affinity }}
-{{ toYaml .Values.cni.affinity | indent 8 }}
-        {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule
