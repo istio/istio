@@ -11,8 +11,8 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 replace istio.io/api => github.com/yuri-lcy/api v0.0.0-20221125022535-acefb8911ec3
 
 require (
-	cloud.google.com/go/compute v1.7.0
-	cloud.google.com/go/security v1.4.0
+	cloud.google.com/go/compute/metadata v0.1.0
+	cloud.google.com/go/security v1.8.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.1
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20220511133513-5ae53b7a8154
 	github.com/Masterminds/sprig/v3 v3.2.2
@@ -34,7 +34,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/cel-go v0.11.4
-	github.com/google/go-cmp v0.5.8
+	github.com/google/go-cmp v0.5.9
 	github.com/google/go-containerregistry v0.10.0
 	github.com/google/gofuzz v1.2.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -72,10 +72,10 @@ require (
 	go.opentelemetry.io/proto/otlp v0.18.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
-	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
-	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b
+	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b
+	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
+	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.85.0
@@ -83,6 +83,10 @@ require (
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
+	google.golang.org/api v0.100.0
+	google.golang.org/genproto v0.0.0-20221024183307-1bc688fe9f3e
+	google.golang.org/grpc v1.50.1
+	google.golang.org/protobuf v1.28.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -108,10 +112,13 @@ require (
 
 replace sigs.k8s.io/gateway-api => github.com/istio/gateway-api v0.0.0-20221006194514-510afb48c902
 
-require github.com/emicklei/go-restful/v3 v3.8.0 // indirect
+require (
+	cloud.google.com/go/compute v1.12.1 // indirect
+	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
+)
 
 require (
-	cloud.google.com/go v0.102.0 // indirect
+	cloud.google.com/go v0.104.0 // indirect
 	cloud.google.com/go/logging v1.4.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
@@ -164,8 +171,8 @@ require (
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/pprof v0.0.0-20220520215854-d04f2422c8a1 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
-	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
+	github.com/googleapis/gax-go/v2 v2.6.0 // indirect
 	github.com/grafana/regexp v0.0.0-20220304095617-2e8d9baf4ac2 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -245,7 +252,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.10 // indirect
-	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
