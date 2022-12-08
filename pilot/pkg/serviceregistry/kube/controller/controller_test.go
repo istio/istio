@@ -1506,7 +1506,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 }
 
 func TestControllerEnableResourceScoping(t *testing.T) {
-	features.EnableEnhancedResourceScoping = true
+	test.SetAtomicBoolForTest(t, features.EnableEnhancedResourceScoping, true)
 	svc1 := &model.Service{
 		Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",

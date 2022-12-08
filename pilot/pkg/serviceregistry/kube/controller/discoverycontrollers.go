@@ -57,7 +57,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 					c.handleSelectedNamespace(endpointMode, ns.Name)
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
-					if features.EnableEnhancedResourceScoping {
+					if features.EnableEnhancedResourceScoping.Load() {
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
@@ -81,7 +81,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 					}
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
-					if features.EnableEnhancedResourceScoping {
+					if features.EnableEnhancedResourceScoping.Load() {
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
@@ -142,7 +142,7 @@ func (c *Controller) initMeshWatcherHandler(
 			})
 		}
 
-		if features.EnableEnhancedResourceScoping && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
+		if features.EnableEnhancedResourceScoping.Load() && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
 			c.queue.Push(func() error {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full:   true,
@@ -199,10 +199,8 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		}
 	}
 
-	if features.EnableEnhancedResourceScoping {
-		for _, handler := range c.namespaceDiscoveryHandlers {
-			handler(ns, model.EventAdd)
-		}
+	for _, handler := range c.namespaceDiscoveryHandlers {
+		handler(ns, model.EventAdd)
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
@@ -257,10 +255,8 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		}
 	}
 
-	if features.EnableEnhancedResourceScoping {
-		for _, handler := range c.namespaceDiscoveryHandlers {
-			handler(ns, model.EventDelete)
-		}
+	for _, handler := range c.namespaceDiscoveryHandlers {
+		handler(ns, model.EventDelete)
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
