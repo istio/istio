@@ -199,10 +199,8 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		}
 	}
 
-	if features.EnableEnhancedResourceScoping {
-		for _, handler := range c.namespaceDiscoveryHandlers {
-			handler(ns, model.EventAdd)
-		}
+	for _, handler := range c.namespaceDiscoveryHandlers {
+		handler(ns, model.EventAdd)
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
@@ -257,10 +255,8 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		}
 	}
 
-	if features.EnableEnhancedResourceScoping {
-		for _, handler := range c.namespaceDiscoveryHandlers {
-			handler(ns, model.EventDelete)
-		}
+	for _, handler := range c.namespaceDiscoveryHandlers {
+		handler(ns, model.EventDelete)
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
