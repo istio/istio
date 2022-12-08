@@ -1054,6 +1054,11 @@ func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs
 			errs = appendErrors(errs, err)
 		}
 	}
+	// partial wildcard is not allowed
+	// More details please refer to:
+	// Gateway: https://istio.io/latest/docs/reference/config/networking/gateway/
+	// SideCar: https://istio.io/latest/docs/reference/config/networking/sidecar/#IstioEgressListener
+	errs = appendErrors(errs, validatePartialWildCard(hostname))
 	return
 }
 
@@ -3933,6 +3938,13 @@ func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector)
 				return fmt.Errorf("spec.Match[%d].Ports[%d] is out of range: %d", selIdx, portIdx, port.GetNumber())
 			}
 		}
+	}
+	return nil
+}
+
+func validatePartialWildCard(host string) error {
+	if strings.Contains(host, "*") && len(host) != 1 && !strings.HasPrefix(host, "*.") {
+		return fmt.Errorf("partial wildcard %q not allowed", host)
 	}
 	return nil
 }
