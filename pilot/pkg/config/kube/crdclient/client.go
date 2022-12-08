@@ -300,8 +300,10 @@ func (cl *Client) SyncAll() {
 					continue
 				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
-				for _, f := range handlers {
-					f(config.Config{}, currConfig, model.EventAdd)
+				if cl.objectInRevision(&currConfig) {
+					for _, f := range handlers {
+						f(config.Config{}, currConfig, model.EventAdd)
+					}
 				}
 			}
 		}()
