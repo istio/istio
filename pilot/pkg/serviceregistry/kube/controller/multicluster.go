@@ -230,7 +230,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
-	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
+	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping.Load() {
 		kubeRegistry.AppendNamespaceDiscoveryHandlers(m.serviceEntryController.NamespaceDiscoveryHandler)
 	}
 
@@ -250,7 +250,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				// ServiceEntry selects WorkloadEntry from remote cluster
 				kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
-				if features.EnableEnhancedResourceScoping {
+				if features.EnableEnhancedResourceScoping.Load() {
 					kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
 				}
 				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
@@ -263,7 +263,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 	// namespacecontroller requires discoverySelectors only if EnableEnhancedResourceScoping feature flag is set.
 	discoveryNamespacesFilter := namespace.DiscoveryNamespacesFilter(nil)
-	if features.EnableEnhancedResourceScoping {
+	if features.EnableEnhancedResourceScoping.Load() {
 		discoveryNamespacesFilter = kubeRegistry.opts.DiscoveryNamespacesFilter
 	}
 
