@@ -35,7 +35,8 @@ func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 	}
 
 	opts := protojson.MarshalOptions{
-		Indent: "    ",
+		Multiline: true,
+		Indent:    "    ",
 	}
 	out, err := opts.Marshal(dump)
 	if err != nil {
