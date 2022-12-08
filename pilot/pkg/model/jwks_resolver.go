@@ -235,6 +235,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
+		fmt.Println("----data----", issuer, jwksURI)
 		e := val.(jwtPubKeyEntry)
 		// Update cached key's last used time.
 		e.lastUsedTime = now
@@ -244,7 +245,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		}
 		return e.pubKey, nil
 	}
-
+	fmt.Println("----data2----", issuer, jwksURI)
 	var err error
 	var pubKey string
 	if jwksURI == "" {
@@ -285,7 +286,8 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-			jwtPubKey = CreateFakeJwks(jwksURI)
+			// jwtPubKey = CreateFakeJwks(jwksURI)
+			return nil
 		}
 	}
 	return &envoy_jwt.JwtProvider_LocalJwks{

@@ -16,6 +16,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -44,6 +45,13 @@ import (
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging", 0)
+var defaultConfigSource = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
+	},
+	ResourceApiVersion:  core.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 15},
+}
 
 // Implementation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
@@ -63,16 +71,21 @@ func (a *v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
-
-	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push)
-
-	if filterConfigProto == nil {
-		return nil
-	}
 	return &hcm.HttpFilter{
-		Name:       authn_model.EnvoyJwtFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
+		Name: authn_model.EnvoyJwtFilterName,
+		ConfigType: &hcm.HttpFilter_ConfigDiscovery{
+			ConfigDiscovery: &core.ExtensionConfigSource{
+				ConfigSource: defaultConfigSource,
+				TypeUrls: []string{
+					"type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication",
+				},
+			},
+		},
 	}
+}
+
+func (a *v1beta1PolicyApplier) EcdsJwksConfig() *envoy_jwt.JwtAuthentication {
+	return convertToEnvoyJwtConfig(a.processedJwtRules, a.push)
 }
 
 func defaultAuthnFilter() *authn_filter.FilterConfig {
@@ -211,7 +224,6 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	if len(jwtRules) == 0 {
 		return nil
 	}
-
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	// Each element of innerAndList is the requirement for each provider, in the form of
 	// {provider OR `allow_missing`}
@@ -274,10 +286,16 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 				}
 			} else {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
+				if reflect.ValueOf(provider.JwksSourceSpecifier).IsNil() {
+					continue
+				}
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
 			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
+			if reflect.ValueOf(provider.JwksSourceSpecifier).IsNil() {
+				continue
+			}
 		}
 
 		name := fmt.Sprintf("origins-%d", i)
@@ -325,42 +343,45 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			Providers:           providers,
 			BypassCorsPreflight: true,
 		}
-	}
-
-	// If there are more than one provider, filter should OR of
-	// {P1, P2 .., AND of {OR{P1, allow_missing}, OR{P2, allow_missing} ...}}
-	// where the innerAnd enforce a token, if provided, must be valid, and the
-	// outer OR aids the case where providers share the same location (as
-	// it will always fail with the innerAND).
-	outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
-		RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
-			RequiresAll: &envoy_jwt.JwtRequirementAndList{
-				Requirements: innerAndList,
-			},
-		},
-	})
-
-	return &envoy_jwt.JwtAuthentication{
-		Rules: []*envoy_jwt.RequirementRule{
-			{
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{
-						Prefix: "/",
-					},
+	} else if len(innerAndList) > 0 {
+		// If there are more than one provider, filter should OR of
+		// {P1, P2 .., AND of {OR{P1, allow_missing}, OR{P2, allow_missing} ...}}
+		// where the innerAnd enforce a token, if provided, must be valid, and the
+		// outer OR aids the case where providers share the same location (as
+		// it will always fail with the innerAND).
+		outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
+				RequiresAll: &envoy_jwt.JwtRequirementAndList{
+					Requirements: innerAndList,
 				},
-				RequirementType: &envoy_jwt.RequirementRule_Requires{
-					Requires: &envoy_jwt.JwtRequirement{
-						RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-							RequiresAny: &envoy_jwt.JwtRequirementOrList{
-								Requirements: outterOrList,
+			},
+		})
+	}
+	if len(outterOrList) > 0 {
+		return &envoy_jwt.JwtAuthentication{
+			Rules: []*envoy_jwt.RequirementRule{
+				{
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{
+							Prefix: "/",
+						},
+					},
+					RequirementType: &envoy_jwt.RequirementRule_Requires{
+						Requires: &envoy_jwt.JwtRequirement{
+							RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+								RequiresAny: &envoy_jwt.JwtRequirementOrList{
+									Requirements: outterOrList,
+								},
 							},
 						},
 					},
 				},
 			},
-		},
-		Providers:           providers,
-		BypassCorsPreflight: true,
+			Providers:           providers,
+			BypassCorsPreflight: true,
+		}
+	} else {
+		return nil
 	}
 }
 

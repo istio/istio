@@ -50,6 +50,9 @@ type ConfigGenerator interface {
 	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string,
 		pullSecrets map[string][]byte) []*core.TypedExtensionConfig
 
+	// BuildExtensionConfiguration returns the list of extension configuration for jwt_authn filter. This is the ECDS output.
+	BuildExtensionConfigurationForJwks(node *model.Proxy, req *model.PushRequest, env *model.Environment) *core.TypedExtensionConfig
+
 	// MeshConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)
 }

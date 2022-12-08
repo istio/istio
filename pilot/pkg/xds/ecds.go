@@ -54,6 +54,8 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 			return true
 		case kind.Secret:
 			return true
+		case kind.RequestAuthentication:
+			return true
 		}
 	}
 	return false
@@ -64,7 +66,14 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-
+	resources := model.Resources{}
+	jwtEcds := e.Server.ConfigGenerator.BuildExtensionConfigurationForJwks(proxy, req, e.Server.Env)
+	if jwtEcds != nil {
+		resources = append(resources, &discovery.Resource{
+			Name:     jwtEcds.Name,
+			Resource: protoconv.MessageToAny(jwtEcds),
+		})
+	}
 	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
 	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
 	if !model.ConfigsHaveKind(req.ConfigsUpdated, kind.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, kind.EnvoyFilter) &&
@@ -79,6 +88,9 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 			}
 		}
 		if !needsPush {
+			if resources != nil {
+				return resources, model.DefaultXdsLogDetails, nil
+			}
 			return nil, model.DefaultXdsLogDetails, nil
 		}
 	}
@@ -92,6 +104,9 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 			secretController, err = e.secretController.ForCluster(proxy.Metadata.ClusterID)
 			if err != nil {
 				log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
+				if resources != nil {
+					return resources, model.DefaultXdsLogDetails, nil
+				}
 				return nil, model.DefaultXdsLogDetails, nil
 			}
 		}
@@ -103,17 +118,20 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
 
 	if ec == nil {
+		if resources != nil {
+			fmt.Println("---ec is nil and resource is not nil-----", resources)
+			return resources, model.DefaultXdsLogDetails, nil
+		}
+		fmt.Println("---ec is nil and resource is also nil-----")
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources := make(model.Resources, 0, len(ec))
 	for _, c := range ec {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
 			Resource: protoconv.MessageToAny(c),
 		})
 	}
-
 	return resources, model.DefaultXdsLogDetails, nil
 }
 

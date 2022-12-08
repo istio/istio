@@ -15,6 +15,7 @@
 package authn
 
 import (
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
@@ -45,6 +46,9 @@ type PolicyApplier interface {
 	// GetMutualTLSModeForPort gets the mTLS mode for the given port. If there is no port level setting, it
 	// returns the inherited namespace/mesh level setting.
 	GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode
+
+	// Returns the typed config for ecds push
+	EcdsJwksConfig() *envoy_jwt.JwtAuthentication
 }
 
 // MTLSSettings describes the mTLS options for a filter chain

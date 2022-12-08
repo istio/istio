@@ -16,10 +16,11 @@ package v1alpha3
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
+	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 // BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names.
@@ -32,4 +33,18 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 	wasmPlugins := push.WasmPlugins(proxy)
 	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
 	return extensions
+}
+
+func (configgen *ConfigGeneratorImpl) BuildExtensionConfigurationForJwks(proxy *model.Proxy,
+	req *model.PushRequest, env *model.Environment) *core.TypedExtensionConfig {
+	req.Push.InitContext(env, req.Push, req)
+	jwtApplier := factory.NewPolicyApplier(req.Push, proxy.ConfigNamespace, proxy.Labels)
+	jwt_typed_config := jwtApplier.EcdsJwksConfig()
+	if jwt_typed_config != nil {
+		var res core.TypedExtensionConfig
+		res.Name = "envoy.filters.http.jwt_authn"
+		res.TypedConfig = protoconv.MessageToAny(jwt_typed_config)
+		return &res
+	}
+	return nil
 }
