@@ -1239,6 +1239,7 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(edsConfigCmd())
 	configCmd.AddCommand(secretConfigCmd())
 	configCmd.AddCommand(rootCACompareConfigCmd())
+	configCmd.AddCommand(ecdsConfigCmd())
 
 	return configCmd
 }
@@ -1279,4 +1280,59 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 	}
 	ns = pl.Items[0].Namespace
 	return podNames, ns, nil
+}
+
+func ecdsConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
+	ecdsConfigCmd := &cobra.Command{
+		Use:    "ecds [<type>/]<name>[.<namespace>]",
+		Hidden: true,
+		Short:  "Retrieves typed extension configuration for the Envoy in the specified pod",
+		Long:   `Retrieve information about typed extension configuration for the Envoy instance in the specified pod.`,
+		Example: `  # Retrieve full typed extension configuration for a given pod from Envoy.
+  istioctl proxy-config ecds <pod-name[.namespace]>
+
+  # Retrieve endpoint summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config ecds --file envoy-config.json
+`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) == 1) != (configDumpFile == "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("eds requires pod name or --file parameter")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
+			if err != nil {
+				return err
+			}
+
+			switch outputFormat {
+			case summaryOutput:
+				return configWriter.PrintEcdsSummary()
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintEcds(outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", outputFormat)
+			}
+		},
+		ValidArgsFunction: validPodsNameArgs,
+	}
+
+	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	ecdsConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "", "Envoy config dump JSON file")
+
+	return ecdsConfigCmd
 }
