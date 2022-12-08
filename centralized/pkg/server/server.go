@@ -139,6 +139,18 @@ func (s *Server) getVirtualService(namespace string, name string) (*v1alpha3.Vir
 	return vs, nil
 }
 
+func (s *Server) EnableAcmgOnVirtualService(vs *v1alpha3.VirtualService) error {
+	var newVs *v1alpha3.VirtualService
+	vs.DeepCopyInto(newVs)
+
+	newVs.Spec.Gateways = append(newVs.Spec.Gateways, s.coreDnsBuilder.getIstioGatewayName())
+
+	if _, err := s.client.Istio().NetworkingV1alpha3().VirtualServices(vs.Namespace).Update(context.TODO(), newVs, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Reconcile Process the data in the queue
 func (s *Server) Reconcile(key any) error {
 	evt := key.(EventItem)
@@ -149,6 +161,9 @@ func (s *Server) Reconcile(key any) error {
 	case AddVS:
 		log.Infof("[CoreDnsMap] Try to add VirtualService")
 		vs, err := s.getVirtualService(namespace, name)
+		if !vs.Spec.EnableAcmg {
+			return nil
+		}
 		if err != nil || vs == nil {
 			return err
 		}
@@ -158,6 +173,9 @@ func (s *Server) Reconcile(key any) error {
 			if err := s.coreDnsBuilder.OpenServicePortOnGateway(serviceOnAcmg); err != nil {
 				return err
 			}
+		}
+		if err = s.EnableAcmgOnVirtualService(vs); err != nil {
+			return err
 		}
 		return nil
 	case UpdateVS:
