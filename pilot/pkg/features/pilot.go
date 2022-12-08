@@ -689,6 +689,9 @@ var (
 		false,
 		"If set, it allows creating inbound listeners for service ports and sidecar ingress listeners ",
 	).Get()
+
+	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
+		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
