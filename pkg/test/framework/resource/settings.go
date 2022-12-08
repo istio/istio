@@ -212,7 +212,6 @@ func (s *Settings) Clone() *Settings {
 func DefaultSettings() *Settings {
 	return &Settings{
 		RunID:                uuid.New(),
-		AmbientNativeZtunnel: true,
 		MaxDumps:             10,
 	}
 }
