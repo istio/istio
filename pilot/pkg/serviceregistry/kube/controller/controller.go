@@ -1924,7 +1924,7 @@ func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
 	var controllerRef metav1.OwnerReference
 	controllerFound := false
 	for _, ref := range pod.GetOwnerReferences() {
-		if *ref.Controller {
+		if ref.Controller != nil && *ref.Controller {
 			controllerRef = ref
 			controllerFound = true
 			break
