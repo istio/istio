@@ -28,10 +28,10 @@ import (
 
 func TestServiceInstancesStore(t *testing.T) {
 	store := serviceInstancesStore{
-		ip2instance:     map[string][]*model.ServiceInstance{},
-		instances:       map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		instancesBySE:   map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
-		instancesByHost: sets.Set[string]{},
+		ip2instance:            map[string][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHostAndPort: sets.Set[string]{},
 	}
 	instances := []*model.ServiceInstance{
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
@@ -143,13 +143,14 @@ func TestServiceStore(t *testing.T) {
 // Envoy's LogicalDNS type of cluster does not allow more than one locality LB Enpoint.
 func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	store := serviceInstancesStore{
-		ip2instance:     map[string][]*model.ServiceInstance{},
-		instances:       map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		instancesBySE:   map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
-		instancesByHost: sets.Set[string]{},
+		ip2instance:            map[string][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHostAndPort: sets.Set[string]{},
 	}
 	instances := []*model.ServiceInstance{
-		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	cKey := configKey{
 		namespace: "dns",
@@ -162,15 +163,16 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		namespace: "dns",
 	})
 	expected := []*model.ServiceInstance{
-		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	if !reflect.DeepEqual(gotInstances, expected) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
 	}
 
-	// Add instance related to second Service Entry and validate it is not ignored.
+	// Add instance related to second Service Entry and validate it is ignored.
 	instances = []*model.ServiceInstance{
-		makeInstance(dnsRoundRobinLBSE2, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE2, "2.2.2.2", 444, dnsRoundRobinLBSE2.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
 	cKey = configKey{
 		namespace: "dns",
