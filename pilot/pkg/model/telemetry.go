@@ -1054,6 +1054,15 @@ func disableHostHeaderFallback(class networking.ListenerClass) bool {
 	return class == networking.ListenerClassSidecarInbound || class == networking.ListenerClassGateway
 }
 
+type OTelResourceSemantic string
+
+const (
+	KubernetesCluster   OTelResourceSemantic = "k8s.cluster.name"
+	KubernetesNamespace OTelResourceSemantic = "k8s.namespace.name"
+	KubernetesPod       OTelResourceSemantic = "k8s.pod.name"
+	ServiceName         OTelResourceSemantic = "service.name"
+)
+
 // resourceAttributes return semantic attributes follow OpenTelemetry specification
 // see more details here: https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/
 func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
@@ -1066,24 +1075,19 @@ func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
 
 	return &otlpcommon.KeyValueList{
 		Values: []*otlpcommon.KeyValue{
-			{
-				Key:   "k8s.cluster.name",
-				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.Metadata.ClusterID.String()}},
-			},
-			{
-				Key: "k8s.service.name",
-				// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
-				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: proxy.XdsNode.Cluster}},
-			},
-			{
-				Key:   "k8s.pod.namespace",
-				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: namespace}},
-			},
-			{
-				Key:   "k8s.pod.name",
-				Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: podName}},
-			},
+			otelKeyValue(KubernetesCluster, proxy.Metadata.ClusterID.String()),
+			otelKeyValue(KubernetesNamespace, namespace),
+			otelKeyValue(KubernetesPod, podName),
+			// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
+			otelKeyValue(ServiceName, proxy.XdsNode.Cluster),
 		},
+	}
+}
+
+func otelKeyValue(semantic OTelResourceSemantic, val string) *otlpcommon.KeyValue {
+	return &otlpcommon.KeyValue{
+		Key:   string(semantic),
+		Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: val}},
 	}
 }
 
