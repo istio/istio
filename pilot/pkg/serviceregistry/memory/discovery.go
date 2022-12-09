@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // ServiceController is a mock service controller
@@ -83,8 +84,12 @@ type ServiceDiscovery struct {
 	mutex sync.Mutex
 }
 
-func (sd *ServiceDiscovery) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
+func (sd *ServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	return nil, nil
+}
+
+func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
 }
 
 var _ model.ServiceDiscovery = &ServiceDiscovery{}

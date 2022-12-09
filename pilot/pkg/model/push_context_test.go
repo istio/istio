@@ -2699,8 +2699,12 @@ type localServiceDiscovery struct {
 	NetworkGatewaysHandler
 }
 
-func (l *localServiceDiscovery) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*WorkloadInfo, []string) {
+func (l *localServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
 	return nil, nil
+}
+
+func (l *localServiceDiscovery) AdditionalPodSubscriptions(_ *Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
 }
 
 var _ ServiceDiscovery = &localServiceDiscovery{}

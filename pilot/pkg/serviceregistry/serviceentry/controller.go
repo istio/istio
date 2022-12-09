@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -113,8 +114,12 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (s *Controller) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
+func (s *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	return nil, nil
+}
+
+func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
 }
 
 type Option func(*Controller)

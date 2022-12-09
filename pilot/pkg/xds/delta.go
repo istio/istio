@@ -279,6 +279,11 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 
+	subs := sets.New(req.ResourceNamesSubscribe...).Delete("*")
+	// InitialResourceVersions are essential subscriptions on the first request, since we don't care about the version
+	for k := range req.InitialResourceVersions {
+		subs.Insert(k)
+	}
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
@@ -290,7 +295,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
 			// Record sub/unsub, but drop synthetic wildcard info
-			Subscribed:   sets.New(req.ResourceNamesSubscribe...).Delete("*"),
+			Subscribed:   subs,
 			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
 		},
 	}
@@ -333,7 +338,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		if len(request.InitialResourceVersions) > 0 {
-			deltaLog.Debugf("ADS:%s: RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
+			deltaLog.Debugf("ADS:%s: RECONNECT %s %s resources:%v", stype, con.conID, request.ResponseNonce, len(request.InitialResourceVersions))
 		} else {
 			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
 		}

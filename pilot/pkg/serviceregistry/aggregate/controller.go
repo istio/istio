@@ -53,7 +53,15 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) PodInformation(addresses map[types.NamespacedName]struct{}) ([]*model.WorkloadInfo, []string) {
+func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	res := sets.New[types.NamespacedName]()
+	for _, p := range c.registries {
+		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
+	}
+	return res
+}
+
+func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	i := []*model.WorkloadInfo{}
 	removed := sets.New[string]()
 	for _, p := range c.registries {

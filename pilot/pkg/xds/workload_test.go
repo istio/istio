@@ -31,28 +31,66 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+	return func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		have := sets.New[string]()
+		for _, r := range resp.Resources {
+			w := &workloadapi.Workload{}
+			r.Resource.UnmarshalTo(w)
+			have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
+		}
+		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
+	}
+}
+
+func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+	return func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		have := sets.New[string]()
+		for _, r := range resp.RemovedResources {
+			have.Insert(r)
+		}
+		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
+	}
+}
+
+func TestWorkloadReconnect(t *testing.T) {
+	expect := buildExpect(t)
+	s := NewFakeDiscoveryServer(t, FakeOptions{})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
+	createPod(s, "pod", "sa", "127.0.0.1")
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe:   []string{"*"},
+		ResourceNamesUnsubscribe: []string{"*"},
+	})
+	ads.ExpectEmptyResponse()
+
+	// Now subscribe to the pod, should get it back
+	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"127.0.0.1"},
+	})
+	expect(resp, "127.0.0.1")
+	ads.Cleanup()
+
+	// Reconnect
+	ads = s.ConnectDeltaADS().WithType(v3.WorkloadType)
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe:   []string{"*"},
+		ResourceNamesUnsubscribe: []string{"*"},
+		InitialResourceVersions: map[string]string{
+			"127.0.0.1": "",
+		},
+	})
+	expect(ads.ExpectResponse(), "127.0.0.1")
+}
+
 func TestWorkload(t *testing.T) {
 	t.Run("ondemand", func(t *testing.T) {
-		expect := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.Resources {
-				w := &workloadapi.Workload{}
-				r.Resource.UnmarshalTo(w)
-				have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
-		expectRemoved := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.RemovedResources {
-				have.Insert(r)
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
+		expect := buildExpect(t)
+		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
 
@@ -100,7 +138,6 @@ func TestWorkload(t *testing.T) {
 
 		// Now create pods in the service...
 		createPod(s, "pod4", "not-sa", "127.0.0.4")
-		createPod(s, "pod5", "not-sa", "127.0.0.5")
 		// Not subscribed, no response
 		ads.ExpectNoResponse()
 
@@ -109,37 +146,18 @@ func TestWorkload(t *testing.T) {
 			ResourceNamesSubscribe: []string{"10.0.0.1"},
 		})
 		// Should get updates for all pods in the service
-		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
+		expect(ads.ExpectResponse(), "127.0.0.4")
+		// Adding a pod in the service should trigger an update for that pod, even if we didn't explicitly subscribe
+		createPod(s, "pod5", "not-sa", "127.0.0.5")
+		expect(ads.ExpectResponse(), "127.0.0.5")
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
-		t.Log("drop selecting")
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
 		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
 	})
 	t.Run("wildcard", func(t *testing.T) {
-		expect := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.Resources {
-				w := &workloadapi.Workload{}
-				r.Resource.UnmarshalTo(w)
-				have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
-			}
-			if len(resp.RemovedResources) > 0 {
-				t.Logf("warn: expected resources but got removals: %v", resp.RemovedResources)
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
-		expectRemoved := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
-			t.Helper()
-			want := sets.New(names...)
-			have := sets.New[string]()
-			for _, r := range resp.RemovedResources {
-				have.Insert(r)
-			}
-			assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
-		}
+		expect := buildExpect(t)
+		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
 
@@ -160,17 +178,16 @@ func TestWorkload(t *testing.T) {
 		deletePod(s, "pod")
 		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
 
-		t.Log("add svc")
 		// Add service: we should not get any new resources, but updates to existing ones
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
 		expect(ads.ExpectResponse(), "127.0.0.2")
 		// Creating a pod in the service should send an update as usual
-		createPod(s, "pod", "sa", "127.0.0.1")
-		expect(ads.ExpectResponse(), "127.0.0.1")
+		createPod(s, "pod", "sa", "127.0.0.3")
+		expect(ads.ExpectResponse(), "127.0.0.3")
+
 		// Make service not select workload should also update things
-		t.Log("remove svc")
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "127.0.0.1", "127.0.0.2")
+		expect(ads.ExpectResponse(), "127.0.0.2", "127.0.0.3")
 	})
 }
 
