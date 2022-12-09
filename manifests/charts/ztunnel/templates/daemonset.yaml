@@ -197,8 +197,6 @@ spec:
             $IPTABLES -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
 
             $IPTABLES -t mangle -A PREROUTING -p tcp -i eth0 ! --dst $INSTANCE_IP -j MARK --set-mark $ORG_SRC_RET_MARK
-
-            $IPTABLES -t nat -A OUTPUT -p tcp --dport 15088 -j REDIRECT --to-port $POD_INBOUND
             # END https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L206-L238
             # With normal linux routing we need to disable the rp_filter
             # as we get packets from a tunnel that doesn't have default routes.
@@ -252,11 +250,7 @@ spec:
         - proxy
         - sidecar
         env:
-        - name: ISTIO_META_GENERATOR
-          value: "ztunnel-envoy"
-        - name: ISTIO_META_AMBIENT_TYPE
-          value: "ztunnel"
-        - name: ISTIO_META_CLUSTER_ID
+        - name: CLUSTER_ID
           value: {{ .Values.global.multiCluster.clusterName | default "Kubernetes" }}
         - name: POD_NAME
           valueFrom:
@@ -266,10 +260,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -295,17 +285,11 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
-        - mountPath: /var/lib/istio/data
-          name: istio-data
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - name: config-volume
-          mountPath: /etc/istio/config
       volumes:
-      - emptyDir: {}
-        name: istio-data
       - name: istio-token
         projected:
           sources:
@@ -316,7 +300,3 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
-      - name: config-volume
-        configMap:
-          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-          optional: true

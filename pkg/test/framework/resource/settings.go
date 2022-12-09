@@ -140,8 +140,6 @@ type Settings struct {
 
 	// Ambient mesh is being used
 	Ambient bool
-	// AmbientNativeZtunnel means ambient is used with https://github.com/istio/ztunnel
-	AmbientNativeZtunnel bool
 
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
@@ -213,9 +211,8 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		RunID:                uuid.New(),
-		AmbientNativeZtunnel: true,
-		MaxDumps:             10,
+		RunID:    uuid.New(),
+		MaxDumps: 10,
 	}
 }
 

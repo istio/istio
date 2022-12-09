@@ -15,19 +15,19 @@
 package configdump
 
 type ZtunnelWorkload struct {
-	WorkloadIP        string   `json:"workload_ip"`
-	WaypointAddresses []string `json:"waypoint_address"`
-	GatewayIP         []byte   `json:"gateway_ip"`
+	WorkloadIP        string   `json:"workloadIp"`
+	WaypointAddresses []string `json:"waypointAddresses"`
+	GatewayIP         []byte   `json:"gatewayIp"`
 	Protocol          string   `json:"protocol"`
 	Name              string   `json:"name"`
 	Namespace         string   `json:"namespace"`
-	ServiceAccount    string   `json:"service_account"`
-	WorkloadName      string   `json:"workload_name"`
-	WorkloadType      string   `json:"workload_type"`
-	CanonicalName     string   `json:"canonical_name"`
-	CanonicalRevision string   `json:"canonical_revision"`
+	ServiceAccount    string   `json:"serviceAccount"`
+	WorkloadName      string   `json:"workloadName"`
+	WorkloadType      string   `json:"workloadType"`
+	CanonicalName     string   `json:"canonicalName"`
+	CanonicalRevision string   `json:"canonicalRevision"`
 	Node              string   `json:"node"`
-	NativeHbone       bool     `json:"native_hbone"`
+	NativeHbone       bool     `json:"nativeHbone"`
 }
 
 type ZtunnelDump struct {

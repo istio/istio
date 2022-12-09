@@ -16,27 +16,42 @@ package ambientgen
 
 import (
 	"fmt"
+	"time"
 
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/model"
 	core2 "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
+	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
+	istiolog "istio.io/pkg/log"
+)
+
+var log = istiolog.RegisterScope("ambientgen", "xDS Generator for ambient clients", 0)
+
+const (
+	ZTunnelOutboundCapturePort uint32 = 15001
 )
 
 var _ model.XdsResourceGenerator = &WaypointGenerator{}
@@ -240,4 +255,99 @@ func (p *WaypointGenerator) buildClusters(node *model.Proxy, push *model.PushCon
 		out = append(out, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
 	return out
+}
+
+func buildCommonTLSContext(proxy *model.Proxy, identityOverride string, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
+	ctx := &tls.CommonTlsContext{}
+	// TODO san match
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
+
+	if identityOverride != "" {
+		ctx.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			security.ConstructSdsSecretConfig(identityOverride),
+		}
+	}
+	ctx.AlpnProtocols = []string{"h2"}
+
+	ctx.TlsParams = &tls.TlsParameters{
+		// Ensure TLS 1.3 is used everywhere
+		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+	}
+
+	return ctx
+}
+
+// outboundTunnelCluster is per-workload SA
+func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext, sa string, identityOverride string) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 outboundTunnelClusterName(sa),
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       durationpb.New(2 * time.Second),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{},
+		},
+		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TransportSocket: &core.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+				CommonTlsContext: buildCommonTLSContext(proxy, identityOverride, push, false),
+			})},
+		},
+	}
+}
+
+func outboundTunnelClusterName(sa string) string {
+	return "outbound_tunnel_clus_" + sa
+}
+
+const EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+	"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
+	"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
+	"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
+	"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
+	"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
+	"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+	"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME% "
+
+func accessLogString(prefix string) []*accesslog.AccessLog {
+	inlineString := EnvoyTextLogFormat + prefix + "\n"
+	return []*accesslog.AccessLog{{
+		Name: "envoy.access_loggers.file",
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+			Path: "/dev/stdout",
+			AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormatSource{TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{
+					InlineString: inlineString,
+				}}},
+			}},
+		})},
+	}}
+}
+
+func h2connectUpgrade() map[string]*any.Any {
+	return map[string]*any.Any{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+					Http2ProtocolOptions: &core.Http2ProtocolOptions{
+						AllowConnect: true,
+					},
+				},
+			}},
+		}),
+	}
+}
+
+func ipPortAddress(ip string, port uint32) *core.Address {
+	return &core.Address{Address: &core.Address_SocketAddress{
+		SocketAddress: &core.SocketAddress{
+			Address: ip,
+			PortSpecifier: &core.SocketAddress_PortValue{
+				PortValue: port,
+			},
+		},
+	}}
 }
