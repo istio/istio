@@ -222,6 +222,9 @@ type CLIClient interface {
 
 	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
+
+	// Shutdown closes all informers and waits for them to terminate
+	Shutdown()
 }
 
 type PortManager func() (uint16, error)
@@ -568,6 +571,16 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.gatewayapiInformer.WaitForCacheSync(stop)
 		c.extInformer.WaitForCacheSync(stop)
 	}
+}
+
+func (c *client) Shutdown() {
+	c.kubeInformer.Shutdown()
+	// TODO: use these once they are implemented
+	// c.dynamicInformer.Shutdown()
+	// c.metadataInformer.Shutdown()
+	// c.istioInformer.Shutdown()
+	// c.gatewayapiInformer.Shutdown()
+	c.extInformer.Shutdown()
 }
 
 func (c *client) startInformer(stop <-chan struct{}) {

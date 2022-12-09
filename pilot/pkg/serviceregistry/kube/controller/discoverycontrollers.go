@@ -57,7 +57,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 					c.handleSelectedNamespace(endpointMode, ns.Name)
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
-					if features.EnableEnhancedResourceScoping.Load() {
+					if features.EnableEnhancedResourceScoping {
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
@@ -81,7 +81,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 					}
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
-					if features.EnableEnhancedResourceScoping.Load() {
+					if features.EnableEnhancedResourceScoping {
 						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 							Full:   true,
 							Reason: []model.TriggerReason{model.NamespaceUpdate},
@@ -142,7 +142,7 @@ func (c *Controller) initMeshWatcherHandler(
 			})
 		}
 
-		if features.EnableEnhancedResourceScoping.Load() && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
+		if features.EnableEnhancedResourceScoping && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
 			c.queue.Push(func() error {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full:   true,
