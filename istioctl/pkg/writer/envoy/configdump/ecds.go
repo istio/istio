@@ -17,12 +17,15 @@ package configdump
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 	"sigs.k8s.io/yaml"
 )
+
+const typeUrlPrefix = "type.googleapis.com/"
 
 func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 	if c.configDump == nil {
@@ -54,14 +57,15 @@ func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 func (c *ConfigWriter) PrintEcdsSummary() error {
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 
-	fmt.Fprintln(w, "NAME")
+	fmt.Fprintln(w, "ECDS NAME\tType")
 	dump, err := c.retrieveSortedEcds()
 	if err != nil {
 		return err
 	}
 	for _, ecds := range dump {
-		fmt.Fprintf(w, "%v\n",
+		fmt.Fprintf(w, "%v\t%v\n",
 			ecds.Name,
+			strings.TrimPrefix(ecds.GetTypedConfig().GetTypeUrl(), typeUrlPrefix),
 		)
 	}
 
@@ -90,7 +94,11 @@ func (c *ConfigWriter) retrieveSortedEcds() ([]*core.TypedExtensionConfig, error
 	}
 
 	sort.Slice(ecds, func(i, j int) bool {
-		return ecds[i].GetName() < ecds[j].GetName()
+		if ecds[i].GetTypedConfig().GetTypeUrl() == ecds[j].GetTypedConfig().GetTypeUrl() {
+			return ecds[i].GetName() < ecds[j].GetName()
+		}
+
+		return ecds[i].GetTypedConfig().GetTypeUrl() < ecds[j].GetTypedConfig().GetTypeUrl()
 	})
 
 	return ecds, nil
