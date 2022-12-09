@@ -4,4 +4,4 @@ area: istioctl
 
 releaseNotes:
 - |
-  **Added** support for retrieving typed extension configuration from Envoy in the specified pod by running `istioctl proxy-config ecds`.
+  **Added** `istioctl proxy-config ecds` to support retrieving typed extension configuration from Envoy for a specified pod.
