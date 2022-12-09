@@ -657,6 +657,13 @@ message PilotConfig {
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   google.protobuf.Struct nodeSelector = 12 [deprecated=true];
 
+  // The time interval if no activity on the connection it pings the peer to see if the transport is alive
+  google.protobuf.Duration keepaliveInterval = 40;
+
+  // After having pinged for keepalive check, the client/server waits for a duration of keepaliveTimeout
+  // and if no activity is seen even after that the connection is closed.
+  google.protobuf.Duration keepaliveTimeout = 41;
+
   // Maximum duration that a sidecar can be connected to a pilot.
   //
   // This setting balances out load across pilot instances, but adds some resource overhead.

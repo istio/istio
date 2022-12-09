@@ -1691,6 +1691,8 @@ spec:
           - cluster.local
           - --keepaliveMaxServerConnectionAge
           - "30m"
+          - --keepaliveInterval=30s
+          - --keepaliveTimeout=10s
           ports:
           - containerPort: 8080
             protocol: TCP

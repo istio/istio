@@ -105,6 +105,12 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+{{- if .Values.pilot.keepaliveInterval }}
+          - --keepaliveInterval={{ .Values.pilot.keepaliveInterval }}
+{{- end }}
+{{- if .Values.pilot.keepaliveTimeout }}
+          - --keepaliveTimeout={{ .Values.pilot.keepaliveTimeout }}
+{{- end }}
           ports:
           - containerPort: 8080
             protocol: TCP
