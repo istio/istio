@@ -458,6 +458,7 @@ var dnsRoundRobinLBSE1 = &config.Config{
 		Hosts: []string{"example.com"},
 		Ports: []*networking.Port{
 			{Number: 445, Name: "http-445", Protocol: "http"},
+			{Number: 446, Name: "http-446", Protocol: "http"},
 		},
 		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 	},

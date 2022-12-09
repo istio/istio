@@ -15,6 +15,8 @@
 package serviceentry
 
 import (
+	"strconv"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -28,9 +30,10 @@ type serviceInstancesStore struct {
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// instances only for serviceentry
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
-	// instancesByHost tells whether the host has instances.
+	// instancesByHostAndPort tells whether the host has instances.
 	// This is used to validate that we only have one instance for DNS_ROUNDROBIN_LB.
-	instancesByHost sets.Set[string]
+	// Host and Port are stored in the form of <host>|<port>.
+	instancesByHostAndPort sets.Set[string]
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
@@ -56,7 +59,7 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		ikey := makeInstanceKey(i)
-		s.instancesByHost.Delete(ikey.hostname.String())
+		s.instancesByHostAndPort.Delete(ikey.hostname.String())
 		delete(s.instances[makeInstanceKey(i)], key)
 		delete(s.ip2instance, i.Endpoint.Address)
 	}
@@ -66,12 +69,13 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
+		hostPort := ikey.hostname.String() + "|" + strconv.Itoa(instance.ServicePort.Port)
 		// For DNSRoundRobinLB resolution type, check if service instances already exist and do not add
 		// if it already exist. This can happen if two Service Entries are created with same host name,
 		// resolution as DNS_ROUND_ROBIN and with same/different endpoints.
 		if instance.Service.Resolution == model.DNSRoundRobinLB &&
-			s.instancesByHost.Contains(ikey.hostname.String()) {
-			log.Warnf("skipping service %s from service entry %s with DnsRoundRobinLB. A service entry with the same host "+
+			s.instancesByHostAndPort.Contains(hostPort) {
+			log.Debugf("skipping service %s from service entry %s with DnsRoundRobinLB. A service entry with the same host "+
 				"already exists. Only one locality lb end point is allowed for DnsRoundRobinLB services.",
 				ikey.hostname, key.name+"/"+key.namespace)
 			continue
@@ -79,7 +83,7 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 		if _, f := s.instances[ikey]; !f {
 			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
-		s.instancesByHost.Insert(ikey.hostname.String())
+		s.instancesByHostAndPort.Insert(hostPort)
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
 		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
 	}
