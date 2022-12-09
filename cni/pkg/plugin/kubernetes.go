@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -87,7 +86,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			// Get proxy container env variable, and extract out ProxyConfig from it.
 			for _, e := range container.Env {
 				pi.ProxyEnvironments[e.Name] = e.Value
-				if e.Name == options.ProxyConfigEnv {
+				if e.Name == "PROXY_CONFIG" {
 					mc := &meshconfig.MeshConfig{
 						DefaultConfig: mesh.DefaultProxyConfig(),
 					}
