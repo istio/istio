@@ -16,6 +16,7 @@ package configdump
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -53,5 +54,13 @@ func TestPrintEcdsJSON(t *testing.T) {
 	err := cw.PrintEcds("json")
 	assert.NoError(t, err)
 
-	util.CompareContent(t, gotOut.Bytes(), "testdata/ecds/output.json")
+	// protojson opt out of whitespace randomization, see more details: https://github.com/golang/protobuf/issues/1082
+	var rm json.RawMessage = gotOut.Bytes()
+	jsonOutput, err := json.MarshalIndent(rm, "", "    ")
+	if err != nil {
+		assert.NoError(t, err)
+	}
+	jsonOutput = append(jsonOutput, '\n')
+
+	util.CompareContent(t, jsonOutput, "testdata/ecds/output.json")
 }
