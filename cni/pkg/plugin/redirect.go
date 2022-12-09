@@ -40,6 +40,7 @@ const (
 	defaultKubevirtInterfaces    = ""
 	defaultIncludeInboundPorts   = "*"
 	defaultIncludeOutboundPorts  = ""
+	defaultExcludeInterfaces     = ""
 )
 
 var (
@@ -49,6 +50,7 @@ var (
 	includeInboundPortsKey  = annotation.SidecarTrafficIncludeInboundPorts.Name
 	excludeOutboundPortsKey = annotation.SidecarTrafficExcludeOutboundPorts.Name
 	includeOutboundPortsKey = annotation.SidecarTrafficIncludeOutboundPorts.Name
+	excludeInterfacesKey    = annotation.SidecarTrafficExcludeInterfaces.Name
 
 	sidecarInterceptModeKey = annotation.SidecarInterceptionMode.Name
 	sidecarPortListKey      = annotation.SidecarStatusPort.Name
@@ -67,6 +69,7 @@ var (
 		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
 		"includeOutboundPorts": {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
 		"kubevirtInterfaces":   {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
+		"excludeInterfaces":    {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
 	}
 )
 
@@ -252,6 +255,11 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	}
 	redir.excludeInboundPorts += "15020,15021,15090"
 	redir.excludeInboundPorts = strings.Join(dedupPorts(splitPorts(redir.excludeInboundPorts)), ",")
+	isFound, redir.excludeInterfaces, valErr = getAnnotationOrDefault("excludeInterfaces", pi.Annotations)
+	if valErr != nil {
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
+			"excludeInterfaces", isFound, valErr)
+	}
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
