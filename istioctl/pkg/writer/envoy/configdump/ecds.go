@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const typeUrlPrefix = "type.googleapis.com/"
+const typeURLPrefix = "type.googleapis.com/"
 
 func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 	if c.configDump == nil {
@@ -65,7 +65,7 @@ func (c *ConfigWriter) PrintEcdsSummary() error {
 	for _, ecds := range dump {
 		fmt.Fprintf(w, "%v\t%v\n",
 			ecds.Name,
-			strings.TrimPrefix(ecds.GetTypedConfig().GetTypeUrl(), typeUrlPrefix),
+			strings.TrimPrefix(ecds.GetTypedConfig().GetTypeUrl(), typeURLPrefix),
 		)
 	}
 
