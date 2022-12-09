@@ -206,7 +206,6 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
-  ./tools/istio-iptables \
   ./tools/bug-report
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 
