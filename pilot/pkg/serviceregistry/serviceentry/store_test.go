@@ -31,7 +31,7 @@ func TestServiceInstancesStore(t *testing.T) {
 		ip2instance:            map[string][]*model.ServiceInstance{},
 		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
 		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
-		instancesByHostAndPort: sets.Set[string]{},
+		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
 	instances := []*model.ServiceInstance{
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
@@ -146,7 +146,7 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		ip2instance:            map[string][]*model.ServiceInstance{},
 		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
 		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
-		instancesByHostAndPort: sets.Set[string]{},
+		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
 	instances := []*model.ServiceInstance{
 		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
