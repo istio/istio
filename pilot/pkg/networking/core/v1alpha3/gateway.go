@@ -57,7 +57,7 @@ type mutableListenerOpts struct {
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
-		log.Debugf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
+		log.Warnf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
 		return builder
 	}
 
