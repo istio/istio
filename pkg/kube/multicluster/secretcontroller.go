@@ -351,49 +351,65 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		}
 	}
 
-	var errs *multierror.Error
+	// Use a channel to collect any errors that occur
+	errChan := make(chan error, len(s.Data))
+
+	// Iterate over the secret data in a concurrent manner
 	for clusterID, kubeConfig := range s.Data {
-		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
-		if cluster.ID(clusterID) == c.configClusterID {
-			logger.Infof("ignoring cluster as it would overwrite the config cluster")
-			continue
-		}
-
-		action, callback := "Adding", c.handleAdd
-		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
-			action, callback = "Updating", c.handleUpdate
-			// clusterID must be unique even across multiple secrets
-			kubeConfigSha := sha256.Sum256(kubeConfig)
-			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				logger.Infof("skipping update (kubeconfig are identical)")
-				continue
+		// Create a new goroutine for each iteration to run concurrently
+		go func(id string, config []byte) {
+			logger := log.WithLabels("cluster", id, "secret", secretKey)
+			if cluster.ID(id) == c.configClusterID {
+				logger.Infof("ignoring cluster as it would overwrite the config cluster")
+				errChan <- nil
+				return
 			}
-			// stop previous remote cluster
-			prev.Stop()
-		} else if c.cs.Contains(cluster.ID(clusterID)) {
-			// if the cluster has been registered before by another secret, ignore the new one.
-			logger.Warnf("cluster has already been registered")
-			continue
-		}
-		logger.Infof("%s cluster", action)
 
-		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
-		if err != nil {
-			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
+			action, callback := "Adding", c.handleAdd
+			if prev := c.cs.Get(secretKey, cluster.ID(id)); prev != nil {
+				action, callback = "Updating", c.handleUpdate
+				// clusterID must be unique even across multiple secrets
+				kubeConfigSha := sha256.Sum256(config)
+				if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
+					logger.Infof("skipping update (kubeconfig are identical)")
+					errChan <- nil
+					return
+				}
+				// stop previous remote cluster
+				prev.Stop()
+			} else if c.cs.Contains(cluster.ID(id)) {
+				// if the cluster has been registered before by another secret, ignore the new one.
+				logger.Warnf("cluster has already been registered")
+				errChan <- nil
+				return
+			}
+			logger.Infof("%s cluster", action)
+
+			remoteCluster, err := c.createRemoteCluster(config, id)
+			if err != nil {
+				logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
+				errChan <- err
+				return
+			}
+			if err := callback(remoteCluster, remoteCluster.stop); err != nil {
+				remoteCluster.Stop()
+				logger.Errorf("%s cluster: initialize cluster failed: %v", action, err)
+				c.cs.Delete(secretKey, remoteCluster.ID)
+				errChan <- fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, id, secretKey, err)
+				return
+			}
+			logger.Infof("finished callback for cluster and starting to sync")
+			c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+			go remoteCluster.Run()
+			errChan <- nil
+		}(clusterID, kubeConfig)
+	}
+	// Wait for all concurrent goroutines to finish
+	var errs *multierror.Error
+	for range s.Data {
+		if err := <-errChan; err != nil {
 			errs = multierror.Append(errs, err)
-			continue
 		}
-		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
-			remoteCluster.Stop()
-			logger.Errorf("%s cluster: initialize cluster failed: %v", action, err)
-			c.cs.Delete(secretKey, remoteCluster.ID)
-			err = fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, clusterID, secretKey, err)
-			errs = multierror.Append(errs, err)
-			continue
-		}
-		logger.Infof("finished callback for cluster and starting to sync")
-		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
-		go remoteCluster.Run()
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
