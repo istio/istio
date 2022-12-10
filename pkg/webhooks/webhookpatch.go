@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -157,7 +158,12 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	}
 
 	if updated {
-		_, err = client.Update(context.Background(), config, metav1.UpdateOptions{})
+		// For conflicts, do not remove the item from queue, but rely on in-place retries with backoff.
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			_, err = client.Update(context.Background(), config, metav1.UpdateOptions{})
+			reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateConflict)
+			return err
+		})
 		if err != nil {
 			reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)
 		}
@@ -180,7 +186,8 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 					continue
 				}
 				log.Debugf("updating caBundle for webhook %q", mutatingWebhookConfig.Name)
-				w.queue.Add(types.NamespacedName{Name: mutatingWebhookConfig.Name})
+				w.queue.
+					w.queue.Add(types.NamespacedName{Name: mutatingWebhookConfig.Name})
 			}
 		case <-stop:
 			return
