@@ -186,8 +186,7 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 					continue
 				}
 				log.Debugf("updating caBundle for webhook %q", mutatingWebhookConfig.Name)
-				w.queue.
-					w.queue.Add(types.NamespacedName{Name: mutatingWebhookConfig.Name})
+				w.queue.Add(types.NamespacedName{Name: mutatingWebhookConfig.Name})
 			}
 		case <-stop:
 			return
