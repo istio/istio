@@ -45,6 +45,14 @@ func verifyDeploymentStatus(deployment *appsv1.Deployment) error {
 	return nil
 }
 
+func verifyDaemonSetStatus(daemonSet *appsv1.DaemonSet) error {
+	if daemonSet.Status.NumberUnavailable > 0 {
+		return fmt.Errorf("waiting for daemonset %q rollout to finish: %d of %d updated pods are unavailable",
+			daemonSet.Name, daemonSet.Status.NumberUnavailable, daemonSet.Status.UpdatedNumberScheduled)
+	}
+	return nil
+}
+
 func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
 	for i := range status.Conditions {
 		c := status.Conditions[i]
