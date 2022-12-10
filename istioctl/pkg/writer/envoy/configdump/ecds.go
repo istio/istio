@@ -57,7 +57,7 @@ func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 func (c *ConfigWriter) PrintEcdsSummary() error {
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 
-	fmt.Fprintln(w, "ECDS NAME\tType")
+	fmt.Fprintln(w, "ECDS NAME\tTYPE")
 	dump, err := c.retrieveSortedEcds()
 	if err != nil {
 		return err
