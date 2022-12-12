@@ -73,7 +73,7 @@ func getPassthroughBindIPs(ipMode model.IPMode) []string {
 
 	// it means that ipMode is empty if passthroughBindIPAddresses is empty
 	if len(passthroughBindIPAddresses) == 0 {
-		return []string{InboundPassthroughBindIpv4}
+		return []string{InboundPassthroughBindIpv6}
 	}
 
 	if !features.EnableDualStack && ipMode == model.Dual {
