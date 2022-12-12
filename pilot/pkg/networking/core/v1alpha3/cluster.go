@@ -194,7 +194,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
-			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
+			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher, services)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
@@ -340,13 +340,14 @@ func (p clusterPatcher) hasPatches() bool {
 // TODO enable cache - there is no blockers here, skipped to simplify the original caching implementation
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, req *model.PushRequest,
 	cp clusterPatcher,
+	services []*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, req, nil)
 
 	proxyView := proxy.GetView()
 
-	for _, service := range proxy.SidecarScope.Services() {
+	for _, service := range services {
 		if service.MeshExternal {
 			continue
 		}
