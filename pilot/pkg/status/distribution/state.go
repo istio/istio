@@ -102,7 +102,7 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		})).
 		Core().V1().ConfigMaps()
 	c.cmInformer = i.Informer()
-	i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
+	_, _ = i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
 
 	return c
 }
