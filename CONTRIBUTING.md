@@ -35,11 +35,15 @@ tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$T
 
 ### Notes when using Docker for Mac
 
-Docker Desktop on macOS is ~special~, so if you're using it to build Rust ztunnel, you'll have to override some settings. The following one-liner should generally work (assuming the Rust ztunnel directory is siblings with this direectory) on recent versions of Docker Desktop on macOS:
+Docker Desktop on macOS is *special*, so if you're using it to build Rust ztunnel, you'll have to override some settings. The following one-liner should generally work (assuming the Rust ztunnel directory is siblings with this directory) on recent versions of Docker Desktop on macOS:
 
 ```shell
 DOCKER_SOCKET_MOUNT="-v /var/run/docker.sock.raw:/var/run/docker.sock" CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=${PWD}/../ztunnel,destination=/ztunnel " BUILD_ZTUNNEL=1 BUILD_ZTUNNEL_REPO="/ztunnel" ./common/scripts/run.sh tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push
 ```
+
+If you are getting errors related to `authenticity of host github.com can't be established`, try mounting your SSH config files to the docker container, for example, `--mount type=bind,source=~/.ssh,destination=/home/user/.ssh`.
+
+If you [disabled FIPs](https://github.com/istio/ztunnel/#building-on-non-linuxx86_64) in your ztunnel build earlier, remember to enable it now to avoid compile errors now that the docker container is running on Linux/x86_64. 
 
 ## Cluster Setup and Install
 
