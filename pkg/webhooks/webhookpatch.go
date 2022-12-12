@@ -79,7 +79,7 @@ func NewWebhookCertPatcher(
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 	})
 	p.informer = informer
-	informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
+	_, _ = informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
 	return p, nil
 }

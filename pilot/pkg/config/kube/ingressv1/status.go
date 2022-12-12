@@ -113,7 +113,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 }
 
 // updateStatus updates ingress status with the list of IP
-func (s *StatusSyncer) updateStatus(status []corev1.LoadBalancerIngress) error {
+func (s *StatusSyncer) updateStatus(status []knetworking.IngressLoadBalancerIngress) error {
 	l, err := s.ingressLister.List(labels.Everything())
 	if err != nil {
 		return err
@@ -226,20 +226,20 @@ func addressInSlice(addr string, list []string) bool {
 }
 
 // sliceToStatus converts a slice of IP and/or hostnames to LoadBalancerIngress
-func sliceToStatus(endpoints []string) []corev1.LoadBalancerIngress {
-	lbi := make([]corev1.LoadBalancerIngress, 0, len(endpoints))
+func sliceToStatus(endpoints []string) []knetworking.IngressLoadBalancerIngress {
+	lbi := make([]knetworking.IngressLoadBalancerIngress, 0, len(endpoints))
 	for _, ep := range endpoints {
 		if !netutil.IsValidIPAddress(ep) {
-			lbi = append(lbi, corev1.LoadBalancerIngress{Hostname: ep})
+			lbi = append(lbi, knetworking.IngressLoadBalancerIngress{Hostname: ep})
 		} else {
-			lbi = append(lbi, corev1.LoadBalancerIngress{IP: ep})
+			lbi = append(lbi, knetworking.IngressLoadBalancerIngress{IP: ep})
 		}
 	}
 
 	return lbi
 }
 
-func lessLoadBalancerIngress(addrs []corev1.LoadBalancerIngress) func(int, int) bool {
+func lessLoadBalancerIngress(addrs []knetworking.IngressLoadBalancerIngress) func(int, int) bool {
 	return func(a, b int) bool {
 		switch strings.Compare(addrs[a].Hostname, addrs[b].Hostname) {
 		case -1:
@@ -251,7 +251,7 @@ func lessLoadBalancerIngress(addrs []corev1.LoadBalancerIngress) func(int, int) 
 	}
 }
 
-func ingressSliceEqual(lhs, rhs []corev1.LoadBalancerIngress) bool {
+func ingressSliceEqual(lhs, rhs []knetworking.IngressLoadBalancerIngress) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}

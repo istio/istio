@@ -1510,7 +1510,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 }
 
 func TestControllerEnableResourceScoping(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.EnableEnhancedResourceScoping, true)
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	svc1 := &model.Service{
 		Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
@@ -1583,6 +1583,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	}
 
 	client := kubelib.NewFakeClient()
+	t.Cleanup(client.Shutdown)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		client.KubeInformer().Core().V1().Namespaces().Lister(),

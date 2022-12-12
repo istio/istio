@@ -39,8 +39,9 @@ import (
 )
 
 func TestNamespaceController(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.EnableEnhancedResourceScoping, true)
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
@@ -86,8 +87,9 @@ func TestNamespaceController(t *testing.T) {
 }
 
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.EnableEnhancedResourceScoping, true)
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)

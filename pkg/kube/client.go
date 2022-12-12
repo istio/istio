@@ -222,6 +222,9 @@ type CLIClient interface {
 
 	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
+
+	// Shutdown closes all informers and waits for them to terminate
+	Shutdown()
 }
 
 type PortManager func() (uint16, error)
@@ -570,6 +573,16 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	}
 }
 
+func (c *client) Shutdown() {
+	c.kubeInformer.Shutdown()
+	// TODO: use these once they are implemented
+	// c.dynamicInformer.Shutdown()
+	// c.metadataInformer.Shutdown()
+	// c.istioInformer.Shutdown()
+	// c.gatewayapiInformer.Shutdown()
+	c.extInformer.Shutdown()
+}
+
 func (c *client) startInformer(stop <-chan struct{}) {
 	c.kubeInformer.Start(stop)
 	c.dynamicInformer.Start(stop)
@@ -725,7 +738,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,

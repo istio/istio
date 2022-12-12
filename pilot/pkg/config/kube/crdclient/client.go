@@ -243,7 +243,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 
-	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {

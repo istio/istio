@@ -107,7 +107,7 @@ func NewController(
 		waitForCRD:    waitForCRD,
 	}
 
-	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			ns := obj.(*corev1.Namespace)
 			gatewayController.namespaceEvent(nil, ns)

@@ -111,7 +111,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
-	client.KubeInformer().Core().V1().Services().Informer().
+	_, _ = client.KubeInformer().Core().V1().Services().Informer().
 		AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
@@ -124,11 +124,11 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		)
 	})
 	_ = deployInformer.SetTransform(kube.StripUnusedFields)
-	deployInformer.AddEventHandler(handler)
+	_, _ = deployInformer.AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
-	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
-	gwc.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	_, _ = gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	_, _ = gwc.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		o.GetName()
 		gws, _ := dc.gatewayLister.List(klabels.Everything())
 		for _, g := range gws {
