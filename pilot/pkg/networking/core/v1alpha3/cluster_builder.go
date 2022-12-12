@@ -477,11 +477,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 				},
 			},
 		}
-		// There is an usage doc here:
-		// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
-		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
-		// https://github.com/envoyproxy/envoy/issues/9811
-		// https://github.com/envoyproxy/envoy/pull/22639
 		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
 		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
 		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
@@ -615,33 +610,63 @@ func addUint32(left, right uint32) (uint32, bool) {
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*cluster.Cluster, 0, 2)
-	if cb.supportsIPv4 {
-		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.Filters = nil
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+	// There is an usage doc here:
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
+	// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
+	// https://github.com/envoyproxy/envoy/issues/9811
+	// https://github.com/envoyproxy/envoy/pull/22639
+	if cb.isDualStackCluster() {
+		inboundPassthroughCluster := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughCluster.Name = util.InboundPassthroughClusterDualStack
+		inboundPassthroughCluster.Filters = nil
+		inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv4)
-	}
-	if cb.supportsIPv6 {
-		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.Filters = nil
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: InboundPassthroughBindIpv6,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
+			ExtraSourceAddresses: []*core.ExtraSourceAddress{
+				{
+					Address: &core.SocketAddress{
+						Address: InboundPassthroughBindIpv6,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: uint32(0),
+						},
+					},
 				},
 			},
 		}
-		clusters = append(clusters, inboundPassthroughClusterIpv6)
+		clusters = append(clusters, inboundPassthroughCluster)
+	} else {
+		if cb.supportsIPv4 {
+			inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
+			inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+			inboundPassthroughClusterIpv4.Filters = nil
+			inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: InboundPassthroughBindIpv4,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
+			clusters = append(clusters, inboundPassthroughClusterIpv4)
+		}
+		if cb.supportsIPv6 {
+			inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
+			inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+			inboundPassthroughClusterIpv6.Filters = nil
+			inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: InboundPassthroughBindIpv6,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
+				},
+			}
+			clusters = append(clusters, inboundPassthroughClusterIpv6)
+		}
 	}
 	return clusters
 }
@@ -682,7 +707,12 @@ func (cb *ClusterBuilder) applyH2Upgrade(opts buildClusterOpts, connectionPool *
 	}
 }
 
-// shouldH2Upgrade function returns true if the cluster  should be upgraded to http2.
+// isDualStackCluster function returns true if the cluster is a really dual stack cluster
+func (cb *ClusterBuilder) isDualStackCluster() bool {
+	return features.EnableDualStack && cb.supportsIPv4 && cb.supportsIPv6
+}
+
+// shouldH2Upgrade function returns true if the cluster should be upgraded to http2.
 func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig,
 	connectionPool *networking.ConnectionPoolSettings,
 ) bool {
