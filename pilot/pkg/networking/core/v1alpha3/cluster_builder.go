@@ -477,6 +477,11 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 				},
 			},
 		}
+		// There is an usage doc here:
+		// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
+		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
+		// https://github.com/envoyproxy/envoy/issues/9811
+		// https://github.com/envoyproxy/envoy/pull/22639
 		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
 		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
 		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
@@ -610,63 +615,33 @@ func addUint32(left, right uint32) (uint32, bool) {
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*cluster.Cluster, 0, 2)
-	// There is an usage doc here:
-	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
-	// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
-	// https://github.com/envoyproxy/envoy/issues/9811
-	// https://github.com/envoyproxy/envoy/pull/22639
-	if features.EnableDualStack && cb.supportsIPv4 && cb.supportsIPv6 {
-		inboundPassthroughCluster := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughCluster.Name = util.InboundPassthroughClusterDualStack
-		inboundPassthroughCluster.Filters = nil
-		inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
+	if cb.supportsIPv4 {
+		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterIpv4.Filters = nil
+		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
 			},
-			ExtraSourceAddresses: []*core.ExtraSourceAddress{
-				{
-					Address: &core.SocketAddress{
-						Address: InboundPassthroughBindIpv6,
-						PortSpecifier: &core.SocketAddress_PortValue{
-							PortValue: uint32(0),
-						},
-					},
+		}
+		clusters = append(clusters, inboundPassthroughClusterIpv4)
+	}
+	if cb.supportsIPv6 {
+		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+		inboundPassthroughClusterIpv6.Filters = nil
+		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
+			SourceAddress: &core.SocketAddress{
+				Address: InboundPassthroughBindIpv6,
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(0),
 				},
 			},
 		}
-		clusters = append(clusters, inboundPassthroughCluster)
-	} else {
-		if cb.supportsIPv4 {
-			inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
-			inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-			inboundPassthroughClusterIpv4.Filters = nil
-			inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-				SourceAddress: &core.SocketAddress{
-					Address: InboundPassthroughBindIpv4,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: uint32(0),
-					},
-				},
-			}
-			clusters = append(clusters, inboundPassthroughClusterIpv4)
-		}
-		if cb.supportsIPv6 {
-			inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
-			inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-			inboundPassthroughClusterIpv6.Filters = nil
-			inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-				SourceAddress: &core.SocketAddress{
-					Address: InboundPassthroughBindIpv6,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: uint32(0),
-					},
-				},
-			}
-			clusters = append(clusters, inboundPassthroughClusterIpv6)
-		}
+		clusters = append(clusters, inboundPassthroughClusterIpv6)
 	}
 	return clusters
 }
