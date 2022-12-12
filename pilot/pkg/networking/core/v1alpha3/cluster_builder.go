@@ -477,7 +477,9 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 				},
 			},
 		}
-		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 {
+		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
+		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
+		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
 			// add extra source addresses to cluster builder
 			var extraSrcAddrs []*core.ExtraSourceAddress
 			for _, extraBdIP := range cb.passThroughBindIPs[1:] {
