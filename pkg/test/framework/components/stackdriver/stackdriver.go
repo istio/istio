@@ -15,9 +15,9 @@
 package stackdriver
 
 import (
+	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtracepb "cloud.google.com/go/trace/apiv1/tracepb"
-	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"

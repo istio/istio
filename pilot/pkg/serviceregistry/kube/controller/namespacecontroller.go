@@ -70,7 +70,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 
-	c.configMapInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	_, _ = c.configMapInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if o.GetName() != CACertNamespaceConfigMap {
 			// This is a change to a configmap we don't watch, ignore it
 			return false
@@ -85,7 +85,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		}
 		return true
 	}))
-	c.namespacesInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	_, _ = c.namespacesInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if inject.IgnoredNamespaces.Contains(o.GetName()) {
 			// skip special kubernetes system namespaces
 			return false

@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
+	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtracepb "cloud.google.com/go/trace/apiv1/tracepb"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
-	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	corev1 "k8s.io/api/core/v1"
 
 	istioKube "istio.io/istio/pkg/kube"

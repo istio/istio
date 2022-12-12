@@ -66,7 +66,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	log.Infof("%s starting controller", c.logPrefix())
 
 	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
-	c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) { c.onServiceAdd(obj) },
 
 		// Do nothing on update. The controller only acts on parts of the service

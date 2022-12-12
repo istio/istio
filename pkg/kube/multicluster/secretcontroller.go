@@ -158,7 +158,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
 
-	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
+	_, _ = secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
 }
 

@@ -738,7 +738,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
