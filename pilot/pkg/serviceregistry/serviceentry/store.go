@@ -15,13 +15,16 @@
 package serviceentry
 
 import (
-	"strconv"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
+
+type hostPort struct {
+	host string
+	port int
+}
 
 // stores all the service instances from SE, WLE and pods
 type serviceInstancesStore struct {
@@ -32,8 +35,7 @@ type serviceInstancesStore struct {
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
 	// instancesByHostAndPort tells whether the host has instances.
 	// This is used to validate that we only have one instance for DNS_ROUNDROBIN_LB.
-	// Host and Port are stored in the form of <host>|<port>.
-	instancesByHostAndPort sets.Set[string]
+	instancesByHostAndPort sets.Set[hostPort]
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
@@ -59,7 +61,8 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		ikey := makeInstanceKey(i)
-		s.instancesByHostAndPort.Delete(ikey.hostname.String())
+		hostPort := hostPort{ikey.hostname.String(), i.ServicePort.Port}
+		s.instancesByHostAndPort.Delete(hostPort)
 		delete(s.instances[makeInstanceKey(i)], key)
 		delete(s.ip2instance, i.Endpoint.Address)
 	}
@@ -69,7 +72,7 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
-		hostPort := ikey.hostname.String() + "|" + strconv.Itoa(instance.ServicePort.Port)
+		hostPort := hostPort{ikey.hostname.String(), instance.ServicePort.Port}
 		// For DNSRoundRobinLB resolution type, check if service instances already exist and do not add
 		// if it already exist. This can happen if two Service Entries are created with same host name,
 		// resolution as DNS_ROUND_ROBIN and with same/different endpoints.

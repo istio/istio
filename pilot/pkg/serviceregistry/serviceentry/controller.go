@@ -167,7 +167,7 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 			ip2instance:            map[string][]*model.ServiceInstance{},
 			instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
 			instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
-			instancesByHostAndPort: sets.New[string](),
+			instancesByHostAndPort: sets.New[hostPort](),
 		},
 		workloadInstances: workloadinstances.NewIndex(),
 		services: serviceStore{
