@@ -129,11 +129,6 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 		} else {
 			match.PrefixRanges = IPv6PassthroughCIDR
 		}
-
-		if cc.clusterName == util.InboundPassthroughCluster {
-			match.PrefixRanges = append(match.PrefixRanges, IPv4PassthroughCIDR...)
-			match.PrefixRanges = append(match.PrefixRanges, IPv6PassthroughCIDR...)
-		}
 	}
 	if cc.port.TargetPort > 0 {
 		match.DestinationPort = &wrappers.UInt32Value{Value: cc.port.TargetPort}
@@ -752,17 +747,12 @@ func reportInboundConflict(lb *ListenerBuilder, old inboundChainConfig, cc inbou
 func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain {
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
-	if features.EnableDualStack && lb.node.GetIPMode() == model.Dual {
-		ipVersions = append(ipVersions, util.InboundPassthroughCluster)
-	} else {
-		if lb.node.SupportsIPv4() {
-			ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
-		}
-		if lb.node.SupportsIPv6() {
-			ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
-		}
+	if lb.node.SupportsIPv4() {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
 	}
-
+	if lb.node.SupportsIPv6() {
+		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
+	}
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
 	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
