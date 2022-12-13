@@ -113,7 +113,7 @@ func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
 	}
 	log.Infof("%s started", c.logPrefix())
 	c.queue.Run(stopCh)
-	c.serviceInformer.RemoveEventHandler(c.serviceHandle)
+	_ = c.serviceInformer.RemoveEventHandler(c.serviceHandle)
 }
 
 func (c *autoServiceExportController) logPrefix() string {
