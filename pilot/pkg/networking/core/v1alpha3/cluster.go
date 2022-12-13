@@ -169,7 +169,8 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	cacheStats := cacheStats{}
 	switch proxy.Type {
 	case model.SidecarProxy:
-		// Waypoint proxies do not need outbound clusters
+		// Waypoint proxies do not need outbound clusters in most cases
+		// better to go through and filter what we do not need out, or only add those we need in
 		if proxy.Metadata.AmbientType != ambient.TypeWaypoint {
 			// Setup outbound clusters
 			outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
