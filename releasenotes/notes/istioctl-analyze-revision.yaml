@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** revision to istioctl analyze.
+  **Added** `--revision` to `istioctl analyze` to specify a specific revision.
