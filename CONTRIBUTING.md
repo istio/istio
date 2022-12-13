@@ -43,7 +43,7 @@ DOCKER_SOCKET_MOUNT="-v /var/run/docker.sock.raw:/var/run/docker.sock" CONDITION
 
 If you are getting errors related to `authenticity of host github.com can't be established`, try mounting your SSH config files to the docker container, for example, `--mount type=bind,source=~/.ssh,destination=/home/user/.ssh`.
 
-If you [disabled FIPs](https://github.com/istio/ztunnel/#building-on-non-linuxx86_64) in your ztunnel build earlier, remember to enable it now to avoid compile errors now that the docker container is running on Linux/x86_64. 
+If you [disabled FIPs](https://github.com/istio/ztunnel/#building-on-non-linuxx86_64) in your ztunnel build earlier, remember to enable it now to avoid compile errors now that the docker container is running on Linux/x86_64.
 
 ## Cluster Setup and Install
 
