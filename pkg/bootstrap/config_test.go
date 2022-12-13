@@ -94,8 +94,8 @@ func TestGetNodeMetaData(t *testing.T) {
 	t.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
 
 	// prepare a pod label file
-	os.MkdirAll("./etc/istio/pod/", 0777)
-	file, _ := os.OpenFile(constants.PodInfoLabelsPath, os.O_WRONLY|os.O_CREATE, 0666)
+	os.MkdirAll("./etc/istio/pod/", os.ModePerm)
+	file, _ := os.OpenFile(constants.PodInfoLabelsPath, os.O_WRONLY|os.O_CREATE, 0o600)
 	file.WriteString(`istio-locality="region.zone.subzone"`)
 	defer func() {
 		file.Close()
