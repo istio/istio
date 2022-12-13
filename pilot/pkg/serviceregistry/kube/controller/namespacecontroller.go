@@ -111,8 +111,8 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 	}
 	go nc.startCaBundleWatcher(stopCh)
 	nc.queue.Run(stopCh)
-	nc.configMapInformer.RemoveEventHandler(nc.cmHandle)
-	nc.namespacesInformer.RemoveEventHandler(nc.nsHandle)
+	_ = nc.configMapInformer.RemoveEventHandler(nc.cmHandle)
+	_ = nc.namespacesInformer.RemoveEventHandler(nc.nsHandle)
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and update cm in each namespace
