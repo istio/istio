@@ -22,11 +22,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
-	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -38,12 +34,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
-	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
@@ -91,7 +85,8 @@ func (p *WaypointGenerator) Generate(proxy *model.Proxy, w *model.WatchedResourc
 				Resource: protoconv.MessageToAny(c),
 			})
 		}
-		out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
+		out = resources
+		//out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
 		waypointClusters := p.buildClusters(proxy, req.Push)
@@ -107,6 +102,7 @@ func getActualWildcardAndLocalHost(node *model.Proxy) string {
 	return v1alpha3.WildcardIPv6Address //, v1alpha3.LocalhostIPv6Address
 }
 
+/*
 func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
 	saWorkloads := push.AmbientIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
 	if len(saWorkloads) == 0 {
@@ -209,7 +205,7 @@ func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *mod
 		})
 	}
 	return out
-}
+}*/
 
 func (p *WaypointGenerator) buildClusters(node *model.Proxy, push *model.PushContext) model.Resources {
 	// TODO passthrough and blackhole
