@@ -26,6 +26,8 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	"go.opentelemetry.io/otel/attribute"
+	otelsemconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1075,16 +1077,16 @@ func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
 
 	return &otlpcommon.KeyValueList{
 		Values: []*otlpcommon.KeyValue{
-			otelKeyValue(KubernetesCluster, proxy.Metadata.ClusterID.String()),
-			otelKeyValue(KubernetesNamespace, namespace),
-			otelKeyValue(KubernetesPod, podName),
+			otelKeyValue(otelsemconv.K8SClusterNameKey, proxy.Metadata.ClusterID.String()),
+			otelKeyValue(otelsemconv.K8SNamespaceNameKey, namespace),
+			otelKeyValue(otelsemconv.K8SPodNameKey, podName),
 			// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
-			otelKeyValue(ServiceName, proxy.XdsNode.Cluster),
+			otelKeyValue(otelsemconv.ServiceNameKey, proxy.XdsNode.Cluster),
 		},
 	}
 }
 
-func otelKeyValue(semantic OTelResourceSemantic, val string) *otlpcommon.KeyValue {
+func otelKeyValue(semantic attribute.Key, val string) *otlpcommon.KeyValue {
 	return &otlpcommon.KeyValue{
 		Key:   string(semantic),
 		Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: val}},
