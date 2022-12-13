@@ -124,23 +124,23 @@ type ClusterBuilder struct {
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceInstances: proxy.ServiceInstances,
-		proxyID:          proxy.ID,
-		proxyType:        proxy.Type,
-		proxyVersion:     proxy.Metadata.IstioVersion,
-		sidecarScope:     proxy.SidecarScope,
-		supportsIPv4:     proxy.SupportsIPv4(),
-		supportsIPv6:     proxy.SupportsIPv6(),
-		hbone:            proxy.EnableHBONE(),
-		locality:         proxy.Locality,
-		proxyLabels:      proxy.Labels,
-		proxyView:        proxy.GetView(),
-		proxyIPAddresses: proxy.IPAddresses,
-		configNamespace:  proxy.ConfigNamespace,
-		req:              req,
-		cache:            cache,
+		serviceInstances:   proxy.ServiceInstances,
+		proxyID:            proxy.ID,
+		proxyType:          proxy.Type,
+		proxyVersion:       proxy.Metadata.IstioVersion,
+		sidecarScope:       proxy.SidecarScope,
+		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
+		supportsIPv4:       proxy.SupportsIPv4(),
+		supportsIPv6:       proxy.SupportsIPv6(),
+		hbone:              proxy.EnableHBONE(),
+		locality:           proxy.Locality,
+		proxyLabels:        proxy.Labels,
+		proxyView:          proxy.GetView(),
+		proxyIPAddresses:   proxy.IPAddresses,
+		configNamespace:    proxy.ConfigNamespace,
+		req:                req,
+		cache:              cache,
 	}
-	cb.passThroughBindIPs = getPassthroughBindIPs(proxy.GetIPMode())
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
 			cb.metadataCerts = &metadataCerts{
@@ -477,20 +477,24 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 				},
 			},
 		}
-		// add extra source addresses to cluster builder
-		var extraSrcAddrs []*core.ExtraSourceAddress
-		for _, extraBdIP := range cb.passThroughBindIPs[1:] {
-			extraSrcAddr := &core.ExtraSourceAddress{
-				Address: &core.SocketAddress{
-					Address: extraBdIP,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: uint32(0),
+		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
+		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
+		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
+			// add extra source addresses to cluster builder
+			var extraSrcAddrs []*core.ExtraSourceAddress
+			for _, extraBdIP := range cb.passThroughBindIPs[1:] {
+				extraSrcAddr := &core.ExtraSourceAddress{
+					Address: &core.SocketAddress{
+						Address: extraBdIP,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: uint32(0),
+						},
 					},
-				},
+				}
+				extraSrcAddrs = append(extraSrcAddrs, extraSrcAddr)
 			}
-			extraSrcAddrs = append(extraSrcAddrs, extraSrcAddr)
+			localCluster.cluster.UpstreamBindConfig.ExtraSourceAddresses = extraSrcAddrs
 		}
-		localCluster.cluster.UpstreamBindConfig.ExtraSourceAddresses = extraSrcAddrs
 	}
 	return localCluster
 }
@@ -611,11 +615,11 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
 	// https://github.com/envoyproxy/envoy/issues/9811
 	// https://github.com/envoyproxy/envoy/pull/22639
-	if features.EnableDualStack {
-		inboundPassthroughClusterForDS := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterForDS.Name = util.InboundPassthroughClusterDualStack
-		inboundPassthroughClusterForDS.Filters = nil
-		inboundPassthroughClusterForDS.UpstreamBindConfig = &core.BindConfig{
+	if cb.isDualStackCluster() {
+		inboundPassthroughCluster := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughCluster.Name = util.InboundPassthroughCluster
+		inboundPassthroughCluster.Filters = nil
+		inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
 				PortSpecifier: &core.SocketAddress_PortValue{
@@ -633,7 +637,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 				},
 			},
 		}
-		clusters = append(clusters, inboundPassthroughClusterForDS)
+		clusters = append(clusters, inboundPassthroughCluster)
 	} else {
 		if cb.supportsIPv4 {
 			inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
@@ -703,7 +707,12 @@ func (cb *ClusterBuilder) applyH2Upgrade(opts buildClusterOpts, connectionPool *
 	}
 }
 
-// shouldH2Upgrade function returns true if the cluster  should be upgraded to http2.
+// isDualStackCluster function returns true if the cluster is a really dual stack cluster
+func (cb *ClusterBuilder) isDualStackCluster() bool {
+	return features.EnableDualStack && cb.supportsIPv4 && cb.supportsIPv6
+}
+
+// shouldH2Upgrade function returns true if the cluster should be upgraded to http2.
 func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig,
 	connectionPool *networking.ConnectionPoolSettings,
 ) bool {

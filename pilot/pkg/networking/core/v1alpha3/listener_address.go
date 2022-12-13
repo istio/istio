@@ -69,15 +69,15 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 }
 
 func getPassthroughBindIPs(ipMode model.IPMode) []string {
+	if !features.EnableDualStack && ipMode == model.Dual {
+		return []string{InboundPassthroughBindIpv4}
+	}
+
 	passthroughBindIPAddresses := passthroughBindIPs[ipMode]
 
 	// it means that ipMode is empty if passthroughBindIPAddresses is empty
 	if len(passthroughBindIPAddresses) == 0 {
-		return []string{InboundPassthroughBindIpv4}
-	}
-
-	if !features.EnableDualStack && ipMode == model.Dual {
-		return []string{InboundPassthroughBindIpv4}
+		return []string{InboundPassthroughBindIpv6}
 	}
 
 	return passthroughBindIPAddresses
