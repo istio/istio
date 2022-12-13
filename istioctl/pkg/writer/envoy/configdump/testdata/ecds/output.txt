@@ -1,0 +1,3 @@
+ECDS NAME                         TYPE
+default.display-metadata          envoy.extensions.filters.http.wasm.v3.Wasm
+default.httpbin-rate-limiting     envoy.extensions.filters.http.wasm.v3.Wasm
