@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: helloworld
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld
+  labels:
+    app: helloworld
+    service: helloworld
+spec:
+  ports:
+  - port: 5000
+    name: http
+  selector:
+    app: helloworld
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld-v1
+  labels:
+    app: helloworld
+    service: helloworld
+spec:
+  ports:
+  - port: 5000
+    name: http
+  selector:
+    app: helloworld
+    version: v1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld-v2
+  labels:
+    app: helloworld
+    service: helloworld
+spec:
+  ports:
+  - port: 5000
+    name: http
+  selector:
+    app: helloworld
+    version: v2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld-v1-cross-node
+  labels:
+    app: helloworld
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: helloworld
+        version: v1
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: version
+                    operator: In
+                    values:
+                      - v2
+              topologyKey: kubernetes.io/hostname
+      serviceAccountName: helloworld              
+      containers:
+      - name: helloworld
+        image: docker.io/istio/examples-helloworld-v1
+        imagePullPolicy: IfNotPresent #Always
+        ports:
+        - containerPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld-v2-same-node
+  labels:
+    app: helloworld
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: helloworld
+        version: v2
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: version
+                    operator: In
+                    values:
+                      - v1
+              topologyKey: kubernetes.io/hostname
+      serviceAccountName: helloworld
+      containers:
+      - name: helloworld
+        image: docker.io/istio/examples-helloworld-v2
+        imagePullPolicy: IfNotPresent #Always
+        ports:
+        - containerPort: 5000
