@@ -197,17 +197,15 @@ endif
 # List of all binaries to build
 # We split the binaries into "agent" binaries and standard ones. This corresponds to build "agent".
 # This allows conditional compilation to avoid pulling in costly dependencies to the agent, such as XDS and k8s.
-AGENT_BINARIES:=./pilot/cmd/pilot-agent
+AGENT_BINARIES:=./pilot/cmd/pilot-agent ./cni/cmd/istio-cni
 STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./samples/extauthz/cmd/extauthz \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
-  ./tools/istio-iptables \
   ./tools/bug-report
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 

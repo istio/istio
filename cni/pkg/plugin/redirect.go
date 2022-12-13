@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/pkg/log"
 )
@@ -265,7 +264,7 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
 	}
-	if v, found := pi.ProxyEnvironments[options.DNSCaptureByAgent.Name]; found {
+	if v, found := pi.ProxyEnvironments["ISTIO_META_DNS_CAPTURE"]; found {
 		// parse and set the bool value of dnsRedirect
 		redir.dnsRedirect, valErr = strconv.ParseBool(v)
 		if valErr != nil {
