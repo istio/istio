@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: istioctl
+issue:
+  - 38148
 
 releaseNotes:
 - |
