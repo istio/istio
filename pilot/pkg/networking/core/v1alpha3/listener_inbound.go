@@ -753,7 +753,6 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 	if lb.node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
 	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
