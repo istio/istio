@@ -617,7 +617,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// https://github.com/envoyproxy/envoy/pull/22639
 	if cb.isDualStackCluster() {
 		inboundPassthroughCluster := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughCluster.Name = util.InboundPassthroughClusterDualStack
+		inboundPassthroughCluster.Name = util.InboundPassthroughCluster
 		inboundPassthroughCluster.Filters = nil
 		inboundPassthroughCluster.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{

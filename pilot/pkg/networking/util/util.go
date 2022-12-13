@@ -68,9 +68,9 @@ const (
 	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
-	InboundPassthroughClusterIpv4      = "InboundPassthroughClusterIpv4"
-	InboundPassthroughClusterIpv6      = "InboundPassthroughClusterIpv6"
-	InboundPassthroughClusterDualStack = "InboundPassthroughClusterDualStack"
+	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
+	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
+	InboundPassthroughCluster     = "InboundPassthroughCluster"
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
