@@ -549,6 +549,13 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	return exists
 }
 
+func (sc *SidecarScope) GetService(hostname host.Name) *Service {
+	if sc == nil {
+		return nil
+	}
+	return sc.servicesByHostname[hostname]
+}
+
 // AddConfigDependencies add extra config dependencies to this scope. This action should be done before the
 // SidecarScope being used to avoid concurrent read/write.
 func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
