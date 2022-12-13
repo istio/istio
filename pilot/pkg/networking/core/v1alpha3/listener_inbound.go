@@ -130,8 +130,9 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 			match.PrefixRanges = IPv6PassthroughCIDR
 		}
 
-		if features.EnableDualStack && cc.clusterName == util.InboundPassthroughCluster {
-			match.PrefixRanges = IPv4PassthroughCIDR
+		if cc.clusterName == util.InboundPassthroughCluster {
+			match.PrefixRanges = append(match.PrefixRanges, IPv4PassthroughCIDR...)
+			match.PrefixRanges = append(match.PrefixRanges, IPv6PassthroughCIDR...)
 		}
 	}
 	if cc.port.TargetPort > 0 {
