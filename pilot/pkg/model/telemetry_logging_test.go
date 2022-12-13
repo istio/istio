@@ -1301,6 +1301,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			WorkloadName: "fake-name",
 			ClusterID:    "fake-cluster",
 		},
+		ConfigNamespace: "fake-namespace",
 		XdsNode: &core.Node{
 			Cluster: "fake-service",
 		},

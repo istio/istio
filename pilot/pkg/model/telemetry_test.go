@@ -932,6 +932,7 @@ func TestResourceAttributes(t *testing.T) {
 					WorkloadName: "fake-name",
 					ClusterID:    "fake-cluster",
 				},
+				ConfigNamespace: "fake-ns",
 				XdsNode: &core.Node{
 					Cluster: "fake-service",
 				},
