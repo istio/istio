@@ -87,6 +87,9 @@ func Analyze() *cobra.Command {
 		Example: `  # Analyze the current live cluster
   istioctl analyze
 
+  # Analyze the current live cluster for a specific revision
+  istioctl analyze --revision 1-16
+
   # Analyze the current live cluster, simulating the effect of applying additional yaml files
   istioctl analyze a.yaml b.yaml my-app-config/
 
@@ -189,7 +192,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				sa.AddRunningKubeSource(k)
+				sa.AddRunningKubeSourceWithRevision(k, revision)
 			}
 
 			// If we explicitly specify mesh config, use it.
@@ -317,6 +320,8 @@ func Analyze() *cobra.Command {
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
+	analysisCmd.PersistentFlags().StringVarP(&revision, "revision", "", "default",
+		"analyze a specific revision deployed.")
 	return analysisCmd
 }
 
