@@ -1073,12 +1073,12 @@ func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
 		return nil
 	}
 
-	podName, namespace := extractProxyID(proxy)
+	podName, _ := extractProxyID(proxy)
 
 	return &otlpcommon.KeyValueList{
 		Values: []*otlpcommon.KeyValue{
 			otelKeyValue(otelsemconv.K8SClusterNameKey, proxy.Metadata.ClusterID.String()),
-			otelKeyValue(otelsemconv.K8SNamespaceNameKey, namespace),
+			otelKeyValue(otelsemconv.K8SNamespaceNameKey, proxy.ConfigNamespace),
 			otelKeyValue(otelsemconv.K8SPodNameKey, podName),
 			// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
 			otelKeyValue(otelsemconv.ServiceNameKey, proxy.XdsNode.Cluster),
