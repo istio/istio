@@ -26,10 +26,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -38,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -308,29 +311,32 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 -----END RSA PRIVATE KEY-----
 `
 
-	secrets = map[model.NamespacedName]*corev1.Secret{
-		{
-			Name:      "my-cert-http",
-			Namespace: "istio-system",
-		}: {
+	secrets = []runtime.Object{
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cert-http",
+				Namespace: "istio-system",
+			},
 			Data: map[string][]byte{
 				"tls.crt": []byte(rsaCertPEM),
 				"tls.key": []byte(rsaKeyPEM),
 			},
 		},
-		{
-			Name:      "cert",
-			Namespace: "cert",
-		}: {
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cert",
+				Namespace: "cert",
+			},
 			Data: map[string][]byte{
-				"cert": []byte(rsaCertPEM),
-				"key":  []byte(rsaKeyPEM),
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
 			},
 		},
-		{
-			Name:      "malformed",
-			Namespace: "istio-system",
-		}: {
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "malformed",
+				Namespace: "istio-system",
+			},
 			Data: map[string][]byte{
 				// nolint: lll
 				// https://github.com/kubernetes-sigs/gateway-api/blob/d7f71d6b7df7e929ae299948973a693980afc183/conformance/tests/gateway-invalid-tls-certificateref.yaml#L87-L90
@@ -387,7 +393,7 @@ func TestConvertResources(t *testing.T) {
 				Services:  services,
 				Instances: instances,
 			})
-			kr := splitInput(input)
+			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 			output.AllowedReferences = AllowedReferences{} // Not tested here
@@ -575,7 +581,7 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			input := readConfigString(t, tt.config, validator)
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-			kr := splitInput(input)
+			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 			c := &Controller{
@@ -630,7 +636,7 @@ func splitOutput(configs []config.Config) OutputResources {
 	return out
 }
 
-func splitInput(configs []config.Config) KubernetesResources {
+func splitInput(t test.Failer, configs []config.Config) KubernetesResources {
 	out := KubernetesResources{}
 	namespaces := sets.New[string]()
 	for _, c := range configs {
@@ -661,7 +667,11 @@ func splitInput(configs []config.Config) KubernetesResources {
 			},
 		}
 	}
-	out.Secrets = secrets
+
+	client := kube.NewFakeClient(secrets...)
+	out.Credentials = credentials.NewCredentialsController(client, "")
+	client.RunAndWait(test.NewStop(t))
+
 	out.Domain = "domain.suffix"
 	return out
 }
@@ -792,7 +802,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 
 	validator := crdvalidation.NewIstioValidator(b)
 	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
-	kr := splitInput(input)
+	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
 	ctx := ConfigContext{
 		KubernetesResources: kr,

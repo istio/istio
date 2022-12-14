@@ -376,14 +376,19 @@ status:
       status: "False"
       type: Detached
     - lastTransitionTime: fake
-      message: invalid certificate reference /Secret/nonexistent., the secret does
-        not exist
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: invalid certificate reference /Secret/nonexistent., secret istio-system/nonexistent
+        not found
       reason: InvalidCertificateRef
       status: "False"
       type: Ready
     - lastTransitionTime: fake
-      message: invalid certificate reference /Secret/nonexistent., the secret does
-        not exist
+      message: invalid certificate reference /Secret/nonexistent., secret istio-system/nonexistent
+        not found
       reason: InvalidCertificateRef
       status: "False"
       type: ResolvedRefs
@@ -434,6 +439,11 @@ status:
       reason: Attached
       status: "False"
       type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
     - lastTransitionTime: fake
       message: 'invalid certificate reference /Secret/malformed., the certificate
         is malformed: tls: failed to find any PEM data in certificate input'

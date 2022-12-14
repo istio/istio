@@ -29,10 +29,10 @@ import (
 
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/credentials"
+	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -59,8 +59,8 @@ type KubernetesResources struct {
 	ReferenceGrant []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace
-	// Secrets stores all credentials in the cluster
-	Secrets map[model.NamespacedName]*corev1.Secret
+	// Credentials stores all credentials in the cluster
+	Credentials credentials.Controller
 
 	// Domain for the cluster. Typically, cluster.local
 	Domain  string
@@ -70,7 +70,7 @@ type KubernetesResources struct {
 type AllowedReferences map[Reference]map[Reference]*Grants
 
 func (refs AllowedReferences) SecretAllowed(resourceName string, namespace string) bool {
-	p, err := credentials.ParseResourceName(resourceName, "", "", "")
+	p, err := creds.ParseResourceName(resourceName, "", "", "")
 	if err != nil {
 		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
 		return false
@@ -1693,7 +1693,7 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 		}
 		credNs := defaultIfNil((*string)(tls.CertificateRefs[0].Namespace), namespace)
 		sameNamespace := credNs == namespace
-		if !sameNamespace && !ctx.AllowedReferences.SecretAllowed(credentials.ToResourceName(cred), namespace) {
+		if !sameNamespace && !ctx.AllowedReferences.SecretAllowed(creds.ToResourceName(cred), namespace) {
 			return nil, &ConfigError{
 				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
@@ -1717,31 +1717,33 @@ func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw c
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
 	}
 
-	key := model.ConfigKey{
+	secret := model.ConfigKey{
 		Kind:      kind.Secret,
 		Name:      string(ref.Name),
 		Namespace: defaultIfNil((*string)(ref.Namespace), gw.Namespace),
 	}
 
-	ctx.resourceReferences[key] = append(ctx.resourceReferences[key], model.ConfigKey{
+	ctx.resourceReferences[secret] = append(ctx.resourceReferences[secret], model.ConfigKey{
 		Kind:      kind.KubernetesGateway,
 		Namespace: gw.Namespace,
 		Name:      gw.Name,
 	})
 
-	if secret, f := ctx.KubernetesResources.Secrets[model.NamespacedName{Name: key.Name, Namespace: key.Namespace}]; !f {
-		return "", &ConfigError{
-			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, the secret does not exist", objectReferenceString(ref)),
-		}
-	} else if err := checkMalformedCert(secret); err != nil {
-		return "", &ConfigError{
-			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+	if ctx.Credentials != nil {
+		if key, cert, err := ctx.Credentials.GetKeyAndCert(secret.Name, secret.Namespace); err != nil {
+			return "", &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
+			}
+		} else if _, err = tls.X509KeyPair(cert, key); err != nil {
+			return "", &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+			}
 		}
 	}
 
-	return credentials.ToKubernetesGatewayResource(key.Namespace, key.Name), nil
+	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
 }
 
 func objectReferenceString(ref k8s.SecretObjectReference) string {
@@ -1874,17 +1876,6 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 	}
 	ret[NamespaceNameLabel] = name
 	return ret
-}
-
-func checkMalformedCert(secret *corev1.Secret) error {
-	key, cert, err := kube.ExtractKeyAndCert(secret)
-	if err != nil {
-		return err
-	}
-	if _, err = tls.X509KeyPair(cert, key); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (kr KubernetesResources) FuzzValidate() bool {

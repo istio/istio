@@ -26,12 +26,13 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	credentials "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -70,10 +71,11 @@ type Controller struct {
 	namespaceHandler  model.EventHandler
 
 	// Gateway-api types reference secrets directly, so we need access to these
-	secretLister   listerv1.SecretLister
-	secretInformer cache.SharedIndexInformer
-	secretHandler  model.EventHandler
+	credentialsController credentials.MulticlusterController
+	secretHandler         model.EventHandler
 
+	// the cluster where the gateway-api controller runs
+	cluster cluster.ID
 	// domain stores the cluster domain, typically cluster.local
 	domain string
 
@@ -97,21 +99,21 @@ func NewController(
 	client kube.Client,
 	c model.ConfigStoreController,
 	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool,
+	credsController credentials.MulticlusterController,
 	options controller.Options,
 ) *Controller {
 	var ctl *status.Controller
 
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
-	secretInformer := credentials.GetSecretInformer(client)
 	gatewayController := &Controller{
-		client:            client,
-		cache:             c,
-		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
-		namespaceInformer: nsInformer,
-		secretLister:      listerv1.NewSecretLister(secretInformer.GetIndexer()),
-		secretInformer:    secretInformer,
-		domain:            options.DomainSuffix,
-		statusController:  ctl,
+		client:                client,
+		cache:                 c,
+		namespaceLister:       client.KubeInformer().Core().V1().Namespaces().Lister(),
+		namespaceInformer:     nsInformer,
+		credentialsController: credsController,
+		cluster:               options.ClusterID,
+		domain:                options.DomainSuffix,
+		statusController:      ctl,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 		waitForCRD:    waitForCRD,
@@ -130,17 +132,10 @@ func NewController(
 			}
 		},
 	})
-	secretInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			gatewayController.secretEvent(obj)
-		},
-		UpdateFunc: func(_, obj any) {
-			gatewayController.secretEvent(obj)
-		},
-		DeleteFunc: func(obj any) {
-			gatewayController.secretEvent(obj)
-		},
-	})
+
+	if credsController != nil {
+		credsController.AddSecretHandler(gatewayController.secretEvent)
+	}
 
 	return gatewayController
 }
@@ -244,18 +239,15 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	for _, ns := range nsl {
 		namespaces[ns.Name] = ns
 	}
-
-	secretList, err := c.secretLister.List(klabels.Everything())
-	if err != nil {
-		return fmt.Errorf("failed to list type Secrets: %v", err)
-	}
-	secrets := make(map[model.NamespacedName]*corev1.Secret, len(secretList))
-	for _, s := range secretList {
-		secrets[model.NamespacedName{Name: s.Name, Namespace: s.Namespace}] = s
-	}
-
 	input.Namespaces = namespaces
-	input.Secrets = secrets
+
+	if c.credentialsController != nil {
+		credentials, err := c.credentialsController.ForCluster(c.cluster)
+		if err != nil {
+			return fmt.Errorf("failed to get credentials: %v", err)
+		}
+		input.Credentials = credentials
+	}
 
 	output := convertResources(input)
 
@@ -333,7 +325,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		}
 	}()
 	kube.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
-	kube.WaitForCacheSync(stop, c.secretInformer.HasSynced)
 }
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -387,32 +378,17 @@ func getLabelKeys(ns *corev1.Namespace) []string {
 	return keys
 }
 
-func (c *Controller) secretEvent(obj any) {
-	if obj == nil {
-		return
-	}
-	secret, ok := obj.(*corev1.Secret)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return
-		}
-		secret, ok = tombstone.Obj.(*corev1.Secret)
-		if !ok {
-			return
-		}
-	}
-
+func (c *Controller) secretEvent(name, namespace string) {
 	var impactedConfigs []model.ConfigKey
 	c.stateMu.RLock()
 	impactedConfigs = c.state.ResourceReferences[model.ConfigKey{
 		Kind:      kind.Secret,
-		Namespace: secret.Namespace,
-		Name:      secret.Name,
+		Namespace: namespace,
+		Name:      name,
 	}]
 	c.stateMu.RUnlock()
 	if len(impactedConfigs) > 0 {
-		log.Debugf("secret %s/%s changed, triggering secret handler", secret.Namespace, secret.Name)
+		log.Debugf("secret %s/%s changed, triggering secret handler", namespace, name)
 		for _, cfg := range impactedConfigs {
 			gw := config.Config{
 				Meta: config.Meta{
