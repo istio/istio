@@ -93,13 +93,13 @@ func TestGetNodeMetaData(t *testing.T) {
 	t.Setenv(IstioMetaPrefix+"OWNER", inputOwner)
 	t.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
 
+	dir, _ := os.Getwd()
+	defer os.Chdir(dir)
 	// prepare a pod label file
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	os.MkdirAll("./etc/istio/pod/", os.ModePerm)
-	file, _ := os.OpenFile(constants.PodInfoLabelsPath, os.O_WRONLY|os.O_CREATE, 0o600)
-	file.WriteString(`istio-locality="region.zone.subzone"`)
-	file.Close()
+	os.WriteFile(constants.PodInfoLabelsPath, []byte(`istio-locality="region.zone.subzone"`), 0o600)
 
 	node, err := GetNodeMetaData(MetadataOptions{
 		ID:                          "test",
