@@ -278,9 +278,12 @@ func buildHTTPVirtualServices(
 	var invalidBackendErr *ConfigError
 	httproutes := []*istio.HTTPRoute{}
 	hosts := hostnameToStringList(route.Hostnames)
-	convertHTTPRoute := func(r k8s.HTTPRouteRule) *ConfigError {
+	convertHTTPRoute := func(r k8s.HTTPRouteRule, pos int) *ConfigError {
 		// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
+		// Auto-name the route. If upstream defines an explicit name, will use it instead
+		vs.Name = fmt.Sprintf("%s.%d", obj.Name, pos)
+
 		for _, match := range r.Matches {
 			uri, err := createURIMatch(match)
 			if err != nil {
@@ -371,18 +374,18 @@ func buildHTTPVirtualServices(
 		return nil
 	}
 
-	for _, r := range route.Rules {
+	for n, r := range route.Rules {
 		if len(r.Matches) > 1 {
 			// split the rule to make sure each rule has up to one match
 			matches := r.Matches
 			for _, m := range matches {
 				r.Matches = []k8s.HTTPRouteMatch{m}
-				if err := convertHTTPRoute(r); err != nil {
+				if err := convertHTTPRoute(r, n); err != nil {
 					reportError(err)
 					return
 				}
 			}
-		} else if err := convertHTTPRoute(r); err != nil {
+		} else if err := convertHTTPRoute(r, n); err != nil {
 			reportError(err)
 			return
 		}
