@@ -282,7 +282,8 @@ func buildHTTPVirtualServices(
 		// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
 		// Auto-name the route. If upstream defines an explicit name, will use it instead
-		vs.Name = fmt.Sprintf("%s.%d", obj.Name, pos)
+		// The position within the route is unique
+		vs.Name = fmt.Sprintf("%s.%s.%d", obj.Namespace, obj.Name, pos)
 
 		for _, match := range r.Matches {
 			uri, err := createURIMatch(match)
