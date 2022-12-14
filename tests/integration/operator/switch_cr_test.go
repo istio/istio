@@ -113,26 +113,53 @@ func TestController(t *testing.T) {
 				"--manifests=" + ManifestPath,
 				"--revision=" + "v2",
 			}
-			// install second operator deployment with different revision
+			// install other operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: "v2"})
 			installWithCRFile(t, t, cs, istioCtl, "default", "v2")
 			installWithCRFile(t, t, cs, istioCtl, "default", "")
+			installWithCRFile(t, t, cs, istioCtl, "default", "v3")
+			installWithCRFile(t, t, cs, istioCtl, "default", "v4")
 
 			// istio control plane resources expected to be deleted after deleting CRs
 			cleanupInClusterCRs(t, cs)
 
 			// test operator remove command
-			scopes.Framework.Infof("checking operator remove command")
+			scopes.Framework.Infof("checking operator remove command by revision")
+			removeCmddefault := []string{
+				"operator", "remove",
+				"--skip-confirmation",
+			}
+			istioCtl.InvokeOrFail(t, removeCmddefault)
+
+			removeCmdv2 := []string{
+				"operator", "remove",
+				"--skip-confirmation",
+				"--revision", "v2",
+			}
+			istioCtl.InvokeOrFail(t, removeCmdv2)
+
+			retry.UntilSuccessOrFail(t, func() error {
+				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
+					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); svc.Name != "" {
+						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
+					}
+					if dp, _ := cs.Kube().AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); dp.Name != "" {
+						return fmt.Errorf("got operator deployment %s from cluster, expected to be removed", dp.Name)
+					}
+				}
+				return nil
+			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+
+			scopes.Framework.Infof("checking operator remove command by purge")
 			removeCmd := []string{
 				"operator", "remove",
 				"--skip-confirmation",
 				"--purge",
 			}
 			istioCtl.InvokeOrFail(t, removeCmd)
-
 			retry.UntilSuccessOrFail(t, func() error {
-				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
+				for _, n := range []string{"istio-operator-v3", "istio-operator-v4"} {
 					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); svc.Name != "" {
 						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
 					}
