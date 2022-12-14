@@ -1647,9 +1647,11 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{
-					Key:   "baggage",
-					Value: model.Baggage(proxy)},
+				{
+					Header: &core.HeaderValue{
+						Key:   "baggage",
+						Value: model.Baggage(proxy),
+					},
 				},
 			},
 		},
