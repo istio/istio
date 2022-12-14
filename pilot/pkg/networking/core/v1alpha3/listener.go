@@ -1642,7 +1642,7 @@ const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,
 
 // outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
 func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := "outbound-tunnel"
+	name := util.OutboundTunnel
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
 	p := &tcp.TcpProxy{

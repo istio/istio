@@ -258,5 +258,5 @@ func isPassthrough(action any) bool {
 	if !ok {
 		return false
 	}
-	return cl.Cluster == "PassthroughCluster"
+	return cl.Cluster == pilot_util.PassthroughCluster
 }
