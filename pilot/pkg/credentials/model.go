@@ -28,4 +28,5 @@ type Controller interface {
 
 type MulticlusterController interface {
 	ForCluster(cluster cluster.ID) (Controller, error)
+	AddSecretHandler(func(name, namespace string))
 }
