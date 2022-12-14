@@ -91,7 +91,7 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, AlwaysReady, controller.Options{})
+	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c, err := controller.List(typ, "ns1")
@@ -104,7 +104,7 @@ func TestListGatewayResourceType(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, AlwaysReady, controller.Options{})
+	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	store.Create(config.Config{
 		Meta: config.Meta{
@@ -151,7 +151,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, AlwaysReady, controller.Options{})
+	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	store.Create(config.Config{
 		Meta: config.Meta{
@@ -196,7 +196,7 @@ func TestNamespaceEvent(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	c := NewController(clientSet, store, AlwaysReady, controller.Options{})
+	c := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 	s := controller.NewFakeXDS()
 
 	c.RegisterEventHandler(gvk.Namespace, func(_, cfg config.Config, _ model.Event) {

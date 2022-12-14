@@ -68,9 +68,7 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{
-	"GatewayInvalidTLSConfiguration": "https://github.com/istio/istio/issues/40714",
-}
+var skippedTests = map[string]string{}
 
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck

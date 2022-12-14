@@ -24,14 +24,12 @@ import (
 	"istio.io/pkg/log"
 )
 
-type secretHandler func(name string, namespace string)
-
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*CredentialsController
 	m                     sync.Mutex // protects remoteKubeControllers
 	configCluster         cluster.ID
-	secretHandlers        []secretHandler
+	secretHandlers        []func(name string, namespace string)
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
@@ -100,7 +98,7 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	return agg, nil
 }
 
-func (m *Multicluster) AddSecretHandler(h secretHandler) {
+func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
 	m.secretHandlers = append(m.secretHandlers, h)
 	m.m.Lock()
 	defer m.m.Unlock()
