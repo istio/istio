@@ -94,14 +94,12 @@ func TestGetNodeMetaData(t *testing.T) {
 	t.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
 
 	// prepare a pod label file
+	tempDir := t.TempDir()
+	os.Chdir(tempDir)
 	os.MkdirAll("./etc/istio/pod/", os.ModePerm)
 	file, _ := os.OpenFile(constants.PodInfoLabelsPath, os.O_WRONLY|os.O_CREATE, 0o600)
 	file.WriteString(`istio-locality="region.zone.subzone"`)
-	defer func() {
-		file.Close()
-		os.Remove(constants.PodInfoLabelsPath)
-		os.RemoveAll("./etc")
-	}()
+	file.Close()
 
 	node, err := GetNodeMetaData(MetadataOptions{
 		ID:                          "test",
@@ -116,7 +114,7 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.Metadata.ExitOnZeroActiveConnections).To(Equal(expectExitOnZeroActiveConnections))
 	g.Expect(node.RawMetadata["OWNER"]).To(Equal(expectOwner))
 	g.Expect(node.RawMetadata["WORKLOAD_NAME"]).To(Equal(expectWorkloadName))
-	g.Expect(node.Metadata.Labels[model.LocalityLabel], "region/zone/subzone")
+	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
 }
 
 func TestConvertNodeMetadata(t *testing.T) {
