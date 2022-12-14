@@ -1116,12 +1116,20 @@ func TestTelemetryAccessLog(t *testing.T) {
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-namespace"}},
 				},
 				{
+					Key:   "k8s.deployment.name",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
+				},
+				{
 					Key:   "k8s.pod.name",
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name-xxxxx"}},
 				},
 				{
 					Key:   "service.name",
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
+				},
+				{
+					Key:   "service.version",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-ver"}},
 				},
 			},
 		},
@@ -1294,8 +1302,12 @@ func TestTelemetryAccessLog(t *testing.T) {
 	}
 
 	sidecar := &Proxy{
-		ID:     "fake-name-xxxxx.fake-namespace",
-		Labels: map[string]string{"app": "test"},
+		ID: "fake-name-xxxxx.fake-namespace",
+		Labels: map[string]string{
+			"app":                                  "test",
+			IstioCanonicalServiceLabelName:         "fake-service",
+			IstioCanonicalServiceRevisionLabelName: "fake-ver",
+		},
 		Metadata: &NodeMetadata{
 			Labels:       map[string]string{"app": "test"},
 			WorkloadName: "fake-name",

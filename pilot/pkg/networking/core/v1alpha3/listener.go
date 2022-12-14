@@ -1638,13 +1638,9 @@ func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
 }
 
-const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
-
 // outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
 func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
 	name := util.OutboundTunnel
-	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
-	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
 	p := &tcp.TcpProxy{
 		StatPrefix:       name,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
@@ -1652,14 +1648,9 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
 			HeadersToAdd: []*core.HeaderValueOption{
 				{Header: &core.HeaderValue{
-					Key: "baggage",
-					Value: fmt.Sprintf(baggageFormat,
-						proxy.Metadata.ClusterID, proxy.ConfigNamespace,
-						// TODO do not hardcode deployment. But I think we ignore it anyways?
-						"deployment", proxy.Metadata.WorkloadName,
-						canonicalName, canonicalRevision,
-					),
-				}},
+					Key:   "baggage",
+					Value: model.Baggage(proxy)},
+				},
 			},
 		},
 	}

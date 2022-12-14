@@ -15,6 +15,7 @@
 package model
 
 import (
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -36,7 +37,6 @@ import (
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -915,17 +915,14 @@ func TestResourceAttributes(t *testing.T) {
 		expected *otlpcommon.KeyValueList
 	}{
 		{
-			name: "vm",
-			proxy: &Proxy{
-				Labels:   map[string]string{"app": "test"},
-				Metadata: &NodeMetadata{Labels: map[string]string{constants.TestVMLabel: "fake-vm-service"}, Namespace: "fake-ns", WorkloadName: "fake-name"},
-			},
-		},
-		{
 			name: "sidecar",
 			proxy: &Proxy{
-				ID:     "fake-name-xxxxx.fake-ns",
-				Labels: map[string]string{"app": "test"},
+				ID: "fake-name-xxxxx.fake-ns",
+				Labels: map[string]string{
+					"app":                                  "test",
+					IstioCanonicalServiceLabelName:         "fake-service",
+					IstioCanonicalServiceRevisionLabelName: "fake-ver",
+				},
 				Metadata: &NodeMetadata{
 					Labels:       map[string]string{"app": "test"},
 					Namespace:    "fake-ns",
@@ -933,9 +930,6 @@ func TestResourceAttributes(t *testing.T) {
 					ClusterID:    "fake-cluster",
 				},
 				ConfigNamespace: "fake-ns",
-				XdsNode: &core.Node{
-					Cluster: "fake-service",
-				},
 			},
 			expected: &otlpcommon.KeyValueList{
 				Values: []*otlpcommon.KeyValue{
@@ -948,12 +942,20 @@ func TestResourceAttributes(t *testing.T) {
 						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-ns"}},
 					},
 					{
+						Key:   "k8s.deployment.name",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
+					},
+					{
 						Key:   "k8s.pod.name",
 						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name-xxxxx"}},
 					},
 					{
 						Key:   "service.name",
 						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
+					},
+					{
+						Key:   "service.version",
+						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-ver"}},
 					},
 				},
 			},
@@ -966,4 +968,52 @@ func TestResourceAttributes(t *testing.T) {
 			assert.Equal(t, tc.expected, got)
 		})
 	}
+}
+
+func TestBaggage(t *testing.T) {
+	cases := []struct {
+		name     string
+		proxy    *Proxy
+		expected string
+	}{
+		{
+			name: "sidecar",
+			proxy: &Proxy{
+				ID: "fake-name-xxxxx.fake-ns",
+				Labels: map[string]string{
+					"app":                                  "test",
+					IstioCanonicalServiceLabelName:         "fake-service",
+					IstioCanonicalServiceRevisionLabelName: "fake-ver",
+				},
+				Metadata: &NodeMetadata{
+					Labels:       map[string]string{"app": "test"},
+					Namespace:    "fake-ns",
+					WorkloadName: "fake-name",
+					ClusterID:    "fake-cluster",
+				},
+				ConfigNamespace: "fake-ns",
+			},
+			expected: "k8s.cluster.name=fake-cluster,k8s.deployment.name=fake-name,k8s.namespace.name=fake-ns,service.name=fake-service,service.version=fake-ver",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Baggage(tc.proxy)
+			assert.Equal(t, tc.expected, orderer(got))
+		})
+	}
+}
+
+func orderer(s string) string {
+	members := strings.Split(s, ",")
+	for i, m := range members {
+		parts := strings.Split(m, ";")
+		if len(parts) >= 1 {
+			sort.Strings(parts[1:])
+			members[i] = strings.Join(parts, ";")
+		}
+	}
+	sort.Strings(members)
+	return strings.Join(members, ",")
 }

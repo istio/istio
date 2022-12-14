@@ -27,6 +27,7 @@ import (
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"go.opentelemetry.io/otel/attribute"
+	otelbaggage "go.opentelemetry.io/otel/baggage"
 	otelsemconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -1056,32 +1057,20 @@ func disableHostHeaderFallback(class networking.ListenerClass) bool {
 	return class == networking.ListenerClassSidecarInbound || class == networking.ListenerClassGateway
 }
 
-type OTelResourceSemantic string
-
-const (
-	KubernetesCluster   OTelResourceSemantic = "k8s.cluster.name"
-	KubernetesNamespace OTelResourceSemantic = "k8s.namespace.name"
-	KubernetesPod       OTelResourceSemantic = "k8s.pod.name"
-	ServiceName         OTelResourceSemantic = "service.name"
-)
-
 // resourceAttributes return semantic attributes follow OpenTelemetry specification
 // see more details here: https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/
 func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
-	// TODO(zirain): generate resource attributes for VM
-	if proxy.IsVM() {
-		return nil
-	}
-
 	podName, _ := extractProxyID(proxy)
-
+	canonicalName := proxy.Labels[IstioCanonicalServiceLabelName]
+	canonicalRevision := proxy.Labels[IstioCanonicalServiceRevisionLabelName]
 	return &otlpcommon.KeyValueList{
 		Values: []*otlpcommon.KeyValue{
 			otelKeyValue(otelsemconv.K8SClusterNameKey, proxy.Metadata.ClusterID.String()),
 			otelKeyValue(otelsemconv.K8SNamespaceNameKey, proxy.ConfigNamespace),
+			otelKeyValue(otelsemconv.K8SDeploymentNameKey, proxy.Metadata.WorkloadName),
 			otelKeyValue(otelsemconv.K8SPodNameKey, podName),
-			// this seems a little hack, but in istio it works, we do the samething for `serviceCluster` in tracing
-			otelKeyValue(otelsemconv.ServiceNameKey, proxy.XdsNode.Cluster),
+			otelKeyValue(otelsemconv.ServiceNameKey, canonicalName),
+			otelKeyValue(otelsemconv.ServiceVersionKey, canonicalRevision),
 		},
 	}
 }
@@ -1102,4 +1091,21 @@ func extractProxyID(proxy *Proxy) (string, string) {
 		return proxy.ID, ""
 	}
 	return ids[0], ids[1]
+}
+
+func Baggage(proxy *Proxy) string {
+	attrs := resourceAttributes(proxy)
+
+	members := make([]otelbaggage.Member, 0, len(attrs.Values)-1)
+	for _, attr := range attrs.Values {
+		if attr.Key == string(otelsemconv.K8SPodNameKey) {
+			// k8s.pod.name is unneeded in baggage
+			continue
+		}
+		m, _ := otelbaggage.NewMember(attr.Key, attr.GetValue().GetStringValue())
+		members = append(members, m)
+	}
+
+	b, _ := otelbaggage.New(members...)
+	return b.String()
 }
