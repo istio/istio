@@ -22,7 +22,7 @@ import (
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -90,7 +90,7 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 
 	// wait for a ready pod
 	if err := retry.UntilSuccess(func() error {
-		pods, err := cluster.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.TODO(), v1.ListOptions{
+		pods, err := cluster.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: eastWestIngressIstioLabel,
 		})
 		if err != nil {
