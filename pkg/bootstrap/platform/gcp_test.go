@@ -253,7 +253,7 @@ func TestGCPMetadata(t *testing.T) {
 					GCPMetadata = ""
 				}
 			}
-			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}
 }
@@ -285,7 +285,6 @@ func TestGCPQuotaProject(t *testing.T) {
 			if got, want := val, v.wantProject; got != want {
 				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
 			}
-			gcpEnvOnce = sync.Once{}
 		})
 	}
 }
@@ -356,7 +355,7 @@ func TestMetadataCache(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
-			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}
 }
