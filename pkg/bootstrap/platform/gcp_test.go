@@ -359,3 +359,30 @@ func TestMetadataCache(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultPort(t *testing.T) {
+	tests := []struct {
+		host string
+		want string
+	}{
+		{
+			host: "foo",
+			want: "foo:80",
+		},
+		{
+			host: "foo:80",
+			want: "foo:80",
+		},
+		{
+			host: "foo:8080",
+			want: "foo:8080",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			if got := defaultPort(tt.host, "80"); got != tt.want {
+				t.Errorf("defaultPort() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
