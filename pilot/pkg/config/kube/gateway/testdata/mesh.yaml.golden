@@ -31,7 +31,8 @@ spec:
   hosts:
   - foo.example.com
   http:
-  - route:
+  - name: default.dual.0
+    route:
     - destination:
         host: example.default.svc.domain.suffix
         port:
@@ -52,7 +53,8 @@ spec:
   hosts:
   - example.default.svc.domain.suffix
   http:
-  - route:
+  - name: default.dual.0
+    route:
     - destination:
         host: example.default.svc.domain.suffix
         port:
@@ -80,12 +82,14 @@ spec:
     match:
     - uri:
         prefix: /path
+    name: default.header.0
     route:
     - destination:
         host: echo.default.svc.domain.suffix
         port:
           number: 80
-  - route:
+  - name: default.echo.0
+    route:
     - destination:
         host: echo.default.svc.domain.suffix
         port:

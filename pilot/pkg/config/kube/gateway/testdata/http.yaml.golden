@@ -48,6 +48,7 @@ spec:
           exact: some-value
       uri:
         prefix: /get
+    name: default.http.0
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -86,6 +87,7 @@ spec:
           exact: some-value
       uri:
         prefix: /get
+    name: default.http.0
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -110,6 +112,7 @@ spec:
   - match:
     - uri:
         prefix: /second
+    name: default.http2.0
     route:
     - destination:
         host: httpbin-second.default.svc.domain.suffix
@@ -118,6 +121,7 @@ spec:
   - match:
     - uri:
         prefix: /
+    name: default.http2.1
     route:
     - destination:
         host: httpbin-wildcard.default.svc.domain.suffix
@@ -142,6 +146,7 @@ spec:
   - match:
     - uri:
         prefix: /original
+    name: default.rewrite.0
     rewrite:
       authority: new.example.com
       uri: /replacement
@@ -154,16 +159,19 @@ spec:
       host: httpbin-mirror.default.svc.domain.suffix
       port:
         number: 80
+    name: default.mirror.0
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
           number: 80
-  - redirect:
+  - name: default.redirect.0
+    redirect:
       port: 8080
       redirectCode: 302
       scheme: https
-  - route:
+  - name: default.rewrite.1
+    route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
