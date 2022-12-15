@@ -27,7 +27,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -135,7 +135,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
+				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
 					return nil
