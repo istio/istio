@@ -1112,6 +1112,8 @@ type EgressGatewayConfig struct {
 	Zvpn *ZeroVPNConfig `protobuf:"bytes,19,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
 	// Deprecated: Do not use.
 	Tolerations []*structpb.Struct `protobuf:"bytes,20,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	// K8s topology spread constraints.
+	TopologySpreadConstraints []*structpb.Struct `protobuf:"bytes,29,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Do not use.
@@ -1296,6 +1298,13 @@ func (x *EgressGatewayConfig) GetZvpn() *ZeroVPNConfig {
 func (x *EgressGatewayConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
+	}
+	return nil
+}
+
+func (x *EgressGatewayConfig) GetTopologySpreadConstraints() []*structpb.Struct {
+	if x != nil {
+		return x.TopologySpreadConstraints
 	}
 	return nil
 }
@@ -2123,11 +2132,13 @@ type IngressGatewayConfig struct {
 	RollingMaxUnavailable *IntOrString `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	ExternalTrafficPolicy string       `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
 	// Deprecated: Do not use.
-	Tolerations          []*structpb.Struct    `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
-	IngressPorts         []*structpb.Struct    `protobuf:"bytes,36,rep,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
-	AdditionalContainers []*structpb.Struct    `protobuf:"bytes,37,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
-	ConfigVolumes        []*structpb.Struct    `protobuf:"bytes,38,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
-	RunAsRoot            *wrapperspb.BoolValue `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
+	Tolerations               []*structpb.Struct    `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	// K8s topology spread constraints.
+	TopologySpreadConstraints []*structpb.Struct    `protobuf:"bytes,48,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
+	IngressPorts              []*structpb.Struct    `protobuf:"bytes,36,rep,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
+	AdditionalContainers      []*structpb.Struct    `protobuf:"bytes,37,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
+	ConfigVolumes             []*structpb.Struct    `protobuf:"bytes,38,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
+	RunAsRoot                 *wrapperspb.BoolValue `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
 	// The injection template to use for the gateway. If not set, no injection will be performed.
 	InjectionTemplate string          `protobuf:"bytes,46,opt,name=injectionTemplate,proto3" json:"injectionTemplate,omitempty"`
 	ServiceAccount    *ServiceAccount `protobuf:"bytes,47,opt,name=serviceAccount,proto3" json:"serviceAccount,omitempty"`
@@ -2353,6 +2364,13 @@ func (x *IngressGatewayConfig) GetExternalTrafficPolicy() string {
 func (x *IngressGatewayConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
+	}
+	return nil
+}
+
+func (x *IngressGatewayConfig) GetTopologySpreadConstraints() []*structpb.Struct {
+	if x != nil {
+		return x.TopologySpreadConstraints
 	}
 	return nil
 }

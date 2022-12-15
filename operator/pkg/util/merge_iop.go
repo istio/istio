@@ -103,6 +103,7 @@ type ingressGatewayConfig struct {
 	SecretVolumes                    []*v1alpha12.SecretVolume             `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
 	ServiceAnnotations               map[string]any                        `json:"serviceAnnotations" patchStrategy:"merge"`
 	Tolerations                      []map[string]any                      `json:"tolerations" patchStrategy:"replace"`
+	TopologySpreadConstraints        []map[string]any                      `json:"topologySpreadConstraints" patchStrategy:"replace"`
 	IngressPorts                     []map[string]any                      `json:"ingressPorts" patchStrategy:"replace"`
 	AdditionalContainers             []map[string]any                      `json:"additionalContainers" patchStrategy:"replace"`
 	ConfigVolumes                    []map[string]any                      `json:"configVolumes" patchStrategy:"replace"`
@@ -125,6 +126,7 @@ type egressGatewayConfig struct {
 	Resources                        *resources                `json:"resources" patchStrategy:"merge"`
 	SecretVolumes                    []*v1alpha12.SecretVolume `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
 	Tolerations                      []map[string]any          `json:"tolerations" patchStrategy:"replace"`
+	TopologySpreadConstraints        []map[string]any          `json:"topologySpreadConstraints" patchStrategy:"replace"`
 	ConfigVolumes                    []map[string]any          `json:"configVolumes" patchStrategy:"replace"`
 	AdditionalContainers             []map[string]any          `json:"additionalContainers" patchStrategy:"replace"`
 	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`

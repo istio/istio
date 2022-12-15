@@ -248,6 +248,8 @@ message EgressGatewayConfig {
 
   repeated google.protobuf.Struct tolerations = 20 [deprecated=true];
 
+  repeated google.protobuf.Struct topologySpreadConstraints = 29;
+
   // K8s rolling update strategy
   IntOrString rollingMaxSurge = 21 [deprecated=true];
 
@@ -265,7 +267,7 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  // Next available 30.
 }
 
 // Configuration for gateways.
@@ -554,6 +556,8 @@ message IngressGatewayConfig {
 
   repeated google.protobuf.Struct tolerations = 35 [deprecated=true];
 
+  repeated google.protobuf.Struct topologySpreadConstraints = 48;
+
   repeated google.protobuf.Struct ingressPorts = 36;
 
   repeated google.protobuf.Struct additionalContainers = 37;
@@ -567,7 +571,7 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  // Next available 49.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
