@@ -74,7 +74,8 @@ spec:
   hosts:
   - domain.example
   http:
-  - route:
+  - name: default.http.0
+    route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:

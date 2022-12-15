@@ -85,7 +85,8 @@ spec:
   hosts:
   - first.domain.example
   http:
-  - route:
+  - name: default.invalid-backendRef-kind.0
+    route:
     - destination: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -103,7 +104,8 @@ spec:
   hosts:
   - third.domain.example
   http:
-  - route:
+  - name: default.invalid-backendRef-mixed.0
+    route:
     - destination:
         host: nonexistent.default.svc.domain.suffix
         port:
@@ -132,7 +134,8 @@ spec:
   hosts:
   - second.domain.example
   http:
-  - route:
+  - name: default.invalid-backendRef-notfound.0
+    route:
     - destination:
         host: nonexistent.default.svc.domain.suffix
         port:
@@ -159,4 +162,5 @@ spec:
       host: httpbin.default.svc.domain.suffix
       port:
         number: 80
+    name: default.no-backend.0
 ---
