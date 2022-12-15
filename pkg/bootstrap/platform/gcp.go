@@ -385,10 +385,19 @@ func isMetadataEndpointAccessible() bool {
 	if host == "" {
 		host = metadataIP
 	}
-	_, err := net.DialTimeout("tcp", host, 5*time.Second)
+	_, err := net.DialTimeout("tcp", defaultPort(host, "80"), 5*time.Second)
 	if err != nil {
 		log.Warnf("cannot reach the Google Instance metadata endpoint %v", err)
 		return false
 	}
 	return true
+}
+
+// defaultPort appends the default port, if a port is not already present
+func defaultPort(hostMaybePort, dp string) string {
+	_, _, err := net.SplitHostPort(hostMaybePort)
+	if err != nil {
+		return net.JoinHostPort(hostMaybePort, dp)
+	}
+	return hostMaybePort
 }
