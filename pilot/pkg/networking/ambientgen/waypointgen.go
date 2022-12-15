@@ -86,7 +86,7 @@ func (p *WaypointGenerator) Generate(proxy *model.Proxy, w *model.WatchedResourc
 			})
 		}
 		out = resources
-		//out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
+		// out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
 		waypointClusters := p.buildClusters(proxy, req.Push)

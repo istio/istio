@@ -80,7 +80,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 		return nil, err
 	}
 	pod := pods[0]
-	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15006)
+	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
 	if err != nil {
 		return nil, err
 	}
