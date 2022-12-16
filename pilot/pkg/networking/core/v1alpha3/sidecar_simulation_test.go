@@ -27,6 +27,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1592,30 +1593,42 @@ const (
 )
 
 type Configer interface {
-	Config(variant string) string
+	Config(t *testing.T, variant string) string
 }
 
 type vsArgs struct {
 	Namespace string
 	Match     string
 	Matches   []string
+	GwMatches []types.NamespacedName
 	Dest      string
 	Port      int
 	PortMatch int
 	Time      string
 }
 
-func (args vsArgs) Config(variant string) string {
+func (args vsArgs) Config(t *testing.T, variant string) string {
 	if args.Time == "" {
 		args.Time = TimeBase
 	}
 
-	if args.PortMatch != 0 {
-		// TODO(v0.4.2) test port match
-		variant = "virtualservice"
-	}
 	if args.Matches == nil {
 		args.Matches = []string{args.Match}
+	}
+	if variant == "httproute" {
+		if args.GwMatches == nil {
+			args.GwMatches = make([]types.NamespacedName, 0, len(args.Matches))
+			for _, m := range args.Matches {
+				spl := strings.Split(m, ".")
+				if len(spl) != 5 {
+					t.Skipf("unsupported match: %v", spl)
+				}
+				args.GwMatches = append(args.GwMatches, types.NamespacedName{
+					Namespace: spl[1],
+					Name:      spl[0],
+				})
+			}
+		}
 	}
 	switch variant {
 	case "httproute":
@@ -1627,17 +1640,13 @@ metadata:
   creationTimestamp: "{{.Time}}"
 spec:
   parentRefs:
-{{- range $val := .Matches }}
-  - kind: ServiceEntry
-    group: networking.istio.io
-    name: "{{$val}}"
+{{- range $val := .GwMatches }}
+  - kind: Service
+    name: "{{$val.Name}}"
+    namespace: "{{$val.Namespace}}"
 {{ with $.PortMatch }}
     port: {{.}}
 {{ end }}
-{{ end }}
-  hostnames:
-{{- range $val := .Matches }}
-  - "{{$val}}"
 {{ end }}
   rules:
   - backendRefs:
@@ -1681,7 +1690,7 @@ type scArgs struct {
 	Egress    []string
 }
 
-func (args scArgs) Config(variant string) string {
+func (args scArgs) Config(t *testing.T, variant string) string {
 	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -1782,57 +1791,57 @@ spec:
 			name: "unknown port 80",
 			cfg: []Configer{vsArgs{
 				Namespace: "default",
-				Match:     "foo.com",
-				Dest:      "foo.com",
+				Match:     "foo.default.svc.cluster.local",
+				Dest:      "foo.default.svc.cluster.local",
 			}},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
-				"foo.com": {"outbound|80||foo.com"},
+				"foo.default.svc.cluster.local": {"outbound|80||foo.default.svc.cluster.local"},
 			},
 		},
 		{
 			name: "unknown port 8080",
 			cfg: []Configer{vsArgs{
 				Namespace: "default",
-				Match:     "foo.com",
-				Dest:      "foo.com",
+				Match:     "foo.default.svc.cluster.local",
+				Dest:      "foo.default.svc.cluster.local",
 			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
 			expected: map[string][]string{
-				"default.com": nil,
+				"foo.default.svc.cluster.local": nil,
 			},
 		},
 		{
 			name: "unknown port 8080 match 8080",
 			cfg: []Configer{vsArgs{
 				Namespace: "default",
-				Match:     "foo.com",
-				Dest:      "foo.com",
+				Match:     "foo.default.svc.cluster.local",
+				Dest:      "foo.default.svc.cluster.local",
 				PortMatch: 8080,
 			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
 			expected: map[string][]string{
-				"foo.com": nil,
+				"foo.default.svc.cluster.local": nil,
 			},
 		},
 		{
 			name: "unknown port 8080 dest 8080 ",
 			cfg: []Configer{vsArgs{
 				Namespace: "default",
-				Match:     "foo.com",
-				Dest:      "foo.com",
+				Match:     "foo.default.svc.cluster.local",
+				Dest:      "foo.default.svc.cluster.local",
 				Port:      8080,
 			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
 			expected: map[string][]string{
-				"default.com": nil,
+				"foo.default.svc.cluster.local": nil,
 			},
 		},
 		{
@@ -2377,12 +2386,12 @@ spec:
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "default",
-					Match:     "a.example.org",
+					Match:     "foo.default.svc.cluster.local",
 					Dest:      "example.com",
 				},
 				scArgs{
 					Namespace: "default",
-					Egress:    []string{"*/a.example.com"},
+					Egress:    []string{"*/foo.default.svc.cluster.local"},
 				},
 			},
 			proxy:     proxy("default"),
@@ -2426,7 +2435,7 @@ spec:
 				t.Run(tt.name, func(t *testing.T) {
 					cfg := knownServices
 					for _, tc := range tt.cfg {
-						cfg = cfg + "\n---\n" + tc.Config(variant)
+						cfg = cfg + "\n---\n" + tc.Config(t, variant)
 					}
 					istio, kube, err := crd.ParseInputs(cfg)
 					if err != nil {
