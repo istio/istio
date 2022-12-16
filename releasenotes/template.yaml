@@ -17,7 +17,6 @@ kind:
 # - traffic-management
 # - security
 # - telemetry
-# - extensibility
 # - installation
 # - istioctl
 # - documentation
