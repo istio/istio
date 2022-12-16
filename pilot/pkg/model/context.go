@@ -1202,7 +1202,7 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONE() bool {
-	return features.EnableHBONE && bool(node.Metadata.EnableHBONE)
+	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
 }
 
 type GatewayController interface {

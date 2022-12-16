@@ -421,7 +421,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		// Proxyless client cannot handle tunneling, even if the server can
 		supportsTunnel = false
 	}
-	if !features.EnableHBONE {
+
+	if !b.proxy.EnableHBONE() {
 		supportsTunnel = false
 	}
 
