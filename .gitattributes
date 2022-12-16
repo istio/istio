@@ -11,3 +11,4 @@
 go.sum merge=union
 vendor/**  linguist-vendored
 common/**  linguist-vendored
+archive/**  linquist-vendored
