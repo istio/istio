@@ -45,6 +45,11 @@ var (
 	errNoWebhookWithName = errors.New("webhook configuration did not contain webhook with target name")
 )
 
+var updateFn = func(client admissionregistrationv1client.MutatingWebhookConfigurationInterface, config *v1.MutatingWebhookConfiguration) error {
+	_, err := client.Update(context.Background(), config, metav1.UpdateOptions{})
+	return err
+}
+
 // WebhookCertPatcher listens for webhooks on specified revision and patches their CA bundles
 type WebhookCertPatcher struct {
 	client kubernetes.Interface
@@ -159,8 +164,8 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 
 	if updated {
 		// For conflicts, do not remove the item from queue, but rely on in-place retries with backoff.
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			_, err = client.Update(context.Background(), config, metav1.UpdateOptions{})
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			err = updateFn(client, config)
 			reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateConflict)
 			return err
 		})

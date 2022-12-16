@@ -21,7 +21,11 @@ import (
 	"testing"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -56,6 +60,19 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	wrongRevisionLabel := map[string]string{label.IoIstioRev.Name: wrongRevision}
 	watcher := &keycertbundle.Watcher{}
 	watcher.SetAndNotify(nil, nil, caBundle0)
+	conflictErr := errors.NewConflict(schema.GroupResource{Resource: "webhookconfig"}, "other", nil)
+	retryCount := 0
+	updateFn = func(client admissionregistrationv1client.MutatingWebhookConfigurationInterface, config *v1.MutatingWebhookConfiguration) error {
+		retryCount++
+		if config.Name == "conflict-config" {
+			return conflictErr
+		}
+		if config.Name == "conflict-config-success" && retryCount < 5 {
+			return conflictErr
+		}
+		_, err := client.Update(context.Background(), config, metav1.UpdateOptions{})
+		return err
+	}
 	ts := []struct {
 		name        string
 		configs     admissionregistrationv1.MutatingWebhookConfigurationList
@@ -115,6 +132,54 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"webhook1",
 			caBundle0,
 			"",
+		},
+		{
+			"SuccessfullyPatchedConflictWithRetries",
+			admissionregistrationv1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "conflict-config-success",
+							Labels: testRevisionLabel,
+						},
+						Webhooks: []admissionregistrationv1.MutatingWebhook{
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			testRevision,
+			"conflict-config-success",
+			"webhook1",
+			caBundle0,
+			"",
+		},
+		{
+			"UnSuccessfulPatchingWithConflict",
+			admissionregistrationv1.MutatingWebhookConfigurationList{
+				Items: []admissionregistrationv1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "conflict-config",
+							Labels: testRevisionLabel,
+						},
+						Webhooks: []admissionregistrationv1.MutatingWebhook{
+							{
+								Name:         "webhook1",
+								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
+							},
+						},
+					},
+				},
+			},
+			testRevision,
+			"conflict-config",
+			"webhook1",
+			caBundle0,
+			conflictErr.Error(),
 		},
 		{
 			"Prefix",
