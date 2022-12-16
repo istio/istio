@@ -469,7 +469,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			port := ServiceInstancePort{
 				Name:       i.Port.Name,
 				Port:       i.Port.Number,
-				TargetPort: i.Port.Number, // No targetPort support in the API
+				TargetPort: findTargetPort(i.Port.Number, lb.node.ServiceInstances),
 				Protocol:   protocol.Parse(i.Port.Protocol),
 			}
 			bindtoPort := getBindToPort(i.CaptureMode, lb.node)
@@ -524,6 +524,16 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 	})
 
 	return chainConfigs
+}
+
+func findTargetPort(svcPort uint32, serviceInstances []*model.ServiceInstance) uint32 {
+	for _, instance := range serviceInstances {
+		if uint32(instance.ServicePort.Port) == svcPort {
+			return instance.Endpoint.EndpointPort
+		}
+	}
+
+	return svcPort
 }
 
 // getBindToPort determines whether we should bind to port based on the chain-specific config and the proxy
