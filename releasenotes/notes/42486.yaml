@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+issue:
+- 42154
+releaseNotes:
+- |
+  **Fixed** an issue that wasm module still in use will be removed.
