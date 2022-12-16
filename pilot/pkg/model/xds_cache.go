@@ -21,7 +21,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"

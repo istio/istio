@@ -9,8 +9,8 @@ exclude k8s.io/kubernetes v1.13.0
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 require (
-	cloud.google.com/go/compute/metadata v0.2.2
-	cloud.google.com/go/monitoring v1.9.0
+	cloud.google.com/go/compute/metadata v0.2.3
+	cloud.google.com/go/monitoring v1.9.1
 	cloud.google.com/go/security v1.10.0
 	cloud.google.com/go/trace v1.4.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2
@@ -24,7 +24,7 @@ require (
 	github.com/containernetworking/plugins v1.1.1
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/cli v20.10.21+incompatible
+	github.com/docker/cli v20.10.22+incompatible
 	github.com/envoyproxy/go-control-plane v0.10.3-0.20221215163201-b9a8bb7af6f7
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
@@ -45,7 +45,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-version v1.6.0
-	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/kr/pretty v0.3.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.25
@@ -55,12 +55,12 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/buildkit v0.10.6
-	github.com/onsi/gomega v1.24.1
+	github.com/onsi/gomega v1.24.2
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
-	github.com/prometheus/common v0.38.0
+	github.com/prometheus/common v0.39.0
 	github.com/prometheus/prometheus v0.36.2
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.6.1
@@ -71,14 +71,14 @@ require (
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/proto/otlp v0.19.0
 	go.uber.org/atomic v1.10.0
-	go.uber.org/multierr v1.8.0
+	go.uber.org/multierr v1.9.0
 	golang.org/x/net v0.4.0
 	golang.org/x/oauth2 v0.3.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.3.0
 	golang.org/x/time v0.3.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/api v0.104.0
+	google.golang.org/api v0.105.0
 	google.golang.org/genproto v0.0.0-20221207170731-23e4bf6bdc37
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
@@ -106,15 +106,15 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.13.0 // indirect
+	cloud.google.com/go/compute v1.14.0 // indirect
 	cloud.google.com/go/iam v0.8.0 // indirect
 	cloud.google.com/go/longrunning v0.3.0 // indirect
-	github.com/onsi/ginkgo/v2 v2.5.1 // indirect
+	github.com/onsi/ginkgo/v2 v2.6.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
 
 require (
-	cloud.google.com/go v0.105.0 // indirect
+	cloud.google.com/go v0.107.0 // indirect
 	cloud.google.com/go/logging v1.6.1
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/toml v1.1.0 // indirect
@@ -188,7 +188,7 @@ require (
 	github.com/marten-seemann/qtls-go1-19 v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.2 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mdlayher/netlink v1.4.1 // indirect
 	github.com/mdlayher/socket v0.0.0-20210307095302-262dc9984e00 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
@@ -231,10 +231,10 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
-	golang.org/x/mod v0.6.0 // indirect
+	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/term v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
-	golang.org/x/tools v0.2.0 // indirect
+	golang.org/x/tools v0.4.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
