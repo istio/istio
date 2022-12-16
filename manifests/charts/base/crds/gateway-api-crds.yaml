@@ -1566,14 +1566,13 @@ spec:
                   - protocol
                   type: object
                 maxItems: 64
-                minItems: 1
+                minItems: 0
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
             required:
             - gatewayClassName
-            - listeners
             type: object
           status:
             default:
