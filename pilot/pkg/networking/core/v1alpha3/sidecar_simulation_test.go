@@ -2404,27 +2404,27 @@ spec:
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "default",
-					Matches:   []string{"a.example.org", "b.example.org"},
+					Matches:   []string{"known.default.svc.cluster.local", "alt-known.default.svc.cluster.local"},
 					Dest:      "example.com",
 				},
 				scArgs{
 					Namespace: "default",
-					Egress:    []string{"*/known.default.svc.cluster.local", "*/a.example.org"},
+					Egress:    []string{"*/known.default.svc.cluster.local"},
 				},
 			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
 				// imported
-				"a.example.org": {"outbound|80||example.com"},
+				"known.default.svc.cluster.local": {"outbound|80||example.com"},
 				// Not imported but we include it anyway
-				"b.example.org": {"outbound|80||example.com"},
+				"alt-known.default.svc.cluster.local": {"outbound|80||example.com"},
 			},
 			expectedGateway: map[string][]string{
 				// imported
-				"a.example.org": {"outbound|80||example.com"},
-				// Not imported but we include it anyway
-				"b.example.org": nil,
+				"known.default.svc.cluster.local": {"outbound|80||example.com"},
+				// Not imported
+				"alt-known.default.svc.cluster.local": nil,
 			},
 		},
 	}
@@ -2467,10 +2467,6 @@ spec:
 						got := gotHosts[wk]
 						if !reflect.DeepEqual(wv, got) {
 							t.Errorf("%q: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))
-							t.Log(xdstest.Dump(t, vh))
-							for k, v := range gotHosts {
-								t.Logf("%q: %v", k, v)
-							}
 						}
 					}
 				})
