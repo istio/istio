@@ -2301,7 +2301,7 @@ spec:
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "not-default",
-					Match:     "*.cluster.local",
+					Match:     "*.default.svc.cluster.local",
 					Dest:      "arbitrary.example.com",
 				},
 				vsArgs{
@@ -2311,14 +2311,14 @@ spec:
 				},
 				scArgs{
 					Namespace: "not-default",
-					Egress:    []string{"not-default/*.cluster.local", "not-default/not-default.example.org"},
+					Egress:    []string{"not-default/*.default.svc.cluster.local", "not-default/not-default.not-default.svc.cluster.local"},
 				},
 			},
 			proxy:     proxy("not-default"),
 			routeName: "80",
 			expected: map[string][]string{
-				// even though there is an *.cluster.local, since we do not import it we should create a wildcard matcher
-				"*.cluster.local": {"outbound|80||arbitrary.example.com"},
+				// even though there is an *.svc.cluster.local, since we do not import it we should create a wildcard matcher
+				"*.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
 				// We did not import this, shouldn't show up
 				"explicit.default.svc.cluster.local": nil,
 			},
