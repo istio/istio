@@ -22,7 +22,7 @@ import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/pkg/util/configdump"
 )
 
 // Comparator diffs between a config dump from Istiod and one from Envoy

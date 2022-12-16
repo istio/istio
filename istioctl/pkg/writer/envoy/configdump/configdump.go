@@ -24,8 +24,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
+	"istio.io/istio/pkg/util/configdump"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 

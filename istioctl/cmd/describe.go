@@ -47,7 +47,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/tag"
-	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -63,6 +62,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/configdump"
 	"istio.io/pkg/log"
 )
 

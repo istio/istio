@@ -23,9 +23,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/authz"
-	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/configdump"
 	"istio.io/pkg/log"
 )
 
