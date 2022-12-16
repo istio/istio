@@ -173,6 +173,7 @@ func newProxyCommand() *cobra.Command {
 				return err
 			}
 			wait()
+			agent.Close()
 			return nil
 		},
 	}

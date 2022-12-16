@@ -564,7 +564,7 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	return nil
 }
 
-func (a *Agent) close() {
+func (a *Agent) Close() {
 	if a.xdsProxy != nil {
 		a.xdsProxy.close()
 	}
