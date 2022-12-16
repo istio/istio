@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,7 +61,9 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	watcher.SetAndNotify(nil, nil, caBundle0)
 	conflictErr := errors.NewConflict(schema.GroupResource{Resource: "webhookconfig"}, "other", nil)
 	retryCount := 0
-	updateFn = func(client admissionregistrationv1client.MutatingWebhookConfigurationInterface, config *v1.MutatingWebhookConfiguration) error {
+	updateFn = func(client admissionregistrationv1client.MutatingWebhookConfigurationInterface,
+		config *admissionregistrationv1.MutatingWebhookConfiguration,
+	) error {
 		retryCount++
 		if config.Name == "conflict-config" {
 			return conflictErr
