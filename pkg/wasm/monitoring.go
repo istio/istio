@@ -41,6 +41,11 @@ var (
 		"number of Wasm remote fetch cache entries.",
 	)
 
+	wasmInUseEntries = monitoring.NewGauge(
+		"wasm_inuse_entries",
+		"number of Wasm entries in use.",
+	)
+
 	wasmCacheLookupCount = monitoring.NewSum(
 		"wasm_cache_lookup_count",
 		"number of Wasm remote fetch cache lookups.",

@@ -624,7 +624,7 @@ func TestWasmCache(t *testing.T) {
 			if c.wasmModuleExpiry != 0 {
 				options.ModuleExpiry = c.wasmModuleExpiry
 			}
-			cache := NewLocalFileCache(tmpDir, options)
+			cache := NewLocalFileCache(tmpDir, options, nil)
 			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
 
@@ -803,7 +803,7 @@ func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCII
 
 func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache := NewLocalFileCache(tmpDir, defaultOptions())
+	cache := NewLocalFileCache(tmpDir, defaultOptions(), nil)
 	defer close(cache.stopChan)
 
 	gotNumRequest := 0
@@ -858,7 +858,7 @@ func TestAllInsecureServer(t *testing.T) {
 	tmpDir := t.TempDir()
 	options := defaultOptions()
 	options.InsecureRegistries = sets.New("*")
-	cache := NewLocalFileCache(tmpDir, options)
+	cache := NewLocalFileCache(tmpDir, options, nil)
 	defer close(cache.stopChan)
 
 	// Set up a fake registry for OCI images with TLS Server

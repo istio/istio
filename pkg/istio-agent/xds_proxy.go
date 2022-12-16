@@ -144,7 +144,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 
-	cache := wasm.NewLocalFileCache(constants.IstioDataDir, ia.cfg.WASMOptions)
+	cache := wasm.NewLocalFileCache(constants.IstioDataDir, ia.cfg.WASMOptions, wasm.NewLocalModuleGetter(ia.proxyConfig.ProxyAdminPort, localHostAddr))
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
 		istiodSAN:             ia.cfg.IstiodSAN,

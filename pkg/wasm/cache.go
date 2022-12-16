@@ -72,6 +72,8 @@ type LocalFileCache struct {
 	cacheOptions
 	// stopChan currently is only used by test
 	stopChan chan struct{}
+
+	moduleGetter ModuleGetter
 }
 
 var _ Cache = &LocalFileCache{}
@@ -145,7 +147,7 @@ func (o cacheOptions) allowInsecure(host string) bool {
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, options Options) *LocalFileCache {
+func NewLocalFileCache(dir string, options Options, moduleGetter ModuleGetter) *LocalFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
 	cacheOptions := cacheOptions{Options: options}
@@ -156,6 +158,7 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 		dir:          dir,
 		cacheOptions: cacheOptions.sanitize(),
 		stopChan:     make(chan struct{}),
+		moduleGetter: moduleGetter,
 	}
 
 	go func() {
@@ -416,9 +419,21 @@ func (c *LocalFileCache) purge() {
 	for {
 		select {
 		case <-ticker.C:
+			usingModules := sets.New[string]()
+			if c.moduleGetter != nil {
+				if m, err := c.moduleGetter.ListUsingModules(); err == nil {
+					usingModules = m
+					wasmInUseEntries.Record(float64(m.Len()))
+				} else {
+					wasmLog.Warnf("list module fail: %v", err)
+				}
+			}
+			wasmLog.Debugf("using modules: %v", usingModules.UnsortedList())
+
 			c.mux.Lock()
 			for k, m := range c.modules {
-				if !m.expired(c.ModuleExpiry) {
+				if usingModules.Contains(m.modulePath) ||
+					!m.expired(c.ModuleExpiry) {
 					continue
 				}
 				// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
