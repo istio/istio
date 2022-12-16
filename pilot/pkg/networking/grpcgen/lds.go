@@ -298,6 +298,11 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				if features.PersistentSessionLabel != "" {
 					sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel]
 					if sessionCookie != "" {
+						cookieNamePath := strings.Split(sessionCookie, ":")
+						cookiePath := "/"
+						if len(cookieNamePath) > 1 {
+							cookiePath = cookieNamePath[1]
+						}
 						filters = append(filters, &hcm.HttpFilter{
 							Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
 							ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -306,9 +311,9 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 										Name: "envoy.http.stateful_session.cookie",
 										TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 											Cookie: &httpv3.Cookie{
-												Path: "/",
+												Path: cookiePath,
 												Ttl:  &durationpb.Duration{Seconds: 120},
-												Name: sessionCookie,
+												Name: cookieNamePath[0],
 											},
 										}),
 									},
