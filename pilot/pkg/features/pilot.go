@@ -692,6 +692,9 @@ var (
 
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
+
+	EnableGatewayAuthnFilter = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_AUTHN_FILTER", true,
+	"If enabled, pilot will configure istio_authn filter at gateway. To be disabled if gateway version < 1.17").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
