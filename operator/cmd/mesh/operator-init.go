@@ -91,10 +91,6 @@ func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-
-	if oiArgs.common.revision == "default" {
-		oiArgs.common.revision = ""
-	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
 	already, _ := isControllerInstalled(kubeClient.Kube(), oiArgs.common.operatorNamespace, oiArgs.common.revision)
 	if already {
