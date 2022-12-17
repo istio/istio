@@ -56,7 +56,7 @@ func (g *LocalModuleGetter) ListUsingModules() (sets.String, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// if no ECDS in use, envoy will return 400
+		// if no ECDS in use, envoy will return 400 when request config_dump?mask=ecds_filters
 		return sets.New[string](), nil
 	}
 
