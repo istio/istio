@@ -55,7 +55,7 @@ const (
 // isControllerInstalled reports whether an operator deployment exists in the given namespace.
 func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string, revision string) (bool, error) {
 	orn := operatorResourceName
-	if revision != "" && revision != "default" {
+	if revision != "" {
 		orn += "-" + revision
 	}
 	return deploymentExists(cs, operatorNamespace, orn)
