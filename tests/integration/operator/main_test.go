@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/issues/42476").
 		RequireSingleCluster().
 		Run()
 }
