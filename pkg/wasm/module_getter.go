@@ -45,7 +45,7 @@ func NewLocalModuleGetter(adminPort int32, localhostAddr string) ModuleGetter {
 }
 
 func (g *LocalModuleGetter) ListUsingModules() (sets.String, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s:%d/config_dump", g.LocalHostAddr, g.AdminPort), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s:%d/config_dump?mask=ecds_filters", g.LocalHostAddr, g.AdminPort), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +53,11 @@ func (g *LocalModuleGetter) ListUsingModules() (sets.String, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		// if no ECDS in use, envoy will return 400
+		return sets.New[string](), nil
 	}
 
 	b, err := io.ReadAll(resp.Body)
