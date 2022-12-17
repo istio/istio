@@ -53,7 +53,6 @@ const (
 	reasonWebhookConfigNotFound = "webhook_config_not_found"
 	reasonWebhookEntryNotFound  = "webhook_entry_not_found"
 	reasonWebhookUpdateFailure  = "webhook_update_failure"
-	reasonWebhookUpdateConflict = "webhook_update_conflict"
 )
 
 func init() {

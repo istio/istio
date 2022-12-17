@@ -17,14 +17,14 @@ package webhooks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
+	"go.uber.org/atomic"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -59,21 +59,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	wrongRevisionLabel := map[string]string{label.IoIstioRev.Name: wrongRevision}
 	watcher := &keycertbundle.Watcher{}
 	watcher.SetAndNotify(nil, nil, caBundle0)
-	conflictErr := errors.NewConflict(schema.GroupResource{Resource: "webhookconfig"}, "other", nil)
-	retryCount := 0
-	updateFn = func(client admissionregistrationv1client.MutatingWebhookConfigurationInterface,
-		config *admissionregistrationv1.MutatingWebhookConfiguration,
-	) error {
-		retryCount++
-		if config.Name == "conflict-config" {
-			return conflictErr
-		}
-		if config.Name == "conflict-config-success" && retryCount < 5 {
-			return conflictErr
-		}
-		_, err := client.Update(context.Background(), config, metav1.UpdateOptions{})
-		return err
-	}
 	ts := []struct {
 		name        string
 		configs     admissionregistrationv1.MutatingWebhookConfigurationList
@@ -133,54 +118,6 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"webhook1",
 			caBundle0,
 			"",
-		},
-		{
-			"SuccessfullyPatchedConflictWithRetries",
-			admissionregistrationv1.MutatingWebhookConfigurationList{
-				Items: []admissionregistrationv1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "conflict-config-success",
-							Labels: testRevisionLabel,
-						},
-						Webhooks: []admissionregistrationv1.MutatingWebhook{
-							{
-								Name:         "webhook1",
-								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
-							},
-						},
-					},
-				},
-			},
-			testRevision,
-			"conflict-config-success",
-			"webhook1",
-			caBundle0,
-			"",
-		},
-		{
-			"UnSuccessfulPatchingWithConflict",
-			admissionregistrationv1.MutatingWebhookConfigurationList{
-				Items: []admissionregistrationv1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "conflict-config",
-							Labels: testRevisionLabel,
-						},
-						Webhooks: []admissionregistrationv1.MutatingWebhook{
-							{
-								Name:         "webhook1",
-								ClientConfig: admissionregistrationv1.WebhookClientConfig{},
-							},
-						},
-					},
-				},
-			},
-			testRevision,
-			"conflict-config",
-			"webhook1",
-			caBundle0,
-			conflictErr.Error(),
 		},
 		{
 			"Prefix",
@@ -334,4 +271,34 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWebhookPatchingQueue(t *testing.T) {
+	success := atomic.NewInt32(0)
+	retries := atomic.NewInt32(0)
+	queue := newWebhookPatcherQueue(func(key types.NamespacedName) error {
+		if key.Name == "conflict-for-ever" {
+			retries.Inc()
+			return errors.New("conflict error")
+		}
+		if key.Name == "conflict-success" {
+			retries.Inc()
+			if retries.Load() < 5 {
+				return errors.New("conflict error")
+			}
+			success.Inc()
+			return nil
+		}
+		success.Inc()
+		return nil
+	})
+	go queue.Run(test.NewStop(t))
+	retry.UntilOrFail(t, queue.HasSynced)
+	queue.Add(types.NamespacedName{Name: "success"})
+	retry.UntilOrFail(t, func() bool { return success.Load() == 1 })
+	queue.Add(types.NamespacedName{Name: "conflict-success"})
+	retry.UntilOrFail(t, func() bool { return success.Load() == 2 && retries.Load() == 5 })
+	queue.Add(types.NamespacedName{Name: "conflict-for-ever"})
+	retries = atomic.NewInt32(1)
+	retry.UntilOrFail(t, func() bool { return retries.Load() > 5 })
 }

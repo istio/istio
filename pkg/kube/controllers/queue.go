@@ -22,15 +22,18 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
+type ReconcilerFn func(key types.NamespacedName) error
+
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
 type Queue struct {
-	queue       workqueue.RateLimitingInterface
-	initialSync *atomic.Bool
-	name        string
-	maxAttempts int
-	workFn      func(key any) error
-	log         *istiolog.Scope
+	queue        workqueue.RateLimitingInterface
+	initialSync  *atomic.Bool
+	name         string
+	maxAttempts  int
+	retryForever bool
+	workFn       func(key any) error
+	log          *istiolog.Scope
 }
 
 // WithName sets a name for the queue. This is used for logging
@@ -54,8 +57,15 @@ func WithMaxAttempts(n int) func(q *Queue) {
 	}
 }
 
+// RetryForever allows the item to be retried forever.
+func RetryForever() func(q *Queue) {
+	return func(q *Queue) {
+		q.retryForever = true
+	}
+}
+
 // WithReconciler defines the handler function to handle items in the queue.
-func WithReconciler(f func(key types.NamespacedName) error) func(q *Queue) {
+func WithReconciler(f ReconcilerFn) func(q *Queue) {
 	return func(q *Queue) {
 		q.workFn = func(key any) error {
 			return f(key.(types.NamespacedName))
@@ -157,8 +167,8 @@ func (q Queue) processNextItem() bool {
 
 	err := q.workFn(key)
 	if err != nil {
-		retryCount := q.queue.NumRequeues(key)
-		if retryCount < q.maxAttempts {
+		retryCount := q.queue.NumRequeues(key) + 1
+		if q.retryForever || retryCount < q.maxAttempts {
 			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", key, retryCount, err)
 			q.queue.AddRateLimited(key)
 			// Return early, so we do not call Forget(), allowing the rate limiting to backoff
