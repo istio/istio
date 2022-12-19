@@ -1251,8 +1251,10 @@ func isEmptyFile(f string) bool {
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
-var IstioScheme = istioScheme()
-var IstioCodec = serializer.NewCodecFactory(IstioScheme)
+var (
+	IstioScheme = istioScheme()
+	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
+)
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = func() *runtime.Scheme {

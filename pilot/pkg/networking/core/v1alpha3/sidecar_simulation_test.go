@@ -26,11 +26,11 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -2272,11 +2273,11 @@ spec:
 			routeName: "80",
 			expected: map[string][]string{
 				"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
-				"*.cluster.local":             nil,
+				"*.cluster.local":                 nil,
 			},
 			expectedGateway: map[string][]string{
 				"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
-				"*.cluster.local":             nil,
+				"*.cluster.local":                 nil,
 			},
 		},
 		{
@@ -2295,14 +2296,14 @@ spec:
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
-				"known.default.svc.cluster.local":     nil,                                            // Not imported
+				"known.default.svc.cluster.local":     nil,                                                  // Not imported
 				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"}, // No change
-				"*.example.org":                 {"outbound|80||arbitrary.example.com"},
+				"*.example.org":                       {"outbound|80||arbitrary.example.com"},
 			},
 			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local":     nil,                                            // Not imported
+				"known.default.svc.cluster.local":     nil,                                                  // Not imported
 				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"}, // No change
-				"*.example.org":                 nil,                                            // Not imported
+				"*.example.org":                       nil,                                                  // Not imported
 			},
 		},
 		{
@@ -2437,11 +2438,11 @@ spec:
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(t, variant)
 					}
-					istio, kube, err := crd.ParseInputs(cfg)
+					istio, k, err := crd.ParseInputs(cfg)
 					if err != nil {
 						t.Fatal(err)
 					}
-					kubeo, err := crd.SlowConvertKindsToRuntimeObjects(kube)
+					kubeo, err := kube.SlowConvertKindsToRuntimeObjects(k)
 					if err != nil {
 						t.Fatal(err)
 					}

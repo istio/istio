@@ -15,8 +15,6 @@
 package crd
 
 import (
-	"istio.io/istio/pkg/config"
-	kubelib "istio.io/istio/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -70,33 +68,6 @@ func (in *IstioKind) DeepCopyObject() runtime.Object {
 	}
 
 	return nil
-}
-
-func SlowConvertKindsToRuntimeObjects(in []IstioKind) ([]runtime.Object, error) {
-	res := make([]runtime.Object, 0, len(in))
-	for _, o := range in {
-		if r, err := SlowConvertToRuntimeObject(&o); err != nil {
-			return nil, err
-		} else {
-			res = append(res, r)
-		}
-	}
-	return res, nil
-}
-
-// SlowConvertToRuntimeObject converts an IstioKind to a runtime.Object.
-// As the name implies, it is not efficient.
-func SlowConvertToRuntimeObject(in *IstioKind) (runtime.Object, error) {
-	by, err := config.ToJSON(in)
-	if err != nil {
-		return nil, err
-	}
-	gvk := in.GetObjectKind().GroupVersionKind()
-	obj, _, err := kubelib.IstioCodec.UniversalDeserializer().Decode(by, &gvk, nil)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
 }
 
 // IstioObject is a k8s wrapper interface for config objects
