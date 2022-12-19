@@ -2503,6 +2503,28 @@ func TestBuildGatewayListeners(t *testing.T) {
 			},
 			[]string{"10.0.0.1_443", "10.0.0.2_443"},
 		},
+		{
+			"build listener with reuse port",
+			&pilot_model.Proxy{
+				Metadata: &pilot_model.NodeMetadata{
+					ListenerReusePort: true,
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port: &networking.Port{Name: "http", Number: 8080, Protocol: "HTTP"},
+							},
+						},
+					},
+				},
+			},
+			nil,
+			[]string{"0.0.0.0_8080"},
+		},
 	}
 
 	for _, tt := range cases {
@@ -2534,6 +2556,11 @@ func TestBuildGatewayListeners(t *testing.T) {
 			for _, l := range builder.gatewayListeners {
 				if l.ConnectionBalanceConfig != nil {
 					t.Fatalf("expected connection balance config to be empty, found %v", l.ConnectionBalanceConfig)
+				}
+				if tt.node.Metadata != nil && tt.node.Metadata.ListenerReusePort == true {
+					if l.EnableReusePort.Value != true {
+						t.Fatalf("expected listener reuse port true but got %v", l.EnableReusePort.Value)
+					}
 				}
 			}
 		})

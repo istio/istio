@@ -562,6 +562,9 @@ type NodeMetadata struct {
 	// traffic interception mode at the proxy
 	InterceptionMode TrafficInterceptionMode `json:"INTERCEPTION_MODE,omitempty"`
 
+	// ListenerReusePort specifies the default configure to enable listener reuse_port option or not
+	ListenerReusePort StringBool `json:"LISTENER_REUSE_PORT,omitempty"`
+
 	// ServiceAccount specifies the service account which is running the workload.
 	ServiceAccount string `json:"SERVICE_ACCOUNT,omitempty"`
 

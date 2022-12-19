@@ -1227,6 +1227,12 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			}
 		}
 
+		enableReusePort := proto.BoolFalse
+		enableReusePortOpt := opts.proxy.Metadata.ListenerReusePort
+		if enableReusePortOpt {
+			enableReusePort = proto.BoolTrue
+		}
+
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
 			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
@@ -1236,6 +1242,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			FilterChains:            filterChains,
 			BindToPort:              bindToPort,
 			ConnectionBalanceConfig: connectionBalance,
+			EnableReusePort:         enableReusePort,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
