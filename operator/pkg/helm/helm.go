@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
+	operator_version "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
 
@@ -111,6 +112,11 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 	}
 
 	caps := *chartutil.DefaultCapabilities
+
+	// overwrite helm default capabilities
+	operatorVersion, _ := chartutil.ParseKubeVersion(operator_version.OperatorKubernetesMinSupportedVersion)
+	caps.KubeVersion = *operatorVersion
+
 	if version != nil {
 		caps.KubeVersion = chartutil.KubeVersion{
 			Version: version.GitVersion,

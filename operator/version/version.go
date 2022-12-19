@@ -22,6 +22,8 @@ import (
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
 	OperatorCodeBaseVersion = "1.17.0"
+	// OperatorKubernetesMinSupportedVersion is the minimum supported Kubernetes version
+	OperatorKubernetesMinSupportedVersion = "1.22.0"
 )
 
 var (
