@@ -7,4 +7,3 @@ releaseNotes:
   - |
     **Fixed** changed istio-cni openshift installation namespace from kube-system to istio-system to allow
     istio-cni to work with increased Openshift 4.12 security restrictions.
-    
