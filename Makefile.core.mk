@@ -39,6 +39,7 @@ export VERSION ?= 1.17-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= master-2022-12-05T19-01-23
+ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org

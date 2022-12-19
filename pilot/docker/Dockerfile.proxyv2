@@ -3,9 +3,10 @@ ARG BASE_DISTRIBUTION=debug
 
 # Version is the base image version from the TLD Makefile
 ARG BASE_VERSION=latest
+ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
 
 # The following section is used as base image if BASE_DISTRIBUTION=debug
-FROM gcr.io/istio-release/base:${BASE_VERSION} as debug
+FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} as debug
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # This image is a custom built debian11 distroless image with multiarchitecture support.
