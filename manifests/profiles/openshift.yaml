@@ -4,7 +4,7 @@ spec:
   components:
     cni:
       enabled: true
-      namespace: kube-system
+      namespace: istio-system
   values:
     cni:
       cniBinDir: /var/lib/cni/bin
