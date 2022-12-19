@@ -22,6 +22,8 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
+type ReconcilerFn func(key types.NamespacedName) error
+
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
 type Queue struct {
@@ -55,7 +57,7 @@ func WithMaxAttempts(n int) func(q *Queue) {
 }
 
 // WithReconciler defines the handler function to handle items in the queue.
-func WithReconciler(f func(key types.NamespacedName) error) func(q *Queue) {
+func WithReconciler(f ReconcilerFn) func(q *Queue) {
 	return func(q *Queue) {
 		q.workFn = func(key any) error {
 			return f(key.(types.NamespacedName))
@@ -157,7 +159,7 @@ func (q Queue) processNextItem() bool {
 
 	err := q.workFn(key)
 	if err != nil {
-		retryCount := q.queue.NumRequeues(key)
+		retryCount := q.queue.NumRequeues(key) + 1
 		if retryCount < q.maxAttempts {
 			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", key, retryCount, err)
 			q.queue.AddRateLimited(key)
