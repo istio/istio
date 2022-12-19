@@ -154,6 +154,7 @@ func newProxyCommand() *cobra.Command {
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			defer agent.Close()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
