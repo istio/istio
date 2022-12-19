@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: istio-cni 
+area: installation
 issue:
   - 42055
 releaseNotes:
