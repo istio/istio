@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -92,7 +93,7 @@ func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Que
 		// state for longer duration. Slowdown the retries, so that we do not overload kube api server and etcd.
 		controllers.WithRateLimiter(workqueue.NewItemFastSlowRateLimiter(100*time.Millisecond, 1*time.Minute, 5)),
 		// Webhook patching has to be retried forever. But the retries would be rate limited.
-		controllers.RetryForever())
+		controllers.WithMaxAttempts(math.MaxInt))
 }
 
 // Run runs the WebhookCertPatcher
