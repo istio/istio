@@ -299,6 +299,6 @@ func TestWebhookPatchingQueue(t *testing.T) {
 	queue.Add(types.NamespacedName{Name: "conflict-success"})
 	retry.UntilOrFail(t, func() bool { return success.Load() == 2 && retries.Load() == 5 })
 	queue.Add(types.NamespacedName{Name: "conflict-for-ever"})
-	retries = atomic.NewInt32(1)
+	retries.Store(1)
 	retry.UntilOrFail(t, func() bool { return retries.Load() > 5 })
 }
