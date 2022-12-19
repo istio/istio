@@ -237,11 +237,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.AddConfigDependencies(delegate)
 		}
 		for _, vs := range el.virtualServices {
-			out.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
-				Name:      vs.Name,
-				Namespace: vs.Namespace,
-			}.HashCode())
+			for _, cfg := range VirtualServiceDependencies(vs) {
+				out.AddConfigDependencies(cfg.HashCode())
+			}
 		}
 	}
 
@@ -348,13 +346,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
-			v := vs.Spec.(*networking.VirtualService)
-			out.AddConfigDependencies(ConfigKey{
-				Kind:      kind.VirtualService,
-				Name:      vs.Name,
-				Namespace: vs.Namespace,
-			}.HashCode())
+			for _, cfg := range VirtualServiceDependencies(vs) {
+				out.AddConfigDependencies(cfg.HashCode())
+			}
 
+			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
