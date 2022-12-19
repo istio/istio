@@ -17,11 +17,14 @@ package webhooks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
+	"go.uber.org/atomic"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -268,4 +271,34 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWebhookPatchingQueue(t *testing.T) {
+	success := atomic.NewInt32(0)
+	retries := atomic.NewInt32(0)
+	queue := newWebhookPatcherQueue(func(key types.NamespacedName) error {
+		if key.Name == "conflict-for-ever" {
+			retries.Inc()
+			return errors.New("conflict error")
+		}
+		if key.Name == "conflict-success" {
+			retries.Inc()
+			if retries.Load() < 5 {
+				return errors.New("conflict error")
+			}
+			success.Inc()
+			return nil
+		}
+		success.Inc()
+		return nil
+	})
+	go queue.Run(test.NewStop(t))
+	retry.UntilOrFail(t, queue.HasSynced)
+	queue.Add(types.NamespacedName{Name: "success"})
+	retry.UntilOrFail(t, func() bool { return success.Load() == 1 })
+	queue.Add(types.NamespacedName{Name: "conflict-success"})
+	retry.UntilOrFail(t, func() bool { return success.Load() == 2 && retries.Load() == 5 })
+	queue.Add(types.NamespacedName{Name: "conflict-for-ever"})
+	retries.Store(1)
+	retry.UntilOrFail(t, func() bool { return retries.Load() > 5 })
 }
