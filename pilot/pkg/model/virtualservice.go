@@ -563,3 +563,45 @@ func UseIngressSemantics(cfg config.Config) bool {
 func UseGatewaySemantics(cfg config.Config) bool {
 	return cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 }
+
+// VirtualServiceDependencies returns dependent configs of the vs,
+// for internal vs generated from gateway-api routes, it returns the parent routes,
+// otherwise it just returns the vs as is.
+func VirtualServiceDependencies(vs config.Config) []ConfigKey {
+	if !UseGatewaySemantics(vs) {
+		return []ConfigKey{
+			{
+				Kind:      kind.VirtualService,
+				Namespace: vs.Namespace,
+				Name:      vs.Name,
+			},
+		}
+	}
+
+	// synthetic vs, get internal parents
+	internalParents := strings.Split(vs.Annotations[constants.InternalParentNames], ",")
+	out := make([]ConfigKey, 0, len(internalParents))
+	for _, p := range internalParents {
+		// kind/name.namespace
+		knn := strings.Split(p, "/")
+		var k kind.Kind
+		switch knn[0] {
+		case kind.HTTPRoute.String():
+			k = kind.HTTPRoute
+		case kind.TCPRoute.String():
+			k = kind.TCPRoute
+		case kind.TLSRoute.String():
+			k = kind.TLSRoute
+		default:
+			// shouldn't happen
+			continue
+		}
+		nn := strings.Split(knn[1], ".")
+		out = append(out, ConfigKey{
+			Kind:      k,
+			Name:      nn[0],
+			Namespace: nn[1],
+		})
+	}
+	return out
+}
