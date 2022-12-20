@@ -21,6 +21,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -54,6 +55,14 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
 				c.queue.Push(func() error {
 					c.handleSelectedNamespace(endpointMode, ns.Name)
+					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
+					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
+					if features.EnableEnhancedResourceScoping {
+						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+							Full:   true,
+							Reason: []model.TriggerReason{model.NamespaceUpdate},
+						})
+					}
 					return nil
 				})
 			}
@@ -64,17 +73,21 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			newNs := new.(*v1.Namespace)
 			membershipChanged, namespaceAdded := discoveryNamespacesFilter.NamespaceUpdated(oldNs.ObjectMeta, newNs.ObjectMeta)
 			if membershipChanged {
-				var handleFunc func() error
-				if namespaceAdded {
-					handleFunc = func() error {
+				handleFunc := func() error {
+					if namespaceAdded {
 						c.handleSelectedNamespace(endpointMode, newNs.Name)
-						return nil
-					}
-				} else {
-					handleFunc = func() error {
+					} else {
 						c.handleDeselectedNamespace(kubeClient, endpointMode, newNs.Name)
-						return nil
 					}
+					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
+					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
+					if features.EnableEnhancedResourceScoping {
+						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+							Full:   true,
+							Reason: []model.TriggerReason{model.NamespaceUpdate},
+						})
+					}
+					return nil
 				}
 				c.queue.Push(handleFunc)
 			}
@@ -128,6 +141,16 @@ func (c *Controller) initMeshWatcherHandler(
 				return nil
 			})
 		}
+
+		if features.EnableEnhancedResourceScoping && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
+			c.queue.Push(func() error {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: []model.TriggerReason{model.GlobalUpdate},
+				})
+				return nil
+			})
+		}
 	})
 }
 
@@ -173,6 +196,12 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		}
 		for _, ep := range endpointSlices {
 			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+		}
+	}
+
+	if features.EnableEnhancedResourceScoping {
+		for _, handler := range c.namespaceDiscoveryHandlers {
+			handler(ns, model.EventAdd)
 		}
 	}
 
@@ -225,6 +254,12 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		}
 		for _, ep := range endpointSlices {
 			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
+		}
+	}
+
+	if features.EnableEnhancedResourceScoping {
+		for _, handler := range c.namespaceDiscoveryHandlers {
+			handler(ns, model.EventDelete)
 		}
 	}
 
