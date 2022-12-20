@@ -308,11 +308,11 @@ func StripUnusedFields(obj any) (any, error) {
 func SlowConvertKindsToRuntimeObjects(in []crd.IstioKind) ([]runtime.Object, error) {
 	res := make([]runtime.Object, 0, len(in))
 	for _, o := range in {
-		if r, err := SlowConvertToRuntimeObject(&o); err != nil {
+		r, err := SlowConvertToRuntimeObject(&o)
+		if err != nil {
 			return nil, err
-		} else {
-			res = append(res, r)
 		}
+		res = append(res, r)
 	}
 	return res, nil
 }
