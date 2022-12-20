@@ -1032,6 +1032,19 @@ func TestValidateGateway(t *testing.T) {
 			},
 			"", "tls.httpsRedirect should only be used with http servers",
 		},
+		{
+			"invalid partial wildcard",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"*bar.com"},
+						Port:  &networking.Port{Name: "tls", Number: 443, Protocol: "tls"},
+						Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+					},
+				},
+			},
+			"partial wildcard \"*bar.com\" not allowed", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -6614,6 +6627,15 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, true},
+		{"invalid partial wildcard", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"test/*a.com",
+					},
+				},
+			},
+		}, false, false},
 		{"sidecar egress duplicated with wildcarded same namespace .", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{

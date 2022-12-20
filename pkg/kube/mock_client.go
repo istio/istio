@@ -151,6 +151,10 @@ func (c MockClient) MetadataClient() metadata.Interface {
 	panic("not used in mock")
 }
 
+func (c MockClient) Shutdown() {
+	panic("not used in mock")
+}
+
 func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][]byte, error) {
 	return c.Results, nil
 }

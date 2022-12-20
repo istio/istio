@@ -126,7 +126,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", map[string]string{})
+	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -218,7 +218,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
 			g := gateway.NewController(defaultKubeClient, c, func(class config.GroupVersionKind, stop <-chan struct{}) bool {
 				return true
-			}, kube.Options{
+			}, nil, kube.Options{
 				DomainSuffix: "cluster.local",
 			})
 			gwc = g

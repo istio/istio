@@ -164,10 +164,10 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 		XdsUpdater: xdsUpdater,
 		store:      store,
 		serviceInstances: serviceInstancesStore{
-			ip2instance:     map[string][]*model.ServiceInstance{},
-			instances:       map[instancesKey]map[configKey][]*model.ServiceInstance{},
-			instancesBySE:   map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
-			instancesByHost: sets.New[string](),
+			ip2instance:            map[string][]*model.ServiceInstance{},
+			instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+			instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+			instancesByHostAndPort: sets.New[hostPort](),
 		},
 		workloadInstances: workloadinstances.NewIndex(),
 		services: serviceStore{

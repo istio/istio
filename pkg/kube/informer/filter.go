@@ -52,7 +52,7 @@ func NewFilteredSharedIndexInformer(
 
 // AddEventHandler filters incoming objects before forwarding to event handler
 func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
-	w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			if w.filterFunc != nil && !w.filterFunc(obj) {
 				return

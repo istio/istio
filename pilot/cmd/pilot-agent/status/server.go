@@ -34,7 +34,6 @@ import (
 	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
@@ -578,13 +577,12 @@ func scrapeAndWriteAgentMetrics(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var errs error
 	for _, mf := range mfs {
 		if err := enc.Encode(mf); err != nil {
-			errs = multierror.Append(errs, err)
+			return err
 		}
 	}
-	return errs
+	return nil
 }
 
 func applyHeaders(into http.Header, from http.Header, keys ...string) {

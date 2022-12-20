@@ -26,16 +26,19 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
@@ -67,6 +70,12 @@ type Controller struct {
 	namespaceInformer cache.SharedIndexInformer
 	namespaceHandler  model.EventHandler
 
+	// Gateway-api types reference secrets directly, so we need access to these
+	credentialsController credentials.MulticlusterController
+	secretHandler         model.EventHandler
+
+	// the cluster where the gateway-api controller runs
+	cluster cluster.ID
 	// domain stores the cluster domain, typically cluster.local
 	domain string
 
@@ -90,24 +99,27 @@ func NewController(
 	client kube.Client,
 	c model.ConfigStoreController,
 	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool,
+	credsController credentials.MulticlusterController,
 	options controller.Options,
 ) *Controller {
 	var ctl *status.Controller
 
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
 	gatewayController := &Controller{
-		client:            client,
-		cache:             c,
-		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
-		namespaceInformer: nsInformer,
-		domain:            options.DomainSuffix,
-		statusController:  ctl,
+		client:                client,
+		cache:                 c,
+		namespaceLister:       client.KubeInformer().Core().V1().Namespaces().Lister(),
+		namespaceInformer:     nsInformer,
+		credentialsController: credsController,
+		cluster:               options.ClusterID,
+		domain:                options.DomainSuffix,
+		statusController:      ctl,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 		waitForCRD:    waitForCRD,
 	}
 
-	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			ns := obj.(*corev1.Namespace)
 			gatewayController.namespaceEvent(nil, ns)
@@ -120,6 +132,10 @@ func NewController(
 			}
 		},
 	})
+
+	if credsController != nil {
+		credsController.AddSecretHandler(gatewayController.secretEvent)
+	}
 
 	return gatewayController
 }
@@ -219,11 +235,20 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type Namespaces: %v", err)
 	}
-	namespaces := map[string]*corev1.Namespace{}
+	namespaces := make(map[string]*corev1.Namespace, len(nsl))
 	for _, ns := range nsl {
 		namespaces[ns.Name] = ns
 	}
 	input.Namespaces = namespaces
+
+	if c.credentialsController != nil {
+		credentials, err := c.credentialsController.ForCluster(c.cluster)
+		if err != nil {
+			return fmt.Errorf("failed to get credentials: %v", err)
+		}
+		input.Credentials = credentials
+	}
+
 	output := convertResources(input)
 
 	// Handle all status updates
@@ -280,6 +305,8 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 	switch typ {
 	case gvk.Namespace:
 		c.namespaceHandler = handler
+	case gvk.Secret:
+		c.secretHandler = handler
 	}
 	// For all other types, do nothing as c.cache has been registered
 }
@@ -331,7 +358,7 @@ func (c *Controller) namespaceEvent(oldNs, newNs *corev1.Namespace) {
 	c.stateMu.RUnlock()
 
 	// If there was any overlap, then a relevant namespace label may have changed, and we trigger a
-	// push A more exact check could actually determine if the label selection result actually changed.
+	// push. A more exact check could actually determine if the label selection result actually changed.
 	// However, this is a much simpler approach that is likely to scale well enough for now.
 	if !intersection.IsEmpty() && c.namespaceHandler != nil {
 		log.Debugf("namespace labels changed, triggering namespace handler: %v", intersection.UnsortedList())
@@ -349,6 +376,30 @@ func getLabelKeys(ns *corev1.Namespace) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (c *Controller) secretEvent(name, namespace string) {
+	var impactedConfigs []model.ConfigKey
+	c.stateMu.RLock()
+	impactedConfigs = c.state.ResourceReferences[model.ConfigKey{
+		Kind:      kind.Secret,
+		Namespace: namespace,
+		Name:      name,
+	}]
+	c.stateMu.RUnlock()
+	if len(impactedConfigs) > 0 {
+		log.Debugf("secret %s/%s changed, triggering secret handler", namespace, name)
+		for _, cfg := range impactedConfigs {
+			gw := config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.KubernetesGateway,
+					Namespace:        cfg.Namespace,
+					Name:             cfg.Name,
+				},
+			}
+			c.secretHandler(gw, gw, model.EventUpdate)
+		}
+	}
 }
 
 // deepCopyStatus creates a copy of all configs, with a copy of the status field that we can mutate.

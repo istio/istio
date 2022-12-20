@@ -12,12 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package configdump
 
 import (
-	"istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 )
 
-func main() {
-	cmd.Execute()
+// GetEcdsConfigDump retrieves the extension config dump from the ConfigDump
+func (w *Wrapper) GetEcdsConfigDump() (*admin.EcdsConfigDump, error) {
+	ecdsDumpAny, err := w.getSection(ecds)
+	if err != nil {
+		return nil, err
+	}
+	ecdsDump := &admin.EcdsConfigDump{}
+	err = ecdsDumpAny.UnmarshalTo(ecdsDump)
+	if err != nil {
+		return nil, err
+	}
+	return ecdsDump, nil
 }

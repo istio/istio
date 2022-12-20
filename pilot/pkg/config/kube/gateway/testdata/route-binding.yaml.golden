@@ -104,7 +104,8 @@ spec:
   hosts:
   - '*'
   http:
-  - route:
+  - name: default.bind-all.0
+    route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
@@ -125,12 +126,14 @@ spec:
   hosts:
   - '*'
   http:
-  - route:
+  - name: default.bind-all.0
+    route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
           number: 85
-  - route:
+  - name: istio-system.same-namespace-valid.0
+    route:
     - destination:
         host: httpbin.istio-system.svc.domain.suffix
         port:
@@ -151,7 +154,8 @@ spec:
   hosts:
   - alpha.foobar.example
   http:
-  - route:
+  - name: default.section-name-cross-namespace.0
+    route:
     - destination:
         host: httpbin.default.svc.domain.suffix
         port:
@@ -172,12 +176,14 @@ spec:
   hosts:
   - '*'
   http:
-  - route:
+  - name: group-namespace1.bind-cross-namespace.0
+    route:
     - destination:
         host: httpbin.group-namespace1.svc.domain.suffix
         port:
           number: 86
-  - route:
+  - name: group-namespace2.bind-cross-namespace.0
+    route:
     - destination:
         host: httpbin.group-namespace2.svc.domain.suffix
         port:
@@ -198,7 +204,8 @@ spec:
   hosts:
   - '*'
   http:
-  - route:
+  - name: istio-system.same-namespace-valid.0
+    route:
     - destination:
         host: httpbin.istio-system.svc.domain.suffix
         port:

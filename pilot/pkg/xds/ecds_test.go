@@ -207,6 +207,17 @@ func TestECDSGenerate(t *testing.T) {
 			wantSecrets:      sets.String{},
 		},
 		{
+			name:           "non_relevant_secret_update_and_wasm_plugin",
+			proxyNamespace: "default",
+			request: &model.PushRequest{
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.WasmPlugin}, model.ConfigKey{Kind: kind.Secret}),
+			},
+			watchedResources: []string{"default.default-plugin-with-sec"},
+			wantExtensions:   sets.String{"default.default-plugin-with-sec": {}},
+			wantSecrets:      sets.String{"default-docker-credential": {}},
+		},
+		{
 			name:           "relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{

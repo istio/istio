@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // getByMessageName finds a schema by message name if it is available
@@ -493,47 +492,6 @@ func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
 				if !ok {
 					b.Fatalf("expected to find match")
 				}
-			}
-		})
-	}
-}
-
-func TestConfigsOnlyHaveKind(t *testing.T) {
-	tests := []struct {
-		name    string
-		configs sets.Set[model.ConfigKey]
-		want    bool
-	}{
-		{
-			name:    "mix",
-			configs: sets.New(model.ConfigKey{Kind: kind.Deployment}, model.ConfigKey{Kind: kind.Secret}),
-
-			want: true,
-		},
-		{
-			name:    "no secret",
-			configs: sets.New(model.ConfigKey{Kind: kind.Deployment}),
-
-			want: false,
-		},
-		{
-			name:    "only secret",
-			configs: sets.New(model.ConfigKey{Kind: kind.Secret}, model.ConfigKey{Kind: kind.Secret}),
-
-			want: true,
-		},
-		{
-			name:    "empty",
-			configs: sets.New[model.ConfigKey](),
-			want:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := model.ConfigsHaveKind(tt.configs, kind.Secret)
-			if tt.want != got {
-				t.Errorf("got %v want %v", got, tt.want)
 			}
 		})
 	}

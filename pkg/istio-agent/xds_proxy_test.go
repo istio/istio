@@ -272,7 +272,7 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
-		ia.close()
+		ia.Close()
 	})
 	proxy, err := initXdsProxy(ia)
 	if err != nil {

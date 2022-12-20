@@ -40,6 +40,7 @@ type autoServiceExportController struct {
 	client          kube.Client
 	queue           queue.Instance
 	serviceInformer cache.SharedInformer
+	serviceHandle   cache.ResourceEventHandlerRegistration
 
 	// We use this flag to short-circuit the logic and stop the controller
 	// if the CRD does not exist (or is deleted)
@@ -66,7 +67,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	log.Infof("%s starting controller", c.logPrefix())
 
 	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
-	c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.serviceHandle, _ = c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) { c.onServiceAdd(obj) },
 
 		// Do nothing on update. The controller only acts on parts of the service
@@ -111,7 +112,8 @@ func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
 		return
 	}
 	log.Infof("%s started", c.logPrefix())
-	go c.queue.Run(stopCh)
+	c.queue.Run(stopCh)
+	_ = c.serviceInformer.RemoveEventHandler(c.serviceHandle)
 }
 
 func (c *autoServiceExportController) logPrefix() string {

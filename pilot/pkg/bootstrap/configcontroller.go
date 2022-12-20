@@ -160,7 +160,8 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD, args.RegistryOptions.KubeOptions)
+		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD,
+			s.environment.CredentialsController, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
@@ -331,12 +332,12 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
+				AddRunFunction(func(leaderStop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start
 					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore, s.statusManager)
 					s.statusReporter.SetController(controller)
-					controller.Start(stop)
+					controller.Start(leaderStop)
 				}).Run(stop)
 			return nil
 		})

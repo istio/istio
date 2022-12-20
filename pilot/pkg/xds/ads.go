@@ -613,7 +613,7 @@ func setTopologyLabels(proxy *model.Proxy) {
 		localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
 	} else {
 		// If no service instances(this maybe common for a pure client), respect LocalityLabel
-		localityStr = proxy.Metadata.Labels[model.LocalityLabel]
+		localityStr = proxy.Labels[model.LocalityLabel]
 	}
 	if localityStr != "" {
 		proxy.Locality = util.ConvertLocality(localityStr)
