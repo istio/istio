@@ -176,7 +176,7 @@ func extractZtunnelConfigDump(podName, podNamespace string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "config_dump"
-	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15021)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15000)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s ztunnel: %v", podName, podNamespace, err)
 	}
@@ -570,7 +570,7 @@ func workloadConfigCmd() *cobra.Command {
   istioctl proxy-config workload <pod-name[.namespace]>
 
   # Retrieve workload summary for workload with port XXXX.
-  istioctl proxy-config listeners <pod-name[.namespace]> --port 9080
+  istioctl proxy-config workload <pod-name[.namespace]> --node ambient-worker
 
   # Retrieve full workload dump for XXXXXX
   istioctl proxy-config workload <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
