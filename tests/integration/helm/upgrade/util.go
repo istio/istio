@@ -83,27 +83,17 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 	}
 
 	// Upgrade ingress gateway chart
-	err = h.UpgradeChart(helmtest.IngressReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.GatewayChartsDir, helmtest.IngressGatewayChart),
+	err = h.UpgradeChart(helmtest.IngressReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.GatewayChartsDir),
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.IngressGatewayChart)
-	}
-
-	// Upgrade egress gateway chart
-	err = h.UpgradeChart(helmtest.EgressReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.GatewayChartsDir, helmtest.EgressGatewayChart),
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
-	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.EgressGatewayChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.IngressReleaseName)
 	}
 }
 
 // deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(cs cluster.Cluster, h *helm.Helm, gatewayChartsInstalled bool) error {
+func deleteIstio(cs cluster.Cluster, h *helm.Helm, gatewayChartInstalled bool) error {
 	scopes.Framework.Infof("cleaning up resources")
-	if gatewayChartsInstalled {
-		if err := h.DeleteChart(helmtest.EgressReleaseName, helmtest.IstioNamespace); err != nil {
-			return fmt.Errorf("failed to delete %s release", helmtest.EgressReleaseName)
-		}
+	if gatewayChartInstalled {
 		if err := h.DeleteChart(helmtest.IngressReleaseName, helmtest.IstioNamespace); err != nil {
 			return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
 		}
@@ -289,14 +279,14 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		})
 
 		// install MAJOR.MINOR.PATCH charts with revision set to "MAJOR-MINOR-PATCH" name. For example,
-		// helm install istio-base ../tests/integration/helm/testdata/1.10.0/base.tar.gz --namespace istio-system -f values.yaml
-		// helm install istiod-1-10 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz -f values.yaml
+		// helm install istio-base ../tests/integration/helm/testdata/1.15.0/base.tar.gz --namespace istio-system -f values.yaml
+		// helm install istiod-1-10 ../tests/integration/helm/testdata/1.15.0/istio-control/istio-discovery.tar.gz -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, previousRevision)
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, false)
 
-		// helm template istiod-1-10-0 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz
+		// helm template istiod-1-10-0 ../tests/integration/helm/testdata/1.15.0/istio-control/istio-discovery.tar.gz
 		//    -s templates/revision-tags.yaml --set revision=1-10-0 --set revisionTags={prod}
 		helmtest.SetRevisionTag(t, h, tarGzSuffix, previousRevision, prodTag, helmtest.TestDataChartPath, previousVersion)
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{

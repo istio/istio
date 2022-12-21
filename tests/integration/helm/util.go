@@ -42,22 +42,20 @@ import (
 )
 
 const (
-	IstioNamespace      = "istio-system"
-	ReleasePrefix       = "istio-"
-	BaseChart           = "base"
-	CRDsFolder          = "crds"
-	DiscoveryChart      = "istio-discovery"
-	IngressGatewayChart = "istio-ingress"
-	EgressGatewayChart  = "istio-egress"
-	BaseReleaseName     = ReleasePrefix + BaseChart
-	IstiodReleaseName   = "istiod"
-	IngressReleaseName  = IngressGatewayChart
-	EgressReleaseName   = EgressGatewayChart
-	ControlChartsDir    = "istio-control"
-	GatewayChartsDir    = "gateways"
-	RetryDelay          = 2 * time.Second
-	RetryTimeOut        = 5 * time.Minute
-	Timeout             = 2 * time.Minute
+	IstioNamespace     = "istio-system"
+	ReleasePrefix      = "istio-"
+	BaseChart          = "base"
+	CRDsFolder         = "crds"
+	DiscoveryChart     = "istio-discovery"
+	BaseReleaseName    = ReleasePrefix + BaseChart
+	IstiodReleaseName  = "istiod"
+	IngressReleaseName = "istio-ingress"
+	ControlChartsDir   = "istio-control"
+	GatewayChartsDir   = "gateway"
+
+	RetryDelay   = 2 * time.Second
+	RetryTimeOut = 5 * time.Minute
+	Timeout      = 2 * time.Minute
 )
 
 // ManifestsChartPath is path of local Helm charts used for testing.
@@ -69,7 +67,7 @@ var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool,
+	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateway bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
 
@@ -87,19 +85,11 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChart, err)
 	}
 
-	if installGateways {
-		// Install ingress gateway chart
-		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, IngressGatewayChart)+suffix,
+	if installGateway {
+		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir)+suffix,
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", IngressGatewayChart, err)
-		}
-
-		// Install egress gateway chart
-		err = h.InstallChart(EgressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, EgressGatewayChart)+suffix,
-			IstioNamespace, overrideValuesFile, Timeout)
-		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", EgressGatewayChart, err)
+			t.Fatalf("failed to install istio %s chart: %v", IngressReleaseName, err)
 		}
 	}
 }
@@ -164,9 +154,6 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 // deleteIstio deletes installed Istio Helm charts and resources
 func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 	scopes.Framework.Infof("cleaning up resources")
-	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release: %v", EgressReleaseName, err)
-	}
 	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
 	}
