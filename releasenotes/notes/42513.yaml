@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: environments
+
+releaseNotes:
+  - |
+    **Fix** helm chart library default behaviour to generate manifests with v1.20 Kubernetes object version if using istioctl without--cluster-specific and instead use minimum Kubernetes version defined by istioctl.
