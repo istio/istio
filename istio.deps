@@ -11,10 +11,6 @@
     "name": "ZTUNNEL_REPO_SHA",
     "repoName": "ztunnel",
     "file": "",
-<<<<<<< Updated upstream
-    "lastStableSHA": "4060b8630dd44a260ccb7b7272ddf2551e3076fb"
-=======
     "lastStableSHA": "1ebe6da0e13104659d03f9753798ee52594ad382"
->>>>>>> Stashed changes
   }
 ]
