@@ -186,13 +186,14 @@ var (
 
 			// If revision is updated in the IstioOperator resource, we must remove entries
 			// from the cache. If the IstioOperator resource is reverted back to match this operator's
-			// revision, the operator should Reconcile the IstioOperator.
+			// revision, a clean cache would ensure that the operator Reconcile the IstioOperator,
+			// and not skip it.
 			if oldIOP.Spec.Revision != newIOP.Spec.Revision {
 				var host string
 				if restConfig != nil {
 					host = restConfig.Host
 				}
-				for _, component := range []name.ComponentName{name.IngressComponentName, name.EgressComponentName} {
+				for _, component := range name.AllComponentNames {
 					crHash := strings.Join([]string{newIOP.Name, newIOP.Namespace, string(component), host}, "-")
 					cache.RemoveCache(crHash)
 				}
