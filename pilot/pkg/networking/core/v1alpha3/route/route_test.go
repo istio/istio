@@ -993,9 +993,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
-		// g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(gomega.Equal(&envoyroute.RedirectAction_PrefixRewrite{
-		// 	PrefixRewrite: "",
-		// }))
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
