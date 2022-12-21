@@ -351,7 +351,7 @@ my_metric{app="bar"} 0
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
-				http: &http.Client{},,
+				http:           &http.Client{},
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -446,6 +446,7 @@ my_other_metric{} 0
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
+				http:           &http.Client{},
 			}
 			req := &http.Request{}
 			req.Header = make(http.Header)
@@ -519,6 +520,7 @@ func TestStatsError(t *testing.T) {
 					Port: strconv.Itoa(tt.app),
 				},
 				envoyStatsPort: tt.envoy,
+				http:           &http.Client{},
 			}
 			req := &http.Request{}
 			rec := httptest.NewRecorder()
