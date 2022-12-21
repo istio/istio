@@ -1535,9 +1535,6 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 		Configs:  []config.Config{sidecarConfig},
 	}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if len(l.FilterChains) != 11 {
-		t.Fatalf("expected %d listener filter chains, found %d", 12, len(l.FilterChains))
-	}
 	verifyFilterChainMatch(t, l)
 }
 
