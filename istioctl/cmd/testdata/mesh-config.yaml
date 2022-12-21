@@ -19,7 +19,6 @@ defaultConfig:
   # These settings that determine how long an old Envoy
   # process should be kept alive after an occasional reload.
   drainDuration: 2s
-  parentShutdownDuration: 3s
   #
   # The mode used to redirect inbound connections to Envoy. This setting
   # has no effect on outbound traffic: iptables REDIRECT is always used for

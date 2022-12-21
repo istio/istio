@@ -73,8 +73,7 @@ const (
 	// nolint: revive
 	connectTimeoutMin = time.Millisecond
 
-	drainTimeMax          = time.Hour
-	parentShutdownTimeMax = time.Hour
+	drainTimeMax = time.Hour
 
 	// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 	// ServiceEntry.Endpoint.Address message.
@@ -1582,46 +1581,26 @@ func ValidateDurationRange(dur, min, max time.Duration) error {
 	return nil
 }
 
-// ValidateParentAndDrain checks that parent and drain durations are valid
-func ValidateParentAndDrain(drainTime, parentShutdown *durationpb.Duration) (errs error) {
+// ValidateDrainDuration checks that parent and drain durations are valid
+func ValidateDrainDuration(drainTime *durationpb.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
-	}
-	if err := ValidateDuration(parentShutdown); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent shutdown duration:"))
 	}
 	if errs != nil {
 		return
 	}
 
 	drainDuration := drainTime.AsDuration()
-	parentShutdownDuration := parentShutdown.AsDuration()
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
 			errors.New("drain time only supports durations to seconds precision"))
-	}
-	if parentShutdownDuration%time.Second != 0 {
-		errs = multierror.Append(errs,
-			errors.New("parent shutdown time only supports durations to seconds precision"))
-	}
-	if parentShutdownDuration <= drainDuration {
-		errs = multierror.Append(errs,
-			fmt.Errorf("parent shutdown time %v must be greater than drain time %v",
-				parentShutdownDuration.String(), drainDuration.String()))
 	}
 
 	if drainDuration > drainTimeMax {
 		errs = multierror.Append(errs,
 			fmt.Errorf("drain time %v must be <%v", drainDuration.String(), drainTimeMax.String()))
 	}
-
-	if parentShutdownDuration > parentShutdownTimeMax {
-		errs = multierror.Append(errs,
-			fmt.Errorf("parent shutdown time %v must be <%v",
-				parentShutdownDuration.String(), parentShutdownTimeMax.String()))
-	}
-
 	return
 }
 
@@ -1815,8 +1794,8 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		errs = multierror.Append(errs, errors.New("oneof service cluster or tracing service name must be specified"))
 	}
 
-	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
+	if err := ValidateDrainDuration(config.DrainDuration); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	// discovery address is mandatory since mutual TLS relies on CDS.

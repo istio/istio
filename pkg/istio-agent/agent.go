@@ -273,7 +273,6 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	a.envoyOpts.BinaryPath = a.proxyConfig.BinaryPath
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
-	a.envoyOpts.ParentShutdownDuration = a.proxyConfig.ParentShutdownDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
 
 	// Checking only uid should be sufficient - but tests also run as root and

@@ -548,25 +548,6 @@ var drainDurationValidator = registerFlagValidator(&flagValidator{
 	},
 })
 
-// ParentShutdownDuration sets the --parent-shutdown-time-s flag, which defines the amount of
-// time that Envoy will wait before shutting down the parent process during a hot restart
-func ParentShutdownDuration(duration time.Duration) Option {
-	return &genericOption{
-		value: strconv.Itoa(int(duration / time.Second)),
-		v:     parentShutdownDurationValidator,
-	}
-}
-
-var parentShutdownDurationValidator = registerFlagValidator(&flagValidator{
-	flagName: "--parent-shutdown-time-s",
-	validate: func(ctx *configContext, flagValue string) error {
-		if _, err := strconv.ParseUint(flagValue, 10, 32); err != nil {
-			return err
-		}
-		return nil
-	},
-})
-
 func registerBoolFlagValidator(flagName string) *flagValidator {
 	return registerFlagValidator(&flagValidator{
 		flagName: FlagName(flagName),

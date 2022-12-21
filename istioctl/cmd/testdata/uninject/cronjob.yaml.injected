@@ -38,8 +38,6 @@ spec:
             - hellocron.default
             - --drainDuration
             - 45s
-            - --parentShutdownDuration
-            - 1m0s
             - --discoveryAddress
             - istio-pilot:15010
             - --dnsRefreshRate
