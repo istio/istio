@@ -2699,7 +2699,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
-				Port:     80,
+				Port:     8080,
 				Protocol: protocol,
 			},
 		},
