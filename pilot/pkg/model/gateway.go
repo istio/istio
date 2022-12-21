@@ -297,7 +297,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
 					gatewayPorts[resolvedPort] = true
-					if !gateway.IsNonHTTPTLSServer(s) {
+					if !gateway.IsTLSServer(s) {
 						plainTextServers[serverPort.Number] = serverPort
 					}
 					if gateway.IsHTTPServer(s) {
