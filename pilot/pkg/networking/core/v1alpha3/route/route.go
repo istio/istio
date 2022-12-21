@@ -577,6 +577,12 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 		},
 	}
 
+	if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*"); isPrefixReplace {
+		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
+			PrefixRewrite: uri,
+		}
+	}
+
 	if redirect.Scheme != "" {
 		action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: redirect.Scheme}
 	}
@@ -1380,4 +1386,11 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
+}
+
+func cutPrefix(s, prefix string) (after string, found bool) {
+	if !strings.HasPrefix(s, prefix) {
+		return s, false
+	}
+	return s[len(prefix):], true
 }
