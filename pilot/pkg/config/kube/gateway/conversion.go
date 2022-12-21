@@ -1085,6 +1085,14 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		// this differs from Istio default
 		resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_REQUEST_PORT}
 	}
+	if filter.Path != nil {
+		switch filter.Path.Type {
+		case k8sbeta.FullPathHTTPPathModifier:
+			resp.Uri = *filter.Path.ReplaceFullPath
+		case k8sbeta.PrefixMatchHTTPPathModifier:
+			resp.Uri = fmt.Sprintf("*prefix*%s", *filter.Path.ReplacePrefixMatch)
+		}
+	}
 	return resp
 }
 

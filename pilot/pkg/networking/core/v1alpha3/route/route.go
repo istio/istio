@@ -419,7 +419,7 @@ func translateRoute(
 	}
 
 	if in.Redirect != nil {
-		applyRedirect(out, in.Redirect, listenPort)
+		applyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		applyDirectResponse(out, in.DirectResponse)
 	} else {
@@ -567,7 +567,7 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
+func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySematics bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
@@ -575,6 +575,14 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 				PathRedirect: redirect.Uri,
 			},
 		},
+	}
+
+	if useGatewaySematics {
+		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*prefix*"); isPrefixReplace {
+			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
+				PrefixRewrite: uri,
+			}
+		}
 	}
 
 	if redirect.Scheme != "" {
@@ -1380,4 +1388,11 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
+}
+
+func cutPrefix(s, prefix string) (after string, found bool) {
+	if !strings.HasPrefix(s, prefix) {
+		return s, false
+	}
+	return s[len(prefix):], true
 }
