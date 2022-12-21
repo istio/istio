@@ -434,7 +434,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				// TODO: only ready
 				// TODO: load balance
 				tunnelAddress = workloads[0].PodIP
-				tunnelPort = 15006
 			}
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{

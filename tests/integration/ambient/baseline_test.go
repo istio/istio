@@ -105,15 +105,11 @@ var (
 	}
 )
 
-func supportsL7(opt echo.CallOptions, instances ...echo.Instance) bool {
-	hasWaypoint := false
-	hasSidecar := false
-	for _, i := range instances {
-		hasWaypoint = hasWaypoint || i.Config().HasWaypointProxy()
-		hasSidecar = hasSidecar || i.Config().HasSidecar()
-	}
+func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
+	s := src.Config().HasSidecar()
+	d := dst.Config().HasSidecar() || dst.Config().HasWaypointProxy()
 	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
-	return (hasWaypoint || hasSidecar) && isL7Scheme
+	return (s || d) && isL7Scheme
 }
 
 func TestServices(t *testing.T) {
@@ -220,7 +216,7 @@ func TestServerSideLB(t *testing.T) {
 			return nil
 		}
 
-		shouldBalance := dst.Config().HasWaypointProxy() || src.Config().HasWaypointProxy()
+		shouldBalance := dst.Config().HasWaypointProxy()
 		// Istio client will not reuse connections for HTTP/1.1
 		opt.HTTP.HTTP2 = true
 		// Make sure we make multiple calls
@@ -237,11 +233,11 @@ func TestServerSideLB(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need at least one waypoint proxy and HTTP
+		// Need waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if !dst.Config().HasWaypointProxy() && !src.Config().HasWaypointProxy() {
+		if !dst.Config().HasWaypointProxy() {
 			return
 		}
 		if src.Config().IsUncaptured() {
