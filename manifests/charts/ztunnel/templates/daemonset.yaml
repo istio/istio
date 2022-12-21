@@ -250,6 +250,8 @@ spec:
         - proxy
         - sidecar
         env:
+        - name: AMBIENT_TYPE
+          value: "ztunnel"
         - name: CLUSTER_ID
           value: {{ .Values.global.multiCluster.clusterName | default "Kubernetes" }}
         - name: POD_NAME
