@@ -116,22 +116,11 @@ func RecordRejectedConfig(gatewayName string) {
 	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gatewayName)).Increment()
 }
 
-// DisableGatewayPortTranslationLabel is a label on Service that declares that, for that particular
-// service, we should not translate Gateway ports to target ports. For example, if I have a Service
-// on port 80 with target port 8080, with the label. Gateways on port 80 would *not* match. Instead,
-// only Gateways on port 8080 would be used. This prevents ambiguities when there are multiple
-// Services on port 80 referring to different target ports. Long term, this will be replaced by
-// Gateways directly referencing a Service, rather than label selectors. Warning: this label is
-// intended solely for as a workaround for Knative's Istio integration, and not intended for any
-// other usage. It can, and will, be removed immediately after the new direct reference is ready for
-// use.
-const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gateway-port-translation"
-
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
-	gatewayPorts := make(map[uint32]bool)
+	gatewayPorts := sets.Set[uint32]{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
@@ -208,7 +197,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
 				serverProtocol := protocol.Parse(serverPort.Protocol)
-				if gatewayPorts[resolvedPort] {
+				if gatewayPorts.Contains(serverPort.Number) {
 					// We have two servers on the same port. Should we merge?
 					// 1. Yes if both servers are plain text and HTTP
 					// 2. Yes if both servers are using TLS
@@ -296,7 +285,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					}
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
-					gatewayPorts[resolvedPort] = true
+					gatewayPorts.Insert(serverPort.Number)
 					if !gateway.IsNonHTTPTLSServer(s) {
 						plainTextServers[serverPort.Number] = serverPort
 					}
@@ -357,12 +346,6 @@ func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
 func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
 	ports := map[uint32]struct{}{}
 	for _, w := range instances {
-		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
-			// Skip this Service, they opted out of port translation
-			// This is only done for legacyGatewaySelector, as the new gateway selection mechanism *only* allows
-			// referencing the Service port, and references are un-ambiguous.
-			continue
-		}
 		if w.ServicePort.Port == int(number) && w.Endpoint != nil {
 			if legacyGatewaySelector {
 				// When we are using legacy gateway label selection, we only resolve to a single port
