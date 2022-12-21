@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -1263,7 +1264,10 @@ func isEmptyFile(f string) bool {
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
-var IstioScheme = istioScheme()
+var (
+	IstioScheme = istioScheme()
+	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
+)
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = func() *runtime.Scheme {

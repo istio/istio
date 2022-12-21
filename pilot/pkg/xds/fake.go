@@ -32,7 +32,6 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/kubernetes/scheme"
 	k8stesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -486,7 +485,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
-	decode := scheme.Codecs.UniversalDeserializer().Decode
+	decode := kubelib.IstioCodec.UniversalDeserializer().Decode
 	objectStrs := strings.Split(s, "---")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
