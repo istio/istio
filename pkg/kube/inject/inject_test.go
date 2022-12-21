@@ -104,7 +104,6 @@ func TestInjection(t *testing.T) {
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.DrainDuration = durationpb.New(time.Second * 23)
-				m.DefaultConfig.ParentShutdownDuration = durationpb.New(time.Second * 42)
 			},
 		},
 		{
