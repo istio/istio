@@ -38,7 +38,7 @@ func clustersCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res, err := kubeClient.AllDiscoveryDo(context.Background(), istioNamespace, "/debug/clusterz")
+			res, err := kubeClient.AllDiscoveryDo(context.Background(), istioNamespace, "debug/clusterz")
 			if err != nil {
 				return err
 			}

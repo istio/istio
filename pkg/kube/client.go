@@ -368,6 +368,9 @@ type client struct {
 	version lazy.Lazy[*kubeVersion.Info]
 
 	portManager PortManager
+
+	// http is a client for HTTP requests
+	http *http.Client
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -439,6 +442,9 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 
 	c.portManager = defaultAvailablePort
 
+	c.http = &http.Client{
+		Timeout: time.Second * 15,
+	}
 	var clientWithTimeout kubernetes.Interface
 	clientWithTimeout = c.kube
 	restConfig := c.RESTConfig()
@@ -813,6 +819,10 @@ func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, met
 }
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	if path[0] == '/' {
+		// DO NOT MERGE!!!
+		panic("bad path " + path)
+	}
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
@@ -829,7 +839,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 	if err != nil {
 		return nil, formatError(err)
 	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := c.http.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, formatError(err)
 	}
