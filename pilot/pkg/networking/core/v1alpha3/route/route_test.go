@@ -1562,7 +1562,7 @@ var virtualServiceWithRedirectPathPrefix = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "*/replce-prefix",
+					Uri:          "*prefix*/replce-prefix",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},

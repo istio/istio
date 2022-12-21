@@ -577,7 +577,7 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 		},
 	}
 
-	if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*"); isPrefixReplace {
+	if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*prefix*"); isPrefixReplace {
 		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
 			PrefixRewrite: uri,
 		}

@@ -1090,7 +1090,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8sbeta.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8sbeta.PrefixMatchHTTPPathModifier:
-			resp.Uri = fmt.Sprintf("*%s", *filter.Path.ReplacePrefixMatch)
+			resp.Uri = fmt.Sprintf("*prefix*%s", *filter.Path.ReplacePrefixMatch)
 		}
 
 	}

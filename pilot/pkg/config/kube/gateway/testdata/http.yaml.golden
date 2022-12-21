@@ -201,5 +201,5 @@ spec:
       port: 8080
       redirectCode: 302
       scheme: https
-      uri: '*/replacement'
+      uri: '*prefix*/replacement'
 ---
