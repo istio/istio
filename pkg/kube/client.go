@@ -819,10 +819,6 @@ func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, met
 }
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
-	if path[0] == '/' {
-		// DO NOT MERGE!!!
-		panic("bad path " + path)
-	}
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}

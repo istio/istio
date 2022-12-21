@@ -351,6 +351,7 @@ my_metric{app="bar"} 0
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
+				http: &http.Client{},,
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
