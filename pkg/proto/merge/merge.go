@@ -137,7 +137,12 @@ func (o mergeOptions) mergeMap(dst, src protoreflect.Map, fd protoreflect.FieldD
 	src.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
 		switch {
 		case fd.Message() != nil:
-			dstv := dst.NewValue()
+			var dstv protoreflect.Value
+			if dst.Has(k) {
+				dstv = dst.Get(k)
+			} else {
+				dstv = dst.NewValue()
+			}
 			o.mergeMessage(dstv.Message(), v.Message())
 			dst.Set(k, dstv)
 		case fd.Kind() == protoreflect.BytesKind:
