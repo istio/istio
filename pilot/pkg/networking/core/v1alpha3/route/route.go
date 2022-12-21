@@ -419,7 +419,7 @@ func translateRoute(
 	}
 
 	if in.Redirect != nil {
-		applyRedirect(out, in.Redirect, listenPort)
+		applyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		applyDirectResponse(out, in.DirectResponse)
 	} else {
@@ -567,7 +567,7 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
+func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySematics bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
@@ -577,9 +577,11 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 		},
 	}
 
-	if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*prefix*"); isPrefixReplace {
-		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
-			PrefixRewrite: uri,
+	if useGatewaySematics {
+		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*prefix*"); isPrefixReplace {
+			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
+				PrefixRewrite: uri,
+			}
 		}
 	}
 

@@ -946,7 +946,23 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(gomega.Equal(&envoyroute.RedirectAction_PrefixRewrite{
-			PrefixRewrite: "/replce-prefix",
+			PrefixRewrite: "/replace-prefix",
+		}))
+	})
+
+	t.Run("for redirect uri prefix '*prefix*' that is without gateway semantics", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPathPrefixNoGatewaySematics, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(gomega.Equal(&envoyroute.RedirectAction_PathRedirect{
+			PathRedirect: "*prefix*/replace-full",
 		}))
 	})
 
@@ -962,7 +978,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(gomega.Equal(&envoyroute.RedirectAction_PathRedirect{
-			PathRedirect: "/replce-full-path",
+			PathRedirect: "/replace-full-path",
 		}))
 	})
 
@@ -1555,6 +1571,9 @@ var virtualServiceWithRedirectPathPrefix = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,
 		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -1562,7 +1581,27 @@ var virtualServiceWithRedirectPathPrefix = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "*prefix*/replce-prefix",
+					Uri:          "*prefix*/replace-prefix",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRedirectPathPrefixNoGatewaySematics = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "*prefix*/replace-full",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},
@@ -1582,7 +1621,7 @@ var virtualServiceWithRedirectFullPath = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "/replce-full-path",
+					Uri:          "/replace-full-path",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},
