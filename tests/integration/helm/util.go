@@ -132,9 +132,6 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 		}
 
 	}
-
-	// TODO: ingress and egress charts for use with revisions is considered experimental
-	// and are not a part of this test for now
 }
 
 func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
@@ -183,9 +180,6 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGat
 		if verifyGateways {
 			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
 				return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
-			}
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
-				return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 			}
 		}
 		return nil
