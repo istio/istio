@@ -4,4 +4,4 @@ area: istioctl
 
 releaseNotes:
   - |
-    **Fixed** helm chart library default behaviour to generate manifests with v1.20 Kubernetes object version if using istioctl without--cluster-specific and instead use minimum Kubernetes version defined by istioctl.
+    **Fixed** helm chart library default behavior from generating manifests with a v1.20 Kubernetes object version when using istioctl without --cluster-specific instead using the minimum Kubernetes version defined by istioctl.
