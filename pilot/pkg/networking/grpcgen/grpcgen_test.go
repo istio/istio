@@ -271,6 +271,9 @@ func TestGRPC(t *testing.T) {
 		if sc.Cookie.Name != "test-cookie" {
 			t.Fatal("Missing expected cookie name", sc.Cookie)
 		}
+		if sc.Cookie.Path != "/Service/Method" {
+			t.Fatal("Missing expected cookie path", sc.Cookie)
+		}
 		clusterName := "outbound|9999||echo-persistent.test.svc.cluster.local"
 		adscConn.Send(&discovery.DiscoveryRequest{
 			TypeUrl:       v3.EndpointType,
@@ -353,7 +356,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 		Attributes: model.ServiceAttributes{
 			Name:      svcname,
 			Namespace: ns,
-			Labels:    map[string]string{features.PersistentSessionLabel: "test-cookie"},
+			Labels:    map[string]string{features.PersistentSessionLabel: "test-cookie:/Service/Method"},
 		},
 		Hostname:       host.Name(hn),
 		DefaultAddress: "127.0.5.2",
