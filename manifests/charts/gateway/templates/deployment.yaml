@@ -26,6 +26,9 @@ spec:
         istio.io/rev: {{ . }}
         {{- end }}
         {{- include "gateway.selectorLabels" . | nindent 8 }}
+        {{- if .Chart.AppVersion }}
+        app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
