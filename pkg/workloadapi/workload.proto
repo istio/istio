@@ -66,6 +66,11 @@ message Workload {
   // Typically these represent Service ClusterIPs.
   // The key is an IP address.
   map<string, PortList> virtual_ips = 15;
+
+  // A list of authorization policies applicable to this workload.
+  // NOTE: this *only* includes Selector based policies. Namespace and global polices
+  // are returned out of band.
+  repeated string authorization_policies = 16;
 }
 
 enum WorkloadType {

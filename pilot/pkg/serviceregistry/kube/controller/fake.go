@@ -175,6 +175,7 @@ type FakeControllerOptions struct {
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	Stop                      chan struct{}
 	SkipRun                   bool
+	ConfigController          model.ConfigStoreController
 }
 
 type FakeController struct {
@@ -210,6 +211,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		ClusterID:                 opts.ClusterID,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
+		ConfigController:          opts.ConfigController,
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

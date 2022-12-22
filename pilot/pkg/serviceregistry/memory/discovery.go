@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 // ServiceController is a mock service controller
@@ -89,6 +90,10 @@ func (sd *ServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedNa
 }
 
 func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
+}
+
+func (sd *ServiceDiscovery) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
 	return nil
 }
 

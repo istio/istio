@@ -1,0 +1,11 @@
+groups:
+- rules:
+  - matches:
+    - destinationPorts:
+      - 80
+  - matches:
+    - namespaces:
+      - exact: ns-1
+name: httpbin-deny
+namespace: foo
+scope: NAMESPACE

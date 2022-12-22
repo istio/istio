@@ -17,18 +17,21 @@ package xds
 import (
 	"context"
 	"testing"
+	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
@@ -37,9 +40,7 @@ func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, name
 		want := sets.New(names...)
 		have := sets.New[string]()
 		for _, r := range resp.Resources {
-			w := &workloadapi.Workload{}
-			r.Resource.UnmarshalTo(w)
-			have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
+			have.Insert(r.Name)
 		}
 		if len(resp.RemovedResources) > 0 {
 			t.Fatalf("unexpected removals: %v", resp.RemovedResources)
@@ -210,6 +211,20 @@ func deletePod(s *FakeDiscoveryServer, name string) {
 	}
 }
 
+func createRBAC(s *FakeDiscoveryServer, name string, ns string) {
+	_, err := s.Env().Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.AuthorizationPolicy,
+			Name:             name,
+			Namespace:        ns,
+		},
+		Spec: &v1beta1.AuthorizationPolicy{},
+	})
+	if err != nil {
+		s.t.Fatal(err)
+	}
+}
+
 func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node string) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -275,4 +290,31 @@ func createService(s *FakeDiscoveryServer, name, namespace string, selector map[
 			s.t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 		}
 	}
+}
+
+func TestWorkloadRBAC(t *testing.T) {
+	expect := buildExpect(t)
+	expectRemoved := buildExpectExpectRemoved(t)
+	s := NewFakeDiscoveryServer(t, FakeOptions{})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadRBACType).WithTimeout(time.Second * 10).WithMetadata(model.NodeMetadata{AmbientType: ambient.TypeZTunnel})
+
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"*"},
+	})
+	ads.ExpectEmptyResponse()
+
+	// Create policy, due to wildcard subscribe we should receive it
+	createRBAC(s, "policy1", "ns")
+	expect(ads.ExpectResponse(), "ns/policy1")
+
+	// A new policy should push only that one
+	createRBAC(s, "policy2", "ns")
+	expect(ads.ExpectResponse(), "ns/policy2")
+
+	s.Env().Delete(gvk.AuthorizationPolicy, "policy2", "ns", nil)
+	expectRemoved(ads.ExpectResponse(), "ns/policy2")
+
+	// Irrelevant update shouldn't push
+	createPod(s, "pod", "sa", "127.0.0.1")
+	ads.ExpectNoResponse()
 }

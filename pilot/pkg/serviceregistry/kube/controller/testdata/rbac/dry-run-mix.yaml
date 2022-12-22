@@ -1,0 +1,8 @@
+groups:
+- rules:
+  - matches:
+    - destinationPorts:
+      - 80
+name: httpbin-1
+namespace: foo
+scope: WORKLOAD_SELECTOR

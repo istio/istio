@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 	"istio.io/pkg/log"
 )
 
@@ -57,6 +58,14 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	res := sets.New[types.NamespacedName]()
 	for _, p := range c.registries {
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
+	}
+	return res
+}
+
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
+	res := []*workloadapi.RBAC{}
+	for _, p := range c.registries {
+		res = append(res, p.Policies(requested)...)
 	}
 	return res
 }

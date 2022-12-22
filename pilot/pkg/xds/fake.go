@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
+	"istio.io/istio/pilot/pkg/config/memory"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -181,22 +182,28 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 
+	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
+		k8sConfig := configController
+		if k8sCluster != opts.DefaultClusterName {
+			k8sConfig = nil
+		}
 		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
-			ServiceHandler:  serviceHandler,
-			Client:          client,
-			ClusterID:       k8sCluster,
-			DomainSuffix:    "cluster.local",
-			XDSUpdater:      xdsUpdater,
-			NetworksWatcher: opts.NetworksWatcher,
-			Mode:            opts.KubernetesEndpointMode,
-			Stop:            stop,
-			SkipRun:         true,
-			MeshWatcher:     mesh.NewFixedWatcher(m),
+			ServiceHandler:   serviceHandler,
+			Client:           client,
+			ClusterID:        k8sCluster,
+			DomainSuffix:     "cluster.local",
+			XDSUpdater:       xdsUpdater,
+			NetworksWatcher:  opts.NetworksWatcher,
+			Mode:             opts.KubernetesEndpointMode,
+			Stop:             stop,
+			SkipRun:          true,
+			ConfigController: k8sConfig,
+			MeshWatcher:      mesh.NewFixedWatcher(m),
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -229,6 +236,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
 		ConfigTemplateInput: opts.ConfigTemplateInput,
+		ConfigController:    configController,
 		MeshConfig:          m,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
@@ -242,7 +250,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			return gwc
 		},
 		SkipRun:   true,
-		ClusterID: defaultKubeController.Cluster(),
+		ClusterID: opts.DefaultClusterName,
 		Services:  opts.Services,
 		Gateways:  opts.Gateways,
 	})

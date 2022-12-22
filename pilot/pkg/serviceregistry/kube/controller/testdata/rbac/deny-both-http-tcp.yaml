@@ -1,0 +1,170 @@
+action: DENY
+groups:
+- rules:
+  - matches:
+    - {}
+  - matches:
+    - {}
+- rules:
+  - matches:
+    - {}
+- rules:
+  - matches:
+    - {}
+- rules:
+  - matches:
+    - {}
+  - matches:
+    - namespaces:
+      - exact: ns-1
+- rules:
+  - matches:
+    - destinationPorts:
+      - 80
+  - matches:
+    - {}
+- rules:
+  - matches:
+    - destinationPorts:
+      - 8080
+  - matches:
+    - {}
+- rules:
+  - matches:
+    - destinationPorts:
+      - 8080
+  - matches:
+    - namespaces:
+      - exact: ns-2
+- rules:
+  - matches:
+    - destinationPorts:
+      - 80
+  - matches:
+    - namespaces:
+      - exact: ns-1
+- rules:
+  - matches:
+    - {}
+  - matches:
+    - {}
+- rules:
+  - matches:
+    - {}
+  - matches:
+    - notDestinationPorts:
+      - 80
+- rules:
+  - matches:
+    - destinationPorts:
+      - 80
+      notDestinationPorts:
+      - 8000
+  - matches:
+    - namespaces:
+      - exact: ns
+      - suffix: ns-suffix
+      - prefix: ns-prefix
+      - presence: {}
+      notNamespaces:
+      - exact: not-ns
+      - suffix: not-ns-suffix
+      - prefix: not-ns-prefix
+      - presence: {}
+      notPrincipals:
+      - exact: not-principal
+      - suffix: not-principal-suffix
+      - prefix: not-principal-prefix
+      - presence: {}
+      notSourceIps:
+      - address: CQAAAQ==
+        length: 32
+      principals:
+      - exact: principal
+      - suffix: principal-suffix
+      - prefix: principal-prefix
+      - presence: {}
+      sourceIps:
+      - address: AQIDBA==
+        length: 32
+  - matches:
+    - {}
+  - matches:
+    - sourceIps:
+      - address: WgoKCg==
+        length: 32
+  - matches:
+    - {}
+  - matches:
+    - namespaces:
+      - exact: not-ns
+      - suffix: not-ns-suffix
+      - prefix: not-ns-prefix
+      - presence: {}
+  - matches:
+    - principals:
+      - exact: not-principal
+      - suffix: not-principal-suffix
+      - prefix: not-principal-prefix
+      - presence: {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - destinationIps:
+      - address: WgoKCg==
+        length: 32
+  - matches:
+    - destinationPorts:
+      - 9001
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - notSourceIps:
+      - address: CgoKCg==
+        length: 32
+  - matches:
+    - {}
+  - matches:
+    - notNamespaces:
+      - exact: ns
+      - suffix: ns-suffix
+      - prefix: ns-prefix
+      - presence: {}
+  - matches:
+    - notPrincipals:
+      - exact: principal
+      - suffix: principal-suffix
+      - prefix: principal-prefix
+      - presence: {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - {}
+  - matches:
+    - notDestinationIps:
+      - address: CgoKCg==
+        length: 32
+  - matches:
+    - notDestinationPorts:
+      - 91
+  - matches:
+    - {}
+  - matches:
+    - {}
+name: httpbin-deny
+namespace: foo
+scope: NAMESPACE
