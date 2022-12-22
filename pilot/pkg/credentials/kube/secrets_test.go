@@ -201,7 +201,7 @@ func TestSecretsController(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			key, cert, err := sc.GetKeyAndCert(tt.name, tt.namespace)
+			key, cert, _, err := sc.GetKeyAndCert(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}
@@ -448,7 +448,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key, cert, _ := con.GetKeyAndCert(tt.name, tt.namespace)
+			key, cert, _, _ := con.GetKeyAndCert(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}

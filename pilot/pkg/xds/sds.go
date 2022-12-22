@@ -182,7 +182,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
-	key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+	key, cert, staple, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
@@ -194,7 +194,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
+	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, staple, proxy, s.meshConfig)
 	return res
 }
 
@@ -313,7 +313,7 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+func toEnvoyKeyCertSecret(name string, key, cert, staple []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
 	var res *anypb.Any
 	pkpConf := proxy.Metadata.ProxyConfigOrDefault(meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
 	switch pkpConf.GetProvider().(type) {
@@ -358,6 +358,11 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: key,
+						},
+					},
+					OcspStaple: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: staple,
 						},
 					},
 				},
