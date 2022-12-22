@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -146,6 +147,11 @@ type Options struct {
 
 	ConfigController model.ConfigStoreController
 	ConfigCluster    bool
+
+	// WorkloadEntryEnabled indicates if the the Controller should watch WorkloadEntry objects.
+	// This should be set to `false` when WorkloadEntry CRD is not installed on the cluster
+	// the Controller instance is managing, for e.g., for remote Istiod-less clusters.
+	WorkloadEntryEnabled bool
 }
 
 func (o *Options) GetFilter() namespace.DiscoveryFilter {
@@ -230,6 +236,11 @@ type Controller struct {
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
+
+	// workloadEntryEnabled indicates if the the Controller should watch WorkloadEntry objects.
+	// This should be set to `false` when WorkloadEntry CRD is not installed on the cluster
+	// the Controller instance is managing, for e.g., for remote Istiod-less clusters.
+	workloadEntryEnabled bool
 }
 
 // NewController creates a new Kubernetes controller
@@ -250,6 +261,32 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+
+	// If indicated via the 'WorkloadEntryEnabled' option that the Controller should
+	// watch for WorkloadEntry resources, do so.
+	// Otherwise, do so only if the WorkloadEntry CRD is present in the cluster.
+	if options.WorkloadEntryEnabled {
+		c.workloadEntryEnabled = true
+	} else {
+		c.workloadEntryEnabled = workloadEntryEnabled(kubeClient)
+	}
+
+	if features.EnableAmbientControllers {
+		registerHandlers[*v1.Namespace](
+			c,
+			c.namespaces,
+			"Namespaces",
+			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				c.handleSelectedNamespace(cur.Name)
+				return nil
+			},
+			func(old, cur *v1.Namespace) bool {
+				oldLabel := old.Labels[constants.DataplaneMode]
+				newLabel := cur.Labels[constants.DataplaneMode]
+				return oldLabel == newLabel
+			},
+		)
+	}
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,

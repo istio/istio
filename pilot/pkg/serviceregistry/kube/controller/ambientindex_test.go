@@ -59,6 +59,7 @@ func TestAmbientIndex(t *testing.T) {
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
+	cfg.RegisterEventHandler(gvk.WorkloadEntry, controller.WorkloadEntryHandler)
 	go cfg.Run(test.NewStop(t))
 	addPolicy := func(name, ns string, selector map[string]string) {
 		t.Helper()

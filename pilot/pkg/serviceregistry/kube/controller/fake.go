@@ -52,6 +52,7 @@ type FakeControllerOptions struct {
 	SkipRun                   bool
 	ConfigController          model.ConfigStoreController
 	ConfigCluster             bool
+	WorkloadEntryEnabled      bool
 }
 
 type FakeController struct {
@@ -88,6 +89,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		MeshServiceController:     meshServiceController,
 		ConfigCluster:             opts.ConfigCluster,
 		ConfigController:          opts.ConfigController,
+		WorkloadEntryEnabled:      opts.WorkloadEntryEnabled,
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

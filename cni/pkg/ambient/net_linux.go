@@ -456,6 +456,19 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--mark", constants.OutboundMark,
 			"-j", "ACCEPT",
 		),
+
+		// If we have an outbound mark, we don't need kube-proxy to do anything,
+		// so accept it before the KUBE-SERVICES chain in the Filter table rejects
+		// destinations that do not have a k8s endpoint resource. This is necessary
+		// for traffic destined to workloads outside k8s whose endpoints are known
+		// to ZTunnel but for whom k8s endpoints resources do not exist.
+		newIptableRule(
+			constants.TableFilter,
+			constants.ChainZTunnelForward,
+			"-m", "mark",
+			"--mark", constants.OutboundMark,
+			"-j", "ACCEPT",
+		),
 	}
 
 	if captureDNS {
