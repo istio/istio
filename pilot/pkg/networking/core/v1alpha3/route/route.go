@@ -567,7 +567,7 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySematics bool) {
+func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySemantics bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
@@ -577,7 +577,7 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 		},
 	}
 
-	if useGatewaySematics {
+	if useGatewaySemantics {
 		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*prefix*"); isPrefixReplace {
 			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
 				PrefixRewrite: uri,
