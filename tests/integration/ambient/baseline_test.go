@@ -321,7 +321,7 @@ func TestTrafficSplit(t *testing.T) {
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if !dst.Config().HasWaypointProxy() && !src.Config().HasWaypointProxy() {
+		if !dst.Config().HasWaypointProxy() {
 			return
 		}
 		if src.Config().IsUncaptured() {
