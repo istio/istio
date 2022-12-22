@@ -224,8 +224,8 @@ func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Clust
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-// VerifyValidation verifies that Istio resource validation is active on the cluster.
-func VerifyValidation(ctx framework.TestContext) {
+// verifyValidation verifies that Istio resource validation is active on the cluster.
+func verifyValidation(ctx framework.TestContext) {
 	ctx.Helper()
 	invalidGateway := &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
