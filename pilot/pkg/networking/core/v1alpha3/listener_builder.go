@@ -132,7 +132,9 @@ func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
-	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	if !lb.node.IsAmbient() {
+		lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	}
 	return lb
 }
 

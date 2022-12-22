@@ -169,15 +169,18 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	cacheStats := cacheStats{}
 	switch proxy.Type {
 	case model.SidecarProxy:
-		// Setup outbound clusters
-		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, services)
-		cacheStats = cacheStats.merge(cs)
-		resources = append(resources, ob...)
-		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
-		clusters = append(clusters, outboundPatcher.insertedClusters()...)
-
+		// Waypoint proxies do not need outbound clusters in most cases
+		// @TODO better to go through and filter what we do not need out, or only add those we need in
+		if proxy.Metadata.AmbientType != ambient.TypeWaypoint {
+			// Setup outbound clusters
+			outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+			ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, services)
+			cacheStats = cacheStats.merge(cs)
+			resources = append(resources, ob...)
+			// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+			clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+			clusters = append(clusters, outboundPatcher.insertedClusters()...)
+		}
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		if proxy.Metadata.AmbientType == ambient.TypeWaypoint {

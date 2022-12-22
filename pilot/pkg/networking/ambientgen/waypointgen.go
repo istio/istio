@@ -18,15 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	routerfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
-	httpconn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -38,17 +32,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
-	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
-
-var log = istiolog.RegisterScope("ambientgen", "xDS Generator for ambient clients", 0)
 
 const (
 	ZTunnelOutboundCapturePort uint32 = 15001
@@ -91,7 +80,7 @@ func (p *WaypointGenerator) Generate(proxy *model.Proxy, w *model.WatchedResourc
 				Resource: protoconv.MessageToAny(c),
 			})
 		}
-		out = append(p.buildWaypointListeners(proxy, req.Push), resources...)
+		out = resources
 	case v3.ClusterType:
 		sidecarClusters, _ := p.ConfigGenerator.BuildClusters(proxy, req)
 		waypointClusters := p.buildClusters(proxy, req.Push)
@@ -105,110 +94,6 @@ func getActualWildcardAndLocalHost(node *model.Proxy) string {
 		return v1alpha3.WildcardAddress // , v1alpha3.LocalhostAddress
 	}
 	return v1alpha3.WildcardIPv6Address //, v1alpha3.LocalhostIPv6Address
-}
-
-func (p *WaypointGenerator) buildWaypointListeners(proxy *model.Proxy, push *model.PushContext) model.Resources {
-	saWorkloads := push.AmbientIndex.Workloads.ByIdentity[proxy.VerifiedIdentity.String()]
-	if len(saWorkloads) == 0 {
-		log.Warnf("no workloads for sa %s (proxy %s)", proxy.VerifiedIdentity.String(), proxy.ID)
-		return nil
-	}
-	wildcard := getActualWildcardAndLocalHost(proxy)
-	vhost := &route.VirtualHost{
-		Name:    "connect",
-		Domains: []string{"*"},
-	}
-	for _, egressListener := range proxy.SidecarScope.EgressListeners {
-		for _, service := range egressListener.Services() {
-			for _, port := range service.Ports {
-				if port.Protocol == protocol.UDP {
-					continue
-				}
-				bind := wildcard
-				if !port.Protocol.IsHTTP() {
-					// TODO: this is not 100% accurate for custom cases
-					bind = service.GetAddressForProxy(proxy)
-				}
-
-				// This essentially mirrors the sidecar case for serviceEntries have no VIP.  In the waypoint proxy, we
-				// don't know the ServiceEntry's VIP, so instead we search for a matching ServiceEntry host
-				// for any remaining unmatched outbund to *:<port>
-				authorityHost := service.GetAddressForProxy(proxy)
-				if authorityHost == "0.0.0.0" {
-					authorityHost = "*"
-				}
-				name := fmt.Sprintf("%s_%d", bind, port.Port)
-				vhost.Routes = append(vhost.Routes, &route.Route{
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-						Headers: []*route.HeaderMatcher{
-							istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", authorityHost, port.Port)),
-						},
-					},
-					Action: &route.Route_Route{Route: &route.RouteAction{
-						UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-							UpgradeType:   "CONNECT",
-							ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-						}},
-
-						ClusterSpecifier: &route.RouteAction_Cluster{Cluster: name},
-					}},
-				})
-			}
-		}
-	}
-	l := &listener.Listener{
-		Name:    "waypoint_outbound l",
-		Address: ipPortAddress("0.0.0.0", ZTunnelOutboundCapturePort),
-
-		AccessLog: accessLogString("waypoint_outbound"),
-		FilterChains: []*listener.FilterChain{
-			{
-				Name: "waypoint_outbound fc",
-
-				TransportSocket: &core.TransportSocket{
-					Name: "envoy.transport_sockets.tls",
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(proxy, "", push, true),
-					})},
-				},
-				Filters: []*listener.Filter{{
-					Name: "envoy.filters.network.http_connection_manager",
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&httpconn.HttpConnectionManager{
-							AccessLog:  accessLogString("waypoint hcm"),
-							StatPrefix: "outbound_hcm",
-							RouteSpecifier: &httpconn.HttpConnectionManager_RouteConfig{
-								RouteConfig: &route.RouteConfiguration{
-									Name:             "local_route",
-									VirtualHosts:     []*route.VirtualHost{vhost},
-									ValidateClusters: proto.BoolFalse,
-								},
-							},
-							HttpFilters: []*httpconn.HttpFilter{{
-								Name:       "envoy.filters.http.router",
-								ConfigType: &httpconn.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&routerfilter.Router{})},
-							}},
-							Http2ProtocolOptions: &core.Http2ProtocolOptions{
-								AllowConnect: true,
-							},
-							UpgradeConfigs: []*httpconn.HttpConnectionManager_UpgradeConfig{{
-								UpgradeType: "CONNECT",
-							}},
-						}),
-					},
-				}},
-			},
-		},
-	}
-	var out model.Resources
-	for _, l := range []*listener.Listener{l} {
-		out = append(out, &discovery.Resource{
-			Name:     l.Name,
-			Resource: protoconv.MessageToAny(l),
-		})
-	}
-	return out
 }
 
 func (p *WaypointGenerator) buildClusters(node *model.Proxy, push *model.PushContext) model.Resources {
@@ -303,30 +188,6 @@ func outboundTunnelClusterName(sa string) string {
 	return "outbound_tunnel_clus_" + sa
 }
 
-const EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-	"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
-	"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
-	"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
-	"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
-	"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
-	"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
-	"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME% "
-
-func accessLogString(prefix string) []*accesslog.AccessLog {
-	inlineString := EnvoyTextLogFormat + prefix + "\n"
-	return []*accesslog.AccessLog{{
-		Name: "envoy.access_loggers.file",
-		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
-			Path: "/dev/stdout",
-			AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{TextFormatSource: &core.DataSource{Specifier: &core.DataSource_InlineString{
-					InlineString: inlineString,
-				}}},
-			}},
-		})},
-	}}
-}
-
 func h2connectUpgrade() map[string]*any.Any {
 	return map[string]*any.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
@@ -339,15 +200,4 @@ func h2connectUpgrade() map[string]*any.Any {
 			}},
 		}),
 	}
-}
-
-func ipPortAddress(ip string, port uint32) *core.Address {
-	return &core.Address{Address: &core.Address_SocketAddress{
-		SocketAddress: &core.SocketAddress{
-			Address: ip,
-			PortSpecifier: &core.SocketAddress_PortValue{
-				PortValue: port,
-			},
-		},
-	}}
 }

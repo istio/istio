@@ -203,7 +203,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 	name := "inbound_CONNECT_terminate"
 	l := &listener.Listener{
 		Name:    name,
-		Address: util.BuildAddress(actualWildcard, 15006),
+		Address: util.BuildAddress(actualWildcard, model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
 				Name: name,
