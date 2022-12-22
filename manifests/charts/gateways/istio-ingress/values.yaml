@@ -66,6 +66,17 @@ gateways:
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
 
+    extraVolumeMounts: []
+    # - name: secrets-store-inline
+    #   mountPath: "/secret-store"
+    #   readOnly: true
+
+    extraVolumes: []
+    # - name: secrets-store-inline
+    #   driver: secrets-store.csi.k8s.io
+    #   volumeAttributes: 
+    #     - secretProviderClass: azure-kv-example
+
     customService: false
     externalTrafficPolicy: ""
 
@@ -114,17 +125,6 @@ revision: ""
 
 # For Helm compatibility.
 ownerName: ""
-
-extraVolumeMounts: []
-# - name: secrets-store-inline
-#   mountPath: "/secret-store"
-#   readOnly: true
-
-extraVolumes: []
-# - name: secrets-store-inline
-#   driver: secrets-store.csi.k8s.io
-#   volumeAttributes: 
-#     - secretProviderClass: azure-kv-example
 
 global:
   # set the default set of namespaces to which services, service entries, virtual services, destination

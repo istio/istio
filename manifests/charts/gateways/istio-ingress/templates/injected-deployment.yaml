@@ -117,7 +117,7 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
-          {{- with .Values.extraVolumeMounts }}
+          {{- with $gateway.extraVolumeMounts }}
             {{- toYaml . | nindent 10 }}
           {{- end }}
 {{- if $gateway.additionalContainers }}
@@ -136,7 +136,7 @@ spec:
           name: {{ .configMapName | quote }}
           optional: true
       {{- end }}
-      {{- with .Values.extraVolumes }}
+      {{- with $gateway.extraVolumes }}
         {{- toYaml . | nindent 6 }}
       {{- end }}
       affinity:
