@@ -3400,18 +3400,20 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
 		}
 
-		// multiple hosts and TCP is invalid unless the resolution type is NONE.
+		// multiple hosts and TCP is invalid unless the resolution type is NONE, or DNS_AUTO_ALLOCATE is
+		// not enabled.
 		// depending on the protocol, we can differentiate between hosts when proxying:
 		// - with HTTP, the authority header can be used
 		// - with HTTPS/TLS with SNI, the ServerName can be used
 		// however, for plain TCP there is no way to differentiate between the
 		// hosts so we consider it invalid, unless the resolution type is NONE
-		// (because the hosts are ignored).
+		// (because the hosts are ignored), or DNS_AUTO_ALLOCATE is enabled together with DNS proxy.
 		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 			for _, port := range serviceEntry.Ports {
 				p := protocol.Parse(port.Protocol)
 				if !p.IsHTTP() && !p.IsTLS() {
-					errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf(
+						"multiple hosts provided with non-HTTP, non-TLS ports may not work unless DNS_AUTO_ALLOCATE is enabled")))
 					break
 				}
 			}
