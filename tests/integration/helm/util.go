@@ -169,7 +169,7 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateways bool) {
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
 	retry.UntilSuccessOrFail(ctx, func() error {
@@ -177,8 +177,8 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGat
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
 
-		if verifyGateways {
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
+		if verifyGateway {
+			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingress")); err != nil {
 				return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
 			}
 		}
