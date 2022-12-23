@@ -70,60 +70,32 @@ func TestMetricDefinitions(t *testing.T) {
 					util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_custom_total"})
 				}
 			})
-			httpSourceQuery := buildCustomQuery(httpProtocol)
-			grpcSourceQuery := buildCustomQuery(grpcProtocol)
+			urlPath := "/custom_path"
+			httpSourceQuery := buildCustomQuery(urlPath)
 			cluster := t.Clusters().Default()
-			httpChecked := false
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := sendTraffic(); err != nil {
+				if err := sendHTTPTraffic(urlPath); err != nil {
 					t.Log("failed to send traffic")
 					return err
 				}
-				if !httpChecked {
-					if _, err := util.QueryPrometheus(t, cluster, httpSourceQuery, promInst); err != nil {
-						util.PromDiff(t, promInst, cluster, httpSourceQuery)
-						return err
-					}
-					httpChecked = true
-				}
-				if _, err := util.QueryPrometheus(t, cluster, grpcSourceQuery, promInst); err != nil {
-					util.PromDiff(t, promInst, cluster, grpcSourceQuery)
+				if _, err := util.QueryPrometheus(t, cluster, httpSourceQuery, promInst); err != nil {
+					util.PromDiff(t, promInst, cluster, httpSourceQuery)
 					return err
 				}
 				return nil
 			}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
 			util.ValidateMetric(t, cluster, promInst, httpSourceQuery, 1)
-			util.ValidateMetric(t, cluster, promInst, grpcSourceQuery, 1)
 		})
 }
 
-func buildCustomQuery(protocol string) (destinationQuery prometheus.Query) {
+func buildCustomQuery(urlPath string) (destinationQuery prometheus.Query) {
 	labels := map[string]string{
-		"request_protocol":               "http",
-		"response_code":                  "2xx",
-		"destination_app":                "server",
-		"destination_version":            "v1",
-		"destination_service":            "server." + appNsInst.Name() + ".svc.cluster.local",
-		"destination_service_name":       "server",
-		"destination_workload_namespace": appNsInst.Name(),
-		"destination_service_namespace":  appNsInst.Name(),
-		"source_app":                     "client",
-		"source_version":                 "v1",
-		"source_workload":                "client-v1",
-		"source_workload_namespace":      appNsInst.Name(),
-		"custom_dimension":               "test",
-	}
-	if protocol == httpProtocol {
-		labels["request_operation"] = "getoperation"
-	}
-	if protocol == grpcProtocol {
-		labels["grpc_response_status"] = "OK"
-		labels["request_protocol"] = "grpc"
+		"url_path":      urlPath,
+		"response_code": "200",
 	}
 	sourceQuery := prometheus.Query{}
 	sourceQuery.Metric = "istio_custom_total"
 	sourceQuery.Labels = labels
-	sourceQuery.Labels["reporter"] = "source"
 
 	return sourceQuery
 }
@@ -347,6 +319,30 @@ func setupWasmExtension(ctx resource.Context) error {
 	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").
 		Apply(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func sendHTTPTraffic(urlPath string) error {
+	for _, cltInstance := range client {
+		httpOpts := echo.CallOptions{
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Path:   urlPath,
+				Method: "GET",
+			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
+		}
+
+		if _, err := cltInstance.Call(httpOpts); err != nil {
+			return err
+		}
 	}
 
 	return nil
