@@ -44,6 +44,8 @@ type mockCache struct {
 	wantPolicy extensions.PullPolicy
 }
 
+var _ Cache = &mockCache{}
+
 func (c *mockCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
 	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
@@ -66,7 +68,10 @@ func (c *mockCache) Get(
 
 	return module, err
 }
+
 func (c *mockCache) Cleanup() {}
+
+func (c *mockCache) PurgeExpiredModules() {}
 
 func TestWasmConvert(t *testing.T) {
 	cases := []struct {

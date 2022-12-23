@@ -50,6 +50,7 @@ const (
 type Cache interface {
 	Get(url, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
 	Cleanup()
+	PurgeExpiredModules()
 }
 
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
@@ -124,9 +125,6 @@ func (o cacheOptions) sanitize() cacheOptions {
 	}
 	ret.allowAllInsecureRegistries = ret.InsecureRegistries.Contains("*")
 
-	if o.PurgeInterval != 0 {
-		ret.PurgeInterval = o.PurgeInterval
-	}
 	if o.ModuleExpiry != 0 {
 		ret.ModuleExpiry = o.ModuleExpiry
 	}
@@ -201,16 +199,6 @@ func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
 	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
 ) (modulePath string, retErr error) {
-	defer func() {
-		// Currently, Wasm Plugin API only supports "fail_open=false".
-		// That means that, when downloading or something gets an error,
-		// the ECDS will be not passed to Envoy and send NACK to Istiod.
-		// In that case, we should not purge any Wasm because there is possibility
-		// to delete a Wasm which is being used by Envoy.
-		if retErr == nil {
-			c.purge()
-		}
-	}()
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -413,8 +401,8 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 	return modulePath, key.checksum
 }
 
-// purge clean up the stale Wasm modules local file and the cache map.
-func (c *LocalFileCache) purge() {
+// PurgeExpiredModules clean up the stale Wasm modules local file and the cache map.
+func (c *LocalFileCache) PurgeExpiredModules() {
 	c.mux.Lock()
 	for k, m := range c.modules {
 		if !m.expired(c.ModuleExpiry) {

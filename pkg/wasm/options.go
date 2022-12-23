@@ -21,14 +21,12 @@ import (
 )
 
 const (
-	DefaultPurgeInterval         = 1 * time.Hour
 	DefaultModuleExpiry          = 24 * time.Hour
 	DefaultHTTPRequestTimeout    = 15 * time.Second
 	DefaultHTTPRequestMaxRetries = 5
 )
 
 type Options struct {
-	PurgeInterval         time.Duration
 	ModuleExpiry          time.Duration
 	InsecureRegistries    sets.String
 	HTTPRequestTimeout    time.Duration
@@ -37,7 +35,6 @@ type Options struct {
 
 func defaultOptions() Options {
 	return Options{
-		PurgeInterval:         DefaultPurgeInterval,
 		ModuleExpiry:          DefaultModuleExpiry,
 		InsecureRegistries:    sets.New[string](),
 		HTTPRequestTimeout:    DefaultHTTPRequestTimeout,

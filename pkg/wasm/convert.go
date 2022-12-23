@@ -90,6 +90,13 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 				sendNack = true
 			}
 		}
+
+		if !sendNack {
+			// If sendNack is true, ECDS is not sent to Envoy.
+			// In that case, we should not purge any Wasm modules,
+			// because it is possible for the module to be being used by Envoy.
+			cache.PurgeExpiredModules()
+		}
 	}()
 	if err := resource.UnmarshalTo(ec); err != nil {
 		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)

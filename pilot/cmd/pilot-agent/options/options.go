@@ -111,9 +111,6 @@ var (
 	wasmModuleExpiry = env.Register("WASM_MODULE_EXPIRY", wasm.DefaultModuleExpiry,
 		"cache expiration duration for a wasm module.").Get()
 
-	wasmPurgeInterval = env.Register("WASM_PURGE_INTERVAL", wasm.DefaultPurgeInterval,
-		"interval between checking the expiration of wasm modules").Get()
-
 	wasmHTTPRequestTimeout = env.Register("WASM_HTTP_REQUEST_TIMEOUT", wasm.DefaultHTTPRequestTimeout,
 		"timeout per a HTTP request for pulling a Wasm module via http/https").Get()
 
