@@ -198,7 +198,7 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
 	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (modulePath string, retErr error) {
+) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -216,6 +216,7 @@ func (c *LocalFileCache) Get(
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
+	var modulePath string
 	modulePath, key.checksum = c.getEntry(key, shouldIgnoreResourceVersion(pullPolicy, u))
 	if modulePath != "" {
 		c.touchEntry(key)
