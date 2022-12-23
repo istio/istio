@@ -149,7 +149,7 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
 	cacheOptions := cacheOptions{Options: options}
-	cache := &LocalFileCache{
+	return &LocalFileCache{
 		httpFetcher:  NewHTTPFetcher(options.HTTPRequestTimeout, options.HTTPRequestMaxRetries),
 		modules:      make(map[moduleKey]*cacheEntry),
 		checksums:    make(map[string]*checksumEntry),
@@ -157,11 +157,6 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 		cacheOptions: cacheOptions.sanitize(),
 		stopChan:     make(chan struct{}),
 	}
-
-	go func() {
-		cache.purge()
-	}()
-	return cache
 }
 
 func urlAsResourceName(fullURLStr string) string {
@@ -205,7 +200,12 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
 	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (string, error) {
+) (modulePath string, retErr error) {
+	defer func() {
+		if retErr == nil {
+			c.purge()
+		}
+	}()
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -223,7 +223,6 @@ func (c *LocalFileCache) Get(
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
-	var modulePath string
 	modulePath, key.checksum = c.getEntry(key, shouldIgnoreResourceVersion(pullPolicy, u))
 	if modulePath != "" {
 		c.touchEntry(key)
@@ -409,36 +408,26 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 	return modulePath, key.checksum
 }
 
-// Purge periodically clean up the stale Wasm modules local file and the cache map.
+// purge clean up the stale Wasm modules local file and the cache map.
 func (c *LocalFileCache) purge() {
-	ticker := time.NewTicker(c.PurgeInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			c.mux.Lock()
-			for k, m := range c.modules {
-				if !m.expired(c.ModuleExpiry) {
-					continue
-				}
-				// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
-				if err := os.Remove(m.modulePath); err != nil {
-					wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
-				} else {
-					for downloadURL := range m.referencingURLs {
-						delete(c.checksums, downloadURL)
-					}
-					delete(c.modules, k)
-					wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
-				}
+	c.mux.Lock()
+	for k, m := range c.modules {
+		if !m.expired(c.ModuleExpiry) {
+			continue
+		}
+		// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
+		if err := os.Remove(m.modulePath); err != nil {
+			wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
+		} else {
+			for downloadURL := range m.referencingURLs {
+				delete(c.checksums, downloadURL)
 			}
-			wasmCacheEntries.Record(float64(len(c.modules)))
-			c.mux.Unlock()
-		case <-c.stopChan:
-			// Currently this will only happen in test.
-			return
+			delete(c.modules, k)
+			wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
 		}
 	}
+	wasmCacheEntries.Record(float64(len(c.modules)))
+	c.mux.Unlock()
 }
 
 // Expired returns true if the module has not been touched for Wasm module Expiry.

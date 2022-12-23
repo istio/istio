@@ -40,6 +40,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -51,21 +52,26 @@ func TestWasmCache(t *testing.T) {
 	tsNumRequest := int32(0)
 
 	httpData := append(wasmHeader, []byte("data")...)
+	anotherHTTPData := append(wasmHeader, []byte("another-data")...)
 	invalidHTTPData := []byte("invalid binary")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&tsNumRequest, 1)
-
-		if r.URL.Path == "/different-url" {
+		switch r.URL.Path {
+		case "/different-url":
 			w.Write(append(httpData, []byte("different data")...))
-		} else if r.URL.Path == "/invalid-wasm-header" {
+		case "/invalid-wasm-header":
 			w.Write(invalidHTTPData)
-		} else {
+		case "/another-data":
+			w.Write(anotherHTTPData)
+		default:
 			w.Write(httpData)
 		}
 	}))
 	defer ts.Close()
 	httpDataSha := sha256.Sum256(httpData)
 	httpDataCheckSum := hex.EncodeToString(httpDataSha[:])
+	anotherHTTPDataSha := sha256.Sum256(anotherHTTPData)
+	anotherHTTPDataCheckSum := hex.EncodeToString(anotherHTTPDataSha[:])
 	invalidHTTPDataSha := sha256.Sum256(invalidHTTPData)
 	invalidHTTPDataCheckSum := hex.EncodeToString(invalidHTTPDataSha[:])
 
@@ -666,29 +672,30 @@ func TestWasmCache(t *testing.T) {
 			serverVisited := atomic.LoadInt32(&tsNumRequest) > 0
 
 			if c.checkPurgeTimeout > 0 {
-				moduleDeleted := false
-				for start := time.Now(); time.Since(start) < c.checkPurgeTimeout; {
+				retry.UntilSuccessOrFail(t, func() error {
+					// To trigger purging, call a subsequent valid "Get".
+					cache.Get(ts.URL+"/another-data", anotherHTTPDataCheckSum, "", "", time.Second*10, []byte{}, extensions.PullPolicy_UNSPECIFIED_POLICY)
 					fileCount := 0
 					err = filepath.Walk(tmpDir,
 						func(path string, info os.FileInfo, err error) error {
 							if err != nil {
 								return err
 							}
-							if !info.IsDir() {
+							// anotherHTTPData should not be counted.
+							if !info.IsDir() && info.Name() != anotherHTTPDataCheckSum+".wasm" {
 								fileCount++
 							}
 							return nil
 						})
 					// Check existence of module files. files should be deleted before timing out.
 					if err == nil && fileCount == 0 {
-						moduleDeleted = true
-						break
+						return nil
 					}
-				}
-
-				if !moduleDeleted {
-					t.Fatalf("Wasm modules are not purged before purge timeout")
-				}
+					return fmt.Errorf("Wasm modules are not purged before purge timeout")
+				}, retry.Delay(1*time.Second), retry.Timeout(c.checkPurgeTimeout))
+				// To avoid noise by "another-data", let's delete cache entries.
+				delete(cache.checksums, ts.URL+"/another-data")
+				delete(cache.modules, moduleKey{ts.URL + "/another-data", anotherHTTPDataCheckSum})
 			}
 
 			cache.mux.Lock()
