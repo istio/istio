@@ -163,10 +163,6 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, true)
 		helmtest.VerifyInstallation(t, cs, true)
 
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, []string{
-			"istiod-default-validator",
-		})
-
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
@@ -174,10 +170,6 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, "")
 		upgradeCharts(t, h, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs, true)
-
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, []string{
-			"istiod-default-validator",
-		})
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
@@ -209,10 +201,6 @@ func performCanaryUpgradeFunc(previousVersion string) func(framework.TestContext
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, []string{
-			"istiod-default-validator",
-		})
-
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
@@ -237,7 +225,7 @@ func performCanaryUpgradeFunc(previousVersion string) func(framework.TestContext
 
 // performRevisionTagsUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability with stable label revision upgrades
-func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookName string, validatingWebhookCarriesOver bool) func(framework.TestContext) {
+func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
@@ -265,21 +253,16 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, previousRevision)
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, false)
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, []string{
-			"istiod-default-validator",
-		})
 
-		// helm template istiod-1-10-0 ../tests/integration/helm/testdata/1.15.0/istio-control/istio-discovery.tar.gz
-		//    -s templates/revision-tags.yaml --set revision=1-10-0 --set revisionTags={prod}
+		// helm template istiod-1-15-0 ../tests/integration/helm/testdata/1.15.0/istio-control/istio-discovery.tar.gz
+		//    -s templates/revision-tags.yaml --set revision=1-15-0 --set revisionTags={prod}
 		helmtest.SetRevisionTag(t, h, tarGzSuffix, previousRevision, prodTag, helmtest.TestDataChartPath, previousVersion)
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
 			fmt.Sprintf("istio-sidecar-injector-%s", previousRevision),
 		})
 
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, []string{previousValidatingWebhookName})
-
-		// setup istio.io/rev=1-10-0 for the default-1 namespace
+		// setup istio.io/rev=1-15-0 for the default-1 namespace
 		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, previousRevision)
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
@@ -290,9 +273,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, latestRevisionTag)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false)
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, []string{
-			"istiod-default-validator",
-		})
+
 		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={canary}
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
@@ -302,17 +283,6 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 			"istio-revision-tag-canary",
 			"istio-sidecar-injector-latest",
 		})
-
-		validatingWebhooks := []string{
-			"istiod-default-validator",
-		}
-
-		if validatingWebhookCarriesOver {
-			validatingWebhooks = append(validatingWebhooks, previousValidatingWebhookName)
-		}
-
-		// when installing from the latest charts default validator will be installed
-		helmtest.VerifyValidatingWebhookConfigurations(t, cs, validatingWebhooks)
 
 		// setup istio.io/rev=latest for the default-2 namespace
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevisionTag)
@@ -327,7 +297,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={prod}
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, prodTag, helmtest.ManifestsChartPath, "")
 
-		// change the old namespace that was pointing to the old prod (1-10-0) to point to the
+		// change the old namespace that was pointing to the old prod (1-15-0) to point to the
 		// 'latest' revision by setting the `istio.io/rev=prod` label on the namespace
 		err := oldNs.SetLabel(label.IoIstioRev.Name, prodTag)
 		if err != nil {

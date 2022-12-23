@@ -18,8 +18,6 @@
 package helmupgrade
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -56,12 +54,10 @@ func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 
 // TestStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
 func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
-	previousRevision := strings.ReplaceAll(previousSupportedVersion, ".", "-")
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion,
-			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision), true))
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
 }
 
 // TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
@@ -69,5 +65,5 @@ func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, "istiod-istio-system", false))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
 }
