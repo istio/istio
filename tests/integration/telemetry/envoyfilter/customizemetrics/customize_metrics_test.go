@@ -72,7 +72,6 @@ func TestMetricDefinitions(t *testing.T) {
 			})
 			httpSourceQuery := buildCustomQuery(httpProtocol)
 			grpcSourceQuery := buildCustomQuery(grpcProtocol)
-			var httpMetricVal string
 			cluster := t.Clusters().Default()
 			httpChecked := false
 			retry.UntilSuccessOrFail(t, func() error {
@@ -80,17 +79,14 @@ func TestMetricDefinitions(t *testing.T) {
 					t.Log("failed to send traffic")
 					return err
 				}
-				var err error
 				if !httpChecked {
-					httpMetricVal, err = util.QueryPrometheus(t, cluster, httpSourceQuery, promInst)
-					if err != nil {
+					if _, err := util.QueryPrometheus(t, cluster, httpSourceQuery, promInst); err != nil {
 						util.PromDiff(t, promInst, cluster, httpSourceQuery)
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = util.QueryPrometheus(t, cluster, grpcSourceQuery, promInst)
-				if err != nil {
+				if _, err := util.QueryPrometheus(t, cluster, grpcSourceQuery, promInst); err != nil {
 					util.PromDiff(t, promInst, cluster, grpcSourceQuery)
 					return err
 				}
