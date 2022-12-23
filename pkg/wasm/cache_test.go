@@ -687,11 +687,14 @@ func TestWasmCache(t *testing.T) {
 							}
 							return nil
 						})
-					// Check existence of module files. files should be deleted before timing out.
-					if err == nil && fileCount == 0 {
-						return nil
+					if err != nil {
+						return err
 					}
-					return fmt.Errorf("Wasm modules are not purged before purge timeout")
+					// Check existence of module files. files should be deleted.
+					if fileCount > 0 {
+						return fmt.Errorf("Wasm modules are not purged")
+					}
+					return nil
 				}, retry.Delay(1*time.Second), retry.Timeout(c.checkPurgeTimeout))
 				// To avoid noise by "another-data", let's delete cache entries.
 				delete(cache.checksums, ts.URL+"/another-data")
