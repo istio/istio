@@ -447,16 +447,14 @@ type fakeAckCache struct{}
 func (f *fakeAckCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "test", nil
 }
-func (f *fakeAckCache) Cleanup()             {}
-func (f *fakeAckCache) PurgeExpiredModules() {}
+func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
 
 func (f *fakeNackCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
 	return "", errors.New("errror")
 }
-func (f *fakeNackCache) Cleanup()             {}
-func (f *fakeNackCache) PurgeExpiredModules() {}
+func (f *fakeNackCache) Cleanup() {}
 
 func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{

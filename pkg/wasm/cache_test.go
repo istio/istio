@@ -52,6 +52,7 @@ func TestWasmCache(t *testing.T) {
 	tsNumRequest := int32(0)
 
 	httpData := append(wasmHeader, []byte("data")...)
+	anotherHTTPData := append(wasmHeader, []byte("another-data")...)
 	invalidHTTPData := []byte("invalid binary")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&tsNumRequest, 1)
@@ -60,6 +61,8 @@ func TestWasmCache(t *testing.T) {
 			w.Write(append(httpData, []byte("different data")...))
 		case "/invalid-wasm-header":
 			w.Write(invalidHTTPData)
+		case "/another-data":
+			w.Write(anotherHTTPData)
 		default:
 			w.Write(httpData)
 		}
@@ -67,6 +70,8 @@ func TestWasmCache(t *testing.T) {
 	defer ts.Close()
 	httpDataSha := sha256.Sum256(httpData)
 	httpDataCheckSum := hex.EncodeToString(httpDataSha[:])
+	anotherHTTPDataSha := sha256.Sum256(anotherHTTPData)
+	anotherHTTPDataCheckSum := hex.EncodeToString(anotherHTTPDataSha[:])
 	invalidHTTPDataSha := sha256.Sum256(invalidHTTPData)
 	invalidHTTPDataCheckSum := hex.EncodeToString(invalidHTTPDataSha[:])
 
@@ -662,15 +667,16 @@ func TestWasmCache(t *testing.T) {
 
 			if c.checkPurgeTimeout > 0 {
 				retry.UntilSuccessOrFail(t, func() error {
-					// Purge the expired modules always in this test.
-					cache.PurgeExpiredModules()
+					// To trigger purging, call a subsequent valid "Get".
+					cache.Get(ts.URL+"/another-data", anotherHTTPDataCheckSum, "", "", time.Second*10, []byte{}, extensions.PullPolicy_UNSPECIFIED_POLICY)
 					fileCount := 0
 					err = filepath.Walk(tmpDir,
 						func(path string, info os.FileInfo, err error) error {
 							if err != nil {
 								return err
 							}
-							if !info.IsDir() {
+							// anotherHTTPData should not be counted.
+							if !info.IsDir() && info.Name() != anotherHTTPDataCheckSum+".wasm" {
 								fileCount++
 							}
 							return nil
@@ -684,6 +690,9 @@ func TestWasmCache(t *testing.T) {
 					}
 					return nil
 				}, retry.Delay(1*time.Second), retry.Timeout(c.checkPurgeTimeout))
+				// To avoid noise by "another-data", let's delete cache entries.
+				delete(cache.checksums, ts.URL+"/another-data")
+				delete(cache.modules, moduleKey{ts.URL + "/another-data", anotherHTTPDataCheckSum})
 			}
 
 			cache.mux.Lock()

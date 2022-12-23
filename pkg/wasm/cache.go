@@ -50,7 +50,6 @@ const (
 type Cache interface {
 	Get(url, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
 	Cleanup()
-	PurgeExpiredModules()
 }
 
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
@@ -198,7 +197,15 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 func (c *LocalFileCache) Get(
 	downloadURL, checksum, resourceName, resourceVersion string,
 	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (string, error) {
+) (modulePath string, retErr error) {
+	defer func() {
+		// When downloading or something gets an error,
+		// we should not purge any Wasm because there is possibility
+		// to delete a Wasm which is being used by Envoy.
+		if retErr == nil {
+			c.purge()
+		}
+	}()
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -216,7 +223,6 @@ func (c *LocalFileCache) Get(
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
-	var modulePath string
 	modulePath, key.checksum = c.getEntry(key, shouldIgnoreResourceVersion(pullPolicy, u))
 	if modulePath != "" {
 		c.touchEntry(key)
@@ -402,8 +408,8 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 	return modulePath, key.checksum
 }
 
-// PurgeExpiredModules clean up the stale Wasm modules local file and the cache map.
-func (c *LocalFileCache) PurgeExpiredModules() {
+// purge clean up the stale Wasm modules local file and the cache map.
+func (c *LocalFileCache) purge() {
 	c.mux.Lock()
 	for k, m := range c.modules {
 		if !m.expired(c.ModuleExpiry) {

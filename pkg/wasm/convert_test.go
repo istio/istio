@@ -71,8 +71,6 @@ func (c *mockCache) Get(
 
 func (c *mockCache) Cleanup() {}
 
-func (c *mockCache) PurgeExpiredModules() {}
-
 func TestWasmConvert(t *testing.T) {
 	cases := []struct {
 		name       string
