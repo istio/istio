@@ -172,6 +172,10 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
+	VerifyValidatingWebhookConfigurations(ctx, cs, []string{
+		"istiod-default-validator",
+	})
+
 	retry.UntilSuccessOrFail(ctx, func() error {
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
@@ -214,9 +218,9 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-// ValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
+// VerifyValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
 // revisions and revision tags
-func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
+func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
 	scopes.Framework.Infof("=== verifying validating webhook configurations === ")
 	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs.Kube(), names); !ok {
 		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)

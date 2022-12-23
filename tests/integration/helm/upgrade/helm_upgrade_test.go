@@ -38,26 +38,24 @@ func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 		Run(performInPlaceUpgradeFunc(previousSupportedVersion))
 }
 
-// TestDefaultRevisionUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
+// TestCanaryUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestCanaryUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionUpgradeFunc(previousSupportedVersion, "istio-validator-istio-system", true))
+		Run(performCanaryUpgradeFunc(previousSupportedVersion))
 }
 
-// TestDefaultRevisionUpgradeFromPreviousMinorRelease
-
-// TestDefaultRevisionUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
-func TestDefaultRevisionUpgradeFromTwoMinorRelease(t *testing.T) {
+// TestCanaryUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
+func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionUpgradeFunc(nMinusTwoVersion, "istiod-istio-system", false))
+		Run(performCanaryUpgradeFunc(nMinusTwoVersion))
 }
 
-// TestRevisionTagsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestRevisionTagsUpgradeFromPreviousMinorRelease(t *testing.T) {
+// TestStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	previousRevision := strings.ReplaceAll(previousSupportedVersion, ".", "-")
 	framework.
 		NewTest(t).
@@ -66,8 +64,8 @@ func TestRevisionTagsUpgradeFromPreviousMinorRelease(t *testing.T) {
 			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision), true))
 }
 
-// TestRevisionTagsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
-func TestRevisionTagsUpgradeFromTwoMinorRelease(t *testing.T) {
+// TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
+func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
