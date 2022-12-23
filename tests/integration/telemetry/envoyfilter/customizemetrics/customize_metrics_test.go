@@ -60,6 +60,78 @@ const (
 	registryPasswd = "passwd"
 )
 
+func TestMetricDefinitions(t *testing.T) {
+	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Features("observability.telemetry.stats.prometheus.customize-metric").
+		Run(func(t framework.TestContext) {
+			t.Cleanup(func() {
+				if t.Failed() {
+					util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_custom_total"})
+				}
+			})
+			httpSourceQuery := buildCustomQuery(httpProtocol)
+			grpcSourceQuery := buildCustomQuery(grpcProtocol)
+			var httpMetricVal string
+			cluster := t.Clusters().Default()
+			httpChecked := false
+			retry.UntilSuccessOrFail(t, func() error {
+				if err := sendTraffic(); err != nil {
+					t.Log("failed to send traffic")
+					return err
+				}
+				var err error
+				if !httpChecked {
+					httpMetricVal, err = util.QueryPrometheus(t, cluster, httpSourceQuery, promInst)
+					if err != nil {
+						util.PromDiff(t, promInst, cluster, httpSourceQuery)
+						return err
+					}
+					httpChecked = true
+				}
+				_, err = util.QueryPrometheus(t, cluster, grpcSourceQuery, promInst)
+				if err != nil {
+					util.PromDiff(t, promInst, cluster, grpcSourceQuery)
+					return err
+				}
+				return nil
+			}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
+			util.ValidateMetric(t, cluster, promInst, httpSourceQuery, 1)
+			util.ValidateMetric(t, cluster, promInst, grpcSourceQuery, 1)
+		})
+}
+
+func buildCustomQuery(protocol string) (destinationQuery prometheus.Query) {
+	labels := map[string]string{
+		"request_protocol":               "http",
+		"response_code":                  "2xx",
+		"destination_app":                "server",
+		"destination_version":            "v1",
+		"destination_service":            "server." + appNsInst.Name() + ".svc.cluster.local",
+		"destination_service_name":       "server",
+		"destination_workload_namespace": appNsInst.Name(),
+		"destination_service_namespace":  appNsInst.Name(),
+		"source_app":                     "client",
+		"source_version":                 "v1",
+		"source_workload":                "client-v1",
+		"source_workload_namespace":      appNsInst.Name(),
+		"custom_dimension":               "test",
+	}
+	if protocol == httpProtocol {
+		labels["request_operation"] = "getoperation"
+	}
+	if protocol == grpcProtocol {
+		labels["grpc_response_status"] = "OK"
+		labels["request_protocol"] = "grpc"
+	}
+	sourceQuery := prometheus.Query{}
+	sourceQuery.Metric = "istio_custom_total"
+	sourceQuery.Labels = labels
+	sourceQuery.Labels["reporter"] = "source"
+
+	return sourceQuery
+}
+
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
@@ -217,6 +289,14 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfValue := `
+meshConfig:
+  defaultConfig:
+    proxyStatsMatcher:
+      inclusionPrefixes:
+      - istio_custom_total
+    extraStatTags:
+    - url_path
+    - response_status
 values:
  telemetry:
    v2:
@@ -234,6 +314,16 @@ values:
                custom_dimension: "'test'"
              tags_to_remove:
              - %s
+         outboundSidecar:
+           definitions:
+           - name: custom_total
+             type: "COUNTER"
+             value: "1"
+           metrics:
+           - name: custom_total
+             dimensions:
+               url_path: request.url_path
+               response_status: string(response.code)
 `
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
