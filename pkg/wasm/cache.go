@@ -202,6 +202,11 @@ func (c *LocalFileCache) Get(
 	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
 ) (modulePath string, retErr error) {
 	defer func() {
+		// Currently, Wasm Plugin API only supports "fail_open=false".
+		// That means that, when downloading or something gets an error,
+		// the ECDS will be not passed to Envoy and send NACK to Istiod.
+		// In that case, we should not purge any Wasm because there is possibility
+		// to delete a Wasm which is being used by Envoy.
 		if retErr == nil {
 			c.purge()
 		}
