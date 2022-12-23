@@ -15,7 +15,6 @@
 package model
 
 import (
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -946,10 +945,6 @@ func TestResourceAttributes(t *testing.T) {
 						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
 					},
 					{
-						Key:   "k8s.pod.name",
-						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name-xxxxx"}},
-					},
-					{
 						Key:   "service.name",
 						Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
 					},
@@ -993,27 +988,14 @@ func TestBaggage(t *testing.T) {
 				},
 				ConfigNamespace: "fake-ns",
 			},
-			expected: "k8s.cluster.name=fake-cluster,k8s.deployment.name=fake-name,k8s.namespace.name=fake-ns,service.name=fake-service,service.version=fake-ver",
+			expected: "k8s.cluster.name=fake-cluster,k8s.namespace.name=fake-ns,k8s.deployment.name=fake-name,service.name=fake-service,service.version=fake-ver",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := Baggage(tc.proxy)
-			assert.Equal(t, tc.expected, orderer(got))
+			assert.Equal(t, tc.expected, got)
 		})
 	}
-}
-
-func orderer(s string) string {
-	members := strings.Split(s, ",")
-	for i, m := range members {
-		parts := strings.Split(m, ";")
-		if len(parts) >= 1 {
-			sort.Strings(parts[1:])
-			members[i] = strings.Join(parts, ";")
-		}
-	}
-	sort.Strings(members)
-	return strings.Join(members, ",")
 }

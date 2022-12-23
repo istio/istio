@@ -1120,10 +1120,6 @@ func TestTelemetryAccessLog(t *testing.T) {
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name"}},
 				},
 				{
-					Key:   "k8s.pod.name",
-					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-name-xxxxx"}},
-				},
-				{
 					Key:   "service.name",
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "fake-service"}},
 				},

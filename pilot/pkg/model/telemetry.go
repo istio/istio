@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -27,7 +28,6 @@ import (
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"go.opentelemetry.io/otel/attribute"
-	otelbaggage "go.opentelemetry.io/otel/baggage"
 	otelsemconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -1060,15 +1060,14 @@ func disableHostHeaderFallback(class networking.ListenerClass) bool {
 // resourceAttributes return semantic attributes follow OpenTelemetry specification
 // see more details here: https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/
 func resourceAttributes(proxy *Proxy) *otlpcommon.KeyValueList {
-	podName, _ := extractProxyID(proxy)
 	canonicalName := proxy.Labels[IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[IstioCanonicalServiceRevisionLabelName]
 	return &otlpcommon.KeyValueList{
 		Values: []*otlpcommon.KeyValue{
 			otelKeyValue(otelsemconv.K8SClusterNameKey, proxy.Metadata.ClusterID.String()),
 			otelKeyValue(otelsemconv.K8SNamespaceNameKey, proxy.ConfigNamespace),
+			// TODO do not hardcode deployment. But I think we ignore it anyways?
 			otelKeyValue(otelsemconv.K8SDeploymentNameKey, proxy.Metadata.WorkloadName),
-			otelKeyValue(otelsemconv.K8SPodNameKey, podName),
 			otelKeyValue(otelsemconv.ServiceNameKey, canonicalName),
 			otelKeyValue(otelsemconv.ServiceVersionKey, canonicalRevision),
 		},
@@ -1082,30 +1081,16 @@ func otelKeyValue(semantic attribute.Key, val string) *otlpcommon.KeyValue {
 	}
 }
 
-func extractProxyID(proxy *Proxy) (string, string) {
-	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
-	// namespace <podName.namespace>.
-	ids := strings.Split(proxy.ID, ".")
-	if len(ids) < 2 {
-		// should not happen, just incase
-		return proxy.ID, ""
-	}
-	return ids[0], ids[1]
-}
+// consitent with https://github.com/open-telemetry/opentelemetry-go/blob/a724cf884287e04785eaa91513d26a6ef9699288/baggage/baggage.go#L32
+const baggageListDelimiter = ","
 
 func Baggage(proxy *Proxy) string {
 	attrs := resourceAttributes(proxy)
 
-	members := make([]otelbaggage.Member, 0, len(attrs.Values)-1)
+	members := make([]string, 0, len(attrs.Values))
 	for _, attr := range attrs.Values {
-		if attr.Key == string(otelsemconv.K8SPodNameKey) {
-			// k8s.pod.name is unneeded in baggage
-			continue
-		}
-		m, _ := otelbaggage.NewMember(attr.Key, attr.GetValue().GetStringValue())
-		members = append(members, m)
+		members = append(members, fmt.Sprintf("%s=%s", attr.Key, attr.GetValue().GetStringValue()))
 	}
 
-	b, _ := otelbaggage.New(members...)
-	return b.String()
+	return strings.Join(members, baggageListDelimiter)
 }
