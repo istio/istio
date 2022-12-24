@@ -90,8 +90,8 @@ func TestMetricDefinitions(t *testing.T) {
 
 func buildCustomQuery(urlPath string) (destinationQuery prometheus.Query) {
 	labels := map[string]string{
-		"url_path":      urlPath,
-		"response_code": "200",
+		"url_path":        urlPath,
+		"response_status": "200",
 	}
 	sourceQuery := prometheus.Query{}
 	sourceQuery.Metric = "istio_custom_total"
