@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-func TestIsNonHTTPTLSServer(t *testing.T) {
+func TestIsTLSServer(t *testing.T) {
 	cases := []struct {
 		name     string
 		server   *v1alpha3.Server
@@ -78,9 +78,9 @@ func TestIsNonHTTPTLSServer(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := IsNonHTTPTLSServer(tc.server)
+			actual := IsTLSServer(tc.server)
 			if actual != tc.expected {
-				t.Errorf("IsNonHTTPTLSServer(%s) => %t, want %t",
+				t.Errorf("IsTLSServer(%s) => %t, want %t",
 					tc.server, actual, tc.expected)
 			}
 		})
