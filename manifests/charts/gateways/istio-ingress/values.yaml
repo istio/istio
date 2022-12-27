@@ -4,6 +4,7 @@
 gateways:
   istio-ingressgateway:
     name: istio-ingressgateway
+    namespace: ""
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -65,6 +66,17 @@ gateways:
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
 
+    extraVolumeMounts: []
+    # - name: secrets-store-inline
+    #   mountPath: "/secret-store"
+    #   readOnly: true
+
+    extraVolumes: []
+    # - name: secrets-store-inline
+    #   driver: secrets-store.csi.k8s.io
+    #   volumeAttributes: 
+    #     - secretProviderClass: azure-kv-example
+    
     customService: false
     externalTrafficPolicy: ""
 
