@@ -31,11 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/kubernetes/fake"
 	fakeclient "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/clock"
 
 	rl "istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 )
@@ -236,7 +236,7 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 			outHolder:     "bing",
 		},
 		// Uncomment when https://github.com/kubernetes/kubernetes/pull/103442/files#r715818684 is resolved.
-		//{
+		// {
 		//	name: "don't acquire from led, acked object with key when our key is smaller",
 		//	reactors: []Reactor{
 		//		{
@@ -256,7 +256,7 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 		//
 		//	expectSuccess: false,
 		//	outHolder:     "bing",
-		//},
+		// },
 		{
 			name: "steal from led object with key when our key is larger",
 			reactors: []Reactor{
