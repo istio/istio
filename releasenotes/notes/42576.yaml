@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: cleanup
-area: each
+area: echo
 releaseNotes:
   - |
     **Removed** Remove useless code in grpc.go
