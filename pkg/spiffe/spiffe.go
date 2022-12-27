@@ -241,6 +241,7 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 			} else if resp.StatusCode != http.StatusOK {
 				b := make([]byte, 1024)
 				n, _ := resp.Body.Read(b)
+				_ = resp.Body.Close()
 				errMsg = fmt.Sprintf("Calling %s failed with unexpected status: %v, fetching bundle: %s",
 					endpoint, resp.StatusCode, string(b[:n]))
 			} else {
