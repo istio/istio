@@ -174,10 +174,6 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 			req.CaCertFile = ca
 			req.InsecureSkipVerify = true
 		}
-
-		if err != nil {
-			return err
-		}
 		_, err = s.f.ForwardEcho(context.Background(), &forwarder.Config{
 			XDSTestBootstrap: s.Port.XDSTestBootstrap,
 			Request:          req,
