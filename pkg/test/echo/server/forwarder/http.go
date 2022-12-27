@@ -107,7 +107,7 @@ func newHTTP2TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 		if cfg.scheme == scheme.HTTPS {
 			return &http2.Transport{
 				TLSClientConfig: cfg.tlsConfig,
-				DialTLS: func(network, addr string, tlsConfig *tls.Config) (net.Conn, error) {
+				DialTLSContext: func(ctx context.Context, network, addr string, tlsConfig *tls.Config) (net.Conn, error) {
 					return hbone.TLSDialWithDialer(newDialer(cfg), network, addr, tlsConfig)
 				},
 			}
