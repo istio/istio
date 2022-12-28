@@ -350,15 +350,16 @@ func zipkinConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
 	return protoconv.MessageToAnyWithError(zc)
 }
 
-func datadogConfigGen(serviceName, _, cluster string) (*anypb.Any, error) {
+func datadogConfigGen(serviceName, hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.DatadogConfig{
-		CollectorCluster: cluster,
-		ServiceName:      serviceName,
+		CollectorCluster:  cluster,
+		ServiceName:       serviceName,
+		CollectorHostname: hostname,
 	}
 	return protoconv.MessageToAnyWithError(dc)
 }
 
-func otelConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
+func otelConfigGen(serviceName, hostname, cluster string) (*anypb.Any, error) {
 	dc := &tracingcfg.OpenTelemetryConfig{
 		GrpcService: &core.GrpcService{
 			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -368,6 +369,7 @@ func otelConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
 				},
 			},
 		},
+		ServiceName: serviceName,
 	}
 	return anypb.New(dc)
 }

@@ -116,7 +116,7 @@ func argValues(args ...any) []reflect.Value {
 }
 
 func mirrorResource(q queue.Instance, from cache.SharedIndexInformer, toClientFunc any, convertFn convertFn) {
-	from.AddEventHandler(mirrorTo(q, toClientFunc, convertFn))
+	_, _ = from.AddEventHandler(mirrorTo(q, toClientFunc, convertFn))
 }
 
 func endpointSliceV1toV1beta1(obj any) metav1.Common {

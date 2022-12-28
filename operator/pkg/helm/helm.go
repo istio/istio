@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"helm.sh/helm/v3/pkg/chart"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -111,6 +113,11 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 	}
 
 	caps := *chartutil.DefaultCapabilities
+
+	// overwrite helm default capabilities
+	operatorVersion, _ := chartutil.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
+	caps.KubeVersion = *operatorVersion
+
 	if version != nil {
 		caps.KubeVersion = chartutil.KubeVersion{
 			Version: version.GitVersion,

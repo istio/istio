@@ -230,6 +230,10 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
+	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
+		kubeRegistry.AppendNamespaceDiscoveryHandlers(m.serviceEntryController.NamespaceDiscoveryHandler)
+	}
+
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {
@@ -246,6 +250,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				// ServiceEntry selects WorkloadEntry from remote cluster
 				kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
+				if features.EnableEnhancedResourceScoping {
+					kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
+				}
 				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
 				go configStore.Run(clusterStopCh)
 			} else {
@@ -298,7 +305,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" {
 			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, m.opts.SystemNamespace, webhookName, m.caBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {

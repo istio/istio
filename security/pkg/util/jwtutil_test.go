@@ -56,6 +56,9 @@ var (
 
 	// twoAudList includes two `aud` claims ["abc", "xyz"] of type []string.
 	twoAudList = "header.eyJhdWQiOlsiYWJjIiwieHl6Il0sImV4cCI6NDczMjk5NDgwMSwiaWF0IjoxNTc5Mzk0ODAxLCJpc3MiOiJ0ZXN0LWlzc3Vlci0xQGlzdGlvLmlvIiwic3ViIjoic3ViLTEifQ.signature" // nolint: lll
+
+	// A JWT encoded payload that has the padding stripped and contains an underscore character from the base64url alphabet
+	base64UrlEncodedPaddingStrippedPart = "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwiYXVkIjoiSm9lIEFyZG_DsWV6In0"
 )
 
 func TestGetExp(t *testing.T) {
@@ -137,5 +140,20 @@ func Test3p(t *testing.T) {
 		if !IsK8SUnbound(s) {
 			t.Error("Expecting unbound, detected bound ", s)
 		}
+	}
+}
+
+func TestBase64UrlPartDecoding(t *testing.T) {
+	payloadBytes, err := DecodeJwtPart(base64UrlEncodedPaddingStrippedPart)
+	if err != nil {
+		t.Error("Expected DecodeJwtPart success, got failure", err)
+	}
+	if payloadBytes == nil {
+		t.Error("Expected DecodeJwtPart to return non-nil, got nil")
+	}
+
+	expectedAud := "Joe Ardoñez"
+	if got, _ := GetAud("header." + base64UrlEncodedPaddingStrippedPart + ".signature"); len(got) != 1 || expectedAud != got[0] {
+		t.Errorf("want audience %v but got %v", expectedAud, got)
 	}
 }

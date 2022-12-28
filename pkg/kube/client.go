@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -219,6 +220,12 @@ type CLIClient interface {
 
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
+
+	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
+	InvalidateDiscovery()
+
+	// Shutdown closes all informers and waits for them to terminate
+	Shutdown()
 }
 
 type PortManager func() (uint16, error)
@@ -567,6 +574,16 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	}
 }
 
+func (c *client) Shutdown() {
+	c.kubeInformer.Shutdown()
+	// TODO: use these once they are implemented
+	// c.dynamicInformer.Shutdown()
+	// c.metadataInformer.Shutdown()
+	// c.istioInformer.Shutdown()
+	// c.gatewayapiInformer.Shutdown()
+	c.extInformer.Shutdown()
+}
+
 func (c *client) startInformer(stop <-chan struct{}) {
 	c.kubeInformer.Start(stop)
 	c.dynamicInformer.Start(stop)
@@ -722,7 +739,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
@@ -1105,11 +1122,15 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 			log.Warnf("Failed to read %s: %v", file, err)
 		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
-			c.discoveryClient.Invalidate()
-			c.mapper.Reset()
+			c.InvalidateDiscovery()
 		}
 	}
 	return nil
+}
+
+func (c *client) InvalidateDiscovery() {
+	c.discoveryClient.Invalidate()
+	c.mapper.Reset()
 }
 
 func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {
@@ -1243,7 +1264,10 @@ func isEmptyFile(f string) bool {
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
-var IstioScheme = istioScheme()
+var (
+	IstioScheme = istioScheme()
+	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
+)
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = func() *runtime.Scheme {
@@ -1274,13 +1298,18 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	nParts := len(versionParts)
 	if nParts >= 3 {
 		// The format will be like 1.12.0-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty-Modified
-		// version is '1.12.0'
-		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
-		// status is 'Modified'
-		serverInfo.Version = versionParts[0]
-		serverInfo.GitTag = serverInfo.Version
-		serverInfo.GitRevision = strings.Join(versionParts[1:nParts-1], "-")
+		// version is '1.12.0' || '1.12.0-custom-build'
+		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a' || '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
+		// status is 'Modified' || 'Clean'
+		// Ref From common/scripts/report_build_info.sh
+		serverInfo.Version = strings.Join(versionParts[:nParts-2], "-")
+		serverInfo.GitRevision = versionParts[nParts-2]
 		serverInfo.BuildStatus = versionParts[nParts-1]
+		if serverInfo.GitRevision == "dirty" {
+			serverInfo.GitRevision = strings.Join([]string{versionParts[nParts-3], "dirty"}, "-")
+			serverInfo.Version = strings.Join(versionParts[:nParts-3], "-")
+		}
+		serverInfo.GitTag = serverInfo.Version
 	} else {
 		serverInfo.Version = istioInfo
 	}

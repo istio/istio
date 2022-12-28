@@ -16,8 +16,10 @@ spec:
         {{- range $key, $val := .Values.podLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
-    {{- if .Values.podAnnotations }}
       annotations:
+        prometheus.io/port: "{{ .Values.operator.monitoring.port }}"
+        prometheus.io/scrape: "true"
+    {{- if .Values.podAnnotations }}
 {{ toYaml .Values.podAnnotations | indent 8 }}
     {{- end }}
     spec:
@@ -28,6 +30,8 @@ spec:
           command:
           - operator
           - server
+          - --monitoring-host={{ .Values.operator.monitoring.host }}
+          - --monitoring-port={{ .Values.operator.monitoring.port }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -42,7 +46,9 @@ spec:
             seccompProfile:
 {{ toYaml .Values.operator.seccompProfile | trim | indent 14 }}
 {{- end }}
-          imagePullPolicy: IfNotPresent
+{{- if .Values.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{- end }}
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
           env:

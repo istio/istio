@@ -72,11 +72,30 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
 
+	if h.client.objectInRevision(&currConfig) {
+		h.callHandlers(oldConfig, currConfig, event)
+		return nil
+	}
+
+	// Check if the object was in our revision, but has been moved to a different revision. If so,
+	// it has been effectively deleted from our revision, so process it as a delete event.
+	if event == model.EventUpdate && old != nil && h.client.objectInRevision(&oldConfig) {
+		log.Debugf("Object %s/%s has been moved to a different revision, deleting",
+			currConfig.Namespace, currConfig.Name)
+		h.callHandlers(oldConfig, currConfig, model.EventDelete)
+		return nil
+	}
+
+	log.Debugf("Skipping event %s for object %s/%s from different revision",
+		event, currConfig.Namespace, currConfig.Name)
+	return nil
+}
+
+func (h *cacheHandler) callHandlers(old config.Config, curr config.Config, event model.Event) {
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
 	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
-		f(oldConfig, currConfig, event)
+		f(old, curr, event)
 	}
-	return nil
 }
 
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {

@@ -42,22 +42,20 @@ import (
 )
 
 const (
-	IstioNamespace      = "istio-system"
-	ReleasePrefix       = "istio-"
-	BaseChart           = "base"
-	CRDsFolder          = "crds"
-	DiscoveryChart      = "istio-discovery"
-	IngressGatewayChart = "istio-ingress"
-	EgressGatewayChart  = "istio-egress"
-	BaseReleaseName     = ReleasePrefix + BaseChart
-	IstiodReleaseName   = "istiod"
-	IngressReleaseName  = IngressGatewayChart
-	EgressReleaseName   = EgressGatewayChart
-	ControlChartsDir    = "istio-control"
-	GatewayChartsDir    = "gateways"
-	RetryDelay          = 2 * time.Second
-	RetryTimeOut        = 5 * time.Minute
-	Timeout             = 2 * time.Minute
+	IstioNamespace     = "istio-system"
+	ReleasePrefix      = "istio-"
+	BaseChart          = "base"
+	CRDsFolder         = "crds"
+	DiscoveryChart     = "istio-discovery"
+	BaseReleaseName    = ReleasePrefix + BaseChart
+	IstiodReleaseName  = "istiod"
+	IngressReleaseName = "istio-ingress"
+	ControlChartsDir   = "istio-control"
+	GatewayChartsDir   = "gateway"
+
+	RetryDelay   = 2 * time.Second
+	RetryTimeOut = 5 * time.Minute
+	Timeout      = 2 * time.Minute
 )
 
 // ManifestsChartPath is path of local Helm charts used for testing.
@@ -69,7 +67,7 @@ var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool,
+	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateway bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
 
@@ -87,19 +85,11 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChart, err)
 	}
 
-	if installGateways {
-		// Install ingress gateway chart
-		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, IngressGatewayChart)+suffix,
+	if installGateway {
+		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir)+suffix,
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", IngressGatewayChart, err)
-		}
-
-		// Install egress gateway chart
-		err = h.InstallChart(EgressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, EgressGatewayChart)+suffix,
-			IstioNamespace, overrideValuesFile, Timeout)
-		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", EgressGatewayChart, err)
+			t.Fatalf("failed to install istio %s chart: %v", IngressReleaseName, err)
 		}
 	}
 }
@@ -142,9 +132,6 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 		}
 
 	}
-
-	// TODO: ingress and egress charts for use with revisions is considered experimental
-	// and are not a part of this test for now
 }
 
 func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
@@ -164,9 +151,6 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 // deleteIstio deletes installed Istio Helm charts and resources
 func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 	scopes.Framework.Infof("cleaning up resources")
-	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release: %v", EgressReleaseName, err)
-	}
 	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
 	}
@@ -185,20 +169,21 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateways bool) {
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
+
+	VerifyValidatingWebhookConfigurations(ctx, cs, []string{
+		"istiod-default-validator",
+	})
 
 	retry.UntilSuccessOrFail(ctx, func() error {
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
 
-		if verifyGateways {
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
+		if verifyGateway {
+			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingress")); err != nil {
 				return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
-			}
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
-				return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 			}
 		}
 		return nil
@@ -233,9 +218,9 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-// ValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
+// VerifyValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
 // revisions and revision tags
-func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
+func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
 	scopes.Framework.Infof("=== verifying validating webhook configurations === ")
 	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs.Kube(), names); !ok {
 		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)
@@ -243,8 +228,8 @@ func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Clust
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-// VerifyValidation verifies that Istio resource validation is active on the cluster.
-func VerifyValidation(ctx framework.TestContext) {
+// verifyValidation verifies that Istio resource validation is active on the cluster.
+func verifyValidation(ctx framework.TestContext) {
 	ctx.Helper()
 	invalidGateway := &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{

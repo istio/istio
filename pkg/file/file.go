@@ -16,37 +16,54 @@ package file
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
 
-// Copies file by reading the file then writing atomically into the target directory
+// AtomicCopy copies file by reading the file then writing atomically into the target directory
 func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
-	info, err := os.Stat(srcFilepath)
+	in, err := os.Open(srcFilepath)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	perm, err := in.Stat()
 	if err != nil {
 		return err
 	}
 
-	input, err := os.ReadFile(srcFilepath)
+	input, err := io.ReadAll(in)
 	if err != nil {
 		return err
 	}
 
-	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, info.Mode())
+	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, perm.Mode())
 }
 
 func Copy(srcFilepath, targetDir, targetFilename string) error {
-	info, err := os.Stat(srcFilepath)
+	in, err := os.Open(srcFilepath)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	perm, err := in.Stat()
 	if err != nil {
 		return err
 	}
 
-	input, err := os.ReadFile(srcFilepath)
+	out, err := os.OpenFile(filepath.Join(targetDir, targetFilename), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm.Mode())
 	if err != nil {
 		return err
 	}
+	defer out.Close()
 
-	return os.WriteFile(filepath.Join(targetDir, targetFilename), input, info.Mode())
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Write atomically by writing to a temporary file in the same directory then renaming

@@ -100,7 +100,7 @@ public class LibertyRestEndpoint extends Application {
         "jwt",
     };
 
-    private String getJsonResponse (String productId, int starsReviewer1, int starsReviewer2) {
+    private String getJsonResponse(String productId, int starsReviewer1, int starsReviewer2) {
     	String result = "{";
     	result += "\"id\": \"" + productId + "\",";
         result += "\"podname\": \"" + pod_hostname + "\",";

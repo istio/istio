@@ -22,9 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd/pilot-agent/options"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -41,7 +38,6 @@ type PodInfo struct {
 	Labels            map[string]string
 	Annotations       map[string]string
 	ProxyEnvironments map[string]string
-	ProxyConfig       *meshconfig.ProxyConfig
 }
 
 // newK8sClient returns a Kubernetes client
@@ -87,18 +83,6 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			// Get proxy container env variable, and extract out ProxyConfig from it.
 			for _, e := range container.Env {
 				pi.ProxyEnvironments[e.Name] = e.Value
-				if e.Name == options.ProxyConfigEnv {
-					mc := &meshconfig.MeshConfig{
-						DefaultConfig: mesh.DefaultProxyConfig(),
-					}
-					mc, err := mesh.ApplyProxyConfig(e.Value, mc)
-					if err != nil {
-						log.Warnf("Failed to apply proxy config for %v/%v: %+v", pod.Namespace, pod.Name, err)
-					} else {
-						pi.ProxyConfig = mc.DefaultConfig
-					}
-					break
-				}
 			}
 			continue
 		}

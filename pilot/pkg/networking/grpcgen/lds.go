@@ -118,7 +118,9 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
-		ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
+		if features.EnableDualStack && len(extrAddresses) > 0 {
+			ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
+		}
 
 		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
@@ -268,7 +270,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 				log.Warn("Invalid rule ", rule, err)
 				continue
 			}
-			generated, _ := m.Generate(false, a)
+			generated, _ := m.Generate(false, true, a)
 			rules.Policies[name] = generated
 		}
 	}
@@ -296,6 +298,11 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				if features.PersistentSessionLabel != "" {
 					sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel]
 					if sessionCookie != "" {
+						cookieNamePath := strings.Split(sessionCookie, ":")
+						cookiePath := "/"
+						if len(cookieNamePath) > 1 {
+							cookiePath = cookieNamePath[1]
+						}
 						filters = append(filters, &hcm.HttpFilter{
 							Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
 							ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -304,9 +311,9 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 										Name: "envoy.http.stateful_session.cookie",
 										TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 											Cookie: &httpv3.Cookie{
-												Path: "/",
+												Path: cookiePath,
 												Ttl:  &durationpb.Duration{Seconds: 120},
-												Name: sessionCookie,
+												Name: cookieNamePath[0],
 											},
 										}),
 									},
@@ -347,7 +354,9 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
-				ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
+				if features.EnableDualStack && len(extrAddresses) > 0 {
+					ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
+				}
 
 				out = append(out, &discovery.Resource{
 					Name:     ll.Name,

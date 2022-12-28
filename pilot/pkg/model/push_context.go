@@ -383,6 +383,8 @@ type TriggerReason string
 const (
 	// EndpointUpdate describes a push triggered by an Endpoint change
 	EndpointUpdate TriggerReason = "endpoint"
+	// HeadlessEndpointUpdate describes a push triggered by an Endpoint change for headless service
+	HeadlessEndpointUpdate TriggerReason = "headlessendpoint"
 	// ConfigUpdate describes a push triggered by a config (generally and Istio CRD) change.
 	ConfigUpdate TriggerReason = "config"
 	// ServiceUpdate describes a push triggered by a Service change
@@ -799,6 +801,11 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 }
 
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if proxy.MergedGateway == nil {
+		return false
+	}
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
 			if hosts.Contains(hostname) {

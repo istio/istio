@@ -23,10 +23,10 @@ import (
 	"strings"
 	"testing"
 
+	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	"github.com/golang/protobuf/jsonpb"
-	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"istio.io/api/annotation"

@@ -231,6 +231,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			PayloadInMetadata:    jwtRule.Issuer,
 		}
 
+		for _, claimAndHeader := range jwtRule.OutputClaimToHeaders {
+			provider.ClaimToHeaders = append(provider.ClaimToHeaders, &envoy_jwt.JwtClaimToHeader{
+				HeaderName: claimAndHeader.Header,
+				ClaimName:  claimAndHeader.Claim,
+			})
+		}
+
 		for _, location := range jwtRule.FromHeaders {
 			provider.FromHeaders = append(provider.FromHeaders, &envoy_jwt.JwtHeader{
 				Name:        location.Name,

@@ -72,7 +72,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env.PushContext.Mesh = env.Watcher.Mesh()
 	env.Init()
 
-	ds := NewDiscoveryServer(env, "istiod", map[string]string{})
+	ds := NewDiscoveryServer(env, "istiod", "", map[string]string{})
 	ds.InitGenerators(env, "istio-system", nil)
 	ds.CachesSynced()
 

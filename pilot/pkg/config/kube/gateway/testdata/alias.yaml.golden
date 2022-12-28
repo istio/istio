@@ -34,6 +34,7 @@ spec:
   - match:
     - uri:
         prefix: /
+    name: default.http.0
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -58,6 +59,7 @@ spec:
   - match:
     - uri:
         prefix: /
+    name: default.http.0
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix

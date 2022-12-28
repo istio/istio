@@ -176,18 +176,18 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 
 // deleteKubeSecret deletes a secret
 // nolint: interfacer
-func deleteKubeSecret(ctx framework.TestContext, credName string) {
+func deleteKubeSecret(t framework.TestContext, credName string) {
 	// Get namespace for ingress gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
-	systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
 	// Delete Kubernetes secret for ingress gateway
-	c := ctx.Clusters().Default()
+	c := t.Clusters().Default()
 	var immediate int64
 	err := c.Kube().CoreV1().Secrets(systemNS.Name()).Delete(context.TODO(), credName,
 		metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 	if err != nil && !errors.IsNotFound(err) {
-		ctx.Fatalf("Failed to delete secret (error: %s)", err)
+		t.Fatalf("Failed to delete secret (error: %s)", err)
 	}
 }
 
@@ -564,13 +564,13 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, ns na
 // RunTestMultiQUICGateways deploys multiple TLS/mTLS gateways with SDS enabled, and creates kubernetes secret that stores
 // private key and server certificate for each TLS/mTLS gateway. Verifies that all gateways are able to terminate
 // QUIC connections successfully.
-func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, callType CallType, ns namespace.Getter) {
+func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, callType CallType, ns namespace.Getter) {
 	var credNames []string
 	var tests []TestConfig
 	allInstances := []echo.Instances{A, VM}
 	for _, instances := range allInstances {
-		echotest.New(ctx, instances).
-			SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
+		echotest.New(t, instances).
+			SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 				for i := 1; i < 6; i++ {
 					cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
 					mode := "SIMPLE"
@@ -585,18 +585,18 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 					})
 					credNames = append(credNames, cred)
 				}
-				SetupConfig(ctx, ns.Get(), tests...)
+				SetupConfig(t, ns.Get(), tests...)
 				return nil
 			}).
 			To(echotest.SimplePodServiceAndAllSpecial(1)).
-			RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
+			RunFromClusters(func(t framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 				for _, cn := range credNames {
-					CreateIngressKubeSecret(ctx, cn, TLS, IngressCredentialA, false)
+					CreateIngressKubeSecret(t, cn, TLS, IngressCredentialA, false)
 				}
 
 				ing := inst.IngressFor(fromCluster)
 				if ing == nil {
-					ctx.Skip()
+					t.Skip()
 				}
 				tlsContext := TLSContext{
 					CaCert: CaCertA,
@@ -610,8 +610,8 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 				}
 
 				for _, h := range tests {
-					ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
-						SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+					t.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+						SendQUICRequestsOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
 							ExpectedResponse{StatusCode: http.StatusOK})
 					})
 				}

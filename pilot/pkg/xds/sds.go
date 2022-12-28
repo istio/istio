@@ -24,6 +24,7 @@ import (
 
 	xxhashv2 "github.com/cespare/xxhash/v2"
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	qat "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/qat/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -75,9 +76,13 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
-	if model.ConfigsHaveKind(updates, kind.Secret) ||
-		model.ConfigsHaveKind(updates, kind.ReferenceGrant) {
-		return true
+	for update := range updates {
+		switch update.Kind {
+		case kind.Secret:
+			return true
+		case kind.ReferenceGrant:
+			return true
+		}
 	}
 	return false
 }
@@ -350,6 +355,34 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 					},
 					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
 						ProviderName: "cryptomb",
+						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
+							TypedConfig: msg,
+						},
+					},
+				},
+			},
+		})
+	case *mesh.PrivateKeyProvider_Qat:
+		qatConf := pkpConf.GetQat()
+		msg := protoconv.MessageToAny(&qat.QatPrivateKeyMethodConfig{
+			PollDelay: durationpb.New(time.Duration(qatConf.GetPollDelay().Nanos)),
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: key,
+				},
+			},
+		})
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_TlsCertificate{
+				TlsCertificate: &envoytls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: cert,
+						},
+					},
+					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
+						ProviderName: "qat",
 						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},

@@ -104,6 +104,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
+			MinVersion: tls.VersionTLS12,
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
@@ -160,7 +161,7 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 		}
 	} else if s.Port.TLS {
 		url = fmt.Sprintf("https://%s", address)
-		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // nolint: gosec // test only code
 	} else {
 		url = fmt.Sprintf("http://%s", address)
 	}
@@ -400,6 +401,8 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) (
 	for _, flavor := range codes {
 		totalSlices += flavor.slices
 	}
+	// nolint: gosec
+	// Test only code
 	slice := rand.Intn(totalSlices)
 
 	// What flavor is that slice?

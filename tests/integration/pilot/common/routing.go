@@ -2964,6 +2964,13 @@ spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    outputClaimToHeaders:
+    - header: "x-jwt-nested-key"
+      claim: "nested.nested-2.key2"
+    - header: "x-jwt-iss"
+      claim: "iss"
+    - header: "x-jwt-wrong-header"
+      claim: "wrong_claim"
 ---
 `
 	podB := []match.Matcher{match.ServiceName(t.Apps.B.NamespacedName())}
@@ -2980,11 +2987,93 @@ spec:
 		"Host":                            {"foo.bar"},
 		"request.auth.claims.nested.key1": {"valueA"},
 	}
+	headersWithToken2 := map[string][]string{
+		"Host":             {"foo.bar"},
+		"Authorization":    {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
+		"X-Jwt-Nested-Key": {"value_to_be_replaced"},
+	}
+	headersWithToken2WithAddedHeader := map[string][]string{
+		"Host":               {"foo.bar"},
+		"Authorization":      {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
+		"x-jwt-wrong-header": {"header_to_be_deleted"},
+	}
 
 	type configData struct {
 		Name, Match, Value string
 	}
 
+	t.RunTraffic(TrafficTestCase{
+		name:             "matched with nested claim using claim to header:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{{"X-Jwt-Nested-Key", "exact", "valueC"}},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken2,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "matched with nested claim and single claim using claim to header:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"X-Jwt-Nested-Key", "exact", "valueC"},
+					{"X-Jwt-Iss", "exact", "test-issuer-1@istio.io"},
+				},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken2,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "unmatched with wrong claim and added header:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{{"x-jwt-wrong-header", "exact", "header_to_be_deleted"}},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken2WithAddedHeader,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claims:200",
 		targetMatchers:   podB,

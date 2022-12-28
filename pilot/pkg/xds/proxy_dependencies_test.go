@@ -79,26 +79,6 @@ func TestProxyNeedsPush(t *testing.T) {
 		}
 	}
 
-	push := model.NewPushContext()
-	push.ServiceIndex.HostnameAndNamespace[svcName] = map[string]*model.Service{
-		nsName: {
-			Hostname: svcName,
-			Attributes: model.ServiceAttributes{
-				ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
-				Namespace: nsName,
-			},
-		},
-	}
-	push.ServiceIndex.HostnameAndNamespace[privateSvcName] = map[string]*model.Service{
-		nsName: {
-			Hostname: privateSvcName,
-			Attributes: model.ServiceAttributes{
-				ExportTo:  map[visibility.Instance]bool{visibility.None: true},
-				Namespace: nsName,
-			},
-		},
-	}
-
 	cases := []Case{
 		{"no namespace or configs", sidecar, nil, true},
 		{
@@ -195,6 +175,62 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	// test for gateway proxy dependencies.
+	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+		Services: []*model.Service{
+			{
+				Hostname: svcName,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: privateSvcName,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: "foo",
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+		},
+	})
+	gateway.SetSidecarScope(cg.PushContext())
+
+	// service visibility updated
+	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+		Services: []*model.Service{
+			{
+				Hostname: svcName,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: privateSvcName,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: "foo",
+				Attributes: model.ServiceAttributes{
+					// service visibility changed from public to none
+					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					Namespace: nsName,
+				},
+			},
+		},
+	})
+	gateway.SetSidecarScope(cg.PushContext())
+
 	cases = append(cases,
 		Case{
 			name:    "service with public visibility for gateway",
@@ -208,11 +244,17 @@ func TestProxyNeedsPush(t *testing.T) {
 			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: privateSvcName, Namespace: nsName}),
 			want:    false,
 		},
+		Case{
+			name:    "service visibility changed from public to none",
+			proxy:   gateway,
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}),
+			want:    true,
+		},
 	)
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: push})
+			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
@@ -222,7 +264,30 @@ func TestProxyNeedsPush(t *testing.T) {
 	// test for gateway proxy dependencies with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG enabled.
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 
-	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+		Services: []*model.Service{
+			{
+				Hostname: "foo",
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: svcName,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: "extension",
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+		},
 		Configs: []config.Config{
 			{
 				Meta: config.Meta{
@@ -265,6 +330,7 @@ func TestProxyNeedsPush(t *testing.T) {
 			{}: nsName + "/" + generalName,
 		},
 	}
+	gateway.SetSidecarScope(cg.PushContext())
 
 	cases = []Case{
 		{

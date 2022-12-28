@@ -58,8 +58,6 @@ items:
           - hello.$(POD_NAMESPACE)
           - --drainDuration
           - 45s
-          - --parentShutdownDuration
-          - 1m0s
           - --discoveryAddress
           - istio-pilot:15010
           - --dnsRefreshRate

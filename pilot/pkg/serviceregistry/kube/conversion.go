@@ -159,6 +159,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		}
 	}
 
+	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
 
 	return istioService

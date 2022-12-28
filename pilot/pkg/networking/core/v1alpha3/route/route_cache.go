@@ -24,7 +24,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 )
 
@@ -97,11 +96,8 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 		}.HashCode())
 	}
 	for _, vs := range r.VirtualServices {
-		if model.UseGatewaySemantics(vs) {
-			// add http/tcp/tls routes to dependent configs
-			configs = addInternalParents(configs, vs)
-		} else {
-			configs = append(configs, model.ConfigKey{Kind: kind.VirtualService, Name: vs.Name, Namespace: vs.Namespace}.HashCode())
+		for _, cfg := range model.VirtualServiceDependencies(vs) {
+			configs = append(configs, cfg.HashCode())
 		}
 	}
 	// add delegate virtual services to dependent configs
@@ -125,6 +121,8 @@ func (r *Cache) DependentTypes() []kind.Kind {
 }
 
 func (r *Cache) Key() string {
+	// nolint: gosec
+	// Not security sensitive code
 	hash := md5.New()
 
 	hash.Write([]byte(r.RouteName))
@@ -151,10 +149,14 @@ func (r *Cache) Key() string {
 	hash.Write(Separator)
 
 	for _, vs := range r.VirtualServices {
-		hash.Write([]byte(vs.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(vs.Namespace))
-		hash.Write(Separator)
+		for _, cfg := range model.VirtualServiceDependencies(vs) {
+			hash.Write([]byte(cfg.Kind.String()))
+			hash.Write(Slash)
+			hash.Write([]byte(cfg.Name))
+			hash.Write(Slash)
+			hash.Write([]byte(cfg.Namespace))
+			hash.Write(Separator)
+		}
 	}
 	hash.Write(Separator)
 
@@ -182,33 +184,6 @@ func (r *Cache) Key() string {
 
 	sum := hash.Sum(nil)
 	return hex.EncodeToString(sum)
-}
-
-func addInternalParents(dependences []model.ConfigHash, cfg config.Config) []model.ConfigHash {
-	if s, ok := cfg.Annotations[constants.InternalParentNames]; ok {
-		for _, p := range strings.Split(s, ",") {
-			kn := strings.Split(p, "/")
-			var k kind.Kind
-			switch kn[0] {
-			case kind.HTTPRoute.String():
-				k = kind.HTTPRoute
-			case kind.TCPRoute.String():
-				k = kind.TCPRoute
-			case kind.TLSRoute.String():
-				k = kind.TLSRoute
-			default:
-				// shouldn't happen
-				continue
-			}
-			namespacedName := strings.Split(kn[1], ".")
-			dependences = append(dependences, model.ConfigKey{
-				Kind:      k,
-				Name:      namespacedName[0],
-				Namespace: namespacedName[1],
-			}.HashCode())
-		}
-	}
-	return dependences
 }
 
 func hashToBytes(number model.ConfigHash) []byte {

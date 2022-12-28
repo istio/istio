@@ -1130,6 +1130,7 @@ message BaseConfig {
   // For istioctl usage to disable istio config crds in base
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
+  google.protobuf.BoolValue validateGateway = 4;
 }
 
 message IstiodRemoteConfig {
