@@ -43,7 +43,10 @@ if [ -z "${SHA}" ]; then
   fail "Unable to retrieve the commit SHA of istio/api from go.mod file. Not updating the CRD file. Please make sure istio/api exists in the Go module.";
 fi
 
+echo "Cloning https://${REPO}"
+
 git clone  "https://${REPO}" "${API_TMP}" && cd "${API_TMP}"
+echo "Checking out ${SHA}"
 git checkout "${SHA}"
 if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
   echo "Generated Custom Resource Definitions file does not exist in the commit SHA ${SHA}. Not updating the CRD file."
