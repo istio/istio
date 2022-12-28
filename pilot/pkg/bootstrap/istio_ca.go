@@ -357,8 +357,7 @@ func (s *Server) handleCACertsFileWatch() {
 				log.Debug("plugin cacerts watch stopped")
 				return
 			}
-
-			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				if timerC == nil {
 					timerC = time.After(100 * time.Millisecond)
 				}
