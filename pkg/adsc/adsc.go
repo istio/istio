@@ -339,20 +339,14 @@ func (a *ADSC) Dial() error {
 func getPrivateIPIfAvailable() netip.Addr {
 	addrs, _ := net.InterfaceAddrs()
 	for _, addr := range addrs {
-		var ipAddr netip.Addr
-		addrType := addr.Network()
-		if addrType == "ip+net" {
-			ipNet, iErr := netip.ParsePrefix(addr.String())
-			if iErr != nil {
-				continue
-			}
-			ipAddr = ipNet.Addr()
-		} else if addrType == "ip" {
-			ip, aErr := netip.ParseAddr(addr.String())
-			if aErr != nil {
-				continue
-			}
-			ipAddr = ip
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		default:
+			continue
 		}
 		ipAddr, ok := netip.AddrFromSlice(ip)
 		if !ok {
@@ -363,7 +357,6 @@ func getPrivateIPIfAvailable() netip.Addr {
 		if !unwrapAddr.IsLoopback() {
 			return unwrapAddr
 		}
-
 	}
 	return netip.IPv4Unspecified()
 }
