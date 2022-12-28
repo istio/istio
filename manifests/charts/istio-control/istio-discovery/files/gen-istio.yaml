@@ -75,6 +75,7 @@ data:
         "autoscalingv2API": true,
         "caAddress": "",
         "caName": "",
+        "certSigners": [],
         "configCluster": false,
         "defaultPodDisruptionBudget": {
           "enabled": true
