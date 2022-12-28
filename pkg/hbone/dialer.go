@@ -58,7 +58,7 @@ func NewDialer(cfg Config) Dialer {
 		transport = &http2.Transport{
 			// For h2c
 			AllowHTTP: true,
-			DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			},
 		}
