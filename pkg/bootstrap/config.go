@@ -381,6 +381,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			if err != nil {
 				return nil, err
 			}
+			defer lsConfigOut.Close()
 			_, err = lsConfigOut.WriteString(tracer.Lightstep.AccessToken)
 			if err != nil {
 				return nil, err
