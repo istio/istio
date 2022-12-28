@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc/keepalive"
 	"math"
 	"net"
 	"net/netip"
@@ -64,6 +65,8 @@ const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
 	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
+	defaultKeepaliveTime               = 30 * time.Second
+	defaultKeepaliveTimeout            = 10 * time.Second
 )
 
 // Config for the ADS connection.
@@ -135,6 +138,10 @@ func DefaultGrpcDialOptions() []grpc.DialOption {
 		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
 		grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize)),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize)),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:    defaultKeepaliveTime,
+			Timeout: defaultKeepaliveTimeout,
+		}),
 	}
 }
 
