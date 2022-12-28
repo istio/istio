@@ -22,11 +22,15 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/jsonpb"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -35,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
@@ -883,6 +888,94 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
 			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
 				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
+			}
+		})
+	}
+}
+
+func TestStatefulSessionFilter(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
+	test.SetForTest(t, &features.EnableHCMInternalNetworks, true)
+	push := cg.PushContext()
+	cases := []struct {
+		name           string
+		service        *model.Service
+		expectedconfig *hcm.HttpFilter
+	}{
+		{
+			name:           "nil service",
+			expectedconfig: nil,
+		},
+		{
+			name: "service without cookie path",
+			service: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Labels: map[string]string{features.PersistentSessionLabel: "test-cookie"},
+				},
+			},
+			expectedconfig: &hcm.HttpFilter{
+				Name: "envoy.filters.http.stateful_session",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
+						SessionState: &core.TypedExtensionConfig{
+							Name: "envoy.http.stateful_session.cookie",
+							TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+								Cookie: &httpv3.Cookie{
+									Path: "/",
+									Ttl:  &durationpb.Duration{Seconds: 120},
+									Name: "test-cookie",
+								},
+							}),
+						},
+					}),
+				},
+			},
+		},
+		{
+			name: "service with cookie path",
+			service: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Labels: map[string]string{features.PersistentSessionLabel: "test-cookie:/path"},
+				},
+			},
+			expectedconfig: &hcm.HttpFilter{
+				Name: "envoy.filters.http.stateful_session",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
+						SessionState: &core.TypedExtensionConfig{
+							Name: "envoy.http.stateful_session.cookie",
+							TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+								Cookie: &httpv3.Cookie{
+									Path: "/path",
+									Ttl:  &durationpb.Duration{Seconds: 120},
+									Name: "test-cookie",
+								},
+							}),
+						},
+					}),
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               sidecarProxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{svc: tt.service})
+			var sessionFilter *hcm.HttpFilter
+			for _, filter := range httpConnManager.HttpFilters {
+				if filter.Name == "envoy.filters.http.stateful_session" {
+					sessionFilter = filter
+					break
+				}
+			}
+			if !reflect.DeepEqual(tt.expectedconfig, sessionFilter) {
+				t.Errorf("unexpected stateful session filter config, expected: %v, got :%v", tt.expectedconfig, sessionFilter)
 			}
 		})
 	}

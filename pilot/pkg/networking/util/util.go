@@ -27,11 +27,15 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -777,4 +781,36 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
 	})
 	return st
+}
+
+func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
+	if features.PersistentSessionLabel == "" || svc == nil {
+		return nil
+	}
+	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
+	if sessionCookie == "" {
+		return nil
+	}
+	cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
+	if !found {
+		cookiePath = "/"
+	}
+
+	return &hcm.HttpFilter{
+		Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
+				SessionState: &core.TypedExtensionConfig{
+					Name: "envoy.http.stateful_session.cookie",
+					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+						Cookie: &httpv3.Cookie{
+							Path: cookiePath,
+							Ttl:  &durationpb.Duration{Seconds: 120},
+							Name: cookieName,
+						},
+					}),
+				},
+			}),
+		},
+	}
 }

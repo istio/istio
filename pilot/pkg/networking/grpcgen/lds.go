@@ -25,13 +25,9 @@ import (
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
-	durationpb "github.com/golang/protobuf/ptypes/duration"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
@@ -295,34 +291,9 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					continue
 				}
 				filters := supportedFilters
-				if features.PersistentSessionLabel != "" {
-					sessionCookie := sv.Attributes.Labels[features.PersistentSessionLabel]
-					if sessionCookie != "" {
-						cookieNamePath := strings.Split(sessionCookie, ":")
-						cookiePath := "/"
-						if len(cookieNamePath) > 1 {
-							cookiePath = cookieNamePath[1]
-						}
-						filters = append(filters, &hcm.HttpFilter{
-							Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
-							ConfigType: &hcm.HttpFilter_TypedConfig{
-								TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
-									SessionState: &core.TypedExtensionConfig{
-										Name: "envoy.http.stateful_session.cookie",
-										TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
-											Cookie: &httpv3.Cookie{
-												Path: cookiePath,
-												Ttl:  &durationpb.Duration{Seconds: 120},
-												Name: cookieNamePath[0],
-											},
-										}),
-									},
-								}),
-							},
-						})
-					}
+				if sessionFilter := util.BuildStatefulSessionFilter(sv); sessionFilter != nil {
+					filters = append(filters, sessionFilter)
 				}
-
 				ll := &listener.Listener{
 					Name: net.JoinHostPort(matchedHost, sPort),
 					Address: &core.Address{
