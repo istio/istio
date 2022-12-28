@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** Os.File won't close in pkg/bootstrap/config.go:380[lsConfigOut]
