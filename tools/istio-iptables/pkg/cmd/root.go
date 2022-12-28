@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/user"
 	"strings"
@@ -196,23 +197,32 @@ func constructConfig() *config.Config {
 }
 
 // getLocalIP returns one of the local IP address and it should support IPv6 or not
-func getLocalIP() (net.IP, bool, error) {
+func getLocalIP() (netip.Addr, bool, error) {
 	var isIPv6 bool
-	var ipAddrs []net.IP
+	var ipAddrs []netip.Addr
 	addrs, err := LocalIPAddrs()
 	if err != nil {
-		return nil, isIPv6, err
+		return netip.Addr{}, isIPv6, err
 	}
 
 	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
-			isIPv6 = ipnet.IP.To4() == nil
-			ipAddrs = append(ipAddrs, ipnet.IP)
-			if !DualStackEnv {
-				return ipnet.IP, isIPv6, nil
+		if ipnet, ok := a.(*net.IPNet); ok {
+			ip := ipnet.IP
+			ipAddr, ok := netip.AddrFromSlice(ip)
+			if !ok {
+				continue
 			}
-			if isIPv6 {
-				break
+			// unwrap the IPv4-mapped IPv6 address
+			unwrapAddr := ipAddr.Unmap()
+			if !unwrapAddr.IsLoopback() && !unwrapAddr.IsLinkLocalUnicast() && !unwrapAddr.IsLinkLocalMulticast() {
+				isIPv6 = unwrapAddr.Is6()
+				ipAddrs = append(ipAddrs, unwrapAddr)
+				if !DualStackEnv {
+					return unwrapAddr, isIPv6, nil
+				}
+				if isIPv6 {
+					break
+				}
 			}
 		}
 	}
@@ -221,7 +231,7 @@ func getLocalIP() (net.IP, bool, error) {
 		return ipAddrs[0], isIPv6, nil
 	}
 
-	return nil, isIPv6, fmt.Errorf("no valid local IP address found")
+	return netip.Addr{}, isIPv6, fmt.Errorf("no valid local IP address found")
 }
 
 func handleError(err error) {
