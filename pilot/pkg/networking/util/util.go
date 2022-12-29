@@ -784,6 +784,20 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 }
 
 func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
+	filterConfig := BuildStatefulSessionFilterConfig(svc)
+	if filterConfig == nil {
+		return nil
+	}
+
+	return &hcm.HttpFilter{
+		Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(filterConfig),
+		},
+	}
+}
+
+func BuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
 	if features.PersistentSessionLabel == "" || svc == nil {
 		return nil
 	}
@@ -795,20 +809,14 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 	if !found {
 		cookiePath = "/"
 	}
-
-	return &hcm.HttpFilter{
-		Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{
-				SessionState: &core.TypedExtensionConfig{
-					Name: "envoy.http.stateful_session.cookie",
-					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
-						Cookie: &httpv3.Cookie{
-							Path: cookiePath,
-							Ttl:  &durationpb.Duration{Seconds: 120},
-							Name: cookieName,
-						},
-					}),
+	return &statefulsession.StatefulSession{
+		SessionState: &core.TypedExtensionConfig{
+			Name: "envoy.http.stateful_session.cookie",
+			TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+				Cookie: &httpv3.Cookie{
+					Path: cookiePath,
+					Ttl:  &durationpb.Duration{Seconds: 120},
+					Name: cookieName,
 				},
 			}),
 		},

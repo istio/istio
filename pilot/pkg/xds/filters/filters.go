@@ -24,6 +24,7 @@ import (
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
@@ -126,6 +127,12 @@ var (
 			TypedConfig: protoconv.MessageToAny(&originalsrc.OriginalSrc{
 				Mark: 1337,
 			}),
+		},
+	}
+	EmptySessionFilter = &hcm.HttpFilter{
+		Name: "envoy.filters.http.stateful_session",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{}),
 		},
 	}
 	Alpn = &hcm.HttpFilter{

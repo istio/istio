@@ -665,7 +665,6 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 
 		protocol: listenerOpts.port.Protocol,
 		class:    istionetworking.ListenerClassSidecarOutbound,
-		svc:      listenerOpts.service,
 	}
 
 	if features.HTTP10 || enableHTTP10(listenerOpts.proxy.Metadata.HTTP10) {
@@ -1075,8 +1074,6 @@ type httpListenerOpts struct {
 	class istionetworking.ListenerClass
 	port  int
 	hbone bool
-
-	svc *model.Service
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
