@@ -477,7 +477,20 @@ func applyHTTPRouteDestination(
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
-		action.PrefixRewrite = in.Rewrite.GetUri()
+		action.ClusterSpecifier = &route.RouteAction_Cluster{
+			Cluster: in.Name,
+		}
+		uri := in.Rewrite.GetUri()
+		if fullUri, isFullPathRewrite := cutPrefix(uri, "*fullreplace*"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
+			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+				Pattern: &matcher.RegexMatcher{
+					Regex: "/.+",
+				},
+				Substitution: fullUri,
+			}
+		} else {
+			action.PrefixRewrite = uri
+		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
 		}
