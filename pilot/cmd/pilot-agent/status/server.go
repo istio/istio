@@ -143,6 +143,7 @@ type Server struct {
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
 	config                Options
+	http                  *http.Client
 }
 
 func init() {
@@ -194,6 +195,7 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
+		http:                  &http.Client{},
 		appProbersDestination: config.PodIP,
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
@@ -628,7 +630,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 		"X-Prometheus-Scrape-Timeout-Seconds",
 	)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.http.Do(req)
 	if err != nil {
 		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}

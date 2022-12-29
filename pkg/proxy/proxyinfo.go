@@ -37,7 +37,7 @@ func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*
 		return nil, err
 	}
 	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
+	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "debug/syncz")
 	if err != nil {
 		return nil, err
 	}
