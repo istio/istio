@@ -375,17 +375,12 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			opts = append(opts, option.ZipkinAddress(tracer.Zipkin.Address))
 		case *meshAPI.Tracing_Lightstep_:
 			isH2 = true
-			// Create the token file.
+			// Write the token file.
 			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
-			lsConfigOut, err := os.Create(lightstepAccessTokenPath)
+			err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
 			if err != nil {
 				return nil, err
 			}
-			_, err = lsConfigOut.WriteString(tracer.Lightstep.AccessToken)
-			if err != nil {
-				return nil, err
-			}
-
 			opts = append(opts, option.LightstepAddress(tracer.Lightstep.Address),
 				option.LightstepToken(lightstepAccessTokenPath))
 		case *meshAPI.Tracing_Datadog_:
