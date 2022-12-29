@@ -40,7 +40,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
@@ -65,8 +64,6 @@ const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
 	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
-	defaultKeepaliveTime               = 30 * time.Second
-	defaultKeepaliveTimeout            = 10 * time.Second
 )
 
 // Config for the ADS connection.
@@ -138,10 +135,6 @@ func DefaultGrpcDialOptions() []grpc.DialOption {
 		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
 		grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize)),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize)),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:    defaultKeepaliveTime,
-			Timeout: defaultKeepaliveTimeout,
-		}),
 	}
 }
 

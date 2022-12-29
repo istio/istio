@@ -18,6 +18,10 @@ import (
 	"fmt"
 	"net/url"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -251,6 +255,17 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 					IstioRevision: args.Revision,
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
+				GrpcOpts: []grpc.DialOption{
+					grpc.WithKeepaliveParams(keepalive.ClientParameters{
+						Time:    args.KeepaliveOptions.Time,
+						Timeout: args.KeepaliveOptions.Timeout,
+					}),
+					// Because we use the custom grpc options for adsc, here we should
+					// explicitly set transport credentials.
+					// TODO: maybe we should use the tls settings within ConfigSource
+					// to secure the connection between istiod and remote xds server.
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
