@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +27,6 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/pkg/log"
 )
-
-var istioLocalIPv6 = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6}
 
 type ReturnCode int
 
@@ -42,7 +41,7 @@ type Validator struct {
 type Config struct {
 	ServerListenAddress []string
 	ServerOriginalPort  uint16
-	ServerOriginalIP    net.IP
+	ServerOriginalIP    netip.Addr
 	ServerReadyBarrier  chan ReturnCode
 	ProbeTimeout        time.Duration
 }
@@ -93,7 +92,7 @@ func (validator *Validator) Run() error {
 }
 
 // TODO(lambdai): remove this if iptables only need to redirect to outbound proxy port on A call A
-func genListenerAddress(ip net.IP, ports []string) []string {
+func genListenerAddress(ip netip.Addr, ports []string) []string {
 	addresses := make([]string, 0, len(ports))
 	for _, port := range ports {
 		addresses = append(addresses, net.JoinHostPort(ip.String(), port))
@@ -101,16 +100,16 @@ func genListenerAddress(ip net.IP, ports []string) []string {
 	return addresses
 }
 
-func NewValidator(config *config.Config, hostIP net.IP) *Validator {
+func NewValidator(config *config.Config, hostIP netip.Addr) *Validator {
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
 	// Connect to ::6       will redirect to ::1
-	isIpv6 := hostIP.To4() == nil
-	listenIP := net.IPv4(127, 0, 0, 1)
-	serverIP := net.IPv4(127, 0, 0, 6)
-	if isIpv6 {
-		listenIP = net.IPv6loopback
-		serverIP = istioLocalIPv6
+	isIPv6 := hostIP.Is6()
+	listenIP, _ := netip.AddrFromSlice([]byte{127, 0, 0, 1})
+	serverIP, _ := netip.AddrFromSlice([]byte{127, 0, 0, 6})
+	if isIPv6 {
+		listenIP, _ = netip.AddrFromSlice([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+		serverIP, _ = netip.AddrFromSlice([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6})
 	}
 	return &Validator{
 		Config: &Config{
@@ -190,7 +189,7 @@ func (c *Client) Run() error {
 	if err != nil {
 		return err
 	}
-	if c.Config.ServerOriginalIP.To4() == nil {
+	if c.Config.ServerOriginalIP.Is6() {
 		laddr, err = net.ResolveTCPAddr("tcp", "[::1]:0")
 		if err != nil {
 			return err

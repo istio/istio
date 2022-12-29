@@ -13,8 +13,8 @@ spec:
     metadata:
       labels:
         app: jaeger
-      annotations:
         sidecar.istio.io/inject: "false"
+      annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "14269"
     spec:

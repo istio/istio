@@ -127,7 +127,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 
 	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
 
-	actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
 		Name:             model.VirtualOutboundListenerName,
@@ -138,7 +138,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	// add extra addresses for the listener
-	if len(actualWildcards) > 1 {
+	if features.EnableDualStack && len(actualWildcards) > 1 {
 		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), lb.node)
 	}
 

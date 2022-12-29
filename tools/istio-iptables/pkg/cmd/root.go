@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/user"
 	"strings"
@@ -43,6 +44,8 @@ var (
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
+	DualStackEnv = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false,
+		"Enable pilot-agent to work in dual-stack clusters").Get()
 )
 
 // mock net.InterfaceAddrs to make its unit test become available
@@ -80,7 +83,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, err := getLocalIP()
+			hostIP, _, err := getLocalIP()
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
@@ -172,11 +175,12 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	podIP, err := getLocalIP()
+	_, isIPv6, err := getLocalIP()
 	if err != nil {
 		panic(err)
 	}
-	cfg.EnableInboundIPv6 = podIP.To4() == nil
+
+	cfg.EnableInboundIPv6 = isIPv6
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
@@ -192,19 +196,42 @@ func constructConfig() *config.Config {
 	return cfg
 }
 
-// getLocalIP returns the local IP address
-func getLocalIP() (net.IP, error) {
+// getLocalIP returns one of the local IP address and it should support IPv6 or not
+func getLocalIP() (netip.Addr, bool, error) {
+	var isIPv6 bool
+	var ipAddrs []netip.Addr
 	addrs, err := LocalIPAddrs()
 	if err != nil {
-		return nil, err
+		return netip.Addr{}, isIPv6, err
 	}
 
 	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
-			return ipnet.IP, nil
+		if ipnet, ok := a.(*net.IPNet); ok {
+			ip := ipnet.IP
+			ipAddr, ok := netip.AddrFromSlice(ip)
+			if !ok {
+				continue
+			}
+			// unwrap the IPv4-mapped IPv6 address
+			unwrapAddr := ipAddr.Unmap()
+			if !unwrapAddr.IsLoopback() && !unwrapAddr.IsLinkLocalUnicast() && !unwrapAddr.IsLinkLocalMulticast() {
+				isIPv6 = unwrapAddr.Is6()
+				ipAddrs = append(ipAddrs, unwrapAddr)
+				if !DualStackEnv {
+					return unwrapAddr, isIPv6, nil
+				}
+				if isIPv6 {
+					break
+				}
+			}
 		}
 	}
-	return nil, fmt.Errorf("no valid local IP address found")
+
+	if len(ipAddrs) > 0 {
+		return ipAddrs[0], isIPv6, nil
+	}
+
+	return netip.Addr{}, isIPv6, fmt.Errorf("no valid local IP address found")
 }
 
 func handleError(err error) {

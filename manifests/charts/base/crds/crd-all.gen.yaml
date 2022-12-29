@@ -49,9 +49,12 @@ spec:
                 description: Credentials to use for OCI image pulling.
                 type: string
               match:
+                description: Specifies the criteria to determine which traffic is
+                  passed to WasmPlugin.
                 items:
                   properties:
                     mode:
+                      description: Criteria for selecting traffic by their direction.
                       enum:
                       - UNDEFINED
                       - CLIENT
@@ -59,6 +62,8 @@ spec:
                       - CLIENT_AND_SERVER
                       type: string
                     ports:
+                      description: Criteria for selecting traffic by their destination
+                        port.
                       items:
                         properties:
                           number:
@@ -3582,7 +3587,7 @@ spec:
       jsonPath: .spec.location
       name: Location
       type: string
-    - description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    - description: Service resolution mode for the hosts (NONE, STATIC, or DNS)
       jsonPath: .spec.resolution
       name: Resolution
       type: string
@@ -3668,7 +3673,7 @@ spec:
                   type: object
                 type: array
               resolution:
-                description: Service discovery mode for the hosts.
+                description: Service resolution mode for the hosts.
                 enum:
                 - NONE
                 - STATIC
@@ -3706,7 +3711,7 @@ spec:
       jsonPath: .spec.location
       name: Location
       type: string
-    - description: Service discovery mode for the hosts (NONE, STATIC, or DNS)
+    - description: Service resolution mode for the hosts (NONE, STATIC, or DNS)
       jsonPath: .spec.resolution
       name: Resolution
       type: string
@@ -3792,7 +3797,7 @@ spec:
                   type: object
                 type: array
               resolution:
-                description: Service discovery mode for the hosts.
+                description: Service resolution mode for the hosts.
                 enum:
                 - NONE
                 - STATIC
@@ -6266,6 +6271,188 @@ spec:
     singular: authorizationpolicy
   scope: Namespaced
   versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: 'Configuration for access control on workloads. See more
+              details at: https://istio.io/docs/reference/config/security/authorization-policy.html'
+            oneOf:
+            - not:
+                anyOf:
+                - required:
+                  - provider
+            - required:
+              - provider
+            properties:
+              action:
+                description: Optional.
+                enum:
+                - ALLOW
+                - DENY
+                - AUDIT
+                - CUSTOM
+                type: string
+              provider:
+                description: Specifies detailed configuration of the CUSTOM action.
+                properties:
+                  name:
+                    description: Specifies the name of the extension provider.
+                    type: string
+                type: object
+              rules:
+                description: Optional.
+                items:
+                  properties:
+                    from:
+                      description: Optional.
+                      items:
+                        properties:
+                          source:
+                            description: Source specifies the source of a request.
+                            properties:
+                              ipBlocks:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              namespaces:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notIpBlocks:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notNamespaces:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notPrincipals:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notRemoteIpBlocks:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notRequestPrincipals:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              principals:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              remoteIpBlocks:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              requestPrincipals:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                        type: object
+                      type: array
+                    to:
+                      description: Optional.
+                      items:
+                        properties:
+                          operation:
+                            description: Operation specifies the operation of a request.
+                            properties:
+                              hosts:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              methods:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notHosts:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notMethods:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notPaths:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              notPorts:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              paths:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                              ports:
+                                description: Optional.
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                        type: object
+                      type: array
+                    when:
+                      description: Optional.
+                      items:
+                        properties:
+                          key:
+                            description: The name of an Istio attribute.
+                            type: string
+                          notValues:
+                            description: Optional.
+                            items:
+                              type: string
+                            type: array
+                          values:
+                            description: Optional.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      type: array
+                  type: object
+                type: array
+              selector:
+                description: Optional.
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
   - name: v1beta1
     schema:
       openAPIV3Schema:
@@ -6569,6 +6756,90 @@ spec:
     singular: requestauthentication
   scope: Namespaced
   versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: RequestAuthentication defines what request authentication
+              methods are supported by a workload.
+            properties:
+              jwtRules:
+                description: Define the list of JWTs that can be validated at the
+                  selected workloads' proxy.
+                items:
+                  properties:
+                    audiences:
+                      items:
+                        type: string
+                      type: array
+                    forwardOriginalToken:
+                      description: If set to true, the original token will be kept
+                        for the upstream request.
+                      type: boolean
+                    fromHeaders:
+                      description: List of header locations from which JWT is expected.
+                      items:
+                        properties:
+                          name:
+                            description: The HTTP header name.
+                            type: string
+                          prefix:
+                            description: The prefix that should be stripped before
+                              decoding the token.
+                            type: string
+                        type: object
+                      type: array
+                    fromParams:
+                      description: List of query parameters from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
+                    issuer:
+                      description: Identifies the issuer that issued the JWT.
+                      type: string
+                    jwks:
+                      description: JSON Web Key Set of public keys to validate signature
+                        of the JWT.
+                      type: string
+                    jwks_uri:
+                      type: string
+                    jwksUri:
+                      type: string
+                    outputClaimToHeaders:
+                      description: This field specifies a list of operations to copy
+                        the claim to HTTP headers on a successfully verified token.
+                      items:
+                        properties:
+                          claim:
+                            description: The name of the claim to be copied from.
+                            type: string
+                          header:
+                            description: The name of the header to be created.
+                            type: string
+                        type: object
+                      type: array
+                    outputPayloadToHeader:
+                      type: string
+                  type: object
+                type: array
+              selector:
+                description: Optional.
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
   - name: v1beta1
     schema:
       openAPIV3Schema:
@@ -6619,6 +6890,19 @@ spec:
                       type: string
                     jwksUri:
                       type: string
+                    outputClaimToHeaders:
+                      description: This field specifies a list of operations to copy
+                        the claim to HTTP headers on a successfully verified token.
+                      items:
+                        properties:
+                          claim:
+                            description: The name of the claim to be copied from.
+                            type: string
+                          header:
+                            description: The name of the header to be created.
+                            type: string
+                        type: object
+                      type: array
                     outputPayloadToHeader:
                       type: string
                   type: object
@@ -6803,6 +7087,9 @@ spec:
                             type: string
                         type: object
                       type: array
+                    reportingInterval:
+                      description: Optional.
+                      type: string
                   type: object
                 type: array
               selector:

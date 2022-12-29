@@ -75,8 +75,10 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 
 	if opt.Insecure {
 		t := remote.DefaultTransport.(*http.Transport).Clone()
+		// nolint: gosec
+		// This is only when a user explicitly sets a flag to enable insecure mode
 		t.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: opt.Insecure, //nolint: gosec
+			InsecureSkipVerify: opt.Insecure,
 		}
 		fetchOpts = append(fetchOpts, remote.WithTransport(t))
 	}
@@ -253,7 +255,9 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 	const wasmPluginFileName = "plugin.wasm"
 
 	// Search for the file walking through the archive.
-	tr := tar.NewReader(gr)
+
+	// Limit wasm binary to 256mb; in reality it must be much smaller
+	tr := tar.NewReader(io.LimitReader(gr, 1024*1024*256))
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {

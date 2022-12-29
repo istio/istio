@@ -111,6 +111,8 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
+	// nolint: gosec
+	// Not security sensitive code
 	hash := md5.New()
 	hash.Write([]byte(b.clusterName))
 	hash.Write(Separator)
@@ -406,7 +408,7 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
 	if supportsTunnel {
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier("outbound-tunnel", net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(util.OutboundTunnel, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{

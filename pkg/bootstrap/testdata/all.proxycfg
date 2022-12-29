@@ -2,7 +2,6 @@ config_path:                      "/etc/istio/proxy"
 binary_path:                      "/usr/local/bin/envoy"
 service_cluster:                  "istio-proxy"
 drain_duration:                   {seconds: 5}
-parent_shutdown_duration:         {seconds: 6}
 discovery_address:                "mypilot:15011"
 statsd_udp_address:               "10.1.1.1:9125"
 envoy_metrics_service:            {address: "metrics-service:15000", tls_settings: { mode: MUTUAL, client_certificate: "/etc/istio/ms/client.pem", private_key: "/etc/istio/ms/key.pem", ca_certificates: "/etc/istio/ms/ca.pem"}}

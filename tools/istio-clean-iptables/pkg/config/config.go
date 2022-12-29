@@ -25,15 +25,17 @@ import (
 // Command line options
 // nolint: maligned
 type Config struct {
-	DryRun             bool     `json:"DRY_RUN"`
-	ProxyUID           string   `json:"PROXY_UID"`
-	ProxyGID           string   `json:"PROXY_GID"`
-	RedirectDNS        bool     `json:"REDIRECT_DNS"`
-	DNSServersV4       []string `json:"DNS_SERVERS_V4"`
-	DNSServersV6       []string `json:"DNS_SERVERS_V6"`
-	CaptureAllDNS      bool     `json:"CAPTURE_ALL_DNS"`
-	OwnerGroupsInclude string   `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
-	OwnerGroupsExclude string   `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
+	DryRun                  bool     `json:"DRY_RUN"`
+	ProxyUID                string   `json:"PROXY_UID"`
+	ProxyGID                string   `json:"PROXY_GID"`
+	RedirectDNS             bool     `json:"REDIRECT_DNS"`
+	DNSServersV4            []string `json:"DNS_SERVERS_V4"`
+	DNSServersV6            []string `json:"DNS_SERVERS_V6"`
+	CaptureAllDNS           bool     `json:"CAPTURE_ALL_DNS"`
+	OwnerGroupsInclude      string   `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
+	OwnerGroupsExclude      string   `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
+	InboundInterceptionMode string   `json:"INBOUND_INTERCEPTION_MODE"`
+	InboundTProxyMark       string   `json:"INBOUND_TPROXY_MARK"`
 }
 
 func (c *Config) String() string {

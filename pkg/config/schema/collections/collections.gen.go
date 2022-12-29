@@ -116,10 +116,7 @@ var (
 			Kind:    "EnvoyFilter",
 			Plural:  "envoyfilters",
 			Version: "v1alpha3",
-			VersionAliases: []string{
-				"v1beta1",
-			},
-			Proto: "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			Proto:   "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
@@ -281,7 +278,10 @@ var (
 			Kind:    "AuthorizationPolicy",
 			Plural:  "authorizationpolicies",
 			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			VersionAliases: []string{
+				"v1",
+			},
+			Proto: "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
@@ -317,7 +317,10 @@ var (
 			Kind:    "RequestAuthentication",
 			Plural:  "requestauthentications",
 			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			VersionAliases: []string{
+				"v1",
+			},
+			Proto: "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
@@ -566,7 +569,7 @@ var (
 			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus{}).Elem(),
 			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateTCPRoute,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -584,7 +587,7 @@ var (
 			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteStatus{}).Elem(),
 			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateTLSRoute,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -605,7 +608,7 @@ var (
 			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassStatus{}).Elem(),
 			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
 			ClusterScoped: true,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateGatewayClass,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -626,7 +629,7 @@ var (
 			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayStatus{}).Elem(),
 			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateKubernetesGateway,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -647,7 +650,7 @@ var (
 			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus{}).Elem(),
 			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateHTTPRoute,
 		}.MustBuild(),
 	}.MustBuild()
 

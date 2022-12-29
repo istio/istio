@@ -131,7 +131,7 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 			Filters: listenerFilters,
 		}
 		listenertest.VerifyFilterChain(t, listenerFilterChain, listenertest.FilterChainTest{
-			NetworkFilters: []string{xdsfilters.MxFilterName, RBACTCPFilterName, wellknown.TCPProxy},
+			NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, RBACTCPFilterName, wellknown.TCPProxy},
 			TotalMatch:     true,
 		})
 	})

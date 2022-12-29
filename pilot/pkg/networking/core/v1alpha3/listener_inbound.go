@@ -305,7 +305,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
 	// * Passthrough filter chains, matching all unmatched traffic. There are a few of these to handle all cases
@@ -338,7 +338,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 		Address:          address,
 		TrafficDirection: core.TrafficDirection_INBOUND,
 	}
-	if len(addresses) > 1 {
+	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort, lb.node)
 	}
@@ -410,7 +410,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			TargetPort: i.Endpoint.EndpointPort,
 			Protocol:   i.ServicePort.Protocol,
 		}
-		actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
+		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
 			ingressPortListSet.Contains(int(port.Port)) {
 			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
@@ -753,7 +753,6 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 	if lb.node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
 	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
@@ -845,6 +844,9 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 
+	if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	}
 	if cc.hbone {
 		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {
@@ -879,6 +881,9 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 
 	var filters []*listener.Filter
 
+	if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	}
 	if fcc.hbone {
 		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {

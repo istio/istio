@@ -63,16 +63,32 @@ func newPodCache(c *Controller, informer informer.FilteredSharedIndexInformer, q
 	return out
 }
 
-// Copied from kubernetes/pkg/controller/endpoint/endpoints_controller.go
+// Copied from kubernetes/kubernetes/pkg/controller/util/endpoint/controller_utils.go
+//
+// shouldPodBeInEndpoints returns true if a specified pod should be in an
+// Endpoints or EndpointSlice resource. Terminating pods are not included.
 func shouldPodBeInEndpoints(pod *v1.Pod) bool {
-	switch pod.Spec.RestartPolicy {
-	case v1.RestartPolicyNever:
-		return pod.Status.Phase != v1.PodFailed && pod.Status.Phase != v1.PodSucceeded
-	case v1.RestartPolicyOnFailure:
-		return pod.Status.Phase != v1.PodSucceeded
-	default:
-		return true
+	// "Terminal" describes when a Pod is complete (in a succeeded or failed phase).
+	// This is distinct from the "Terminating" condition which represents when a Pod
+	// is being terminated (metadata.deletionTimestamp is non nil).
+	if isPodPhaseTerminal(pod.Status.Phase) {
+		return false
 	}
+
+	if len(pod.Status.PodIP) == 0 && len(pod.Status.PodIPs) == 0 {
+		return false
+	}
+
+	if pod.DeletionTimestamp != nil {
+		return false
+	}
+
+	return true
+}
+
+// isPodPhaseTerminal returns true if the pod's phase is terminal.
+func isPodPhaseTerminal(phase v1.PodPhase) bool {
+	return phase == v1.PodFailed || phase == v1.PodSucceeded
 }
 
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
@@ -150,20 +166,19 @@ func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	key := kube.KeyFunc(pod.Name, pod.Namespace)
 	switch ev {
 	case model.EventAdd:
-		// can happen when istiod just starts
-		if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
-			return nil
-		} else if shouldPodBeInEndpoints(pod) {
+		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
 			pc.update(ip, key)
 		} else {
 			return nil
 		}
 	case model.EventUpdate:
-		if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
+		if !shouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
 			// delete only if this pod was in the cache
-			pc.deleteIP(ip, key)
+			if !pc.deleteIP(ip, key) {
+				return nil
+			}
 			ev = model.EventDelete
-		} else if shouldPodBeInEndpoints(pod) {
+		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
 			pc.update(ip, key)
 		} else {
 			return nil

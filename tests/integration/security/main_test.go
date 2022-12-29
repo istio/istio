@@ -46,8 +46,9 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
+		Setup(istio.Setup(nil, func(c resource.Context, cfg *istio.Config) {
+			if !c.Settings().EnableDualStack {
+				cfg.ControlPlaneValues = `
 values:
   pilot: 
     env: 
@@ -57,6 +58,21 @@ meshConfig:
     gatewayTopology:
       numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
 `
+			} else {
+				cfg.ControlPlaneValues = `
+values:
+  pilot: 
+    env: 
+      PILOT_JWT_ENABLE_REMOTE_JWKS: true
+      ISTIO_DUAL_STACK: true
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_AGENT_DUAL_STACK: "true"
+    gatewayTopology:
+      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
+`
+			}
 		})).
 		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.
 		SetupParallel(

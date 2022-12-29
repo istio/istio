@@ -180,12 +180,17 @@ func ToPrettyJSON(s Spec) ([]byte, error) {
 }
 
 func toJSON(s Spec, pretty bool) ([]byte, error) {
+	indent := ""
+	if pretty {
+		indent = "    "
+	}
+
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			b, err := protomarshal.Marshal(pb)
+			b, err := protomarshal.MarshalIndent(pb, indent)
 			return b, err
 		}
 	}
@@ -193,11 +198,11 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 	b := &bytes.Buffer{}
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
-		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
+		err := (&gogojsonpb.Marshaler{Indent: indent}).Marshal(b, pb)
 		return b.Bytes(), err
 	}
 	if pretty {
-		return json.MarshalIndent(s, "", "\t")
+		return json.MarshalIndent(s, "", indent)
 	}
 	return json.Marshal(s)
 }
@@ -306,6 +311,20 @@ func (meta *Meta) Key() string {
 	return Key(
 		meta.GroupVersionKind.Group, meta.GroupVersionKind.Version, meta.GroupVersionKind.Kind,
 		meta.Name, meta.Namespace)
+}
+
+func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:              meta.Name,
+		Namespace:         meta.Namespace,
+		UID:               kubetypes.UID(meta.UID),
+		ResourceVersion:   meta.ResourceVersion,
+		Generation:        meta.Generation,
+		CreationTimestamp: metav1.NewTime(meta.CreationTimestamp),
+		Labels:            meta.Labels,
+		Annotations:       meta.Annotations,
+		OwnerReferences:   meta.OwnerReferences,
+	}
 }
 
 func (c Config) DeepCopy() Config {

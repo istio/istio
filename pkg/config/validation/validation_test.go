@@ -275,64 +275,34 @@ func TestValidateDuration(t *testing.T) {
 	}
 }
 
-func TestValidateParentAndDrain(t *testing.T) {
+func TestValidateDrainDuration(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent *durationpb.Duration
-		Drain  *durationpb.Duration
-		Valid  bool
+		Drain *durationpb.Duration
+		Valid bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: &durationpb.Duration{Seconds: 2},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  true,
+			Drain: &durationpb.Duration{Seconds: 1},
+			Valid: true,
 		},
 		{
-			Parent: &durationpb.Duration{Seconds: 1},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  false,
+			Drain: &durationpb.Duration{Seconds: 1, Nanos: 1000000},
+			Valid: false,
 		},
 		{
-			Parent: &durationpb.Duration{Seconds: 1},
-			Drain:  &durationpb.Duration{Seconds: 2},
-			Valid:  false,
+			Drain: &durationpb.Duration{Seconds: -1},
+			Valid: false,
 		},
 		{
-			Parent: &durationpb.Duration{Seconds: 2},
-			Drain:  &durationpb.Duration{Seconds: 1, Nanos: 1000000},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: -2},
-			Drain:  &durationpb.Duration{Seconds: 1},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 2},
-			Drain:  &durationpb.Duration{Seconds: -1},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  &durationpb.Duration{Seconds: 10},
-			Valid:  false,
-		},
-		{
-			Parent: &durationpb.Duration{Seconds: 10},
-			Drain:  &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Valid:  false,
+			Drain: &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Valid: false,
 		},
 	}
 	for _, combo := range combinations {
-		if got := ValidateParentAndDrain(combo.Drain, combo.Parent); (got == nil) != combo.Valid {
-			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for Parent:%v Drain:%v",
-				got == nil, combo.Valid, got, combo.Parent, combo.Drain)
+		if got := ValidateDrainDuration(combo.Drain); (got == nil) != combo.Valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for  Drain:%v",
+				got == nil, combo.Valid, got, combo.Drain)
 		}
 	}
 }
@@ -456,8 +426,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"config path must be set",
 			"binary path must be set",
 			"oneof service cluster or tracing service name must be specified",
-			"invalid parent and drain time combination invalid drain duration",
-			"invalid parent and drain time combination invalid parent shutdown duration",
+			"invalid drain duration: duration must be greater than 1ms",
 			"discovery address must be set to the proxy discovery service",
 			"invalid proxy admin port",
 			"invalid status port",
@@ -491,7 +460,6 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		DiscoveryAddress:       "istio-pilot.istio-system:15010",
 		ProxyAdminPort:         15000,
 		DrainDuration:          durationpb.New(45 * time.Second),
-		ParentShutdownDuration: durationpb.New(60 * time.Second),
 		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "istio-proxy"},
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
@@ -561,11 +529,6 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		{
 			name:    "drain duration invalid",
 			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DrainDuration = durationpb.New(-1 * time.Second) }),
-			isValid: false,
-		},
-		{
-			name:    "parent shutdown duration invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = durationpb.New(-1 * time.Second) }),
 			isValid: false,
 		},
 		{
@@ -873,6 +836,55 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			),
 			isValid: true,
 		},
+		{
+			name: "private key provider with qat without poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Qat{
+							Qat: &meshconfig.PrivateKeyProvider_QAT{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with qat zero poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Qat{
+							Qat: &meshconfig.PrivateKeyProvider_QAT{
+								PollDelay: &durationpb.Duration{
+									Seconds: 0,
+									Nanos:   0,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with qat",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Provider: &meshconfig.PrivateKeyProvider_Qat{
+							Qat: &meshconfig.PrivateKeyProvider_QAT{
+								PollDelay: &durationpb.Duration{
+									Seconds: 0,
+									Nanos:   1000,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -892,7 +904,6 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		DiscoveryAddress:       "10.0.0.100",
 		ProxyAdminPort:         0,
 		DrainDuration:          durationpb.New(-1 * time.Second),
-		ParentShutdownDuration: durationpb.New(-1 * time.Second),
 		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: ""},
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
@@ -915,7 +926,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 13 {
+			if len(err.Errors) != 12 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1020,6 +1031,19 @@ func TestValidateGateway(t *testing.T) {
 				},
 			},
 			"", "tls.httpsRedirect should only be used with http servers",
+		},
+		{
+			"invalid partial wildcard",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"*bar.com"},
+						Port:  &networking.Port{Name: "tls", Number: 443, Protocol: "tls"},
+						Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+					},
+				},
+			},
+			"partial wildcard \"*bar.com\" not allowed", "",
 		},
 	}
 	for _, tt := range tests {
@@ -4420,7 +4444,6 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Endpoints: []*networking.WorkloadEntry{
 					{Address: "api-v1.istio.io", Ports: map[string]uint32{"http-valid1": 8080}},
-					{Address: "api-v2.istio.io", Ports: map[string]uint32{"http-valid2": 9080}},
 				},
 				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 			},
@@ -4521,7 +4544,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
-
 		{
 			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
@@ -4984,6 +5006,45 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: true,
 		},
+		{
+			name: "dns round robin with more than one endpoint", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 8081, Protocol: "http", Name: "http-valid1"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{
+						Address: "api-v1.istio.io",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+					{
+						Address: "1.1.1.2",
+						Ports: map[string]uint32{
+							"http-valid1": 8081,
+						},
+					},
+				},
+				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+			},
+			valid:   false,
+			warning: false,
+		},
+		{
+			name: "dns round robin with 0 endpoints", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.Port{
+					{Number: 8081, Protocol: "http", Name: "http-valid1"},
+				},
+				Endpoints:  []*networking.WorkloadEntry{},
+				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+			},
+			valid:   true,
+			warning: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -5013,6 +5074,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		annotations map[string]string
 		in          proto.Message
 		valid       bool
+		Warning     bool
 	}{
 		{
 			name: "good",
@@ -5823,18 +5885,132 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "L7DenyWithFrom",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									RequestPrincipals: []string{"example.com/sub-1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithTo",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithFromAndTo",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
+			name: "L7DenyWithFromAndToWithPort",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
 	}
 
 	for _, c := range cases {
-		if _, got := ValidateAuthorizationPolicy(config.Config{
+		war, got := ValidateAuthorizationPolicy(config.Config{
 			Meta: config.Meta{
 				Name:        "name",
 				Namespace:   "namespace",
 				Annotations: c.annotations,
 			},
 			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("got: %v\nwant: %v", got, c.valid)
+		})
+		if (got == nil) != c.valid {
+			t.Errorf("error: got: %v\nwant: %v", got, c.valid)
+		} else if (war != nil) != c.Warning {
+			t.Errorf("warning: got: %v\nwant: %v", war, c.valid)
 		}
 	}
 }
@@ -6451,6 +6627,15 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, true},
+		{"invalid partial wildcard", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"test/*a.com",
+					},
+				},
+			},
+		}, false, false},
 		{"sidecar egress duplicated with wildcarded same namespace .", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -7235,6 +7420,77 @@ func TestValidateRequestAuthentication(t *testing.T) {
 							{
 								Name:   "x-foo",
 								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "null outputClaimToHeader",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:               "foo.com",
+						JwksUri:              "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{{}},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "null claim value in outputClaimToHeader ",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{
+							{
+								Header: "x-jwt-claim",
+								Claim:  "",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "null header value in outputClaimToHeader ",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{
+							{
+								Header: "",
+								Claim:  "sub",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "invalid header value in outputClaimToHeader ",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						OutputClaimToHeaders: []*security_beta.ClaimToHeader{
+							{
+								Header: "abc%123",
+								Claim:  "sub",
 							},
 						},
 					},

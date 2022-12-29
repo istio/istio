@@ -63,7 +63,7 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 		Core().V1().ConfigMaps()
 
 	c.queue = controllers.NewQueue("configmap "+name, controllers.WithReconciler(c.processItem))
-	c.informer.Informer().AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	_, _ = c.informer.Informer().AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		// Filter out configmaps
 		return o.GetName() == name && o.GetNamespace() == namespace
 	}))

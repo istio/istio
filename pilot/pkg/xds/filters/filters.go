@@ -164,6 +164,13 @@ var (
 
 	HTTPMx = buildHTTPMxFilter()
 
+	IstioNetworkAuthenticationFilter = &listener.Filter{
+		Name: "istio_authn",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.network.authn.Config"),
+		},
+	}
+
 	CaptureTLS = &listener.Filter{
 		Name: "capture_tls",
 		ConfigType: &listener.Filter_TypedConfig{

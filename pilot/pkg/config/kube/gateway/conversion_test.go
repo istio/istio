@@ -26,10 +26,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -38,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -282,6 +285,70 @@ var services = []*model.Service{
 	},
 }
 
+var (
+	// https://github.com/kubernetes/kubernetes/blob/v1.25.4/staging/src/k8s.io/kubectl/pkg/cmd/create/create_secret_tls_test.go#L31
+	rsaCertPEM = `-----BEGIN CERTIFICATE-----
+MIIB0zCCAX2gAwIBAgIJAI/M7BYjwB+uMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+aWRnaXRzIFB0eSBMdGQwHhcNMTIwOTEyMjE1MjAyWhcNMTUwOTEyMjE1MjAyWjBF
+MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANLJ
+hPHhITqQbPklG3ibCVxwGMRfp/v4XqhfdQHdcVfHap6NQ5Wok/4xIA+ui35/MmNa
+rtNuC+BdZ1tMuVCPFZcCAwEAAaNQME4wHQYDVR0OBBYEFJvKs8RfJaXTH08W+SGv
+zQyKn0H8MB8GA1UdIwQYMBaAFJvKs8RfJaXTH08W+SGvzQyKn0H8MAwGA1UdEwQF
+MAMBAf8wDQYJKoZIhvcNAQEFBQADQQBJlffJHybjDGxRMqaRmDhX0+6v02TUKZsW
+r5QuVbpQhH6u+0UgcW0jp9QwpxoPTLTWGXEWBBBurxFwiCBhkQ+V
+-----END CERTIFICATE-----
+`
+	rsaKeyPEM = `-----BEGIN RSA PRIVATE KEY-----
+MIIBOwIBAAJBANLJhPHhITqQbPklG3ibCVxwGMRfp/v4XqhfdQHdcVfHap6NQ5Wo
+k/4xIA+ui35/MmNartNuC+BdZ1tMuVCPFZcCAwEAAQJAEJ2N+zsR0Xn8/Q6twa4G
+6OB1M1WO+k+ztnX/1SvNeWu8D6GImtupLTYgjZcHufykj09jiHmjHx8u8ZZB/o1N
+MQIhAPW+eyZo7ay3lMz1V01WVjNKK9QSn1MJlb06h/LuYv9FAiEA25WPedKgVyCW
+SmUwbPw8fnTcpqDWE3yTO3vKcebqMSsCIBF3UmVue8YU3jybC3NxuXq3wNm34R8T
+xVLHwDXh/6NJAiEAl2oHGGLz64BuAfjKrqwz7qMYr9HCLIe/YsoWq/olzScCIQDi
+D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
+-----END RSA PRIVATE KEY-----
+`
+
+	secrets = []runtime.Object{
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cert-http",
+				Namespace: "istio-system",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cert",
+				Namespace: "cert",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "malformed",
+				Namespace: "istio-system",
+			},
+			Data: map[string][]byte{
+				// nolint: lll
+				// https://github.com/kubernetes-sigs/gateway-api/blob/d7f71d6b7df7e929ae299948973a693980afc183/conformance/tests/gateway-invalid-tls-certificateref.yaml#L87-L90
+				// this certificate is invalid because contains an invalid pem (base64 of "Hello world"),
+				// and the certificate and the key are identical
+				"tls.crt": []byte("SGVsbG8gd29ybGQK"),
+				"tls.key": []byte("SGVsbG8gd29ybGQK"),
+			},
+		},
+	}
+)
+
 func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
@@ -326,11 +393,12 @@ func TestConvertResources(t *testing.T) {
 				Services:  services,
 				Instances: instances,
 			})
-			kr := splitInput(input)
+			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 			output.AllowedReferences = AllowedReferences{} // Not tested here
 			output.ReferencedNamespaceKeys = nil           // Not tested here
+			output.ResourceReferences = nil                // Not tested here
 
 			// sort virtual services to make the order deterministic
 			sort.Slice(output.VirtualService, func(i, j int) bool {
@@ -513,7 +581,7 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			input := readConfigString(t, tt.config, validator)
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-			kr := splitInput(input)
+			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 			c := &Controller{
@@ -568,7 +636,7 @@ func splitOutput(configs []config.Config) OutputResources {
 	return out
 }
 
-func splitInput(configs []config.Config) KubernetesResources {
+func splitInput(t test.Failer, configs []config.Config) KubernetesResources {
 	out := KubernetesResources{}
 	namespaces := sets.New[string]()
 	for _, c := range configs {
@@ -599,6 +667,11 @@ func splitInput(configs []config.Config) KubernetesResources {
 			},
 		}
 	}
+
+	client := kube.NewFakeClient(secrets...)
+	out.Credentials = credentials.NewCredentialsController(client, "")
+	client.RunAndWait(test.NewStop(t))
+
 	out.Domain = "domain.suffix"
 	return out
 }
@@ -729,7 +802,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 
 	validator := crdvalidation.NewIstioValidator(b)
 	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
-	kr := splitInput(input)
+	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
 	ctx := ConfigContext{
 		KubernetesResources: kr,

@@ -33,6 +33,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
@@ -97,6 +98,8 @@ type Environment struct {
 	TrustBundle *trustbundle.TrustBundle
 
 	clusterLocalServices ClusterLocalProvider
+
+	CredentialsController credentials.MulticlusterController
 
 	GatewayAPIController GatewayController
 

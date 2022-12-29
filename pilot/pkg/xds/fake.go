@@ -32,7 +32,6 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/kubernetes/scheme"
 	k8stesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -126,7 +125,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", map[string]string{})
+	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -218,7 +217,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
 			g := gateway.NewController(defaultKubeClient, c, func(class config.GroupVersionKind, stop <-chan struct{}) bool {
 				return true
-			}, kube.Options{
+			}, nil, kube.Options{
 				DomainSuffix: "cluster.local",
 			})
 			gwc = g
@@ -486,7 +485,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
-	decode := scheme.Codecs.UniversalDeserializer().Decode
+	decode := kubelib.IstioCodec.UniversalDeserializer().Decode
 	objectStrs := strings.Split(s, "---")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {

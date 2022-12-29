@@ -19,7 +19,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,9 +31,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -65,7 +67,7 @@ type WebhookCertPatcher struct {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubelib.Client,
-	revision, systemNameSpace string, webhookName string, caBundleWatcher *keycertbundle.Watcher,
+	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
 		client:          client.Kube(),
@@ -73,20 +75,25 @@ func NewWebhookCertPatcher(
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
 	}
-	p.queue = controllers.NewQueue("webhook patcher",
-		controllers.WithReconciler(p.webhookPatchTask),
-		controllers.WithMaxAttempts(5))
+	p.queue = newWebhookPatcherQueue(p.webhookPatchTask)
 	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
-		if features.EnableEnhancedResourceScoping {
-			options.FieldSelector = fmt.Sprintf("metadata.name=%s",
-				util.GetWebhookConfigName(features.InjectionWebhookConfigName, revision, systemNameSpace))
-		}
 	})
 	p.informer = informer
-	informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
+	_, _ = informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
 	return p, nil
+}
+
+func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Queue {
+	return controllers.NewQueue("webhook patcher",
+		controllers.WithReconciler(reconciler),
+		// Try first few(5) retries quickly so that we can detect true conflicts by multiple Istiod instances fast.
+		// If there is a conflict beyond this, it means Istiods are seeing different ca certs and are in inconsistent
+		// state for longer duration. Slowdown the retries, so that we do not overload kube api server and etcd.
+		controllers.WithRateLimiter(workqueue.NewItemFastSlowRateLimiter(100*time.Millisecond, 1*time.Minute, 5)),
+		// Webhook patching has to be retried forever. But the retries would be rate limited.
+		controllers.WithMaxAttempts(math.MaxInt))
 }
 
 // Run runs the WebhookCertPatcher
@@ -162,7 +169,7 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	}
 
 	if updated {
-		_, err = client.Update(context.Background(), config, metav1.UpdateOptions{})
+		_, err := client.Update(context.Background(), config, metav1.UpdateOptions{})
 		if err != nil {
 			reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)
 		}

@@ -17,6 +17,7 @@ package model
 import (
 	"strings"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -25,6 +26,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -518,6 +520,22 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	reportingInterval := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Providers:         []*tpb.ProviderRef{{Name: "prometheus"}},
+				ReportingInterval: durationpb.New(15 * time.Second),
+			},
+		},
+	}
+	overridesInterval := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Providers:         []*tpb.ProviderRef{{Name: "prometheus"}},
+				ReportingInterval: durationpb.New(10 * time.Second),
+			},
+		},
+	}
 	emptyStackdriver := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
@@ -578,6 +596,9 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+
+	cfg := `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
+
 	tests := []struct {
 		name             string
 		cfgs             []config.Config
@@ -628,7 +649,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
+				"istio.stats": cfg,
 			},
 		},
 		{
@@ -661,7 +682,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
+				"istio.stats": cfg,
 			},
 		},
 		{
@@ -672,7 +693,32 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolTCP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
+				"istio.stats": cfg,
+			},
+		},
+		{
+			"reporting-interval",
+			[]config.Config{newTelemetry("istio-system", reportingInterval)},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"tcp_reporting_duration":"15s"}`,
+			},
+		},
+		{
+			"override-interval",
+			[]config.Config{
+				newTelemetry("istio-system", reportingInterval),
+				newTelemetry("default", overridesInterval),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"tcp_reporting_duration":"10s"}`,
 			},
 		},
 		{
@@ -723,7 +769,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
+				"istio.stats": cfg,
 			},
 		},
 		{
@@ -736,7 +782,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
-				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
+				"istio.stats": cfg,
 			},
 		},
 		{

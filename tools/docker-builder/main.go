@@ -37,6 +37,7 @@ func main() {
 	rootCmd.Flags().StringSliceVar(&globalArgs.Tags, "tag", globalArgs.Tags, "docker tag(s)")
 
 	rootCmd.Flags().StringVar(&globalArgs.BaseVersion, "base-version", globalArgs.BaseVersion, "base version to use")
+	rootCmd.Flags().StringVar(&globalArgs.BaseImageRegistry, "image-base-registry", globalArgs.BaseImageRegistry, "base image registry to use")
 	rootCmd.Flags().StringVar(&globalArgs.ProxyVersion, "proxy-version", globalArgs.ProxyVersion, "proxy version to use")
 	rootCmd.Flags().StringVar(&globalArgs.IstioVersion, "istio-version", globalArgs.IstioVersion, "istio version to use")
 

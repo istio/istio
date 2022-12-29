@@ -590,6 +590,9 @@ type ServiceAttributes struct {
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
+
+	// Type holds the value of the corev1.Type of the Kubernetes service
+	Type string
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.

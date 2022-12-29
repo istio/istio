@@ -31,7 +31,8 @@ spec:
   hosts:
   - simple2.domain.example
   http:
-  - route:
+  - name: istio-system.backend-not-allowed.0
+    route:
     - destination:
         host: my-svc.service.svc.domain.suffix
         port:
@@ -55,7 +56,8 @@ spec:
   hosts:
   - simple.domain.example
   http:
-  - route:
+  - name: istio-system.http.0
+    route:
     - destination:
         host: my-svc.service.svc.domain.suffix
         port:

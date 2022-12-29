@@ -386,6 +386,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				PrivateKey:  privateKey,
 			},
 		},
+		MinVersion: tls.VersionTLS12,
 	}
 	server.StartTLS()
 	defer server.Close()
@@ -460,6 +461,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 						RootCAs:               verifier.GetGeneralCertPool(),
 						ServerName:            "foo.domain.com/ns/foo/sa/default",
 						VerifyPeerCertificate: verifier.VerifyPeerCert,
+						MinVersion:            tls.VersionTLS12,
 					},
 				},
 			}

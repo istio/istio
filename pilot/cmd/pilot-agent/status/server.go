@@ -34,7 +34,6 @@ import (
 	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
@@ -250,6 +249,8 @@ func NewServer(config Options) (*Server, error) {
 			d := &net.Dialer{
 				LocalAddr: s.upstreamLocalAddress,
 			}
+			// nolint: gosec
+			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
 			transport, err := setTransportDefaults(&http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				DialContext:     d.DialContext,
@@ -493,10 +494,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoyCancel, appCancel context.CancelFunc
 	defer func() {
 		if envoy != nil {
-			envoy.Close()
+			err = envoy.Close()
+			if err != nil {
+				log.Infof("envoy connection is not closed: %v", err)
+			}
 		}
 		if application != nil {
-			application.Close()
+			err = application.Close()
+			if err != nil {
+				log.Infof("app connection is not closed: %v", err)
+			}
 		}
 		if envoyCancel != nil {
 			envoyCancel()
@@ -570,13 +577,12 @@ func scrapeAndWriteAgentMetrics(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var errs error
 	for _, mf := range mfs {
 		if err := enc.Encode(mf); err != nil {
-			errs = multierror.Append(errs, err)
+			return err
 		}
 	}
-	return errs
+	return nil
 }
 
 func applyHeaders(into http.Header, from http.Header, keys ...string) {
@@ -755,7 +761,10 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		conn.Close()
+		err = conn.Close()
+		if err != nil {
+			log.Infof("tcp connection is not closed: %v", err)
+		}
 	}
 }
 
