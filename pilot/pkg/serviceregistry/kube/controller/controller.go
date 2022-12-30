@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -351,7 +352,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
-	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
+	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, serviceUpdateNeedsPush)
 
 	switch options.EndpointMode {
 	case EndpointSliceOnly:
@@ -1460,4 +1461,31 @@ func stripNodeUnusedFields(obj any) (any, error) {
 	}
 
 	return obj, nil
+}
+
+func serviceUpdateNeedsPush(first, second any) bool {
+	prev := first.(*v1.Service)
+	curr := second.(*v1.Service)
+	// If current/previous metadata has "*istio.io" label/annotation, just push.
+	for label := range curr.ObjectMeta.Labels {
+		if strings.Contains(label, "istio.io") {
+			return true
+		}
+	}
+	for annotation := range curr.ObjectMeta.Annotations {
+		if strings.Contains(annotation, "istio.io") {
+			return true
+		}
+	}
+	for label := range prev.ObjectMeta.Labels {
+		if strings.Contains(label, "istio.io") {
+			return true
+		}
+	}
+	for annotation := range prev.ObjectMeta.Annotations {
+		if strings.Contains(annotation, "istio.io") {
+			return true
+		}
+	}
+	return false
 }
