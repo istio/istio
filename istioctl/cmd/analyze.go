@@ -181,6 +181,9 @@ func Analyze() *cobra.Command {
 			}
 			sa.SetSuppressions(suppressions)
 
+			if revision == "" {
+				revision = "default"
+			}
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
@@ -320,7 +323,7 @@ func Analyze() *cobra.Command {
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
-	analysisCmd.PersistentFlags().StringVarP(&revision, "revision", "", "default",
+	analysisCmd.PersistentFlags().StringVarP(&revision, "revision", "", "",
 		"analyze a specific revision deployed.")
 	return analysisCmd
 }
