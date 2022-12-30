@@ -134,10 +134,10 @@ var (
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			obj, err := meta.Accessor(e.Object)
-			scope.Debugf("got delete event for %s.%s", obj.GetName(), obj.GetNamespace())
 			if err != nil {
 				return false
 			}
+			scope.Debugf("got delete event for %s.%s", obj.GetName(), obj.GetNamespace())
 			unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(e.Object)
 			if err != nil {
 				return false
