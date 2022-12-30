@@ -20,7 +20,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -256,10 +255,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 				GrpcOpts: []grpc.DialOption{
-					grpc.WithKeepaliveParams(keepalive.ClientParameters{
-						Time:    args.KeepaliveOptions.Time,
-						Timeout: args.KeepaliveOptions.Timeout,
-					}),
+					args.KeepaliveOptions.ConvertToClientOption(),
 					// Because we use the custom grpc options for adsc, here we should
 					// explicitly set transport credentials.
 					// TODO: maybe we should use the tls settings within ConfigSource
