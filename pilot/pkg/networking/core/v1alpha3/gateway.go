@@ -409,6 +409,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
 			}
+			var gatewayService *model.Service
+			for _, hostname := range intersectingHosts {
+				if svc, exists := nameToServiceMap[hostname]; exists {
+					gatewayService = svc
+				}
+			}
 
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
@@ -418,8 +424,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					perRouteFilters := map[string]*anypb.Any{}
-					if svc, exists := nameToServiceMap[hostname]; exists {
-						if statefulConfig := util.BuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
+					if gatewayService != nil {
+						if statefulConfig := util.BuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
 							perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
 								Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
 									StatefulSession: statefulConfig,
