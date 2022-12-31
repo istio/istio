@@ -1167,25 +1167,20 @@ func rootCACompareConfigCmd() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter1, configWriter2 *configdump.ConfigWriter
 			var err error
-			if len(args) == 2 {
-				if podName1, podNamespace1, err = getPodName(args[0]); err != nil {
-					return err
-				}
-				configWriter1, err = setupPodConfigdumpWriter(podName1, podNamespace1, false, c.OutOrStdout())
-				if err != nil {
-					return err
-				}
+			if podName1, podNamespace1, err = getPodName(args[0]); err != nil {
+				return err
+			}
+			configWriter1, err = setupPodConfigdumpWriter(podName1, podNamespace1, false, c.OutOrStdout())
+			if err != nil {
+				return err
+			}
 
-				if podName2, podNamespace2, err = getPodName(args[1]); err != nil {
-					return err
-				}
-				configWriter2, err = setupPodConfigdumpWriter(podName2, podNamespace2, false, c.OutOrStdout())
-				if err != nil {
-					return err
-				}
-			} else {
-				c.Println(c.UsageString())
-				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
+			if podName2, podNamespace2, err = getPodName(args[1]); err != nil {
+				return err
+			}
+			configWriter2, err = setupPodConfigdumpWriter(podName2, podNamespace2, false, c.OutOrStdout())
+			if err != nil {
+				return err
 			}
 
 			rootCA1, err1 := configWriter1.PrintPodRootCAFromDynamicSecretDump()

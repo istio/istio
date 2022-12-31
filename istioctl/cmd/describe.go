@@ -91,11 +91,8 @@ func podDescribeCmd() *cobra.Command {
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.`,
 		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("expecting pod name")
-			}
-
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 
 			client, err := interfaceFactory(kubeconfig)

@@ -149,10 +149,8 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 
   # Restart pods from the ratings-v1 deployment with Istio sidecar
   istioctl x add dep ratings-v1`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("expecting deployment name")
-			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
@@ -204,10 +202,8 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 
   # Restart all ratings-v1 pods with an Istio sidecar
   istioctl x add svc ratings-v1`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("expecting service name")
-			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
@@ -267,10 +263,8 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 		Example: ` # Control how meshed pods contact 172.12.23.125 and .126
   istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.23.126 \
    http:9080 tcp:8888 --labels app=test,version=v1 --annotations env=stage --serviceaccount stageAdmin`,
+		Args: cobra.MinimumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 3 {
-				return fmt.Errorf("provide service name, IP and Port List")
-			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err

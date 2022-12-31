@@ -89,10 +89,8 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 
   # Restart all ratings-v1 pods without an Istio sidecar
   istioctl x rm dep ratings-v1`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("expecting deployment name")
-			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			if util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
 				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
@@ -133,10 +131,8 @@ func svcUnMeshifyCmd() *cobra.Command {
 
   # Restart all ratings-v1 pods without an Istio sidecar
   istioctl x rm svc ratings-v1`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("expecting service name")
-			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			if util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
 				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
@@ -184,10 +180,8 @@ The typical usage scenario is Mesh Expansion on VMs.`,
 
   # Remove "vmhttp" service entry rules
   istioctl x rm es vmhttp`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return fmt.Errorf("expecting external service name")
-			}
 			client, err := interfaceFactory(kubeconfig)
 			if err != nil {
 				return err
