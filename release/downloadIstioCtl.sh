@@ -40,7 +40,7 @@ if [ "${ISTIO_VERSION}" = "" ] ; then
 fi
 
 if [ "${ISTIO_VERSION}" = "" ] ; then
-  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.14.0"
+  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.16.1"
   exit 1;
 fi
 
