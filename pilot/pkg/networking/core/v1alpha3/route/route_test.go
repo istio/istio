@@ -1004,7 +1004,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteFullPathAndHost, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
+			virtualServiceWithRewriteFullPathAndHost,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -1837,6 +1839,7 @@ var virtualServiceWithRewriteFullPathAndHost = config.Config{
 		},
 	},
 }
+
 var virtualServiceWithRedirectAndSetHeader = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,

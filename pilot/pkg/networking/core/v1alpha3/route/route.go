@@ -481,12 +481,12 @@ func applyHTTPRouteDestination(
 			Cluster: in.Name,
 		}
 		uri := in.Rewrite.GetUri()
-		if fullUri, isFullPathRewrite := cutPrefix(uri, "*fullreplace*"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
+		if fullURI, isFullPathRewrite := cutPrefix(uri, "*fullreplace*"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
 					Regex: "/.+",
 				},
-				Substitution: fullUri,
+				Substitution: fullURI,
 			}
 		} else {
 			action.PrefixRewrite = uri
