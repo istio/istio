@@ -67,7 +67,7 @@ spec:
           readOnlyRootFilesystem: true
         {{- end }}
         ports:
-        - containerPort: 15021
+        - containerPort: 15020
           name: status-port
           protocol: TCP
         {{- with (index .Labels "topology.istio.io/network") }}
