@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"fmt"
+	"hash/fnv"
 	"reflect"
 	"strconv"
 	"sync"
@@ -48,6 +49,11 @@ import (
 var (
 	_   serviceregistry.Instance = &Controller{}
 	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+)
+
+var (
+	maxPrime = 65011
+	maxIPs   = 255 * 255
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -878,17 +884,8 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // cannot be made within the IP address space we have (which is about 64K services), then we may need to
 // have the sequential allocation algorithm as a fallback when too many collisions take place.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
-	// i is everything from 240.240.0.(j) to 240.240.255.(j)
-	// j is everything from 240.240.(i).1 to 240.240.(i).254
-	// we can capture this in one integer variable.
-	// given X, we can compute i by X/255, and j is X%255
-	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-	// So we bump X to 511, so that the resulting IP is 240.240.2.1
-	maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
-	x := 0
-	hnMap := make(map[string]octetPair)
-
+	hashedServices := make([]*model.Service, maxIPs)
+	hash := fnv.New32a()
 	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -897,38 +894,71 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			n := svc.Hostname.String()
-			if v, ok := hnMap[n]; ok {
-				log.Debugf("Reuse IP for domain %s", n)
-
-				setAutoAllocatedIPs(svc, v)
+			hash.Write([]byte(svc.Hostname.String()))
+			s := hash.Sum32()
+			fh := s % uint32(maxIPs)
+			if hashedServices[fh] == nil {
+				hashedServices[fh] = svc
 			} else {
-				x++
-				if x%255 == 0 {
-					x++
+				i := uint32(1)
+				for {
+					sh := uint32(maxPrime) - (s % uint32(maxPrime))
+					nh := (s + i*sh) % uint32(maxIPs)
+					if hashedServices[nh] == nil {
+						hashedServices[nh] = svc
+						break
+					}
+					i++
 				}
-				if x >= maxIPs {
-					log.Errorf("out of IPs to allocate for service entries")
-					return services
-				}
-
-				pair := octetPair{x / 255, x % 255}
-
-				setAutoAllocatedIPs(svc, pair)
-
-				hnMap[n] = pair
 			}
+			hash.Reset()
 		}
 	}
+	fmt.Println("len of hashed services....", len(hashedServices))
+	// i is everything from 240.240.0.(j) to 240.240.255.(j)
+	// j is everything from 240.240.(i).1 to 240.240.(i).254
+	// we can capture this in one integer variable.
+	// given X, we can compute i by X/255, and j is X%255
+	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+	// So we bump X to 511, so that the resulting IP is 240.240.2.1
+	// maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
+	x := 0
+	hnMap := make(map[string]octetPair)
+	for _, svc := range hashedServices {
+		if svc == nil {
+			x++
+			if x%255 == 0 {
+				x++
+			}
+			continue
+		}
+		n := svc.Hostname.String()
+		if v, ok := hnMap[n]; ok {
+			log.Debugf("Reuse IP for domain %s", n)
+			setAutoAllocatedIPs(svc, v)
+		} else {
+			x++
+			if x%255 == 0 {
+				x++
+			}
+			// if x >= maxIPs {
+			// 	log.Errorf("out of IPs to allocate for service entries. x:= %d, max ips:= %d", x, maxIPs)
+			// 	return services
+			// }
+			pair := octetPair{x / 255, x % 255}
+			setAutoAllocatedIPs(svc, pair)
+			hnMap[n] = pair
+		}
+	}
+	fmt.Println(len(hnMap))
 	return services
 }
 
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
 	a := octets.thirdOctet
 	b := octets.fourthOctet
-
 	svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", a, b)
-
 	if a == 0 {
 		svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", b)
 	} else {

@@ -1705,8 +1705,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 }
 
 func Test_autoAllocateIP_values(t *testing.T) {
-	inServices := make([]*model.Service, 512)
-	for i := 0; i < 512; i++ {
+	inServices := make([]*model.Service, 255*255)
+	for i := 0; i < 255*255; i++ {
 		temp := model.Service{
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
@@ -1723,7 +1723,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	// 240.240.1.255
 	// 240.240.2.0
 	// 240.240.2.255
-	// The last IP should be 240.240.2.4
+	// The last IP should be 240.240.50.246
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
 		"240.240.0.255": true,
@@ -1732,7 +1732,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.2.0":   true,
 		"240.240.2.255": true,
 	}
-	expectedLastIP := "240.240.2.4"
+	expectedLastIP := "240.240.50.246"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
