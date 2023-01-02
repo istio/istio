@@ -37,6 +37,7 @@ const (
 	DebugType     = "istio.io/debug"
 	BootstrapType = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 	WorkloadType  = resource.APITypePrefix + "istio.workload.Workload"
+	RBACType      = resource.APITypePrefix + "istio.rbac.RBAC"
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
@@ -63,6 +64,8 @@ func GetShortType(typeURL string) string {
 		return "ECDS"
 	case WorkloadType:
 		return "WDS"
+	case RBACType:
+		return "RBACDS"
 	default:
 		return typeURL
 	}
@@ -91,6 +94,8 @@ func GetMetricType(typeURL string) string {
 		return "bds"
 	case WorkloadType:
 		return "wds"
+	case RBACType:
+		return "rbacds"
 	default:
 		return typeURL
 	}
@@ -123,5 +128,5 @@ func GetResourceType(shortType string) string {
 
 // IsEnvoyType checks whether the typeURL is a valid Envoy type.
 func IsEnvoyType(typeURL string) bool {
-	return strings.HasPrefix(typeURL, envoyTypePrefix) || typeURL == WorkloadType
+	return strings.HasPrefix(typeURL, envoyTypePrefix) || typeURL == WorkloadType || typeURL == RBACType
 }

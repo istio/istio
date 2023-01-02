@@ -35,6 +35,8 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	apisecurity "istio.io/client-go/pkg/apis/security/v1beta1"
+	"istio.io/client-go/pkg/listers/security/v1beta1"
 	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -291,6 +293,9 @@ type Controller struct {
 	meshWatcher mesh.Watcher
 	podLister   listerv1.PodLister
 	podInformer informer.FilteredSharedIndexInformer
+
+	authzPolicyInformer cache.SharedIndexInformer
+	authzPolicyLister   v1beta1.AuthorizationPolicyLister
 
 	ambientIndex *AmbientIndex
 }
@@ -894,6 +899,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	nodeInformer := informer.NewFilteredSharedIndexInformer(nil, c.nodeInformer)
 	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
 
+	c.authzPolicyInformer = kubeClient.IstioInformer().Security().V1beta1().AuthorizationPolicies().Informer()
+	c.authzPolicyLister = kubeClient.IstioInformer().Security().V1beta1().AuthorizationPolicies().Lister()
+	authzPolicyInformer := informer.NewFilteredSharedIndexInformer(nil, c.authzPolicyInformer)
+	c.registerHandlers(authzPolicyInformer, "AuthorizationPolicies", c.onAuthzPolicyEvent, nil)
+
 	c.podLister = kubeClient.KubeInformer().Core().V1().Pods().Lister()
 	podInformer := informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, kubeClient.KubeInformer().Core().V1().Pods().Informer())
 	c.podInformer = podInformer
@@ -1209,6 +1219,21 @@ func (c *Controller) onNodeEvent(obj any, event model.Event) error {
 	return nil
 }
 
+func (c *Controller) onAuthzPolicyEvent(obj any, event model.Event) error {
+	authzPolicy, ok := obj.(*apisecurity.AuthorizationPolicy)
+	if !ok {
+		return fmt.Errorf("invalid object type")
+	}
+	c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+		Full: false,
+		ConfigsUpdated: map[model.ConfigKey]struct{}{
+			{Kind: kind.AuthorizationPolicy, Name: authzPolicy.Name, Namespace: authzPolicy.Namespace}: {},
+		},
+		Reason: []model.TriggerReason{model.AmbientUpdate},
+	})
+	return nil
+}
+
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc func(old, cur any) bool
 
@@ -1294,7 +1319,8 @@ func (c *Controller) informersSynced() bool {
 		!c.pods.informer.HasSynced() ||
 		!c.nodeInformer.HasSynced() ||
 		!c.exports.HasSynced() ||
-		!c.imports.HasSynced() {
+		!c.imports.HasSynced() ||
+		!c.authzPolicyInformer.HasSynced() {
 		return false
 	}
 	return true
@@ -1310,6 +1336,7 @@ func (c *Controller) SyncAll() error {
 	err = multierror.Append(err, c.syncDiscoveryNamespaces())
 	err = multierror.Append(err, c.syncSystemNamespace())
 	err = multierror.Append(err, c.syncNodes())
+	err = multierror.Append(err, c.syncAuthzPolicies())
 	err = multierror.Append(err, c.syncServices())
 	err = multierror.Append(err, c.syncPods())
 	err = multierror.Append(err, c.syncEndpoints())
@@ -1342,6 +1369,16 @@ func (c *Controller) syncNodes() error {
 	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
+		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
+	}
+	return err.ErrorOrNil()
+}
+
+func (c *Controller) syncAuthzPolicies() error {
+	var err *multierror.Error
+	ap := c.authzPolicyInformer.GetIndexer().List()
+	log.Debugf("initializing %d authz policies", len(ap))
+	for _, s := range ap {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
 	return err.ErrorOrNil()
