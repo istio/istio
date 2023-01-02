@@ -1664,8 +1664,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.0.1",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+					AutoAllocatedIPv4Address: "240.240.37.178",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:25b2",
 				},
 			},
 		},
@@ -1683,8 +1683,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.0.1",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+					AutoAllocatedIPv4Address: "240.240.37.178",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:25b2",
 				},
 			},
 		},
@@ -1716,13 +1716,15 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	}
 	gotServices := autoAllocateIPs(inServices)
 
-	// out of the 512 IPs, we dont expect the following IPs
+	// We dont expect the following pattern of IPs.
 	// 240.240.0.0
 	// 240.240.0.255
 	// 240.240.1.0
 	// 240.240.1.255
 	// 240.240.2.0
 	// 240.240.2.255
+	// 240.240.3.0
+	// 240.240.3.255
 	// The last IP should be 240.240.50.246
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
@@ -1747,6 +1749,83 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		}
 		gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
 	}
+}
+
+// Validate that ipaddress allocation is deterministic based on hash.
+func Test_autoAllocateIP_deterministic(t *testing.T) {
+	inServices := make([]*model.Service, 0)
+	originalServices := map[string]string{
+		"a.com": "240.240.156.7",
+		"c.com": "240.240.72.226",
+		"e.com": "240.240.85.4",
+		"g.com": "240.240.179.215",
+		"i.com": "240.240.13.244",
+		"k.com": "240.240.197.245",
+		"l.com": "240.240.56.10",
+		"n.com": "240.240.82.93",
+		"o.com": "240.240.234.248",
+	}
+
+	allocateAndValidate := func() {
+		gotServices := autoAllocateIPs(model.SortServicesByCreationTime(inServices))
+		gotIPMap := make(map[string]string)
+		for _, svc := range gotServices {
+			if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
+				t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
+			}
+			gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+		}
+		for k, v := range originalServices {
+			if gotIPMap[v] != k {
+				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, gotIPMap[k])
+			}
+		}
+	}
+
+	// Validate that IP addresses are allocated for original list of services.
+	for k := range originalServices {
+		inServices = append(inServices, &model.Service{
+			Hostname:       host.Name(k),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		})
+	}
+	allocateAndValidate()
+
+	// Now add few services in between and validate that IPs are retained for original services.
+	addServices := map[string]bool{
+		"b.com": true,
+		"d.com": true,
+		"f.com": true,
+		"h.com": true,
+		"j.com": true,
+		"m.com": true,
+		"p.com": true,
+		"q.com": true,
+		"r.com": true,
+	}
+
+	for k := range addServices {
+		inServices = append(inServices, &model.Service{
+			Hostname:       host.Name(k),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		})
+	}
+	allocateAndValidate()
+
+	// Now delete few services and validate that IPs are retained for original services.
+	deleteServices := []*model.Service{}
+	for i, svc := range inServices {
+		if _, exists := originalServices[svc.Hostname.String()]; !exists {
+			if i%2 == 0 {
+				continue
+			}
+		}
+		deleteServices = append(deleteServices, svc)
+	}
+	inServices = deleteServices
+	allocateAndValidate()
 }
 
 func TestWorkloadEntryOnlyMode(t *testing.T) {

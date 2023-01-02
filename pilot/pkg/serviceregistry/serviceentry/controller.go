@@ -871,21 +871,18 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // allocated IP addresses do not take effect.
 //
 // The current algorithm to allocate IPs is deterministic across all istiods.
-// At stable state, given two istiods with exact same set of services, there should
-// be no change in XDS as the algorithm is just a dumb iterative one that allocates sequentially.
-//
-// TODO: Rather than sequentially allocate IPs, switch to a hash based allocation mechanism so that
-// deletion of the oldest service entry does not cause change of IPs for all other service entries.
-// Currently, the sequential allocation will result in unnecessary XDS reloads (lds/rds) when a
-// service entry with auto allocated IP is deleted. We are trading off a perf problem (xds reload)
-// for a usability problem (e.g., multiple cloud SQL or AWS RDS tcp services with no VIPs end up having
-// the same port, causing traffic to go to the wrong place). Once we move to a deterministic hash-based
-// allocation with deterministic collision resolution, the perf problem will go away. If the collision guarantee
-// cannot be made within the IP address space we have (which is about 64K services), then we may need to
-// have the sequential allocation algorithm as a fallback when too many collisions take place.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
 	hashedServices := make([]*model.Service, maxIPs)
 	hash := fnv.New32a()
+	// First iterate through the range of services and determine its position by hash
+	// so that we can deterministically allocate an IP.
+	// We use "Double Hashning" for collision detection.
+	// The hash algorithm is
+	// - h1(k) = Sum32 hash of the host name.
+	// - Check if we have an empty slot for h1(x) % MAXIPS. Use it if available.
+	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
+	//   where PRIME is the max prime number below MAXIPS.
+	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
 	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -895,11 +892,15 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
 			hash.Write([]byte(svc.Hostname.String()))
+			// First hash is calculated by
 			s := hash.Sum32()
 			fh := s % uint32(maxIPs)
+			// Check if there is no service with this hash first. If there is not service
+			// at this location - then we can safely assign this position for this service.
 			if hashedServices[fh] == nil {
 				hashedServices[fh] = svc
 			} else {
+				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
 				for {
 					sh := uint32(maxPrime) - (s % uint32(maxPrime))
@@ -914,7 +915,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			hash.Reset()
 		}
 	}
-	fmt.Println("len of hashed services....", len(hashedServices))
 	// i is everything from 240.240.0.(j) to 240.240.255.(j)
 	// j is everything from 240.240.(i).1 to 240.240.(i).254
 	// we can capture this in one integer variable.
@@ -922,11 +922,12 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
 	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
 	// So we bump X to 511, so that the resulting IP is 240.240.2.1
-	// maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
 	x := 0
 	hnMap := make(map[string]octetPair)
+	allocated := 0
 	for _, svc := range hashedServices {
 		if svc == nil {
+			// There is no service in the slot. Just increment x and move forward.
 			x++
 			if x%255 == 0 {
 				x++
@@ -942,16 +943,16 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			if x%255 == 0 {
 				x++
 			}
-			// if x >= maxIPs {
-			// 	log.Errorf("out of IPs to allocate for service entries. x:= %d, max ips:= %d", x, maxIPs)
-			// 	return services
-			// }
+			if allocated >= maxIPs {
+				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
+				return services
+			}
+			allocated++
 			pair := octetPair{x / 255, x % 255}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
 		}
 	}
-	fmt.Println(len(hnMap))
 	return services
 }
 
