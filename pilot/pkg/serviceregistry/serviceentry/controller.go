@@ -52,8 +52,8 @@ var (
 )
 
 var (
-	maxPrime = 65011
-	maxIPs   = 255 * 255
+	prime  = 65011     // Used for secondary hash function.
+	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -903,7 +903,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
 				for {
-					sh := uint32(maxPrime) - (s % uint32(maxPrime))
+					sh := uint32(prime) - (s % uint32(prime))
 					nh := (s + i*sh) % uint32(maxIPs)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc
