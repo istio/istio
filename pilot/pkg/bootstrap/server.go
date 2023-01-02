@@ -1343,6 +1343,22 @@ func (s *Server) serveHTTP() error {
 }
 
 func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
-	// TODO: Make this more efficient by comparing field by field and exclude unwanted labels.
-	return !reflect.DeepEqual(prev, curr)
+	// If current/previous metadata has "*istio.io" label/annotation, just push
+	for label := range prev.Attributes.Labels {
+		if strings.Contains(label, "istio.io") {
+			return true
+		}
+	}
+	for label := range curr.Attributes.Labels {
+		if strings.Contains(label, "istio.io") {
+			return true
+		}
+	}
+	// Exclude labels and compare so that we do not push on unwanted label changes.
+	currclone := curr.DeepCopy()
+	prevclone := prev.DeepCopy()
+	currclone.Attributes.Labels = map[string]string{}
+	prevclone.Attributes.Labels = map[string]string{}
+	// TODO: Make this more efficient by comparing field by field.
+	return !reflect.DeepEqual(prevclone, currclone)
 }
