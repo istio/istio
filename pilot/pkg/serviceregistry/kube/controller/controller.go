@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -352,7 +351,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		kubeClient.KubeInformer().Core().V1().Services().Informer())
 	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
 
-	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, serviceUpdateNeedsPush)
+	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
 	case EndpointSliceOnly:
@@ -386,7 +385,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		}
 		if shouldEnqueue("Pods", c.beginSync) {
 			c.queue.Push(func() error {
-				return c.endpoints.onEvent(item, model.EventUpdate)
+				return c.endpoints.onEvent(nil, item, model.EventUpdate)
 			})
 		}
 	})
@@ -507,22 +506,29 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(curr any, event model.Event) error {
-	svc, err := extractService(curr)
+func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
+	currSvc, err := extractService(curr)
 	if err != nil {
 		log.Error(err)
 		return nil
 	}
 
-	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
+	log.Debugf("Handle event %s for service %s in namespace %s", event, currSvc.Name, currSvc.Namespace)
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*svc, c.opts.DomainSuffix, c.Cluster())
+	svcConv := kube.ConvertService(*currSvc, c.opts.DomainSuffix, c.Cluster())
 	switch event {
 	case model.EventDelete:
 		c.deleteService(svcConv)
-	default:
-		c.addOrUpdateService(svc, svcConv, event, false)
+	case model.EventAdd:
+		c.addOrUpdateService(nil, currSvc, svcConv, event, false)
+	case model.EventUpdate:
+		prevSvc, err := extractService(prev)
+		if err != nil {
+			log.Error(err)
+			return nil
+		}
+		c.addOrUpdateService(prevSvc, currSvc, svcConv, event, false)
 	}
 
 	return nil
@@ -548,32 +554,32 @@ func (c *Controller) deleteService(svc *model.Service) {
 	event := model.EventDelete
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
 
-	c.handlers.NotifyServiceHandlers(svc, event)
+	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
-	if !svcConv.Attributes.ClusterExternalAddresses.IsEmpty() {
-		needsFullPush = c.extractGatewaysFromService(svcConv)
-	} else if isNodePortGatewayService(svc) {
+	if !currConv.Attributes.ClusterExternalAddresses.IsEmpty() {
+		needsFullPush = c.extractGatewaysFromService(currConv)
+	} else if isNodePortGatewayService(curr) {
 		// We need to know which services are using node selectors because during node events,
 		// we have to update all the node port services accordingly.
-		nodeSelector := getNodeSelectorsForService(svc)
+		nodeSelector := getNodeSelectorsForService(curr)
 		c.Lock()
 		// only add when it is nodePort gateway service
-		c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
+		c.nodeSelectorsForServices[currConv.Hostname] = nodeSelector
 		c.Unlock()
-		needsFullPush = c.updateServiceNodePortAddresses(svcConv)
+		needsFullPush = c.updateServiceNodePortAddresses(currConv)
 	}
 
 	// instance conversion is only required when service is added/updated.
-	instances := kube.ExternalNameServiceInstances(svc, svcConv)
+	instances := kube.ExternalNameServiceInstances(curr, currConv)
 	c.Lock()
-	c.servicesMap[svcConv.Hostname] = svcConv
+	c.servicesMap[currConv.Hostname] = currConv
 	if len(instances) > 0 {
-		c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
+		c.externalNameSvcInstanceMap[currConv.Hostname] = instances
 	}
 	c.Unlock()
 
@@ -585,20 +591,24 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
-	ns := svcConv.Attributes.Namespace
+	ns := currConv.Attributes.Namespace
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
 	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
-		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+		endpoints := c.buildEndpointsForService(currConv, updateEDSCache)
 		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(currConv.Hostname), ns, endpoints)
 		}
 	}
 
-	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
+	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
+	var prevConv *model.Service
+	if event == model.EventUpdate {
+		prevConv = kube.ConvertService(*prev, c.opts.DomainSuffix, c.Cluster())
+	}
 
-	c.handlers.NotifyServiceHandlers(svcConv, event)
+	c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
 }
 
 func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
@@ -610,17 +620,17 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(obj any, event model.Event) error {
-	node, ok := obj.(*v1.Node)
+func (c *Controller) onNodeEvent(_, curr any, event model.Event) error {
+	node, ok := curr.(*v1.Node)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
+			log.Errorf("couldn't get object from tombstone %+v", curr)
 			return nil
 		}
 		node, ok = tombstone.Obj.(*v1.Node)
 		if !ok {
-			log.Errorf("tombstone contained object that is not a node %#v", obj)
+			log.Errorf("tombstone contained object that is not a node %#v", curr)
 			return nil
 		}
 	}
@@ -668,11 +678,11 @@ type FilterOutFunc func(old, cur any) bool
 
 func (c *Controller) registerHandlers(
 	informer informer.FilteredSharedIndexInformer, otype string,
-	handler func(any, model.Event) error, filter FilterOutFunc,
+	handler func(any, any, model.Event) error, filter FilterOutFunc,
 ) {
-	wrappedHandler := func(obj any, event model.Event) error {
-		obj = tryGetLatestObject(informer, obj)
-		return handler(obj, event)
+	wrappedHandler := func(prev, curr any, event model.Event) error {
+		curr = tryGetLatestObject(informer, curr)
+		return handler(prev, curr, event)
 	}
 	_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
@@ -683,7 +693,7 @@ func (c *Controller) registerHandlers(
 					return
 				}
 				c.queue.Push(func() error {
-					return wrappedHandler(obj, model.EventAdd)
+					return wrappedHandler(nil, obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur any) {
@@ -699,7 +709,7 @@ func (c *Controller) registerHandlers(
 					return
 				}
 				c.queue.Push(func() error {
-					return wrappedHandler(cur, model.EventUpdate)
+					return wrappedHandler(old, cur, model.EventUpdate)
 				})
 			},
 			DeleteFunc: func(obj any) {
@@ -708,7 +718,7 @@ func (c *Controller) registerHandlers(
 					return
 				}
 				c.queue.Push(func() error {
-					return handler(obj, model.EventDelete)
+					return handler(nil, obj, model.EventDelete)
 				})
 			},
 		})
@@ -773,7 +783,7 @@ func (c *Controller) syncSystemNamespace() error {
 		sysNs, _ := c.nsLister.Get(c.opts.SystemNamespace)
 		log.Debugf("initializing systemNamespace:%s", c.opts.SystemNamespace)
 		if sysNs != nil {
-			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
+			err = c.onSystemNamespaceEvent(nil, sysNs, model.EventAdd)
 		}
 	}
 	return err
@@ -792,7 +802,7 @@ func (c *Controller) syncNodes() error {
 	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
-		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
+		err = multierror.Append(err, c.onNodeEvent(nil, s, model.EventAdd))
 	}
 	return err.ErrorOrNil()
 }
@@ -802,7 +812,7 @@ func (c *Controller) syncServices() error {
 	services, _ := c.serviceInformer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
-		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
+		err = multierror.Append(err, c.onServiceEvent(nil, s, model.EventAdd))
 	}
 	return err.ErrorOrNil()
 }
@@ -812,7 +822,7 @@ func (c *Controller) syncPods() error {
 	pods, _ := c.pods.informer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
-		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
+		err = multierror.Append(err, c.pods.onEvent(nil, s, model.EventAdd))
 	}
 	return err.ErrorOrNil()
 }
@@ -822,7 +832,7 @@ func (c *Controller) syncEndpoints() error {
 	endpoints := c.endpoints.getInformer().GetIndexer().List()
 	log.Debugf("initializing %d endpoints", len(endpoints))
 	for _, s := range endpoints {
-		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
+		err = multierror.Append(err, c.endpoints.onEvent(nil, s, model.EventAdd))
 	}
 	return err.ErrorOrNil()
 }
@@ -1192,13 +1202,13 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) onSystemNamespaceEvent(obj any, ev model.Event) error {
+func (c *Controller) onSystemNamespaceEvent(_, curr any, ev model.Event) error {
 	if ev == model.EventDelete {
 		return nil
 	}
-	ns, ok := obj.(*v1.Namespace)
+	ns, ok := curr.(*v1.Namespace)
 	if !ok {
-		log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+		log.Warnf("Namespace watch getting wrong type in event: %T", curr)
 		return nil
 	}
 	if ns == nil {
@@ -1392,7 +1402,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 }
 
 // AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 	c.handlers.AppendServiceHandler(f)
 }
 
@@ -1461,31 +1471,4 @@ func stripNodeUnusedFields(obj any) (any, error) {
 	}
 
 	return obj, nil
-}
-
-func serviceUpdateNeedsPush(first, second any) bool {
-	prev := first.(*v1.Service)
-	curr := second.(*v1.Service)
-	// If current/previous metadata has "*istio.io" label/annotation, just push.
-	for label := range curr.ObjectMeta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
-	}
-	for annotation := range curr.ObjectMeta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
-	for label := range prev.ObjectMeta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
-	}
-	for annotation := range prev.ObjectMeta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
-	return false
 }

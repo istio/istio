@@ -166,7 +166,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		return
 	}
 	for _, svc := range services {
-		errs = multierror.Append(errs, c.onServiceEvent(svc, model.EventAdd))
+		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventAdd))
 	}
 
 	pods, err := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(ns).List(labels.Everything())
@@ -175,7 +175,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		return
 	}
 	for _, pod := range pods {
-		errs = multierror.Append(errs, c.pods.onEvent(pod, model.EventAdd))
+		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventAdd))
 	}
 
 	switch endpointMode {
@@ -186,7 +186,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 			return
 		}
 		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
 		}
 	case EndpointSliceOnly:
 		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
@@ -195,7 +195,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 			return
 		}
 		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
 		}
 	}
 
@@ -222,7 +222,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		return
 	}
 	for _, svc := range services {
-		errs = multierror.Append(errs, c.onServiceEvent(svc, model.EventDelete))
+		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventDelete))
 	}
 
 	pods, err := kubeClient.KubeInformer().Core().V1().Pods().Lister().Pods(ns).List(labels.Everything())
@@ -231,7 +231,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		return
 	}
 	for _, pod := range pods {
-		errs = multierror.Append(errs, c.pods.onEvent(pod, model.EventDelete))
+		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventDelete))
 	}
 
 	switch endpointMode {
@@ -242,7 +242,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 			return
 		}
 		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
 		}
 	case EndpointSliceOnly:
 		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
@@ -251,7 +251,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 			return
 		}
 		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
 		}
 	}
 

@@ -138,7 +138,7 @@ func (e *endpointsController) getInformer() informer.FilteredSharedIndexInformer
 	return e.informer
 }
 
-func (e *endpointsController) onEvent(curr any, event model.Event) error {
+func (e *endpointsController) onEvent(_, curr any, event model.Event) error {
 	ep, ok := curr.(*v1.Endpoints)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)

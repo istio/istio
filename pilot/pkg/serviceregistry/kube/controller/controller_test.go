@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -1819,7 +1818,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			deleteWg := sync.WaitGroup{}
 			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 				Mode: mode,
-				ServiceHandler: func(_ *model.Service, e model.Event) {
+				ServiceHandler: func(_, _ *model.Service, e model.Event) {
 					if e == model.EventDelete {
 						deleteWg.Done()
 					}
@@ -2752,7 +2751,7 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
 			controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: tc.mode})
 
-			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
+			if err := controller.endpoints.onEvent(nil, tc.tombstone, model.EventDelete); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
@@ -3096,87 +3095,5 @@ func TestStripPodUnusedFields(t *testing.T) {
 	expectPod.Status.Conditions = output.Status.Conditions
 	if !reflect.DeepEqual(expectPod, output) {
 		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
-	}
-}
-
-func TestServiceUpdateNeedsPush(t *testing.T) {
-	cases := []struct {
-		name     string
-		prev     *corev1.Service
-		curr     *corev1.Service
-		expected bool
-	}{
-		{
-			name: "service with label change",
-			prev: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"test": "test-v2"},
-				},
-			},
-			curr: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"test": "test-v3"},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "current service with istio.io label",
-			prev: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"test": "test-v2"},
-				},
-			},
-			curr: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "previous config with istio.io label",
-			prev: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-				},
-			},
-			curr: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{},
-			},
-			expected: true,
-		},
-		{
-			name: "current config with istio.io annotation",
-			prev: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{},
-			},
-			curr: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{constants.AlwaysPushLabel: "true"},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "previous config with istio.io annotation",
-			prev: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{constants.AlwaysPushLabel: "true"},
-				},
-			},
-			curr: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{},
-			},
-			expected: true,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := serviceUpdateNeedsPush(c.prev, c.curr); got != c.expected {
-				t.Errorf("unexpected needsPush result. expected: %v got: %v", c.expected, got)
-			}
-		})
 	}
 }

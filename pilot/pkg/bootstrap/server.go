@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -840,13 +841,19 @@ func (s *Server) cachesSynced() bool {
 func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(svc *model.Service, _ model.Event) {
-		pushReq := &model.PushRequest{
-			Full:           true,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+	serviceHandler := func(prev, curr *model.Service, event model.Event) {
+		needsPush := true
+		if event == model.EventUpdate {
+			needsPush = serviceUpdateNeedsPush(prev, curr)
 		}
-		s.XDSServer.ConfigUpdate(pushReq)
+		if needsPush {
+			pushReq := &model.PushRequest{
+				Full:           true,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
+				Reason:         []model.TriggerReason{model.ServiceUpdate},
+			}
+			s.XDSServer.ConfigUpdate(pushReq)
+		}
 	}
 	s.ServiceController().AppendServiceHandler(serviceHandler)
 
@@ -1333,4 +1340,9 @@ func (s *Server) serveHTTP() error {
 	}()
 	s.httpAddr = httpListener.Addr().String()
 	return nil
+}
+
+func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+	// TODO: Make this more efficient by comparing field by field and exclude unwanted labels.
+	return !reflect.DeepEqual(prev, curr)
 }

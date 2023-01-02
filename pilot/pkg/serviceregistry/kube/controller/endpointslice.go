@@ -106,7 +106,7 @@ func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selec
 	return
 }
 
-func (esc *endpointSliceController) onEvent(curr any, event model.Event) error {
+func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) error {
 	ep, ok := curr.(metav1.Object)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)

@@ -146,7 +146,7 @@ type Controller struct {
 	serviceHandler model.ControllerHandlers
 }
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 	c.serviceHandler.AppendServiceHandler(f)
 }
 
@@ -156,8 +156,8 @@ func (c *Controller) Run(<-chan struct{}) {}
 
 func (c *Controller) HasSynced() bool { return true }
 
-func (c *Controller) OnServiceEvent(s *model.Service, e model.Event) {
+func (c *Controller) OnServiceEvent(prev, curr *model.Service, e model.Event) {
 	for _, h := range c.serviceHandler.GetServiceHandlers() {
-		h(s, e)
+		h(prev, curr, e)
 	}
 }

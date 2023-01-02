@@ -114,16 +114,16 @@ type serviceExportCacheImpl struct {
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Event) error {
-	se, ok := obj.(*unstructured.Unstructured)
+func (ec *serviceExportCacheImpl) onServiceExportEvent(_, curr any, event model.Event) error {
+	se, ok := curr.(*unstructured.Unstructured)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
+			return fmt.Errorf("couldn't get object from tombstone %#v", curr)
 		}
 		se, ok = tombstone.Obj.(*unstructured.Unstructured)
 		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceExport %#v", obj)
+			return fmt.Errorf("tombstone contained object that is not a ServiceExport %#v", curr)
 		}
 	}
 

@@ -100,8 +100,8 @@ type serviceImportCacheImpl struct {
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
 // When this happens, we need to update the state of the associated synthetic MCS service.
-func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model.Event) {
-	if strings.HasSuffix(svc.Hostname.String(), mcsDomainSuffix) {
+func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event model.Event) {
+	if strings.HasSuffix(curr.Hostname.String(), mcsDomainSuffix) {
 		// Ignore events for MCS services that were triggered by this controller.
 		return
 	}
@@ -109,7 +109,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	// This method is called concurrently from each cluster's queue. Process it in `this` cluster's queue
 	// in order to synchronize event processing.
 	ic.queue.Push(func() error {
-		namespacedName := namespacedNameForService(svc)
+		namespacedName := namespacedNameForService(curr)
 
 		// Lookup the previous MCS service if there was one.
 		mcsHost := serviceClusterSetLocalHostname(namespacedName)
@@ -136,22 +136,22 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 			event = model.EventAdd
 		}
 
-		mcsService := ic.genMCSService(svc, mcsHost, vips)
-		ic.addOrUpdateService(nil, mcsService, event, false)
+		mcsService := ic.genMCSService(curr, mcsHost, vips)
+		ic.addOrUpdateService(nil, nil, mcsService, event, false)
 		return nil
 	})
 }
 
-func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Event) error {
-	si, ok := obj.(*unstructured.Unstructured)
+func (ic *serviceImportCacheImpl) onServiceImportEvent(_, curr any, event model.Event) error {
+	si, ok := curr.(*unstructured.Unstructured)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
+			return fmt.Errorf("couldn't get object from tombstone %#v", curr)
 		}
 		si, ok = tombstone.Obj.(*unstructured.Unstructured)
 		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceImport %#v", obj)
+			return fmt.Errorf("tombstone contained object that is not a ServiceImport %#v", curr)
 		}
 	}
 
@@ -199,7 +199,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Even
 
 	// Always force a rebuild of the endpoint cache in case this import caused
 	// a change to the discoverability policy.
-	ic.addOrUpdateService(nil, mcsService, event, true)
+	ic.addOrUpdateService(nil, nil, mcsService, event, true)
 
 	if needsFullPush {
 		ic.doFullPush(mcsHost, si.GetNamespace())

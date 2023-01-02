@@ -76,9 +76,9 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 	// Observe the registry for events.
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
-	registry.AppendServiceHandler(func(service *model.Service, event model.Event) {
+	registry.AppendServiceHandler(func(prev, curr *model.Service, event model.Event) {
 		for _, handlers := range c.getClusterHandlers() {
-			handlers.NotifyServiceHandlers(service, event)
+			handlers.NotifyServiceHandlers(prev, curr, event)
 		}
 	})
 }
@@ -345,7 +345,7 @@ func (c *Controller) HasSynced() bool {
 	return true
 }
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 	c.handlers.AppendServiceHandler(f)
 }
 
@@ -355,7 +355,7 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 	// c.handlers.AppendWorkloadHandler(f)
 }
 
-func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f model.ServiceHandler) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	handler, ok := c.handlersByCluster[id]
