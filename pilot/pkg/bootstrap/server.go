@@ -1343,6 +1343,9 @@ func (s *Server) serveHTTP() error {
 }
 
 func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+	if prev == nil {
+		return true
+	}
 	// If current/previous metadata has "*istio.io" label/annotation, just push
 	for label := range prev.Attributes.Labels {
 		if strings.Contains(label, "istio.io") {

@@ -604,7 +604,7 @@ func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
 	var prevConv *model.Service
-	if event == model.EventUpdate {
+	if event == model.EventUpdate && prev != nil {
 		prevConv = kube.ConvertService(*prev, c.opts.DomainSuffix, c.Cluster())
 	}
 
