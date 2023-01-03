@@ -255,7 +255,7 @@ func TestGCPMetadata(t *testing.T) {
 					GCPMetadata = ""
 				}
 			}
-			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}
 }
@@ -287,7 +287,6 @@ func TestGCPQuotaProject(t *testing.T) {
 			if got, want := val, v.wantProject; got != want {
 				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
 			}
-			gcpEnvOnce = sync.Once{}
 		})
 	}
 }
@@ -358,7 +357,34 @@ func TestMetadataCache(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
-			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+		})
+	}
+}
+
+func TestDefaultPort(t *testing.T) {
+	tests := []struct {
+		host string
+		want string
+	}{
+		{
+			host: "foo",
+			want: "foo:80",
+		},
+		{
+			host: "foo:80",
+			want: "foo:80",
+		},
+		{
+			host: "foo:8080",
+			want: "foo:8080",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			if got := defaultPort(tt.host, "80"); got != tt.want {
+				t.Errorf("defaultPort() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

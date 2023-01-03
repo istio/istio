@@ -333,8 +333,6 @@ spec:
       dnsConfig:
         nameservers:
         - "8.8.8.8"
-        searches:
-        - "com"
         options:
         - name: "ndots"
           value: "1"
