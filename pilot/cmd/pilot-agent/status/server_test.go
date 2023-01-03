@@ -582,7 +582,7 @@ my_other_metric{} 0
 			Port: strings.Split(app.URL, ":")[2],
 		},
 		envoyStatsPort: envoyPort,
-		http: &http.Client{},
+		http:           &http.Client{},
 	}
 	return server
 }
