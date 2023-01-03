@@ -51,14 +51,20 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: method
                     name: :method
+                    stringMatch:
+                      ignoreCase: false
+                      exact: method
                 - header:
                     name: :method
-                    prefixMatch: method-prefix-
+                    stringMatch:
+                      ignoreCase: false
+                      prefix: method-prefix-
                 - header:
                     name: :method
-                    suffixMatch: -suffix-method
+                    stringMatch:
+                      ignoreCase: false
+                      suffix: -suffix-method
                 - header:
                     name: :method
                     presentMatch: true
@@ -66,14 +72,20 @@ typedConfig:
                 orRules:
                   rules:
                   - header:
-                      exactMatch: not-method
                       name: :method
+                      stringMatch:
+                        ignoreCase: false
+                        exact: not-method
                   - header:
                       name: :method
-                      prefixMatch: not-method-prefix-
+                      stringMatch:
+                        ignoreCase: false
+                        prefix: not-method-prefix-
                   - header:
                       name: :method
-                      suffixMatch: -not-suffix-method
+                      stringMatch:
+                        ignoreCase: false
+                        suffix: -not-suffix-method
                   - header:
                       name: :method
                       presentMatch: true
@@ -438,14 +450,20 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: header
                     name: X-header
+                    stringMatch:
+                      ignoreCase: false
+                      exact: header
                 - header:
                     name: X-header
-                    prefixMatch: header-prefix-
+                    stringMatch:
+                      ignoreCase: false
+                      prefix: header-prefix-
                 - header:
                     name: X-header
-                    suffixMatch: -suffix-header
+                    stringMatch:
+                      ignoreCase: false
+                      suffix: -suffix-header
                 - header:
                     name: X-header
                     presentMatch: true
@@ -455,12 +473,19 @@ typedConfig:
                   - header:
                       exactMatch: not-header
                       name: X-header
+                      stringMatch:
+                        ignoreCase: false
+                        exact: not-header
                   - header:
                       name: X-header
-                      prefixMatch: not-header-prefix-
+                      stringMatch:
+                        ignoreCase: false
+                        prefix: not-header-prefix-
                   - header:
                       name: X-header
-                      suffixMatch: -not-suffix-header
+                      stringMatch:
+                        ignoreCase: false
+                        suffix: -not-suffix-header
                   - header:
                       name: X-header
                       presentMatch: true
