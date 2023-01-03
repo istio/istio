@@ -61,7 +61,7 @@ func TestWorkloadReconnect(t *testing.T) {
 	expect := buildExpect(t)
 	s := NewFakeDiscoveryServer(t, FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
-	createPod(s, "pod", "sa", "127.0.0.1", "node")
+	createPod(s, "pod", "sa", "127.0.0.1", "not-node")
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
