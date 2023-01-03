@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type pod struct {
@@ -177,6 +178,17 @@ func TestNodeAuthorizer(t *testing.T) {
 				t.Fatal(err)
 			}
 			c.RunAndWait(test.NewStop(t))
+			// TODO(https://github.com/kubernetes/kubernetes/pull/113985) pull in proper hasSynced
+			// For now, we can manually check
+			for _, pod := range tt.pods {
+				retry.UntilOrFail(t, func() bool {
+					pods := na.podIndexer.Lookup(SaNode{Node: pod.node, ServiceAccount: types.NamespacedName{
+						Namespace: pod.namespace,
+						Name:      pod.account,
+					}})
+					return len(pods) > 0
+				})
+			}
 
 			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {
