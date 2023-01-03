@@ -307,7 +307,6 @@ func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.R
 	action := workloadapi.RBACPolicyAction_ALLOW
 	switch pol.Action {
 	case v1beta1.AuthorizationPolicy_ALLOW:
-		action = workloadapi.RBACPolicyAction_ALLOW
 	case v1beta1.AuthorizationPolicy_DENY:
 		action = workloadapi.RBACPolicyAction_DENY
 	default:
