@@ -39,6 +39,36 @@ func StringMatcherRegex(regex string) *matcher.StringMatcher {
 	}
 }
 
+// StringMatcherPrefix create a string matcher for prefix matching.
+func StringMatcherPrefix(prefix string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Prefix{
+			Prefix: prefix,
+		},
+	}
+}
+
+// StringMatcherSuffix create a string matcher for suffix matching.
+func StringMatcherSuffix(suffix string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Suffix{
+			Suffix: suffix,
+		},
+	}
+}
+
+// StringMatcherExact create a string matcher for exact matching.
+func StringMatcherExact(exact string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Exact{
+			Exact: exact,
+		},
+	}
+}
+
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
 // The wildcard "*" will be generated as ".+" instead of ".*".
