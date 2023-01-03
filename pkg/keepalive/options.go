@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 const (
@@ -44,6 +46,14 @@ type Options struct {
 	// MaxServerConnectionAgeGrace is an additive period after MaxServerConnectionAge
 	// after which the connection will be forcibly closed by the server.
 	MaxServerConnectionAgeGrace time.Duration // default value 10s
+}
+
+// ConvertToClientOption convert Options to grpc client option used for grpc keepalive.
+func (o *Options) ConvertToClientOption() grpc.DialOption {
+	return grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:    o.Time,
+		Timeout: o.Timeout,
+	})
 }
 
 // DefaultOption returns the default keepalive options.
