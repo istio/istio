@@ -692,6 +692,9 @@ var (
 
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
+
+	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
+		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
