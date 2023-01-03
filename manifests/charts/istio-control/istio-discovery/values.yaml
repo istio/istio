@@ -5,6 +5,7 @@ pilot:
   autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  autoscaleBehavior: {}
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
