@@ -149,7 +149,7 @@ components:
       k8s:
         hpaSpec:
           scaleTargetRef:
-            apiVersion: extensions/v1beta1
+            apiVersion: apps/v1
             kind: Deployment
             name: istiod
           minReplicas: 1
