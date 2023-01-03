@@ -37,8 +37,13 @@ func TestHeaderMatcher(t *testing.T) {
 			V:    "/productpage",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-					ExactMatch: "/productpage",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						IgnoreCase: false,
+						MatchPattern: &matcher.StringMatcher_Exact{
+							Exact: "/productpage",
+						},
+					},
 				},
 			},
 		},
@@ -48,8 +53,13 @@ func TestHeaderMatcher(t *testing.T) {
 			V:    "*/productpage*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-					SuffixMatch: "/productpage*",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						IgnoreCase: false,
+						MatchPattern: &matcher.StringMatcher_Suffix{
+							Suffix: "/productpage*",
+						},
+					},
 				},
 			},
 		},
@@ -59,8 +69,13 @@ func TestHeaderMatcher(t *testing.T) {
 			V:    "/productpage*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
-					PrefixMatch: "/productpage",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						IgnoreCase: false,
+						MatchPattern: &matcher.StringMatcher_Prefix{
+							Prefix: "/productpage",
+						},
+					},
 				},
 			},
 		},
@@ -78,10 +93,12 @@ func TestHeaderMatcher(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		actual := HeaderMatcher(tc.K, tc.V)
-		if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
-			t.Errorf("expecting %v, but got %v", tc.Expect, actual)
-		}
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := HeaderMatcher(tc.K, tc.V)
+			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
+			}
+		})
 	}
 }
 

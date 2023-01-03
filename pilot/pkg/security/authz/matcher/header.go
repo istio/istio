@@ -36,22 +36,22 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	} else if strings.HasPrefix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-				SuffixMatch: v[1:],
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+				StringMatch: StringMatcherSuffix(v[1:], false),
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
-				PrefixMatch: v[:len(v)-1],
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+				StringMatch: StringMatcherPrefix(v[:len(v)-1], false),
 			},
 		}
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-			ExactMatch: v,
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+			StringMatch: StringMatcherExact(v, false),
 		},
 	}
 }
