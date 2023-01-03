@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/rbacapi"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -74,6 +73,7 @@ func (e RBACGenerator) GenerateDeltas(
 
 	// Go through the authorization policies and add an RBAC resource for each
 	// one that is also in the updated list
+	rootNS := req.Push.AuthzPolicies.RootNamespace
 	for ns, policies := range req.Push.AuthzPolicies.NamespaceToPolicies {
 		for _, policy := range policies {
 			rbacName := policy.Name + "/" + ns
@@ -85,7 +85,7 @@ func (e RBACGenerator) GenerateDeltas(
 
 			resources = append(resources, &discovery.Resource{
 				Name:     rbacName,
-				Resource: protoconv.MessageToAny(authorizationPolicyToRBAC(policy)),
+				Resource: protoconv.MessageToAny(authorizationPolicyToRBAC(policy, rootNS)),
 			})
 		}
 	}
@@ -99,11 +99,4 @@ func (e RBACGenerator) GenerateDeltas(
 
 func (e RBACGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	return nil, model.XdsLogDetails{}, fmt.Errorf("RBACDS is only available over Delta XDS")
-}
-
-func authorizationPolicyToRBAC(authzPolicy model.AuthorizationPolicy) *rbacapi.RBAC {
-	// TODO Convert authorization policy rules to RBAC rules
-	return &rbacapi.RBAC{
-		Name: authzPolicy.Name + "/" + authzPolicy.Namespace,
-	}
 }
