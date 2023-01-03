@@ -75,13 +75,8 @@ func HostMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &matcher.RegexMatcher{
-				EngineType: &matcher.RegexMatcher_GoogleRe2{
-					GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-				},
-				Regex: `(?i)` + regex,
-			},
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+			StringMatch: StringMatcherRegex(`(?i)` + regex),
 		},
 	}
 }
