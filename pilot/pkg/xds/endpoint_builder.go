@@ -549,7 +549,7 @@ func trafficPolicyTLSModeForPort(tp *networkingapi.TrafficPolicy, port int) *net
 	}
 	// if there is a port-level setting matching this cluster
 	for _, portSettings := range tp.GetPortLevelSettings() {
-		if int(portSettings.Port.Number) == port && portSettings.Tls != nil {
+		if int(portSettings.GetPort().GetNumber()) == port && portSettings.Tls != nil {
 			mode = &portSettings.Tls.Mode
 			break
 		}
