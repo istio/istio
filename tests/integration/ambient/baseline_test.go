@@ -778,6 +778,9 @@ spec:
     - key: request.headers[x-test-header]
       values: ["match"]
       notValues: ["do-not-match"]
+  - to:
+    - operation:
+        methods: ["POST"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -792,17 +795,9 @@ spec:
   - to:
     - operation:
         paths: ["/explicit-deny"]
-    from:
-    - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
 `).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
-				case src.Config().IsUncaptured() && dst.Config().HasWaypointProxy():
-					// For this case, it is broken if the src and dst are on the same node.
-					// Because client request is not captured to perform the hairpin
-					// TODO: fix this and remove this skip
-					opt.Check = check.OK()
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
@@ -812,49 +807,55 @@ spec:
 				}
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/deny"
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/allowed"
 				opt.Check = check.OK()
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("identity deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/denied-identity"
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("identity allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/allowed-identity"
 				opt.Check = check.OK()
+				if !src.Config().HasProxyCapabilities() && !dst.Config().HasWaypointProxy() {
+					// TODO: remove waypoint check (https://github.com/istio/istio/issues/42640)
+					// No identity from uncaptured
+					opt.Check = CheckDeny
+				}
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("explicit deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/explicit-deny"
+				opt.HTTP.Method = http.MethodPost
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("wildcard allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/allowed-wildcardtest"
 				opt.Check = check.OK()
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("headers allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/headers"
 				if opt.HTTP.Headers == nil {
 					opt.HTTP.Headers = map[string][]string{}
@@ -865,7 +866,7 @@ spec:
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("headers deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/headers"
 				if opt.HTTP.Headers == nil {
 					opt.HTTP.Headers = map[string][]string{}
