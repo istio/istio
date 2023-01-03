@@ -839,6 +839,18 @@ func logCmd() *cobra.Command {
 			}
 
 			destLoggerLevels := map[string]Level{}
+			if strings.HasPrefix(podName, "ztunnel") {
+				q := "level=" + loggerLevelString
+				if reset {
+					q += "&reset"
+				}
+				resp, err := setupEnvoyLogConfig(q, podName, podNamespace)
+				if err != nil {
+					return err
+				}
+				_, _ = fmt.Fprint(c.OutOrStdout(), resp)
+				return nil
+			}
 			if reset {
 				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
 				levelString, _ := getLogLevelFromConfigMap()
