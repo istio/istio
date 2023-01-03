@@ -669,7 +669,11 @@ func (c *Controller) AdditionalPodSubscriptions(
 	if nodeName := proxy.Metadata.NodeName; nodeName != "" {
 		for _, wl := range c.ambientIndex.All() {
 			if wl.Node == nodeName {
-				shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
+				n := types.NamespacedName{Name: wl.ResourceName()}
+				if currentSubs.Contains(n) {
+					continue
+				}
+				shouldSubscribe.Insert(n)
 			}
 		}
 	}
