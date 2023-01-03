@@ -101,36 +101,21 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcher.StringMatcher{
-					IgnoreCase: true,
-					MatchPattern: &matcher.StringMatcher_Suffix{
-						Suffix: v[1:],
-					},
-				},
+				StringMatch: StringMatcherSuffix(v[1:], true),
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcher.StringMatcher{
-					IgnoreCase: true,
-					MatchPattern: &matcher.StringMatcher_Prefix{
-						Prefix: v[:len(v)-1],
-					},
-				},
+				StringMatch: StringMatcherPrefix(v[:len(v)-1], true),
 			},
 		}
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: &matcher.StringMatcher{
-				IgnoreCase: true,
-				MatchPattern: &matcher.StringMatcher_Exact{
-					Exact: v,
-				},
-			},
+			StringMatch: StringMatcherExact(v, true),
 		},
 	}
 }

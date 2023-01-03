@@ -80,24 +80,12 @@ func StringMatcherWithPrefix(v, prefix string) *matcher.StringMatcher {
 		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
 		if prefix == "" {
-			return &matcher.StringMatcher{
-				MatchPattern: &matcher.StringMatcher_Suffix{
-					Suffix: strings.TrimPrefix(v, "*"),
-				},
-			}
+			return StringMatcherSuffix(strings.TrimPrefix(v, "*"), false)
 		}
 		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
 	case strings.HasSuffix(v, "*"):
-		return &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Prefix{
-				Prefix: prefix + strings.TrimSuffix(v, "*"),
-			},
-		}
+		return StringMatcherPrefix(prefix+strings.TrimSuffix(v, "*"), false)
 	default:
-		return &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Exact{
-				Exact: prefix + v,
-			},
-		}
+		return StringMatcherExact(prefix+v, false)
 	}
 }
