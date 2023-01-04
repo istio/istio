@@ -141,8 +141,8 @@ type telemetryFilterConfig struct {
 	Provider      *meshconfig.MeshConfig_ExtensionProvider
 	Metrics       bool
 	AccessLogging bool
-	LogsFilter *tpb.AccessLogging_Filter
-	NodeType   NodeType
+	LogsFilter    *tpb.AccessLogging_Filter
+	NodeType      NodeType
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
