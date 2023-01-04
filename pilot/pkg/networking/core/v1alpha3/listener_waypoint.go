@@ -193,7 +193,6 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
-	// h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.Baggage}, h.HttpFilters...)
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
 	}}
