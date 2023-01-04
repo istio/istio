@@ -315,6 +315,6 @@ func TestWorkloadRBAC(t *testing.T) {
 	expectRemoved(ads.ExpectResponse(), "ns/policy2")
 
 	// Irrelevant update shouldn't push
-	createPod(s, "pod", "sa", "127.0.0.1")
+	createPod(s, "pod", "sa", "127.0.0.1", "node")
 	ads.ExpectNoResponse()
 }
