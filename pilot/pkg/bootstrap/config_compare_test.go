@@ -95,13 +95,12 @@ func TestNeedsPush(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "config with istio.io label",
+			name: "current config with istio.io label",
 			prev: config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			curr: config.Config{
@@ -115,7 +114,45 @@ func TestNeedsPush(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "config with istio.io annotation",
+			name: "previous config with istio.io label",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
+				},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "current config with istio.io annotation",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "previous config with istio.io annotation",
 			prev: config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.Ingress,
@@ -129,7 +166,6 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			expected: true,

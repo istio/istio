@@ -60,6 +60,46 @@ const (
 	registryPasswd = "passwd"
 )
 
+func TestMetricDefinitions(t *testing.T) {
+	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Features("observability.telemetry.stats.prometheus.customize-metric").
+		Run(func(t framework.TestContext) {
+			t.Cleanup(func() {
+				if t.Failed() {
+					util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_custom_total"})
+				}
+			})
+			urlPath := "/custom_path"
+			httpSourceQuery := buildCustomQuery(urlPath)
+			cluster := t.Clusters().Default()
+			retry.UntilSuccessOrFail(t, func() error {
+				if err := sendHTTPTraffic(urlPath); err != nil {
+					t.Log("failed to send traffic")
+					return err
+				}
+				if _, err := util.QueryPrometheus(t, cluster, httpSourceQuery, promInst); err != nil {
+					util.PromDiff(t, promInst, cluster, httpSourceQuery)
+					return err
+				}
+				return nil
+			}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
+			util.ValidateMetric(t, cluster, promInst, httpSourceQuery, 1)
+		})
+}
+
+func buildCustomQuery(urlPath string) (destinationQuery prometheus.Query) {
+	labels := map[string]string{
+		"url_path":        urlPath,
+		"response_status": "200",
+	}
+	sourceQuery := prometheus.Query{}
+	sourceQuery.Metric = "istio_custom_total"
+	sourceQuery.Labels = labels
+
+	return sourceQuery
+}
+
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
@@ -217,6 +257,14 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfValue := `
+meshConfig:
+  defaultConfig:
+    proxyStatsMatcher:
+      inclusionPrefixes:
+      - istio_custom_total
+    extraStatTags:
+    - url_path
+    - response_status
 values:
  telemetry:
    v2:
@@ -234,6 +282,16 @@ values:
                custom_dimension: "'test'"
              tags_to_remove:
              - %s
+         outboundSidecar:
+           definitions:
+           - name: custom_total
+             type: "COUNTER"
+             value: "1"
+           metrics:
+           - name: custom_total
+             dimensions:
+               url_path: request.url_path
+               response_status: string(response.code)
 `
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
@@ -261,6 +319,30 @@ func setupWasmExtension(ctx resource.Context) error {
 	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").
 		Apply(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func sendHTTPTraffic(urlPath string) error {
+	for _, cltInstance := range client {
+		httpOpts := echo.CallOptions{
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Path:   urlPath,
+				Method: "GET",
+			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
+		}
+
+		if _, err := cltInstance.Call(httpOpts); err != nil {
+			return err
+		}
 	}
 
 	return nil
