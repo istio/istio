@@ -1,0 +1,7 @@
+groups:
+- rules:
+  - matches:
+    - namespaces:
+      - exact: ns
+name: groups
+scope: NAMESPACE

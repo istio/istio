@@ -1,3 +1,0 @@
-name: httpbin-deny
-namespace: foo
-scope: NAMESPACE

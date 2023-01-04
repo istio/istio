@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -334,8 +333,7 @@ func TestAmbientIndex(t *testing.T) {
 }
 
 func TestRBACConvert(t *testing.T) {
-	d := filepath.Join(env.IstioSrc, "pilot/pkg/security/authz/builder/testdata/tcp")
-	files := file.ReadDirOrFail(t, d)
+	files := file.ReadDirOrFail(t, "testdata")
 	if len(files) == 0 {
 		// Just in case
 		t.Fatal("expected test cases")
@@ -354,7 +352,7 @@ func TestRBACConvert(t *testing.T) {
 				msg, err = protomarshal.ToYAML(o)
 				assert.NoError(t, err)
 			}
-			golden := filepath.Join("testdata/rbac", strings.ReplaceAll(name, "-in", ""))
+			golden := filepath.Join("testdata", strings.ReplaceAll(name, "-in", ""))
 			util.CompareContent(t, []byte(msg), golden)
 		})
 	}

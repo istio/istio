@@ -1,0 +1,15 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: groups
+spec:
+  rules:
+  # L4 and L7 when
+  - when:
+    - key: "source.namespace"
+      values: [ "ns"]
+#  - when:
+#    - key: "connection.sni"
+#      values: [ "when-l7-sni"]
+#    - key: "request.headers[X-header]"
+#      values: ["when-l7-header"]

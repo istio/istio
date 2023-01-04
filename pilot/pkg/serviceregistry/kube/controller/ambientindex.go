@@ -160,7 +160,7 @@ func (a *AmbientIndex) All() []*model.WorkloadInfo {
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
 	cfgs, err := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
 	if err != nil {
-		// TODO: handle this somehow?
+		log.Warnf("failed to list policies")
 		return nil
 	}
 	l := len(cfgs)
@@ -347,20 +347,24 @@ func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*work
 	for _, to := range rule.To {
 		op := to.Operation
 		if action == workloadapi.RBACPolicyAction_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
-			// L7 policies are a deny
+			// L7 policies never match for ALLOW
+			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
 		match := &workloadapi.RBACPolicyRuleMatch{
 			DestinationPorts:    stringToPort(op.Ports),
 			NotDestinationPorts: stringToPort(op.NotPorts),
 		}
+		// if !emptyRuleMatch(match) {
 		toMatches = append(toMatches, match)
+		//}
 	}
 	fromMatches := []*workloadapi.RBACPolicyRuleMatch{}
 	for _, from := range rule.From {
 		op := from.Source
 		if action == workloadapi.RBACPolicyAction_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
-			// L7 policies are a deny
+			// L7 policies never match for ALLOW
+			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
 		match := &workloadapi.RBACPolicyRuleMatch{
@@ -371,7 +375,9 @@ func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*work
 			Principals:    stringToMatch(op.Principals),
 			NotPrincipals: stringToMatch(op.NotPrincipals),
 		}
+		// if !emptyRuleMatch(match) {
 		fromMatches = append(fromMatches, match)
+		//}
 	}
 
 	rules := []*workloadapi.RBACPolicyRules{}
@@ -382,28 +388,26 @@ func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*work
 		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
-		if action == workloadapi.RBACPolicyAction_ALLOW && !l4WhenAttributes.Contains(when.Key) {
-			// L7 policies are a deny
+		l7 := l4WhenAttributes.Contains(when.Key)
+		if action == workloadapi.RBACPolicyAction_ALLOW && !l7 {
+			// L7 policies never match for ALLOW
+			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		match := &workloadapi.RBACPolicyRuleMatch{
+		positiveMatch := &workloadapi.RBACPolicyRuleMatch{
 			Namespaces:       whenMatch("source.namespace", when, false, stringToMatch),
 			Principals:       whenMatch("source.principal", when, false, stringToMatch),
 			SourceIps:        whenMatch("source.ip", when, false, stringToIP),
 			DestinationPorts: whenMatch("destination.port", when, false, stringToPort),
 			DestinationIps:   whenMatch("destination.ip", when, false, stringToIP),
-		}
-		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: []*workloadapi.RBACPolicyRuleMatch{match}})
-	}
-	for _, when := range rule.When {
-		match := &workloadapi.RBACPolicyRuleMatch{
+
 			NotNamespaces:       whenMatch("source.namespace", when, true, stringToMatch),
 			NotPrincipals:       whenMatch("source.principal", when, true, stringToMatch),
 			NotSourceIps:        whenMatch("source.ip", when, true, stringToIP),
 			NotDestinationPorts: whenMatch("destination.port", when, true, stringToPort),
 			NotDestinationIps:   whenMatch("destination.ip", when, true, stringToIP),
 		}
-		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: []*workloadapi.RBACPolicyRuleMatch{match}})
+		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: []*workloadapi.RBACPolicyRuleMatch{positiveMatch}})
 	}
 	return rules
 }
@@ -416,14 +420,27 @@ var l4WhenAttributes = sets.New(
 	"destination.port",
 )
 
+func emptyRuleMatch(rm *workloadapi.RBACPolicyRuleMatch) bool {
+	return len(rm.Namespaces) == 0 &&
+		len(rm.NotNamespaces) == 0 &&
+		len(rm.Principals) == 0 &&
+		len(rm.NotPrincipals) == 0 &&
+		len(rm.SourceIps) == 0 &&
+		len(rm.NotSourceIps) == 0 &&
+		len(rm.DestinationIps) == 0 &&
+		len(rm.NotDestinationIps) == 0 &&
+		len(rm.DestinationPorts) == 0 &&
+		len(rm.NotDestinationPorts) == 0
+}
+
 func whenMatch[T any](s string, when *v1beta1.Condition, invert bool, f func(v []string) []T) []T {
 	if when.Key != s {
 		return nil
 	}
 	if invert {
-		return f(when.Values)
+		return f(when.NotValues)
 	}
-	return f(when.NotValues)
+	return f(when.Values)
 }
 
 func stringToMatch(rules []string) []*workloadapi.StringMatch {
