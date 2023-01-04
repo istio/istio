@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Addded** support for missing resource types to `/config_dump` API
+    **Added** support for missing resource types to `/config_dump` API
