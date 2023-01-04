@@ -28,7 +28,7 @@ WD=$(cd "$WD"; pwd)
 
 for fn in "$@"; do
   if ! grep -L -q -e "Apache License, Version 2" -e "Copyright" "${fn}"; then
-    if [[ "${fn}" == *.go ]]; then
+    if [[ "${fn}" == *.go || "${fn}" == *.rs ]]; then
       newfile=$(cat "${WD}/copyright-banner-go.txt" "${fn}")
       echo "${newfile}" > "${fn}"
       echo "Fixing license: ${fn}"
