@@ -592,8 +592,8 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	waypointGen := &ambientgen.WaypointGenerator{
 		ConfigGenerator: s.ConfigGenerator,
 	}
-	s.Generators["ambient-waypoint/"+v3.ListenerType] = waypointGen
-	s.Generators["ambient-waypoint/"+v3.ClusterType] = waypointGen
+	s.Generators["waypoint/"+v3.ListenerType] = waypointGen
+	s.Generators["waypoint/"+v3.ClusterType] = waypointGen
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen

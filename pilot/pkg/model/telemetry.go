@@ -34,7 +34,6 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
@@ -102,7 +101,7 @@ type metricsKey struct {
 	telemetryKey
 	Class     networking.ListenerClass
 	Protocol  networking.ListenerProtocol
-	ProxyType string
+	ProxyType NodeType
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
@@ -142,8 +141,8 @@ type telemetryFilterConfig struct {
 	Provider      *meshconfig.MeshConfig_ExtensionProvider
 	Metrics       bool
 	AccessLogging bool
-	LogsFilter    *tpb.AccessLogging_Filter
-	AmbientType   ambient.NodeType
+	LogsFilter *tpb.AccessLogging_Filter
+	NodeType   NodeType
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
@@ -465,7 +464,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		telemetryKey: c.telemetryKey,
 		Class:        class,
 		Protocol:     protocol,
-		ProxyType:    proxy.Metadata.AmbientType,
+		ProxyType:    proxy.Type,
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -505,7 +504,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			AccessLogging: logging,
 			Metrics:       metrics,
 			LogsFilter:    tml[p.Name],
-			AmbientType:   proxy.Metadata.AmbientType,
+			NodeType:      proxy.Type,
 		}
 		m = append(m, cfg)
 	}
@@ -1052,7 +1051,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	if metricsCfg.AmbientType == ambient.TypeWaypoint {
+	if metricsCfg.NodeType == Waypoint {
 		cfg.MetadataMode = stats.PluginConfig_UPSTREAM_HOST_METADATA_MODE
 	}
 	for _, override := range metricsCfg.MetricsForClass(class) {

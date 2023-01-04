@@ -39,7 +39,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -169,26 +168,19 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	cacheStats := cacheStats{}
 	switch proxy.Type {
 	case model.SidecarProxy:
-		// Waypoint proxies do not need outbound clusters in most cases
-		// @TODO better to go through and filter what we do not need out, or only add those we need in
-		if proxy.Metadata.AmbientType != ambient.TypeWaypoint {
-			// Setup outbound clusters
-			outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-			ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, services)
-			cacheStats = cacheStats.merge(cs)
-			resources = append(resources, ob...)
-			// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-			clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
-			clusters = append(clusters, outboundPatcher.insertedClusters()...)
-		}
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		if proxy.Metadata.AmbientType == ambient.TypeWaypoint {
-			clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push)...)
-		} else {
-			clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
-			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
-		}
+		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
+		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
+		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+	case model.Waypoint:
+		// Waypoint proxies do not need outbound clusters in most cases
+		// @TODO better to go through and filter what we do not need out, or only add those we need in
+		// Setup inbound clusters
+		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)

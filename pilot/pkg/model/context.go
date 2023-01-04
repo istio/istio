@@ -670,9 +670,6 @@ type NodeMetadata struct {
 	// The istiod address when running ASM Managed Control Plane.
 	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
 
-	// AmbientType can be one of ambient.NodeType TODO(stevenctl,ambient) make the type ambient.NodeType
-	AmbientType string `json:"AMBIENT_TYPE,omitempty"`
-
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]any `json:"-"`
@@ -709,12 +706,12 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 
 // IsWaypointProxy returns true if the proxy is acting as a waypoint proxy in an ambient mesh.
 func (node *Proxy) IsWaypointProxy() bool {
-	return node.Metadata != nil && node.Metadata.AmbientType == ambient.TypeWaypoint
+	return node.Type == Waypoint
 }
 
 // IsZTunnel returns true if the proxy is acting as a ztunnel in an ambient mesh.
 func (node *Proxy) IsZTunnel() bool {
-	return node.Metadata != nil && node.Metadata.AmbientType == ambient.TypeZTunnel
+	return node.Type == Ztunnel
 }
 
 // IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
@@ -809,9 +806,15 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
+
+	// Waypoint type is used for waypoint proxies
+	Waypoint NodeType = "waypoint"
+
+	// Ztunnel type is used for node proxies (ztunnel)
+	Ztunnel NodeType = "ztunnel"
 )
 
-var NodeTypes = [...]NodeType{SidecarProxy, Router}
+var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
 // IPMode represents the IP mode of proxy.
 type IPMode int
@@ -826,7 +829,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case SidecarProxy, Router:
+	case SidecarProxy, Router, Waypoint, Ztunnel:
 		return true
 	default:
 		return false
@@ -857,11 +860,14 @@ func (node *Proxy) ServiceNode() string {
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
-	if node.Type == SidecarProxy {
+	switch node.Type {
+	case SidecarProxy:
 		node.SidecarScope = ps.getSidecarScope(node, node.Labels)
-	} else {
+	case Router, Waypoint:
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)
+	default:
+		log.Errorf("howardjohn: skip %v", node.Type)
 	}
 	node.PrevSidecarScope = sidecarScope
 }

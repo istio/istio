@@ -695,6 +695,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			}
 		}
 	}
+	log.Errorf("howardjohn: compute %v %v %v", sidecar, gateway, proxy.ID)
 	// compute the sidecarscope for both proxy type whenever it changes.
 	if sidecar {
 		proxy.SetSidecarScope(push)

@@ -1358,7 +1358,7 @@ data:
               containers:
               - args:
                 - proxy
-                - sidecar
+                - waypoint
                 - --domain
                 - $(POD_NAMESPACE).svc.cluster.local
                 - --serviceCluster
@@ -1369,10 +1369,6 @@ data:
                 - --concurrency
                 - "2"
                 env:
-                - name: ISTIO_META_GENERATOR
-                  value: "ambient-waypoint"
-                - name: ISTIO_META_AMBIENT_TYPE
-                  value: "waypoint"
                 - name: ISTIO_META_SERVICE_ACCOUNT
                   valueFrom:
                     fieldRef:

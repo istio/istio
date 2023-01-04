@@ -77,6 +77,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBu
 
 func (cb *ClusterBuilder) buildWaypointInboundPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
+	log.Errorf("howardjohn: for %v build %v", cb.proxy.ID, clusterName)
 	address := wl.PodIP
 	tunnelPort := 15008
 	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
