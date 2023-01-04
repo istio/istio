@@ -184,19 +184,6 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 }
 
-// SingleObjectHandler returns a handler that can be passed to AddFunc or DeleteFunc that converts to T.
-// If T cannot be converted, the handler will not be called
-func SingleObjectHandler[T comparableObject](f func(T)) func(obj any) {
-	return func(obj any) {
-		t := Extract[T](obj)
-		var zero T
-		if t == zero {
-			return
-		}
-		f(t)
-	}
-}
-
 // Extract pulls a T from obj, handling tombstones.
 // This will return nil if the object cannot be extracted.
 func Extract[T Object](obj any) T {
@@ -232,3 +219,30 @@ func IgnoreNotFound(err error) error {
 	}
 	return err
 }
+
+// EventHandler mirrors ResourceEventHandlerFuncs, but takes typed T objects instead of any.
+type EventHandler[T Object] struct {
+	AddFunc    func(obj T)
+	UpdateFunc func(oldObj, newObj T)
+	DeleteFunc func(obj T)
+}
+
+func (e EventHandler[T]) OnAdd(obj interface{}) {
+	if e.AddFunc != nil {
+		e.AddFunc(Extract[T](obj))
+	}
+}
+
+func (e EventHandler[T]) OnUpdate(oldObj, newObj interface{}) {
+	if e.UpdateFunc != nil {
+		e.UpdateFunc(Extract[T](oldObj), Extract[T](newObj))
+	}
+}
+
+func (e EventHandler[T]) OnDelete(obj interface{}) {
+	if e.DeleteFunc != nil {
+		e.DeleteFunc(Extract[T](obj))
+	}
+}
+
+var _ cache.ResourceEventHandler = EventHandler[Object]{}

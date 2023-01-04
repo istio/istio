@@ -54,28 +54,25 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			options.LabelSelector += s.String()
 		})
 	q := queue.NewQueue(1 * time.Second)
-	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: controllers.SingleObjectHandler(func(pod *corev1.Pod) {
+	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, controllers.EventHandler[*corev1.Pod]{
+		AddFunc: func(pod *corev1.Pod) {
 			q.Push(func() error {
 				return handlers.added(pod)
 			})
-		}),
-		UpdateFunc: func(old, cur any) {
+		},
+		UpdateFunc: func(old, cur *corev1.Pod) {
 			q.Push(func() error {
-				oldObj := old.(metav1.Object)
-				newObj := cur.(metav1.Object)
-
-				if oldObj.GetResourceVersion() != newObj.GetResourceVersion() {
-					return handlers.updated(newObj.(*corev1.Pod))
+				if old.GetResourceVersion() != cur.GetResourceVersion() {
+					return handlers.updated(cur)
 				}
 				return nil
 			})
 		},
-		DeleteFunc: controllers.SingleObjectHandler(func(pod *corev1.Pod) {
+		DeleteFunc: func(pod *corev1.Pod) {
 			q.Push(func() error {
 				return handlers.deleted(pod)
 			})
-		}),
+		},
 	})
 
 	return &podController{
