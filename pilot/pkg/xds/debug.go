@@ -686,7 +686,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if ts := s.getResourceTypes(req); len(ts) != 0 {
-		dump := s.getConfigDumpByResourceType(con, ts)
+		dump, _ := s.getConfigDumpByResourceType(con, ts)
 		writeJSON(w, dump, req)
 		return
 	}
@@ -714,19 +714,73 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 	return nil
 }
 
-func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) map[string][]proto.Message {
-	dumps := make(map[string][]proto.Message)
+func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) (map[string][]*anypb.Any, error) {
+	dumps := make(map[string][]*anypb.Any)
+	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 
 	for _, resourceType := range ts {
-		switch resourceType {
-		case v3.ExtensionConfigurationType:
-			if cfgs, err := s.getExtensionConfiguration(conn); err == nil {
-				dumps[v3.ExtensionConfigurationType] = cfgs
+		w := conn.Watched(resourceType)
+		if w == nil {
+			// Not watched, skip
+			continue
+		}
+		gen := s.findGenerator(resourceType, conn)
+		if gen == nil {
+			// No generator found, skip
+			continue
+		}
+		if resource, _, err := gen.Generate(conn.proxy, w, req); err == nil {
+			for _, rr := range resource {
+				switch resourceType {
+				case v3.SecretType:
+					// Secrets must be redacted
+					secret := &tls.Secret{}
+					if err := rr.Resource.UnmarshalTo(secret); err != nil {
+						istiolog.Warnf("failed to unmarshal secret: %v", err)
+						continue
+					}
+					if secret.GetTlsCertificate() != nil {
+						secret.GetTlsCertificate().PrivateKey = &core.DataSource{
+							Specifier: &core.DataSource_InlineBytes{
+								InlineBytes: []byte("[redacted]"),
+							},
+						}
+					}
+					dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(secret))
+				case v3.ExtensionConfigurationType:
+					tce := &core.TypedExtensionConfig{}
+					if err := rr.GetResource().UnmarshalTo(tce); err != nil {
+						istiolog.Warnf("failed to unmarshal extenstion: %v", err)
+						continue
+					}
+
+					switch tce.TypedConfig.TypeUrl {
+					case xds.WasmHTTPFilterType:
+						w := &wasm.Wasm{}
+						if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
+							istiolog.Warnf("failed to unmarshal wasm filter: %v", err)
+							continue
+						}
+						// Redact Wasm secret env variable.
+						vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
+						if vmenvs != nil {
+							if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
+								vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
+							}
+						}
+						dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(w))
+					default:
+						dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(tce))
+					}
+				}
 			}
+		} else {
+			istiolog.Warnf("generate failed for request resource type (%v): %v", resourceType, err)
+			continue
 		}
 	}
 
-	return dumps
+	return dumps, nil
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -735,32 +789,18 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 	version := req.Push.PushVersion
 
-	generate := func(typeUrl string) (model.Resources, error) {
-		w := conn.Watched(typeUrl)
-		if w == nil {
-			// Not watched, skip
-			return nil, nil
-		}
-		gen := s.findGenerator(typeUrl, conn)
-		if gen == nil {
-			// No generator found, skip
-			return nil, nil
-		}
+	dump, err := s.getConfigDumpByResourceType(conn, []string{
+		v3.ClusterType,
+		v3.ListenerType,
+		v3.RouteType,
+		v3.SecretType,
+		v3.EndpointType,
+		v3.ExtensionConfigurationType,
+	})
 
-		cfg, _, err := gen.Generate(conn.proxy, w, req)
-		if err != nil {
-			log.Warnf("failed to generate %v: %v", typeUrl, err)
-		}
-		return cfg, err
-	}
-
-	clusters, err := generate(v3.ClusterType)
-	if err != nil {
-		return nil, err
-	}
 	dynamicActiveClusters := make([]*admin.ClustersConfigDump_DynamicCluster, 0)
-	for _, cs := range clusters {
-		dynamicActiveClusters = append(dynamicActiveClusters, &admin.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
+	for _, cluster := range dump[v3.ClusterType] {
+		dynamicActiveClusters = append(dynamicActiveClusters, &admin.ClustersConfigDump_DynamicCluster{Cluster: cluster})
 	}
 	clustersAny, err := protoconv.MessageToAnyWithError(&admin.ClustersConfigDump{
 		VersionInfo:           version,
@@ -770,16 +810,12 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		return nil, err
 	}
 
-	listeners, err := generate(v3.ListenerType)
-	if err != nil {
-		return nil, err
-	}
 	dynamicActiveListeners := make([]*admin.ListenersConfigDump_DynamicListener, 0)
-	for _, cs := range listeners {
+	for _, listener := range dump[v3.ListenerType] {
 		dynamicActiveListeners = append(dynamicActiveListeners, &admin.ListenersConfigDump_DynamicListener{
-			Name: cs.Name,
+			Name: "FIXME",
 			ActiveState: &admin.ListenersConfigDump_DynamicListenerState{
-				Listener:    cs.Resource,
+				Listener:    listener,
 				VersionInfo: version,
 			},
 		})
@@ -792,15 +828,11 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		return nil, err
 	}
 
-	routes, err := generate(v3.RouteType)
-	if err != nil {
-		return nil, err
-	}
 	dynamicRouteConfig := make([]*admin.RoutesConfigDump_DynamicRouteConfig, 0)
-	for _, cs := range routes {
+	for _, route := range dump[v3.RouteType] {
 		dynamicRouteConfig = append(dynamicRouteConfig, &admin.RoutesConfigDump_DynamicRouteConfig{
 			VersionInfo: version,
-			RouteConfig: cs.Resource,
+			RouteConfig: route,
 		})
 	}
 	routesAny, err := protoconv.MessageToAnyWithError(&admin.RoutesConfigDump{
@@ -810,49 +842,36 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		return nil, err
 	}
 
-	secrets, err := generate(v3.SecretType)
-	if err != nil {
-		return nil, err
-	}
 	dynamicSecretsConfig := make([]*admin.SecretsConfigDump_DynamicSecret, 0)
-	for _, cs := range secrets {
-		// Secrets must be redacted
-		secret := &tls.Secret{}
-		if err := cs.Resource.UnmarshalTo(secret); err != nil {
-			istiolog.Warnf("failed to unmarshal secret: %v", err)
-			continue
-		}
-		if secret.GetTlsCertificate() != nil {
-			secret.GetTlsCertificate().PrivateKey = &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
-					InlineBytes: []byte("[redacted]"),
-				},
-			}
-		}
+	for _, secret := range dump[v3.SecretType] {
 		dynamicSecretsConfig = append(dynamicSecretsConfig, &admin.SecretsConfigDump_DynamicSecret{
 			VersionInfo: version,
-			Secret:      protoconv.MessageToAny(secret),
+			Secret:      secret,
 		})
 	}
 	secretsAny, err := protoconv.MessageToAnyWithError(&admin.SecretsConfigDump{
 		DynamicActiveSecrets: dynamicSecretsConfig,
 	})
-	if err != nil {
-		return nil, err
+
+	extentionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
+	for _, ext := range dump[v3.ExtensionConfigurationType] {
+		extentionsConfig = append(extentionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
+			VersionInfo: version,
+			EcdsFilter:  ext,
+		})
 	}
+	extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
+		EcdsFilters: extentionsConfig,
+	})
 
 	var endpointsAny *anypb.Any
 	// EDS is disabled by default for compatibility with Envoy config_dump interface
 	if includeEds {
-		endpoints, err := generate(v3.EndpointType)
-		if err != nil {
-			return nil, err
-		}
 		endpointConfig := make([]*admin.EndpointsConfigDump_DynamicEndpointConfig, 0)
-		for _, cs := range endpoints {
+		for _, endpoint := range dump[v3.EndpointType] {
 			endpointConfig = append(endpointConfig, &admin.EndpointsConfigDump_DynamicEndpointConfig{
 				VersionInfo:    version,
-				EndpointConfig: cs.Resource,
+				EndpointConfig: endpoint,
 			})
 		}
 		endpointsAny, err = protoconv.MessageToAnyWithError(&admin.EndpointsConfigDump{
@@ -879,6 +898,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		scopedRoutesAny,
 		routesAny,
 		secretsAny,
+		extentionsAny,
 	)
 	configDump := &admin.ConfigDump{
 		Configs: configs,
