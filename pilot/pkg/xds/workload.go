@@ -48,12 +48,16 @@ func (e WorkloadGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	updatedAddresses := model.ConfigNamespacedNameOfKind(req.ConfigsUpdated, kind.Address)
+	isReq := req.IsRequest()
+	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
+		// Nothing changed..
+		return nil, nil, model.XdsLogDetails{}, false, nil
+	}
 	subs := sets.New(w.ResourceNames...)
 	typedSubs := sets.NewWithLength[types.NamespacedName](subs.Len())
 	for s := range subs {
 		typedSubs.Insert(types.NamespacedName{Name: s})
 	}
-	isReq := req.IsRequest()
 
 	addresses := sets.New[types.NamespacedName]()
 	for ip := range updatedAddresses {
@@ -66,8 +70,13 @@ func (e WorkloadGenerator) GenerateDeltas(
 	for ip := range req.Delta.Subscribed {
 		addresses.Insert(types.NamespacedName{Name: ip})
 	}
-	additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
-	addresses.Merge(additional)
+	if !w.Wildcard {
+		// We only need this for on-demand. This allows us to subscribe the client to resources they
+		// didn't explicitly request.
+		// For wildcard, they subscribe to everything already.
+		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
+		addresses.Merge(additional)
+	}
 
 	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
 	// The only things that can really trigger a "full" push here is trust domain or network changing, which is extremely rare

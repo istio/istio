@@ -41,6 +41,9 @@ func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, name
 			r.Resource.UnmarshalTo(w)
 			have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
 		}
+		if len(resp.RemovedResources) > 0 {
+			t.Fatalf("unexpected removals: %v", resp.RemovedResources)
+		}
 		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 	}
 }
@@ -53,6 +56,9 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 		for _, r := range resp.RemovedResources {
 			have.Insert(r)
 		}
+		if len(resp.Resources) > 0 {
+			t.Fatalf("unexpected resources: %v", resp.Resources)
+		}
 		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 	}
 }
@@ -60,8 +66,8 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 func TestWorkloadReconnect(t *testing.T) {
 	expect := buildExpect(t)
 	s := NewFakeDiscoveryServer(t, FakeOptions{})
-	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
-	createPod(s, "pod", "sa", "127.0.0.1")
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+	createPod(s, "pod", "sa", "127.0.0.1", "not-node")
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
@@ -92,7 +98,7 @@ func TestWorkload(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
+		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
@@ -101,7 +107,7 @@ func TestWorkload(t *testing.T) {
 		ads.ExpectEmptyResponse()
 
 		// Create pod we are not subscribe to; should be a NOP
-		createPod(s, "pod", "sa", "127.0.0.1")
+		createPod(s, "pod", "sa", "127.0.0.1", "not-node")
 		ads.ExpectNoResponse()
 
 		// Now subscribe to it, should get it back
@@ -118,26 +124,32 @@ func TestWorkload(t *testing.T) {
 		expectRemoved(ads.ExpectResponse(), "127.0.0.2")
 
 		// Once we create it, we should get a push
-		createPod(s, "pod2", "sa", "127.0.0.2")
+		createPod(s, "pod2", "sa", "127.0.0.2", "node")
 		expect(ads.ExpectResponse(), "127.0.0.2")
 
 		// TODO: implement pod update; this actually cannot really be done without waypoints or VIPs
 		deletePod(s, "pod")
 		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
 
+		// Create pod we are not subscribed to; due to same-node optimization this will push
+		createPod(s, "pod-same-node", "sa", "127.0.0.3", "node")
+		expect(ads.ExpectResponse(), "127.0.0.3")
+		deletePod(s, "pod-same-node")
+		expectRemoved(ads.ExpectResponse(), "127.0.0.3")
+
 		// Add service: we should not get any new resources, but updates to existing ones
 		// Note: we are not subscribed to svc1 explicitly, but it impacts pods we are subscribed to
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
 		expect(ads.ExpectResponse(), "127.0.0.2")
 		// Creating a pod in the service should send an update as usual
-		createPod(s, "pod", "sa", "127.0.0.1")
+		createPod(s, "pod", "sa", "127.0.0.1", "node")
 		expect(ads.ExpectResponse(), "127.0.0.1")
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
 		expect(ads.ExpectResponse(), "127.0.0.1", "127.0.0.2")
 
 		// Now create pods in the service...
-		createPod(s, "pod4", "not-sa", "127.0.0.4")
+		createPod(s, "pod4", "not-sa", "127.0.0.4", "not-node")
 		// Not subscribed, no response
 		ads.ExpectNoResponse()
 
@@ -148,7 +160,7 @@ func TestWorkload(t *testing.T) {
 		// Should get updates for all pods in the service
 		expect(ads.ExpectResponse(), "127.0.0.4")
 		// Adding a pod in the service should trigger an update for that pod, even if we didn't explicitly subscribe
-		createPod(s, "pod5", "not-sa", "127.0.0.5")
+		createPod(s, "pod5", "not-sa", "127.0.0.5", "not-node")
 		expect(ads.ExpectResponse(), "127.0.0.5")
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
@@ -159,7 +171,7 @@ func TestWorkload(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType)
+		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"*"},
@@ -167,11 +179,11 @@ func TestWorkload(t *testing.T) {
 		ads.ExpectEmptyResponse()
 
 		// Create pod, due to wildcard subscribe we should receive it
-		createPod(s, "pod", "sa", "127.0.0.1")
+		createPod(s, "pod", "sa", "127.0.0.1", "not-node")
 		expect(ads.ExpectResponse(), "127.0.0.1")
 
 		// A new pod should push only that one
-		createPod(s, "pod2", "sa", "127.0.0.2")
+		createPod(s, "pod2", "sa", "127.0.0.2", "node")
 		expect(ads.ExpectResponse(), "127.0.0.2")
 
 		// TODO: implement pod update; this actually cannot really be done without waypoints or VIPs
@@ -182,7 +194,7 @@ func TestWorkload(t *testing.T) {
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
 		expect(ads.ExpectResponse(), "127.0.0.2")
 		// Creating a pod in the service should send an update as usual
-		createPod(s, "pod", "sa", "127.0.0.3")
+		createPod(s, "pod", "sa", "127.0.0.3", "node")
 		expect(ads.ExpectResponse(), "127.0.0.3")
 
 		// Make service not select workload should also update things
@@ -198,7 +210,7 @@ func deletePod(s *FakeDiscoveryServer, name string) {
 	}
 }
 
-func createPod(s *FakeDiscoveryServer, name string, sa string, ip string) {
+func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node string) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -211,6 +223,7 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string) {
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: sa,
+			NodeName:           node,
 		},
 		Status: corev1.PodStatus{
 			PodIP: ip,
