@@ -715,6 +715,8 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []str
 					default:
 						dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(tce))
 					}
+				default:
+					dumps[resourceType] = append(dumps[resourceType], rr.Resource)
 				}
 			}
 		} else {
