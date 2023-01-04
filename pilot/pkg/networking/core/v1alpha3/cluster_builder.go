@@ -1286,7 +1286,6 @@ func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([
 // build does any final build operations needed, like marshaling etc.
 func (mc *MutableCluster) build() *cluster.Cluster {
 	if mc == nil {
-		log.Errorf("howardjohn: nil MC")
 		return nil
 	}
 	// Marshall Http Protocol options if they exist.
@@ -1300,12 +1299,9 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 				},
 			}
 		}
-		log.Errorf("howardjohn: %v late set protocol", mc.cluster.Name)
 		mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
 		}
-	} else {
-		log.Errorf("howardjohn: %v already set protocol: %+v", mc.cluster.Name)
 	}
 	return mc.cluster
 }
