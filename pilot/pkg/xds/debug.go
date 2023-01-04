@@ -29,6 +29,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
@@ -611,7 +612,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dump := s.getConfigDumpByResourceType(con, []string{v3.ExtensionConfigurationType})
+	dump := s.getConfigDumpByResourceType(con, nil, []string{v3.ExtensionConfigurationType})
 	if len(dump[v3.ExtensionConfigurationType]) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -629,7 +630,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if ts := s.getResourceTypes(req); len(ts) != 0 {
-		dump := s.getConfigDumpByResourceType(con, ts)
+		dump := s.getConfigDumpByResourceType(con, nil, ts)
 		writeJSON(w, dump, req)
 		return
 	}
@@ -657,9 +658,11 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 	return nil
 }
 
-func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) map[string][]*anypb.Any {
+func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *model.PushRequest, ts []string) map[string][]*anypb.Any {
 	dumps := make(map[string][]*anypb.Any)
-	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
+	if req == nil {
+		req = &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
+	}
 
 	for _, resourceType := range ts {
 		w := conn.Watched(resourceType)
@@ -734,7 +737,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 	version := req.Push.PushVersion
 
-	dump := s.getConfigDumpByResourceType(conn, []string{
+	dump := s.getConfigDumpByResourceType(conn, req, []string{
 		v3.ClusterType,
 		v3.ListenerType,
 		v3.RouteType,
@@ -757,8 +760,13 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 
 	dynamicActiveListeners := make([]*admin.ListenersConfigDump_DynamicListener, 0)
 	for _, listener := range dump[v3.ListenerType] {
+		config := &listenerv3.Listener{}
+		name := "listener_name"
+		if err := listener.UnmarshalTo(config); err == nil {
+			name = config.Name
+		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &admin.ListenersConfigDump_DynamicListener{
-			Name: "FIXME",
+			Name: name,
 			ActiveState: &admin.ListenersConfigDump_DynamicListenerState{
 				Listener:    listener,
 				VersionInfo: version,
