@@ -420,19 +420,6 @@ var l4WhenAttributes = sets.New(
 	"destination.port",
 )
 
-func emptyRuleMatch(rm *workloadapi.RBACPolicyRuleMatch) bool {
-	return len(rm.Namespaces) == 0 &&
-		len(rm.NotNamespaces) == 0 &&
-		len(rm.Principals) == 0 &&
-		len(rm.NotPrincipals) == 0 &&
-		len(rm.SourceIps) == 0 &&
-		len(rm.NotSourceIps) == 0 &&
-		len(rm.DestinationIps) == 0 &&
-		len(rm.NotDestinationIps) == 0 &&
-		len(rm.DestinationPorts) == 0 &&
-		len(rm.NotDestinationPorts) == 0
-}
-
 func whenMatch[T any](s string, when *v1beta1.Condition, invert bool, f func(v []string) []T) []T {
 	if when.Key != s {
 		return nil
