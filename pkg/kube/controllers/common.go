@@ -39,11 +39,6 @@ type Object interface {
 	runtime.Object
 }
 
-type comparableObject interface {
-	comparable
-	Object
-}
-
 // UnstructuredToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
 // clients.
 func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource, error) {
