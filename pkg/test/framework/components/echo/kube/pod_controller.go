@@ -22,9 +22,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/pkg/log"
 )
 
 var _ cache.Controller = &podController{}
@@ -55,11 +55,11 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 		})
 	q := queue.NewQueue(1 * time.Second)
 	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj any) {
+		AddFunc: controllers.SingleObjectHandler(func(pod *corev1.Pod) {
 			q.Push(func() error {
-				return handlers.added(newObj.(*corev1.Pod))
+				return handlers.added(pod)
 			})
-		},
+		}),
 		UpdateFunc: func(old, cur any) {
 			q.Push(func() error {
 				oldObj := old.(metav1.Object)
@@ -71,24 +71,11 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 				return nil
 			})
 		},
-		DeleteFunc: func(curr any) {
+		DeleteFunc: controllers.SingleObjectHandler(func(pod *corev1.Pod) {
 			q.Push(func() error {
-				pod, ok := curr.(*corev1.Pod)
-				if !ok {
-					tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						log.Errorf("Couldn't get object from tombstone %#v", curr)
-						return nil
-					}
-					pod, ok = tombstone.Obj.(*corev1.Pod)
-					if !ok {
-						log.Errorf("Tombstone contained object that is not a pod %#v", curr)
-						return nil
-					}
-				}
 				return handlers.deleted(pod)
 			})
-		},
+		}),
 	})
 
 	return &podController{

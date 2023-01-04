@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	filter "istio.io/istio/pkg/kube/namespace"
 )
 
@@ -92,25 +93,11 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 				c.queue.Push(handleFunc)
 			}
 		},
-		DeleteFunc: func(obj any) {
+		DeleteFunc: controllers.SingleObjectHandler(func(ns *v1.Namespace) {
 			incrementEvent(otype, "delete")
-			ns, ok := obj.(*v1.Namespace)
-			if !ok {
-				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					if cast, ok := tombstone.Obj.(*v1.Namespace); ok {
-						ns = cast
-					} else {
-						log.Errorf("Failed to convert to tombstoned namespace object: %v", obj)
-						return
-					}
-				} else {
-					log.Errorf("Failed to convert to namespace object: %v", obj)
-					return
-				}
-			}
 			discoveryNamespacesFilter.NamespaceDeleted(ns.ObjectMeta)
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
-		},
+		}),
 	})
 }
 

@@ -30,6 +30,7 @@ import (
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 )
@@ -89,10 +90,9 @@ func (c *autoServiceExportController) onServiceAdd(obj any) {
 			return nil
 		}
 
-		svc, err := extractService(obj)
-		if err != nil {
-			log.Warnf("%s failed converting service: %v", c.logPrefix(), err)
-			return err
+		svc := controllers.Extract[*v1.Service](obj)
+		if svc == nil {
+			return nil
 		}
 
 		if c.isClusterLocalService(svc) {
