@@ -31,7 +31,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
@@ -612,68 +611,12 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	wasmCfgs, err := s.getExtensionConfiguration(con)
-	if err != nil {
+	dump := s.getConfigDumpByResourceType(con, []string{v3.ExtensionConfigurationType})
+	if len(dump[v3.ExtensionConfigurationType]) == 0 {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(err.Error()))
 		return
 	}
-	writeJSON(w, wasmCfgs, req)
-}
-
-func (s *DiscoveryServer) getExtensionConfiguration(con *Connection) ([]proto.Message, error) {
-	if s.Generators[v3.ExtensionConfigurationType] != nil {
-		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
-		if !ok {
-			return nil, fmt.Errorf("no watched ExtensionConfigurationType found, proxyID: %s", con.proxy.ID)
-		}
-
-		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, &model.PushRequest{
-			Full: true,
-			Push: con.proxy.LastPushContext,
-		})
-		if len(resource) == 0 {
-			return nil, fmt.Errorf("no ExtensionConfigurationType found, proxyID: %s", con.proxy.ID)
-		}
-
-		wasmCfgs := make([]proto.Message, 0, len(resource))
-		for _, rr := range resource {
-			if w, err := unmarshalToWasm(rr); err != nil {
-				istiolog.Warnf("failed to unmarshal wasm: %v", err)
-			} else {
-				wasmCfgs = append(wasmCfgs, w)
-			}
-		}
-
-		return wasmCfgs, nil
-	}
-
-	return nil, nil
-}
-
-func unmarshalToWasm(r *discovery.Resource) (proto.Message, error) {
-	tce := &core.TypedExtensionConfig{}
-	if err := r.GetResource().UnmarshalTo(tce); err != nil {
-		return nil, err
-	}
-
-	switch tce.TypedConfig.TypeUrl {
-	case xds.WasmHTTPFilterType:
-		w := &wasm.Wasm{}
-		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
-			return nil, err
-		}
-		// Redact Wasm secret env variable.
-		vmenvs := w.GetConfig().GetVmConfig().EnvironmentVariables
-		if vmenvs != nil {
-			if _, found := vmenvs.KeyValues[model.WasmSecretEnv]; found {
-				vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
-			}
-		}
-		return w, nil
-	}
-
-	return tce, nil
+	writeJSON(w, dump[v3.ExtensionConfigurationType], req)
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -686,7 +629,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if ts := s.getResourceTypes(req); len(ts) != 0 {
-		dump, _ := s.getConfigDumpByResourceType(con, ts)
+		dump := s.getConfigDumpByResourceType(con, ts)
 		writeJSON(w, dump, req)
 		return
 	}
@@ -714,7 +657,7 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 	return nil
 }
 
-func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) (map[string][]*anypb.Any, error) {
+func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []string) map[string][]*anypb.Any {
 	dumps := make(map[string][]*anypb.Any)
 	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 
@@ -780,7 +723,7 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, ts []str
 		}
 	}
 
-	return dumps, nil
+	return dumps
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -789,7 +732,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 	version := req.Push.PushVersion
 
-	dump, err := s.getConfigDumpByResourceType(conn, []string{
+	dump := s.getConfigDumpByResourceType(conn, []string{
 		v3.ClusterType,
 		v3.ListenerType,
 		v3.RouteType,
@@ -852,6 +795,9 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	secretsAny, err := protoconv.MessageToAnyWithError(&admin.SecretsConfigDump{
 		DynamicActiveSecrets: dynamicSecretsConfig,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	extentionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
 	for _, ext := range dump[v3.ExtensionConfigurationType] {
@@ -863,6 +809,9 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
 		EcdsFilters: extentionsConfig,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var endpointsAny *anypb.Any
 	// EDS is disabled by default for compatibility with Envoy config_dump interface
