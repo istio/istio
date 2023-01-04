@@ -193,7 +193,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
-	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.Baggage}, h.HttpFilters...)
+	// h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.Baggage}, h.HttpFilters...)
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
 	}}
@@ -214,7 +214,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 					})},
 				},
 				Filters: []*listener.Filter{
-					xdsfilters.CaptureTLS,
+					xdsfilters.IstioNetworkAuthenticationFilter,
 					{
 						Name:       wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
@@ -293,7 +293,6 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 				FilterChains:      []*listener.FilterChain{},
 				ListenerFilters: []*listener.ListenerFilter{
 					util.InternalListenerSetAddressFilter(),
-					xdsfilters.MetadataToPeerNode,
 				},
 			}
 			if port.Protocol.IsUnsupported() {
@@ -446,16 +445,6 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 		}
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
-
-	if lb.node.IsWaypointProxy() {
-		restoreTLSFilter := &listener.Filter{
-			Name: "restore_tls",
-			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.RestoreTLS"),
-			},
-		}
-		filters = append(filters, restoreTLSFilter)
-	}
 
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
