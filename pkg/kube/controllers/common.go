@@ -195,12 +195,12 @@ func Extract[T Object](obj any) T {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
+			log.Errorf("couldn't get object from tombstone: %+v", obj)
 			return empty
 		}
 		o, ok = tombstone.Obj.(T)
 		if !ok {
-			log.Errorf("tombstone contained object that is not an object %+v", obj)
+			log.Errorf("tombstone contained object that is not an object (key:%v, obj:%T)", tombstone.Key, tombstone.Obj)
 			return empty
 		}
 	}
