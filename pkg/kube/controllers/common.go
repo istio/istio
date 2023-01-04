@@ -221,20 +221,7 @@ func Extract[T Object](obj any) T {
 }
 
 func ExtractObject(obj any) Object {
-	o, ok := obj.(Object)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
-			return nil
-		}
-		o, ok = tombstone.Obj.(Object)
-		if !ok {
-			log.Errorf("tombstone contained object that is not an object %+v", obj)
-			return nil
-		}
-	}
-	return o
+	return Extract[Object](obj)
 }
 
 // IgnoreNotFound returns nil on NotFound errors.
