@@ -29,9 +29,9 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
@@ -630,10 +630,12 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if ts := s.getResourceTypes(req); len(ts) != 0 {
-		dump := s.getConfigDumpByResourceType(con, nil, ts)
+		resources := s.getConfigDumpByResourceType(con, nil, ts)
 		configDump := &admin.ConfigDump{}
-		for _, configs := range dump {
-			configDump.Configs = append(configDump.Configs, configs...)
+		for _, resource := range resources {
+			for _, rr := range resource {
+				configDump.Configs = append(configDump.Configs, rr.Resource)
+			}
 		}
 		writeJSON(w, configDump, req)
 		return
@@ -662,8 +664,8 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 	return nil
 }
 
-func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *model.PushRequest, ts []string) map[string][]*anypb.Any {
-	dumps := make(map[string][]*anypb.Any)
+func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *model.PushRequest, ts []string) map[string][]*discoveryv3.Resource {
+	dumps := make(map[string][]*discoveryv3.Resource)
 	if req == nil {
 		req = &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 	}
@@ -696,7 +698,8 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 							},
 						}
 					}
-					dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(secret))
+					rr.Resource = protoconv.MessageToAny(secret)
+					dumps[resourceType] = append(dumps[resourceType], rr)
 				case v3.ExtensionConfigurationType:
 					tce := &core.TypedExtensionConfig{}
 					if err := rr.GetResource().UnmarshalTo(tce); err != nil {
@@ -718,12 +721,15 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 								vmenvs.KeyValues[model.WasmSecretEnv] = "<Redacted>"
 							}
 						}
-						dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(w))
+						dumps[resourceType] = append(dumps[resourceType], &discoveryv3.Resource{
+							Name:     w.Config.Name,
+							Resource: protoconv.MessageToAny(w),
+						})
 					default:
-						dumps[resourceType] = append(dumps[resourceType], protoconv.MessageToAny(tce))
+						dumps[resourceType] = append(dumps[resourceType], rr)
 					}
 				default:
-					dumps[resourceType] = append(dumps[resourceType], rr.Resource)
+					dumps[resourceType] = append(dumps[resourceType], rr)
 				}
 			}
 		} else {
@@ -752,7 +758,9 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 
 	dynamicActiveClusters := make([]*admin.ClustersConfigDump_DynamicCluster, 0)
 	for _, cluster := range dump[v3.ClusterType] {
-		dynamicActiveClusters = append(dynamicActiveClusters, &admin.ClustersConfigDump_DynamicCluster{Cluster: cluster})
+		dynamicActiveClusters = append(dynamicActiveClusters, &admin.ClustersConfigDump_DynamicCluster{
+			Cluster: cluster.Resource,
+		})
 	}
 	clustersAny, err := protoconv.MessageToAnyWithError(&admin.ClustersConfigDump{
 		VersionInfo:           version,
@@ -764,15 +772,10 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 
 	dynamicActiveListeners := make([]*admin.ListenersConfigDump_DynamicListener, 0)
 	for _, listener := range dump[v3.ListenerType] {
-		config := &listenerv3.Listener{}
-		name := "listener_name"
-		if err := listener.UnmarshalTo(config); err == nil {
-			name = config.Name
-		}
 		dynamicActiveListeners = append(dynamicActiveListeners, &admin.ListenersConfigDump_DynamicListener{
-			Name: name,
+			Name: listener.Name,
 			ActiveState: &admin.ListenersConfigDump_DynamicListenerState{
-				Listener:    listener,
+				Listener:    listener.Resource,
 				VersionInfo: version,
 			},
 		})
@@ -789,7 +792,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	for _, route := range dump[v3.RouteType] {
 		dynamicRouteConfig = append(dynamicRouteConfig, &admin.RoutesConfigDump_DynamicRouteConfig{
 			VersionInfo: version,
-			RouteConfig: route,
+			RouteConfig: route.Resource,
 		})
 	}
 	routesAny, err := protoconv.MessageToAnyWithError(&admin.RoutesConfigDump{
@@ -803,7 +806,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	for _, secret := range dump[v3.SecretType] {
 		dynamicSecretsConfig = append(dynamicSecretsConfig, &admin.SecretsConfigDump_DynamicSecret{
 			VersionInfo: version,
-			Secret:      secret,
+			Secret:      secret.Resource,
 		})
 	}
 	secretsAny, err := protoconv.MessageToAnyWithError(&admin.SecretsConfigDump{
@@ -817,7 +820,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 	for _, ext := range dump[v3.ExtensionConfigurationType] {
 		extentionsConfig = append(extentionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
 			VersionInfo: version,
-			EcdsFilter:  ext,
+			EcdsFilter:  ext.Resource,
 		})
 	}
 	extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
@@ -834,7 +837,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		for _, endpoint := range dump[v3.EndpointType] {
 			endpointConfig = append(endpointConfig, &admin.EndpointsConfigDump_DynamicEndpointConfig{
 				VersionInfo:    version,
-				EndpointConfig: endpoint,
+				EndpointConfig: endpoint.Resource,
 			})
 		}
 		endpointsAny, err = protoconv.MessageToAnyWithError(&admin.EndpointsConfigDump{
