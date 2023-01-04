@@ -631,7 +631,11 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 	if ts := s.getResourceTypes(req); len(ts) != 0 {
 		dump := s.getConfigDumpByResourceType(con, nil, ts)
-		writeJSON(w, dump, req)
+		configDump := &admin.ConfigDump{}
+		for _, configs := range dump {
+			configDump.Configs = append(configDump.Configs, configs...)
+		}
+		writeJSON(w, configDump, req)
 		return
 	}
 
