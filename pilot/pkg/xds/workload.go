@@ -48,12 +48,16 @@ func (e WorkloadGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	updatedAddresses := model.ConfigNamespacedNameOfKind(req.ConfigsUpdated, kind.Address)
+	isReq := req.IsRequest()
+	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
+		// Nothing changed..
+		return nil, nil, model.XdsLogDetails{}, false, nil
+	}
 	subs := sets.New(w.ResourceNames...)
 	typedSubs := sets.NewWithLength[types.NamespacedName](subs.Len())
 	for s := range subs {
 		typedSubs.Insert(types.NamespacedName{Name: s})
 	}
-	isReq := req.IsRequest()
 
 	addresses := sets.New[types.NamespacedName]()
 	for ip := range updatedAddresses {

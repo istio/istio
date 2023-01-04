@@ -41,6 +41,9 @@ func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, name
 			r.Resource.UnmarshalTo(w)
 			have.Insert(model.WorkloadInfo{Workload: w}.ResourceName())
 		}
+		if len(resp.RemovedResources) > 0 {
+			t.Fatalf("unexpected removals: %v", resp.RemovedResources)
+		}
 		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 	}
 }
@@ -52,6 +55,9 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 		have := sets.New[string]()
 		for _, r := range resp.RemovedResources {
 			have.Insert(r)
+		}
+		if len(resp.Resources) > 0 {
+			t.Fatalf("unexpected resources: %v", resp.Resources)
 		}
 		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
 	}
