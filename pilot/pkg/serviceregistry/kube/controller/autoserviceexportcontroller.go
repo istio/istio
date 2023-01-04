@@ -68,8 +68,8 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	log.Infof("%s starting controller", c.logPrefix())
 
 	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
-	c.serviceHandle, _ = c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) { c.onServiceAdd(obj) },
+	c.serviceHandle, _ = c.serviceInformer.AddEventHandler(controllers.EventHandler[*v1.Service]{
+		AddFunc: func(obj *v1.Service) { c.onServiceAdd(obj) },
 
 		// Do nothing on update. The controller only acts on parts of the service
 		// that are immutable (e.g. name).
@@ -82,16 +82,14 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	return c
 }
 
-func (c *autoServiceExportController) onServiceAdd(obj any) {
+func (c *autoServiceExportController) onServiceAdd(svc *v1.Service) {
+	if svc == nil {
+		return
+	}
 	c.queue.Push(func() error {
 		if !c.mcsSupported {
 			// Don't create ServiceExport if MCS is not supported on the cluster.
 			log.Debugf("%s ignoring added Service, since !mcsSupported", c.logPrefix())
-			return nil
-		}
-
-		svc := controllers.Extract[*v1.Service](obj)
-		if svc == nil {
 			return nil
 		}
 
