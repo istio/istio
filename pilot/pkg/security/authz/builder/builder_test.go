@@ -125,7 +125,6 @@ var (
 )
 
 func TestGenerator_GenerateHTTP(t *testing.T) {
-	t.Skip("TODO")
 	testCases := []struct {
 		name       string
 		tdBundle   trustdomain.Bundle

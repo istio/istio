@@ -1298,6 +1298,7 @@ func skipOnNativeZtunnel(tc framework.TestContext, reason string) {
 }
 
 func TestL7Telemetry(t *testing.T) {
+	t.Skip("pending changes to Envoy")
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.ambient").
 		Run(func(tc framework.TestContext) {

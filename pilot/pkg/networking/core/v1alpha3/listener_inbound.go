@@ -857,11 +857,11 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 
-	if util.IsIstioVersionGE117(lb.node.IstioVersion) {
-		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-	}
 	if cc.hbone {
 	} else {
+		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+		}
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 
@@ -893,11 +893,11 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 
 	var filters []*listener.Filter
 
-	if util.IsIstioVersionGE117(lb.node.IstioVersion) {
-		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-	}
 	if fcc.hbone {
 	} else {
+		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+		}
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
