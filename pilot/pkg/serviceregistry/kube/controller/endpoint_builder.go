@@ -76,6 +76,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		namespace:    namespace,
 		hostname:     hostname,
 		subDomain:    subdomain,
+		labels:       podLabels,
 	}
 	networkID := out.endpointNetwork(ip)
 	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
