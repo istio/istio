@@ -31,4 +31,4 @@ issue:
 # release notes.
 releaseNotes:
   - |-
-    **Fixed** Namespace's network label has higher priority than the Pod's network label.
+    **Fixed** a bug that caused the Namespace's network label to have a higher priority than the Pod's network label.
