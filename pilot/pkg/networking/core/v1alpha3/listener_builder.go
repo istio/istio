@@ -404,7 +404,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
 	filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
 	// Add EmptySessionFilter so that it can be overridden at route level per service.
-	if httpOpts.class != istionetworking.ListenerClassSidecarInbound {
+	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
