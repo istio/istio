@@ -125,6 +125,8 @@ func (r *Cache) DependentTypes() []kind.Kind {
 }
 
 func (r *Cache) Key() string {
+	// nolint: gosec
+	// Not security sensitive code
 	hash := md5.New()
 
 	hash.Write([]byte(r.RouteName))

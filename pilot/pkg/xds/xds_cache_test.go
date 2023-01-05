@@ -37,6 +37,8 @@ var (
 )
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
+// nolint: gosec
+// Test only code
 func TestXdsCacheToken(t *testing.T) {
 	c := model.NewXdsCache()
 	n := atomic.NewInt32(0)

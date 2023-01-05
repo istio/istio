@@ -33,6 +33,7 @@ func roundTripperFor(restConfig *rest.Config) (http.RoundTripper, spdy.Upgrader,
 	}
 	if tlsConfig == nil && restConfig.Transport != nil {
 		// If using a custom transport, skip server verification on the upgrade.
+		// nolint: gosec
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
