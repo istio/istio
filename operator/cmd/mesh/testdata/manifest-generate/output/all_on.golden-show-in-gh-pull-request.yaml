@@ -8617,6 +8617,10 @@ data:
               value: "{{ $containers | join "," }}"
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+            - name: ISTIO_META_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: ISTIO_META_INTERCEPTION_MODE
               value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
             {{- if .Values.global.network }}
@@ -8929,6 +8933,10 @@ data:
               value: "{{ $containers | join "," }}"
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+            - name: ISTIO_META_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: ISTIO_META_INTERCEPTION_MODE
               value: "{{ .ProxyConfig.InterceptionMode.String }}"
             {{- if .Values.global.network }}
@@ -9234,6 +9242,10 @@ data:
               value: "{{ $containers | join "," }}"
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+            - name: ISTIO_META_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: ISTIO_META_INTERCEPTION_MODE
               value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
             {{- if .Values.global.network }}
@@ -9637,6 +9649,10 @@ spec:
             value: "true"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
+          - name: ISTIO_META_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds
@@ -9883,6 +9899,10 @@ spec:
             value: "true"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
+          - name: ISTIO_META_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds

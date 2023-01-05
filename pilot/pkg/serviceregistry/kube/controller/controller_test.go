@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -308,6 +309,34 @@ func TestController_GetPodLocality(t *testing.T) {
 	}
 }
 
+func TestProxyK8sHostnameLabel(t *testing.T) {
+	clusterID := cluster.ID("fakeCluster")
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Mode:      mode,
+				ClusterID: clusterID,
+			})
+
+			pod := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
+			addPods(t, controller, fx, pod)
+
+			proxy := &model.Proxy{
+				Type:        model.Router,
+				IPAddresses: []string{"128.0.0.1"},
+				ID:          "pod1.nsa",
+				DNSDomain:   "nsa.svc.cluster.local",
+				Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+			}
+			got := controller.GetProxyWorkloadLabels(proxy)
+			if !reflect.DeepEqual(pod.Spec.NodeName, got[labelutil.LabelHostname]) {
+				t.Fatalf("expected node name %v, got %v", pod.Spec.NodeName, got[labelutil.LabelHostname])
+			}
+		})
+	}
+}
+
 func TestGetProxyServiceInstances(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
 	networkID := network.ID("fakeNetwork")
@@ -513,6 +542,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"app":                      "prod-app",
 						NodeRegionLabelGA:          "region1",
 						NodeZoneLabelGA:            "zone1",
+						labelutil.LabelHostname:    p.Spec.NodeName,
 						label.TopologySubzone.Name: "subzone1",
 						label.TopologyCluster.Name: clusterID.String(),
 						label.TopologyNetwork.Name: networkID.String(),
@@ -521,6 +551,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod2",
 					Namespace:      "nsa",
+					NodeName:       p.Spec.NodeName,
 				},
 			}
 			if len(podServices) != 1 {
@@ -586,6 +617,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"istio-locality":           "region.zone",
 						NodeRegionLabelGA:          "region",
 						NodeZoneLabelGA:            "zone",
+						labelutil.LabelHostname:    p.Spec.NodeName,
 						label.TopologyCluster.Name: clusterID.String(),
 						label.TopologyNetwork.Name: networkID.String(),
 					},
@@ -593,6 +625,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod3",
 					Namespace:      "nsa",
+					NodeName:       p.Spec.NodeName,
 				},
 			}
 			if len(podServices) != 1 {

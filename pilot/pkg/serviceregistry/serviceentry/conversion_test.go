@@ -925,7 +925,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 					}
 					serviceInstance.Endpoint.Network = network.ID(tt.wle.Network)
 					serviceInstance.Endpoint.Labels = labelutil.AugmentLabels(serviceInstance.Endpoint.Labels,
-						tt.clusterID, tt.wle.Locality, network.ID(tt.wle.Network))
+						tt.clusterID, tt.wle.Locality, "", network.ID(tt.wle.Network))
 				}
 			}
 
