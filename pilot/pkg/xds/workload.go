@@ -125,3 +125,56 @@ func (e WorkloadGenerator) GenerateDeltas(
 func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	return nil, model.XdsLogDetails{}, fmt.Errorf("WDS is only available over Delta XDS")
 }
+
+type WorkloadRBACGenerator struct {
+	s *DiscoveryServer
+}
+
+func (e WorkloadRBACGenerator) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	var updatedPolicies sets.Set[model.ConfigKey]
+	if len(req.ConfigsUpdated) != 0 {
+		updatedPolicies = model.ConfigsOfKind(req.ConfigsUpdated, kind.AuthorizationPolicy)
+	}
+	if len(req.ConfigsUpdated) != 0 && len(updatedPolicies) == 0 {
+		// This was a incremental push for a resource we don't watch... skip
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	policies := e.s.Env.ServiceDiscovery.Policies(updatedPolicies)
+
+	resources := make(model.Resources, 0)
+	expected := sets.New[string]()
+	if len(updatedPolicies) > 0 {
+		// Partial update. Removes are ones we request but didn't get
+		for k := range updatedPolicies {
+			expected.Insert(k.Namespace + "/" + k.Name)
+		}
+	} else {
+		// Full update, expect everything
+		expected.InsertAll(w.ResourceNames...)
+	}
+
+	removed := expected
+	for _, p := range policies {
+		n := p.Namespace + "/" + p.Name
+		removed.Delete(n) // We found it, so it isn't a removal
+		resources = append(resources, &discovery.Resource{
+			Name:     n,
+			Resource: protoconv.MessageToAny(p),
+		})
+	}
+
+	return resources, sets.SortedList(removed), model.XdsLogDetails{}, true, nil
+}
+
+func (e WorkloadRBACGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	return nil, model.XdsLogDetails{}, fmt.Errorf("WRDS is only available over Delta XDS")
+}
+
+var (
+	_ model.XdsResourceGenerator      = &WorkloadRBACGenerator{}
+	_ model.XdsDeltaResourceGenerator = &WorkloadRBACGenerator{}
+)

@@ -410,7 +410,6 @@ spec:
 
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		skipOnNativeZtunnel(t, "RBAC not implemented yet")
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -515,7 +514,6 @@ func TestAuthorizationGateway(t *testing.T) {
 		}
 	}
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		skipOnNativeZtunnel(t, "RBAC not implemented yet")
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -639,7 +637,6 @@ spec:
 
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		skipOnNativeZtunnel(t, "RBAC not implemented yet")
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -811,7 +808,7 @@ func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
-			skipOnNativeZtunnel(t, "RBAC not implemented yet")
+			skipOnNativeZtunnel(t, "PeerAuthentication not implemented")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
@@ -1239,7 +1236,8 @@ spec:
 
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
-	check.ErrorContains("EOF"),                                // TCP
+	check.ErrorContains("EOF"),                                // TCP envoy
+	check.ErrorContains("read: connection reset by peer"),     // TCP ztunnel
 	check.NoErrorAndStatus(http.StatusForbidden),              // HTTP
 	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
 )

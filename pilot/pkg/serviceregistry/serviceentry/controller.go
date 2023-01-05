@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -119,6 +120,10 @@ func (s *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 }
 
 func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
+}
+
+func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
 	return nil
 }
 
