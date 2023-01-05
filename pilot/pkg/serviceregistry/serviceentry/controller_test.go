@@ -1665,7 +1665,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
 					AutoAllocatedIPv4Address: "240.240.37.178",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:25b2",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
 				},
 			},
 		},
@@ -1683,8 +1683,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.37.178",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:25b2",
+					AutoAllocatedIPv4Address: "240.240.62.90",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
 				},
 			},
 		},
@@ -1725,7 +1725,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	// 240.240.2.255
 	// 240.240.3.0
 	// 240.240.3.255
-	// The last IP should be 240.240.50.246
+	// The last IP should be 240.240.202.167
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
 		"240.240.0.255": true,
@@ -1734,7 +1734,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.2.0":   true,
 		"240.240.2.255": true,
 	}
-	expectedLastIP := "240.240.50.246"
+	expectedLastIP := "240.240.202.167"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -1755,15 +1755,15 @@ func Test_autoAllocateIP_values(t *testing.T) {
 func Test_autoAllocateIP_deterministic(t *testing.T) {
 	inServices := make([]*model.Service, 0)
 	originalServices := map[string]string{
-		"a.com": "240.240.156.7",
-		"c.com": "240.240.72.226",
-		"e.com": "240.240.85.4",
-		"g.com": "240.240.179.215",
-		"i.com": "240.240.13.244",
-		"k.com": "240.240.197.245",
-		"l.com": "240.240.56.10",
-		"n.com": "240.240.82.93",
-		"o.com": "240.240.234.248",
+		"a.com": "240.240.81.186",
+		"c.com": "240.240.79.99",
+		"e.com": "240.240.175.33",
+		"g.com": "240.240.106.30",
+		"i.com": "240.240.124.21",
+		"k.com": "240.240.234.190",
+		"l.com": "240.240.142.221",
+		"n.com": "240.240.41.17",
+		"o.com": "240.240.31.228",
 	}
 
 	allocateAndValidate := func() {
@@ -1777,7 +1777,7 @@ func Test_autoAllocateIP_deterministic(t *testing.T) {
 		}
 		for k, v := range originalServices {
 			if gotIPMap[v] != k {
-				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, gotIPMap[k])
+				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, gotIPMap[v])
 			}
 		}
 	}

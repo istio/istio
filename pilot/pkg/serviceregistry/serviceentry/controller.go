@@ -891,7 +891,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			hash.Write([]byte(svc.Hostname.String()))
+			hash.Write([]byte(svc.Attributes.Namespace + "/" + svc.Hostname.String()))
 			// First hash is calculated by
 			s := hash.Sum32()
 			fh := s % uint32(maxIPs)
