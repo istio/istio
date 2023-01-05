@@ -16,6 +16,7 @@ package controller
 
 import (
 	"strings"
+	"sync/atomic"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,23 +48,22 @@ type serviceExportCache interface {
 	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
 	ExportedServices() []exportedService
 
+	Run(stop <-chan struct{})
+
 	// HasSynced indicates whether the kube createClient has synced for the watched resources.
 	HasSynced() bool
+
+	OnCRDEvent(name string)
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
-		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
-		_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
 		ec := &serviceExportCacheImpl{
-			Controller: c,
+			Controller:      c,
+			serviceExportCh: make(chan struct{}),
 		}
-		if c.opts.DiscoveryNamespacesFilter != nil {
-			ec.filteredInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
-		} else {
-			ec.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
-		}
+		c.AppendCrdHandlers(ec.OnCRDEvent)
 
 		// Set the discoverability policy for the clusterset.local host.
 		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
@@ -90,8 +90,6 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 			ec.clusterLocalPolicySelector = ec.clusterSetLocalPolicySelector
 		}
 
-		// Register callbacks for events.
-		c.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
 		return ec
 	}
 
@@ -112,6 +110,10 @@ type serviceExportCacheImpl struct {
 
 	// clusterSetLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the clusterset.local host.
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
+
+	serviceExportCh chan struct{}
+
+	started atomic.Bool
 }
 
 func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj any, event model.Event) error {
@@ -140,6 +142,9 @@ func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
 }
 
 func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy {
+	if !ec.started.Load() {
+		return nil
+	}
 	if svc == nil {
 		// Default policy when the service doesn't exist.
 		return model.DiscoverableFromSameCluster
@@ -158,6 +163,9 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 }
 
 func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
+	if !ec.started.Load() {
+		return nil
+	}
 	// List all exports in this cluster.
 	exports, err := ec.filteredInformer.List("")
 	if err != nil {
@@ -191,8 +199,41 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	return out
 }
 
+func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
+	select {
+	case <-ec.serviceExportCh:
+	case <-stop:
+		return
+	}
+	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
+	_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
+	if ec.opts.DiscoveryNamespacesFilter != nil {
+		ec.filteredInformer = informer.NewFilteredSharedIndexInformer(ec.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
+	} else {
+		ec.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
+	}
+	// Register callbacks for events.
+	ec.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
+	ec.filteredInformer.Run(stop)
+	ec.started.Store(true)
+}
+
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	return ec.filteredInformer.HasSynced()
+	if ec.started.Load() {
+		return ec.filteredInformer.HasSynced()
+	}
+	return true
+}
+
+func (ec *serviceExportCacheImpl) OnCRDEvent(name string) {
+	if name == mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group {
+		select {
+		case <-ec.serviceExportCh: // channel already closed
+		default:
+			// notify CRD added
+			close(ec.serviceExportCh)
+		}
+	}
 }
 
 type disabledServiceExportCache struct{}
@@ -203,6 +244,8 @@ func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service
 	return model.AlwaysDiscoverable
 }
 
+func (c disabledServiceExportCache) Run(stop <-chan struct{}) {}
+
 func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
@@ -211,3 +254,5 @@ func (c disabledServiceExportCache) ExportedServices() []exportedService {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }
+
+func (c disabledServiceExportCache) OnCRDEvent(name string) {}

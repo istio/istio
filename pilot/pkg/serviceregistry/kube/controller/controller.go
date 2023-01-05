@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
@@ -236,6 +237,7 @@ type Controller struct {
 	imports serviceImportCache
 	pods    *PodCache
 
+	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
 	namespaceDiscoveryHandlers []func(ns string, event model.Event)
 
@@ -394,6 +396,26 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
+	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
+		crdMetadataInformer := kubeClient.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
+			GroupVersionResource()).Informer()
+		_ = crdMetadataInformer.SetTransform(kubelib.StripUnusedFields)
+		_, _ = crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj any) {
+				crd, ok := obj.(*metav1.PartialObjectMetadata)
+				if !ok {
+					// Shouldn't happen
+					log.Errorf("wrong type %T: %v", obj, obj)
+					return
+				}
+				for _, handler := range c.crdHandlers {
+					handler(crd.Name)
+				}
+			},
+			UpdateFunc: nil,
+			DeleteFunc: nil,
+		})
+	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
@@ -845,6 +867,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.reloadMeshNetworks()
 		c.reloadNetworkGateways()
 	}
+
+	go c.imports.Run(stop)
+	go c.exports.Run(stop)
 
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
@@ -1416,6 +1441,11 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 // AppendNamespaceDiscoveryHandlers register handlers on namespace selected/deselected by discovery selectors change.
 func (c *Controller) AppendNamespaceDiscoveryHandlers(f func(string, model.Event)) {
 	c.namespaceDiscoveryHandlers = append(c.namespaceDiscoveryHandlers, f)
+}
+
+// AppendCrdHandlers register handlers on crd event.
+func (c *Controller) AppendCrdHandlers(f func(name string)) {
+	c.crdHandlers = append(c.crdHandlers, f)
 }
 
 // stripPodUnusedFields is the transform function for shared pod informers,
