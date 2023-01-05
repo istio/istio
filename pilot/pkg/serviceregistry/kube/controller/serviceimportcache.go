@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -279,7 +280,7 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 	for _, si := range sis {
 		usi := si.(*unstructured.Unstructured)
 		info := importedService{
-			namespacedName: kube.NamespacedNameForK8sObject(usi),
+			namespacedName: config.Name(usi),
 		}
 
 		// Lookup the synthetic MCS service.

@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -1177,7 +1175,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
 		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
-		namespacedName := types.NamespacedName{Namespace: selector.Namespace, Name: selector.Name}
+		namespacedName := config.Name(selector)
 		if len(sd.serviceInstances.ip2instance) != 1 {
 			t.Fatalf("service instances store `ip2instance` memory leak, expect 1, got %d", len(sd.serviceInstances.ip2instance))
 		}

@@ -348,7 +348,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := sets.New[model.ConfigKey]()
-	key := types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name}
+	key := config.Name(curr)
 
 	s.mutex.Lock()
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -510,7 +510,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// Not a match, skip this one
 			continue
 		}
-		seNamespacedName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+		seNamespacedName := config.Name(cfg)
 		services := s.services.getServices(seNamespacedName)
 		instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 		instances = append(instances, instance...)

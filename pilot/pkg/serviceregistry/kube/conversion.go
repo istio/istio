@@ -19,7 +19,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
@@ -191,14 +190,6 @@ func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []
 		})
 	}
 	return out
-}
-
-// NamespacedNameForK8sObject is a helper that creates a NamespacedName for the given K8s Object.
-func NamespacedNameForK8sObject(obj metav1.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	}
 }
 
 // ServiceHostname produces FQDN for a k8s service

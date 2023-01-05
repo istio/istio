@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -1259,7 +1260,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			return nil, fmt.Errorf("failed to find model service for %v", hostname)
 		}
 
-		for _, modelService := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
+		for _, modelService := range c.servicesForNamespacedName(config.Name(svc)) {
 			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
 
 			tps := make(map[model.Port]*model.Port)
@@ -1319,7 +1320,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 ) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 
-	for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(service)) {
+	for _, svc := range c.servicesForNamespacedName(config.Name(service)) {
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)
