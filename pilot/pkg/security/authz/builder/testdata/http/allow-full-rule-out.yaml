@@ -471,7 +471,6 @@ typedConfig:
                 orIds:
                   ids:
                   - header:
-                      exactMatch: not-header
                       name: X-header
                       stringMatch:
                         ignoreCase: false
