@@ -543,10 +543,6 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 		return nil, err
 	}
 
-	if err := s.UpdateServiceShards(push); err != nil {
-		return nil, err
-	}
-
 	s.updateMutex.Lock()
 	s.Env.PushContext = push
 	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
