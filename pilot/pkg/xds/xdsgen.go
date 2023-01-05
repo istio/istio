@@ -66,6 +66,9 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeURL]; f {
 		return g
 	}
+	if g, f := s.Generators[string(con.proxy.Type)+"/"+typeURL]; f {
+		return g
+	}
 
 	if g, f := s.Generators[typeURL]; f {
 		return g

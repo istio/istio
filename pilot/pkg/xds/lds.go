@@ -44,6 +44,13 @@ var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
 		kind.Secret:        {},
 		kind.ProxyConfig:   {},
 	},
+	model.Waypoint: {
+		kind.Gateway:       {},
+		kind.WorkloadGroup: {},
+		kind.WorkloadEntry: {},
+		kind.Secret:        {},
+		kind.ProxyConfig:   {},
+	},
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {

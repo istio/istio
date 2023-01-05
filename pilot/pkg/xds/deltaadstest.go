@@ -266,3 +266,8 @@ func (a *DeltaAdsTest) WithTimeout(t time.Duration) *DeltaAdsTest {
 	a.timeout = t
 	return a
 }
+
+func (a *DeltaAdsTest) WithNodeType(t model.NodeType) *DeltaAdsTest {
+	a.ID = string(t) + "~1.1.1.1~test.default~default.svc.cluster.local"
+	return a
+}
