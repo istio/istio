@@ -367,7 +367,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		svc := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
+				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port)
 				for _, svc := range all {
 					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
@@ -382,7 +382,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	resp := make([]endpointzResponse, 0)
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
+			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port)
 			resp = append(resp, endpointzResponse{
 				Service:   fmt.Sprintf("%s:%s", ss.Hostname, p.Name),
 				Endpoints: all,

@@ -135,11 +135,11 @@ func TestServices(t *testing.T) {
 			}
 
 			eventually(t, func() bool {
-				ep := sds.InstancesByPort(svc, 80, nil)
+				ep := sds.InstancesByPort(svc, 80)
 				return len(ep) == 2
 			})
 
-			ep := sds.InstancesByPort(svc, 80, nil)
+			ep := sds.InstancesByPort(svc, 80)
 			if len(ep) != 2 {
 				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
 			}
@@ -1773,7 +1773,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 
 	// get service instances
 
-	instances := ctl.InstancesByPort(svcs[0], 8080, nil)
+	instances := ctl.InstancesByPort(svcs[0], 8080)
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
@@ -1800,7 +1800,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 			if len(converted) != 1 {
 				t.Fatalf("failed to get services (%v)s", converted)
 			}
-			instances := controller.InstancesByPort(converted[0], 1, nil)
+			instances := controller.InstancesByPort(converted[0], 1)
 			if len(instances) != 1 {
 				t.Fatalf("expected 1 instance, got %v", instances)
 			}
@@ -1904,7 +1904,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				if svcList[i].Resolution != exp.Resolution {
 					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
 				}
-				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, nil)
+				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port)
 				if len(instances) != 1 {
 					t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
 				}
@@ -1924,7 +1924,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				t.Fatalf("Should have 0 services at this point")
 			}
 			for _, exp := range expectedSvcList {
-				instances := controller.InstancesByPort(exp, exp.Ports[0].Port, nil)
+				instances := controller.InstancesByPort(exp, exp.Ports[0].Port)
 				if len(instances) != 0 {
 					t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
 				}
@@ -2628,9 +2628,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if len(converted) != 1 {
 		t.Fatalf("failed to get services (%v), converted", converted)
 	}
-	instances := controller.InstancesByPort(converted[0], 8080, labels.Instance{
-		"app": "prod-app",
-	})
+	instances := controller.InstancesByPort(converted[0], 8080)
 	var gotEndpointIPs []string
 	for _, instance := range instances {
 		gotEndpointIPs = append(gotEndpointIPs, instance.Endpoint.Address)
@@ -2877,11 +2875,11 @@ func TestDiscoverySelector(t *testing.T) {
 			}
 
 			eventually(t, func() bool {
-				ep := sds.InstancesByPort(svc, 80, nil)
+				ep := sds.InstancesByPort(svc, 80)
 				return len(ep) == 2
 			})
 
-			ep := sds.InstancesByPort(svc, 80, nil)
+			ep := sds.InstancesByPort(svc, 80)
 			if len(ep) != 2 {
 				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
 			}

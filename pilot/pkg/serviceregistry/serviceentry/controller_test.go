@@ -1292,7 +1292,7 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, svc := range svcs {
-			instances := sd.InstancesByPort(svc, port, nil)
+			instances := sd.InstancesByPort(svc, port)
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
 			if err := compare(t, instances, expected[i]); err != nil {

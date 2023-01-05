@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/util/sets"
@@ -37,7 +36,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	getInformer() informer.FilteredSharedIndexInformer
 	onEvent(curr any, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint

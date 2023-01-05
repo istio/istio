@@ -2709,7 +2709,7 @@ func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Instance) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstance {
 	return l.serviceInstances
 }
 

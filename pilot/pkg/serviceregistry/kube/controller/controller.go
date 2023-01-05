@@ -911,9 +911,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labels)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -1180,7 +1180,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, nil)
+				instances := c.InstancesByPort(service, port.Port)
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
