@@ -100,7 +100,6 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 
 	sd := controllermemory.NewServiceDiscovery()
 	sd.XdsUpdater = ds
-	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{
 		ProviderID:       "Mem",
 		ServiceDiscovery: sd,
