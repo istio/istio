@@ -189,7 +189,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 			{
 				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
 				Filters: []*listener.Filter{
-					xdsfilters.CaptureTLS,
+					xdsfilters.IstioNetworkAuthenticationFilter,
 					buildHBONEConnectionManager(vhost),
 				},
 			},
@@ -226,7 +226,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		}
 		accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 		l.ListenerFilters = populateListenerFilters(lb.node, l, true)
-		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.SetDstAddress, xdsfilters.MetadataToPeerNode)
+		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.SetDstAddress)
 		listeners = append(listeners, l)
 	}
 	return listeners
@@ -858,8 +858,10 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	var filters []*listener.Filter
 
 	if cc.hbone {
-		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {
+		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+		}
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 
@@ -892,8 +894,10 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	var filters []*listener.Filter
 
 	if fcc.hbone {
-		filters = append(filters, xdsfilters.RestoreTLS)
 	} else {
+		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
+			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+		}
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)

@@ -102,11 +102,13 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[0]-from[0]-principal[1]
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[0]-from[0]-principal[2]
             - orIds:
                 ids:
@@ -126,13 +128,15 @@ typedConfig:
                         exact: rule[0]-from[0]-requestPrincipal[2]
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[0]-from[0]-ns[1]/.*
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[0]-from[0]-ns[2]/.*
@@ -175,11 +179,13 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[0]-from[1]-principal[1]
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[0]-from[1]-principal[2]
             - orIds:
                 ids:
@@ -199,13 +205,15 @@ typedConfig:
                         exact: rule[0]-from[1]-requestPrincipal[2]
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[0]-from[1]-ns[1]/.*
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[0]-from[1]-ns[2]/.*
@@ -330,11 +338,13 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[1]-from[0]-principal[1]
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[1]-from[0]-principal[2]
             - orIds:
                 ids:
@@ -354,13 +364,15 @@ typedConfig:
                         exact: rule[1]-from[0]-requestPrincipal[2]
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[1]-from[0]-ns[1]/.*
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[1]-from[0]-ns[2]/.*
@@ -384,11 +396,13 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[1]-from[1]-principal[1]
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       exact: spiffe://rule[1]-from[1]-principal[2]
             - orIds:
                 ids:
@@ -408,13 +422,15 @@ typedConfig:
                         exact: rule[1]-from[1]-requestPrincipal[2]
             - orIds:
                 ids:
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[1]-from[1]-ns[1]/.*
-                - authenticated:
-                    principalName:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/rule[1]-from[1]-ns[2]/.*
