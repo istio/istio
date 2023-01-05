@@ -922,6 +922,7 @@ func tlsOptions(t *testing.T, extraRoots ...[]byte) grpc.ServerOption {
 			}
 			return err
 		},
+		MinVersion: tls.VersionTLS12,
 	}))
 }
 

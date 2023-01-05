@@ -257,6 +257,7 @@ func newTLSConfig(c *Config) (*tls.Config, error) {
 		GetClientCertificate: c.getClientCertificate,
 		NextProtos:           r.GetAlpn().GetValue(),
 		ServerName:           r.ServerName,
+		MinVersion:           tls.VersionTLS12,
 	}
 	if r.CaCertFile != "" {
 		certData, err := os.ReadFile(r.CaCertFile)
@@ -313,6 +314,7 @@ func newHBONETLSConfig(c *Config) (*tls.Config, error) {
 	}
 	tlsConfig := &tls.Config{
 		GetClientCertificate: c.hboneClientConfig,
+		MinVersion:           tls.VersionTLS12,
 	}
 	if r.CaCertFile != "" {
 		certData, err := os.ReadFile(r.CaCertFile)

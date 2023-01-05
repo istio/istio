@@ -88,7 +88,8 @@ func CreateTokenManagerPlugin(credFetcher security.CredFetcher, trustDomain, gcp
 			Timeout: httpTimeOutInSec * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
+					RootCAs:    caCertPool,
+					MinVersion: tls.VersionTLS12,
 				},
 			},
 		},

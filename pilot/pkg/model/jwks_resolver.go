@@ -185,7 +185,6 @@ func newJwksResolverWithCABundlePaths(
 			Transport: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
-				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			},
 		},
 	}
@@ -213,7 +212,8 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
-					RootCAs: caCertPool,
+					RootCAs:    caCertPool,
+					MinVersion: tls.VersionTLS12,
 				},
 			},
 		}

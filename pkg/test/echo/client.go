@@ -63,7 +63,7 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 		if tlsSettings.RootCert != "" && !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
 			return nil, fmt.Errorf("failed to create cert pool")
 		}
-		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
+		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool, MinVersion: tls.VersionTLS12})
 		// If provided, override the hostname
 		if tlsSettings.Hostname != "" {
 			dialOptions = append(dialOptions, grpc.WithAuthority(tlsSettings.Hostname))

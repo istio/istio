@@ -119,6 +119,8 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
+	// nolint: gosec
+	// Not security sensitive code
 	hash := md5.New()
 	hash.Write([]byte(b.clusterName))
 	hash.Write(Separator)
