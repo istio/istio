@@ -56,6 +56,8 @@ type AmbientIndex struct {
 
 	// Map of ServiceAccount -> IP
 	waypoints map[types.NamespacedName]sets.String
+
+	handlePods func(pods []*v1.Pod)
 }
 
 // Lookup finds a given IP address.
@@ -592,6 +594,22 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			{Kind: kind.Address, Name: p.Status.PodIP}: {},
 		}
 	}
+	idx.handlePods = func(pods []*v1.Pod) {
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+		updates := sets.New[model.ConfigKey]()
+		for _, p := range pods {
+			updates = updates.Merge(handlePod(nil, p, false))
+		}
+		if len(updates) > 0 {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: updates,
+				Reason:         []model.TriggerReason{model.AmbientUpdate},
+			})
+		}
+	}
+
 	podHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			idx.mu.Lock()
