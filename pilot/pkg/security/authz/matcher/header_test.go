@@ -109,9 +109,6 @@ func TestHostMatcherWithRegex(t *testing.T) {
 				Name: ":authority",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
 					SafeRegexMatch: &matcher.RegexMatcher{
-						EngineType: &matcher.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-						},
 						Regex: `(?i).*\.example\.com`,
 					},
 				},
@@ -125,9 +122,6 @@ func TestHostMatcherWithRegex(t *testing.T) {
 				Name: ":authority",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
 					SafeRegexMatch: &matcher.RegexMatcher{
-						EngineType: &matcher.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-						},
 						Regex: `(?i)example\..*`,
 					},
 				},
@@ -141,9 +135,6 @@ func TestHostMatcherWithRegex(t *testing.T) {
 				Name: ":authority",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
 					SafeRegexMatch: &matcher.RegexMatcher{
-						EngineType: &matcher.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-						},
 						Regex: `(?i)example\.com`,
 					},
 				},
@@ -299,9 +290,6 @@ func TestPathMatcher(t *testing.T) {
 						MatchPattern: &matcher.StringMatcher_SafeRegex{
 							SafeRegex: &matcher.RegexMatcher{
 								Regex: ".+",
-								EngineType: &matcher.RegexMatcher_GoogleRe2{
-									GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-								},
 							},
 						},
 					},

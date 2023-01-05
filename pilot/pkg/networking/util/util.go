@@ -117,9 +117,6 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
-// RegexEngine is the default google RE2 regex engine.
-var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
-
 func ListContains(haystack []string, needle string) bool {
 	for _, n := range haystack {
 		if needle == n {
@@ -623,8 +620,7 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 		return &matcher.StringMatcher{
 			MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: RegexEngine,
-					Regex:      m.Regex,
+					Regex: m.Regex,
 				},
 			},
 		}

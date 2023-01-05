@@ -59,6 +59,5 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[0]-from[1]-ns[0]/.*
   shadowRulesStatPrefix: istio_dry_run_allow_
