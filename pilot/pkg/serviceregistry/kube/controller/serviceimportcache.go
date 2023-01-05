@@ -74,7 +74,8 @@ type serviceImportCache interface {
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
 		sic := &serviceImportCacheImpl{
-			Controller: c,
+			Controller:      c,
+			serviceImportCh: make(chan struct{}),
 		}
 		c.AppendCrdHandlers(sic.OnCRDEvent)
 		return sic

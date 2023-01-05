@@ -214,7 +214,7 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 	}
 	// Register callbacks for events.
 	ec.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
-	ec.filteredInformer.Run(stop)
+	go ec.filteredInformer.Run(stop)
 	ec.started.Store(true)
 }
 
