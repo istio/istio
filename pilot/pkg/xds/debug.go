@@ -35,7 +35,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -688,17 +687,8 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if ts := s.getResourceTypes(req); len(ts) != 0 {
-		if con.proxy.IsZTunnel() {
-			istiolog.Warnf("proxy %v is not envoy based", proxyID)
-		}
 		dump := s.getConfigDumpByResourceType(con, ts)
 		writeJSON(w, dump, req)
-		return
-	}
-
-	if con.proxy.IsZTunnel() {
-		workloads := s.debugWorkloads(con.proxy.LastPushContext.AmbientIndex)
-		writeJSON(w, workloads, req)
 		return
 	}
 
@@ -1121,13 +1111,9 @@ type workloadSummary struct {
 }
 
 func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
-	res := s.debugWorkloads(s.globalPushContext().AmbientIndex)
-	writeJSON(w, res, req)
-}
-
-func (s *DiscoveryServer) debugWorkloads(index ambient.Indexes) ambientz {
+	d := s.globalPushContext().AmbientIndex
 	res := ambientz{}
-	for _, wl := range index.Waypoints.All() {
+	for _, wl := range d.Waypoints.All() {
 		res.Waypoints = append(res.Waypoints, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
@@ -1136,7 +1122,7 @@ func (s *DiscoveryServer) debugWorkloads(index ambient.Indexes) ambientz {
 			Node:      wl.NodeName,
 		})
 	}
-	for _, wl := range index.ZTunnels.All() {
+	for _, wl := range d.ZTunnels.All() {
 		res.ZTunnels = append(res.ZTunnels, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
@@ -1145,7 +1131,7 @@ func (s *DiscoveryServer) debugWorkloads(index ambient.Indexes) ambientz {
 			Node:      wl.NodeName,
 		})
 	}
-	for _, wl := range index.Workloads.All() {
+	for _, wl := range d.Workloads.All() {
 		res.Workloads = append(res.Workloads, workloadSummary{
 			Name:      wl.Name,
 			Namespace: wl.Namespace,
@@ -1154,7 +1140,8 @@ func (s *DiscoveryServer) debugWorkloads(index ambient.Indexes) ambientz {
 			Node:      wl.NodeName,
 		})
 	}
-	return res
+
+	writeJSON(w, res, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
