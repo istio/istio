@@ -642,6 +642,18 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if con.proxy.IsZTunnel() {
+		resources := s.getConfigDumpByResourceType(con, nil, []string{v3.WorkloadType})
+		configDump := &admin.ConfigDump{}
+		for _, resource := range resources {
+			for _, rr := range resource {
+				configDump.Configs = append(configDump.Configs, rr.Resource)
+			}
+		}
+		writeJSON(w, configDump, req)
+		return
+	}
+ 
 	includeEds := req.URL.Query().Get("include_eds") == "true"
 	dump, err := s.configDump(con, includeEds)
 	if err != nil {
@@ -817,19 +829,19 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		return nil, err
 	}
 
-	extentionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
-	for _, ext := range dump[v3.ExtensionConfigurationType] {
-		extentionsConfig = append(extentionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
-			VersionInfo: version,
-			EcdsFilter:  ext.Resource,
-		})
-	}
-	extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
-		EcdsFilters: extentionsConfig,
-	})
-	if err != nil {
-		return nil, err
-	}
+	// extentionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
+	// for _, ext := range dump[v3.ExtensionConfigurationType] {
+	// 	extentionsConfig = append(extentionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
+	// 		VersionInfo: version,
+	// 		EcdsFilter:  ext.Resource,
+	// 	})
+	// }
+	// extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
+	// 	EcdsFilters: extentionsConfig,
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	var endpointsAny *anypb.Any
 	// EDS is disabled by default for compatibility with Envoy config_dump interface
@@ -865,7 +877,7 @@ func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.
 		scopedRoutesAny,
 		routesAny,
 		secretsAny,
-		extentionsAny,
+		// extentionsAny,
 	)
 	configDump := &admin.ConfigDump{
 		Configs: configs,
