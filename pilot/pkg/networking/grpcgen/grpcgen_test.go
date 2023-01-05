@@ -42,7 +42,6 @@ import (
 	xdsgrpc "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 	"google.golang.org/protobuf/proto"
 
-
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
