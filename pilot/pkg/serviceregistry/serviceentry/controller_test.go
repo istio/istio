@@ -1664,7 +1664,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.37.178",
+					AutoAllocatedIPv4Address: "240.240.62.90",
 					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
 				},
 			},
