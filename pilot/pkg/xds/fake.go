@@ -387,7 +387,7 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	return NewDeltaAdsTest(f.t, conn)
 }
 
-func ApiWatches() []string {
+func APIWatches() []string {
 	watches := []string{collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()}
 	for _, sch := range collections.Pilot.All() {
 		watches = append(watches, sch.Resource().GroupVersionKind().String())

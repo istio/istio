@@ -51,7 +51,7 @@ func TestAPIGen(t *testing.T) {
 		proxy := &model.Proxy{Metadata: &model.NodeMetadata{
 			Generator: "api",
 		}}
-		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.ApiWatches())
+		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.APIWatches())
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 		adscConn.Store = configController
