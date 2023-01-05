@@ -308,7 +308,7 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.
 	ic.registerHandlers(ic.filteredInformer, "ServiceImports", ic.onServiceImportEvent, nil)
-	ic.filteredInformer.Run(stop)
+	go ic.filteredInformer.Run(stop)
 	ic.started.Store(true)
 }
 
