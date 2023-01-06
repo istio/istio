@@ -15,8 +15,6 @@
 package xds
 
 import (
-	"fmt"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -123,7 +121,8 @@ func (e WorkloadGenerator) GenerateDeltas(
 }
 
 func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	return nil, model.XdsLogDetails{}, fmt.Errorf("WDS is only available over Delta XDS")
+	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
+	return resources, details, err
 }
 
 type WorkloadRBACGenerator struct {
@@ -171,7 +170,8 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 }
 
 func (e WorkloadRBACGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	return nil, model.XdsLogDetails{}, fmt.Errorf("WRDS is only available over Delta XDS")
+	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
+	return resources, details, err
 }
 
 var (

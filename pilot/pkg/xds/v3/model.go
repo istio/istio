@@ -121,6 +121,8 @@ func GetResourceType(shortType string) string {
 		return ProxyConfigType
 	case "ECDS":
 		return ExtensionConfigurationType
+	case "WDS":
+		return WorkloadType
 	default:
 		return shortType
 	}
