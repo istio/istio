@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 42681
+releaseNotes:
+  - |
+    **Deleted** `VALIDATION_WEBHOOK_CONFIG_NAME` environment variable and **Added** `PILOT_ENABLE_VALIDATING_WEBHOOK_CONFIG_PATCH` because it
+    is inappropriate definition.
+upgradeNotes:
+  - title: Attention when you have changed the default value of `VALIDATION_WEBHOOK_CONFIG_NAME`.
+    content: |
+      If you have currently changed the default value of `VALIDATION_WEBHOOK_CONFIG_NAME`,
+      then please attention that you need to delete the `VALIDATION_WEBHOOK_CONFIG_NAME` configuration 
+      and set the `PILOT_ENABLE_VALIDATING_WEBHOOK_CONFIG_PATCH` configuration correctly. See #42681 for more information.
