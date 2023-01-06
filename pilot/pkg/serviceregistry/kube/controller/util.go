@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -212,21 +211,6 @@ func podKeyByProxy(proxy *model.Proxy) string {
 	}
 
 	return ""
-}
-
-func extractService(obj any) (*v1.Service, error) {
-	cm, ok := obj.(*v1.Service)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return nil, fmt.Errorf("couldn't get object from tombstone %#v", obj)
-		}
-		cm, ok = tombstone.Obj.(*v1.Service)
-		if !ok {
-			return nil, fmt.Errorf("tombstone contained object that is not a Service %#v", obj)
-		}
-	}
-	return cm, nil
 }
 
 func namespacedNameForService(svc *model.Service) types.NamespacedName {
