@@ -473,7 +473,11 @@ func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return jsonpb.Unmarshal(bytes.NewReader(data), pc)
+	// TODO(ramaraochavali): Remove this in 1.18. This is temporarily enabled to allow old
+	// proxies connect to Istiod with removed "ParentShutdownDuration".
+	return (&jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+	}).Unmarshal(bytes.NewReader(data), pc)
 }
 
 // Node is a typed version of Envoy node with metadata.
