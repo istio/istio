@@ -186,6 +186,12 @@ func (s Set[T]) Contains(item T) bool {
 	return ok
 }
 
+// ContainsAll is alias of SupersetOf
+// returns true if s contains all elements of s2
+func (s Set[T]) ContainsAll(s2 Set[T]) bool {
+	return s.SupersetOf(s2)
+}
+
 // Equals checks whether the given set is equal to the current set.
 func (s Set[T]) Equals(other Set[T]) bool {
 	if s.Len() != other.Len() {
