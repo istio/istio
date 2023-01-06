@@ -123,7 +123,7 @@ func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[ty
 	return nil
 }
 
-func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
+func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
 	return nil
 }
 

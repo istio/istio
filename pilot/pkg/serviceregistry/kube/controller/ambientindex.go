@@ -159,7 +159,7 @@ func (a *AmbientIndex) All() []*model.WorkloadInfo {
 	return res
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
 	cfgs, err := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
 	if err != nil {
 		log.Warnf("failed to list policies")
@@ -169,7 +169,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	if len(requested) > 0 {
 		l = len(requested)
 	}
-	res := make([]*workloadapi.RBAC, 0, l)
+	res := make([]*workloadapi.Authorization, 0, l)
 	for _, cfg := range cfgs {
 		k := model.ConfigKey{
 			Kind:      kind.AuthorizationPolicy,
@@ -295,26 +295,26 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string) []*v1.Pod
 	return pods
 }
 
-func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.RBAC {
+func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.Authorization {
 	pol := obj.Spec.(*v1beta1.AuthorizationPolicy)
 
-	scope := workloadapi.RBACScope_WORKLOAD_SELECTOR
+	scope := workloadapi.Scope_WORKLOAD_SELECTOR
 	if pol.Selector == nil {
-		scope = workloadapi.RBACScope_NAMESPACE
+		scope = workloadapi.Scope_NAMESPACE
 		// TODO: TDA
 		if rootns == obj.Namespace {
-			scope = workloadapi.RBACScope_GLOBAL // TODO: global workload?
+			scope = workloadapi.Scope_GLOBAL // TODO: global workload?
 		}
 	}
-	action := workloadapi.RBACPolicyAction_ALLOW
+	action := workloadapi.Action_ALLOW
 	switch pol.Action {
 	case v1beta1.AuthorizationPolicy_ALLOW:
 	case v1beta1.AuthorizationPolicy_DENY:
-		action = workloadapi.RBACPolicyAction_DENY
+		action = workloadapi.Action_DENY
 	default:
 		return nil
 	}
-	opol := &workloadapi.RBAC{
+	opol := &workloadapi.Authorization{
 		Name:      obj.Name,
 		Namespace: obj.Namespace,
 		Scope:     scope,
@@ -325,7 +325,7 @@ func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.R
 	for _, rule := range pol.Rules {
 		rules := handleRule(action, rule)
 		if rules != nil {
-			rg := &workloadapi.RBACPolicyRulesGroup{
+			rg := &workloadapi.Group{
 				Rules: rules,
 			}
 			opol.Groups = append(opol.Groups, rg)
@@ -344,16 +344,16 @@ func anyNonEmpty[T any](arr ...[]T) bool {
 	return false
 }
 
-func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*workloadapi.RBACPolicyRules {
-	toMatches := []*workloadapi.RBACPolicyRuleMatch{}
+func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Rules {
+	toMatches := []*workloadapi.Match{}
 	for _, to := range rule.To {
 		op := to.Operation
-		if action == workloadapi.RBACPolicyAction_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
+		if action == workloadapi.Action_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		match := &workloadapi.RBACPolicyRuleMatch{
+		match := &workloadapi.Match{
 			DestinationPorts:    stringToPort(op.Ports),
 			NotDestinationPorts: stringToPort(op.NotPorts),
 		}
@@ -361,15 +361,15 @@ func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*work
 		toMatches = append(toMatches, match)
 		//}
 	}
-	fromMatches := []*workloadapi.RBACPolicyRuleMatch{}
+	fromMatches := []*workloadapi.Match{}
 	for _, from := range rule.From {
 		op := from.Source
-		if action == workloadapi.RBACPolicyAction_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
+		if action == workloadapi.Action_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		match := &workloadapi.RBACPolicyRuleMatch{
+		match := &workloadapi.Match{
 			SourceIps:     stringToIP(op.IpBlocks),
 			NotSourceIps:  stringToIP(op.NotIpBlocks),
 			Namespaces:    stringToMatch(op.Namespaces),
@@ -382,21 +382,21 @@ func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*work
 		//}
 	}
 
-	rules := []*workloadapi.RBACPolicyRules{}
+	rules := []*workloadapi.Rules{}
 	if len(toMatches) > 0 {
-		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: toMatches})
+		rules = append(rules, &workloadapi.Rules{Matches: toMatches})
 	}
 	if len(fromMatches) > 0 {
-		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: fromMatches})
+		rules = append(rules, &workloadapi.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
 		l7 := l4WhenAttributes.Contains(when.Key)
-		if action == workloadapi.RBACPolicyAction_ALLOW && !l7 {
+		if action == workloadapi.Action_ALLOW && !l7 {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		positiveMatch := &workloadapi.RBACPolicyRuleMatch{
+		positiveMatch := &workloadapi.Match{
 			Namespaces:       whenMatch("source.namespace", when, false, stringToMatch),
 			Principals:       whenMatch("source.principal", when, false, stringToMatch),
 			SourceIps:        whenMatch("source.ip", when, false, stringToIP),
@@ -409,7 +409,7 @@ func handleRule(action workloadapi.RBACPolicyAction, rule *v1beta1.Rule) []*work
 			NotDestinationPorts: whenMatch("destination.port", when, true, stringToPort),
 			NotDestinationIps:   whenMatch("destination.ip", when, true, stringToIP),
 		}
-		rules = append(rules, &workloadapi.RBACPolicyRules{Matches: []*workloadapi.RBACPolicyRuleMatch{positiveMatch}})
+		rules = append(rules, &workloadapi.Rules{Matches: []*workloadapi.Match{positiveMatch}})
 	}
 	return rules
 }

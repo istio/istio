@@ -93,7 +93,7 @@ func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets
 	return nil
 }
 
-func (sd *ServiceDiscovery) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
+func (sd *ServiceDiscovery) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
 	return nil
 }
 

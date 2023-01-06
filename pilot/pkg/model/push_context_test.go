@@ -2708,7 +2708,7 @@ func (l *localServiceDiscovery) AdditionalPodSubscriptions(_ *Proxy, _, _ sets.S
 	return nil
 }
 
-func (l *localServiceDiscovery) Policies(requested sets.Set[ConfigKey]) []*workloadapi.RBAC {
+func (l *localServiceDiscovery) Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization {
 	return nil
 }
 

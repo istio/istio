@@ -14,41 +14,41 @@
 
 syntax = "proto3";
 
-package istio.workload;
+package istio.security;
 option go_package="pkg/workloadapi";
 
 import "google/protobuf/empty.proto";
 
-message RBAC {
+message Authorization {
   string name = 1;
   string namespace = 2;
 
   // Determine the scope of this RBAC policy.
   // If set to NAMESPACE, the 'namespace' field value will be used.
-  RBACScope scope = 3;
+  Scope scope = 3;
   // The action to take if the request is matched with the rules.
   // Default is ALLOW if not specified.
-  RBACPolicyAction action = 4;
+  Action action = 4;
   // Set of RBAC policy groups each containing its rules.
   // If at least one of the groups is matched the policy action will
   // take place.
   // Groups are OR-ed.
-  repeated RBACPolicyRulesGroup groups = 5;
+  repeated Group groups = 5;
 }
 
-message RBACPolicyRulesGroup {
+message Group {
   // Rules are AND-ed
   // This is a generic form of the authz policy's to, from and when
-  repeated RBACPolicyRules rules = 1;
+  repeated Rules rules = 1;
 }
 
-message RBACPolicyRules {
+message Rules {
   // The logical behavior between the matches (if there are more than one)
 //  MatchBehavior match_behavior = 1;
-  repeated RBACPolicyRuleMatch matches = 2;
+  repeated Match matches = 2;
 }
 
-message RBACPolicyRuleMatch {
+message Match {
   // Values of specific type are ORed
   // If multiple types are set, they are ANDed
 
@@ -87,7 +87,7 @@ message StringMatch {
   }
 }
 
-enum RBACScope {
+enum Scope {
   // ALL means that the authorization policy will be applied to all workloads
   // in the mesh (any namespace).
   GLOBAL = 0;
@@ -99,14 +99,9 @@ enum RBACScope {
   WORKLOAD_SELECTOR = 2;
 }
 
-enum RBACPolicyAction {
+enum Action {
   // Allow the request if it matches with the rules.
   ALLOW = 0;
   // Deny the request if it matches with the rules.
   DENY = 1;
 }
-
-//enum MatchBehavior {
-//  AT_LEAST_ONE = 0;
-//  ALL = 1;
-//}

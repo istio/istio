@@ -62,8 +62,8 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	return res
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.RBAC {
-	res := []*workloadapi.RBAC{}
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
+	res := []*workloadapi.Authorization{}
 	for _, p := range c.registries {
 		res = append(res, p.Policies(requested)...)
 	}
