@@ -57,7 +57,7 @@ func TestJwtFilter(t *testing.T) {
 	cases := []struct {
 		name             string
 		in               []*config.Config
-		enableRemoteJwks bool
+		enableRemoteJwks string
 		expected         *hcm.HttpFilter
 	}{
 		{
@@ -155,7 +155,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: true,
+			enableRemoteJwks: "true",
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -228,7 +228,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: true,
+			enableRemoteJwks: "true",
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
