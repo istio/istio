@@ -448,8 +448,9 @@ var (
 	InjectionWebhookConfigName = env.Register("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
 
-	ValidationWebhookConfigName = env.Register("VALIDATION_WEBHOOK_CONFIG_NAME", "istio-istio-system",
-		"Name of the validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.").Get()
+	EnableValidatingWebhookConfigPatch = env.Register("PILOT_ENABLE_VALIDATING_WEBHOOK_CONFIG_PATCH", true,
+		"If enabled, the controller will automatically patch validatingwebhookconfiguration when the ca certificate changes. "+
+			"Only works when has k8s configStore or has kubeRegistry").Get()
 
 	SpiffeBundleEndpoints = env.Register("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+

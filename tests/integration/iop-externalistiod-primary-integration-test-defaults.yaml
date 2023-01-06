@@ -41,8 +41,8 @@ spec:
         env:
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: "istio-sidecar-injector-istio-system"
-        - name: VALIDATION_WEBHOOK_CONFIG_NAME
-          value: "istio-istio-system"
+        - name: PILOT_ENABLE_VALIDATING_WEBHOOK_CONFIG_PATCH
+          value: "true"
         - name: EXTERNAL_ISTIOD
           value: "true"
         - name: SHARED_MESH_CONFIG
