@@ -330,7 +330,7 @@ func TestProxyK8sHostnameLabel(t *testing.T) {
 				Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
 			}
 			got := controller.GetProxyWorkloadLabels(proxy)
-			if !reflect.DeepEqual(pod.Spec.NodeName, got[labelutil.LabelHostname]) {
+			if pod.Spec.NodeName != got[labelutil.LabelHostname] {
 				t.Fatalf("expected node name %v, got %v", pod.Spec.NodeName, got[labelutil.LabelHostname])
 			}
 		})

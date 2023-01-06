@@ -1162,7 +1162,8 @@ func (node *Proxy) GetNodeName() string {
 		return node.Metadata.NodeName
 	}
 	// fall back to get the node name from labels
-	// this can happen for an "old" proxy which has no `Metadata.NodeName` set
+	// this can happen for an "old" proxy with no `Metadata.NodeName` set
+	// TODO: remove this when 1.16 is EOL?
 	return node.Labels[label.LabelHostname]
 }
 

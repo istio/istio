@@ -98,13 +98,13 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 			ClusterID: c.Cluster(),
 		},
 		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Labels),
-		nodeName: proxy.Metadata.NodeName,
+		nodeName: proxy.GetNodeName(),
 	}
 	var networkID network.ID
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, proxy.Metadata.NodeName, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 
