@@ -1397,7 +1397,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
+			instances = append(instances, env.InstancesByPort(s, port.Port)...)
 			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 

@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	kubelib "istio.io/istio/pkg/kube"
 	filterinformer "istio.io/istio/pkg/kube/informer"
 )
@@ -308,7 +307,7 @@ func (esc *endpointSliceController) getServiceNamespacedName(es any) types.Names
 	}
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, lbls labels.Instance) []*model.ServiceInstance {
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
 	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
 	if err != nil {
@@ -336,16 +335,8 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 		for _, e := range slice.Endpoints() {
 			for _, a := range e.Addresses {
-				var podLabels labels.Instance
 				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
 				if pod == nil && expectedPod {
-					continue
-				}
-				if pod != nil {
-					podLabels = pod.Labels
-				}
-				// check that one of the input labels is a subset of the labels
-				if !lbls.SubsetOf(podLabels) {
 					continue
 				}
 

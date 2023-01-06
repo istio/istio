@@ -73,7 +73,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	}
 
 	// Ensure that getting by port returns no ServiceInstances.
-	instances := controller.InstancesByPort(svc, svc.Ports[0].Port, nil)
+	instances := controller.InstancesByPort(svc, svc.Ports[0].Port)
 	if len(instances) != 0 {
 		t.Fatalf("should be 0 instances: len(instances) = %v", len(instances))
 	}
