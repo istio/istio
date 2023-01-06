@@ -57,7 +57,7 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
-	ambientType            string
+	nodeType               model.NodeType
 	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
@@ -91,7 +91,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
-		ambientType:     proxy.Metadata.AmbientType,
+		nodeType:        proxy.Type,
 
 		push:       push,
 		proxy:      proxy,
@@ -119,6 +119,8 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
+	// nolint: gosec
+	// Not security sensitive code
 	hash := md5.New()
 	hash.Write([]byte(b.clusterName))
 	hash.Write(Separator)
@@ -126,7 +128,7 @@ func (b EndpointBuilder) Key() string {
 	hash.Write(Separator)
 	hash.Write([]byte(b.clusterID))
 	hash.Write(Separator)
-	hash.Write([]byte(b.ambientType))
+	hash.Write([]byte(b.nodeType))
 	hash.Write(Separator)
 	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
 	hash.Write(Separator)
@@ -435,7 +437,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				// TODO: only ready
 				// TODO: load balance
 				tunnelAddress = workloads[0].PodIP
-				tunnelPort = 15006
 			}
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{

@@ -248,7 +248,7 @@ spec:
             path: /healthz/ready
         args:
         - proxy
-        - sidecar
+        - ztunnel
         env:
         - name: CLUSTER_ID
           value: {{ .Values.global.multiCluster.clusterName | default "Kubernetes" }}

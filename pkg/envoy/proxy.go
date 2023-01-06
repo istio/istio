@@ -130,6 +130,7 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 		// than the flush interval.
 		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
+		"--allow-unknown-static-fields",
 	}
 	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,

@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -2704,6 +2705,10 @@ func (l *localServiceDiscovery) PodInformation(addresses sets.Set[types.Namespac
 }
 
 func (l *localServiceDiscovery) AdditionalPodSubscriptions(_ *Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
+}
+
+func (l *localServiceDiscovery) Policies(requested sets.Set[ConfigKey]) []*workloadapi.RBAC {
 	return nil
 }
 

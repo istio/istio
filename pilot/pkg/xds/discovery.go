@@ -579,6 +579,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
 	s.Generators[v3.WorkloadType] = &WorkloadGenerator{s: s}
+	s.Generators[v3.WorkloadRBACType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
@@ -591,8 +592,8 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	waypointGen := &ambientgen.WaypointGenerator{
 		ConfigGenerator: s.ConfigGenerator,
 	}
-	s.Generators["ambient-waypoint/"+v3.ListenerType] = waypointGen
-	s.Generators["ambient-waypoint/"+v3.ClusterType] = waypointGen
+	s.Generators["waypoint/"+v3.ListenerType] = waypointGen
+	s.Generators["waypoint/"+v3.ClusterType] = waypointGen
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen

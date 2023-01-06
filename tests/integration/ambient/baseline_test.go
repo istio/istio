@@ -105,15 +105,11 @@ var (
 	}
 )
 
-func supportsL7(opt echo.CallOptions, instances ...echo.Instance) bool {
-	hasWaypoint := false
-	hasSidecar := false
-	for _, i := range instances {
-		hasWaypoint = hasWaypoint || i.Config().HasWaypointProxy()
-		hasSidecar = hasSidecar || i.Config().HasSidecar()
-	}
+func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
+	s := src.Config().HasSidecar()
+	d := dst.Config().HasSidecar() || dst.Config().HasWaypointProxy()
 	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
-	return (hasWaypoint || hasSidecar) && isL7Scheme
+	return (s || d) && isL7Scheme
 }
 
 func TestServices(t *testing.T) {
@@ -220,7 +216,7 @@ func TestServerSideLB(t *testing.T) {
 			return nil
 		}
 
-		shouldBalance := dst.Config().HasWaypointProxy() || src.Config().HasWaypointProxy()
+		shouldBalance := dst.Config().HasWaypointProxy()
 		// Istio client will not reuse connections for HTTP/1.1
 		opt.HTTP.HTTP2 = true
 		// Make sure we make multiple calls
@@ -237,11 +233,11 @@ func TestServerSideLB(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need at least one waypoint proxy and HTTP
+		// Need waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if !dst.Config().HasWaypointProxy() && !src.Config().HasWaypointProxy() {
+		if !dst.Config().HasWaypointProxy() {
 			return
 		}
 		if src.Config().IsUncaptured() {
@@ -325,7 +321,7 @@ func TestTrafficSplit(t *testing.T) {
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if !dst.Config().HasWaypointProxy() && !src.Config().HasWaypointProxy() {
+		if !dst.Config().HasWaypointProxy() {
 			return
 		}
 		if src.Config().IsUncaptured() {
@@ -414,7 +410,6 @@ spec:
 
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		skipOnNativeZtunnel(t, "RBAC not implemented yet")
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -519,7 +514,6 @@ func TestAuthorizationGateway(t *testing.T) {
 		}
 	}
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		skipOnNativeZtunnel(t, "RBAC not implemented yet")
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -643,7 +637,6 @@ spec:
 
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		skipOnNativeZtunnel(t, "RBAC not implemented yet")
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -815,7 +808,7 @@ func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
-			skipOnNativeZtunnel(t, "RBAC not implemented yet")
+			skipOnNativeZtunnel(t, "PeerAuthentication not implemented")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
@@ -1243,7 +1236,8 @@ spec:
 
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
-	check.ErrorContains("EOF"),                                // TCP
+	check.ErrorContains("EOF"),                                // TCP envoy
+	check.ErrorContains("read: connection reset by peer"),     // TCP ztunnel
 	check.NoErrorAndStatus(http.StatusForbidden),              // HTTP
 	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
 )
@@ -1302,6 +1296,7 @@ func skipOnNativeZtunnel(tc framework.TestContext, reason string) {
 }
 
 func TestL7Telemetry(t *testing.T) {
+	t.Skip("pending changes to Envoy")
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.ambient").
 		Run(func(tc framework.TestContext) {

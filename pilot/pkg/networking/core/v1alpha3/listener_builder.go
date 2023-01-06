@@ -97,9 +97,7 @@ func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 	dummy := &model.Proxy{
 		ConfigNamespace: wl.Namespace,
 		Labels:          wl.Labels,
-		Metadata: &model.NodeMetadata{
-			AmbientType: lb.node.Metadata.AmbientType,
-		},
+		Type:            lb.node.Type,
 	}
 	return &ListenerBuilder{
 		node:                    lb.node,
@@ -119,7 +117,7 @@ func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
-	if lb.node.Metadata.AmbientType == ambient.TypeWaypoint {
+	if lb.node.IsWaypointProxy() {
 		lb.inboundListeners = lb.buildWaypointInbound()
 	} else {
 		lb.inboundListeners = lb.buildInboundListeners()
@@ -132,7 +130,9 @@ func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
-	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	if !lb.node.IsAmbient() {
+		lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
+	}
 	return lb
 }
 
@@ -213,40 +213,39 @@ func (lb *ListenerBuilder) patchListeners() {
 }
 
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {
-	if lb.node.Type == model.SidecarProxy {
-		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
-		nHTTPProxy, nVirtual := 0, 0
-		if lb.httpProxyListener != nil {
-			nHTTPProxy = 1
-		}
-		if lb.virtualOutboundListener != nil {
-			nVirtual = 1
-		}
-
-		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual
-
-		listeners := make([]*listener.Listener, 0, nListener)
-		listeners = append(listeners, lb.outboundListeners...)
-		if lb.httpProxyListener != nil {
-			listeners = append(listeners, lb.httpProxyListener)
-		}
-		if lb.virtualOutboundListener != nil {
-			listeners = append(listeners, lb.virtualOutboundListener)
-		}
-		listeners = append(listeners, lb.inboundListeners...)
-
-		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
-			"%d virtual outbound",
-			nListener,
-			lb.node.ID,
-			nOutbound,
-			nHTTPProxy,
-			nVirtual,
-		)
-		return listeners
+	if lb.node.Type == model.Router {
+		return lb.gatewayListeners
+	}
+	nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
+	nHTTPProxy, nVirtual := 0, 0
+	if lb.httpProxyListener != nil {
+		nHTTPProxy = 1
+	}
+	if lb.virtualOutboundListener != nil {
+		nVirtual = 1
 	}
 
-	return lb.gatewayListeners
+	nListener := nInbound + nOutbound + nHTTPProxy + nVirtual
+
+	listeners := make([]*listener.Listener, 0, nListener)
+	listeners = append(listeners, lb.outboundListeners...)
+	if lb.httpProxyListener != nil {
+		listeners = append(listeners, lb.httpProxyListener)
+	}
+	if lb.virtualOutboundListener != nil {
+		listeners = append(listeners, lb.virtualOutboundListener)
+	}
+	listeners = append(listeners, lb.inboundListeners...)
+
+	log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
+		"%d virtual outbound",
+		nListener,
+		lb.node.ID,
+		nOutbound,
+		nHTTPProxy,
+		nVirtual,
+	)
+	return listeners
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {

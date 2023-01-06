@@ -111,7 +111,8 @@ func mcpDialOptions(ctx context.Context, gcpProject string, k8sCreds credentials
 
 	return []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs: systemRoots,
+			RootCAs:    systemRoots,
+			MinVersion: tls.VersionTLS12,
 		})),
 		grpc.WithPerRPCCredentials(&meshAuthCredentials{
 			k8sCreds: k8sCreds,

@@ -46,12 +46,16 @@ func (e WorkloadGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	updatedAddresses := model.ConfigNamespacedNameOfKind(req.ConfigsUpdated, kind.Address)
+	isReq := req.IsRequest()
+	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
+		// Nothing changed..
+		return nil, nil, model.XdsLogDetails{}, false, nil
+	}
 	subs := sets.New(w.ResourceNames...)
 	typedSubs := sets.NewWithLength[types.NamespacedName](subs.Len())
 	for s := range subs {
 		typedSubs.Insert(types.NamespacedName{Name: s})
 	}
-	isReq := req.IsRequest()
 
 	addresses := sets.New[types.NamespacedName]()
 	for ip := range updatedAddresses {
@@ -64,8 +68,13 @@ func (e WorkloadGenerator) GenerateDeltas(
 	for ip := range req.Delta.Subscribed {
 		addresses.Insert(types.NamespacedName{Name: ip})
 	}
-	additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
-	addresses.Merge(additional)
+	if !w.Wildcard {
+		// We only need this for on-demand. This allows us to subscribe the client to resources they
+		// didn't explicitly request.
+		// For wildcard, they subscribe to everything already.
+		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
+		addresses.Merge(additional)
+	}
 
 	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
 	// The only things that can really trigger a "full" push here is trust domain or network changing, which is extremely rare
@@ -115,3 +124,57 @@ func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource
 	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
 	return resources, details, err
 }
+
+type WorkloadRBACGenerator struct {
+	s *DiscoveryServer
+}
+
+func (e WorkloadRBACGenerator) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	var updatedPolicies sets.Set[model.ConfigKey]
+	if len(req.ConfigsUpdated) != 0 {
+		updatedPolicies = model.ConfigsOfKind(req.ConfigsUpdated, kind.AuthorizationPolicy)
+	}
+	if len(req.ConfigsUpdated) != 0 && len(updatedPolicies) == 0 {
+		// This was a incremental push for a resource we don't watch... skip
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	policies := e.s.Env.ServiceDiscovery.Policies(updatedPolicies)
+
+	resources := make(model.Resources, 0)
+	expected := sets.New[string]()
+	if len(updatedPolicies) > 0 {
+		// Partial update. Removes are ones we request but didn't get
+		for k := range updatedPolicies {
+			expected.Insert(k.Namespace + "/" + k.Name)
+		}
+	} else {
+		// Full update, expect everything
+		expected.InsertAll(w.ResourceNames...)
+	}
+
+	removed := expected
+	for _, p := range policies {
+		n := p.Namespace + "/" + p.Name
+		removed.Delete(n) // We found it, so it isn't a removal
+		resources = append(resources, &discovery.Resource{
+			Name:     n,
+			Resource: protoconv.MessageToAny(p),
+		})
+	}
+
+	return resources, sets.SortedList(removed), model.XdsLogDetails{}, true, nil
+}
+
+func (e WorkloadRBACGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
+	return resources, details, err
+}
+
+var (
+	_ model.XdsResourceGenerator      = &WorkloadRBACGenerator{}
+	_ model.XdsDeltaResourceGenerator = &WorkloadRBACGenerator{}
+)

@@ -900,6 +900,7 @@ func TestHttpsAppProbe(t *testing.T) {
 		serverTLSConfig := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   alpn,
+			MinVersion:   tls.VersionTLS12,
 		}
 		tlsListener := tls.NewListener(listener, serverTLSConfig)
 		h := &handler{lastAlpn: atomic.NewString("")}
@@ -1039,30 +1040,30 @@ func TestGRPCAppProbe(t *testing.T) {
 {
     "/app-health/foo/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": null
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/foo/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "not-serving-svc"
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/bar/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "serving-svc"
-        }, 
+        },
         "timeoutSeconds": 10
-    }, 
+    },
     "/app-health/bar/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "unknown-svc"
-        }, 
+        },
         "timeoutSeconds": 10
     }
 }`, appPort, appPort, appPort, appPort),
@@ -1162,30 +1163,30 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 {
     "/app-health/foo/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": null
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/foo/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "not-serving-svc"
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/bar/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "serving-svc"
-        }, 
+        },
         "timeoutSeconds": 10
-    }, 
+    },
     "/app-health/bar/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "unknown-svc"
-        }, 
+        },
         "timeoutSeconds": 10
     }
 }`, appPort, appPort, appPort, appPort),

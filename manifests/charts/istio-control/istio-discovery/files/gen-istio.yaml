@@ -1358,7 +1358,7 @@ data:
               containers:
               - args:
                 - proxy
-                - sidecar
+                - waypoint
                 - --domain
                 - $(POD_NAMESPACE).svc.cluster.local
                 - --serviceCluster
@@ -1369,10 +1369,6 @@ data:
                 - --concurrency
                 - "2"
                 env:
-                - name: ISTIO_META_GENERATOR
-                  value: "ambient-waypoint"
-                - name: ISTIO_META_AMBIENT_TYPE
-                  value: "waypoint"
                 - name: ISTIO_META_SERVICE_ACCOUNT
                   valueFrom:
                     fieldRef:
@@ -2968,23 +2964,9 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                vm_config:
-                  vm_id: stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
+              {}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -3002,24 +2984,11 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_inbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio",
-                      "disable_host_header_fallback": true
-                    }
-                vm_config:
-                  vm_id: stats_inbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
+              {
+                "disable_host_header_fallback": true
+              }
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
@@ -3037,24 +3006,11 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio",
-                      "disable_host_header_fallback": true
-                    }
-                vm_config:
-                  vm_id: stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
+              {
+                "disable_host_header_fallback": true
+              }
 ---
 # Source: istiod/templates/telemetryv2_1.17.yaml
 # Note: tcp stats filter is wasm enabled only in sidecars.
@@ -3083,23 +3039,9 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_inbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                vm_config:
-                  vm_id: tcp_stats_inbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
+              {}
     - applyTo: NETWORK_FILTER
       match:
         context: SIDECAR_OUTBOUND
@@ -3115,23 +3057,9 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                vm_config:
-                  vm_id: tcp_stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
+              {}
     - applyTo: NETWORK_FILTER
       match:
         context: GATEWAY
@@ -3147,23 +3075,9 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                vm_config:
-                  vm_id: tcp_stats_outbound
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
+              {}
 ---
 # Source: istiod/templates/mutatingwebhook.yaml
 apiVersion: admissionregistration.k8s.io/v1
