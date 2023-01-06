@@ -39,7 +39,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return err
 	}
 
-	if features.EnableValidatingWebhookConfigPatch && s.kubeClient != nil {
+	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("Starting validation controller")
 			go controller.NewValidatingWebhookController(
