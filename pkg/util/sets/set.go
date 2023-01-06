@@ -136,7 +136,18 @@ func (s Set[T]) Intersection(s2 Set[T]) Set[T] {
 // s.SupersetOf(s2) = false
 // s2.SupersetOf(s) = true
 func (s Set[T]) SupersetOf(s2 Set[T]) bool {
-	return s2.Difference(s).IsEmpty()
+	if s2 == nil {
+		return true
+	}
+	if len(s2) > len(s) {
+		return false
+	}
+	for key := range s2 {
+		if !s.Contains(key) {
+			return false
+		}
+	}
+	return true
 }
 
 // UnsortedList returns the slice with contents in random order.
