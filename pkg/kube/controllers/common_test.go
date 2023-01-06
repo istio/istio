@@ -22,9 +22,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -80,4 +82,30 @@ func TestEnqueueForParentHandler(t *testing.T) {
 	if got := written.Load(); got != "" {
 		t.Fatalf("unexpectedly enqueued %v", got)
 	}
+}
+
+func TestExtract(t *testing.T) {
+	obj := &corev1.Pod{}
+	tombstone := cache.DeletedFinalStateUnknown{
+		Obj: obj,
+	}
+	random := time.Time{}
+
+	t.Run("extract typed", func(t *testing.T) {
+		assert.Equal(t, Extract[*corev1.Pod](obj), obj)
+		assert.Equal(t, Extract[*corev1.Pod](random), nil)
+		assert.Equal(t, Extract[*corev1.Pod](tombstone), obj)
+	})
+
+	t.Run("extract object", func(t *testing.T) {
+		assert.Equal(t, Extract[Object](obj), Object(obj))
+		assert.Equal(t, Extract[Object](obj), Object(obj))
+		assert.Equal(t, Extract[Object](random), nil)
+	})
+
+	t.Run("extract mismatch", func(t *testing.T) {
+		assert.Equal(t, Extract[*corev1.Service](random), nil)
+		assert.Equal(t, Extract[*corev1.Service](tombstone), nil)
+		assert.Equal(t, Extract[*corev1.Service](tombstone), nil)
+	})
 }
