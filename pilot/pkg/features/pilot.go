@@ -223,7 +223,7 @@ var (
 
 	EnableRemoteJwks = env.Register(
 		"PILOT_JWT_ENABLE_REMOTE_JWKS",
-		false,
+		"false",
 		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
 			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
 	).Get()
