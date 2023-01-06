@@ -1260,7 +1260,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			return nil, fmt.Errorf("failed to find model service for %v", hostname)
 		}
 
-		for _, modelService := range c.servicesForNamespacedName(config.Name(svc)) {
+		for _, modelService := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
 			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
 
 			tps := make(map[model.Port]*model.Port)
@@ -1320,7 +1320,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 ) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 
-	for _, svc := range c.servicesForNamespacedName(config.Name(service)) {
+	for _, svc := range c.servicesForNamespacedName(config.NamespacedName(service)) {
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)

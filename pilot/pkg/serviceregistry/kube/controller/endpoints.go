@@ -70,7 +70,7 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 
-	for _, svc := range c.servicesForNamespacedName(config.Name(endpoints)) {
+	for _, svc := range c.servicesForNamespacedName(config.NamespacedName(endpoints)) {
 		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
 
@@ -253,7 +253,7 @@ func (e *endpointsController) buildIstioEndpointsWithService(name, namespace str
 
 func (e *endpointsController) getServiceNamespacedName(ep any) types.NamespacedName {
 	endpoint := ep.(*v1.Endpoints)
-	return config.Name(endpoint)
+	return config.NamespacedName(endpoint)
 }
 
 // endpointsEqual returns true if the two endpoints are the same in aspects Pilot cares about

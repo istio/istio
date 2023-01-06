@@ -280,7 +280,7 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 	for _, si := range sis {
 		usi := si.(*unstructured.Unstructured)
 		info := importedService{
-			namespacedName: config.Name(usi),
+			namespacedName: config.NamespacedName(usi),
 		}
 
 		// Lookup the synthetic MCS service.

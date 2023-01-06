@@ -98,7 +98,7 @@ func (q Queue) Add(item any) {
 
 // AddObject takes an Object and adds the types.NamespacedName associated.
 func (q Queue) AddObject(obj Object) {
-	q.queue.Add(config.Name(obj))
+	q.queue.Add(config.NamespacedName(obj))
 }
 
 // Run the queue. This is synchronous, so should typically be called in a goroutine.

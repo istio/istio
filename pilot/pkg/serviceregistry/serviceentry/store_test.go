@@ -75,7 +75,7 @@ func TestServiceInstancesStore(t *testing.T) {
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}}
-	key := config.Name(selector)
+	key := config.NamespacedName(selector)
 	store.updateServiceEntryInstances(key, expectedSeInstances)
 
 	gotSeInstances := store.getServiceEntryInstances(key)
@@ -115,8 +115,8 @@ func TestServiceStore(t *testing.T) {
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 	}
 
-	store.updateServices(config.Name(httpDNSRR), expectedServices)
-	got := store.getServices(config.Name(httpDNSRR))
+	store.updateServices(config.NamespacedName(httpDNSRR), expectedServices)
+	got := store.getServices(config.NamespacedName(httpDNSRR))
 	if !reflect.DeepEqual(got, expectedServices) {
 		t.Errorf("got unexpected services %v", got)
 	}
@@ -129,7 +129,7 @@ func TestServiceStore(t *testing.T) {
 		t.Errorf("expected allocate needed")
 	}
 	store.allocateNeeded = false
-	store.deleteServices(config.Name(httpDNSRR))
+	store.deleteServices(config.NamespacedName(httpDNSRR))
 	got = store.getAllServices()
 	if got != nil {
 		t.Errorf("got unexpected services %v", got)

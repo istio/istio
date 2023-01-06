@@ -138,7 +138,7 @@ func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Even
 }
 
 func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
-	for _, svc := range ec.servicesForNamespacedName(config.Name(se)) {
+	for _, svc := range ec.servicesForNamespacedName(config.NamespacedName(se)) {
 		// Re-build the endpoints for this service with a new discoverability policy.
 		// Also update any internal caching.
 		endpoints := ec.buildEndpointsForService(svc, true)
@@ -178,7 +178,7 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	for _, export := range exports {
 		uExport := export.(*unstructured.Unstructured)
 		es := exportedService{
-			namespacedName:  config.Name(uExport),
+			namespacedName:  config.NamespacedName(uExport),
 			discoverability: make(map[host.Name]string),
 		}
 

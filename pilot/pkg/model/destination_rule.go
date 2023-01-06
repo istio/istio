@@ -74,7 +74,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			// This can happen when there are more than one destination rule of same host in one namespace.
 			copied := mdr.rule.DeepCopy()
 			mdr.rule = &copied
-			mdr.from = append(mdr.from, config.Name(destRuleConfig))
+			mdr.from = append(mdr.from, config.NamespacedName(destRuleConfig))
 			mergedRule := copied.Spec.(*networking.DestinationRule)
 
 			existingSubset := map[string]struct{}{}
@@ -160,7 +160,7 @@ func (ps *PushContext) inheritDestinationRule(parent, child *ConsolidatedDestRul
 func ConvertConsolidatedDestRule(cfg *config.Config) *ConsolidatedDestRule {
 	return &ConsolidatedDestRule{
 		rule: cfg,
-		from: []types.NamespacedName{config.Name(cfg)},
+		from: []types.NamespacedName{config.NamespacedName(cfg)},
 	}
 }
 

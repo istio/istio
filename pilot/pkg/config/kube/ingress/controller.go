@@ -216,7 +216,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, err
 	if err != nil {
 		return false, err
 	}
-	item := config.Name(ing)
+	item := config.NamespacedName(ing)
 	if shouldProcess {
 		// record processed ingress
 		c.mutex.Lock()

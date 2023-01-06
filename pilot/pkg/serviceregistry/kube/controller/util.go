@@ -244,7 +244,7 @@ func serviceClusterSetLocalHostname(nn types.NamespacedName) host.Name {
 
 // serviceClusterSetLocalHostnameForKR calls serviceClusterSetLocalHostname with the name and namespace of the given kubernetes resource.
 func serviceClusterSetLocalHostnameForKR(obj metav1.Object) host.Name {
-	return serviceClusterSetLocalHostname(config.Name(obj))
+	return serviceClusterSetLocalHostname(config.NamespacedName(obj))
 }
 
 func labelRequirement(key string, op selection.Operator, vals []string, opts ...field.PathOption) *klabels.Requirement {

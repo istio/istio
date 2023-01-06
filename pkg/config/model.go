@@ -404,7 +404,7 @@ type Namer interface {
 	GetNamespace() string
 }
 
-func Name(n Namer) kubetypes.NamespacedName {
+func NamespacedName(n Namer) kubetypes.NamespacedName {
 	return kubetypes.NamespacedName{
 		Namespace: n.GetNamespace(),
 		Name:      n.GetName(),

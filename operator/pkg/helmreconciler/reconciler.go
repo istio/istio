@@ -302,7 +302,7 @@ func (h *HelmReconciler) Delete() error {
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
 	isop := &istioV1Alpha1.IstioOperator{}
-	if err := h.getClient().Get(context.TODO(), config.Name(h.iop), isop); err != nil {
+	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), isop); err != nil {
 		if runtime.IsNotRegisteredError(err) {
 			// CRD not yet installed in cluster, nothing to update.
 			return nil
@@ -326,7 +326,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 // SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
 	iop := &istioV1Alpha1.IstioOperator{}
-	if err := h.getClient().Get(context.TODO(), config.Name(h.iop), iop); err != nil {
+	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), iop); err != nil {
 		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
 	}
 	iop.Status = status
