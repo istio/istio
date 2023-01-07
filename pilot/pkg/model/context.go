@@ -473,7 +473,9 @@ func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return jsonpb.Unmarshal(bytes.NewReader(data), pc)
+	return (&jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+	}).Unmarshal(bytes.NewReader(data), pc)
 }
 
 // Node is a typed version of Envoy node with metadata.
