@@ -2352,10 +2352,20 @@ func instanceIPTests(t TrafficContext) {
 	t.SetDefaultTargetMatchers(match.NotProxylessGRPC)
 	t.SetDefaultSourceMatchers(match.NotProxylessGRPC)
 
-	ipStr, _ := t.Istio.Ingresses().HTTPAddress()
-	ipAddr, _ := netip.ParseAddr(ipStr)
+	isIPv6Only := false
+	ingresses, _ := t.Istio.Ingresses()
+	for _, ingress := range ingresses {
+		ipStr := ingress.HTTPAddress()
+		ipAddr, _ := netip.ParseAddr(ipStr)
+		if ipAddr.Is6() {
+			isIPv6Only = true
+		} else {
+			isIPv6Only = false
+		}
+	}
+
 	var locahostAddr string
-	if ipAddr.Is6() {
+	if isIPv6Only {
 		locahostAddr = "[::1]"
 	} else {
 		locahostAddr = "127.0.0.1"
