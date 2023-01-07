@@ -2402,7 +2402,7 @@ func instanceIPTests(t TrafficContext) {
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
-			endpoint: "localhost",
+			endpoint: "[::1]",
 			port:     "http-localhost",
 			code:     http.StatusOK,
 		},
