@@ -15,15 +15,14 @@
 package controller
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -143,17 +142,9 @@ func (pc *PodCache) labelFilter(old, cur interface{}) bool {
 
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(curr any, ev model.Event) error {
-	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
-	pod, ok := curr.(*v1.Pod)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %+v", curr)
-		}
-		pod, ok = tombstone.Obj.(*v1.Pod)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
-		}
+	pod := controllers.Extract[*v1.Pod](curr)
+	if pod == nil {
+		return nil
 	}
 
 	ip := pod.Status.PodIP

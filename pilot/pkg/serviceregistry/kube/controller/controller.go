@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
@@ -507,9 +508,8 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(curr any, event model.Event) error {
-	svc, err := extractService(curr)
-	if err != nil {
-		log.Error(err)
+	svc := controllers.Extract[*v1.Service](curr)
+	if svc == nil {
 		return nil
 	}
 
@@ -610,18 +610,9 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 }
 
 func (c *Controller) onNodeEvent(obj any, event model.Event) error {
-	node, ok := obj.(*v1.Node)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
-			return nil
-		}
-		node, ok = tombstone.Obj.(*v1.Node)
-		if !ok {
-			log.Errorf("tombstone contained object that is not a node %#v", obj)
-			return nil
-		}
+	node := controllers.Extract[*v1.Node](obj)
+	if node == nil {
+		return nil
 	}
 	var updatedNeeded bool
 	if event == model.EventDelete {
@@ -911,9 +902,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labels)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -1180,7 +1171,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, nil)
+				instances := c.InstancesByPort(service, port.Port)
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)
 				}

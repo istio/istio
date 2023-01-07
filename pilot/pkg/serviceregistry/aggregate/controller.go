@@ -247,10 +247,10 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
 	var instances []*model.ServiceInstance
 	for _, r := range c.GetRegistries() {
-		instances = append(instances, r.InstancesByPort(svc, port, labels)...)
+		instances = append(instances, r.InstancesByPort(svc, port)...)
 	}
 	return instances
 }

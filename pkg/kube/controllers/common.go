@@ -111,7 +111,7 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
 func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
 	h := func(obj any) {
-		o := extractObject(obj)
+		o := ExtractObject(obj)
 		if o == nil {
 			return
 		}
@@ -145,7 +145,7 @@ func FilteredObjectSpecHandler(handler func(o Object), filter func(o Object) boo
 
 func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, filter func(o Object) bool) cache.ResourceEventHandler {
 	single := func(obj any) {
-		o := extractObject(obj)
+		o := ExtractObject(obj)
 		if o == nil {
 			return
 		}
@@ -157,11 +157,11 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: single,
 		UpdateFunc: func(oldInterface, newInterface any) {
-			oldObj := extractObject(oldInterface)
+			oldObj := ExtractObject(oldInterface)
 			if oldObj == nil {
 				return
 			}
-			newObj := extractObject(newInterface)
+			newObj := ExtractObject(newInterface)
 			if newObj == nil {
 				return
 			}
@@ -179,21 +179,31 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 }
 
-func extractObject(obj any) Object {
-	o, ok := obj.(Object)
+// Extract pulls a T from obj, handling tombstones.
+// This will return nil if the object cannot be extracted.
+func Extract[T Object](obj any) T {
+	var empty T
+	if obj == nil {
+		return empty
+	}
+	o, ok := obj.(T)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
-			return nil
+			log.Errorf("couldn't get object from tombstone: %+v", obj)
+			return empty
 		}
-		o, ok = tombstone.Obj.(Object)
+		o, ok = tombstone.Obj.(T)
 		if !ok {
-			log.Errorf("tombstone contained object that is not an object %+v", obj)
-			return nil
+			log.Errorf("tombstone contained object that is not an object (key:%v, obj:%T)", tombstone.Key, tombstone.Obj)
+			return empty
 		}
 	}
 	return o
+}
+
+func ExtractObject(obj any) Object {
+	return Extract[Object](obj)
 }
 
 // IgnoreNotFound returns nil on NotFound errors.
@@ -204,3 +214,30 @@ func IgnoreNotFound(err error) error {
 	}
 	return err
 }
+
+// EventHandler mirrors ResourceEventHandlerFuncs, but takes typed T objects instead of any.
+type EventHandler[T Object] struct {
+	AddFunc    func(obj T)
+	UpdateFunc func(oldObj, newObj T)
+	DeleteFunc func(obj T)
+}
+
+func (e EventHandler[T]) OnAdd(obj interface{}) {
+	if e.AddFunc != nil {
+		e.AddFunc(Extract[T](obj))
+	}
+}
+
+func (e EventHandler[T]) OnUpdate(oldObj, newObj interface{}) {
+	if e.UpdateFunc != nil {
+		e.UpdateFunc(Extract[T](oldObj), Extract[T](newObj))
+	}
+}
+
+func (e EventHandler[T]) OnDelete(obj interface{}) {
+	if e.DeleteFunc != nil {
+		e.DeleteFunc(Extract[T](obj))
+	}
+}
+
+var _ cache.ResourceEventHandler = EventHandler[Object]{}

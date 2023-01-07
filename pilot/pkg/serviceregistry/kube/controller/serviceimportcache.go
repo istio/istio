@@ -15,14 +15,12 @@
 package controller
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 	netutil "istio.io/istio/pkg/util/net"
@@ -143,16 +142,9 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 }
 
 func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Event) error {
-	si, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
-		}
-		si, ok = tombstone.Obj.(*unstructured.Unstructured)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceImport %#v", obj)
-		}
+	si := controllers.Extract[*unstructured.Unstructured](obj)
+	if si == nil {
+		return nil
 	}
 
 	// We need a full push if the cluster VIP changes.
