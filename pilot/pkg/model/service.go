@@ -714,7 +714,7 @@ type ServiceDiscovery interface {
 	MCSServices() []MCSServiceInfo
 	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
 	AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
-	Policies(requested sets.Set[ConfigKey]) []*workloadapi.RBAC
+	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
 }
 
 type WorkloadInfo struct {
