@@ -20,6 +20,7 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"sort"
@@ -2351,6 +2352,15 @@ func instanceIPTests(t TrafficContext) {
 	t.SetDefaultTargetMatchers(match.NotProxylessGRPC)
 	t.SetDefaultSourceMatchers(match.NotProxylessGRPC)
 
+	ipStr, _ := t.Istio.Ingresses().HTTPAddress()
+	ipAddr, _ := netip.ParseAddr(ipStr)
+	var locahostAddr string
+	if ipAddr.Is6() {
+		locahostAddr = "[::1]"
+	} else {
+		locahostAddr = "127.0.0.1"
+	}
+
 	ipCases := []struct {
 		name            string
 		endpoint        string
@@ -2402,7 +2412,7 @@ func instanceIPTests(t TrafficContext) {
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
-			endpoint: "[::1]",
+			endpoint: locahostAddr,
 			port:     "http-localhost",
 			code:     http.StatusOK,
 		},
