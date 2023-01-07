@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /samples/bookinfo/src/productpage
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /samples/helloworld/src
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /security/tools/jwt
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /security/tools/jwt/samples
+    schedule:
+      interval: weekly
