@@ -137,10 +137,6 @@ spec:
           value: "true"
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
@@ -393,10 +389,6 @@ spec:
             value: "true"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
-          - name: ISTIO_META_NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds
