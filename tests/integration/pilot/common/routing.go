@@ -2353,9 +2353,9 @@ func instanceIPTests(t TrafficContext) {
 	t.SetDefaultSourceMatchers(match.NotProxylessGRPC)
 
 	isIPv6Only := false
-	ingresses, _ := t.Istio.Ingresses()
+	ingresses := t.Istio.Ingresses()
 	for _, ingress := range ingresses {
-		ipStr := ingress.HTTPAddress()
+		ipStr, _ := ingress.HTTPAddress()
 		ipAddr, _ := netip.ParseAddr(ipStr)
 		if ipAddr.Is6() {
 			isIPv6Only = true
