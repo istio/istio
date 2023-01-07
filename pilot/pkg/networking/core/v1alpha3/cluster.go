@@ -456,6 +456,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
@@ -524,7 +525,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
 			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
-				endpointAddress = hostIP
+				endpointAddress = actualLocalHosts[0]
 			}
 		}
 		// Find the service instance that corresponds to this ingress listener by looking
