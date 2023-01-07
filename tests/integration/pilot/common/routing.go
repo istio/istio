@@ -2352,25 +2352,6 @@ func instanceIPTests(t TrafficContext) {
 	t.SetDefaultTargetMatchers(match.NotProxylessGRPC)
 	t.SetDefaultSourceMatchers(match.NotProxylessGRPC)
 
-	isIPv6Only := false
-	ingresses := t.Istio.Ingresses()
-	for _, ingress := range ingresses {
-		ipStr, _ := ingress.HTTPAddress()
-		ipAddr, _ := netip.ParseAddr(ipStr)
-		if ipAddr.Is6() {
-			isIPv6Only = true
-		} else {
-			isIPv6Only = false
-		}
-	}
-
-	var locahostAddr string
-	if isIPv6Only {
-		locahostAddr = "[::1]"
-	} else {
-		locahostAddr = "127.0.0.1"
-	}
-
 	ipCases := []struct {
 		name            string
 		endpoint        string
@@ -2422,7 +2403,7 @@ func instanceIPTests(t TrafficContext) {
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
-			endpoint: locahostAddr,
+			endpoint: "127.0.0.1",
 			port:     "http-localhost",
 			code:     http.StatusOK,
 		},
