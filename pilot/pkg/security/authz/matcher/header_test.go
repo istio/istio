@@ -166,8 +166,10 @@ func TestHostMatcher(t *testing.T) {
 			K:    ":authority",
 			V:    "*",
 			Expect: &routepb.HeaderMatcher{
-				Name:                 ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{PresentMatch: true},
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
+					PresentMatch: true,
+				},
 			},
 		},
 		{
@@ -177,12 +179,7 @@ func TestHostMatcher(t *testing.T) {
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &matcher.StringMatcher{
-						IgnoreCase: true,
-						MatchPattern: &matcher.StringMatcher_Suffix{
-							Suffix: ".example.com",
-						},
-					},
+					StringMatch: StringMatcherSuffix(".example.com", true),
 				},
 			},
 		},
@@ -193,12 +190,7 @@ func TestHostMatcher(t *testing.T) {
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &matcher.StringMatcher{
-						IgnoreCase: true,
-						MatchPattern: &matcher.StringMatcher_Prefix{
-							Prefix: "example.",
-						},
-					},
+					StringMatch: StringMatcherPrefix("example.", true),
 				},
 			},
 		},
@@ -209,12 +201,7 @@ func TestHostMatcher(t *testing.T) {
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &matcher.StringMatcher{
-						IgnoreCase: true,
-						MatchPattern: &matcher.StringMatcher_Exact{
-							Exact: "example.com",
-						},
-					},
+					StringMatch: StringMatcherExact("example.com", true),
 				},
 			},
 		},
@@ -241,11 +228,7 @@ func TestPathMatcher(t *testing.T) {
 			V:    "/productpage",
 			Expect: &matcher.PathMatcher{
 				Rule: &matcher.PathMatcher_Path{
-					Path: &matcher.StringMatcher{
-						MatchPattern: &matcher.StringMatcher_Exact{
-							Exact: "/productpage",
-						},
-					},
+					Path: StringMatcherExact("/productpage", false),
 				},
 			},
 		},
@@ -254,11 +237,7 @@ func TestPathMatcher(t *testing.T) {
 			V:    "/prefix*",
 			Expect: &matcher.PathMatcher{
 				Rule: &matcher.PathMatcher_Path{
-					Path: &matcher.StringMatcher{
-						MatchPattern: &matcher.StringMatcher_Prefix{
-							Prefix: "/prefix",
-						},
-					},
+					Path: StringMatcherPrefix("/prefix", false),
 				},
 			},
 		},
@@ -267,11 +246,7 @@ func TestPathMatcher(t *testing.T) {
 			V:    "*suffix",
 			Expect: &matcher.PathMatcher{
 				Rule: &matcher.PathMatcher_Path{
-					Path: &matcher.StringMatcher{
-						MatchPattern: &matcher.StringMatcher_Suffix{
-							Suffix: "suffix",
-						},
-					},
+					Path: StringMatcherSuffix("suffix", false),
 				},
 			},
 		},
@@ -280,16 +255,7 @@ func TestPathMatcher(t *testing.T) {
 			V:    "*",
 			Expect: &matcher.PathMatcher{
 				Rule: &matcher.PathMatcher_Path{
-					Path: &matcher.StringMatcher{
-						MatchPattern: &matcher.StringMatcher_SafeRegex{
-							SafeRegex: &matcher.RegexMatcher{
-								Regex: ".+",
-								EngineType: &matcher.RegexMatcher_GoogleRe2{
-									GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-								},
-							},
-						},
-					},
+					Path: StringMatcherRegex(".+"),
 				},
 			},
 		},
