@@ -800,15 +800,27 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
-func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+func (ps *PushContext) ServiceAttachedToGateway(hostname host.Name, proxy *Proxy) bool {
+	gw := proxy.MergedGateway
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
+	if gw == nil {
 		return false
 	}
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
-			if hosts.Contains(hostname) {
+	if gw.ContainsAutoPassthroughGateways {
+		for server, tls := range gw.TLSServerInfo {
+			if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+				for _, h := range tls.SNIHosts {
+					if hostname.SubsetOf(host.Name(h)) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	for _, g := range gw.GatewayNameForServer {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
+			if hosts.Contains(string(hostname)) {
 				return true
 			}
 		}
