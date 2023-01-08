@@ -15,8 +15,8 @@
 package xds
 
 import (
-	"crypto/md5"
 	"encoding/hex"
+	hashfactory "istio.io/istio/pilot/pkg/util/factory"
 	"net"
 	"sort"
 	"strconv"
@@ -113,7 +113,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
+	hash := hashfactory.NewHash()
 	hash.Write([]byte(b.clusterName))
 	hash.Write(Separator)
 	hash.Write([]byte(b.network))

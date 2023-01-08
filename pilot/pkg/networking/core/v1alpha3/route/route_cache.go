@@ -15,8 +15,8 @@
 package route
 
 import (
-	"crypto/md5"
 	"encoding/hex"
+	"istio.io/istio/pilot/pkg/util/factory"
 	"math/big"
 	"strconv"
 	"strings"
@@ -123,7 +123,7 @@ func (r *Cache) DependentTypes() []kind.Kind {
 func (r *Cache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
+	hash := factory.NewHash()
 
 	hash.Write([]byte(r.RouteName))
 	hash.Write(Separator)

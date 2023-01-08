@@ -15,8 +15,8 @@
 package v1alpha3
 
 import (
-	"crypto/md5"
 	"encoding/hex"
+	"istio.io/istio/pilot/pkg/util/factory"
 	"strconv"
 	"strings"
 
@@ -61,7 +61,7 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
+	hash := factory.NewHash()
 	hash.Write([]byte(t.clusterName))
 	hash.Write(Separator)
 	hash.Write([]byte(t.proxyVersion))

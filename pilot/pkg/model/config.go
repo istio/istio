@@ -15,10 +15,11 @@
 package model
 
 import (
+	"encoding/binary"
+	"istio.io/istio/pilot/pkg/util/factory"
 	"sort"
 	"strings"
 
-	xxhashv2 "github.com/cespare/xxhash/v2"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -57,7 +58,7 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := xxhashv2.New()
+	hash := factory.NewHash()
 	// the error will always return nil
 	_, _ = hash.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
@@ -65,7 +66,8 @@ func (key ConfigKey) HashCode() ConfigHash {
 	_, _ = hash.Write([]byte(key.Namespace))
 	_, _ = hash.Write([]byte("/"))
 	_, _ = hash.Write([]byte(key.Name))
-	return ConfigHash(hash.Sum64())
+	sum := hash.Sum(nil)
+	return ConfigHash(binary.BigEndian.Uint64(sum))
 }
 
 func (key ConfigKey) String() string {

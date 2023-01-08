@@ -16,10 +16,10 @@ package istio
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"istio.io/istio/pilot/pkg/util/factory"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -244,7 +244,7 @@ func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap
 func hash(s string) string {
 	// nolint: gosec
 	// Test only code
-	h := md5.New()
+	h := factory.NewHash()
 	_, _ = io.WriteString(h, s)
 	return hex.EncodeToString(h.Sum(nil))
 }
