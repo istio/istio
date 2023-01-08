@@ -25,7 +25,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v20.10.22+incompatible
-	github.com/envoyproxy/go-control-plane v0.10.3-0.20221219165740-8b998257ff09
+	github.com/envoyproxy/go-control-plane v0.10.3-0.20230106044744-2a57b60afc04
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.3

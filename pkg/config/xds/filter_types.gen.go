@@ -22,6 +22,7 @@ package xds
 import (
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/config/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/dynamo/v3"
+	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/golang/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/language/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/squash/v3"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/sxg/v3alpha"
