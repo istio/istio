@@ -315,6 +315,81 @@ spec:
 	})
 }
 
+func TestWaypointEnvoyFilter(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		// Need at least one waypoint proxy and HTTP
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		if !dst.Config().HasWaypointProxy() {
+			return
+		}
+		if src.Config().IsUncaptured() {
+			// For this case, it is broken if the src and dst are on the same node.
+			// TODO: fix this and remove this skip
+			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+		}
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: inbound
+spec:
+  workloadSelector:
+    labels:
+      ambient-proxy: "{{.Destination}}-waypoint-proxy"
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.lua
+        typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              request_handle:headers():add("x-lua-inbound", "hello world")
+            end
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: x-vhost-inbound
+            value: "hello world"
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_INBOUND
+      cluster: {}
+    patch:
+      operation: MERGE
+      value:
+        http2_protocol_options: {}
+`).ApplyOrFail(t)
+		opt.Count = 5
+		opt.Timeout = time.Second * 10
+		opt.Check = check.And(
+			check.OK(),
+			check.RequestHeaders(map[string]string{
+				"X-Lua-Inbound":   "hello world",
+				"X-Vhost-Inbound": "hello world",
+			}))
+		src.CallOrFail(t, opt)
+	})
+}
+
 func TestTrafficSplit(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP
