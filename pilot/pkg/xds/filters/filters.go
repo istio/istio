@@ -40,6 +40,7 @@ import (
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
 	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
@@ -130,7 +131,7 @@ var (
 		},
 	}
 	EmptySessionFilter = &hcm.HttpFilter{
-		Name: "envoy.filters.http.stateful_session",
+		Name: util.StatefulSessionFilter,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{}),
 		},

@@ -1213,7 +1213,7 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			sessionConfig := BuildStatefulSessionFilterConfig(tt.service)
+			sessionConfig := MaybeBuildStatefulSessionFilterConfig(tt.service)
 			if !reflect.DeepEqual(tt.expectedconfig, sessionConfig) {
 				t.Errorf("unexpected stateful session filter config, expected: %v, got :%v", tt.expectedconfig, sessionConfig)
 			}

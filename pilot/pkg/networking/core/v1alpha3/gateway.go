@@ -425,13 +425,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				} else {
 					perRouteFilters := map[string]*anypb.Any{}
 					if gatewayService != nil {
-						if statefulConfig := util.BuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
+						if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
 							perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
 								Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
 									StatefulSession: statefulConfig,
 								},
 							}
-							perRouteFilters["envoy.filters.http.stateful_session"] = protoconv.MessageToAny(perRouteStatefulSession)
+							perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 						}
 					}
 					newVHost := &route.VirtualHost{

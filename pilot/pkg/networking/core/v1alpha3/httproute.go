@@ -434,13 +434,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		}
 		if len(domains) > 0 {
 			perRouteFilters := map[string]*anypb.Any{}
-			if statefulConfig := util.BuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
+			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
 				perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
 					Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
 						StatefulSession: statefulConfig,
 					},
 				}
-				perRouteFilters["envoy.filters.http.stateful_session"] = protoconv.MessageToAny(perRouteStatefulSession)
+				perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 			}
 			return &route.VirtualHost{
 				Name:                       name,

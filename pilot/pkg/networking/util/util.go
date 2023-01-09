@@ -88,6 +88,10 @@ const (
 
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
+
+	// Envoy Stateful Session Filter
+	// TODO: Move to well known.
+	StatefulSessionFilter = "envoy.filters.http.stateful_session"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -784,20 +788,20 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 }
 
 func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
-	filterConfig := BuildStatefulSessionFilterConfig(svc)
+	filterConfig := MaybeBuildStatefulSessionFilterConfig(svc)
 	if filterConfig == nil {
 		return nil
 	}
 
 	return &hcm.HttpFilter{
-		Name: "envoy.filters.http.stateful_session", // TODO: wellknown.
+		Name: StatefulSessionFilter,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(filterConfig),
 		},
 	}
 }
 
-func BuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
+func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
 	if features.PersistentSessionLabel == "" || svc == nil {
 		return nil
 	}

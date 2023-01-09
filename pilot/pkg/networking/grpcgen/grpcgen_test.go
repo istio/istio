@@ -46,6 +46,7 @@ import (
 	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -256,7 +257,7 @@ func TestGRPC(t *testing.T) {
 			if strings.HasPrefix(ll.Name, "echo-persistent.test.svc.cluster.local:") {
 				proto.Unmarshal(ll.ApiListener.ApiListener.Value, hcm)
 				for _, f := range hcm.HttpFilters {
-					if f.Name == "envoy.filters.http.stateful_session" {
+					if f.Name == util.StatefulSessionFilter {
 						proto.Unmarshal(f.GetTypedConfig().Value, ss)
 						if ss.GetSessionState().Name == "envoy.http.stateful_session.cookie" {
 							proto.Unmarshal(ss.GetSessionState().TypedConfig.Value, sc)
