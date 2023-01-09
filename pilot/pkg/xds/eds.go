@@ -72,7 +72,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				for _, inst := range registry.InstancesByPort(svc, port.Port, nil) {
+				for _, inst := range registry.InstancesByPort(svc, port.Port) {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}

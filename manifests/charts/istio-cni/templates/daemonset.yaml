@@ -87,6 +87,9 @@ spec:
             {{- if .Values.global.logging.level }}
             - --log_output_level={{ .Values.global.logging.level }}
             {{- end}}
+            {{- if .Values.global.logAsJson }}
+            - --log_as_json
+            {{- end}}
           env:
 {{- if .Values.cni.cniConfFileName }}
             # Name of the CNI config file to create.

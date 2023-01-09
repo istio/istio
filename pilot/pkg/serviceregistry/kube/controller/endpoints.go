@@ -20,13 +20,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 )
 
@@ -106,7 +105,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	return out
 }
 
-func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
+func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	item, exists, err := e.informer.GetIndexer().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
@@ -126,9 +125,9 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
-		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labels, svcPort, model.Healthy)...)
+		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, svcPort, model.Healthy)...)
 		if features.SendUnhealthyEndpoints.Load() {
-			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labels, svcPort, model.UnHealthy)...)
+			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, svcPort, model.UnHealthy)...)
 		}
 	}
 	return out
@@ -139,18 +138,9 @@ func (e *endpointsController) getInformer() informer.FilteredSharedIndexInformer
 }
 
 func (e *endpointsController) onEvent(_, curr any, event model.Event) error {
-	ep, ok := curr.(*v1.Endpoints)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		ep, ok = tombstone.Obj.(*v1.Endpoints)
-		if !ok {
-			log.Errorf("Tombstone contained object that is not an endpoints %#v", curr)
-			return nil
-		}
+	ep := controllers.Extract[*v1.Endpoints](curr)
+	if ep == nil {
+		return nil
 	}
 
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
@@ -183,21 +173,13 @@ func (e *endpointsController) buildIstioEndpoints(endpoint any, host host.Name) 
 }
 
 func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
-	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, lbls labels.Instance,
+	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
 	svcPort *model.Port, health model.HealthStatus,
 ) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	for _, ea := range endpoints {
-		var podLabels labels.Instance
 		pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
 		if pod == nil && expectedPod {
-			continue
-		}
-		if pod != nil {
-			podLabels = pod.Labels
-		}
-		// check that one of the input labels is a subset of the labels
-		if !lbls.SubsetOf(podLabels) {
 			continue
 		}
 

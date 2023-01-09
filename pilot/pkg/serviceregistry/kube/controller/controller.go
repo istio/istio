@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
@@ -507,9 +509,8 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
-	currSvc, err := extractService(curr)
-	if err != nil {
-		log.Error(err)
+	svc := controllers.Extract[*v1.Service](curr)
+	if svc == nil {
 		return nil
 	}
 
@@ -620,19 +621,10 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(_, curr any, event model.Event) error {
-	node, ok := curr.(*v1.Node)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", curr)
-			return nil
-		}
-		node, ok = tombstone.Obj.(*v1.Node)
-		if !ok {
-			log.Errorf("tombstone contained object that is not a node %#v", curr)
-			return nil
-		}
+func (c *Controller) onNodeEvent(_, obj any, event model.Event) error {
+	node := controllers.Extract[*v1.Node](obj)
+	if node == nil {
+		return nil
 	}
 	var updatedNeeded bool
 	if event == model.EventDelete {
@@ -922,9 +914,9 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labels labels.Instance) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labels)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -1191,7 +1183,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, nil)
+				instances := c.InstancesByPort(service, port.Port)
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
@@ -1382,20 +1374,31 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		if _, exist := pod.Labels[model.LocalityLabel]; exist {
+		var locality, nodeName string
+		locality = c.getPodLocality(pod)
+		if len(proxy.GetNodeName()) == 0 {
+			// this can happen for an "old" proxy with no `Metadata.NodeName` set
+			// in this case we set the node name in labels on the fly
+			// TODO: remove this when 1.16 is EOL?
+			nodeName = pod.Spec.NodeName
+		}
+		if len(locality) == 0 && len(nodeName) == 0 {
 			return pod.Labels
 		}
-		locality := c.getPodLocality(pod)
-		if locality == "" {
-			return pod.Labels
-		}
-		out := make(map[string]string, len(pod.Labels)+1)
+
+		out := make(labels.Instance, len(pod.Labels)+2)
 		for k, v := range pod.Labels {
 			out[k] = v
 		}
-		// Add locality labels to support locality Load balancing for proxy without service instances.
-		// As this may contain node topology labels, which could not be got from aggregator controller
-		out[model.LocalityLabel] = locality
+		if len(locality) > 0 {
+			// Add locality labels to support locality Load balancing for proxy without service instances.
+			// As this may contain node topology labels, which could not be got from aggregator controller
+			out[model.LocalityLabel] = locality
+		}
+		if len(nodeName) > 0 {
+			// set k8s node name label, for ServiceInternalTrafficPolicy
+			out[labelutil.LabelHostname] = nodeName
+		}
 		return out
 	}
 	return nil

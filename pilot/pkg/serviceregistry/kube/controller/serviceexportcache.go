@@ -15,13 +15,11 @@
 package controller
 
 import (
-	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 )
@@ -114,17 +113,10 @@ type serviceExportCacheImpl struct {
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(_, curr any, event model.Event) error {
-	se, ok := curr.(*unstructured.Unstructured)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", curr)
-		}
-		se, ok = tombstone.Obj.(*unstructured.Unstructured)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceExport %#v", curr)
-		}
+func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj any, event model.Event) error {
+	se := controllers.Extract[*unstructured.Unstructured](obj)
+	if se == nil {
+		return nil
 	}
 
 	switch event {

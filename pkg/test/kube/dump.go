@@ -463,12 +463,14 @@ func newPortForward(c cluster.Cluster, pod corev1.Pod, port int) (kube.PortForwa
 	return fw, err
 }
 
+var dumpClient = &http.Client{}
+
 func portForwardRequest(fw kube.PortForwarder, method, path string) ([]byte, error) {
 	req, err := http.NewRequest(method, fmt.Sprintf("http://%s/%s", fw.Address(), path), nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := dumpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

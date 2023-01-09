@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
@@ -119,14 +120,11 @@ func NewController(
 		waitForCRD:    waitForCRD,
 	}
 
-	_, _ = nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			ns := obj.(*corev1.Namespace)
+	_, _ = nsInformer.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+		AddFunc: func(ns *corev1.Namespace) {
 			gatewayController.namespaceEvent(nil, ns)
 		},
-		UpdateFunc: func(oldObj, newObj any) {
-			oldNs := oldObj.(*corev1.Namespace)
-			newNs := newObj.(*corev1.Namespace)
+		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
 			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
 				gatewayController.namespaceEvent(oldNs, newNs)
 			}

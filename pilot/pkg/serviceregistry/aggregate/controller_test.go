@@ -269,7 +269,7 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80, nil)
+	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -283,7 +283,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80, nil)
+	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}

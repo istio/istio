@@ -635,52 +635,73 @@ func TestMergeVirtualServices(t *testing.T) {
 		name                    string
 		virtualServices         []config.Config
 		expectedVirtualServices []config.Config
+		defaultExportTo         map[visibility.Instance]bool
 	}{
 		{
 			name:                    "one independent vs",
 			virtualServices:         []config.Config{independentVs},
 			expectedVirtualServices: []config.Config{independentVs},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
 			name:                    "one root vs",
 			virtualServices:         []config.Config{rootVs},
 			expectedVirtualServices: []config.Config{oneRoot},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
 			name:                    "one delegate vs",
 			virtualServices:         []config.Config{delegateVs},
 			expectedVirtualServices: []config.Config{},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
 			name:                    "root and delegate vs",
 			virtualServices:         []config.Config{rootVs.DeepCopy(), delegateVs},
 			expectedVirtualServices: []config.Config{mergedVs},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
 			name:                    "root and conflicted delegate vs",
 			virtualServices:         []config.Config{rootVs.DeepCopy(), delegateVs2},
 			expectedVirtualServices: []config.Config{mergedVs2},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
 			name:                    "multiple routes delegate to one",
 			virtualServices:         []config.Config{multiRoutes.DeepCopy(), singleDelegate},
 			expectedVirtualServices: []config.Config{mergedVs3},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
-			name:                    "root not specify delegate namespace",
+			name:                    "root not specify delegate namespace default public",
 			virtualServices:         []config.Config{defaultVs.DeepCopy(), delegateVsExportedToAll},
 			expectedVirtualServices: []config.Config{mergedVsInDefault},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
 		},
 		{
-			name:                    "delegate not exported to root vs namespace",
+			name:                    "delegate not exported to root vs namespace default public",
 			virtualServices:         []config.Config{rootVs, delegateVsNotExported},
 			expectedVirtualServices: []config.Config{oneRoot},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+		},
+		{
+			name:                    "root not specify delegate namespace default private",
+			virtualServices:         []config.Config{defaultVs.DeepCopy(), delegateVsExportedToAll},
+			expectedVirtualServices: []config.Config{mergedVsInDefault},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Private: true},
+		},
+		{
+			name:                    "delegate not exported to root vs namespace default private",
+			virtualServices:         []config.Config{rootVs, delegateVsNotExported},
+			expectedVirtualServices: []config.Config{oneRoot},
+			defaultExportTo:         map[visibility.Instance]bool{visibility.Private: true},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _ := mergeVirtualServicesIfNeeded(tc.virtualServices, map[visibility.Instance]bool{visibility.Public: true})
+			got, _ := mergeVirtualServicesIfNeeded(tc.virtualServices, tc.defaultExportTo)
 			assert.Equal(t, got, tc.expectedVirtualServices)
 		})
 	}
