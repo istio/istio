@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
@@ -1362,20 +1363,31 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		if _, exist := pod.Labels[model.LocalityLabel]; exist {
+		var locality, nodeName string
+		locality = c.getPodLocality(pod)
+		if len(proxy.GetNodeName()) == 0 {
+			// this can happen for an "old" proxy with no `Metadata.NodeName` set
+			// in this case we set the node name in labels on the fly
+			// TODO: remove this when 1.16 is EOL?
+			nodeName = pod.Spec.NodeName
+		}
+		if len(locality) == 0 && len(nodeName) == 0 {
 			return pod.Labels
 		}
-		locality := c.getPodLocality(pod)
-		if locality == "" {
-			return pod.Labels
-		}
-		out := make(map[string]string, len(pod.Labels)+1)
+
+		out := make(labels.Instance, len(pod.Labels)+2)
 		for k, v := range pod.Labels {
 			out[k] = v
 		}
-		// Add locality labels to support locality Load balancing for proxy without service instances.
-		// As this may contain node topology labels, which could not be got from aggregator controller
-		out[model.LocalityLabel] = locality
+		if len(locality) > 0 {
+			// Add locality labels to support locality Load balancing for proxy without service instances.
+			// As this may contain node topology labels, which could not be got from aggregator controller
+			out[model.LocalityLabel] = locality
+		}
+		if len(nodeName) > 0 {
+			// set k8s node name label, for ServiceInternalTrafficPolicy
+			out[labelutil.LabelHostname] = nodeName
+		}
 		return out
 	}
 	return nil

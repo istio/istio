@@ -58,10 +58,14 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	var extrAddrs []string
 	resolution := model.ClientSideLB
 	meshExternal := false
+	nodeLocal := false
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		resolution = model.DNSLB
 		meshExternal = true
+	}
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == corev1.ServiceInternalTrafficPolicyLocal {
+		nodeLocal = true
 	}
 
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone { // headless services should not be load balanced
@@ -122,6 +126,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			Labels:          svc.Labels,
 			ExportTo:        exportTo,
 			LabelSelectors:  svc.Spec.Selector,
+			NodeLocal:       nodeLocal,
 		},
 	}
 
