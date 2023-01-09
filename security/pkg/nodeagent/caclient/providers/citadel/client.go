@@ -17,10 +17,8 @@ package caclient
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
-	"os"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -124,30 +122,6 @@ func (c *CitadelClient) getTLSOptions() *istiogrpc.TLSOptions {
 		}
 	}
 	return nil
-}
-
-func getRootCertificate(rootCertFile string) (*x509.CertPool, error) {
-	if rootCertFile == "" {
-		// No explicit certificate - assume the citadel-compatible server uses a public cert
-		certPool, err := x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-		citadelClientLog.Info("Citadel client using system cert")
-		return certPool, nil
-	}
-
-	certPool := x509.NewCertPool()
-	rootCert, err := os.ReadFile(rootCertFile)
-	if err != nil {
-		return nil, err
-	}
-	ok := certPool.AppendCertsFromPEM(rootCert)
-	if !ok {
-		return nil, fmt.Errorf("failed to append certificates")
-	}
-	citadelClientLog.Info("Citadel client using custom root cert: ", rootCertFile)
-	return certPool, nil
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
