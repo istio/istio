@@ -16,7 +16,6 @@ package istioagent
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -35,9 +34,6 @@ import (
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -664,84 +660,37 @@ func (p *XdsProxy) initIstiodDialOptions(agent *Agent) error {
 }
 
 func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
-	tlsOpts, err := p.getTLSDialOption(sa)
+	tlsOpts, err := p.getTLSOptions(sa)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build TLS dial option to talk to upstream: %v", err)
+		return nil, fmt.Errorf("failed to get TLS options to talk to upstream: %v", err)
 	}
-
-	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:    30 * time.Second,
-		Timeout: 10 * time.Second,
-	})
-
-	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
-	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
-	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	dialOptions := []grpc.DialOption{
-		tlsOpts,
-		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
-	}
-
-	if sa.secOpts.CredFetcher != nil {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
-	}
-	return dialOptions, nil
-}
-
-// Returns the TLS option to use when talking to Istiod
-// If provisioned cert is set, it will return a mTLS related config
-// Else it will return a one-way TLS related config with the assumption
-// that the consumer code will use tokens to authenticate the upstream.
-func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
-	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
-		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
-	}
-	rootCert, err := p.getRootCertificate(agent)
+	options, err := istiogrpc.ClientOptions(nil, tlsOpts)
 	if err != nil {
 		return nil, err
 	}
+	if sa.secOpts.CredFetcher != nil {
+		options = append(options, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
+	}
+	return options, nil
+}
 
-	config := tls.Config{
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			var certificate tls.Certificate
-			key, cert := agent.GetKeyCertsForXDS()
-			if key != "" && cert != "" {
-				var isExpired bool
-				isExpired, err = util.IsCertExpired(cert)
-				if err != nil {
-					log.Warnf("cannot parse the cert chain, using token instead: %v", err)
-					return &certificate, nil
-				}
-				if isExpired {
-					log.Warnf("cert expired, using token instead")
-					return &certificate, nil
-				}
-				// Load the certificate from disk
-				certificate, err = tls.LoadX509KeyPair(cert, key)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return &certificate, nil
-		},
-		RootCAs:    rootCert,
-		MinVersion: tls.VersionTLS12,
+// Returns the TLS option to use when talking to Istiod
+func (p *XdsProxy) getTLSOptions(agent *Agent) (*istiogrpc.TLSOptions, error) {
+	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
+		return nil, nil
 	}
-
-	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err == nil {
-		config.ServerName = host
+	xdsCACertPath, err := agent.FindRootCAForXDS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
 	}
-	// For debugging on localhost (with port forward)
-	// This matches the logic for the CA; this code should eventually be shared
-	if strings.Contains(config.ServerName, "localhost") {
-		config.ServerName = "istiod.istio-system.svc"
-	}
-
-	if p.istiodSAN != "" {
-		config.ServerName = p.istiodSAN
-	}
-	transportCreds := credentials.NewTLS(&config)
-	return grpc.WithTransportCredentials(transportCreds), nil
+	key, cert := agent.GetKeyCertsForXDS()
+	return &istiogrpc.TLSOptions{
+		RootCert:      xdsCACertPath,
+		Key:           key,
+		Cert:          cert,
+		ServerAddress: agent.proxyConfig.DiscoveryAddress,
+		SAN:           p.istiodSAN,
+	}, nil
 }
 
 func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {

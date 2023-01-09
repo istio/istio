@@ -20,21 +20,17 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"net"
 	"os"
-	"strings"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "istio.io/api/security/v1alpha1"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -117,54 +113,17 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 	return resp.CertChain, nil
 }
 
-func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
-	certPool, err := getRootCertificate(c.tlsOpts.RootCert)
-	if err != nil {
-		return nil, err
+func (c *CitadelClient) getTLSOptions() *istiogrpc.TLSOptions {
+	if c.tlsOpts != nil {
+		return &istiogrpc.TLSOptions{
+			RootCert:      c.tlsOpts.RootCert,
+			Key:           c.tlsOpts.Key,
+			Cert:          c.tlsOpts.Cert,
+			ServerAddress: c.opts.CAEndpoint,
+			SAN:           c.opts.CAEndpointSAN,
+		}
 	}
-	config := tls.Config{
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			var certificate tls.Certificate
-			key, cert := c.tlsOpts.Key, c.tlsOpts.Cert
-			if cert != "" {
-				var isExpired bool
-				isExpired, err = util.IsCertExpired(cert)
-				if err != nil {
-					citadelClientLog.Warnf("cannot parse the cert chain, using token instead: %v", err)
-					return &certificate, nil
-				}
-				if isExpired {
-					citadelClientLog.Warnf("cert expired, using token instead")
-					return &certificate, nil
-				}
-
-				// Load the certificate from disk
-				certificate, err = tls.LoadX509KeyPair(cert, key)
-				if err != nil {
-					return nil, err
-				}
-				c.usingMtls.Store(true)
-			}
-			return &certificate, nil
-		},
-		RootCAs:    certPool,
-		MinVersion: tls.VersionTLS12,
-	}
-
-	if host, _, err := net.SplitHostPort(c.opts.CAEndpoint); err == nil {
-		config.ServerName = host
-	}
-	// For debugging on localhost (with port forward)
-	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
-	if strings.Contains(c.opts.CAEndpoint, "localhost") {
-		config.ServerName = "istiod.istio-system.svc"
-	}
-	if c.opts.CAEndpointSAN != "" {
-		config.ServerName = c.opts.CAEndpointSAN
-	}
-
-	transportCreds := credentials.NewTLS(&config)
-	return grpc.WithTransportCredentials(transportCreds), nil
+	return nil
 }
 
 func getRootCertificate(rootCertFile string) (*x509.CertPool, error) {
@@ -192,22 +151,16 @@ func getRootCertificate(rootCertFile string) (*x509.CertPool, error) {
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
-	var opts grpc.DialOption
-	var err error
-	// CA tls disabled
-	if c.tlsOpts == nil {
-		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
-	} else {
-		opts, err = c.getTLSDialOption()
-		if err != nil {
-			return nil, err
-		}
+	tlsOpts := c.getTLSOptions()
+	opts, err := istiogrpc.ClientOptions(nil, tlsOpts)
+	if err != nil {
+		return nil, err
 	}
-
-	conn, err := grpc.Dial(c.opts.CAEndpoint,
-		opts,
+	opts = append(opts,
 		grpc.WithPerRPCCredentials(c.provider),
-		security.CARetryInterceptor())
+		security.CARetryInterceptor(),
+	)
+	conn, err := grpc.Dial(c.opts.CAEndpoint, opts...)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.opts.CAEndpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", c.opts.CAEndpoint)
