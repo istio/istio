@@ -17,7 +17,7 @@ package model
 import (
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -249,8 +249,8 @@ func mergeVirtualServicesIfNeeded(
 		}
 		rootVs.Http = mergedRoutes
 		if log.DebugEnabled() {
-			jsonm := &jsonpb.Marshaler{Indent: "   "}
-			vsString, _ := jsonm.MarshalToString(rootVs)
+			jsonm := &protojson.MarshalOptions{Indent: "   "}
+			vsString := jsonm.Format(rootVs)
 			log.Debugf("merged virtualService: %s", vsString)
 		}
 		out = append(out, root)
