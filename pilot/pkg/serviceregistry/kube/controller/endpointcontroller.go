@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/informer"
@@ -68,7 +69,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
 		// otherwise push endpoint updates - needed for NDS output.
 		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
+			for _, modelSvc := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full: features.EnableHeadlessService,
 					// TODO: extend and set service instance type, so no need to re-init push context
