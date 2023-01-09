@@ -264,10 +264,17 @@ func TestProxyNeedsPush(t *testing.T) {
 	// test for gateway proxy dependencies with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG enabled.
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 
+	const (
+		fooSvc             = "foo"
+		extensionSvc       = "extension"
+		helloworldSvc      = "helloworld." + nsName + ".svc.cluster.local"
+		autoPassthroughSvc = "auto-passthrough.com"
+	)
+
 	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Services: []*model.Service{
 			{
-				Hostname: "foo",
+				Hostname: fooSvc,
 				Attributes: model.ServiceAttributes{
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 					Namespace: nsName,
@@ -281,7 +288,21 @@ func TestProxyNeedsPush(t *testing.T) {
 				},
 			},
 			{
-				Hostname: "extension",
+				Hostname: extensionSvc,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: helloworldSvc,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: autoPassthroughSvc,
 				Attributes: model.ServiceAttributes{
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 					Namespace: nsName,
@@ -317,7 +338,7 @@ func TestProxyNeedsPush(t *testing.T) {
 				{
 					Provider: &mesh.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 						EnvoyExtAuthzHttp: &mesh.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-							Service: "extension",
+							Service: extensionSvc,
 						},
 					},
 				},
@@ -325,10 +346,22 @@ func TestProxyNeedsPush(t *testing.T) {
 		},
 	})
 
+	tlsServer := &networking.Server{
+		Tls: &networking.ServerTLSSettings{
+			Mode: networking.ServerTLSSettings_AUTO_PASSTHROUGH,
+		},
+	}
 	gateway.MergedGateway = &model.MergedGateway{
 		GatewayNameForServer: map[*networking.Server]string{
-			{}: nsName + "/" + generalName,
+			{}:        nsName + "/" + generalName,
+			tlsServer: nsName + "/" + generalName,
 		},
+		TLSServerInfo: map[*networking.Server]*model.TLSServerInfo{
+			tlsServer: {
+				SNIHosts: []string{"*.cluster.local", autoPassthroughSvc},
+			},
+		},
+		ContainsAutoPassthroughGateways: true,
 	}
 	gateway.SetSidecarScope(cg.PushContext())
 
@@ -336,7 +369,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		{
 			name:    "service without vs attached to gateway",
 			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}),
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: fooSvc, Namespace: nsName}),
 			want:    false,
 		},
 		{
@@ -348,7 +381,19 @@ func TestProxyNeedsPush(t *testing.T) {
 		{
 			name:    "mesh config extensions",
 			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "extension", Namespace: nsName}),
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "auto passthrough host",
+			proxy:   gateway,
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: autoPassthroughSvc, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "auto passthrough host(wildcard)",
+			proxy:   gateway,
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: helloworldSvc}),
 			want:    true,
 		},
 	}
