@@ -894,17 +894,17 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			hash.Write([]byte(svc.Attributes.Namespace + "/" + svc.Hostname.String()))
 			// First hash is calculated by
 			s := hash.Sum32()
-			fh := s % uint32(maxIPs)
-			// Check if there is no service with this hash first. If there is not service
+			firstHash := s % uint32(maxIPs)
+			// Check if there is no service with this hash first. If there is no service
 			// at this location - then we can safely assign this position for this service.
-			if hashedServices[fh] == nil {
-				hashedServices[fh] = svc
+			if hashedServices[firstHash] == nil {
+				hashedServices[firstHash] = svc
 			} else {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
 				for {
-					sh := uint32(prime) - (s % uint32(prime))
-					nh := (s + i*sh) % uint32(maxIPs)
+					secondHash := uint32(prime) - (s % uint32(prime))
+					nh := (s + i*secondHash) % uint32(maxIPs)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc
 						break
