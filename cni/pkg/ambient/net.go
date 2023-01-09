@@ -248,7 +248,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 	// Check if chain exists, if it exists flush.. otherwise initialize
 	// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L28
-	err = execute(IptablesCmd, "-t", "mangle", "-C", "output", "-j", constants.ChainZTunnelOutput)
+	err = execute(s.IptablesCmd(), "-t", "mangle", "-C", "output", "-j", constants.ChainZTunnelOutput)
 	if err == nil {
 		log.Debugf("Chain %s already exists, flushing", constants.ChainOutput)
 		s.flushLists()
@@ -514,12 +514,12 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		),
 	}
 
-	err = iptablesAppend(appendRules)
+	err = s.iptablesAppend(appendRules)
 	if err != nil {
 		log.Errorf("failed to append iptables rule: %v", err)
 	}
 
-	err = iptablesAppend(appendRules2)
+	err = s.iptablesAppend(appendRules2)
 	if err != nil {
 		log.Errorf("failed to append iptables rule: %v", err)
 	}
