@@ -448,7 +448,6 @@ var (
 	InjectionWebhookConfigName = env.Register("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
 
-	// ValidationWebhookConfigName see #42681
 	ValidationWebhookConfigName = env.Register("VALIDATION_WEBHOOK_CONFIG_NAME", "istio-istio-system",
 		"If not empty, the controller will automatically patch validatingwebhookconfiguration when the CA certificate changes. "+
 			"Only works in kubernetes environment.").Get()
