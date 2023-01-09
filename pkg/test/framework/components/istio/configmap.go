@@ -16,10 +16,9 @@ package istio
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"istio.io/istio/pilot/pkg/util/factory"
+	hashfactory "istio.io/istio/pkg/util/hash"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -244,9 +243,9 @@ func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap
 func hash(s string) string {
 	// nolint: gosec
 	// Test only code
-	h := factory.NewHash()
+	h := hashfactory.New()
 	_, _ = io.WriteString(h, s)
-	return hex.EncodeToString(h.Sum(nil))
+	return h.SumToString(nil)
 }
 
 func getMeshConfigData(c cluster.Cluster, cm *corev1.ConfigMap) (string, error) {

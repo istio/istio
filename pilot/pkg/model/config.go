@@ -15,8 +15,7 @@
 package model
 
 import (
-	"encoding/binary"
-	"istio.io/istio/pilot/pkg/util/factory"
+	"istio.io/istio/pkg/util/hash"
 	"sort"
 	"strings"
 
@@ -58,16 +57,14 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := factory.NewHash()
-	// the error will always return nil
-	_, _ = hash.Write([]byte{byte(key.Kind)})
+	h := hash.New()
+	h.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
-	_, _ = hash.Write([]byte("/"))
-	_, _ = hash.Write([]byte(key.Namespace))
-	_, _ = hash.Write([]byte("/"))
-	_, _ = hash.Write([]byte(key.Name))
-	sum := hash.Sum(nil)
-	return ConfigHash(binary.BigEndian.Uint64(sum))
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Namespace))
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Name))
+	return ConfigHash(h.SumToUint64(nil))
 }
 
 func (key ConfigKey) String() string {

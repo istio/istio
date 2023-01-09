@@ -15,8 +15,7 @@
 package route
 
 import (
-	"encoding/hex"
-	"istio.io/istio/pilot/pkg/util/factory"
+	"istio.io/istio/pkg/util/hash"
 	"math/big"
 	"strconv"
 	"strings"
@@ -123,67 +122,66 @@ func (r *Cache) DependentTypes() []kind.Kind {
 func (r *Cache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := factory.NewHash()
+	h := hash.New()
 
-	hash.Write([]byte(r.RouteName))
-	hash.Write(Separator)
-	hash.Write([]byte(r.ProxyVersion))
-	hash.Write(Separator)
-	hash.Write([]byte(r.ClusterID))
-	hash.Write(Separator)
-	hash.Write([]byte(r.DNSDomain))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(r.DNSCapture)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(r.DNSAutoAllocate)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(r.AllowAny)))
-	hash.Write(Separator)
+	h.Write([]byte(r.RouteName))
+	h.Write(Separator)
+	h.Write([]byte(r.ProxyVersion))
+	h.Write(Separator)
+	h.Write([]byte(r.ClusterID))
+	h.Write(Separator)
+	h.Write([]byte(r.DNSDomain))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(r.DNSCapture)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(r.DNSAutoAllocate)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(r.AllowAny)))
+	h.Write(Separator)
 
 	for _, svc := range r.Services {
-		hash.Write([]byte(svc.Hostname))
-		hash.Write(Slash)
-		hash.Write([]byte(svc.Attributes.Namespace))
-		hash.Write(Separator)
+		h.Write([]byte(svc.Hostname))
+		h.Write(Slash)
+		h.Write([]byte(svc.Attributes.Namespace))
+		h.Write(Separator)
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, vs := range r.VirtualServices {
 		for _, cfg := range model.VirtualServiceDependencies(vs) {
-			hash.Write([]byte(cfg.Kind.String()))
-			hash.Write(Slash)
-			hash.Write([]byte(cfg.Name))
-			hash.Write(Slash)
-			hash.Write([]byte(cfg.Namespace))
-			hash.Write(Separator)
+			h.Write([]byte(cfg.Kind.String()))
+			h.Write(Slash)
+			h.Write([]byte(cfg.Name))
+			h.Write(Slash)
+			h.Write([]byte(cfg.Namespace))
+			h.Write(Separator)
 		}
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, vs := range r.DelegateVirtualServices {
-		hash.Write(hashToBytes(vs))
-		hash.Write(Separator)
+		h.Write(hashToBytes(vs))
+		h.Write(Separator)
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, mergedDR := range r.DestinationRules {
 		for _, dr := range mergedDR.GetFrom() {
-			hash.Write([]byte(dr.Name))
-			hash.Write(Slash)
-			hash.Write([]byte(dr.Namespace))
-			hash.Write(Separator)
+			h.Write([]byte(dr.Name))
+			h.Write(Slash)
+			h.Write([]byte(dr.Namespace))
+			h.Write(Separator)
 		}
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, efk := range r.EnvoyFilterKeys {
-		hash.Write([]byte(efk))
-		hash.Write(Separator)
+		h.Write([]byte(efk))
+		h.Write(Separator)
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
-	sum := hash.Sum(nil)
-	return hex.EncodeToString(sum)
+	return h.SumToString(nil)
 }
 
 func hashToBytes(number model.ConfigHash) []byte {
