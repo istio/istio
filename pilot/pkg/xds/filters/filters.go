@@ -171,6 +171,13 @@ var (
 		},
 	}
 
+	ConnectBaggageFilter = &hcm.HttpFilter{
+		Name: "baggage",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.network.http.connect_baggage.Config"),
+		},
+	}
+
 	SetDstAddress = &listener.ListenerFilter{
 		Name: "set_dst_address",
 		ConfigType: &listener.ListenerFilter_TypedConfig{

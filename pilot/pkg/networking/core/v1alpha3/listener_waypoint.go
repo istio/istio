@@ -199,6 +199,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
 	}
+	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.ConnectBaggageFilter}, h.HttpFilters...)
 	name := "inbound_CONNECT_terminate"
 	l := &listener.Listener{
 		Name:    name,
