@@ -5,4 +5,4 @@ issue:
   - 42681
 releaseNotes:
   - |
-    **Update** `VALIDATION_WEBHOOK_CONFIG_NAME` environment variable description.
+    **Improved** `VALIDATION_WEBHOOK_CONFIG_NAME` environment variable description.
