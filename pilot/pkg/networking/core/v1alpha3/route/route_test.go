@@ -1024,7 +1024,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
-	t.Run("for redirect uri prefix '*prefix*' that is without gateway semantics", func(t *testing.T) {
+	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
@@ -1038,7 +1038,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(gomega.Equal(&envoyroute.RedirectAction_PathRedirect{
-			PathRedirect: "*prefix*/replace-full",
+			PathRedirect: "%PREFIX()%/replace-full",
 		}))
 	})
 
@@ -1654,7 +1654,7 @@ var virtualServiceWithRedirectPathPrefix = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "*prefix*/replace-prefix",
+					Uri:          "%PREFIX()%/replace-prefix",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},
@@ -1674,7 +1674,7 @@ var virtualServiceWithRedirectPathPrefixNoGatewaySematics = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "*prefix*/replace-full",
+					Uri:          "%PREFIX()%/replace-full",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},
@@ -1790,7 +1790,7 @@ var virtualServiceWithRewriteFullPath = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri: "*fullreplace*/replace-full",
+					Uri: "%FULLREPLACE()%/replace-full",
 				},
 				Route: []*networking.HTTPRouteDestination{
 					{
@@ -1824,7 +1824,7 @@ var virtualServiceWithRewriteFullPathAndHost = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri:       "*fullreplace*/replace-full",
+					Uri:       "%FULLREPLACE()%/replace-full",
 					Authority: "bar.example.org",
 				},
 				Route: []*networking.HTTPRouteDestination{

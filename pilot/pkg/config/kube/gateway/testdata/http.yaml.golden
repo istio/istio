@@ -161,7 +161,7 @@ spec:
     name: default.rewrite.1
     rewrite:
       authority: new.example.com
-      uri: '*fullreplace*/replacement'
+      uri: '%FULLREPLACE()%/replacement'
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -207,5 +207,5 @@ spec:
       port: 8080
       redirectCode: 302
       scheme: https
-      uri: '*prefix*/replacement'
+      uri: '%PREFIX()%/replacement'
 ---

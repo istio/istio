@@ -1047,8 +1047,8 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 		switch filter.Path.Type {
 		case k8sbeta.PrefixMatchHTTPPathModifier:
 			rewrite.Uri = *filter.Path.ReplacePrefixMatch
-		case k8sbeta.FullPathHTTPPathModifier:
-			log.Warnf("%v is not supported", k8sbeta.FullPathHTTPPathModifier)
+		case k8s.FullPathHTTPPathModifier:
+			rewrite.Uri = fmt.Sprintf("%%FULLREPLACE()%%%s", *filter.Path.ReplaceFullPath)
 		}
 	}
 	if filter.Hostname != nil {
@@ -1090,7 +1090,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8sbeta.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8sbeta.PrefixMatchHTTPPathModifier:
-			resp.Uri = fmt.Sprintf("*prefix*%s", *filter.Path.ReplacePrefixMatch)
+			resp.Uri = fmt.Sprintf("%%PREFIX()%%%s", *filter.Path.ReplacePrefixMatch)
 		}
 	}
 	return resp

@@ -481,7 +481,7 @@ func applyHTTPRouteDestination(
 			Cluster: in.Name,
 		}
 		uri := in.Rewrite.GetUri()
-		if fullURI, isFullPathRewrite := cutPrefix(uri, "*fullreplace*"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
+		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
 					Regex: "/.+",
@@ -591,7 +591,7 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	}
 
 	if useGatewaySemantics {
-		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "*prefix*"); isPrefixReplace {
+		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "%PREFIX()%"); isPrefixReplace {
 			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
 				PrefixRewrite: uri,
 			}
