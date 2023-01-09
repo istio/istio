@@ -132,6 +132,10 @@ func (b EndpointBuilder) Key() string {
 		hash.Write(b.failoverPriorityLabels)
 		hash.Write(Separator)
 	}
+	if b.service.Attributes.NodeLocal {
+		hash.Write([]byte(b.proxy.GetNodeName()))
+		hash.Write(Separator)
+	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
@@ -253,13 +257,19 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, shardKey := range keys {
-		endpoints := shards.Shards[shardKey]
-		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster.
-		if isClusterLocal && (shardKey.Cluster != b.clusterID) {
-			continue
+		if shardKey.Cluster != b.clusterID {
+			// If the downstream service is configured as cluster-local, only include endpoints that
+			// reside in the same cluster.
+			if isClusterLocal || b.service.Attributes.NodeLocal {
+				continue
+			}
 		}
+		endpoints := shards.Shards[shardKey]
 		for _, ep := range endpoints {
+			// for ServiceInternalTrafficPolicy
+			if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
+				continue
+			}
 			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue

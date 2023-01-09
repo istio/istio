@@ -384,19 +384,6 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 	return defaultLabel
 }
 
-// SplitLocalityLabel splits a locality label into region, zone and subzone strings.
-func SplitLocalityLabel(locality string) (region, zone, subzone string) {
-	items := strings.Split(locality, "/")
-	switch len(items) {
-	case 1:
-		return items[0], "", ""
-	case 2:
-		return items[0], items[1], ""
-	default:
-		return items[0], items[1], items[2]
-	}
-}
-
 // Locality information for an IstioEndpoint
 type Locality struct {
 	// Label for locality on the endpoint. This is a "/" separated string.
@@ -493,6 +480,9 @@ type IstioEndpoint struct {
 
 	// Indicatesthe endpoint health status.
 	HealthStatus HealthStatus
+
+	// If in k8s, the node where the pod resides
+	NodeName string
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -593,6 +583,9 @@ type ServiceAttributes struct {
 
 	// Type holds the value of the corev1.Type of the Kubernetes service
 	Type string
+
+	// NodeLocal means the proxy will only forward traffic to node local endpoints
+	NodeLocal bool
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
