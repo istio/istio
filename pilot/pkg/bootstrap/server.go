@@ -1117,7 +1117,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initCertController(args); err != nil {
 		return fmt.Errorf("error initializing certificate controller: %v", err)
 	}
-	if features.EnableEnhancedResourceScoping {
+	if features.EnableEnhancedResourceScoping.Load() {
 		// setup namespace filter
 		args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
 	}
