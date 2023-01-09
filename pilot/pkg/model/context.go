@@ -28,7 +28,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -464,19 +464,15 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 type NodeMetaProxyConfig meshconfig.ProxyConfig
 
 func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
 	pc := (*meshconfig.ProxyConfig)(s)
-	if err := (&jsonpb.Marshaler{}).Marshal(&buf, pc); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return (&protojson.MarshalOptions{}).Marshal(pc)
 }
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return (&jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-	}).Unmarshal(bytes.NewReader(data), pc)
+	return (&protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+	}).Unmarshal(data, pc)
 }
 
 // Node is a typed version of Envoy node with metadata.
