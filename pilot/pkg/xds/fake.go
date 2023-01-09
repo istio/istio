@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
@@ -86,7 +87,7 @@ type FakeOptions struct {
 	NetworksWatcher mesh.NetworksWatcher
 
 	// Callback to modify the server before it is started
-	DiscoveryServerModifier func(s *DiscoveryServer)
+	DiscoveryServerModifier func(s *DiscoveryServer, m *memory.ServiceDiscovery)
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
@@ -114,6 +115,7 @@ type FakeDiscoveryServer struct {
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
 	XdsUpdater   model.XDSUpdater
+	MemRegistry  *memory.ServiceDiscovery
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -126,7 +128,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
-	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -165,8 +166,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
-	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -232,13 +231,16 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
+	s.InitGenerators(s.Env, "istio-system", nil)
+	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
+	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
-	s.MemRegistry = cg.MemRegistry
-	s.MemRegistry.XdsUpdater = s
+	memRegistry := cg.MemRegistry
+	memRegistry.XdsUpdater = s
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -280,7 +282,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.WorkloadEntryController = autoregistration.NewController(cg.Store(), "test", keepalive.Infinity)
 
 	if opts.DiscoveryServerModifier != nil {
-		opts.DiscoveryServerModifier(s)
+		opts.DiscoveryServerModifier(s, memRegistry)
 	}
 
 	var listener net.Listener
@@ -341,6 +343,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
 		XdsUpdater:    xdsUpdater,
+		MemRegistry:   memRegistry,
 	}
 
 	return fake
@@ -384,53 +387,63 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	return NewDeltaAdsTest(f.t, conn)
 }
 
-// Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
-// watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
-// resources we should initially wait for.
-func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
+func APIWatches() []string {
+	watches := []string{collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()}
+	for _, sch := range collections.Pilot.All() {
+		watches = append(watches, sch.Resource().GroupVersionKind().String())
+	}
+	return watches
+}
+
+func (f *FakeDiscoveryServer) ConnectUnstarted(p *model.Proxy, watch []string) *adsc.ADSC {
 	f.t.Helper()
 	p = f.SetupProxy(p)
 	initialWatch := []*discovery.DiscoveryRequest{}
-	if watch == nil {
-		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
-	} else {
-		for _, typeURL := range watch {
-			initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
-		}
+	for _, typeURL := range watch {
+		initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
 	}
-	if wait == nil {
-		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if f.BufListener != nil {
+		opts = append(opts, grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.BufListener.Dial()
+		}))
 	}
-	adscConn, err := adsc.New("buffcon", &adsc.Config{
+	adscConn, err := adsc.New(f.Listener.Addr().String(), &adsc.Config{
 		IP:                       p.IPAddresses[0],
 		NodeType:                 string(p.Type),
 		Meta:                     p.Metadata.ToStruct(),
 		Locality:                 p.Locality,
 		Namespace:                p.ConfigNamespace,
 		InitialDiscoveryRequests: initialWatch,
-		GrpcOpts: []grpc.DialOption{
-			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return f.BufListener.Dial()
-			}),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		},
+		GrpcOpts:                 opts,
 	})
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)
 	}
+	f.t.Cleanup(func() {
+		adscConn.Close()
+	})
+	return adscConn
+}
+
+// Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
+// watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
+// resources we should initially wait for.
+func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
+	f.t.Helper()
+	if watch == nil {
+		watch = []string{v3.ClusterType}
+	}
+	adscConn := f.ConnectUnstarted(p, watch)
 	if err := adscConn.Run(); err != nil {
 		f.t.Fatalf("ADSC: failed running: %v", err)
 	}
-
 	if len(wait) > 0 {
-		_, err = adscConn.Wait(10*time.Second, wait...)
+		_, err := adscConn.Wait(10*time.Second, wait...)
 		if err != nil {
 			f.t.Fatalf("Error getting initial for %v config: %v", wait, err)
 		}
 	}
-	f.t.Cleanup(func() {
-		adscConn.Close()
-	})
 	return adscConn
 }
 
