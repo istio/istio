@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 42681
+releaseNotes:
+  - |
+    **Update** `VALIDATION_WEBHOOK_CONFIG_NAME` environment variable description.
