@@ -1047,7 +1047,7 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 		switch filter.Path.Type {
 		case k8sbeta.PrefixMatchHTTPPathModifier:
 			rewrite.Uri = *filter.Path.ReplacePrefixMatch
-		case k8s.FullPathHTTPPathModifier:
+		case k8sbeta.FullPathHTTPPathModifier:
 			rewrite.Uri = fmt.Sprintf("%%FULLREPLACE()%%%s", *filter.Path.ReplaceFullPath)
 		}
 	}
