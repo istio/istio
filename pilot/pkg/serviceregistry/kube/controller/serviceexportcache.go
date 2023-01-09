@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
@@ -129,7 +130,7 @@ func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Even
 }
 
 func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
-	for _, svc := range ec.servicesForNamespacedName(kubesr.NamespacedNameForK8sObject(se)) {
+	for _, svc := range ec.servicesForNamespacedName(config.NamespacedName(se)) {
 		// Re-build the endpoints for this service with a new discoverability policy.
 		// Also update any internal caching.
 		endpoints := ec.buildEndpointsForService(svc, true)
@@ -169,7 +170,7 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	for _, export := range exports {
 		uExport := export.(*unstructured.Unstructured)
 		es := exportedService{
-			namespacedName:  kubesr.NamespacedNameForK8sObject(uExport),
+			namespacedName:  config.NamespacedName(uExport),
 			discoverability: make(map[host.Name]string),
 		}
 
