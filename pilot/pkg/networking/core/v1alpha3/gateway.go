@@ -501,7 +501,7 @@ func hashRouteList(r []*route.Route) uint64 {
 		h.Write(b)
 	}
 	var tmp [md5.Size]byte
-	return h.SumToUint64(tmp[:0])
+	return h.ToLittleEndianUint64(tmp[:0])
 }
 
 // collapseDuplicateRoutes prevents cardinality explosion when we have multiple hostnames defined for the same set of routes

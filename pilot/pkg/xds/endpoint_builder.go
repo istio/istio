@@ -156,7 +156,7 @@ func (b EndpointBuilder) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.SumToString(nil)
+	return h.ToString(nil)
 }
 
 func (b EndpointBuilder) Cacheable() bool {

@@ -244,7 +244,7 @@ func hashString(s string) string {
 	// Test only code
 	h := hash.New()
 	h.Write([]byte(s))
-	return h.SumToString(nil)
+	return h.ToString(nil)
 }
 
 func getMeshConfigData(c cluster.Cluster, cm *corev1.ConfigMap) (string, error) {

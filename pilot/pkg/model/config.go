@@ -64,7 +64,7 @@ func (key ConfigKey) HashCode() ConfigHash {
 	h.Write([]byte(key.Namespace))
 	h.Write([]byte("/"))
 	h.Write([]byte(key.Name))
-	return ConfigHash(h.SumToUint64(nil))
+	return ConfigHash(h.ToBigEndianUint64(nil))
 }
 
 func (key ConfigKey) String() string {
