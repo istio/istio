@@ -509,8 +509,8 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
-	svc := controllers.Extract[*v1.Service](curr)
-	if svc == nil {
+	currSvc := controllers.Extract[*v1.Service](curr)
+	if currSvc == nil {
 		return nil
 	}
 
@@ -524,9 +524,8 @@ func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
 	case model.EventAdd:
 		c.addOrUpdateService(nil, currSvc, svcConv, event, false)
 	case model.EventUpdate:
-		prevSvc, err := extractService(prev)
-		if err != nil {
-			log.Error(err)
+		prevSvc := controllers.Extract[*v1.Service](prev)
+		if prevSvc == nil {
 			return nil
 		}
 		c.addOrUpdateService(prevSvc, currSvc, svcConv, event, false)
