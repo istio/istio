@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/lazy"
 )
 
 type Server struct {
@@ -52,6 +53,8 @@ type Server struct {
 	marshalableDisabledSelectors []*metav1.LabelSelector
 	mu                           sync.Mutex
 	ztunnelPod                   *corev1.Pod
+
+	iptablesCommand lazy.Lazy[string]
 }
 
 type AmbientConfigFile struct {
@@ -77,6 +80,9 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		marshalableDisabledSelectors: ambientpod.LegacyLabelSelector,
 		kubeClient:                   client,
 	}
+	s.iptablesCommand = lazy.New(func() (string, error) {
+		return s.detectIptablesCommand(), nil
+	})
 
 	// We need to find our Host IP -- is there a better way to do this?
 	h, err := GetHostIP(s.kubeClient.Kube())
