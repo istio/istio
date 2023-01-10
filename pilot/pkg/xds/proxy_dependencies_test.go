@@ -265,10 +265,8 @@ func TestProxyNeedsPush(t *testing.T) {
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 
 	const (
-		fooSvc             = "foo"
-		extensionSvc       = "extension"
-		helloworldSvc      = "helloworld." + nsName + ".svc.cluster.local"
-		autoPassthroughSvc = "auto-passthrough.com"
+		fooSvc       = "foo"
+		extensionSvc = "extension"
 	)
 
 	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
@@ -289,20 +287,6 @@ func TestProxyNeedsPush(t *testing.T) {
 			},
 			{
 				Hostname: extensionSvc,
-				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
-					Namespace: nsName,
-				},
-			},
-			{
-				Hostname: helloworldSvc,
-				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
-					Namespace: nsName,
-				},
-			},
-			{
-				Hostname: autoPassthroughSvc,
 				Attributes: model.ServiceAttributes{
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 					Namespace: nsName,
@@ -346,22 +330,10 @@ func TestProxyNeedsPush(t *testing.T) {
 		},
 	})
 
-	tlsServer := &networking.Server{
-		Tls: &networking.ServerTLSSettings{
-			Mode: networking.ServerTLSSettings_AUTO_PASSTHROUGH,
-		},
-	}
 	gateway.MergedGateway = &model.MergedGateway{
 		GatewayNameForServer: map[*networking.Server]string{
-			{}:        nsName + "/" + generalName,
-			tlsServer: nsName + "/" + generalName,
+			{}: nsName + "/" + generalName,
 		},
-		TLSServerInfo: map[*networking.Server]*model.TLSServerInfo{
-			tlsServer: {
-				SNIHosts: []string{"*.cluster.local", autoPassthroughSvc},
-			},
-		},
-		ContainsAutoPassthroughGateways: true,
 	}
 	gateway.SetSidecarScope(cg.PushContext())
 
@@ -384,18 +356,6 @@ func TestProxyNeedsPush(t *testing.T) {
 			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
 			want:    true,
 		},
-		{
-			name:    "auto passthrough host",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: autoPassthroughSvc, Namespace: nsName}),
-			want:    true,
-		},
-		{
-			name:    "auto passthrough host(wildcard)",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: helloworldSvc}),
-			want:    true,
-		},
 	}
 
 	for _, tt := range cases {
@@ -403,6 +363,16 @@ func TestProxyNeedsPush(t *testing.T) {
 			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+		})
+	}
+
+	gateway.MergedGateway.ContainsAutoPassthroughGateways = true
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			push := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			if !push {
+				t.Fatalf("Got needs push = %v, expected %v", push, true)
 			}
 		})
 	}
