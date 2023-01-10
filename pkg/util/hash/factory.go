@@ -38,9 +38,9 @@ func (i *Instance) Write(p []byte) (n int) {
 	return
 }
 
-func (i *Instance) ToBigEndianUint64(b []byte) uint64 {
+func (i *Instance) ToUint64(b []byte) uint64 {
 	sum := i.Sum(b)
-	return binary.BigEndian.Uint64(sum)
+	return binary.LittleEndian.Uint64(sum)
 }
 
 func (i *Instance) ToLittleEndianUint64(b []byte) uint64 {
