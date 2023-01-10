@@ -48,7 +48,6 @@ func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
 			var certificate tls.Certificate
 			key, cert := opts.Key, opts.Cert
 			if key != "" && cert != "" {
-				var isExpired bool
 				isExpired, err := util.IsCertExpired(opts.Cert)
 				if err != nil {
 					log.Warnf("cannot parse the cert chain, using token instead: %v", err)
