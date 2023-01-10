@@ -17,7 +17,6 @@ package istio
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/util/hash"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -228,7 +227,7 @@ func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap
 			return err
 		}
 		for _, pod := range pl.Items {
-			patchBytes := fmt.Sprintf(`{ "metadata": {"annotations": { "test.istio.io/mesh-config-hash": "%s" } } }`, hashString(cfgMap.Data["mesh"]))
+			patchBytes := fmt.Sprintf(`{ "metadata": {"annotations": { "test.istio.io/mesh-config-hash": "%s" } } }`, cfgMap.Data["mesh"])
 			_, err := c.Kube().CoreV1().Pods(cm.namespace).Patch(context.TODO(), pod.Name,
 				types.MergePatchType, []byte(patchBytes), metav1.PatchOptions{FieldManager: "istio-ci"})
 			if err != nil {
@@ -237,14 +236,6 @@ func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap
 		}
 	}
 	return nil
-}
-
-func hashString(s string) string {
-	// nolint: gosec
-	// Test only code
-	h := hash.New()
-	h.Write([]byte(s))
-	return h.ToString(nil)
 }
 
 func getMeshConfigData(c cluster.Cluster, cm *corev1.ConfigMap) (string, error) {

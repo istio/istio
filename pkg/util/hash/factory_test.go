@@ -15,6 +15,7 @@
 package hash
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -30,7 +31,7 @@ func TestFactory(t *testing.T) {
 		{
 			name: "foo",
 			str:  "foo",
-			// note: different hash implementations may get different hash value
+			// note: Different hash implementation may get different hash value
 			wantSum:    []byte{51, 191, 0, 168, 89, 196, 186, 63},
 			wantStr:    "33bf00a859c4ba3f",
 			wantUint64: 4592198659407396659,
@@ -41,7 +42,7 @@ func TestFactory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New()
 			h.Write([]byte(tt.str))
-			if gotSum := h.Sum(nil); string(tt.wantSum) != string(gotSum) {
+			if gotSum := h.Sum(nil); bytes.Equal(tt.wantSum, gotSum) {
 				t.Errorf("wantSum %v, but got %v", tt.wantSum, gotSum)
 			}
 			if gotStr := h.ToString(nil); tt.wantStr != gotStr {

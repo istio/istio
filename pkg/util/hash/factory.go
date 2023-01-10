@@ -43,11 +43,6 @@ func (i *Instance) ToUint64(b []byte) uint64 {
 	return binary.LittleEndian.Uint64(sum)
 }
 
-func (i *Instance) ToLittleEndianUint64(b []byte) uint64 {
-	sum := i.Sum(b)
-	return binary.LittleEndian.Uint64(sum)
-}
-
 func (i *Instance) ToString(b []byte) string {
 	sum := i.Sum(b)
 	return hex.EncodeToString(sum)
