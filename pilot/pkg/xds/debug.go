@@ -39,10 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -149,17 +146,6 @@ func (s *DiscoveryServer) InitDebug(
 	enableProfiling bool,
 	fetchWebhook func() map[string]string,
 ) *http.ServeMux {
-	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = memory.NewServiceDiscovery()
-	s.MemRegistry.XdsUpdater = s
-	s.MemRegistry.ClusterID = "v2-debug"
-
-	sctl.AddRegistry(serviceregistry.Simple{
-		ClusterID:        "v2-debug",
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: s.MemRegistry,
-		Controller:       s.MemRegistry.Controller,
-	})
 	internalMux := http.NewServeMux()
 	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
 	return internalMux

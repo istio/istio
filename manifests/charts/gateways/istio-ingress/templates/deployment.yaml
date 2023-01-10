@@ -224,6 +224,10 @@ spec:
           {{- end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: ISTIO_META_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds

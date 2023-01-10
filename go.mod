@@ -25,7 +25,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v20.10.22+incompatible
-	github.com/envoyproxy/go-control-plane v0.10.3-0.20221219165740-8b998257ff09
+	github.com/envoyproxy/go-control-plane v0.10.3-0.20230106044744-2a57b60afc04
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.3
@@ -86,9 +86,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.3
-	istio.io/api v0.0.0-20230105211034-04e3e632384b
-	istio.io/client-go v1.12.0-alpha.5.0.20230105211435-49359e77ad8b
-	istio.io/pkg v0.0.0-20221215213414-23c89d20ad11
+	istio.io/api v0.0.0-20230109163149-dab445160dc2
+	istio.io/client-go v1.12.0-alpha.5.0.20230109163650-8475b4fd82b9
+	istio.io/pkg v0.0.0-20230109165950-4d649447a1d7
 	k8s.io/api v0.26.0
 	k8s.io/apiextensions-apiserver v0.26.0
 	k8s.io/apimachinery v0.26.0
@@ -233,7 +233,7 @@ require (
 	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/term v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/tools v0.4.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect

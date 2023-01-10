@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/pkg/config/analysis/local"
@@ -302,11 +302,7 @@ func (h *HelmReconciler) Delete() error {
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
 	isop := &istioV1Alpha1.IstioOperator{}
-	namespacedName := types.NamespacedName{
-		Name:      h.iop.Name,
-		Namespace: h.iop.Namespace,
-	}
-	if err := h.getClient().Get(context.TODO(), namespacedName, isop); err != nil {
+	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), isop); err != nil {
 		if runtime.IsNotRegisteredError(err) {
 			// CRD not yet installed in cluster, nothing to update.
 			return nil
@@ -330,11 +326,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 // SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
 	iop := &istioV1Alpha1.IstioOperator{}
-	namespacedName := types.NamespacedName{
-		Name:      h.iop.Name,
-		Namespace: h.iop.Namespace,
-	}
-	if err := h.getClient().Get(context.TODO(), namespacedName, iop); err != nil {
+	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), iop); err != nil {
 		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
 	}
 	iop.Status = status

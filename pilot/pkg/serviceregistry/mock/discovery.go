@@ -135,7 +135,10 @@ func MakeIP(service *model.Service, version int) string {
 	if service.External() {
 		return ""
 	}
-	ipa, _ := netip.ParseAddr(service.DefaultAddress)
+	ipa, ise := netip.ParseAddr(service.DefaultAddress)
+	if ise != nil {
+		return ""
+	}
 	ip := ipa.As4()
 	ip[2] = byte(1)
 	ip[3] = byte(version)

@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
@@ -76,9 +75,6 @@ type debounceOptions struct {
 type DiscoveryServer struct {
 	// Env is the model environment.
 	Env *model.Environment
-
-	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry *memory.ServiceDiscovery
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
