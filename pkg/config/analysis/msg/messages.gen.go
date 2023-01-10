@@ -199,7 +199,7 @@ var (
 
 	// EnvoyFilterUsesRelativeOperation defines a diag.MessageType for message "EnvoyFilterUsesRelativeOperation".
 	// Description: This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.
-	EnvoyFilterUsesRelativeOperation = diag.NewMessageType(diag.Warning, "IST0151", "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.")
+	EnvoyFilterUsesRelativeOperation = diag.NewMessageType(diag.Warning, "IST0151", "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly.")
 
 	// EnvoyFilterUsesReplaceOperationIncorrectly defines a diag.MessageType for message "EnvoyFilterUsesReplaceOperationIncorrectly".
 	// Description: The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.
