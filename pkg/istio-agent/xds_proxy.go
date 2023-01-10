@@ -16,14 +16,12 @@ package istioagent
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -691,35 +689,6 @@ func (p *XdsProxy) getTLSOptions(agent *Agent) (*istiogrpc.TLSOptions, error) {
 		ServerAddress: agent.proxyConfig.DiscoveryAddress,
 		SAN:           p.istiodSAN,
 	}, nil
-}
-
-func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
-	var certPool *x509.CertPool
-	var rootCert []byte
-
-	xdsCACertPath, err := agent.FindRootCAForXDS()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
-	}
-
-	if xdsCACertPath != "" {
-		rootCert, err = os.ReadFile(xdsCACertPath)
-		if err != nil {
-			return nil, err
-		}
-
-		certPool = x509.NewCertPool()
-		ok := certPool.AppendCertsFromPEM(rootCert)
-		if !ok {
-			return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
-		}
-	} else {
-		certPool, err = x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return certPool, nil
 }
 
 // sendUpstream sends discovery request.

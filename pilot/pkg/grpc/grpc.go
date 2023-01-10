@@ -109,9 +109,7 @@ func ClientOptions(options *istiokeepalive.Options, tlsOpts *TLSOptions) ([]grpc
 	} else {
 		tlsDialOpts = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
-	return append([]grpc.DialOption{
-		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption, tlsDialOpts,
-	}), nil
+	return []grpc.DialOption{keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption, tlsDialOpts}, nil
 }
 
 var expectedGrpcFailureMessages = sets.New(
