@@ -15,7 +15,7 @@
 package v1alpha3
 
 import (
-	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/hashs"
 	"strconv"
 	"strings"
 
@@ -60,7 +60,7 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hash.New()
+	h := hashs.New()
 	h.Write([]byte(t.clusterName))
 	h.Write(Separator)
 	h.Write([]byte(t.proxyVersion))

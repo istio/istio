@@ -15,7 +15,7 @@
 package route
 
 import (
-	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/hashs"
 	"math/big"
 	"strconv"
 	"strings"
@@ -122,7 +122,7 @@ func (r *Cache) DependentTypes() []kind.Kind {
 func (r *Cache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hash.New()
+	h := hashs.New()
 
 	h.Write([]byte(r.RouteName))
 	h.Write(Separator)

@@ -15,7 +15,7 @@
 package xds
 
 import (
-	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/hashs"
 	"net"
 	"sort"
 	"strconv"
@@ -112,7 +112,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hash.New()
+	h := hashs.New()
 	h.Write([]byte(b.clusterName))
 	h.Write(Separator)
 	h.Write([]byte(b.network))

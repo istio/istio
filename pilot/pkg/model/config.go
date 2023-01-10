@@ -15,7 +15,7 @@
 package model
 
 import (
-	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/hashs"
 	"sort"
 	"strings"
 
@@ -57,7 +57,7 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	h := hash.New()
+	h := hashs.New()
 	h.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
 	h.Write([]byte("/"))

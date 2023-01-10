@@ -18,7 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
-	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/hashs"
 	"sort"
 	"strconv"
 	"strings"
@@ -487,7 +487,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 func hashRouteList(r []*route.Route) uint64 {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hash.New()
+	h := hashs.New()
 	for _, v := range r {
 		u := uintptr(unsafe.Pointer(v))
 		size := unsafe.Sizeof(u)
