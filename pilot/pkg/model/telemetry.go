@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
@@ -28,6 +29,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
@@ -828,6 +830,19 @@ func statsRootIDForClass(class networking.ListenerClass) string {
 	}
 }
 
+var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
+	TypeUrl: "type.googleapis.com/stats.PluginConfig",
+	Value: &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"reporter": {
+				Kind: &structpb.Value_StringValue{
+					StringValue: "SERVER_GATEWAY",
+				},
+			},
+		},
+	},
+})
+
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
 	for _, cfg := range metricsCfg {
@@ -837,24 +852,32 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 				// No logging for prometheus
 				continue
 			}
-			statsCfg := generateStatsConfig(class, cfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = root
+			if cfg.NodeType == Waypoint {
+				f := &hcm.HttpFilter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: waypointStatsConfig},
+				}
+				res = append(res, f)
+			} else {
+				statsCfg := generateStatsConfig(class, cfg)
+				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+				root := statsRootIDForClass(class)
+				vmConfig.VmConfig.VmId = root
 
-			wasmConfig := &httpwasm.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: statsCfg,
-				},
-			}
+				wasmConfig := &httpwasm.Wasm{
+					Config: &wasm.PluginConfig{
+						RootId:        root,
+						Vm:            vmConfig,
+						Configuration: statsCfg,
+					},
+				}
 
-			f := &hcm.HttpFilter{
-				Name:       xds.StatsFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				f := &hcm.HttpFilter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}
+				res = append(res, f)
 			}
-			res = append(res, f)
 
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
@@ -887,24 +910,32 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 	for _, telemetryCfg := range telemetryConfigs {
 		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			cfg := generateStatsConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-			root := statsRootIDForClass(class)
-			vmConfig.VmConfig.VmId = "tcp_" + root
+			if telemetryCfg.NodeType == Waypoint {
+				f := &listener.Filter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: waypointStatsConfig},
+				}
+				res = append(res, f)
+			} else {
+				cfg := generateStatsConfig(class, telemetryCfg)
+				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+				root := statsRootIDForClass(class)
+				vmConfig.VmConfig.VmId = "tcp_" + root
 
-			wasmConfig := &wasmfilter.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        root,
-					Vm:            vmConfig,
-					Configuration: cfg,
-				},
-			}
+				wasmConfig := &wasmfilter.Wasm{
+					Config: &wasm.PluginConfig{
+						RootId:        root,
+						Vm:            vmConfig,
+						Configuration: cfg,
+					},
+				}
 
-			f := &listener.Filter{
-				Name:       xds.StatsFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				f := &listener.Filter{
+					Name:       xds.StatsFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}
+				res = append(res, f)
 			}
-			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
@@ -1050,9 +1081,6 @@ var metricToPrometheusMetric = map[string]string{
 func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
-	}
-	if metricsCfg.NodeType == Waypoint {
-		cfg.MetadataMode = stats.PluginConfig_UPSTREAM_HOST_METADATA_MODE
 	}
 	for _, override := range metricsCfg.MetricsForClass(class) {
 		metricName, f := metricToPrometheusMetric[override.Name]
