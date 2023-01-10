@@ -222,7 +222,9 @@ func validateRevision(_ util.Path, val any) util.Errors {
 func validateGatewayName(path util.Path, val any) (errs util.Errors) {
 	v := val.([]*v1alpha1.GatewaySpec)
 	for _, n := range v {
-		errs = append(errs, validateWithRegex(path, n.Name, ObjectNameRegexp)...)
+		if n != nil {
+			errs = append(errs, validateWithRegex(path, n.Name, ObjectNameRegexp)...)
+		}
 	}
 	return
 }
