@@ -74,7 +74,7 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tL7 Support\tPROTOCOL")
+		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tL7 SUPPORT\tPROTOCOL")
 	} else {
 		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE")
 	}
