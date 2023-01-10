@@ -114,7 +114,7 @@ type serviceExportCacheImpl struct {
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Event) error {
+func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj any, event model.Event) error {
 	se := controllers.Extract[*unstructured.Unstructured](obj)
 	if se == nil {
 		return nil

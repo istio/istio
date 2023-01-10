@@ -30,7 +30,7 @@ import (
 
 // ServiceController is a mock service controller
 type ServiceController struct {
-	svcHandlers []func(*model.Service, model.Event)
+	svcHandlers []model.ServiceHandler
 
 	sync.RWMutex
 }
@@ -41,7 +41,7 @@ var _ model.Controller = &ServiceController{}
 func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 // AppendServiceHandler appends a service handler to the controller
-func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *ServiceController) AppendServiceHandler(f model.ServiceHandler) {
 	c.Lock()
 	c.svcHandlers = append(c.svcHandlers, f)
 	c.Unlock()

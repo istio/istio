@@ -133,10 +133,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.pushQueue.ShutDown()
 	})
 
-	serviceHandler := func(svc *model.Service, _ model.Event) {
+	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.ConfigUpdate(pushReq)
