@@ -857,8 +857,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 
-	if cc.hbone {
-	} else {
+	if !cc.hbone {
 		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
 			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 		}
@@ -867,7 +866,9 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
 	h := lb.buildHTTPConnectionManager(httpOpts)
-	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.ConnectBaggageFilter}, h.HttpFilters...)
+	if cc.hbone {
+		h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.ConnectBaggageFilter}, h.HttpFilters...)
+	}
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
