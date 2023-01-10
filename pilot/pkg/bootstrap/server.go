@@ -24,7 +24,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -1349,6 +1348,5 @@ func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
 	if prev == nil {
 		return true
 	}
-	// TODO: Make this more efficient by comparing field by field.
-	return !reflect.DeepEqual(prev, curr)
+	return !prev.Equals(curr)
 }

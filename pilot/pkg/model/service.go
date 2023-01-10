@@ -30,6 +30,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
+	"golang.org/x/exp/maps"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -637,6 +638,50 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	return out
 }
 
+// Equals checks whether the attributes are equal from the passed in service.
+func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
+	if s == nil {
+		return other == nil
+	}
+	if other == nil {
+		return s == nil
+	}
+
+	if !maps.Equal(s.Labels, other.Labels) {
+		return false
+	}
+
+	if !maps.Equal(s.LabelSelectors, other.LabelSelectors) {
+		return false
+	}
+
+	if !maps.Equal(s.ExportTo, other.ExportTo) {
+		return false
+	}
+
+	if len(s.ClusterExternalAddresses.Addresses) != len(other.ClusterExternalAddresses.Addresses) {
+		return false
+	}
+
+	for k, v1 := range s.ClusterExternalAddresses.Addresses {
+		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !stringSliceEqual(v1, v2) {
+			return false
+		}
+	}
+
+	if len(s.ClusterExternalPorts) != len(other.ClusterExternalPorts) {
+		return false
+	}
+
+	for k, v1 := range s.ClusterExternalPorts {
+		if v2, ok := s.ClusterExternalPorts[k]; !ok || !maps.Equal(v1, v2) {
+			return false
+		}
+	}
+	return s.Name == other.Name && s.Namespace == other.Namespace && s.NodeLocal == other.NodeLocal &&
+		s.ServiceRegistry == other.ServiceRegistry && s.Type == other.Type
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
 type ServiceDiscovery interface {
@@ -737,6 +782,35 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (p *Port) Equals(other *Port) bool {
+	if p == nil {
+		return other == nil
+	}
+	if other == nil {
+		return p == nil
+	}
+	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol
+}
+
+func (ports PortList) Equals(other PortList) bool {
+	if len(ports) != len(other) {
+		return false
+	}
+	for _, p1 := range ports {
+		found := false
+		for _, p2 := range other {
+			if p1.Equals(p2) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 // External predicate checks whether the service is external
@@ -906,6 +980,39 @@ func (s *Service) DeepCopy() *Service {
 	}
 	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
 	return &out
+}
+
+// Equals compares two service objects.
+func (s *Service) Equals(other *Service) bool {
+	if s == nil {
+		return other == nil
+	}
+	if other == nil {
+		return s == nil
+	}
+
+	if !s.Attributes.Equals(&other.Attributes) {
+		return false
+	}
+
+	if !s.Ports.Equals(other.Ports) {
+		return false
+	}
+	if !stringSliceEqual(s.ServiceAccounts, other.ServiceAccounts) {
+		return false
+	}
+
+	if len(s.ClusterVIPs.Addresses) != len(other.ClusterVIPs.Addresses) {
+		return false
+	}
+	for k, v1 := range s.ClusterVIPs.Addresses {
+		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !stringSliceEqual(v1, v2) {
+			return false
+		}
+	}
+
+	return s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
+		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname && s.MeshExternal == other.MeshExternal
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
