@@ -177,6 +177,8 @@ message EgressGatewayConfig {
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
 
+  google.protobuf.BoolValue customService = 6;
+
   // Controls whether an egress gateway is enabled.
   google.protobuf.BoolValue enabled = 7;
 
