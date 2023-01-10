@@ -68,11 +68,11 @@ func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *mo
 		}
 	case model.Router:
 		if config.Kind == kind.ServiceEntry {
+			// If config is ServiceEntry, name of the config is service's FQDN
 			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, proxy) {
 				return false
 			}
 
-			// If config is ServiceEntry, name of the config is service's FQDN
 			svc, exist := push.ServiceIndex.HostnameAndNamespace[host.Name(config.Name)][config.Namespace]
 			if exist {
 				if !push.IsServiceVisible(svc, proxy.Metadata.Namespace) {
