@@ -1851,7 +1851,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			deleteWg := sync.WaitGroup{}
 			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 				Mode: mode,
-				ServiceHandler: func(_ *model.Service, e model.Event) {
+				ServiceHandler: func(_, _ *model.Service, e model.Event) {
 					if e == model.EventDelete {
 						deleteWg.Done()
 					}
@@ -2782,7 +2782,7 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
 			controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: tc.mode})
 
-			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
+			if err := controller.endpoints.onEvent(nil, tc.tombstone, model.EventDelete); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})

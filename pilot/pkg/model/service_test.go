@@ -278,6 +278,214 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 	}
 }
 
+func TestServicesEqual(t *testing.T) {
+	cases := []struct {
+		first    *Service
+		other    *Service
+		shouldEq bool
+		name     string
+	}{
+		{
+			first:    nil,
+			other:    &Service{},
+			shouldEq: false,
+			name:     "first nil services",
+		},
+		{
+			first:    &Service{},
+			other:    nil,
+			shouldEq: false,
+			name:     "other nil services",
+		},
+		{
+			first:    nil,
+			other:    nil,
+			shouldEq: true,
+			name:     "both nil services",
+		},
+		{
+			first:    &Service{},
+			other:    &Service{},
+			shouldEq: true,
+			name:     "two empty services",
+		},
+		{
+			first: &Service{
+				Ports: port7000,
+			},
+			other: &Service{
+				Ports: port7442,
+			},
+			shouldEq: false,
+			name:     "different ports",
+		},
+		{
+			first: &Service{
+				Ports: twoMatchingPorts,
+			},
+			other: &Service{
+				Ports: twoMatchingPorts,
+			},
+			shouldEq: true,
+			name:     "matching ports",
+		},
+		{
+			first: &Service{
+				ServiceAccounts: []string{"sa1"},
+			},
+			other: &Service{
+				ServiceAccounts: []string{"sa1"},
+			},
+			shouldEq: true,
+			name:     "matching service accounts",
+		},
+		{
+			first: &Service{
+				ServiceAccounts: []string{"sa1"},
+			},
+			other: &Service{
+				ServiceAccounts: []string{"sa2"},
+			},
+			shouldEq: false,
+			name:     "different service accounts",
+		},
+		{
+			first: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"c1-vip1,c1-vip2"},
+						"cluster-2": {"c2-vip1,c2-vip2"},
+					},
+				},
+			},
+			other: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"c1-vip1,c1-vip2"},
+						"cluster-2": {"c2-vip1,c2-vip2"},
+					},
+				},
+			},
+			shouldEq: true,
+			name:     "matching cluster VIPs",
+		},
+		{
+			first: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"c1-vip1,c1-vip2"},
+					},
+				},
+			},
+			other: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"c1-vip1,c1-vip2"},
+						"cluster-2": {"c2-vip1,c2-vip2"},
+					},
+				},
+			},
+			shouldEq: false,
+			name:     "different cluster VIPs",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					Name:      "test",
+					Namespace: "testns",
+					Labels: map[string]string{
+						"label-1": "value-1",
+					},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					Name:      "test",
+					Namespace: "testns",
+					Labels: map[string]string{
+						"label-1": "value-1",
+					},
+				},
+			},
+			shouldEq: true,
+			name:     "same service attributes",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					Name:      "test",
+					Namespace: "testns",
+					Labels: map[string]string{
+						"label-1": "value-1",
+					},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					Name:      "test",
+					Namespace: "testns",
+					Labels: map[string]string{
+						"label-1": "value-2",
+					},
+				},
+			},
+			shouldEq: false,
+			name:     "different service attributes",
+		},
+		{
+			first: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"c1-vip1,c1-vip2"},
+					},
+				},
+				ServiceAccounts: []string{"sa-1", "sa-2"},
+				Ports:           twoMatchingPorts,
+				Attributes: ServiceAttributes{
+					Name:      "test",
+					Namespace: "testns",
+					Labels: map[string]string{
+						"label-1": "value-1",
+					},
+				},
+			},
+			other: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"c1-vip1,c1-vip2"},
+						"cluster-2": {"c2-vip1,c2-vip2"},
+					},
+				},
+				Ports:           twoMatchingPorts,
+				ServiceAccounts: []string{"sa-1", "sa-2"},
+				Attributes: ServiceAttributes{
+					Name:      "test",
+					Namespace: "testns",
+					Labels: map[string]string{
+						"label-1": "value-2",
+					},
+				},
+			},
+			shouldEq: false,
+			name:     "service with just label change",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run("ServicesEqual: "+testCase.name, func(t *testing.T) {
+			isEq := testCase.first.Equals(testCase.other)
+			if isEq != testCase.shouldEq {
+				t.Errorf(
+					"equality of %v , and %v are not equal expected %t",
+					testCase.first,
+					testCase.other,
+					testCase.shouldEq,
+				)
+			}
+		})
+	}
+}
+
 func BenchmarkBuildSubsetKey(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		_ = BuildSubsetKey(TrafficDirectionInbound, "v1", "someHost", 80)

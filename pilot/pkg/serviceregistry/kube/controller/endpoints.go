@@ -138,7 +138,7 @@ func (e *endpointsController) getInformer() informer.FilteredSharedIndexInformer
 	return e.informer
 }
 
-func (e *endpointsController) onEvent(curr any, event model.Event) error {
+func (e *endpointsController) onEvent(_, curr any, event model.Event) error {
 	ep := controllers.Extract[*v1.Endpoints](curr)
 	if ep == nil {
 		return nil
