@@ -21,7 +21,6 @@ import (
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/discovery/v1"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	filterinformer "istio.io/istio/pkg/kube/informer"
 )
 
@@ -106,20 +106,10 @@ func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selec
 }
 
 func (esc *endpointSliceController) onEvent(curr any, event model.Event) error {
-	ep, ok := curr.(metav1.Object)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		epGvk, ok := tombstone.Obj.(runtime.Object)
-		if !ok || epGvk.GetObjectKind().GroupVersionKind().Kind != "EndpointSlice" {
-			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
-			return nil
-		}
+	ep := controllers.ExtractObject(curr)
+	if ep == nil {
+		return nil
 	}
-
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
 		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)

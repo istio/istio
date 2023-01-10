@@ -20,12 +20,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 )
 
@@ -138,18 +138,9 @@ func (e *endpointsController) getInformer() informer.FilteredSharedIndexInformer
 }
 
 func (e *endpointsController) onEvent(curr any, event model.Event) error {
-	ep, ok := curr.(*v1.Endpoints)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		ep, ok = tombstone.Obj.(*v1.Endpoints)
-		if !ok {
-			log.Errorf("Tombstone contained object that is not an endpoints %#v", curr)
-			return nil
-		}
+	ep := controllers.Extract[*v1.Endpoints](curr)
+	if ep == nil {
+		return nil
 	}
 
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
