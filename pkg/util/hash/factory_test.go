@@ -42,7 +42,7 @@ func TestFactory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New()
 			h.Write([]byte(tt.str))
-			if gotSum := h.Sum(nil); bytes.Equal(tt.wantSum, gotSum) {
+			if gotSum := h.Sum(nil); !bytes.Equal(tt.wantSum, gotSum) {
 				t.Errorf("wantSum %v, but got %v", tt.wantSum, gotSum)
 			}
 			if gotStr := h.ToString(nil); tt.wantStr != gotStr {
