@@ -1172,7 +1172,6 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				if port.Protocol == protocol.UDP {
 					continue
 				}
-				// Similar code as UpdateServiceShards in eds.go
 				instances := c.InstancesByPort(service, port.Port)
 				for _, inst := range instances {
 					endpoints = append(endpoints, inst.Endpoint)

@@ -187,6 +187,7 @@ func TestEds(t *testing.T) {
 			m.SetEndpoints(edsIncSvc, "", newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 		},
 	})
+	reconcileServiceShards(s, s.MemServiceRegistry)
 
 	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
 	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
@@ -535,7 +536,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
-
+			reconcileServiceShards(s, s.MemServiceRegistry)
 			adscConn := s.Connect(nil, nil, watchAll)
 
 			// Validate that endpoints are pushed correctly.
@@ -602,7 +603,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
-
+	reconcileServiceShards(s, s.MemServiceRegistry)
 	adscConn := s.Connect(nil, nil, watchEds)
 
 	// Validate that endpoints are pushed correctly.
@@ -1191,6 +1192,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 			Protocol: protocol.HTTP,
 		},
 	})
+	reconcileServiceShards(s, s.MemServiceRegistry)
 	fullPush(s)
 }
 
@@ -1251,6 +1253,7 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 			Protocol: protocol.TCP,
 		},
 	})
+	reconcileServiceShards(s, s.MemServiceRegistry)
 	fullPush(s)
 }
 
@@ -1278,6 +1281,7 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 			Protocol: protocol.TCP,
 		},
 	})
+	reconcileServiceShards(s, s.MemServiceRegistry)
 	fullPush(s)
 }
 
