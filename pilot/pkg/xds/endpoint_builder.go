@@ -112,51 +112,51 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hash.New()
-	h.Write([]byte(b.clusterName))
-	h.Write(Separator)
-	h.Write([]byte(b.network))
-	h.Write(Separator)
-	h.Write([]byte(b.clusterID))
-	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(b.clusterLocal)))
-	h.Write(Separator)
+	ha := hash.New()
+	ha.Write([]byte(b.clusterName))
+	ha.Write(Separator)
+	ha.Write([]byte(b.network))
+	ha.Write(Separator)
+	ha.Write([]byte(b.clusterID))
+	ha.Write(Separator)
+	ha.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	ha.Write(Separator)
 	if features.EnableHBONE {
-		h.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
-		h.Write(Separator)
+		ha.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
+		ha.Write(Separator)
 	}
-	h.Write([]byte(util.LocalityToString(b.locality)))
-	h.Write(Separator)
+	ha.Write([]byte(util.LocalityToString(b.locality)))
+	ha.Write(Separator)
 	if len(b.failoverPriorityLabels) > 0 {
-		h.Write(b.failoverPriorityLabels)
-		h.Write(Separator)
+		ha.Write(b.failoverPriorityLabels)
+		ha.Write(Separator)
 	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.Write([]byte(b.push.AuthnPolicies.GetVersion()))
+		ha.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
-	h.Write(Separator)
+	ha.Write(Separator)
 
 	for _, dr := range b.destinationRule.GetFrom() {
-		h.Write([]byte(dr.Name))
-		h.Write(Slash)
-		h.Write([]byte(dr.Namespace))
+		ha.Write([]byte(dr.Name))
+		ha.Write(Slash)
+		ha.Write([]byte(dr.Namespace))
 	}
-	h.Write(Separator)
+	ha.Write(Separator)
 
 	if b.service != nil {
-		h.Write([]byte(b.service.Hostname))
-		h.Write(Slash)
-		h.Write([]byte(b.service.Attributes.Namespace))
+		ha.Write([]byte(b.service.Hostname))
+		ha.Write(Slash)
+		ha.Write([]byte(b.service.Attributes.Namespace))
 	}
-	h.Write(Separator)
+	ha.Write(Separator)
 
 	if b.proxyView != nil {
-		h.Write([]byte(b.proxyView.String()))
+		ha.Write([]byte(b.proxyView.String()))
 	}
-	h.Write(Separator)
+	ha.Write(Separator)
 
-	return h.ToString(nil)
+	return ha.ToString(nil)
 }
 
 func (b EndpointBuilder) Cacheable() bool {
