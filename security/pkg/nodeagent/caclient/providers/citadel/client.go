@@ -119,6 +119,9 @@ func (c *CitadelClient) getTLSOptions() *istiogrpc.TLSOptions {
 			Cert:          c.tlsOpts.Cert,
 			ServerAddress: c.opts.CAEndpoint,
 			SAN:           c.opts.CAEndpointSAN,
+			GetClientCertificateCb: func() {
+				c.usingMtls.Store(true)
+			},
 		}
 	}
 	return nil
@@ -150,6 +153,7 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	}
 	_, err := tls.LoadX509KeyPair(c.tlsOpts.Cert, c.tlsOpts.Key)
 	if err != nil {
+		citadelClientLog.Errorf("Failed to load key pair %v", err)
 		// Cannot load the certificates yet, don't both reconnecting
 		return nil
 	}
