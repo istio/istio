@@ -1503,7 +1503,7 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 	}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	if len(l.FilterChains) != 14 {
-		t.Fatalf("expected %d listener filter chains, found %d", 12, len(l.FilterChains))
+		t.Fatalf("expected %d listener filter chains, found %d", 14, len(l.FilterChains))
 	}
 	verifyFilterChainMatch(t, l)
 }
