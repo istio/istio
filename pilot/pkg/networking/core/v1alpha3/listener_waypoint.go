@@ -445,7 +445,6 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 		}
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
-	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.ConnectBaggageFilterPropagate}, h.HttpFilters...)
 
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,

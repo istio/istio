@@ -15,7 +15,6 @@
 package filters
 
 import (
-	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -35,7 +34,6 @@ import (
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
@@ -177,24 +175,6 @@ var (
 		Name: "baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_baggage.Config"),
-		},
-	}
-
-	ConnectBaggageFilterPropagate = &hcm.HttpFilter{
-		Name: "baggage",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&udpa.TypedStruct{
-				TypeUrl: "type.googleapis.com/io.istio.http.connect_baggage.Config",
-				Value: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"propagate": {
-							Kind: &structpb.Value_BoolValue{
-								BoolValue: true,
-							},
-						},
-					},
-				},
-			}),
 		},
 	}
 
