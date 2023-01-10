@@ -25,6 +25,10 @@ import (
 
 // main serves as the program entry point
 func main() {
+	if len(os.Args) != 3 {
+		fmt.Println("you should run it like: 'main [PORTS...] prefix' , please notice PORTS are comma-delineated , like  port 1[,port 2]  ")
+		os.Exit(1)
+	}
 	// obtain the port and prefix via program arguments
 	ports := strings.Split(os.Args[1], ",")
 	prefix := os.Args[2]
