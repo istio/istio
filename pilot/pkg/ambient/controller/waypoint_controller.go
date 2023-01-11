@@ -25,9 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
+
+	"k8s.io/client-go/tools/cache"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -40,7 +43,6 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
-	"k8s.io/client-go/tools/cache"
 )
 
 type WaypointProxyController struct {
@@ -57,8 +59,10 @@ type WaypointProxyController struct {
 	injectConfig func() inject.WebhookConfig
 }
 
-var waypointLog = istiolog.RegisterScope("waypointproxy", "", 0)
-var waypointFM = "waypoint proxy controller"
+var (
+	waypointLog = istiolog.RegisterScope("waypointproxy", "", 0)
+	waypointFM  = "waypoint proxy controller"
+)
 
 func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig, addHandler func(func())) *WaypointProxyController {
 	rc := &WaypointProxyController{
@@ -228,6 +232,7 @@ func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
 func (rc *WaypointProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
+	// TODO: use library options when available https://github.com/kubernetes-sigs/gateway-api/issues/1639
 	j, err := config.ToJSON(obj)
 	if err != nil {
 		return err

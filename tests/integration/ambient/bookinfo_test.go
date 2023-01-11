@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -27,6 +26,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -44,6 +46,7 @@ const (
 	bookinfoGateway = bookinfoDir + "networking/bookinfo-gateway.yaml"
 	routingV1       = bookinfoDir + "networking/virtual-service-all-v1.yaml"
 	headerRouting   = bookinfoDir + "networking/virtual-service-reviews-test-v2.yaml"
+	templateFile    = "testdata/modified-waypoint-template.yaml"
 )
 
 func TestBookinfo(t *testing.T) {
@@ -186,6 +189,24 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					})
 				})
+			})
+			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
+				// check that waypoint deployment is unmodified
+				g := gomega.NewGomegaWithT(t)
+				pod, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")()
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				haveEnvVar := gomega.ContainElement(gomega.BeEquivalentTo(v1.EnvVar{Name: "FOO", Value: "bar"}))
+				g.Expect(pod[0].Spec.Containers[0].Env).NotTo(haveEnvVar)
+				// modify template
+				systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
+				applyFileOrFail(t, systemNM.Name(), templateFile)
+				// wait to see modified waypoint deployment
+				getPodEnvVars := func() []v1.EnvVar {
+					pod, err = kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")()
+					g.Expect(err).NotTo(gomega.HaveOccurred())
+					return pod[0].Spec.Containers[0].Env
+				}
+				g.Eventually(getPodEnvVars, time.Minute).Should(haveEnvVar)
 			})
 		})
 }
