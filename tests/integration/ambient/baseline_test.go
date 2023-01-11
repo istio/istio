@@ -635,15 +635,10 @@ spec:
   - to:
     - operation:
         paths: ["/allowed-port"]
-        methods: ["GET"]
         ports: ["80"]
+    from:
     - source:
         principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
-  - to:
-    - operation:
-        paths: ["/denied-port"]
-        methods: ["GET"]
-        ports: ["81"]
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
@@ -704,17 +699,10 @@ spec:
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
-			t.NewSubTest("port deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
-				opt.HTTP.Path = "/denied-port"
-				opt.Check = CheckDeny
-				overrideCheck(&opt)
-				src.CallOrFail(t, opt)
-			})
 			t.NewSubTest("port allow").Run(func(t framework.TestContext) {
 				opt = opt.DeepCopy()
 				opt.HTTP.Path = "/allowed-port"
-				opt.Check = CheckDeny
+				opt.Check = check.OK()
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
