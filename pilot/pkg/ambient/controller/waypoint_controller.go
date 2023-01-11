@@ -63,8 +63,8 @@ var (
 )
 
 func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
-	config func() inject.WebhookConfig, addHandler func(func())) *WaypointProxyController {
-
+	config func() inject.WebhookConfig, addHandler func(func()),
+) *WaypointProxyController {
 	rc := &WaypointProxyController{
 		client:       client,
 		cluster:      clusterID,
@@ -186,8 +186,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 }
 
 func (rc *WaypointProxyController) registerWaypointUpdate(name types.NamespacedName,
-	proxyDeploy *appsv1.Deployment, gw *v1alpha2.Gateway, gatewaySA string, log *istiolog.Scope) error {
-
+	proxyDeploy *appsv1.Deployment, gw *v1alpha2.Gateway, gatewaySA string, log *istiolog.Scope,
+) error {
 	msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
 	if gatewaySA != "" {
 		msg += fmt.Sprintf(" for %q service account", gatewaySA)
