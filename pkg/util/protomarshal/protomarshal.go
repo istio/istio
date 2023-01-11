@@ -25,7 +25,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"            // nolint: depguard
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -43,8 +43,19 @@ func Unmarshal(b []byte, m proto.Message) error {
 	return strictUnmarshaler.Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
 }
 
+func UnmarshalString(s string, m proto.Message) error {
+	return Unmarshal([]byte(s), m)
+}
+
 func UnmarshalAllowUnknown(b []byte, m proto.Message) error {
 	return unmarshaler.Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
+}
+
+func UnmarshalAllowUnknownWithAnyResolver(anyResolver jsonpb.AnyResolver, b []byte, m proto.Message) error {
+	return (&jsonpb.Unmarshaler{
+		AllowUnknownFields: true,
+		AnyResolver:        anyResolver,
+	}).Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
 }
 
 // ToJSON marshals a proto to canonical JSON
@@ -88,12 +99,18 @@ func MarshalProtoNames(msg proto.Message) ([]byte, error) {
 
 // ToJSONWithIndent marshals a proto to canonical JSON with pretty printed string
 func ToJSONWithIndent(msg proto.Message, indent string) (string, error) {
+	return ToJSONWithOptions(msg, indent, false)
+}
+
+// ToJSONWithOptions marshals a proto to canonical JSON with options to indent and
+// print enums' int values
+func ToJSONWithOptions(msg proto.Message, indent string, enumsAsInts bool) (string, error) {
 	if msg == nil {
 		return "", errors.New("unexpected nil message")
 	}
 
 	// Marshal from proto to json bytes
-	m := jsonpb.Marshaler{Indent: indent}
+	m := jsonpb.Marshaler{Indent: indent, EnumsAsInts: enumsAsInts}
 	return m.MarshalToString(legacyproto.MessageV1(msg))
 }
 
