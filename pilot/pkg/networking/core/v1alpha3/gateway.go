@@ -26,8 +26,10 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -39,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
@@ -412,6 +415,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
 			}
+			// This is the service that is exposed on gateway using VirtualService.
+			var gatewayService *model.Service
+			for _, hostname := range intersectingHosts {
+				if svc, exists := nameToServiceMap[hostname]; exists {
+					gatewayService = svc
+				}
+			}
 
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
@@ -420,10 +430,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
+					perRouteFilters := map[string]*anypb.Any{}
+					if gatewayService != nil {
+						// Build StatefulSession Filter if gateway service has persistence session label.
+						if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
+							perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+								Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+									StatefulSession: statefulConfig,
+								},
+							}
+							perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+						}
+					}
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
 						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
 						Routes:                     routes,
+						TypedPerFilterConfig:       perRouteFilters,
 						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {

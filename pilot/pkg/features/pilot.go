@@ -113,6 +113,12 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
+	EnablePersistentSessionFilter = env.Register(
+		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
+		false,
+		"If enabled, Istiod sets up persistent session filter for listeners, if services have 'PILOT_PERSISTENT_SESSION_LABEL' set.",
+	).Get()
+
 	PersistentSessionLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
 		"istio.io/persistent-session",
