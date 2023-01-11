@@ -34,8 +34,8 @@ const (
 	HealthInfoType  = resource.APITypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = resource.APITypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
-	DebugType        = "istio.io/debug"
-	BootstrapType    = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
+	DebugType                 = "istio.io/debug"
+	BootstrapType             = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 	WorkloadType              = resource.APITypePrefix + "istio.workload.Workload"
 	WorkloadAuthorizationType = resource.APITypePrefix + "istio.security.Authorization"
 
