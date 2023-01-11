@@ -39,12 +39,12 @@ func (i *Instance) Write(p []byte) (n int) {
 	return
 }
 
-func (i *Instance) ToUint64(b []byte) uint64 {
-	sum := i.Sum(b)
+func (i *Instance) ToUint64() uint64 {
+	sum := i.Sum(nil)
 	return binary.LittleEndian.Uint64(sum)
 }
 
-func (i *Instance) ToString(b []byte) string {
-	sum := i.Sum(b)
+func (i *Instance) ToString() string {
+	sum := i.Sum(nil)
 	return hex.EncodeToString(sum)
 }

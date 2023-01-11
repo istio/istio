@@ -181,7 +181,7 @@ func (r *Cache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.ToString(nil)
+	return h.ToString()
 }
 
 func hashToBytes(number model.ConfigHash) []byte {

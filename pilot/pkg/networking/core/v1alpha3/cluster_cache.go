@@ -117,7 +117,7 @@ func (t *clusterCache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.ToString(nil)
+	return h.ToString()
 }
 
 func (t clusterCache) DependentConfigs() []model.ConfigHash {

@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"crypto/md5"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -529,8 +528,7 @@ func hashRouteList(r []*route.Route) uint64 {
 		}
 		h.Write(b)
 	}
-	var tmp [md5.Size]byte
-	return h.ToUint64(tmp[:0])
+	return h.ToUint64()
 }
 
 // collapseDuplicateRoutes prevents cardinality explosion when we have multiple hostnames defined for the same set of routes

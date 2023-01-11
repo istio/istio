@@ -160,7 +160,7 @@ func (b EndpointBuilder) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.ToString(nil)
+	return h.ToString()
 }
 
 func (b EndpointBuilder) Cacheable() bool {

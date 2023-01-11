@@ -45,10 +45,10 @@ func TestFactory(t *testing.T) {
 			if gotSum := h.Sum(nil); !bytes.Equal(tt.wantSum, gotSum) {
 				t.Errorf("wantSum %v, but got %v", tt.wantSum, gotSum)
 			}
-			if gotStr := h.ToString(nil); tt.wantStr != gotStr {
+			if gotStr := h.ToString(); tt.wantStr != gotStr {
 				t.Errorf("wantStr %v, but got %v", tt.wantStr, gotStr)
 			}
-			if gotUint64 := h.ToUint64(nil); tt.wantUint64 != gotUint64 {
+			if gotUint64 := h.ToUint64(); tt.wantUint64 != gotUint64 {
 				t.Errorf("wantUint64 %v, but got %v", tt.wantUint64, gotUint64)
 			}
 		})
