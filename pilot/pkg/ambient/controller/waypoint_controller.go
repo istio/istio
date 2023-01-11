@@ -216,7 +216,6 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 	if err != nil {
 		log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
 	}
-	return
 }
 
 func (rc *WaypointProxyController) UpdateStatus(
