@@ -2542,7 +2542,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 
 func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	virtualServiceSpec := &networking.VirtualService{
-		Hosts: []string{"*.example.org"},
+		Hosts: []string{"*"},
 		Http: []*networking.HTTPRoute{
 			{
 				Route: []*networking.HTTPRouteDestination{
