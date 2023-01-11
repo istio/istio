@@ -111,7 +111,7 @@ typedConfig:
                           googleRe2: {}
                           regex: .+
             - orRules:
-               rules:
+                rules:
                 - orRules:
                     rules:
                     - andRules:
