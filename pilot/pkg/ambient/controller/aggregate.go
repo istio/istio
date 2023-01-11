@@ -45,6 +45,7 @@ type Options struct {
 	WebhookConfig func() inject.WebhookConfig
 
 	forceAutoLabel bool
+	addHandler     func(func())
 }
 
 var (
@@ -60,6 +61,7 @@ func NewAggregate(
 	webhookConfig func() inject.WebhookConfig,
 	xdsUpdater model.XDSUpdater,
 	forceAutoLabel bool,
+	addHandler func(func()),
 ) *Aggregate {
 	return &Aggregate{
 		localCluster: localCluster,
@@ -70,6 +72,7 @@ func NewAggregate(
 			podName:         podName,
 			revision:        revision,
 			forceAutoLabel:  forceAutoLabel,
+			addHandler:      addHandler,
 		},
 
 		clusters: make(map[cluster.ID]*ambientController),
@@ -140,7 +143,8 @@ func initForCluster(opts Options) *ambientController {
 				opt.Stop = leaderStop
 				initAutolabel(opt)
 				if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-					waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig)
+					waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig, opts.addHandler)
+
 					waypointController.Run(leaderStop)
 				}
 			})

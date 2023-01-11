@@ -66,7 +66,7 @@ global:
 			Templates: tmpl,
 			Values:    vc,
 		}
-	})
+	}, func(func()) {})
 	input := MergedInput{
 		Namespace:      "default",
 		GatewayName:    "gateway",
@@ -74,13 +74,13 @@ global:
 		ServiceAccount: "sa",
 		Cluster:        "cluster1",
 	}
-	deploy, err := cc.RenderDeploymentMerged(input)
+	deploy, err := cc.RenderDeploymentApply(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, c := range deploy.Spec.Template.Spec.Containers {
-		if c.ImagePullPolicy != policy {
+		if *c.ImagePullPolicy != policy {
 			t.Fatal(err)
 		}
 	}
@@ -113,7 +113,7 @@ global:
 					Templates: tmpl,
 					Values:    vc,
 				}
-			})
+			}, func(func()) {})
 			stop := make(chan struct{})
 			t.Cleanup(func() {
 				close(stop)
