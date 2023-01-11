@@ -15,7 +15,6 @@
 package route
 
 import (
-	"istio.io/istio/pkg/util/hashs"
 	"math/big"
 	"strconv"
 	"strings"
@@ -24,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hashs"
 )
 
 var (

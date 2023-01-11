@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"istio.io/istio/pkg/util/hashs"
 	"strconv"
 	"strings"
 
@@ -24,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hashs"
 )
 
 var (

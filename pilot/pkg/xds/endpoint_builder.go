@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"istio.io/istio/pkg/util/hashs"
 	"net"
 	"sort"
 	"strconv"
@@ -37,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/hashs"
 )
 
 var (

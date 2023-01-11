@@ -15,7 +15,6 @@
 package model
 
 import (
-	"istio.io/istio/pkg/util/hashs"
 	"sort"
 	"strings"
 
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hashs"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )

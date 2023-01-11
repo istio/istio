@@ -18,7 +18,6 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
-	"istio.io/istio/pkg/util/hashs"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/hashs"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )

@@ -17,8 +17,9 @@ package hashs
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/cespare/xxhash/v2"
 	"hash"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 type Instance struct {
