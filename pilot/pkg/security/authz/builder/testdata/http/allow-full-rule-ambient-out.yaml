@@ -112,9 +112,17 @@ typedConfig:
                           regex: .+
             - orRules:
                 rules:
-                - header:
-                    name: :authority
-                    suffixMatch: :80
+                - andRules:
+                    rules:
+                    - notRule:
+                        header:
+                          name: :authority
+                          safeRegexMatch:
+                            googleRe2: {}
+                            regex: (?i).*\[\^:0-9\]\+
+                    - header:
+                        exactMatch: http
+                        name: :scheme
                 - header:
                     name: :authority
                     suffixMatch: :90

@@ -56,6 +56,36 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	}
 }
 
+// HeaderMatcherWithRegex converts a key, value string pair to a corresponding HeaderMatcher with regex.
+func HeaderMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
+	var regex string
+	if v == "*" {
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
+				PresentMatch: true,
+			},
+		}
+	} else if strings.HasPrefix(v, "*") {
+		regex = `.*` + regexp.QuoteMeta(v[1:])
+	} else if strings.HasSuffix(v, "*") {
+		regex = regexp.QuoteMeta(v[:len(v)-1]) + `.*`
+	} else {
+		regex = regexp.QuoteMeta(v)
+	}
+	return &routepb.HeaderMatcher{
+		Name: k,
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &matcher.RegexMatcher{
+				EngineType: &matcher.RegexMatcher_GoogleRe2{
+					GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
+				},
+				Regex: `(?i)` + regex,
+			},
+		},
+	}
+}
+
 // HostMatcherWithRegex creates a host matcher for a host using regex for proxies before 1.11.
 func HostMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
 	var regex string

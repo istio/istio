@@ -191,6 +191,27 @@ func (requestHeaderGenerator) permission(key, value string, forTCP bool) (*rbacp
 	if err != nil {
 		return nil, err
 	}
+
+	// When the port is 80 and the scheme is http, authority header does not contain a port. The situation is
+	// the same for port 443 and scheme https. So it seems safe to assume that if the header lacks a port, and the
+	// scheme matches, then we're on 80 or 443 as appropriate.
+	if header == ":authority" {
+		if value == "*:80" {
+			perms := []*rbacpb.Permission{
+				permissionNot(permissionHeader(matcher.HeaderMatcherWithRegex(":authority", "*[^:0-9]+"))),
+				permissionHeader(matcher.HeaderMatcher(":scheme", "http")),
+			}
+			return permissionAnd(perms), nil
+		}
+		if value == "*:443" {
+			perms := []*rbacpb.Permission{
+				permissionNot(permissionHeader(matcher.HeaderMatcherWithRegex(":authority", "*[^:0-9]+"))),
+				permissionHeader(matcher.HeaderMatcher(":scheme", "https")),
+			}
+			return permissionAnd(perms), nil
+		}
+	}
+
 	m := matcher.HeaderMatcher(header, value)
 	return permissionHeader(m), nil
 }
