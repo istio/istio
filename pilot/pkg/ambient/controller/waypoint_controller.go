@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -141,14 +140,14 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
 		if err := controllers.IgnoreNotFound(err); err != nil {
-			log.Errorf("unable to fetch Gateway: %v", err)
+			istiolog.Errorf("unable to fetch Gateway: %v", err)
 			return err
 		}
 		return nil
 	}
 
 	if gw.Spec.GatewayClassName != "istio-mesh" {
-		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
+		istiolog.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return nil
 	}
 
@@ -160,7 +159,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		List(klabels.Everything())
 	for _, sa := range serviceAccounts {
 		if gatewaySA != "" && sa.Name != gatewaySA {
-			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
+			istiolog.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
 			continue
 		}
 		wantProxies.Insert(sa.Name)
@@ -180,7 +179,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			return err
 		}
 		// TODO: should support HPA, PDB, maybe others...
-		log.Infof("Updating waypoint proxy %q", sa+"-waypoint-proxy")
+		istiolog.Infof("Updating waypoint proxy %q", sa+"-waypoint-proxy")
 		_, err = rc.client.Kube().
 			AppsV1().
 			Deployments(name.Namespace).
@@ -243,7 +242,7 @@ func (rc *WaypointProxyController) UpdateStatus(
 	if err := rc.ApplyObject(gws, "status"); err != nil {
 		return fmt.Errorf("update gateway status: %v", err)
 	}
-	log.Info("gateway updated")
+	istiolog.Info("gateway updated")
 	return nil
 }
 
@@ -262,7 +261,7 @@ func (rc *WaypointProxyController) ApplyObject(
 	if err != nil {
 		return err
 	}
-	log.Debugf("applying %v", string(j))
+	istiolog.Debugf("applying %v", string(j))
 
 	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
