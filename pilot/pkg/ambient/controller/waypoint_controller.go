@@ -30,8 +30,6 @@ import (
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
-	"k8s.io/client-go/tools/cache"
-
 	meshapi "istio.io/api/mesh/v1alpha1"
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
@@ -64,7 +62,9 @@ var (
 	waypointFM  = "waypoint proxy controller"
 )
 
-func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID, config func() inject.WebhookConfig, addHandler func(func())) *WaypointProxyController {
+func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
+	config func() inject.WebhookConfig, addHandler func(func())) *WaypointProxyController {
+
 	rc := &WaypointProxyController{
 		client:       client,
 		cluster:      clusterID,
@@ -185,7 +185,9 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 	return nil
 }
 
-func (rc *WaypointProxyController) registerWaypointUpdate(name types.NamespacedName, proxyDeploy *appsv1.Deployment, gw *v1alpha2.Gateway, gatewaySA string, log *istiolog.Scope) error {
+func (rc *WaypointProxyController) registerWaypointUpdate(name types.NamespacedName,
+	proxyDeploy *appsv1.Deployment, gw *v1alpha2.Gateway, gatewaySA string, log *istiolog.Scope) error {
+
 	msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
 	if gatewaySA != "" {
 		msg += fmt.Sprintf(" for %q service account", gatewaySA)
