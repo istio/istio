@@ -578,7 +578,7 @@ func (s *Controller) Cluster() cluster.ID {
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
-func (s *Controller) AppendServiceHandler(_ func(*model.Service, model.Event)) {}
+func (s *Controller) AppendServiceHandler(_ model.ServiceHandler) {}
 
 // AppendWorkloadHandler adds instance event handler. Service Entries does not use these handlers.
 func (s *Controller) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) {

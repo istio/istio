@@ -27,8 +27,10 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
@@ -65,7 +68,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	mergedGateway := builder.node.MergedGateway
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
+	actualWildcards, _ := getWildcardsAndLocalHost(builder.node.GetIPMode())
 	errs := istiomultierror.New()
 	// Mutable objects keyed by listener name so that we can build listeners at the end.
 	mutableopts := make(map[string]mutableListenerOpts)
@@ -79,9 +82,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				port.Number, builder.node.ID)
 			continue
 		}
-		bind := actualWildcard
+		var extraBind []string
+		bind := actualWildcards[0]
+		if features.EnableDualStack && len(actualWildcards) > 1 {
+			extraBind = actualWildcards[1:]
+		}
 		if len(port.Bind) > 0 {
 			bind = port.Bind
+			extraBind = nil
 		}
 
 		// NOTE: There is no gating here to check for the value of the QUIC feature flag. However,
@@ -107,6 +115,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				push:       builder.push,
 				proxy:      builder.node,
 				bind:       bind,
+				extraBind:  extraBind,
 				port:       &model.Port{Port: int(port.Number)},
 				bindToPort: true,
 				class:      istionetworking.ListenerClassGateway,
@@ -407,6 +416,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
 			}
+			// This is the service that is exposed on gateway using VirtualService.
+			var gatewayService *model.Service
+			for _, hostname := range intersectingHosts {
+				if svc, exists := nameToServiceMap[hostname]; exists {
+					gatewayService = svc
+				}
+			}
 
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
@@ -415,10 +431,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
+					perRouteFilters := map[string]*anypb.Any{}
+					if gatewayService != nil {
+						// Build StatefulSession Filter if gateway service has persistence session label.
+						if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
+							perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+								Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+									StatefulSession: statefulConfig,
+								},
+							}
+							perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+						}
+					}
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
 						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
 						Routes:                     routes,
+						TypedPerFilterConfig:       perRouteFilters,
 						IncludeRequestAttemptCount: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {

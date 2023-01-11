@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -45,44 +44,6 @@ const (
 	// FullPush triggers full push - typically used for new services.
 	FullPush
 )
-
-// UpdateServiceShards will list the endpoints and create the shards.
-// This is used to reconcile and to support non-k8s registries (until they migrate).
-// Note that aggregated list is expensive (for large numbers) - we want to replace
-// it with a model where DiscoveryServer keeps track of all endpoint registries
-// directly, and calls them one by one.
-func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
-	registries := s.getNonK8sRegistries()
-	// Short circuit now to avoid the call to Services
-	if len(registries) == 0 {
-		return nil
-	}
-	// Each registry acts as a shard - we don't want to combine them because some
-	// may individually update their endpoints incrementally
-	for _, svc := range push.GetAllServices() {
-		for _, registry := range registries {
-			// skip the service in case this svc does not belong to the registry.
-			if svc.Attributes.ServiceRegistry != registry.Provider() {
-				continue
-			}
-			endpoints := make([]*model.IstioEndpoint, 0)
-			for _, port := range svc.Ports {
-				if port.Protocol == protocol.UDP {
-					continue
-				}
-
-				// This loses track of grouping (shards)
-				for _, inst := range registry.InstancesByPort(svc, port.Port) {
-					endpoints = append(endpoints, inst.Endpoint)
-				}
-			}
-			shard := model.ShardKeyFromRegistry(registry)
-			s.edsCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
-		}
-	}
-
-	return nil
-}
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {

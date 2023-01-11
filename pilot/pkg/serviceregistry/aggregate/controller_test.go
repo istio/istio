@@ -323,7 +323,7 @@ func TestAddRegistry(t *testing.T) {
 		if clusterID == "cluster2" {
 			counter = registry2Counter
 		}
-		ctrl.AppendServiceHandlerForCluster(clusterID, func(service *model.Service, event model.Event) {
+		ctrl.AppendServiceHandlerForCluster(clusterID, func(_, curr *model.Service, event model.Event) {
 			counter.Add(1)
 		})
 		ctrl.AddRegistry(r)
@@ -332,12 +332,12 @@ func TestAddRegistry(t *testing.T) {
 		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
 	}
 
-	registries[0].Controller.(*mock.Controller).OnServiceEvent(mock.HelloService, model.EventAdd)
-	registries[1].Controller.(*mock.Controller).OnServiceEvent(mock.WorldService, model.EventAdd)
+	registries[0].Controller.(*mock.Controller).OnServiceEvent(nil, mock.HelloService, model.EventAdd)
+	registries[1].Controller.(*mock.Controller).OnServiceEvent(nil, mock.WorldService, model.EventAdd)
 
 	ctrl.DeleteRegistry(registries[1].Cluster(), registries[1].Provider())
 	ctrl.UnRegisterHandlersForCluster(registries[1].Cluster())
-	registries[0].Controller.(*mock.Controller).OnServiceEvent(mock.HelloService, model.EventAdd)
+	registries[0].Controller.(*mock.Controller).OnServiceEvent(nil, mock.HelloService, model.EventAdd)
 
 	if registry1Counter.Load() != 3 {
 		t.Errorf("cluster1 expected 3 event, but got %d", registry1Counter.Load())

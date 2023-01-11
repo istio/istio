@@ -113,6 +113,12 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
+	EnablePersistentSessionFilter = env.Register(
+		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
+		false,
+		"If enabled, Istiod sets up persistent session filter for listeners, if services have 'PILOT_PERSISTENT_SESSION_LABEL' set.",
+	).Get()
+
 	PersistentSessionLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
 		"istio.io/persistent-session",
@@ -693,6 +699,9 @@ var (
 
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
+
+	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
+		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

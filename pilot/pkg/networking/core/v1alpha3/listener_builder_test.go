@@ -74,7 +74,7 @@ func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Lis
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				Address:      "1.1.1.1",
-				EndpointPort: 8080,
+				EndpointPort: 8080, // service port is 80, target port is 8080
 			},
 			ServicePort: s.Ports[0],
 		}

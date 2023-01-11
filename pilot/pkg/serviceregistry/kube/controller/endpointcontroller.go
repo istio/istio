@@ -36,7 +36,7 @@ type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
 	getInformer() informer.FilteredSharedIndexInformer
-	onEvent(curr any, event model.Event) error
+	onEvent(prev, curr any, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint

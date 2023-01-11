@@ -141,7 +141,7 @@ func (pc *PodCache) labelFilter(old, cur interface{}) bool {
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(curr any, ev model.Event) error {
+func (pc *PodCache) onEvent(_, curr any, ev model.Event) error {
 	pod := controllers.Extract[*v1.Pod](curr)
 	if pod == nil {
 		return nil

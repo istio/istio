@@ -105,7 +105,7 @@ func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selec
 	return
 }
 
-func (esc *endpointSliceController) onEvent(curr any, event model.Event) error {
+func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) error {
 	ep := controllers.ExtractObject(curr)
 	if ep == nil {
 		return nil
