@@ -1425,10 +1425,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			server: &networking.Server{
 				Name: "server1",
 				Port: &networking.Port{
-					Name:       "https-app",
-					Number:     443,
-					TargetPort: 8443,
-					Protocol:   "HTTPS",
+					Name:     "https-app",
+					Number:   443,
+					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org"},
 				Tls: &networking.ServerTLSSettings{
