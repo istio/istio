@@ -525,7 +525,7 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{fmt.Sprintf("foo-%d.com", s)},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Name: "http-port", Protocol: "http"},
 				},
 				Endpoints:  endpoints,

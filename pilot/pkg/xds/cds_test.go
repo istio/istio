@@ -125,7 +125,7 @@ func TestSAN(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"example.default.svc.cluster.local"},
-			Ports: []*networking.Port{{
+			Ports: []*networking.ServicePort{{
 				Number:   80,
 				Protocol: "HTTP",
 				Name:     "http",
@@ -147,7 +147,7 @@ func TestSAN(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"example.default.svc.cluster.local"},
-			Ports: []*networking.Port{{
+			Ports: []*networking.ServicePort{{
 				Number:   80,
 				Protocol: "HTTP",
 				Name:     "http",

@@ -100,7 +100,7 @@ func setupTest(t *testing.T) (
 // external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
 	istiotest.SetForTest(t, &features.WorkloadEntryHealthChecks, true)
-	port := &networking.Port{
+	port := &networking.ServicePort{
 		Name:     "http",
 		Number:   80,
 		Protocol: "http",
@@ -118,7 +118,7 @@ func TestWorkloadInstances(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"service.namespace.svc.cluster.local"},
-			Ports: []*networking.Port{port},
+			Ports: []*networking.ServicePort{port},
 			WorkloadSelector: &networking.WorkloadSelector{
 				Labels: labels,
 			},
@@ -344,7 +344,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"service.namespace.svc.cluster.local"},
-				Ports: []*networking.Port{{
+				Ports: []*networking.ServicePort{{
 					Name:       "http",
 					Number:     80,
 					Protocol:   "http",
@@ -377,7 +377,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"service.namespace.svc.cluster.local"},
-				Ports: []*networking.Port{{
+				Ports: []*networking.ServicePort{{
 					Name:       "http",
 					Number:     80,
 					Protocol:   "http",
@@ -739,7 +739,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"service.namespace.svc.cluster.local"},
-				Ports: []*networking.Port{{
+				Ports: []*networking.ServicePort{{
 					Name:       "http",
 					Number:     80,
 					Protocol:   "http",
@@ -869,7 +869,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
 
 		newSE := serviceEntry.DeepCopy()
-		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
+		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
 			Name:       "http",
 			Number:     80,
 			Protocol:   "http",
@@ -879,7 +879,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:8080"})
 
 		newSE = newSE.DeepCopy()
-		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.Port{{
+		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
 			Name:       "http",
 			Number:     9090,
 			Protocol:   "http",
