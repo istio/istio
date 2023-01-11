@@ -25,7 +25,7 @@ import (
 )
 
 // Equal
-func Equal(t test.Failer, a, b any, context ...string) {
+func Equal[T any](t test.Failer, a, b T, context ...string) {
 	t.Helper()
 	if !cmp.Equal(a, b, protocmp.Transform(), cmpopts.EquateEmpty()) {
 		cs := ""
@@ -46,6 +46,6 @@ func Error(t test.Failer, err error) {
 func NoError(t test.Failer, err error) {
 	t.Helper()
 	if err != nil {
-		t.Fatal("expected no error but got: %v", err)
+		t.Fatalf("expected no error but got: %v", err)
 	}
 }
