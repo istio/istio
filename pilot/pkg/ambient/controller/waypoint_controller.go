@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -72,10 +72,16 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
-			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
-				Force:        &t,
-				FieldManager: waypointFM,
-			}, subresources...)
+			_, err := c.Patch(
+				context.Background(),
+				name,
+				types.ApplyPatchType,
+				data,
+				metav1.PatchOptions{
+					Force:        &t,
+					FieldManager: waypointFM,
+				},
+				subresources...)
 			return err
 		},
 	}
@@ -150,7 +156,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 
 	// by default, match all
 	gatewaySA := gw.Annotations["istio.io/service-account"]
-	serviceAccounts, _ := rc.serviceAccounts.ServiceAccounts(gw.Namespace).List(klabels.Everything())
+	serviceAccounts, _ := rc.serviceAccounts.ServiceAccounts(gw.Namespace).
+		List(klabels.Everything())
 	for _, sa := range serviceAccounts {
 		if gatewaySA != "" && sa.Name != gatewaySA {
 			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
@@ -174,20 +181,25 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		}
 		// TODO: should support HPA, PDB, maybe others...
 		log.Infof("Updating waypoint proxy %q", sa+"-waypoint-proxy")
-		result, err := rc.client.Kube().AppsV1().Deployments(name.Namespace).Apply(context.Background(), proxyDeploy, metav1.ApplyOptions{
-			Force: true, FieldManager: waypointFM,
-		})
+		_, err = rc.client.Kube().
+			AppsV1().
+			Deployments(name.Namespace).
+			Apply(context.Background(), proxyDeploy, metav1.ApplyOptions{
+				Force: true, FieldManager: waypointFM,
+			})
 		if err != nil {
 			return fmt.Errorf("waypoint deployment patch error: %v", err)
 		}
-		_ = rc.registerWaypointUpdate(name, result, gw, gatewaySA, log)
+		rc.registerWaypointUpdate(gw, gatewaySA, log)
 	}
 	return nil
 }
 
-func (rc *WaypointProxyController) registerWaypointUpdate(name types.NamespacedName,
-	proxyDeploy *appsv1.Deployment, gw *v1alpha2.Gateway, gatewaySA string, log *istiolog.Scope,
-) error {
+func (rc *WaypointProxyController) registerWaypointUpdate(
+	gw *v1alpha2.Gateway,
+	gatewaySA string,
+	log *istiolog.Scope,
+) {
 	msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
 	if gatewaySA != "" {
 		msg += fmt.Sprintf(" for %q service account", gatewaySA)
@@ -205,10 +217,13 @@ func (rc *WaypointProxyController) registerWaypointUpdate(name types.NamespacedN
 	if err != nil {
 		log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
 	}
-	return nil
+	return
 }
 
-func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions map[string]*istiogw.Condition) error {
+func (rc *WaypointProxyController) UpdateStatus(
+	gw *v1alpha2.Gateway,
+	conditions map[string]*istiogw.Condition,
+) error {
 	if gw == nil {
 		return nil
 	}
@@ -233,7 +248,10 @@ func (rc *WaypointProxyController) UpdateStatus(gw *v1alpha2.Gateway, conditions
 }
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
-func (rc *WaypointProxyController) ApplyObject(obj controllers.Object, subresources ...string) error {
+func (rc *WaypointProxyController) ApplyObject(
+	obj controllers.Object,
+	subresources ...string,
+) error {
 	// TODO: use library options when available https://github.com/kubernetes-sigs/gateway-api/issues/1639
 	j, err := config.ToJSON(obj)
 	if err != nil {
@@ -249,7 +267,9 @@ func (rc *WaypointProxyController) ApplyObject(obj controllers.Object, subresour
 	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
-func (rc *WaypointProxyController) RenderDeploymentApply(input MergedInput) (*appsv1ac.DeploymentApplyConfiguration, error) {
+func (rc *WaypointProxyController) RenderDeploymentApply(
+	input MergedInput,
+) (*appsv1ac.DeploymentApplyConfiguration, error) {
 	cfg := rc.injectConfig()
 
 	// TODO watch for template changes, update the Deployment if it does
@@ -257,7 +277,11 @@ func (rc *WaypointProxyController) RenderDeploymentApply(input MergedInput) (*ap
 	if podTemplate == nil {
 		return nil, fmt.Errorf("no waypoint template defined")
 	}
-	input.Image = inject.ProxyImage(cfg.Values.Struct(), cfg.MeshConfig.GetDefaultConfig().GetImage(), nil)
+	input.Image = inject.ProxyImage(
+		cfg.Values.Struct(),
+		cfg.MeshConfig.GetDefaultConfig().GetImage(),
+		nil,
+	)
 	input.ImagePullPolicy = cfg.Values.Struct().Global.GetImagePullPolicy()
 	waypointBytes, err := tmpl.Execute(podTemplate, input)
 	if err != nil {
