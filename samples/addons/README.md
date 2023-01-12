@@ -89,11 +89,11 @@ Envoy proxies. To use these, make sure you have the Prometheus operator deployed
 
 > **Note**  
 > The example `PodMonitor` requires [metrics merging](https://istio.io/latest/docs/ops/integrations/prometheus/#option-1-metrics-merging) to be enabled. This is enabled by default.
-
+>
 > **Note**  
 > The configurations here are only for Istio deployments, and do not scrape metrics from the Kubernetes components.  
 > See the [Cluster Monitoring](https://coreos.com/operators/prometheus/docs/latest/user-guides/cluster-monitoring.html) documentation for configuring this.
-
-> **Warning**   
+>
+> **Warning**  
 > When the example `PodMonitor` is used with OpenShift Monitoring, it must be created in all namespaces where istio-proxies exist.  
 > This is because `namespaceSelector` is ignored for tenancy isolation.
