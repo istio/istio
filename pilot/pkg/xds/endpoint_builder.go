@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/util/hashs"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -112,7 +112,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hashs.New()
+	h := hash.New()
 	h.Write([]byte(b.clusterName))
 	h.Write(Separator)
 	h.Write([]byte(b.network))
@@ -160,7 +160,7 @@ func (b EndpointBuilder) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.ToString()
+	return h.Sum()
 }
 
 func (b EndpointBuilder) Cacheable() bool {

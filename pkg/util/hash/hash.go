@@ -12,39 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hashs
+package hash
 
 import (
-	"encoding/binary"
 	"encoding/hex"
-	"hash"
 
 	"github.com/cespare/xxhash/v2"
 )
 
-type Instance struct {
-	hash.Hash
+type Hash interface {
+	Write(p []byte) (n int)
+	Sum() string
+	Sum64() uint64
 }
 
-func New() *Instance {
-	return &Instance{
-		xxhash.New(),
+type instance struct {
+	hash *xxhash.Digest
+}
+
+var _ Hash = &instance{}
+
+func New() Hash {
+	return &instance{
+		hash: xxhash.New(),
 	}
 }
 
 // Write wraps the Hash.Write function call
 // Hash.Write error always return nil, this func simplify caller handle error
-func (i *Instance) Write(p []byte) (n int) {
-	n, _ = i.Hash.Write(p)
+func (i *instance) Write(p []byte) (n int) {
+	n, _ = i.hash.Write(p)
 	return
 }
 
-func (i *Instance) ToUint64() uint64 {
-	sum := i.Sum(nil)
-	return binary.LittleEndian.Uint64(sum)
+func (i *instance) Sum64() uint64 {
+	return i.hash.Sum64()
 }
 
-func (i *Instance) ToString() string {
-	sum := i.Sum(nil)
+func (i *instance) Sum() string {
+	sum := i.hash.Sum(nil)
 	return hex.EncodeToString(sum)
 }

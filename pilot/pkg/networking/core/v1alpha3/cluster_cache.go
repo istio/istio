@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/hashs"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -60,7 +60,7 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hashs.New()
+	h := hash.New()
 	h.Write([]byte(t.clusterName))
 	h.Write(Separator)
 	h.Write([]byte(t.proxyVersion))
@@ -117,7 +117,7 @@ func (t *clusterCache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.ToString()
+	return h.Sum()
 }
 
 func (t clusterCache) DependentConfigs() []model.ConfigHash {

@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hashs
+package hash
 
 import (
-	"bytes"
 	"testing"
 )
 
@@ -32,9 +31,8 @@ func TestFactory(t *testing.T) {
 			name: "foo",
 			str:  "foo",
 			// note: Different hash implementation may get different hash value
-			wantSum:    []byte{51, 191, 0, 168, 89, 196, 186, 63},
 			wantStr:    "33bf00a859c4ba3f",
-			wantUint64: 4592198659407396659,
+			wantUint64: 3728699739546630719,
 		},
 	}
 
@@ -42,13 +40,10 @@ func TestFactory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := New()
 			h.Write([]byte(tt.str))
-			if gotSum := h.Sum(nil); !bytes.Equal(tt.wantSum, gotSum) {
-				t.Errorf("wantSum %v, but got %v", tt.wantSum, gotSum)
-			}
-			if gotStr := h.ToString(); tt.wantStr != gotStr {
+			if gotStr := h.Sum(); tt.wantStr != gotStr {
 				t.Errorf("wantStr %v, but got %v", tt.wantStr, gotStr)
 			}
-			if gotUint64 := h.ToUint64(); tt.wantUint64 != gotUint64 {
+			if gotUint64 := h.Sum64(); tt.wantUint64 != gotUint64 {
 				t.Errorf("wantUint64 %v, but got %v", tt.wantUint64, gotUint64)
 			}
 		})

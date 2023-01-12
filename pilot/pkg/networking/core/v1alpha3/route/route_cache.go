@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/hashs"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -122,7 +122,7 @@ func (r *Cache) DependentTypes() []kind.Kind {
 func (r *Cache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hashs.New()
+	h := hash.New()
 
 	h.Write([]byte(r.RouteName))
 	h.Write(Separator)
@@ -181,7 +181,7 @@ func (r *Cache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.ToString()
+	return h.Sum()
 }
 
 func hashToBytes(number model.ConfigHash) []byte {

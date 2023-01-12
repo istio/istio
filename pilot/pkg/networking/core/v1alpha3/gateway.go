@@ -48,7 +48,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/hashs"
+	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
@@ -515,7 +515,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 func hashRouteList(r []*route.Route) uint64 {
 	// nolint: gosec
 	// Not security sensitive code
-	h := hashs.New()
+	h := hash.New()
 	for _, v := range r {
 		u := uintptr(unsafe.Pointer(v))
 		size := unsafe.Sizeof(u)
@@ -528,7 +528,7 @@ func hashRouteList(r []*route.Route) uint64 {
 		}
 		h.Write(b)
 	}
-	return h.ToUint64()
+	return h.Sum64()
 }
 
 // collapseDuplicateRoutes prevents cardinality explosion when we have multiple hostnames defined for the same set of routes
