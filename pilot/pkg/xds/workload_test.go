@@ -296,7 +296,7 @@ func TestWorkloadRBAC(t *testing.T) {
 	expect := buildExpect(t)
 	expectRemoved := buildExpectExpectRemoved(t)
 	s := NewFakeDiscoveryServer(t, FakeOptions{})
-	ads := s.ConnectDeltaADS().WithType(v3.WorkloadRBACType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadAuthorizationType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
 
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe: []string{"*"},

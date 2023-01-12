@@ -34,10 +34,10 @@ const (
 	HealthInfoType  = resource.APITypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = resource.APITypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
-	DebugType        = "istio.io/debug"
-	BootstrapType    = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
-	WorkloadType     = resource.APITypePrefix + "istio.workload.Workload"
-	WorkloadRBACType = resource.APITypePrefix + "istio.workload.RBAC"
+	DebugType                 = "istio.io/debug"
+	BootstrapType             = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
+	WorkloadType              = resource.APITypePrefix + "istio.workload.Workload"
+	WorkloadAuthorizationType = resource.APITypePrefix + "istio.security.Authorization"
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
@@ -64,8 +64,8 @@ func GetShortType(typeURL string) string {
 		return "ECDS"
 	case WorkloadType:
 		return "WDS"
-	case WorkloadRBACType:
-		return "WRDS"
+	case WorkloadAuthorizationType:
+		return "WADS"
 	default:
 		return typeURL
 	}
@@ -94,8 +94,8 @@ func GetMetricType(typeURL string) string {
 		return "bds"
 	case WorkloadType:
 		return "wds"
-	case WorkloadRBACType:
-		return "wrds"
+	case WorkloadAuthorizationType:
+		return "wads"
 	default:
 		return typeURL
 	}
@@ -123,6 +123,8 @@ func GetResourceType(shortType string) string {
 		return ExtensionConfigurationType
 	case "WDS":
 		return WorkloadType
+	case "WADS":
+		return WorkloadAuthorizationType
 	default:
 		return shortType
 	}
