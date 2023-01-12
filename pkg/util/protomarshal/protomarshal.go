@@ -91,7 +91,7 @@ func MarshalIndent(msg proto.Message, indent string) ([]byte, error) {
 func MarshalIndentWithGlobalTypesResolver(msg proto.Message, indent string) ([]byte, error) {
 	return protojson.MarshalOptions{
 		Multiline: true,
-		Indent: indent,
+		Indent:    indent,
 	}.Marshal(msg)
 }
 
