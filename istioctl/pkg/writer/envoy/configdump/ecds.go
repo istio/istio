@@ -38,7 +38,7 @@ func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 		return err
 	}
 
-	out, err := protomarshal.MarshalIndent(dump, "    ")
+	out, err := protomarshal.MarshalIndentWithGlobalTypesResolver(dump, "    ")
 	if err != nil {
 		return err
 	}

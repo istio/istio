@@ -25,8 +25,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"            // nolint: depguard
-	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
+	"github.com/golang/protobuf/jsonpb"             // nolint: depguard
+	legacyproto "github.com/golang/protobuf/proto"  // nolint: staticcheck
+	"google.golang.org/protobuf/encoding/protojson" // nolint: depguard
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"sigs.k8s.io/yaml"
@@ -58,6 +59,10 @@ func UnmarshalAllowUnknownWithAnyResolver(anyResolver jsonpb.AnyResolver, b []by
 	}).Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
 }
 
+func UnmarshalWithGlobalTypesResolver(b []byte, m proto.Message) error {
+	return protojson.Unmarshal(b, m)
+}
+
 // ToJSON marshals a proto to canonical JSON
 func ToJSON(msg proto.Message) (string, error) {
 	return ToJSONWithIndent(msg, "")
@@ -79,6 +84,15 @@ func MarshalIndent(msg proto.Message, indent string) ([]byte, error) {
 		return nil, err
 	}
 	return []byte(res), err
+}
+
+// MarshalIndentWithGlobalTypesResolver marshals a proto to canonical JSON with indentation
+// and multiline while using generic types resolver
+func MarshalIndentWithGlobalTypesResolver(msg proto.Message, indent string) ([]byte, error) {
+	return protojson.MarshalOptions{
+		Multiline: true,
+		Indent: indent,
+	}.Marshal(msg)
 }
 
 // MarshalProtoNames marshals a proto to canonical JSON original protobuf names
