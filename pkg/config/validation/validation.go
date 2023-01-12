@@ -386,12 +386,12 @@ func ValidateHTTPHeaderValue(value string) error {
 	}
 
 	if err := validateHeaderValue(value); err != nil {
-		return fmt.Errorf("header value configuration %s is invalid", value)
+		return fmt.Errorf("header value configuration: %w", err)
 	}
 
 	// TODO: find a better way to validate fileds supported in custom header, e.g %ENVIRONMENT(X):Z%
 
-	return validateHeaderValue(value)
+	return nil
 }
 
 // validateWeight checks if weight is valid
