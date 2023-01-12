@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"crypto/md5"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -49,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
@@ -515,7 +515,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 func hashRouteList(r []*route.Route) uint64 {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
+	h := hash.New()
 	for _, v := range r {
 		u := uintptr(unsafe.Pointer(v))
 		size := unsafe.Sizeof(u)
@@ -526,11 +526,9 @@ func hashRouteList(r []*route.Route) uint64 {
 		default:
 			binary.LittleEndian.PutUint64(b, uint64(u))
 		}
-		hash.Write(b)
+		h.Write(b)
 	}
-	var tmp [md5.Size]byte
-	sum := hash.Sum(tmp[:0])
-	return binary.LittleEndian.Uint64(sum)
+	return h.Sum64()
 }
 
 // collapseDuplicateRoutes prevents cardinality explosion when we have multiple hostnames defined for the same set of routes

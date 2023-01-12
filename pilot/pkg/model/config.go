@@ -18,7 +18,6 @@ import (
 	"sort"
 	"strings"
 
-	xxhashv2 "github.com/cespare/xxhash/v2"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -57,15 +57,14 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := xxhashv2.New()
-	// the error will always return nil
-	_, _ = hash.Write([]byte{byte(key.Kind)})
+	h := hash.New()
+	h.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
-	_, _ = hash.Write([]byte("/"))
-	_, _ = hash.Write([]byte(key.Namespace))
-	_, _ = hash.Write([]byte("/"))
-	_, _ = hash.Write([]byte(key.Name))
-	return ConfigHash(hash.Sum64())
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Namespace))
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Name))
+	return ConfigHash(h.Sum64())
 }
 
 func (key ConfigKey) String() string {

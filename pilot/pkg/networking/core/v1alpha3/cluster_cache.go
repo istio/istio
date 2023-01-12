@@ -15,8 +15,6 @@
 package v1alpha3
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"strconv"
 	"strings"
 
@@ -25,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -61,65 +60,64 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
-	hash.Write([]byte(t.clusterName))
-	hash.Write(Separator)
-	hash.Write([]byte(t.proxyVersion))
-	hash.Write(Separator)
-	hash.Write([]byte(util.LocalityToString(t.locality)))
-	hash.Write(Separator)
-	hash.Write([]byte(t.proxyClusterID))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.proxySidecar)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.http2)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
-	hash.Write(Separator)
+	h := hash.New()
+	h.Write([]byte(t.clusterName))
+	h.Write(Separator)
+	h.Write([]byte(t.proxyVersion))
+	h.Write(Separator)
+	h.Write([]byte(util.LocalityToString(t.locality)))
+	h.Write(Separator)
+	h.Write([]byte(t.proxyClusterID))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.http2)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	h.Write(Separator)
 
 	if t.proxyView != nil {
-		hash.Write([]byte(t.proxyView.String()))
+		h.Write([]byte(t.proxyView.String()))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	if t.metadataCerts != nil {
-		hash.Write([]byte(t.metadataCerts.String()))
+		h.Write([]byte(t.metadataCerts.String()))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	if t.service != nil {
-		hash.Write([]byte(t.service.Hostname))
-		hash.Write(Slash)
-		hash.Write([]byte(t.service.Attributes.Namespace))
+		h.Write([]byte(t.service.Hostname))
+		h.Write(Slash)
+		h.Write([]byte(t.service.Attributes.Namespace))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, dr := range t.destinationRule.GetFrom() {
-		hash.Write([]byte(dr.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(dr.Namespace))
+		h.Write([]byte(dr.Name))
+		h.Write(Slash)
+		h.Write([]byte(dr.Namespace))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, efk := range t.envoyFilterKeys {
-		hash.Write([]byte(efk))
-		hash.Write(Separator)
+		h.Write([]byte(efk))
+		h.Write(Separator)
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
-	hash.Write([]byte(t.peerAuthVersion))
-	hash.Write(Separator)
+	h.Write([]byte(t.peerAuthVersion))
+	h.Write(Separator)
 
 	for _, sa := range t.serviceAccounts {
-		hash.Write([]byte(sa))
-		hash.Write(Separator)
+		h.Write([]byte(sa))
+		h.Write(Separator)
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
-	sum := hash.Sum(nil)
-	return hex.EncodeToString(sum)
+	return h.Sum()
 }
 
 func (t clusterCache) DependentConfigs() []model.ConfigHash {

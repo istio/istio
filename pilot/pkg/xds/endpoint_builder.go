@@ -15,8 +15,6 @@
 package xds
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"net"
 	"sort"
 	"strconv"
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -113,56 +112,55 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
-	hash.Write([]byte(b.clusterName))
-	hash.Write(Separator)
-	hash.Write([]byte(b.network))
-	hash.Write(Separator)
-	hash.Write([]byte(b.clusterID))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
-	hash.Write(Separator)
+	h := hash.New()
+	h.Write([]byte(b.clusterName))
+	h.Write(Separator)
+	h.Write([]byte(b.network))
+	h.Write(Separator)
+	h.Write([]byte(b.clusterID))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	h.Write(Separator)
 	if features.EnableHBONE {
-		hash.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
-		hash.Write(Separator)
+		h.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
+		h.Write(Separator)
 	}
-	hash.Write([]byte(util.LocalityToString(b.locality)))
-	hash.Write(Separator)
+	h.Write([]byte(util.LocalityToString(b.locality)))
+	h.Write(Separator)
 	if len(b.failoverPriorityLabels) > 0 {
-		hash.Write(b.failoverPriorityLabels)
-		hash.Write(Separator)
+		h.Write(b.failoverPriorityLabels)
+		h.Write(Separator)
 	}
 	if b.service.Attributes.NodeLocal {
-		hash.Write([]byte(b.proxy.GetNodeName()))
-		hash.Write(Separator)
+		h.Write([]byte(b.proxy.GetNodeName()))
+		h.Write(Separator)
 	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
+		h.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, dr := range b.destinationRule.GetFrom() {
-		hash.Write([]byte(dr.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(dr.Namespace))
+		h.Write([]byte(dr.Name))
+		h.Write(Slash)
+		h.Write([]byte(dr.Namespace))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	if b.service != nil {
-		hash.Write([]byte(b.service.Hostname))
-		hash.Write(Slash)
-		hash.Write([]byte(b.service.Attributes.Namespace))
+		h.Write([]byte(b.service.Hostname))
+		h.Write(Slash)
+		h.Write([]byte(b.service.Attributes.Namespace))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	if b.proxyView != nil {
-		hash.Write([]byte(b.proxyView.String()))
+		h.Write([]byte(b.proxyView.String()))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
-	sum := hash.Sum(nil)
-	return hex.EncodeToString(sum)
+	return h.Sum()
 }
 
 func (b EndpointBuilder) Cacheable() bool {
