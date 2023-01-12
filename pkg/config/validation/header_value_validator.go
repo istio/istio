@@ -32,7 +32,8 @@ const (
 	ExpectVariableEndParserState                            // expect closing % in %VAR(...)%
 )
 
-// validateHeaderValue is golang port version of https://github.com/envoyproxy/envoy/blob/48687d1a81ab3567abb768f9e7f40b47dcf04e71/source/common/router/header_parser.cc#L73
+// validateHeaderValue is golang port version of
+// https://github.com/envoyproxy/envoy/blob/master/source/common/router/header_parser.cc#L73
 func validateHeaderValue(headerValue string) error {
 	if headerValue == "" {
 		return nil
@@ -112,7 +113,6 @@ func validateHeaderValue(headerValue string) error {
 			if ch == '\\' {
 				if !hasNextCh {
 					return errors.New("invalid header configuration. Un-terminated backslash in JSON string")
-
 				}
 
 				// Skip escaped char.
