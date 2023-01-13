@@ -26,6 +26,9 @@ The file is gitignored, so feel free to keep it around in your local copy of the
 HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
 
+# Optional: build rust ztunnel
+export BUILD_ZTUNNEL=1
+
 # Build Istiod and proxy
 tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push # consider --builder=crane
 ```
