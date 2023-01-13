@@ -26,9 +26,6 @@ The file is gitignored, so feel free to keep it around in your local copy of the
 HUB=gcr.io/xyz # consider localhost:5000
 TAG=ambient
 
-# Optional: build rust ztunnel
-export BUILD_ZTUNNEL=1
-
 # Build Istiod and proxy
 tools/docker --targets=pilot,proxyv2,app,install-cni,ztunnel --hub=$HUB --tag=$TAG --push # consider --builder=crane
 ```
@@ -64,18 +61,6 @@ If you [disabled FIPs](https://github.com/istio/ztunnel/#building-on-non-linuxx8
 ```shell
 # Mesh config options are optional to improve debugging
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
-  --set values.global.imagePullPolicy=Always
-
-kubectl apply -f local-test-utils/samples/
-```
-
-with Rust [zTunnel](https://github.com/istio/ztunnel):
-
-```shell
-# Mesh config options are optional to improve debugging
-CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --set values.ztunnel.image=ztunnel \
   --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
   --set values.global.imagePullPolicy=Always
 
