@@ -17,7 +17,7 @@ Exceptions to this rule are configuration items that affect K8s level settings (
 
 ## Step 2. Make corresponding values changes in [../profiles/default.yaml](../profiles/default.yaml)
 
-The values.yaml in `manifests` are only used for direct Helm based installations, which is being deprecated.
+The values.yaml in `manifests` are only used for direct Helm based installations.
 If any values.yaml changes are being made, the same changes must be made in the `manifests/profiles/default.yaml`
 file, which must be in sync with the Helm values in `manifests`.
 
