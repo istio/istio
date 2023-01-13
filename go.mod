@@ -124,7 +124,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecholmes/xfccparser v0.1.0
-	github.com/alecthomas/participle v0.7.1 // indirect
+	github.com/alecthomas/participle v0.4.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
