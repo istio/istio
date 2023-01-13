@@ -49,7 +49,6 @@ func NewBuilderSkipIdentity(actionType ActionType, push *model.PushContext, prox
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 		SkippedIdentity: skipped,
-		IsAmbient:       proxy.IsAmbient(),
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 	if !util.IsIstioVersionGE117(proxy.IstioVersion) {

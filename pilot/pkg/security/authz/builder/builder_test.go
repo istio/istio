@@ -130,7 +130,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		tdBundle   trustdomain.Bundle
 		meshConfig *meshconfig.MeshConfig
 		version    *model.IstioVersion
-		ambient    bool
 		input      string
 		want       []string
 	}{
@@ -143,12 +142,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "allow-full-rule",
 			input: "allow-full-rule-in.yaml",
 			want:  []string{"allow-full-rule-out.yaml"},
-		},
-		{
-			name:    "allow-full-rule-ambient",
-			input:   "allow-full-rule-in.yaml",
-			ambient: true,
-			want:    []string{"allow-full-rule-ambient-out.yaml"},
 		},
 		{
 			name:  "allow-nil-rule",
@@ -226,21 +219,9 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			want:  []string{"multiple-policies-out.yaml"},
 		},
 		{
-			name:    "multiple-policies-ambient",
-			input:   "multiple-policies-in.yaml",
-			want:    []string{"multiple-policies-ambient-out.yaml"},
-			ambient: true,
-		},
-		{
 			name:  "single-policy",
 			input: "single-policy-in.yaml",
 			want:  []string{"single-policy-out.yaml"},
-		},
-		{
-			name:    "single-policy-ambient",
-			input:   "single-policy-in.yaml",
-			want:    []string{"single-policy-ambient-out.yaml"},
-			ambient: true,
 		},
 		{
 			name:     "trust-domain-one-alias",
@@ -273,7 +254,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
-				IsAmbient:       tc.ambient,
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(tc.version)

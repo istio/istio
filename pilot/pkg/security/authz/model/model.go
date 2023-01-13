@@ -160,31 +160,6 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 	}
 }
 
-// Update the rules in this authz model which are not applicable in an Ambient mode with equivalent applicable
-// ones.
-func (m *Model) AmbientAdaptations() {
-	for i, p := range m.permissions {
-		for j, r := range p.rules {
-			// Mapping a destination port rule to an :authority header with the port suffix
-			if r.key == attrDestPort {
-				if len(r.values) == 0 && len(r.notValues) == 0 {
-					continue
-				}
-				values := make([]string, len(r.values))
-				for k, v := range r.values {
-					values[k] = fmt.Sprintf("*:%s", v)
-				}
-				notValues := make([]string, len(r.notValues))
-				for k, v := range r.notValues {
-					notValues[k] = fmt.Sprintf("*:%s", v)
-				}
-				key := "request.headers[:authority]"
-				m.permissions[i].replaceRule(j, requestHeaderGenerator{}, key, values, notValues)
-			}
-		}
-	}
-}
-
 // Generate generates the Envoy RBAC config from the model.
 func (m Model) Generate(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
@@ -355,16 +330,4 @@ func (p *ruleList) appendLast(g generator, key string, values, notValues []strin
 	}
 
 	p.rules = append(p.rules, r)
-}
-
-func (p *ruleList) replaceRule(index int, g generator, key string, values, notValues []string) {
-	if len(values) == 0 && len(notValues) == 0 {
-		return
-	}
-	p.rules[index] = &rule{
-		key:       key,
-		values:    values,
-		notValues: notValues,
-		g:         g,
-	}
 }
