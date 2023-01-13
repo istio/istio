@@ -564,16 +564,16 @@ func workloadConfigCmd() *cobra.Command {
 
 	workloadConfigCmd := &cobra.Command{
 		Use:   "workload [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves workload configuration for the ztunnel in the specified pod",
-		Long:  `Retrieve information about workload configuration for the ztunnel instance in the specified pod.`,
-		Example: `  # Retrieve summary about workload configuration for a given pod from ztunnel.
-  istioctl proxy-config workload <pod-name[.namespace]>
+		Short: "Retrieves workload configuration for the specified ztunnel pod",
+		Long:  `Retrieve information about workload configuration for the ztunnel instance.`,
+		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
+  istioctl proxy-config workload <ztunnel-name[.namespace]>
 
-  # Retrieve workload summary for workload with port XXXX.
-  istioctl proxy-config workload <pod-name[.namespace]> --node ambient-worker
+  # Retrieve summary of workloads on node XXXX for a given ztunnel instance.
+  istioctl proxy-config workload <ztunnel-name[.namespace]> --node ambient-worker
 
-  # Retrieve full workload dump for XXXXXX
-  istioctl proxy-config workload <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
+  # Retrieve full workload dump of workloads with address XXXX for a given ztunnel
+  istioctl proxy-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
 
   # Retrieve workload summary without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > ztunnel-config.json
