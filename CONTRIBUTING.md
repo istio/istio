@@ -70,18 +70,6 @@ CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set h
 kubectl apply -f local-test-utils/samples/
 ```
 
-with Rust [zTunnel](https://github.com/istio/ztunnel):
-
-```shell
-# Mesh config options are optional to improve debugging
-CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
-  --set values.ztunnel.image=ztunnel \
-  --set profile=ambient --set meshConfig.accessLogFile=/dev/stdout --set meshConfig.defaultHttpRetryPolicy.attempts=0 \
-  --set values.global.imagePullPolicy=Always
-
-kubectl apply -f local-test-utils/samples/
-```
-
 ## New Test with Ambient
 
 ```shell
