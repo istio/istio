@@ -229,10 +229,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
 				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
 			}
-			if b.option.IsAmbient {
-				m.AmbientAdaptations()
-				b.logger.AppendDebugf("adapted rules to Ambient")
-			}
+
 			generated, err := m.Generate(forTCP, b.option.UseAuthenticated, action)
 			if err != nil {
 				b.logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
