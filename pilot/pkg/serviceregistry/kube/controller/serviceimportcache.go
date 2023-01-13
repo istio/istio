@@ -309,13 +309,11 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	// Register callbacks for ServiceImport events in this cluster only.
 	ic.registerHandlers(ic.filteredInformer, "ServiceImports", ic.onServiceImportEvent, nil)
 	go ic.filteredInformer.Run(stop)
+	kubelib.WaitForCacheSync(stop, ic.filteredInformer.HasSynced)
 	ic.started.Store(true)
 }
 
 func (ic *serviceImportCacheImpl) HasSynced() bool {
-	if ic.started.Load() {
-		return ic.filteredInformer.HasSynced()
-	}
 	return true
 }
 

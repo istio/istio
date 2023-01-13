@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
@@ -215,13 +216,11 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 	// Register callbacks for events.
 	ec.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
 	go ec.filteredInformer.Run(stop)
+	kubelib.WaitForCacheSync(stop, ec.filteredInformer.HasSynced)
 	ec.started.Store(true)
 }
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	if ec.started.Load() {
-		return ec.filteredInformer.HasSynced()
-	}
 	return true
 }
 
