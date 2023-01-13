@@ -7,6 +7,11 @@ replicaCount: 1
 
 kind: Deployment
 
+# for deployments
+updateStrategy: 
+  maxSurge: 25%
+  maxUnavailable: 25%
+
 rbac:
   # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
   # when using http://gateway-api.org/.

@@ -11,6 +11,11 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    rollingUpdate:
+    {{- toYaml .Values.updateStrategy | nindent 6 }}
+    {{- end }}
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
@@ -71,6 +76,16 @@ spec:
             allowPrivilegeEscalation: true
             readOnlyRootFilesystem: true
           {{- end }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15021
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
           env:
           {{- with .Values.networkGateway }}
           - name: ISTIO_META_REQUESTED_NETWORK_VIEW
