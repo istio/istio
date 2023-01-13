@@ -1,7 +1,6 @@
 all
 rule 'MD002', :level => 1
 rule 'MD007', :indent => 4
-rule 'MD009', :br_spaces => 2
 rule 'MD013', :line_length => 160, :code_blocks => false, :tables => false
 rule 'MD026', :punctuation => ".,;:!"
 exclude_rule 'MD013'
