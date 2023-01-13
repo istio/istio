@@ -32,6 +32,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gateway.serviceAccountName" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: "{{ .Values.priorityClassName }}"
+      {{- end }}
       securityContext:
       {{- if .Values.securityContext }}
         {{- toYaml .Values.securityContext | nindent 8 }}

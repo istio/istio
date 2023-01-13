@@ -185,6 +185,9 @@
     "networkGateway": {
       "type": "string"
     },
+    "priorityClassName": {
+      "type": "string"
+    },
     "imagePullSecrets": {
       "type": "array",
       "items": {
