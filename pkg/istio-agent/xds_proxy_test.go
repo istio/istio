@@ -444,14 +444,14 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 type fakeAckCache struct{}
 
-func (f *fakeAckCache) Get(string, *wasmcache.GetOptions) (string, error) {
+func (f *fakeAckCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "test", nil
 }
 func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
 
-func (f *fakeNackCache) Get(string, *wasmcache.GetOptions) (string, error) {
+func (f *fakeNackCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "", errors.New("errror")
 }
 func (f *fakeNackCache) Cleanup() {}

@@ -48,7 +48,7 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
-	Get(url string, opts *GetOptions) (string, error)
+	Get(url string, opts GetOptions) (string, error)
 	Cleanup()
 }
 
@@ -201,7 +201,7 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 }
 
 // Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(downloadURL string, opts *GetOptions) (string, error) {
+func (c *LocalFileCache) Get(downloadURL string, opts GetOptions) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -221,7 +221,7 @@ func (c *LocalFileCache) Get(downloadURL string, opts *GetOptions) (string, erro
 	return entry.modulePath, err
 }
 
-func (c *LocalFileCache) getOrFetch(key cacheKey, opts *GetOptions) (*cacheEntry, error) {
+func (c *LocalFileCache) getOrFetch(key cacheKey, opts GetOptions) (*cacheEntry, error) {
 
 	u, err := url.Parse(key.downloadURL)
 	if err != nil {
@@ -240,7 +240,7 @@ func (c *LocalFileCache) getOrFetch(key cacheKey, opts *GetOptions) (*cacheEntry
 	var binaryFetcher func() ([]byte, error)
 	insecure := c.allowInsecure(u.Host)
 
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), opts.RequestTimeout)
 	defer cancel()
 	switch u.Scheme {
 	case "http", "https":

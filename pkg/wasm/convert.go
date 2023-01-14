@@ -190,11 +190,11 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	}
 	// ec.Name is resourceName.
 	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
-	f, err := cache.Get(httpURI.GetUri(), &GetOptions{
+	f, err := cache.Get(httpURI.GetUri(), GetOptions{
 		Checksum:        remote.Sha256,
 		ResourceName:    ec.Name,
 		ResourceVersion: resourceVersion,
-		Timeout:         timeout,
+		RequestTimeout:  timeout,
 		PullSecret:      pullSecret,
 		PullPolicy:      pullPolicy,
 	})

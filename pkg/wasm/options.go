@@ -52,7 +52,7 @@ type GetOptions struct {
 	Checksum        string
 	ResourceName    string
 	ResourceVersion string
-	Timeout         time.Duration
+	RequestTimeout  time.Duration
 	PullSecret      []byte
 	PullPolicy      extensions.PullPolicy
 }
