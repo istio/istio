@@ -936,7 +936,6 @@ func TestAllInsecureServer(t *testing.T) {
 		PullSecret:      []byte{},
 		PullPolicy:      defaultPullPolicy,
 	})
-
 	if err != nil {
 		t.Fatalf("failed to download Wasm module: %v", err)
 	}

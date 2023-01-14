@@ -198,7 +198,6 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		PullSecret:      pullSecret,
 		PullPolicy:      pullPolicy,
 	})
-
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)

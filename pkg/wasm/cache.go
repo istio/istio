@@ -222,18 +222,17 @@ func (c *LocalFileCache) Get(downloadURL string, opts GetOptions) (string, error
 }
 
 func (c *LocalFileCache) getOrFetch(key cacheKey, opts GetOptions) (*cacheEntry, error) {
-
 	u, err := url.Parse(key.downloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("fail to parse Wasm module fetch url: %s, error: %v", key.downloadURL, err)
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
-	if ce, checksum := c.getEntry(key, shouldIgnoreResourceVersion(opts.PullPolicy, u)); ce != nil {
+	ce, checksum := c.getEntry(key, shouldIgnoreResourceVersion(opts.PullPolicy, u))
+	if ce != nil {
 		return ce, nil
-	} else {
-		key.checksum = checksum
 	}
+	key.checksum = checksum
 	// Fetch the image now as it is not available in cache.
 	var b []byte         // Byte array of Wasm binary.
 	var dChecksum string // Hex-Encoded sha256 checksum of binary.
