@@ -21,7 +21,6 @@ import (
 	"text/tabwriter"
 
 	adminv3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -38,7 +37,7 @@ type ConfigWriter struct {
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
 	cd := &adminv3.ConfigDump{}
-	err := protojson.Unmarshal(b, cd)
+	err := protomarshal.UnmarshalWithGlobalTypesResolver(b, cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}

@@ -17,7 +17,6 @@ package model
 import (
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -249,8 +249,7 @@ func mergeVirtualServicesIfNeeded(
 		}
 		rootVs.Http = mergedRoutes
 		if log.DebugEnabled() {
-			jsonm := &jsonpb.Marshaler{Indent: "   "}
-			vsString, _ := jsonm.MarshalToString(rootVs)
+			vsString, _ := protomarshal.ToJSONWithIndent(rootVs, "   ")
 			log.Debugf("merged virtualService: %s", vsString)
 		}
 		out = append(out, root)

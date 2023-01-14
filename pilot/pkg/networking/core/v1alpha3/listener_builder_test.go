@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -25,7 +24,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/jsonpb"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -41,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestVirtualListenerBuilder(t *testing.T) {
@@ -528,7 +527,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 
 func buildPatchStruct(config string) *structpb.Struct {
 	val := &structpb.Struct{}
-	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
+	_ = protomarshal.UnmarshalString(config, val)
 	return val
 }
 

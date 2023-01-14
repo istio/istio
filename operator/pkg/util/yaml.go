@@ -22,9 +22,7 @@ import (
 	"reflect"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/golang/protobuf/jsonpb"
-	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
+	jsonpatch "github.com/evanphx/json-patch/v5" // nolint: staticcheck
 	"github.com/kylelemons/godebug/diff"
 	"google.golang.org/protobuf/proto"
 	yaml3 "k8s.io/apimachinery/pkg/util/yaml"
@@ -84,8 +82,7 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 	if val == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 		return "null"
 	}
-	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(legacyproto.MessageV1(val))
+	js, err := protomarshal.ToJSONWithOptions(val, "", true)
 	if err != nil {
 		return err.Error()
 	}
@@ -111,8 +108,12 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 	if err != nil {
 		return err
 	}
-	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownField}
-	err = u.Unmarshal(bytes.NewReader(jb), legacyproto.MessageV1(out))
+
+	if allowUnknownField {
+		err = protomarshal.UnmarshalAllowUnknown(jb, out)
+	} else {
+		err = protomarshal.Unmarshal(jb, out)
+	}
 	if err != nil {
 		return err
 	}

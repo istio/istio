@@ -24,7 +24,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb" // nolint: depguard
 	gogoproto "github.com/gogo/protobuf/proto"   // nolint: depguard
 	gogotypes "github.com/gogo/protobuf/types"   // nolint: depguard
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -149,7 +148,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 		return nil, err
 	}
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+	if err := protomarshal.Unmarshal(js, pbs); err != nil {
 		return nil, err
 	}
 	return protoconv.MessageToAnyWithError(pbs)
