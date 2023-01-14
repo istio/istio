@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
-	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -44,10 +43,7 @@ type mockCache struct {
 	wantPolicy extensions.PullPolicy
 }
 
-func (c *mockCache) Get(
-	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (string, error) {
+func (c *mockCache) Get(downloadURL string, opts *GetOptions) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -57,11 +53,11 @@ func (c *mockCache) Get(
 	if errMsg != "" {
 		err = errors.New(errMsg)
 	}
-	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, pullSecret) {
-		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(pullSecret), c.wantSecret)
+	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, opts.PullSecret) {
+		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(opts.PullSecret), c.wantSecret)
 	}
-	if c.wantPolicy != pullPolicy {
-		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, pullPolicy, c.wantPolicy)
+	if c.wantPolicy != opts.PullPolicy {
+		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, opts.PullPolicy, c.wantPolicy)
 	}
 
 	return module, err

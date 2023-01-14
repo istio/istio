@@ -188,7 +188,17 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, wasmHTTPFilterConfig.Config.Name, resourceVersion, timeout, pullSecret, pullPolicy)
+	// ec.Name is resourceName.
+	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
+	f, err := cache.Get(httpURI.GetUri(), &GetOptions{
+		Checksum:        remote.Sha256,
+		ResourceName:    ec.Name,
+		ResourceVersion: resourceVersion,
+		Timeout:         timeout,
+		PullSecret:      pullSecret,
+		PullPolicy:      pullPolicy,
+	})
+
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)
