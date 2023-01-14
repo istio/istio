@@ -21,8 +21,9 @@ import (
 	"text/tabwriter"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const typeURLPrefix = "type.googleapis.com/"
@@ -37,11 +38,7 @@ func (c *ConfigWriter) PrintEcds(outputFormat string) error {
 		return err
 	}
 
-	opts := protojson.MarshalOptions{
-		Multiline: true,
-		Indent:    "    ",
-	}
-	out, err := opts.Marshal(dump)
+	out, err := protomarshal.MarshalIndentWithGlobalTypesResolver(dump, "    ")
 	if err != nil {
 		return err
 	}
