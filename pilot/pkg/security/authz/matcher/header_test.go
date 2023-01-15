@@ -70,8 +70,13 @@ func TestHeaderMatcher(t *testing.T) {
 			V:    "*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
-					PresentMatch: true,
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcher.RegexMatcher{
+						EngineType: &matcher.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
+						},
+						Regex: ".+",
+					},
 				},
 			},
 		},

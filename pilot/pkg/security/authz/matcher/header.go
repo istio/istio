@@ -23,14 +23,20 @@ import (
 )
 
 // HeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
+// The wildcard "*" will be generated as ".+" instead of ".*".
 func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
 	// Empty prefix/suffix value is invalid in HeaderMatcher.
 	if v == "*" {
 		return &routepb.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
-				PresentMatch: true,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+				SafeRegexMatch: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{
+						GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
+					},
+					Regex: ".+",
+				},
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {

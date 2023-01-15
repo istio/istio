@@ -158,7 +158,9 @@ typedConfig:
                     suffixMatch: -suffix-header
                 - header:
                     name: X-header
-                    presentMatch: true
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: .+
             - orIds:
                 ids:
                 - remoteIp:
@@ -238,7 +240,9 @@ typedConfig:
                     suffixMatch: -suffix-header
                 - header:
                     name: X-header
-                    presentMatch: true
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: .+
             - orIds:
                 ids:
                 - remoteIp:
