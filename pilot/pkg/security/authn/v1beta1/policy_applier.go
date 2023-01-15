@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/security"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/log"
 )
 
@@ -204,49 +205,6 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-type JwksFetchMode int
-
-const (
-	// Istiod is used to indicate Istiod ALWAYS fetches the JWKs server
-	Istiod JwksFetchMode = iota
-
-	// Hybrid is used to indicate Envoy fetches the JWKs server when there is a cluster entry,
-	// otherwise fallback to Istiod
-	Hybrid
-
-	// Envoy is used to indicate Envoy ALWAYS fetches the JWKs server
-	Envoy
-)
-
-// String converts JwksFetchMode to readable string.
-func (mode JwksFetchMode) String() string {
-	switch mode {
-	case Istiod:
-		return "Istiod"
-	case Hybrid:
-		return "Hybrid"
-	case Envoy:
-		return "Envoy"
-	default:
-		return "Unset"
-	}
-}
-
-// ConvertToJwksFetchMode converts from string value mode to enum JwksFetchMode value.
-// true and false are kept for backwards compatability.
-func ConvertToJwksFetchMode(mode string) JwksFetchMode {
-	switch mode {
-	case "istiod", "false":
-		return Istiod
-	case "hybrid", "true":
-		return Hybrid
-	case "envoy":
-		return Envoy
-	default:
-		return Istiod
-	}
-}
-
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
@@ -296,7 +254,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		// cluster name, generate the jwt filter config using remote Jwks.
 		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
 		// remoteJwksMode is Hybrid.
-		if features.JwksFetchMode != Istiod && jwtRule.JwksUri != "" {
+		if features.JwksFetchMode != jwt.Istiod && jwtRule.JwksUri != "" {
 			jwksInfo, err := security.ParseJwksURI(jwtRule.JwksUri)
 			if err != nil {
 				authnLog.Errorf("Failed to parse jwt rule jwks uri %v", err)
@@ -318,7 +276,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
-			} else if features.JwksFetchMode == Hybrid {
+			} else if features.JwksFetchMode == jwt.Hybrid {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
 			} else {
 				// Log error and create fake inline JWKs
