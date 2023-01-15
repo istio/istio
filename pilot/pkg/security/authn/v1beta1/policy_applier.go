@@ -204,11 +204,11 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-type RemoteJwksMode int
+type JwksFetchMode int
 
 const (
 	// Istiod is used to indicate Istiod ALWAYS fetches the JWKs server
-	Istiod RemoteJwksMode = iota
+	Istiod JwksFetchMode = iota
 
 	// Hybrid is used to indicate Envoy fetches the JWKs server when there is a cluster entry,
 	// otherwise fallback to Istiod
@@ -218,8 +218,8 @@ const (
 	Envoy
 )
 
-// String converts RemoteJwksMode to readable string.
-func (mode RemoteJwksMode) String() string {
+// String converts JwksFetchMode to readable string.
+func (mode JwksFetchMode) String() string {
 	switch mode {
 	case Istiod:
 		return "Istiod"
@@ -232,16 +232,13 @@ func (mode RemoteJwksMode) String() string {
 	}
 }
 
-// convertToRemoteJwksMode converts from string value mode to enum RemoteJwksMode value
-func convertToRemoteJwksMode(mode string) RemoteJwksMode {
+// ConvertToJwksFetchMode converts from string value mode to enum JwksFetchMode value.
+// true and false are kept for backwards compatability.
+func ConvertToJwksFetchMode(mode string) JwksFetchMode {
 	switch mode {
-	case "istiod":
+	case "istiod", "false":
 		return Istiod
-	case "false":
-		return Istiod
-	case "hybrid":
-		return Hybrid
-	case "true":
+	case "hybrid", "true":
 		return Hybrid
 	case "envoy":
 		return Envoy
@@ -293,14 +290,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 		provider.FromParams = jwtRule.FromParams
 
-		remoteJwksMode := convertToRemoteJwksMode(features.EnableRemoteJwks)
-		authnLog.Infof("RemoteJwksMode is set to: %v", remoteJwksMode.String())
+		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
 
-		// Use remote jwks if jwksUri is not empty. Parse the jwksUri to get the cluster name,
-		// generate the jwt filter config using remoteJwks.
-		// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri when
+		// Use remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
+		// cluster name, generate the jwt filter config using remote Jwks.
+		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
 		// remoteJwksMode is Hybrid.
-		if remoteJwksMode != Istiod && jwtRule.JwksUri != "" {
+		if features.JwksFetchMode != Istiod && jwtRule.JwksUri != "" {
 			jwksInfo, err := security.ParseJwksURI(jwtRule.JwksUri)
 			if err != nil {
 				authnLog.Errorf("Failed to parse jwt rule jwks uri %v", err)
@@ -322,7 +318,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
-			} else if remoteJwksMode == Hybrid {
+			} else if features.JwksFetchMode == Hybrid {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
 			} else {
 				// Log error and create fake inline JWKs

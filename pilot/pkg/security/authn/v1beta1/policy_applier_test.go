@@ -55,10 +55,10 @@ func TestJwtFilter(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name             string
-		in               []*config.Config
-		enableRemoteJwks string
-		expected         *hcm.HttpFilter
+		name          string
+		in            []*config.Config
+		jwksFetchMode JwksFetchMode
+		expected      *hcm.HttpFilter
 	}{
 		{
 			name:     "No policy",
@@ -155,7 +155,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: "true",
+			jwksFetchMode: Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -228,7 +228,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: "envoy",
+			jwksFetchMode: Envoy,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -301,7 +301,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: "true",
+			jwksFetchMode: Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -369,7 +369,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: "envoy",
+			jwksFetchMode: Envoy,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -921,7 +921,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			istiotest.SetForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
+			istiotest.SetForTest(t, &features.JwksFetchMode, c.jwksFetchMode)
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}

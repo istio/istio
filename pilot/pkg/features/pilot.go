@@ -15,6 +15,7 @@
 package features
 
 import (
+	"istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	"strings"
 	"time"
 
@@ -221,12 +222,17 @@ var (
 			"if headless services have a large number of pods.",
 	).Get()
 
-	EnableRemoteJwks = env.Register(
-		"PILOT_JWT_ENABLE_REMOTE_JWKS",
-		"false",
-		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
-			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
-	).Get()
+	JwksFetchMode = func() v1beta1.JwksFetchMode {
+		v := env.Register(
+			"PILOT_JWT_ENABLE_REMOTE_JWKS",
+			"false",
+			"Mode of fetching JWKs from JwksUri in RequestAuthentication. Supported value: "+
+				"istiod, false, hybrid, true, envoy. The client fetching JWKs is as following: "+
+				"istiod/false - Istiod; hybrid/true - Envoy and fallback to Istiod if JWKs server is external; "+
+				"envoy - Envoy.",
+		).Get()
+		return v1beta1.ConvertToJwksFetchMode(v)
+	}()
 
 	EnableEDSForHeadless = env.Register(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
