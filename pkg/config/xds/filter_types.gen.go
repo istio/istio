@@ -282,6 +282,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/previous_routes/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/safe_cross_scheme/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/key_value/file_based/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/client_side_weighted_round_robin/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/common/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/least_request/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/maglev/v3"
