@@ -15,7 +15,6 @@
 package features
 
 import (
-	"istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	"strings"
 	"time"
 
@@ -222,7 +221,7 @@ var (
 			"if headless services have a large number of pods.",
 	).Get()
 
-	JwksFetchMode = func() v1beta1.JwksFetchMode {
+	JwksFetchMode = func() jwt.JwksFetchMode {
 		v := env.Register(
 			"PILOT_JWT_ENABLE_REMOTE_JWKS",
 			"false",
@@ -231,7 +230,7 @@ var (
 				"istiod/false - Istiod; hybrid/true - Envoy and fallback to Istiod if JWKs server is external; "+
 				"envoy - Envoy.",
 		).Get()
-		return v1beta1.ConvertToJwksFetchMode(v)
+		return jwt.ConvertToJwksFetchMode(v)
 	}()
 
 	EnableEDSForHeadless = env.Register(

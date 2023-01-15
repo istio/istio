@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/jwt"
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
 )
@@ -57,7 +58,7 @@ func TestJwtFilter(t *testing.T) {
 	cases := []struct {
 		name          string
 		in            []*config.Config
-		jwksFetchMode JwksFetchMode
+		jwksFetchMode jwt.JwksFetchMode
 		expected      *hcm.HttpFilter
 	}{
 		{
@@ -155,7 +156,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			jwksFetchMode: Hybrid,
+			jwksFetchMode: jwt.Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -228,7 +229,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			jwksFetchMode: Envoy,
+			jwksFetchMode: jwt.Envoy,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -301,7 +302,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			jwksFetchMode: Hybrid,
+			jwksFetchMode: jwt.Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -369,7 +370,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			jwksFetchMode: Envoy,
+			jwksFetchMode: jwt.Envoy,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
