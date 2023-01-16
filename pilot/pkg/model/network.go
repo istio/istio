@@ -124,7 +124,7 @@ func (mgr *NetworkManager) reloadNetworkEndpoints() {
 		for _, networkconf := range oldNetworks.Networks {
 			for _, ne := range networkconf.Endpoints {
 				if len(ne.GetFromCidr()) > 0 {
-					newEndpoints = append(newEndpoints, ne)
+					oldEndpoints = append(oldEndpoints, ne)
 				}
 			}
 		}
