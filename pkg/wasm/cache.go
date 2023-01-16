@@ -369,6 +369,7 @@ func (c *localFileCache) updateChecksum(key cacheKey) bool {
 
 func (c *localFileCache) touchEntry(key cacheKey, ce *cacheEntry) {
 	ce.last = time.Now()
+	// If the same entry is touched, the reference count will be increased and then decreased.
 	ce.referenceCount++
 	if oldKey, ok := c.references[key.resourceName]; ok {
 		if old, ok := c.modules[oldKey]; ok {
