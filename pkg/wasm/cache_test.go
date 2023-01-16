@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -46,6 +47,301 @@ import (
 // Wasm header = magic number (4 bytes) + Wasm spec version (4 bytes).
 var wasmHeader = append(wasmMagicNumber, []byte{0x1, 0x00, 0x00, 0x00}...)
 
+func sha256InHex(data []byte) string {
+	sha := sha256.Sum256(data)
+	return hex.EncodeToString(sha[:])
+}
+
+func TestWasmCacheExpiry(t *testing.T) {
+	// Setup http server.
+	httpData := append(wasmHeader, []byte("data")...)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(httpData)
+	}))
+	defer ts.Close()
+	httpDataCheckSum := sha256InHex(httpData)
+	httpWasmFile := fmt.Sprintf("%s.wasm", httpDataCheckSum)
+
+	anotherHTTPDataChecksum := sha256InHex(append(wasmHeader, []byte("another-data")...))
+	anotherHTTPWasmFile := fmt.Sprintf("%s.wasm", anotherHTTPDataChecksum)
+
+	reg := registry.New()
+	// Set up a fake registry for OCI images.
+	tos := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reg.ServeHTTP(w, r)
+	}))
+	defer tos.Close()
+	ou, err := url.Parse(tos.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerImageDigest, fakeImageDigest := setupOCIRegistry(t, ou.Host)
+
+	ociWasmFile := fmt.Sprintf("%s.wasm", dockerImageDigest)
+	ociURLWithTag := fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host)
+	fakeWasmFile := fmt.Sprintf("%s.wasm", fakeImageDigest)
+	// ociURLWithDigest := fmt.Sprintf("oci://%s/test/valid/docker@sha256:%s", ou.Host, dockerImageDigest)
+
+	cases := []struct {
+		name                   string
+		initialCachedModules   map[moduleKey]cacheEntry
+		initialCachedChecksums map[string]*checksumEntry
+		initialReference       map[string]moduleKey
+		fetchURL               string
+		getOptions             GetOptions
+		postAction             func(Cache)
+		wantFiles              []string
+		wantCachedModules      map[moduleKey]*cacheEntry
+		wantCachedChecksums    map[string]*checksumEntry
+	}{
+		{
+			name:                   "HTTP: Wasm module expired, but not purge due to the reference",
+			initialCachedModules:   map[moduleKey]cacheEntry{},
+			initialCachedChecksums: map[string]*checksumEntry{},
+			fetchURL:               ts.URL,
+			getOptions: GetOptions{
+				Checksum:        httpDataCheckSum,
+				ResourceName:    "namespace.resource",
+				ResourceVersion: "0",
+				RequestTimeout:  time.Second * 10,
+			},
+			postAction: nil,
+			wantFiles:  []string{httpWasmFile},
+			wantCachedModules: map[moduleKey]*cacheEntry{
+				{name: ts.URL, checksum: httpDataCheckSum}: {
+					modulePath:     httpDataCheckSum + ".wasm",
+					referenceCount: 1,
+				},
+			},
+			wantCachedChecksums: map[string]*checksumEntry{
+				ts.URL: {checksum: httpDataCheckSum, resourceVersionByResource: map[string]string{"namespace.resource": "0"}},
+			},
+		},
+		{
+			name: "HTTP: Wasm module expired and the reference is deleted with SotW way",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: ts.URL, checksum: anotherHTTPDataChecksum}: {
+					modulePath:      anotherHTTPWasmFile,
+					referencingURLs: sets.New("test-url"),
+					referenceCount:  1,
+				},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{},
+			initialReference: map[string]moduleKey{
+				"namespace.another-resource": {name: ts.URL, checksum: anotherHTTPDataChecksum},
+			},
+			fetchURL: ts.URL,
+			getOptions: GetOptions{
+				Checksum:        httpDataCheckSum,
+				ResourceName:    "namespace.resource",
+				ResourceVersion: "0",
+				RequestTimeout:  time.Second * 10,
+			},
+			postAction: func(c Cache) {
+				c.UpdateExtensionReference([]string{"something-brand-new-extension", "namespace.another-resource"})
+			},
+			wantFiles: []string{anotherHTTPWasmFile},
+			wantCachedModules: map[moduleKey]*cacheEntry{
+				{name: ts.URL, checksum: anotherHTTPDataChecksum}: {
+					modulePath:      anotherHTTPWasmFile,
+					referencingURLs: sets.New[string](),
+					referenceCount:  1,
+				},
+			},
+			wantCachedChecksums: map[string]*checksumEntry{},
+		},
+		{
+			name: "HTTP: Wasm module expired and the reference is deleted with delta way",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: ts.URL, checksum: anotherHTTPDataChecksum}: {
+					modulePath:      anotherHTTPWasmFile,
+					referencingURLs: sets.New("test-url"),
+					referenceCount:  1,
+				},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{},
+			initialReference: map[string]moduleKey{
+				"namespace.another-resource": {name: ts.URL, checksum: anotherHTTPDataChecksum},
+			},
+			fetchURL: ts.URL,
+			getOptions: GetOptions{
+				Checksum:        httpDataCheckSum,
+				ResourceName:    "namespace.resource",
+				ResourceVersion: "0",
+				RequestTimeout:  time.Second * 10,
+			},
+			postAction: func(c Cache) {
+				c.DeleteExtensionReference("namespace.resource")
+			},
+			wantFiles: []string{anotherHTTPWasmFile},
+			wantCachedModules: map[moduleKey]*cacheEntry{
+				{name: ts.URL, checksum: anotherHTTPDataChecksum}: {
+					modulePath:      anotherHTTPWasmFile,
+					referencingURLs: sets.New[string](),
+					referenceCount:  1,
+				},
+			},
+			wantCachedChecksums: map[string]*checksumEntry{},
+		},
+		{
+			name: "HTTP: Wasm module expired and the all references are reset",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: ts.URL, checksum: anotherHTTPDataChecksum}: {
+					modulePath:      anotherHTTPWasmFile,
+					referencingURLs: sets.New("test-url"),
+					referenceCount:  1,
+				},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{},
+			initialReference: map[string]moduleKey{
+				"namespace.another-resource": {name: ts.URL, checksum: anotherHTTPDataChecksum},
+			},
+			fetchURL: ts.URL,
+			getOptions: GetOptions{
+				Checksum:        httpDataCheckSum,
+				ResourceName:    "namespace.resource",
+				ResourceVersion: "0",
+				RequestTimeout:  time.Second * 10,
+			},
+			postAction: func(c Cache) {
+				c.ResetExtensionReference()
+			},
+			wantFiles:           []string{},
+			wantCachedModules:   map[moduleKey]*cacheEntry{},
+			wantCachedChecksums: map[string]*checksumEntry{},
+		},
+		{
+			name: "purge old OCI entry only when new module comes from the same URL.",
+			initialCachedModules: map[moduleKey]cacheEntry{
+				{name: moduleNameFromURL(ociURLWithTag), checksum: fakeImageDigest}: {
+					modulePath:      fakeWasmFile,
+					referencingURLs: sets.New(ociURLWithTag),
+				},
+			},
+			initialCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {
+					checksum: fakeImageDigest,
+					resourceVersionByResource: map[string]string{
+						"namespace.resource": "123456",
+					},
+				},
+				"test-url": {
+					checksum: "test-checksum",
+					resourceVersionByResource: map[string]string{
+						"namespace.resource2": "123456",
+					},
+				},
+			},
+			fetchURL: ociURLWithTag,
+			getOptions: GetOptions{
+				ResourceName:    "namespace.resource",
+				ResourceVersion: "0",
+				RequestTimeout:  time.Second * 10,
+				PullPolicy:      extensions.PullPolicy_Always,
+			},
+			wantFiles: []string{ociWasmFile},
+			wantCachedModules: map[moduleKey]*cacheEntry{
+				{name: moduleNameFromURL(ociURLWithTag), checksum: dockerImageDigest}: {
+					modulePath:      ociWasmFile,
+					referencingURLs: sets.New(ociURLWithTag),
+					referenceCount:  1,
+				},
+			},
+			wantCachedChecksums: map[string]*checksumEntry{
+				ociURLWithTag: {checksum: dockerImageDigest, resourceVersionByResource: map[string]string{"namespace.resource": "0"}},
+				"test-url":    {checksum: "test-checksum", resourceVersionByResource: map[string]string{"namespace.resource2": "123456"}},
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			options := defaultOptions()
+			// Do not trigger, priodic purge loop for deteministic test.
+			options.PurgeInterval = 24 * time.Hour
+			cache := NewLocalFileCache(tmpDir, options)
+			cache.ModuleExpiry = 0 // To avoid sanitize, set the expiry directly.
+			cache.httpFetcher.initialBackoff = time.Microsecond
+			defer close(cache.stopChan)
+
+			initTime := time.Now()
+			cache.mux.Lock()
+			for k, m := range c.initialCachedModules {
+				filePath := generateModulePath(t, tmpDir, k.name, m.modulePath)
+				err := os.WriteFile(filePath, []byte("data/\n"), 0o644)
+				if err != nil {
+					t.Fatalf("failed to write initial wasm module file %v", err)
+				}
+				mkey := moduleKey{name: k.name, checksum: k.checksum}
+				cache.modules[mkey] = &cacheEntry{modulePath: filePath, last: initTime}
+				cache.modules[mkey].referencingURLs = m.referencingURLs.Copy()
+				cache.modules[mkey].referenceCount = m.referenceCount
+			}
+
+			for k, m := range c.initialCachedChecksums {
+				cache.checksums[k] = m
+			}
+
+			// put the tmp dir into the module path.
+			for k, m := range c.wantCachedModules {
+				c.wantCachedModules[k].modulePath = generateModulePath(t, tmpDir, k.name, m.modulePath)
+			}
+			if c.initialReference != nil {
+				cache.references = c.initialReference
+			}
+			cache.mux.Unlock()
+
+			c.getOptions.PullSecret = []byte{}
+
+			if _, err := cache.Get(c.fetchURL, c.getOptions); err != nil {
+				t.Fatalf("cache.Get got an unexpected error: %v", err)
+			}
+			if c.postAction != nil {
+				c.postAction(cache)
+			}
+			// Purge the expired modules.
+			cache.purge()
+
+			gotFiles := []string{}
+			err = filepath.Walk(tmpDir,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if !info.IsDir() {
+						gotFiles = append(gotFiles, info.Name())
+					}
+					return nil
+				})
+			if err != nil {
+				t.Fatalf("failed to filepath.Walk: %v", err)
+			}
+
+			sort.Strings(c.wantFiles)
+			sort.Strings(gotFiles)
+
+			if diff := cmp.Diff(c.wantFiles, gotFiles); diff != "" {
+				t.Errorf("unexpected files in local file system: (-want, +got)\n%v", diff)
+			}
+
+			cache.mux.Lock()
+			if diff := cmp.Diff(c.wantCachedModules, cache.modules,
+				cmpopts.IgnoreFields(cacheEntry{}, "last", "referencingURLs"),
+				cmp.AllowUnexported(cacheEntry{}),
+			); diff != "" {
+				t.Errorf("unexpected module cache: (-want, +got)\n%v", diff)
+			}
+
+			if diff := cmp.Diff(c.wantCachedChecksums, cache.checksums,
+				cmp.AllowUnexported(checksumEntry{}),
+			); diff != "" {
+				t.Errorf("unexpected checksums: (-want, +got)\n%v", diff)
+			}
+			cache.mux.Unlock()
+		})
+	}
+}
+
 func TestWasmCache(t *testing.T) {
 	// Setup http server.
 	tsNumRequest := int32(0)
@@ -64,10 +360,8 @@ func TestWasmCache(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	httpDataSha := sha256.Sum256(httpData)
-	httpDataCheckSum := hex.EncodeToString(httpDataSha[:])
-	invalidHTTPDataSha := sha256.Sum256(invalidHTTPData)
-	invalidHTTPDataCheckSum := hex.EncodeToString(invalidHTTPDataSha[:])
+	httpDataCheckSum := sha256InHex(httpData)
+	invalidHTTPDataCheckSum := sha256InHex(invalidHTTPData)
 
 	reg := registry.New()
 	// Set up a fake registry for OCI images.
@@ -89,17 +383,13 @@ func TestWasmCache(t *testing.T) {
 	ociURLWithDigest := fmt.Sprintf("oci://%s/test/valid/docker@sha256:%s", ou.Host, dockerImageDigest)
 
 	// Calculate cachehit sum.
-	cacheHitSha := sha256.Sum256([]byte("cachehit"))
-	cacheHitSum := hex.EncodeToString(cacheHitSha[:])
+	cacheHitSum := sha256InHex([]byte("cachehit"))
 
 	cases := []struct {
 		name                   string
 		initialCachedModules   map[moduleKey]cacheEntry
 		initialCachedChecksums map[string]*checksumEntry
 		fetchURL               string
-		purgeInterval          time.Duration
-		wasmModuleExpiry       time.Duration
-		checkPurgeTimeout      time.Duration
 		getOptions             GetOptions
 		wantCachedModules      map[moduleKey]*cacheEntry
 		wantCachedChecksums    map[string]*checksumEntry
@@ -227,23 +517,6 @@ func TestWasmCache(t *testing.T) {
 			},
 			wantCachedChecksums: map[string]*checksumEntry{},
 			wantErrorMsgPrefix:  fmt.Sprintf("fetched Wasm binary from %s is invalid", ts.URL+"/invalid-wasm-header"),
-			wantVisitServer:     true,
-		},
-		{
-			name:                   "purge on expiry",
-			initialCachedModules:   map[moduleKey]cacheEntry{},
-			initialCachedChecksums: map[string]*checksumEntry{},
-			fetchURL:               ts.URL,
-			purgeInterval:          1 * time.Millisecond,
-			wasmModuleExpiry:       1 * time.Millisecond,
-			checkPurgeTimeout:      5 * time.Second,
-			getOptions: GetOptions{
-				Checksum:       httpDataCheckSum,
-				RequestTimeout: time.Second * 10,
-			},
-			wantCachedModules:   map[moduleKey]*cacheEntry{},
-			wantCachedChecksums: map[string]*checksumEntry{},
-			wantFileName:        fmt.Sprintf("%s.wasm", httpDataCheckSum),
 			wantVisitServer:     true,
 		},
 		{
@@ -573,44 +846,6 @@ func TestWasmCache(t *testing.T) {
 			wantVisitServer: false,
 		},
 		{
-			name: "purge OCI image on expiry",
-			initialCachedModules: map[moduleKey]cacheEntry{
-				{name: moduleNameFromURL(ociURLWithTag) + "-purged", checksum: dockerImageDigest}: {
-					modulePath:      ociWasmFile,
-					referencingURLs: sets.New(ociURLWithTag),
-				},
-			},
-			initialCachedChecksums: map[string]*checksumEntry{
-				ociURLWithTag: {
-					checksum: dockerImageDigest,
-					resourceVersionByResource: map[string]string{
-						"namespace.resource": "123456",
-					},
-				},
-				"test-url": {
-					checksum: "test-checksum",
-					resourceVersionByResource: map[string]string{
-						"namespace.resource2": "123456",
-					},
-				},
-			},
-			fetchURL:         ociURLWithDigest,
-			purgeInterval:    1 * time.Millisecond,
-			wasmModuleExpiry: 1 * time.Millisecond,
-			getOptions: GetOptions{
-				ResourceName:    "namespace.resource",
-				ResourceVersion: "0",
-				RequestTimeout:  time.Second * 10,
-			},
-			checkPurgeTimeout: 5 * time.Second,
-			wantCachedModules: map[moduleKey]*cacheEntry{},
-			wantCachedChecksums: map[string]*checksumEntry{
-				"test-url": {checksum: "test-checksum", resourceVersionByResource: map[string]string{"namespace.resource2": "123456"}},
-			},
-			wantFileName:    ociWasmFile,
-			wantVisitServer: true,
-		},
-		{
 			name:                 "fetch oci timed out",
 			initialCachedModules: map[moduleKey]cacheEntry{},
 			fetchURL:             ociURLWithTag,
@@ -664,12 +899,7 @@ func TestWasmCache(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			options := defaultOptions()
-			if c.purgeInterval != 0 {
-				options.PurgeInterval = c.purgeInterval
-			}
-			if c.wasmModuleExpiry != 0 {
-				options.ModuleExpiry = c.wasmModuleExpiry
-			}
+			options.ModuleExpiry = 24 * time.Hour // This prevents expiration in the test.
 			cache := NewLocalFileCache(tmpDir, options)
 			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
@@ -679,19 +909,8 @@ func TestWasmCache(t *testing.T) {
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
 				filePath := generateModulePath(t, tmpDir, k.name, m.modulePath)
-				err := os.WriteFile(filePath, []byte("data/\n"), 0o644)
-				if err != nil {
-					t.Fatalf("failed to write initial wasm module file %v", err)
-				}
 				mkey := moduleKey{name: k.name, checksum: k.checksum}
-
 				cache.modules[mkey] = &cacheEntry{modulePath: filePath, last: initTime}
-				if m.referencingURLs != nil {
-					cache.modules[mkey].referencingURLs = m.referencingURLs.Copy()
-				} else {
-					cache.modules[mkey].referencingURLs = sets.New[string]()
-				}
-
 				if moduleNameFromURL(c.fetchURL) == k.name && c.getOptions.Checksum == k.checksum {
 					cacheHitKey = &mkey
 				}
@@ -714,32 +933,6 @@ func TestWasmCache(t *testing.T) {
 			gotFilePath, gotErr := cache.Get(c.fetchURL, c.getOptions)
 			serverVisited := atomic.LoadInt32(&tsNumRequest) > 0
 
-			if c.checkPurgeTimeout > 0 {
-				moduleDeleted := false
-				for start := time.Now(); time.Since(start) < c.checkPurgeTimeout; {
-					fileCount := 0
-					err = filepath.Walk(tmpDir,
-						func(path string, info os.FileInfo, err error) error {
-							if err != nil {
-								return err
-							}
-							if !info.IsDir() {
-								fileCount++
-							}
-							return nil
-						})
-					// Check existence of module files. files should be deleted before timing out.
-					if err == nil && fileCount == 0 {
-						moduleDeleted = true
-						break
-					}
-				}
-
-				if !moduleDeleted {
-					t.Fatalf("Wasm modules are not purged before purge timeout")
-				}
-			}
-
 			cache.mux.Lock()
 			if cacheHitKey != nil {
 				if entry, ok := cache.modules[*cacheHitKey]; ok && entry.last == initTime {
@@ -748,7 +941,7 @@ func TestWasmCache(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(c.wantCachedModules, cache.modules,
-				cmpopts.IgnoreFields(cacheEntry{}, "last", "referencingURLs"),
+				cmpopts.IgnoreFields(cacheEntry{}, "last", "referencingURLs", "referenceCount"),
 				cmp.AllowUnexported(cacheEntry{}),
 			); diff != "" {
 				t.Errorf("unexpected module cache: (-want, +got)\n%v", diff)

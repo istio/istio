@@ -47,16 +47,29 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
+	// Get returns path the local Wasm module file.
 	Get(url string, opts GetOptions) (string, error)
+	// UpdateExtensionReference removes the references from the extensions,
+	// resource names of which are not contained in the given `validResourceNames`.
+	// This is designed for using with "SotW" xDS protocol.
+	UpdateExtensionReference(validResourceNames []string)
+	// DeleteExtensionReference removes the references from the extensions having `resourceName`.
+	// This is designed for using with "Delta" xDS protocol.
+	DeleteExtensionReference(resourceName string)
+	// ResetExtensionsReference deletes all the references from extensions.
+	// For each time to create new xDS connection, the references need to be reset.
+	ResetExtensionReference()
 	Cleanup()
 }
 
-// LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
-type LocalFileCache struct {
+// localFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
+type localFileCache struct {
 	// Map from Wasm module checksum to cache entry.
 	modules map[moduleKey]*cacheEntry
 	// Map from tagged URL to checksum
 	checksums map[string]*checksumEntry
+	// Reference map from an extension to a cacheEntry
+	references map[string]moduleKey
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
 
@@ -72,7 +85,7 @@ type LocalFileCache struct {
 	stopChan chan struct{}
 }
 
-var _ Cache = &LocalFileCache{}
+var _ Cache = &localFileCache{}
 
 type checksumEntry struct {
 	checksum string
@@ -106,6 +119,8 @@ type cacheEntry struct {
 	last time.Time
 	// set of URLs referencing this entry
 	referencingURLs sets.String
+	// reference count from extensions
+	referenceCount int
 }
 
 type cacheOptions struct {
@@ -143,21 +158,22 @@ func (o cacheOptions) allowInsecure(host string) bool {
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, options Options) *LocalFileCache {
+func NewLocalFileCache(dir string, options Options) *localFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
 	cacheOptions := cacheOptions{Options: options}
-	cache := &LocalFileCache{
+	cache := &localFileCache{
 		httpFetcher:  NewHTTPFetcher(options.HTTPRequestTimeout, options.HTTPRequestMaxRetries),
 		modules:      make(map[moduleKey]*cacheEntry),
 		checksums:    make(map[string]*checksumEntry),
+		references:   make(map[string]moduleKey),
 		dir:          dir,
 		cacheOptions: cacheOptions.sanitize(),
 		stopChan:     make(chan struct{}),
 	}
 
 	go func() {
-		cache.purge()
+		cache.purgePeriodically()
 	}()
 	return cache
 }
@@ -196,8 +212,41 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
 }
 
-// Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(downloadURL string, opts GetOptions) (string, error) {
+func (c *localFileCache) UpdateExtensionReference(validResourceNames []string) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	vset := sets.New(validResourceNames...)
+	for name, key := range c.references {
+		if !vset.Contains(name) {
+			delete(c.references, name)
+			if ce, ok := c.modules[key]; ok {
+				ce.referenceCount--
+			}
+		}
+	}
+}
+
+func (c *localFileCache) DeleteExtensionReference(resourceName string) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	if key, ok := c.references[resourceName]; ok {
+		delete(c.references, resourceName)
+		if ce, ok := c.modules[key]; ok {
+			ce.referenceCount--
+		}
+	}
+}
+
+func (c *localFileCache) ResetExtensionReference() {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	for _, ce := range c.modules {
+		ce.referenceCount = 0
+	}
+	c.references = make(map[string]moduleKey)
+}
+
+func (c *localFileCache) Get(downloadURL string, opts GetOptions) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -217,7 +266,7 @@ func (c *LocalFileCache) Get(downloadURL string, opts GetOptions) (string, error
 	return entry.modulePath, err
 }
 
-func (c *LocalFileCache) getOrFetch(key cacheKey, opts GetOptions) (*cacheEntry, error) {
+func (c *localFileCache) getOrFetch(key cacheKey, opts GetOptions) (*cacheEntry, error) {
 	u, err := url.Parse(key.downloadURL)
 	if err != nil {
 		return nil, fmt.Errorf("fail to parse Wasm module fetch url: %s, error: %v", key.downloadURL, err)
@@ -298,11 +347,11 @@ func (c *LocalFileCache) getOrFetch(key cacheKey, opts GetOptions) (*cacheEntry,
 }
 
 // Cleanup closes background Wasm module purge routine.
-func (c *LocalFileCache) Cleanup() {
+func (c *localFileCache) Cleanup() {
 	close(c.stopChan)
 }
 
-func (c *LocalFileCache) updateChecksum(key cacheKey) bool {
+func (c *localFileCache) updateChecksum(key cacheKey) bool {
 	// If OCI URL having a tag or just http/https URL, we need to update checksum.
 	needChecksumUpdate := !strings.HasPrefix(key.downloadURL, ociURLPrefix) || !strings.Contains(key.downloadURL, "@")
 	if needChecksumUpdate {
@@ -318,9 +367,20 @@ func (c *LocalFileCache) updateChecksum(key cacheKey) bool {
 	return needChecksumUpdate
 }
 
+func (c *localFileCache) touchEntry(key cacheKey, ce *cacheEntry) {
+	ce.last = time.Now()
+	ce.referenceCount++
+	if oldKey, ok := c.references[key.resourceName]; ok {
+		if old, ok := c.modules[oldKey]; ok {
+			old.referenceCount--
+		}
+	}
+	c.references[key.resourceName] = key.moduleKey
+}
+
 // addEntry adds a wasmModule to cache with cacheKey, writes the module to the local file system,
 // and returns the created entry.
-func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte) (*cacheEntry, error) {
+func (c *localFileCache) addEntry(key cacheKey, wasmModule []byte) (*cacheEntry, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	needChecksumUpdate := c.updateChecksum(key)
@@ -328,7 +388,7 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte) (*cacheEntry,
 	// Check if the module has already been added. If so, avoid writing the file again.
 	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
-		ce.last = time.Now()
+		c.touchEntry(key, ce)
 		if needChecksumUpdate {
 			ce.referencingURLs.Insert(key.downloadURL)
 		}
@@ -344,21 +404,21 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte) (*cacheEntry,
 		return nil, err
 	}
 
-	ce := cacheEntry{
+	ce := &cacheEntry{
 		modulePath:      modulePath,
-		last:            time.Now(),
 		referencingURLs: sets.New[string](),
 	}
+	c.touchEntry(key, ce)
 	if needChecksumUpdate {
 		ce.referencingURLs.Insert(key.downloadURL)
 	}
-	c.modules[key.moduleKey] = &ce
+	c.modules[key.moduleKey] = ce
 	wasmCacheEntries.Record(float64(len(c.modules)))
-	return &ce, nil
+	return ce, nil
 }
 
 // getEntry finds a cached module, and returns the found cache entry and its checksum.
-func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*cacheEntry, string) {
+func (c *localFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*cacheEntry, string) {
 	cacheHit := false
 
 	c.mux.Lock()
@@ -393,7 +453,7 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*ca
 
 	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
-		ce.last = time.Now()
+		c.touchEntry(key, ce)
 		cacheHit = true
 		c.updateChecksum(key)
 		return ce, key.checksum
@@ -401,36 +461,47 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*ca
 	return nil, key.checksum
 }
 
-// Purge periodically clean up the stale Wasm modules local file and the cache map.
-func (c *LocalFileCache) purge() {
+// PurgePeriodically periodically clean up the stale Wasm modules local file and the cache map.
+func (c *localFileCache) purgePeriodically() {
 	ticker := time.NewTicker(c.PurgeInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			c.mux.Lock()
-			for k, m := range c.modules {
-				if !m.expired(c.ModuleExpiry) {
-					continue
-				}
-				// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
-				if err := os.Remove(m.modulePath); err != nil {
-					wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
-				} else {
-					for downloadURL := range m.referencingURLs {
-						delete(c.checksums, downloadURL)
-					}
-					delete(c.modules, k)
-					wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
-				}
-			}
-			wasmCacheEntries.Record(float64(len(c.modules)))
-			c.mux.Unlock()
+			c.purge()
 		case <-c.stopChan:
 			// Currently this will only happen in test.
 			return
 		}
 	}
+}
+
+func (c *localFileCache) purge() {
+	c.mux.Lock()
+	for k, m := range c.modules {
+		if !m.expired(c.ModuleExpiry) || m.referenceCount > 0 {
+			continue
+		}
+		// The module has not be touched for expiry duration, delete it from the map as well as the local dir.
+		if err := os.Remove(m.modulePath); err != nil {
+			wasmLog.Errorf("failed to purge Wasm module %v: %v", m.modulePath, err)
+		} else {
+			for downloadURL := range m.referencingURLs {
+				if checksumEntry, ok := c.checksums[downloadURL]; ok {
+					// Delete only if the entry of c.checksums is pointing the same checksum.
+					// This is because the entry can be updated by another newer module at the same
+					// URL.
+					if checksumEntry.checksum == k.checksum {
+						delete(c.checksums, downloadURL)
+					}
+				}
+			}
+			delete(c.modules, k)
+			wasmLog.Debugf("successfully removed stale Wasm module %v", m.modulePath)
+		}
+	}
+	wasmCacheEntries.Record(float64(len(c.modules)))
+	c.mux.Unlock()
 }
 
 // Expired returns true if the module has not been touched for Wasm module Expiry.

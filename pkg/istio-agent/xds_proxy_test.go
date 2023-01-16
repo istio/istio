@@ -447,14 +447,20 @@ type fakeAckCache struct{}
 func (f *fakeAckCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "test", nil
 }
-func (f *fakeAckCache) Cleanup() {}
+func (c *fakeAckCache) UpdateExtensionReference([]string) {}
+func (c *fakeAckCache) DeleteExtensionReference(string)   {}
+func (c *fakeAckCache) ResetExtensionReference()          {}
+func (c *fakeAckCache) Cleanup()                          {}
 
 type fakeNackCache struct{}
 
 func (f *fakeNackCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "", errors.New("errror")
 }
-func (f *fakeNackCache) Cleanup() {}
+func (c *fakeNackCache) UpdateExtensionReference([]string) {}
+func (c *fakeNackCache) DeleteExtensionReference(string)   {}
+func (c *fakeNackCache) ResetExtensionReference()          {}
+func (c *fakeNackCache) Cleanup()                          {}
 
 func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{

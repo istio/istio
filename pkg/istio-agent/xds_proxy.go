@@ -438,6 +438,10 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				return
 			}
 
+			if req.GetTypeUrl() == v3.ExtensionConfigurationType {
+				p.wasmCache.UpdateExtensionReference(req.GetResourceNames())
+			}
+
 			// forward to istiod
 			con.sendRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {

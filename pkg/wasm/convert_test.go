@@ -63,7 +63,10 @@ func (c *mockCache) Get(downloadURL string, opts GetOptions) (string, error) {
 
 	return module, err
 }
-func (c *mockCache) Cleanup() {}
+func (c *mockCache) UpdateExtensionReference([]string) {}
+func (c *mockCache) DeleteExtensionReference(string)   {}
+func (c *mockCache) ResetExtensionReference()          {}
+func (c *mockCache) Cleanup()                          {}
 
 func messageToStruct(t *testing.T, m proto.Message) *structpb.Struct {
 	st, err := conversion.MessageToStruct(m)

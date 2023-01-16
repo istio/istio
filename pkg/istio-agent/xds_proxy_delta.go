@@ -58,6 +58,9 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 		stopChan:           make(chan struct{}),
 		downstreamDeltas:   downstream,
 	}
+	// Reset the references in Cache for new connection.
+	// In case of Delta, this is necessary to get rid of the old states.
+	p.wasmCache.ResetExtensionReference()
 	p.registerStream(con)
 	defer p.unregisterStream(con)
 
@@ -79,6 +82,13 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 				}
 				return
 			}
+
+			if req.GetTypeUrl() == v3.ExtensionConfigurationType {
+				for _, name := range req.GetResourceNamesUnsubscribe() {
+					p.wasmCache.DeleteExtensionReference(name)
+				}
+			}
+
 			// forward to istiod
 			con.sendDeltaRequest(req)
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
