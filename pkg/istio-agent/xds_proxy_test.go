@@ -447,20 +447,20 @@ type fakeAckCache struct{}
 func (f *fakeAckCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "test", nil
 }
-func (c *fakeAckCache) UpdateExtensionReference([]string) {}
-func (c *fakeAckCache) DeleteExtensionReference(string)   {}
-func (c *fakeAckCache) ResetExtensionReference()          {}
-func (c *fakeAckCache) Cleanup()                          {}
+func (f *fakeAckCache) UpdateExtensionReference([]string) {}
+func (f *fakeAckCache) DeleteExtensionReference(string)   {}
+func (f *fakeAckCache) ResetExtensionReference()          {}
+func (f *fakeAckCache) Cleanup()                          {}
 
 type fakeNackCache struct{}
 
 func (f *fakeNackCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "", errors.New("errror")
 }
-func (c *fakeNackCache) UpdateExtensionReference([]string) {}
-func (c *fakeNackCache) DeleteExtensionReference(string)   {}
-func (c *fakeNackCache) ResetExtensionReference()          {}
-func (c *fakeNackCache) Cleanup()                          {}
+func (f *fakeNackCache) UpdateExtensionReference([]string) {}
+func (f *fakeNackCache) DeleteExtensionReference(string)   {}
+func (f *fakeNackCache) ResetExtensionReference()          {}
+func (f *fakeNackCache) Cleanup()                          {}
 
 func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{

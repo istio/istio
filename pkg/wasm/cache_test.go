@@ -80,7 +80,6 @@ func TestWasmCacheExpiry(t *testing.T) {
 	ociWasmFile := fmt.Sprintf("%s.wasm", dockerImageDigest)
 	ociURLWithTag := fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host)
 	fakeWasmFile := fmt.Sprintf("%s.wasm", fakeImageDigest)
-	// ociURLWithDigest := fmt.Sprintf("oci://%s/test/valid/docker@sha256:%s", ou.Host, dockerImageDigest)
 
 	cases := []struct {
 		name                   string
@@ -259,7 +258,7 @@ func TestWasmCacheExpiry(t *testing.T) {
 			options := defaultOptions()
 			// Do not trigger, priodic purge loop for deteministic test.
 			options.PurgeInterval = 24 * time.Hour
-			cache := NewLocalFileCache(tmpDir, options)
+			cache := newLocalFileCache(tmpDir, options)
 			cache.ModuleExpiry = 0 // To avoid sanitize, set the expiry directly.
 			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
@@ -900,7 +899,7 @@ func TestWasmCache(t *testing.T) {
 			tmpDir := t.TempDir()
 			options := defaultOptions()
 			options.ModuleExpiry = 24 * time.Hour // This prevents expiration in the test.
-			cache := NewLocalFileCache(tmpDir, options)
+			cache := newLocalFileCache(tmpDir, options)
 			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
 
@@ -1045,7 +1044,7 @@ func setupOCIRegistry(t *testing.T, host string) (dockerImageDigest, invalidOCII
 
 func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache := NewLocalFileCache(tmpDir, defaultOptions())
+	cache := newLocalFileCache(tmpDir, defaultOptions())
 	defer close(cache.stopChan)
 
 	gotNumRequest := 0
@@ -1106,7 +1105,7 @@ func TestAllInsecureServer(t *testing.T) {
 	tmpDir := t.TempDir()
 	options := defaultOptions()
 	options.InsecureRegistries = sets.New("*")
-	cache := NewLocalFileCache(tmpDir, options)
+	cache := newLocalFileCache(tmpDir, options)
 	defer close(cache.stopChan)
 
 	// Set up a fake registry for OCI images with TLS Server

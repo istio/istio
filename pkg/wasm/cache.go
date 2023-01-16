@@ -158,7 +158,11 @@ func (o cacheOptions) allowInsecure(host string) bool {
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, options Options) *localFileCache {
+func NewLocalFileCache(dir string, options Options) Cache {
+	return newLocalFileCache(dir, options)
+}
+
+func newLocalFileCache(dir string, options Options) *localFileCache {
 	wasmLog.Debugf("LocalFileCache is created with the option\n%#v", options)
 
 	cacheOptions := cacheOptions{Options: options}
