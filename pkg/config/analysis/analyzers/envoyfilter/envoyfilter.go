@@ -105,7 +105,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				} else if patch.GetMatch() != nil {
 					if patch.Match.GetListener() != nil {
 						if patch.Match.GetListener().GetFilterChain() != nil {
-							instanceName = patch.Match.GetListener().FilterChain.Filter.Name
+							instanceName = patch.Match.GetListener().GetFilterChain().GetFilter().GetName()
 						}
 					}
 				}
