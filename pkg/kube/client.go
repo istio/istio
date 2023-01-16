@@ -165,13 +165,13 @@ type CLIClient interface {
 	// Revision of the Istio control plane.
 	Revision() string
 
-	// EnvoyDo makes an http request to the Envoy in the specified pod.
+	// EnvoyDo makes a http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
-	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	// EnvoyDoWithPort makes a http request to the Envoy in the specified pod and port.
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
-	// AllDiscoveryDo makes an http request to each Istio discovery instance.
+	// AllDiscoveryDo makes a http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
 
 	// GetIstioVersions gets the version for each Istio control plane component.
@@ -221,7 +221,7 @@ type CLIClient interface {
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
 
-	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
+	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
 
 	// Shutdown closes all informers and waits for them to terminate
@@ -300,7 +300,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 
-	// discoveryv1/EndpontSlices readable from discoveryv1beta1/EndpointSlices
+	// discoveryv1/EndpointSlices readable from discoveryv1beta1/EndpointSlices
 	c.mirrorQueue = queue.NewQueue(1 * time.Second)
 	mirrorResource(
 		c.mirrorQueue,
@@ -352,7 +352,7 @@ type client struct {
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
 	started atomic.Bool
-	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
+	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
