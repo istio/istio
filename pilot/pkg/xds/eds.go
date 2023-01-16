@@ -456,15 +456,18 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 // onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
 // where we only update the endpoints that did change.
 func onlyEndpointsChanged(req *model.PushRequest) bool {
-	if len(req.ConfigsUpdated) > 0 {
-		for k := range req.ConfigsUpdated {
-			if k.Kind != kind.ServiceEntry {
-				return false
-			}
-		}
-		return true
+	if len(req.ConfigsUpdated) == 0 {
+		return false
 	}
-	return false
+	for cfg := range req.ConfigsUpdated {
+		if _, f := skippedEdsConfigs[cfg.Kind]; f {
+			continue
+		}
+		if cfg.Kind != kind.ServiceEntry {
+			return false
+		}
+	}
+	return true
 }
 
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
