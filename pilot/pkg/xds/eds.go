@@ -456,11 +456,14 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 // onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
 // where we only update the endpoints that did change.
 func onlyEndpointsChanged(req *model.PushRequest) bool {
+	// If we don't know what configs are updated, just send a full push
 	if len(req.ConfigsUpdated) == 0 {
 		return false
 	}
 	for cfg := range req.ConfigsUpdated {
 		if _, f := skippedEdsConfigs[cfg.Kind]; f {
+			// the updated config does not impact EDS, skip it
+			// this happens when push requests are merged due to debounce
 			continue
 		}
 		if cfg.Kind != kind.ServiceEntry {
