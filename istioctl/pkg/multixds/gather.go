@@ -391,6 +391,8 @@ func mapShards(responses []*discovery.DiscoveryResponse) (map[string]*discovery.
 	for _, response := range responses {
 		id := CpInfo(response).ID
 		if prevResp, ok := retval[id]; ok && id == "" {
+			// Managed Control Plane may not reveal its instance ID.
+			// In that case, let's aggregate the resulted resources into one response as a workaround.
 			prevResp.Resources = append(prevResp.Resources, response.Resources...)
 		} else {
 			retval[CpInfo(response).ID] = response
