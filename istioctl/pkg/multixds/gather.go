@@ -389,7 +389,12 @@ func mapShards(responses []*discovery.DiscoveryResponse) (map[string]*discovery.
 	retval := map[string]*discovery.DiscoveryResponse{}
 
 	for _, response := range responses {
-		retval[CpInfo(response).ID] = response
+		id := CpInfo(response).ID
+		if prevResp, ok := retval[id]; ok && id == "" {
+			prevResp.Resources = append(prevResp.Resources, response.Resources...)
+		} else {
+			retval[CpInfo(response).ID] = response
+		}
 	}
 
 	return retval, nil
