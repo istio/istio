@@ -202,9 +202,14 @@ func TestBookinfo(t *testing.T) {
 				applyFileOrFail(t, systemNM.Name(), templateFile)
 				// wait to see modified waypoint deployment
 				getPodEnvVars := func() []v1.EnvVar {
-					pod, err = kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")()
+					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")()
 					g.Expect(err).NotTo(gomega.HaveOccurred())
-					return pod[0].Spec.Containers[0].Env
+					var result []v1.EnvVar
+					// if old pods haven't shut down yet, include all pods env vars
+					for _, pod := range pods {
+						result = append(result, pod.Spec.Containers[0].Env...)
+					}
+					return result
 				}
 				g.Eventually(getPodEnvVars, time.Minute).Should(haveEnvVar)
 			})
