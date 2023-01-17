@@ -891,7 +891,7 @@ func TestEdsCache(t *testing.T) {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"foo.com"},
-				Ports: []*networking.Port{{
+				Ports: []*networking.ServicePort{{
 					Number:   80,
 					Protocol: "HTTP",
 					Name:     "http",

@@ -1384,7 +1384,7 @@ func TestServicesDiff(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "*.mail.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking.ServicePort{
 				{Number: 80, Name: "http-port", Protocol: "http"},
 				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 			},
@@ -1412,9 +1412,9 @@ func TestServicesDiff(t *testing.T) {
 	updatedHTTPDNSPort := func() *config.Config {
 		c := updatedHTTPDNS.DeepCopy()
 		se := c.Spec.(*networking.ServiceEntry)
-		var ports []*networking.Port
+		var ports []*networking.ServicePort
 		ports = append(ports, se.Ports...)
-		ports = append(ports, &networking.Port{Number: 9090, Name: "http-new-port", Protocol: "http"})
+		ports = append(ports, &networking.ServicePort{Number: 9090, Name: "http-new-port", Protocol: "http"})
 		se.Ports = ports
 		return &c
 	}()
