@@ -30,6 +30,7 @@ import (
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -93,6 +94,8 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
+
+	DefaultHTTPSessionHeader = "x-session-affinity"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -823,6 +826,17 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 					Ttl:  &durationpb.Duration{Seconds: 120},
 					Name: cookieName,
 				},
+			}),
+		},
+	}
+}
+
+func BuildStatefulSessionHeaderFilterConfig() *statefulsession.StatefulSession {
+	return &statefulsession.StatefulSession{
+		SessionState: &core.TypedExtensionConfig{
+			Name: "envoy.http.stateful_session.header",
+			TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
+				Name: DefaultHTTPSessionHeader,
 			}),
 		},
 	}

@@ -609,6 +609,10 @@ type NodeMetadata struct {
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
 
+	// EnableHTTPHeaderSession enables Http Session Filter based on Headers.
+	// It uses "x-session-affinity" header to configure the session filter.
+	EnableHTTPHeaderSession StringBool `json:"ENABLE_HTTP_HEADER_SESSION,omitempty"`
+
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
