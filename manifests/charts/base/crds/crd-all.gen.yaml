@@ -3292,6 +3292,8 @@ spec:
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                     tls:
                       description: Set of TLS related options that govern the server's
@@ -3406,6 +3408,8 @@ spec:
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                     tls:
                       description: Set of TLS related options that govern the server's
@@ -3881,6 +3885,8 @@ spec:
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                   type: object
                 type: array
@@ -3911,6 +3917,8 @@ spec:
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                     tls:
                       properties:
@@ -4050,6 +4058,8 @@ spec:
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                   type: object
                 type: array
@@ -4080,6 +4090,8 @@ spec:
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
+                        targetPort:
+                          type: integer
                       type: object
                     tls:
                       properties:
