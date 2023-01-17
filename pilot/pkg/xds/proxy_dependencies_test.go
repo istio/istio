@@ -301,6 +301,16 @@ func TestProxyNeedsPush(t *testing.T) {
 			}
 		})
 	}
+
+	gateway.MergedGateway.ContainsAutoPassthroughGateways = true
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			push := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			if !push {
+				t.Fatalf("Got needs push = %v, expected %v", push, true)
+			}
+		})
+	}
 }
 
 func BenchmarkListEquals(b *testing.B) {

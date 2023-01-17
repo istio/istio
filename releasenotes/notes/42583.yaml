@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 42583
+
+releaseNotes:
+  - |
+    **Fixed** Updated golang/helm libraries to fix CVE-2022-41717, CVE-2022-23524, CVE-2022-23525, CVE-2022-23526.
