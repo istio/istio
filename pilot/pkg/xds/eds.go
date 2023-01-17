@@ -450,12 +450,12 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 	if !req.Full {
 		return false
 	}
-	return onlyEndpointsChanged(req)
+	return canSendPartialFullPushes(req)
 }
 
-// onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
-// where we only update the endpoints that did change.
-func onlyEndpointsChanged(req *model.PushRequest) bool {
+// canSendPartialFullPushes checks if a request contains *only* endpoints updates except `skippedEdsConfigs`.
+// This allows us to perform more efficient pushes where we only update the endpoints that did change.
+func canSendPartialFullPushes(req *model.PushRequest) bool {
 	// If we don't know what configs are updated, just send a full push
 	if len(req.ConfigsUpdated) == 0 {
 		return false
@@ -484,7 +484,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	// ConfigsUpdated=ALL, so in this case we would not enable a partial push.
 	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
 	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
-	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
+	if !req.Full || (features.PartialFullPushes && canSendPartialFullPushes(req)) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
 	}
 	var resources model.Resources
