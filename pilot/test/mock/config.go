@@ -56,7 +56,7 @@ var (
 	ExampleServiceEntry = &networking.ServiceEntry{
 		Hosts:      []string{"*.google.com"},
 		Resolution: networking.ServiceEntry_NONE,
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-name", Protocol: "http"},
 			{Number: 8080, Name: "http2-name", Protocol: "http2"},
 		},
