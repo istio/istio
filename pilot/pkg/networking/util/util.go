@@ -27,11 +27,15 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -40,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -84,6 +89,10 @@ const (
 
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
+
+	// Envoy Stateful Session Filter
+	// TODO: Move to well known.
+	StatefulSessionFilter = "envoy.filters.http.stateful_session"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -281,7 +290,7 @@ func ConvertLocality(locality string) *core.Locality {
 		return &core.Locality{}
 	}
 
-	region, zone, subzone := model.SplitLocalityLabel(locality)
+	region, zone, subzone := label.SplitLocalityLabel(locality)
 	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
@@ -327,7 +336,7 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 }
 
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	ruleRegion, ruleZone, ruleSubzone := model.SplitLocalityLabel(ruleLocality)
+	ruleRegion, ruleZone, ruleSubzone := label.SplitLocalityLabel(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
 	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
@@ -777,4 +786,44 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
 	})
 	return st
+}
+
+func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
+	filterConfig := MaybeBuildStatefulSessionFilterConfig(svc)
+	if filterConfig == nil {
+		return nil
+	}
+
+	return &hcm.HttpFilter{
+		Name: StatefulSessionFilter,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(filterConfig),
+		},
+	}
+}
+
+func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
+	if features.PersistentSessionLabel == "" || svc == nil {
+		return nil
+	}
+	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
+	if sessionCookie == "" {
+		return nil
+	}
+	cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
+	if !found {
+		cookiePath = "/"
+	}
+	return &statefulsession.StatefulSession{
+		SessionState: &core.TypedExtensionConfig{
+			Name: "envoy.http.stateful_session.cookie",
+			TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+				Cookie: &httpv3.Cookie{
+					Path: cookiePath,
+					Ttl:  &durationpb.Duration{Seconds: 120},
+					Name: cookieName,
+				},
+			}),
+		},
+	}
 }

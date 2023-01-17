@@ -15,24 +15,24 @@
 package controller
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
 	netutil "istio.io/istio/pkg/util/net"
@@ -100,8 +100,8 @@ type serviceImportCacheImpl struct {
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
 // When this happens, we need to update the state of the associated synthetic MCS service.
-func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model.Event) {
-	if strings.HasSuffix(svc.Hostname.String(), mcsDomainSuffix) {
+func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event model.Event) {
+	if strings.HasSuffix(curr.Hostname.String(), mcsDomainSuffix) {
 		// Ignore events for MCS services that were triggered by this controller.
 		return
 	}
@@ -109,7 +109,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	// This method is called concurrently from each cluster's queue. Process it in `this` cluster's queue
 	// in order to synchronize event processing.
 	ic.queue.Push(func() error {
-		namespacedName := namespacedNameForService(svc)
+		namespacedName := namespacedNameForService(curr)
 
 		// Lookup the previous MCS service if there was one.
 		mcsHost := serviceClusterSetLocalHostname(namespacedName)
@@ -136,23 +136,16 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 			event = model.EventAdd
 		}
 
-		mcsService := ic.genMCSService(svc, mcsHost, vips)
-		ic.addOrUpdateService(nil, mcsService, event, false)
+		mcsService := ic.genMCSService(curr, mcsHost, vips)
+		ic.addOrUpdateService(nil, nil, mcsService, event, false)
 		return nil
 	})
 }
 
-func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Event) error {
-	si, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
-		}
-		si, ok = tombstone.Obj.(*unstructured.Unstructured)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceImport %#v", obj)
-		}
+func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj any, event model.Event) error {
+	si := controllers.Extract[*unstructured.Unstructured](obj)
+	if si == nil {
+		return nil
 	}
 
 	// We need a full push if the cluster VIP changes.
@@ -199,7 +192,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Even
 
 	// Always force a rebuild of the endpoint cache in case this import caused
 	// a change to the discoverability policy.
-	ic.addOrUpdateService(nil, mcsService, event, true)
+	ic.addOrUpdateService(nil, nil, mcsService, event, true)
 
 	if needsFullPush {
 		ic.doFullPush(mcsHost, si.GetNamespace())
@@ -279,7 +272,7 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 	for _, si := range sis {
 		usi := si.(*unstructured.Unstructured)
 		info := importedService{
-			namespacedName: kube.NamespacedNameForK8sObject(usi),
+			namespacedName: config.NamespacedName(usi),
 		}
 
 		// Lookup the synthetic MCS service.

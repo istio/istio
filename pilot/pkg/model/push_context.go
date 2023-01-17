@@ -801,13 +801,17 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 }
 
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+	gw := proxy.MergedGateway
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
+	if gw == nil {
 		return false
 	}
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
+	if gw.ContainsAutoPassthroughGateways {
+		return true
+	}
+	for _, g := range gw.GatewayNameForServer {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
 			}
@@ -1397,7 +1401,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
+			instances = append(instances, env.InstancesByPort(s, port.Port)...)
 			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 

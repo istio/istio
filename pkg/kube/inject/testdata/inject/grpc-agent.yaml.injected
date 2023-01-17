@@ -95,6 +95,10 @@ spec:
           value: traffic
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: ISTIO_META_WORKLOAD_NAME
           value: grpc
         - name: ISTIO_META_OWNER

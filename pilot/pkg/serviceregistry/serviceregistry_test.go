@@ -1199,7 +1199,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 	svc.Attributes.ServiceRegistry = sd.Provider()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances := sd.InstancesByPort(svc, port, nil)
+		instances := sd.InstancesByPort(svc, port)
 		sortServiceInstances(instances)
 		got := []ServiceInstanceResponse{}
 		for _, i := range instances {

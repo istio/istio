@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -135,11 +136,11 @@ func TestServices(t *testing.T) {
 			}
 
 			eventually(t, func() bool {
-				ep := sds.InstancesByPort(svc, 80, nil)
+				ep := sds.InstancesByPort(svc, 80)
 				return len(ep) == 2
 			})
 
-			ep := sds.InstancesByPort(svc, 80, nil)
+			ep := sds.InstancesByPort(svc, 80)
 			if len(ep) != 2 {
 				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
 			}
@@ -303,6 +304,34 @@ func TestController_GetPodLocality(t *testing.T) {
 						t.Fatalf("Unexpectedly found az: %s for pod: %s", az, pod.ObjectMeta.Name)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestProxyK8sHostnameLabel(t *testing.T) {
+	clusterID := cluster.ID("fakeCluster")
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Mode:      mode,
+				ClusterID: clusterID,
+			})
+
+			pod := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
+			addPods(t, controller, fx, pod)
+
+			proxy := &model.Proxy{
+				Type:        model.Router,
+				IPAddresses: []string{"128.0.0.1"},
+				ID:          "pod1.nsa",
+				DNSDomain:   "nsa.svc.cluster.local",
+				Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+			}
+			got := controller.GetProxyWorkloadLabels(proxy)
+			if pod.Spec.NodeName != got[labelutil.LabelHostname] {
+				t.Fatalf("expected node name %v, got %v", pod.Spec.NodeName, got[labelutil.LabelHostname])
 			}
 		})
 	}
@@ -513,6 +542,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"app":                      "prod-app",
 						NodeRegionLabelGA:          "region1",
 						NodeZoneLabelGA:            "zone1",
+						labelutil.LabelHostname:    p.Spec.NodeName,
 						label.TopologySubzone.Name: "subzone1",
 						label.TopologyCluster.Name: clusterID.String(),
 						label.TopologyNetwork.Name: networkID.String(),
@@ -521,6 +551,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod2",
 					Namespace:      "nsa",
+					NodeName:       p.Spec.NodeName,
 				},
 			}
 			if len(podServices) != 1 {
@@ -586,6 +617,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"istio-locality":           "region.zone",
 						NodeRegionLabelGA:          "region",
 						NodeZoneLabelGA:            "zone",
+						labelutil.LabelHostname:    p.Spec.NodeName,
 						label.TopologyCluster.Name: clusterID.String(),
 						label.TopologyNetwork.Name: networkID.String(),
 					},
@@ -593,6 +625,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod3",
 					Namespace:      "nsa",
+					NodeName:       p.Spec.NodeName,
 				},
 			}
 			if len(podServices) != 1 {
@@ -1773,7 +1806,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 
 	// get service instances
 
-	instances := ctl.InstancesByPort(svcs[0], 8080, nil)
+	instances := ctl.InstancesByPort(svcs[0], 8080)
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
@@ -1800,7 +1833,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 			if len(converted) != 1 {
 				t.Fatalf("failed to get services (%v)s", converted)
 			}
-			instances := controller.InstancesByPort(converted[0], 1, nil)
+			instances := controller.InstancesByPort(converted[0], 1)
 			if len(instances) != 1 {
 				t.Fatalf("expected 1 instance, got %v", instances)
 			}
@@ -1818,7 +1851,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			deleteWg := sync.WaitGroup{}
 			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 				Mode: mode,
-				ServiceHandler: func(_ *model.Service, e model.Event) {
+				ServiceHandler: func(_, _ *model.Service, e model.Event) {
 					if e == model.EventDelete {
 						deleteWg.Done()
 					}
@@ -1904,7 +1937,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				if svcList[i].Resolution != exp.Resolution {
 					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
 				}
-				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, nil)
+				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port)
 				if len(instances) != 1 {
 					t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
 				}
@@ -1924,7 +1957,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				t.Fatalf("Should have 0 services at this point")
 			}
 			for _, exp := range expectedSvcList {
-				instances := controller.InstancesByPort(exp, exp.Ports[0].Port, nil)
+				instances := controller.InstancesByPort(exp, exp.Ports[0].Port)
 				if len(instances) != 0 {
 					t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
 				}
@@ -2628,9 +2661,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if len(converted) != 1 {
 		t.Fatalf("failed to get services (%v), converted", converted)
 	}
-	instances := controller.InstancesByPort(converted[0], 8080, labels.Instance{
-		"app": "prod-app",
-	})
+	instances := controller.InstancesByPort(converted[0], 8080)
 	var gotEndpointIPs []string
 	for _, instance := range instances {
 		gotEndpointIPs = append(gotEndpointIPs, instance.Endpoint.Address)
@@ -2751,7 +2782,7 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
 			controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: tc.mode})
 
-			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
+			if err := controller.endpoints.onEvent(nil, tc.tombstone, model.EventDelete); err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
@@ -2877,11 +2908,11 @@ func TestDiscoverySelector(t *testing.T) {
 			}
 
 			eventually(t, func() bool {
-				ep := sds.InstancesByPort(svc, 80, nil)
+				ep := sds.InstancesByPort(svc, 80)
 				return len(ep) == 2
 			})
 
-			ep := sds.InstancesByPort(svc, 80, nil)
+			ep := sds.InstancesByPort(svc, 80)
 			if len(ep) != 2 {
 				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
 			}

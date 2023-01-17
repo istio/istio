@@ -326,7 +326,7 @@ func buildHTTPVirtualServices(
 		}
 		for _, filter := range r.Filters {
 			switch filter.Type {
-			case k8s.HTTPRouteFilterRequestHeaderModifier:
+			case k8sbeta.HTTPRouteFilterRequestHeaderModifier:
 				h := createHeadersFilter(filter.RequestHeaderModifier)
 				if h == nil {
 					continue
@@ -344,15 +344,15 @@ func buildHTTPVirtualServices(
 					vs.Headers = &istio.Headers{}
 				}
 				vs.Headers.Response = h
-			case k8s.HTTPRouteFilterRequestRedirect:
+			case k8sbeta.HTTPRouteFilterRequestRedirect:
 				vs.Redirect = createRedirectFilter(filter.RequestRedirect)
-			case k8s.HTTPRouteFilterRequestMirror:
+			case k8sbeta.HTTPRouteFilterRequestMirror:
 				mirror, err := createMirrorFilter(ctx, filter.RequestMirror, ns)
 				if err != nil {
 					return err
 				}
 				vs.Mirror = mirror
-			case k8s.HTTPRouteFilterURLRewrite:
+			case k8sbeta.HTTPRouteFilterURLRewrite:
 				vs.Rewrite = createRewriteFilter(filter.URLRewrite)
 			default:
 				return &ConfigError{
@@ -897,7 +897,7 @@ func buildHTTPDestination(
 		}
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
-			case k8s.HTTPRouteFilterRequestHeaderModifier:
+			case k8sbeta.HTTPRouteFilterRequestHeaderModifier:
 				h := createHeadersFilter(filter.RequestHeaderModifier)
 				if h == nil {
 					continue
@@ -1045,10 +1045,10 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	rewrite := &istio.HTTPRewrite{}
 	if filter.Path != nil {
 		switch filter.Path.Type {
-		case k8s.PrefixMatchHTTPPathModifier:
+		case k8sbeta.PrefixMatchHTTPPathModifier:
 			rewrite.Uri = *filter.Path.ReplacePrefixMatch
-		case k8s.FullPathHTTPPathModifier:
-			log.Warnf("%v is not supported", k8s.FullPathHTTPPathModifier)
+		case k8sbeta.FullPathHTTPPathModifier:
+			rewrite.Uri = fmt.Sprintf("%%FULLREPLACE()%%%s", *filter.Path.ReplaceFullPath)
 		}
 	}
 	if filter.Hostname != nil {
@@ -1090,7 +1090,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8sbeta.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8sbeta.PrefixMatchHTTPPathModifier:
-			resp.Uri = fmt.Sprintf("*prefix*%s", *filter.Path.ReplacePrefixMatch)
+			resp.Uri = fmt.Sprintf("%%PREFIX()%%%s", *filter.Path.ReplacePrefixMatch)
 		}
 	}
 	return resp
@@ -1120,16 +1120,16 @@ func createMethodMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigErr
 func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, qp := range match.QueryParams {
-		tp := k8s.QueryParamMatchExact
+		tp := k8sbeta.QueryParamMatchExact
 		if qp.Type != nil {
 			tp = *qp.Type
 		}
 		switch tp {
-		case k8s.QueryParamMatchExact:
+		case k8sbeta.QueryParamMatchExact:
 			res[qp.Name] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: qp.Value},
 			}
-		case k8s.QueryParamMatchRegularExpression:
+		case k8sbeta.QueryParamMatchRegularExpression:
 			res[qp.Name] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: qp.Value},
 			}
@@ -1148,16 +1148,16 @@ func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringM
 func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, header := range match.Headers {
-		tp := k8s.HeaderMatchExact
+		tp := k8sbeta.HeaderMatchExact
 		if header.Type != nil {
 			tp = *header.Type
 		}
 		switch tp {
-		case k8s.HeaderMatchExact:
+		case k8sbeta.HeaderMatchExact:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
 			}
-		case k8s.HeaderMatchRegularExpression:
+		case k8sbeta.HeaderMatchRegularExpression:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: header.Value},
 			}
@@ -1174,7 +1174,7 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 }
 
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
-	tp := k8s.PathMatchPathPrefix
+	tp := k8sbeta.PathMatchPathPrefix
 	if match.Path.Type != nil {
 		tp = *match.Path.Type
 	}
@@ -1183,15 +1183,15 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 		dest = *match.Path.Value
 	}
 	switch tp {
-	case k8s.PathMatchPathPrefix:
+	case k8sbeta.PathMatchPathPrefix:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
 		}, nil
-	case k8s.PathMatchExact:
+	case k8sbeta.PathMatchExact:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: dest},
 		}, nil
-	case k8s.PathMatchRegularExpression:
+	case k8sbeta.PathMatchRegularExpression:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: dest},
 		}, nil
@@ -1218,11 +1218,11 @@ func getGatewayClasses(r KubernetesResources) map[string]struct{} {
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gcs := s.(*k8s.GatewayClassStatus)
 				gcs.Conditions = kstatus.UpdateConditionIfChanged(gcs.Conditions, metav1.Condition{
-					Type:               string(k8s.GatewayClassConditionStatusAccepted),
+					Type:               string(k8sbeta.GatewayClassConditionStatusAccepted),
 					Status:             kstatus.StatusTrue,
 					ObservedGeneration: obj.Generation,
 					LastTransitionTime: metav1.Now(),
-					Reason:             string(k8s.GatewayClassConditionStatusAccepted),
+					Reason:             string(k8sbeta.GatewayClassConditionStatusAccepted),
 					Message:            "Handled by Istio controller",
 				})
 				return gcs
@@ -1341,34 +1341,34 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 
 		// Setup initial conditions to the success state. If we encounter errors, we will update this.
 		gatewayConditions := map[string]*condition{
-			string(k8s.GatewayConditionReady): {
+			string(k8sbeta.GatewayConditionReady): {
 				reason:  "ListenersValid",
 				message: "Listeners valid",
 			},
 		}
 		if IsManaged(kgw) {
-			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
+			gatewayConditions[string(k8sbeta.GatewayConditionAccepted)] = &condition{
 				error: &ConfigError{
-					Reason:  string(k8s.GatewayReasonAccepted),
+					Reason:  string(k8sbeta.GatewayReasonAccepted),
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: string(k8s.GatewayReasonPending), // Default reason
+				setOnce: string(k8sbeta.GatewayReasonPending), // Default reason
 			}
 			// nolint: staticcheck // Deprecated condition, set both until 1.17
-			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
+			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
 				error: &ConfigError{
 					Reason:  "ResourcesPending",
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
+				setOnce: string(k8sbeta.GatewayReasonNotReconciled), // Default reason
 			}
 		} else {
-			gatewayConditions[string(k8s.GatewayConditionAccepted)] = &condition{
-				reason:  string(k8s.GatewayReasonAccepted),
+			gatewayConditions[string(k8sbeta.GatewayConditionAccepted)] = &condition{
+				reason:  string(k8sbeta.GatewayReasonAccepted),
 				message: "Resources available",
 			}
 			// nolint: staticcheck // Deprecated condition, set both until 1.17
-			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
+			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
 				reason:  "ResourcesAvailable",
 				message: "Resources available",
 			}
@@ -1458,17 +1458,17 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 			} else {
 				msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 			}
-			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
-				Reason:  string(k8s.GatewayReasonAddressNotAssigned),
+			gatewayConditions[string(k8sbeta.GatewayConditionReady)].error = &ConfigError{
+				Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
 				Message: msg,
 			}
 		} else if len(invalidListeners) > 0 {
-			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
-				Reason:  string(k8s.GatewayReasonListenersNotValid),
+			gatewayConditions[string(k8sbeta.GatewayConditionReady)].error = &ConfigError{
+				Reason:  string(k8sbeta.GatewayReasonListenersNotValid),
 				Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
 			}
 		} else {
-			gatewayConditions[string(k8s.GatewayConditionReady)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
+			gatewayConditions[string(k8sbeta.GatewayConditionReady)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
@@ -1600,31 +1600,31 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 
 func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerIndex int) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
-		string(k8s.ListenerConditionReady): {
-			reason:  string(k8s.ListenerReasonReady),
+		string(k8sbeta.ListenerConditionReady): {
+			reason:  string(k8sbeta.ListenerReasonReady),
 			message: "No errors found",
 		},
-		string(k8s.ListenerConditionAccepted): {
-			reason:  string(k8s.ListenerReasonAccepted),
+		string(k8sbeta.ListenerConditionAccepted): {
+			reason:  string(k8sbeta.ListenerReasonAccepted),
 			message: "No errors found",
 		},
-		string(k8s.ListenerConditionProgrammed): {
-			reason:  string(k8s.ListenerReasonProgrammed),
+		string(k8sbeta.ListenerConditionProgrammed): {
+			reason:  string(k8sbeta.ListenerReasonProgrammed),
 			message: "No errors found",
 		},
 		// nolint: staticcheck // Deprecated condition, set both until 1.17
-		string(k8s.ListenerConditionDetached): {
-			reason:  string(k8s.ListenerReasonAttached),
+		string(k8sbeta.ListenerConditionDetached): {
+			reason:  string(k8sbeta.ListenerReasonAttached),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},
-		string(k8s.ListenerConditionConflicted): {
-			reason:  string(k8s.ListenerReasonNoConflicts),
+		string(k8sbeta.ListenerConditionConflicted): {
+			reason:  string(k8sbeta.ListenerReasonNoConflicts),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},
-		string(k8s.ListenerConditionResolvedRefs): {
-			reason:  string(k8s.ListenerReasonResolvedRefs),
+		string(k8sbeta.ListenerConditionResolvedRefs): {
+			reason:  string(k8sbeta.ListenerReasonResolvedRefs),
 			message: "No errors found",
 		},
 	}
@@ -1632,8 +1632,8 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	tls, err := buildTLS(r, l.TLS, obj, isAutoPassthrough(obj, l))
 	if err != nil {
-		listenerConditions[string(k8s.ListenerConditionReady)].error = err
-		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
+		listenerConditions[string(k8sbeta.ListenerConditionReady)].error = err
+		listenerConditions[string(k8sbeta.ListenerConditionResolvedRefs)].error = err
 		return nil, false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.KubernetesResources, l)
@@ -1684,13 +1684,13 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
 	}
-	mode := k8s.TLSModeTerminate
+	mode := k8sbeta.TLSModeTerminate
 	if tls.Mode != nil {
 		mode = *tls.Mode
 	}
 	namespace := gw.Namespace
 	switch mode {
-	case k8s.TLSModeTerminate:
+	case k8sbeta.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if tls.Options != nil && tls.Options[gatewayTLSTerminateModeKey] == "MUTUAL" {
 			out.Mode = istio.ServerTLSSettings_MUTUAL
@@ -1715,7 +1715,7 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 			}
 		}
 		out.CredentialName = cred
-	case k8s.TLSModePassthrough:
+	case k8sbeta.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
 			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
@@ -1800,10 +1800,10 @@ func buildHostnameMatch(localNamespace string, r KubernetesResources, l k8s.List
 // namespacesFromSelector determines a list of allowed namespaces for a given AllowedRoutes
 func namespacesFromSelector(localNamespace string, r KubernetesResources, lr *k8s.AllowedRoutes) []string {
 	// Default is to allow only the same namespace
-	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == k8s.NamespacesFromSame {
+	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == k8sbeta.NamespacesFromSame {
 		return []string{localNamespace}
 	}
-	if *lr.Namespaces.From == k8s.NamespacesFromAll {
+	if *lr.Namespaces.From == k8sbeta.NamespacesFromAll {
 		return []string{"*"}
 	}
 

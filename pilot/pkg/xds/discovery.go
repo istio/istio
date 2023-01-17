@@ -35,10 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
@@ -76,9 +72,6 @@ type debounceOptions struct {
 type DiscoveryServer struct {
 	// Env is the model environment.
 	Env *model.Environment
-
-	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry *memory.ServiceDiscovery
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
@@ -246,28 +239,6 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
-}
-
-func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
-	var registries []serviceregistry.Instance
-	var nonK8sRegistries []serviceregistry.Instance
-
-	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
-		registries = agg.GetRegistries()
-	} else {
-		registries = []serviceregistry.Instance{
-			serviceregistry.Simple{
-				ServiceDiscovery: s.Env.ServiceDiscovery,
-			},
-		}
-	}
-
-	for _, registry := range registries {
-		if registry.Provider() != provider.Kubernetes && registry.Provider() != provider.External {
-			nonK8sRegistries = append(nonK8sRegistries, registry)
-		}
-	}
-	return nonK8sRegistries
 }
 
 // Push metrics are updated periodically (10s default)
@@ -544,10 +515,6 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 		log.Errorf("XDS: failed to init push context: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Increment()
-		return nil, err
-	}
-
-	if err := s.UpdateServiceShards(push); err != nil {
 		return nil, err
 	}
 

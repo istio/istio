@@ -88,7 +88,7 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		InstallIstio(t, cs, h, "", overrideValuesFile, ManifestsChartPath, "", true)
 
 		VerifyInstallation(t, cs, true)
-		VerifyValidation(t)
+		verifyValidation(t)
 
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {

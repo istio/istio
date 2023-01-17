@@ -22,8 +22,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/util/sets"
@@ -36,8 +36,8 @@ type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
 	getInformer() informer.FilteredSharedIndexInformer
-	onEvent(curr any, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
+	onEvent(prev, curr any, event model.Event) error
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
@@ -69,7 +69,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
 		// otherwise push endpoint updates - needed for NDS output.
 		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
+			for _, modelSvc := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full: features.EnableHeadlessService,
 					// TODO: extend and set service instance type, so no need to re-init push context

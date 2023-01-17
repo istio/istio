@@ -17,7 +17,6 @@ package model
 import (
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -174,11 +174,17 @@ func mergeVirtualServicesIfNeeded(
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
 			delegatesMap[key(vs.Name, vs.Namespace)] = vs
+			exportToMap := make(map[visibility.Instance]bool)
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
-				delegatesExportToMap[key(vs.Name, vs.Namespace)] = defaultExportTo
+				for v := range defaultExportTo {
+					if v == visibility.Private {
+						exportToMap[visibility.Instance(vs.Namespace)] = true
+					} else {
+						exportToMap[v] = true
+					}
+				}
 			} else {
-				exportToMap := make(map[visibility.Instance]bool)
 				for _, e := range rule.ExportTo {
 					if e == string(visibility.Private) {
 						exportToMap[visibility.Instance(vs.Namespace)] = true
@@ -186,8 +192,8 @@ func mergeVirtualServicesIfNeeded(
 						exportToMap[visibility.Instance(e)] = true
 					}
 				}
-				delegatesExportToMap[key(vs.Name, vs.Namespace)] = exportToMap
 			}
+			delegatesExportToMap[key(vs.Name, vs.Namespace)] = exportToMap
 			continue
 		}
 
@@ -243,8 +249,7 @@ func mergeVirtualServicesIfNeeded(
 		}
 		rootVs.Http = mergedRoutes
 		if log.DebugEnabled() {
-			jsonm := &jsonpb.Marshaler{Indent: "   "}
-			vsString, _ := jsonm.MarshalToString(rootVs)
+			vsString, _ := protomarshal.ToJSONWithIndent(rootVs, "   ")
 			log.Debugf("merged virtualService: %s", vsString)
 		}
 		out = append(out, root)

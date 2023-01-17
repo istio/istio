@@ -96,8 +96,8 @@ const (
 	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
 	// sequence of delays between successive queuings of a service.
 	//
-	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
-	maxRetries = 15
+	// 5ms, 10ms, 20ms, 40ms, 80ms
+	maxRetries = 5
 )
 
 type HealthEvent struct {
@@ -299,10 +299,8 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		disConTime:  time.Now(),
 		origConTime: origConnect,
 	}
-	if err := c.unregisterWorkload(workload); err != nil {
-		log.Error(err)
-		c.queue.Add(workload)
-	}
+	// queue has max retry itself
+	c.queue.Add(workload)
 }
 
 func (c *Controller) unregisterWorkload(item any) error {
@@ -314,13 +312,13 @@ func (c *Controller) unregisterWorkload(item any) error {
 	// unset controller, set disconnect time
 	cfg := c.store.Get(gvk.WorkloadEntry, workItem.entryName, workItem.proxy.Metadata.Namespace)
 	if cfg == nil {
-		// return error and backoff retry to prevent workloadentry leak
-		// TODO(@hzxuzhonghu): update the Get interface, fallback to calling apiserver.
-		return fmt.Errorf("workloadentry %s/%s is not found, maybe deleted or because of propagate latency",
+		log.Infof("workloadentry %s/%s is not found, maybe deleted or because of propagate latency",
 			workItem.proxy.Metadata.Namespace, workItem.entryName)
+		// return error and backoff retry to prevent workloadentry leak
+		return fmt.Errorf("workloadentry %s/%s is not found", workItem.proxy.Metadata.Namespace, workItem.entryName)
 	}
 
-	// only queue a delete if this disconnect event is associated with the last connect event written to the worload entry
+	// only queue a delete if this disconnect event is associated with the last connect event written to the workload entry
 	if mostRecentConn, err := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation]); err == nil {
 		if mostRecentConn.After(workItem.origConTime) {
 			// this disconnect event wasn't processed until after we successfully reconnected

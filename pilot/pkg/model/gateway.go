@@ -197,7 +197,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
 					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
-						log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
+						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
@@ -297,7 +297,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
 					gatewayPorts[resolvedPort] = true
-					if !gateway.IsNonHTTPTLSServer(s) {
+					if !gateway.IsTLSServer(s) {
 						plainTextServers[serverPort.Number] = serverPort
 					}
 					if gateway.IsHTTPServer(s) {

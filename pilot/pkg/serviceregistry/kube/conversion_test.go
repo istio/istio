@@ -419,6 +419,38 @@ func TestLBServiceConversion(t *testing.T) {
 	}
 }
 
+func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+	local := corev1.ServiceInternalTrafficPolicyLocal
+
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			InternalTrafficPolicy: &local,
+		},
+	}
+
+	service := ConvertService(svc, domainSuffix, clusterID)
+	if service == nil {
+		t.Fatalf("could not convert service")
+	}
+
+	if !service.Attributes.NodeLocal {
+		t.Fatal("not node local")
+	}
+}
+
 func TestSecureNamingSAN(t *testing.T) {
 	pod := &corev1.Pod{}
 

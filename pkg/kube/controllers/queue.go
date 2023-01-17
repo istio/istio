@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"istio.io/istio/pkg/config"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -97,10 +98,7 @@ func (q Queue) Add(item any) {
 
 // AddObject takes an Object and adds the types.NamespacedName associated.
 func (q Queue) AddObject(obj Object) {
-	q.queue.Add(types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	})
+	q.queue.Add(config.NamespacedName(obj))
 }
 
 // Run the queue. This is synchronous, so should typically be called in a goroutine.

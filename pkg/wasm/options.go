@@ -17,6 +17,7 @@ package wasm
 import (
 	"time"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -27,6 +28,7 @@ const (
 	DefaultHTTPRequestMaxRetries = 5
 )
 
+// Options contains configurations to create a Cache instance.
 type Options struct {
 	PurgeInterval         time.Duration
 	ModuleExpiry          time.Duration
@@ -43,4 +45,14 @@ func defaultOptions() Options {
 		HTTPRequestTimeout:    DefaultHTTPRequestTimeout,
 		HTTPRequestMaxRetries: DefaultHTTPRequestMaxRetries,
 	}
+}
+
+// GetOptions is a struct for providing options to Get method of Cache.
+type GetOptions struct {
+	Checksum        string
+	ResourceName    string
+	ResourceVersion string
+	RequestTimeout  time.Duration
+	PullSecret      []byte
+	PullPolicy      extensions.PullPolicy
 }

@@ -34,15 +34,15 @@ func FuzzKubeController(f *testing.F) {
 		controller.network = networkID
 
 		p := fuzz.Struct[*corev1.Pod](fg)
-		controller.pods.onEvent(p, model.EventAdd)
+		controller.pods.onEvent(nil, p, model.EventAdd)
 		s := fuzz.Struct[*corev1.Service](fg)
-		controller.onServiceEvent(s, model.EventAdd)
+		controller.onServiceEvent(nil, s, model.EventAdd)
 		if fco.Mode == EndpointsOnly {
 			e := fuzz.Struct[*corev1.Endpoints](fg)
-			controller.endpoints.onEvent(e, model.EventAdd)
+			controller.endpoints.onEvent(nil, e, model.EventAdd)
 		} else {
 			e := fuzz.Struct[*v1.EndpointSlice](fg)
-			controller.endpoints.onEvent(e, model.EventAdd)
+			controller.endpoints.onEvent(nil, e, model.EventAdd)
 		}
 	})
 }
