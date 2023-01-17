@@ -247,13 +247,13 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 			if pa.GetPatchType() == types.ApplyPatchType {
 				// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
 				// if an apply patch occurs for a deployment that doesn't yet exist, create it.
-				// However, we alreayd hold the fakeclient lock, so we can't use the front door.
+				// However, we already hold the fakeclient lock, so we can't use the front door.
 				rfunc := clienttesting.ObjectReaction(f.Tracker())
 				_, obj, err := rfunc(
 					clienttesting.NewGetAction(pa.GetResource(), pa.GetNamespace(), pa.GetName()),
 				)
 				if kerrors.IsNotFound(err) || obj == nil {
-					rfunc(
+					_, _, _ = rfunc(
 						clienttesting.NewCreateAction(
 							pa.GetResource(),
 							pa.GetNamespace(),
@@ -261,7 +261,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      pa.GetName(),
 									Namespace: pa.GetNamespace(),
-								}},
+								},
+							},
 						),
 					)
 				}
