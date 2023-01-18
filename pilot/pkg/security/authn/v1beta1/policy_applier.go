@@ -250,7 +250,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 
 		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
 
-		// Use remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
+		// Use Envoy remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
 		// cluster name, generate the jwt filter config using remote Jwks.
 		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
 		// remoteJwksMode is Hybrid.
