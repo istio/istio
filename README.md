@@ -52,7 +52,7 @@ Istio is composed of these components:
   > simplifies and enhances how microservices in an application talk to each
   > other over the network provided by the underlying platform.
 
-- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
+- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following subcomponents:
 
     - **Pilot** - Responsible for configuring the proxies at runtime.
 
@@ -60,7 +60,7 @@ Istio is composed of these components:
 
     - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
-- **Operator** - The component provides user friendly options to operate the Istio service mesh.
+- **Operator** - The component provides user-friendly options to operate the Istio service mesh.
 
 ## Repositories
 
