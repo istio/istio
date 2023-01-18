@@ -279,11 +279,22 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			} else if features.JwksFetchMode == jwt.Hybrid {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
 			} else {
-				// Log error and create fake inline JWKs
+				// Log error and create remote JWKs with fake cluster
 				authnLog.Errorf("Failed to look up Envoy cluster %v. "+
 					"Please create ServiceEntry to register external JWKs server or "+
 					"set PILOT_JWT_ENABLE_REMOTE_JWKS to hybrid/istiod mode.", err)
-				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks("", "", model.CreateFakeJwks(jwtRule.JwksUri))
+				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
+					RemoteJwks: &envoy_jwt.RemoteJwks{
+						HttpUri: &core.HttpUri{
+							Uri: jwtRule.JwksUri,
+							HttpUpstreamType: &core.HttpUri_Cluster{
+								Cluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", jwksInfo.Hostname, jwksInfo.Port),
+							},
+							Timeout: &durationpb.Duration{Seconds: 5},
+						},
+						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
+					},
+				}
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is empty or let istiod to fetch the jwtRule.jwksUri
