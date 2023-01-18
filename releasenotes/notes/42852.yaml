@@ -31,5 +31,5 @@ issue:
 # release notes.
 releaseNotes: 
   - |-
-    **Added** an input to the Gateway Helm deployment to explicitly set the imagePullPolicy
+    **Added** an input to the Gateway Helm deployment to explicitly set the imagePullPolicy.
 
