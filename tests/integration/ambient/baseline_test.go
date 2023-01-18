@@ -634,6 +634,22 @@ spec:
         methods: ["GET"]
   - from:
     - source:
+        principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
+    to:
+    - operation:
+        ports: ["18080"]
+        paths: ["/allowed-port"]
+        methods: ["GET"]
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
+    to:
+    - operation:
+        paths: ["/denied-port"]
+        methods: ["GET"]
+        ports: ["18081"]
+  - from:
+    - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
     to:
     - operation:
@@ -689,6 +705,20 @@ spec:
 				opt = opt.DeepCopy()
 				opt.HTTP.Path = "/allowed"
 				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("port allow").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/allowed-port"
+				opt.Check = check.OK()
+				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("port deny").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.HTTP.Path = "/denied-port"
+				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})

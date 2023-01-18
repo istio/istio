@@ -22,6 +22,7 @@ import (
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -154,6 +155,48 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 				}
 				if len(r.notValues) != 0 {
 					r.notValues = tdBundle.ReplaceTrustDomainAliases(r.notValues)
+				}
+			}
+		}
+	}
+}
+
+// Update rules for ambient based on listener name
+// This will precalculate the rbac rules with regard to destination port for any matches
+// and remove them from the rules. This results in a set of rules with `any: true` if there are
+// no other rules, or the remaining rules to match against. We leave non-matching ports so they do
+// not match any requests.
+func (m *Model) AmbientDestinationPortAdapations(listener_name string) {
+	// Extract port from listener name (e.g. inbound-pod|80||10.244.2.4)
+	listener := strings.Split(listener_name, "|")
+	if len(listener) < 2 {
+		log.Warnf("listener_name %s seems invalid, does not contain port", listener_name)
+		return
+	}
+
+	port := listener[1]
+
+	for i, p := range m.permissions {
+		for j, r := range p.rules {
+			if r.key == attrDestPort {
+				if len(r.values) == 0 && len(r.notValues) == 0 {
+					continue
+				}
+				for _, v := range r.values {
+					// Check if v matches the extracted port
+					if v == port {
+						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, nil)
+
+						break
+					}
+				}
+
+				for _, v := range r.notValues {
+					// Check if v matches the extracted port
+					if v == port {
+						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, []string{"0"})
+						break
+					}
 				}
 			}
 		}
@@ -330,4 +373,13 @@ func (p *ruleList) appendLast(g generator, key string, values, notValues []strin
 	}
 
 	p.rules = append(p.rules, r)
+}
+
+func (p *ruleList) replaceRule(index int, g generator, key string, values, notValues []string) {
+	p.rules[index] = &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		g:         g,
+	}
 }
