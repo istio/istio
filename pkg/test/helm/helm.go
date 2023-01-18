@@ -36,6 +36,12 @@ func New(kubeConfig string) *Helm {
 }
 
 // InstallChartWithValues installs the specified chart with its given name to the given namespace
+func (h *Helm) AddRepo() error {
+	_, err := execCommand("helm repo add istio https://istio-release.storage.googleapis.com/charts")
+	return err
+}
+
+// InstallChartWithValues installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values []string, timeout time.Duration) error {
 	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
 		name, chartPath, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
@@ -47,6 +53,14 @@ func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values 
 func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, timeout time.Duration) error {
 	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
 		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout)
+	_, err := execCommand(command)
+	return err
+}
+
+// InstallChartWithVersion installs the specified chart with version from the helm repo with its given name to the given namespace
+func (h *Helm) InstallChartWithVersion(name, chart, version, namespace, overridesFile string, timeout time.Duration) error {
+	command := fmt.Sprintf("helm install %s %s --version %s --namespace %s -f %s --kubeconfig %s --timeout %s",
+		name, chart, version, namespace, overridesFile, h.kubeConfig, timeout)
 	_, err := execCommand(command)
 	return err
 }
