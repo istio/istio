@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -254,11 +254,11 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
 	_, stop := createElection(t, "pod1", "", watcher, true, true, client)
-	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, v1.DeleteOptions{}); err != nil {
+	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := client.CoreV1().ConfigMaps("ns").List(context.TODO(), v1.ListOptions{})
+		l, err := client.CoreV1().ConfigMaps("ns").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
