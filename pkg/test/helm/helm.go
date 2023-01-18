@@ -50,17 +50,9 @@ func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values 
 }
 
 // InstallChart installs the specified chart with its given name to the given namespace
-func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, timeout time.Duration) error {
-	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
-		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout)
-	_, err := execCommand(command)
-	return err
-}
-
-// InstallChartWithVersion installs the specified chart with version from the helm repo with its given name to the given namespace
-func (h *Helm) InstallChartWithVersion(name, chart, version, namespace, overridesFile string, timeout time.Duration) error {
-	command := fmt.Sprintf("helm install %s %s --version %s --namespace %s -f %s --kubeconfig %s --timeout %s",
-		name, chart, version, namespace, overridesFile, h.kubeConfig, timeout)
+func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, timeout time.Duration, args ...string) error {
+	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s %s ",
+		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout, strings.Join(args, " "))
 	_, err := execCommand(command)
 	return err
 }
