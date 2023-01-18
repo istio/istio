@@ -364,7 +364,7 @@ func TestJwtFilter(t *testing.T) {
 						JwtRules: []*v1beta1.JWTRule{
 							{
 								Issuer:  "invalid|7443|",
-								JwksUri: jwksURI,
+								JwksUri: "http://invalid-issuer.com:7443/jwks",
 							},
 						},
 					},
@@ -408,11 +408,16 @@ func TestJwtFilter(t *testing.T) {
 							Providers: map[string]*envoy_jwt.JwtProvider{
 								"origins-0": {
 									Issuer: "invalid|7443|",
-									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
-										LocalJwks: &core.DataSource{
-											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks(jwksURI),
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
+										RemoteJwks: &envoy_jwt.RemoteJwks{
+											HttpUri: &core.HttpUri{
+												Uri: "http://invalid-issuer.com:7443/jwks",
+												HttpUpstreamType: &core.HttpUri_Cluster{
+													Cluster: "outbound|7443||invalid-issuer.com",
+												},
+												Timeout: &durationpb.Duration{Seconds: 5},
 											},
+											CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 										},
 									},
 									Forward:           false,
@@ -909,7 +914,6 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 	}
-
 	push := model.NewPushContext()
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
