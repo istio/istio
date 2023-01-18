@@ -134,7 +134,7 @@
           {{- end }}
           {{- range $a, $s := .inclusionRegexps }}
           {
-          "safe_regex": {"google_re2":{}, "regex":"{{js $s}}"}
+          "safe_regex": {"regex":"{{js $s}}"}
           },
           {{- end }}
           {

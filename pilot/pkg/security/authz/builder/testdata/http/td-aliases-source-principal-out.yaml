@@ -17,7 +17,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/istio-system/.*
             - orIds:
                 ids:
@@ -25,19 +24,16 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*/ns/foo/sa/all-td
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*-td/ns/foo/sa/prefix-td
                 - filterState:
                     key: io.istio.peer_principal

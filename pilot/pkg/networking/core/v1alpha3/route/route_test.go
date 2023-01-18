@@ -196,8 +196,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: util.RegexEngine,
-				Regex:      `/route/v1((\/).*)?`,
+				Regex: `/route/v1((\/).*)?`,
 			},
 		}))
 		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
@@ -227,8 +226,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: util.RegexEngine,
-				Regex:      `/route/v1((\/).*)?`,
+				Regex: `/route/v1((\/).*)?`,
 			},
 		}))
 		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
@@ -2363,15 +2361,13 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestSortVHostRoutes(t *testing.T) {
-	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 	first := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex1",
+				Regex: ".*?regex1",
 			},
 		}}},
 	}
@@ -2380,8 +2376,7 @@ func TestSortVHostRoutes(t *testing.T) {
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex1",
+				Regex: ".*?regex1",
 			},
 		}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
@@ -2391,15 +2386,13 @@ func TestSortVHostRoutes(t *testing.T) {
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex12",
+				Regex: ".*?regex12",
 			},
 		}}},
 		{Match: &envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexEngine,
-					Regex:      "*",
+					Regex: "*",
 				},
 			},
 			Headers: []*envoyroute.HeaderMatcher{
@@ -2419,15 +2412,13 @@ func TestSortVHostRoutes(t *testing.T) {
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex12",
+				Regex: ".*?regex12",
 			},
 		}}},
 		{Match: &envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexEngine,
-					Regex:      "*",
+					Regex: "*",
 				},
 			},
 			Headers: []*envoyroute.HeaderMatcher{
