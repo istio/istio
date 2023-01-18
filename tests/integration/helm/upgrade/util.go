@@ -70,14 +70,14 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 	err = h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout, "--skip-crds")
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseReleaseName)
 	}
 
 	// Upgrade discovery chart
-	err = h.UpgradeChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ControlChartsDir, helmtest.DiscoveryChart),
+	err = h.UpgradeChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ControlChartsDir, helmtest.DiscoveryChartsDir),
 		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
 	if err != nil {
-		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.DiscoveryChart)
+		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.IstiodReleaseName)
 	}
 
 	// Upgrade ingress gateway chart
@@ -159,7 +159,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		})
 
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
-		helmtest.InstallIstio(t, cs, h, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, true)
+		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true)
 		helmtest.VerifyInstallation(t, cs, true)
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -197,7 +197,7 @@ func performCanaryUpgradeFunc(previousVersion string) func(framework.TestContext
 		})
 
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
-		helmtest.InstallIstio(t, cs, h, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, false)
+		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -254,7 +254,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		helmtest.VerifyInstallation(t, cs, false)
 
 		// helm template istiod-1-15-0 istio/istiod --version 1.15.0 -s templates/revision-tags.yaml --set revision=1-15-0 --set revisionTags={prod}
-		helmtest.SetRevisionTagWithVersion(t, h, previousRevision, prodTag, helmtest.TestDataChartPath, previousVersion)
+		helmtest.SetRevisionTagWithVersion(t, h, previousRevision, prodTag, previousVersion)
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
 			fmt.Sprintf("istio-sidecar-injector-%s", previousRevision),
