@@ -29,6 +29,7 @@ issue:
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-releaseNotes: |
-  - **Added** an input to the Gateway Helm deployment to explicitly set the imagePullPolicy
+releaseNotes: 
+  - |-
+    **Added** an input to the Gateway Helm deployment to explicitly set the imagePullPolicy
 
