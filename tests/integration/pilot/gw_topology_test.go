@@ -101,3 +101,80 @@ spec:
 			}
 		})
 }
+
+// If the PROXY protocol is enabled, and no XFF header is provided, client forwarded IPs from the PROXY protocol payload
+// should be used to populate the upstream XFF header.
+//
+// If the PROXY protocol is enabled, and additionally an XFF header is provided AND numTrustedProxies is set, the XFF header on the incoming request
+// will take precedence when populating the upstream XFF header.
+func TestProxyProtocolGateway(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ingress.topology").
+		Run(func(t framework.TestContext) {
+			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway"})
+			injectLabel := `sidecar.istio.io/inject: "true"`
+			if len(t.Settings().Revisions.Default()) > 0 {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
+			}
+
+			templateParams := map[string]string{
+				"imagePullSecret": t.Settings().Image.PullSecret,
+				"injectLabel":     injectLabel,
+				"imagePullPolicy": t.Settings().Image.PullPolicy,
+			}
+
+			// we only apply to config clusters
+			t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
+kind: Service
+metadata:
+  name: custom-gateway
+  labels:
+    istio: ingressgateway
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    istio: ingressgateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-gateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+        proxy.istio.io/config: |
+          gatewayTopology:
+            numTrustedProxies: 2
+      labels:
+        istio: ingressgateway
+        {{ .injectLabel }}
+    spec:
+      {{- if ne .imagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ .imagePullSecret }}
+      {{- end }}
+      containers:
+      - name: istio-proxy
+        image: auto
+        imagePullPolicy: {{ .imagePullPolicy }}
+---
+`).ApplyOrFail(t)
+			cs := t.Clusters().Default().(*kubecluster.Cluster)
+			retry.UntilSuccessOrFail(t, func() error {
+				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
+				return err
+			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
+			for _, tt := range common.XFFGatewayCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
+				tt.Run(t, apps.Namespace.Name())
+			}
+		})
+}
