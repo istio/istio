@@ -124,13 +124,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[0]-from[0]-ns[1]/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[0]-from[0]-ns[2]/.*
             - orIds:
                 ids:
@@ -201,13 +199,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[0]-from[1]-ns[1]/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[0]-from[1]-ns[2]/.*
             - orIds:
                 ids:
@@ -352,13 +348,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[1]-from[0]-ns[1]/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[1]-from[0]-ns[2]/.*
             - orIds:
                 ids:
@@ -410,13 +404,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[1]-from[1]-ns[1]/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[1]-from[1]-ns[2]/.*
             - orIds:
                 ids:

@@ -866,8 +866,7 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 					// use regex.
 					out.PathSpecifier = &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							EngineType: util.RegexEngine,
-							Regex:      regexp.QuoteMeta(path) + prefixMatchRegex,
+							Regex: regexp.QuoteMeta(path) + prefixMatchRegex,
 						},
 					}
 				}
@@ -877,8 +876,7 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 		case *networking.StringMatch_Regex:
 			out.PathSpecifier = &route.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: util.RegexEngine,
-					Regex:      m.Regex,
+					Regex: m.Regex,
 				},
 			}
 		}
@@ -925,8 +923,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 			StringMatch: &matcher.StringMatcher{
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
-						EngineType: util.RegexEngine,
-						Regex:      m.Regex,
+						Regex: m.Regex,
 					},
 				},
 			},

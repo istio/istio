@@ -91,7 +91,6 @@ typedConfig:
                 - urlPath:
                     path:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notRule:
                 orRules:
@@ -108,7 +107,6 @@ typedConfig:
                   - urlPath:
                       path:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - orRules:
                 rules:
@@ -155,7 +153,6 @@ typedConfig:
                     prefix: prefix.
                 - requestedServerName:
                     safeRegex:
-                      googleRe2: {}
                       regex: .+
             - notRule:
                 orRules:
@@ -168,7 +165,6 @@ typedConfig:
                       prefix: not-prefix.
                   - requestedServerName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - orRules:
                 rules:
@@ -200,7 +196,6 @@ typedConfig:
                     value:
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - notRule:
                 orRules:
@@ -233,7 +228,6 @@ typedConfig:
                       value:
                         stringMatch:
                           safeRegex:
-                            googleRe2: {}
                             regex: .+
         principals:
         - andIds:
@@ -252,13 +246,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*-suffix-principal
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
@@ -275,13 +267,11 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: spiffe://.*-not-suffix-principal
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - orIds:
                 ids:
@@ -313,7 +303,6 @@ typedConfig:
                     value:
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - notId:
                 orIds:
@@ -346,7 +335,6 @@ typedConfig:
                       value:
                         stringMatch:
                           safeRegex:
-                            googleRe2: {}
                             regex: .+
             - orIds:
                 ids:
@@ -354,25 +342,21 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-prefix-.*/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*-ns-suffix/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
@@ -381,25 +365,21 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns-prefix-.*/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*-not-ns-suffix/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
@@ -504,25 +484,21 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-prefix-.*/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*-ns-suffix/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
@@ -531,25 +507,21 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns-prefix-.*/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*-not-ns-suffix/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
@@ -565,13 +537,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*-suffix-principal
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
@@ -588,13 +558,11 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: spiffe://.*-not-suffix-principal
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - orIds:
                 ids:
@@ -626,7 +594,6 @@ typedConfig:
                     value:
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - notId:
                 orIds:
@@ -659,7 +626,6 @@ typedConfig:
                       value:
                         stringMatch:
                           safeRegex:
-                            googleRe2: {}
                             regex: .+
             - orIds:
                 ids:
@@ -691,7 +657,6 @@ typedConfig:
                     value:
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - notId:
                 orIds:
@@ -724,7 +689,6 @@ typedConfig:
                       value:
                         stringMatch:
                           safeRegex:
-                            googleRe2: {}
                             regex: .+
             - orIds:
                 ids:
@@ -756,7 +720,6 @@ typedConfig:
                     value:
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - notId:
                 orIds:
@@ -789,7 +752,6 @@ typedConfig:
                       value:
                         stringMatch:
                           safeRegex:
-                            googleRe2: {}
                             regex: .+
             - orIds:
                 ids:
@@ -833,7 +795,6 @@ typedConfig:
                         oneOf:
                           stringMatch:
                             safeRegex:
-                              googleRe2: {}
                               regex: .+
             - notId:
                 orIds:
@@ -878,7 +839,6 @@ typedConfig:
                           oneOf:
                             stringMatch:
                               safeRegex:
-                                googleRe2: {}
                                 regex: .+
             - orIds:
                 ids:
@@ -926,7 +886,6 @@ typedConfig:
                         oneOf:
                           stringMatch:
                             safeRegex:
-                              googleRe2: {}
                               regex: .+
             - notId:
                 orIds:
@@ -975,6 +934,5 @@ typedConfig:
                           oneOf:
                             stringMatch:
                               safeRegex:
-                                googleRe2: {}
                                 regex: .+
   shadowRulesStatPrefix: istio_dry_run_allow_
