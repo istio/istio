@@ -53,6 +53,20 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
+const originateTLSTmpl = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.VirtualServiceHost|replace "*" "wild"}}"
+  namespace: "{{.IngressNamespace}}"
+spec:
+  host: "{{.VirtualServiceHost}}"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---
+`
+
 const httpVirtualServiceTmpl = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1151,7 +1165,7 @@ spec:
 func gatewayCases(t TrafficContext) {
 	// TODO fix for ambient
 	skipEnvoyPeerMeta := skipAmbient(t, "X-Envoy-Peer-Metadata present in response")
-	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]any {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string, port string) map[string]any {
 		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			hostName, portN, cred = dest.Config().ClusterLocalFQDN(), 443, "cred"
@@ -1164,7 +1178,7 @@ func gatewayCases(t TrafficContext) {
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
 			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
+			"Port":               dest.PortForName(port).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
 			"TLSMode":            "SIMPLE",
@@ -1330,7 +1344,7 @@ spec:
 			// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
 			// and control plane should filter our invalid one.
 
-			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
+			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"), ports.HTTP.Name)
 			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 			return params
 		},
@@ -1349,7 +1363,7 @@ spec:
 		config: gatewayTmpl + httpVirtualServiceTmpl +
 			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-			params := templateParams(protocol.HTTPS, src, dests, nil)
+			params := templateParams(protocol.HTTPS, src, dests, nil, ports.HTTP.Name)
 			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 			params["TLSMode"] = "OPTIONAL_MUTUAL"
 			return params
@@ -1728,7 +1742,7 @@ spec:
 			name:   string(proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				params := templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil, ports.HTTP.Name)
 				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
 			},
@@ -1746,7 +1760,7 @@ spec:
 			name:   fmt.Sprintf("%s scheme match", proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				params := templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil, ports.HTTP.Name)
 				params["MatchScheme"] = strings.ToLower(string(proto))
 				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
@@ -1767,6 +1781,24 @@ spec:
 			workloadAgnostic: true,
 		})
 	}
+	secret := ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
+	t.RunTraffic(TrafficTestCase{
+		name:   "HTTPS re-encrypt",
+		config: gatewayTmpl + httpVirtualServiceTmpl + originateTLSTmpl + secret,
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			return templateParams(protocol.HTTPS, src, dests, nil, ports.HTTPS.Name)
+		},
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+			Check: check.OK(),
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
 }
 
 // 1. Creates a TCP Gateway and VirtualService listener
