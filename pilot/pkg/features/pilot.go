@@ -516,6 +516,10 @@ var (
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
+	NetworkAuthn = env.Register("PILOT_ENABLE_NETWORK_AUTHN", true,
+		"If true, pilot will add network authentication filters, which will be consumed by RBAC filter.",
+	).Get()
+
 	ALPNFilter = env.Register("PILOT_ENABLE_ALPN_FILTER", true,
 		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
