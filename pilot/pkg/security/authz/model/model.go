@@ -46,6 +46,7 @@ const (
 	attrDestPort         = "destination.port"            // must be in the range [0, 65535].
 	attrConnSNI          = "connection.sni"              // server name indication, e.g. "www.example.com".
 	attrEnvoyFilter      = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
+	attrAny              = "any"                         // adding an `any: true` permission.
 
 	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
@@ -108,6 +109,8 @@ func New(r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
 			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
+		case k == attrAny:
+			basePermission.appendLast(anyGenerator{}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
@@ -161,16 +164,17 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 	}
 }
 
-// Update rules for ambient based on listener name
-// This will precalculate the rbac rules with regard to destination port for any matches
-// and remove them from the rules. This results in a set of rules with `any: true` if there are
-// no other rules, or the remaining rules to match against. We leave non-matching ports so they do
-// not match any requests.
+// Update rules for ambient based on listener name. Because the Waypoint Proxy receives
+// the destination as envoy://listener_name/, Envoy will not have a port to evaluate. This
+// will precalculate the RBAC rules with regard to destination port for any matches and replace
+// as necessary. For not matches, we add an `any: true` as it will always match. For value match,
+// we replace with a nil, which the generator replaces with an `any: true` if there are no other
+// rules to evaluate. We leave non-matching ports so they do not match any requests.
 func (m *Model) AmbientDestinationPortAdapations(listener_name string) {
 	// Extract port from listener name (e.g. inbound-pod|80||10.244.2.4)
 	listener := strings.Split(listener_name, "|")
 	if len(listener) < 2 {
-		log.Warnf("listener_name %s seems invalid, does not contain port", listener_name)
+		log.WithLabels("ambient").Warnf("listener_name %s seems invalid, does not contain port", listener_name)
 		return
 	}
 
@@ -185,8 +189,9 @@ func (m *Model) AmbientDestinationPortAdapations(listener_name string) {
 				for _, v := range r.values {
 					// Check if v matches the extracted port
 					if v == port {
+						// We do not use anyGenerator here, as this will always insert a `any: true` rule, which will
+						// always match. If we leave nil, nil, the permission generator inserts an `any: true`
 						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, nil)
-
 						break
 					}
 				}
@@ -194,7 +199,9 @@ func (m *Model) AmbientDestinationPortAdapations(listener_name string) {
 				for _, v := range r.notValues {
 					// Check if v matches the extracted port
 					if v == port {
-						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, []string{"0"})
+						// We insert an any rule here, which will always match, because a matching notPorts will always have
+						// a match in this case
+						m.permissions[i].replaceRule(j, anyGenerator{}, attrAny, nil, []string{""})
 						break
 					}
 				}
