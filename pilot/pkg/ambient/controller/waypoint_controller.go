@@ -99,7 +99,7 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
 	rc.saInformer = sas.Informer()
 	rc.saInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// Anytime SA change, trigger all gateways in the namespace. This could probably be more efficient...
-		gws, _ := gateways.Lister().Gateways(o.GetNamespace()).List(klabels.Everything())
+		gws, _ := rc.gateways.Gateways(o.GetNamespace()).List(klabels.Everything())
 		for _, gw := range gws {
 			rc.queue.AddObject(gw)
 		}
@@ -147,7 +147,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 	}
 
 	if gw.Spec.GatewayClassName != "istio-mesh" {
-		istiolog.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
+		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return nil
 	}
 
@@ -159,7 +159,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		List(klabels.Everything())
 	for _, sa := range serviceAccounts {
 		if gatewaySA != "" && sa.Name != gatewaySA {
-			istiolog.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
+			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
 			continue
 		}
 		wantProxies.Insert(sa.Name)
@@ -179,7 +179,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 			return err
 		}
 		// TODO: should support HPA, PDB, maybe others...
-		istiolog.Infof("Updating waypoint proxy %q", sa+"-waypoint-proxy")
+		log.Infof("Updating waypoint proxy %q", sa+"-waypoint-proxy")
 		_, err = rc.client.Kube().
 			AppsV1().
 			Deployments(name.Namespace).
@@ -221,6 +221,7 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 func (rc *WaypointProxyController) UpdateStatus(
 	gw *v1alpha2.Gateway,
 	conditions map[string]*istiogw.Condition,
+	log istiolog.Scope,
 ) error {
 	if gw == nil {
 		return nil
@@ -241,7 +242,7 @@ func (rc *WaypointProxyController) UpdateStatus(
 	if err := rc.ApplyObject(gws, "status"); err != nil {
 		return fmt.Errorf("update gateway status: %v", err)
 	}
-	istiolog.Info("gateway updated")
+	log.Info("gateway updated")
 	return nil
 }
 
@@ -260,7 +261,7 @@ func (rc *WaypointProxyController) ApplyObject(
 	if err != nil {
 		return err
 	}
-	istiolog.Debugf("applying %v", string(j))
+	waypointLog.Debugf("applying %v", string(j))
 
 	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
