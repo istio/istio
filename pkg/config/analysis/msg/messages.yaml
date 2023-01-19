@@ -297,7 +297,7 @@ messages:
 
   - name: "NoServerCertificateVerificationDestinationLevel"
     code: IST0128
-    level: Error
+    level: Warning
     description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate."
     template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s"
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0128/"
