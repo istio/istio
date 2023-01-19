@@ -775,7 +775,7 @@ spec:
         principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
     to:
     - operation:
-        ports: ["80"]
+        ports: ["18080","18081","18085","16060","16061"]
         paths: ["/allowed-port"]
         methods: ["GET"]
   - from:
