@@ -21,8 +21,8 @@ import (
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
 	authzpb "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -170,15 +170,10 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 // as necessary. For not matches, we add an `any: true` as it will always match. For value match,
 // we replace with a nil, which the generator replaces with an `any: true` if there are no other
 // rules to evaluate. We leave non-matching ports so they do not match any requests.
-func (m *Model) AmbientDestinationPortAdapations(listener_name string) {
+func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
 	// Extract port from listener name (e.g. inbound-pod|80||10.244.2.4)
-	listener := strings.Split(listener_name, "|")
-	if len(listener) < 2 {
-		log.WithLabels("ambient").Warnf("listener_name %s seems invalid, does not contain port", listener_name)
-		return
-	}
-
-	port := listener[1]
+	_, _, _, portInt := model.ParseSubsetKey(listenerName)
+	port := fmt.Sprint(portInt) // the value and notValues from permissions is a string
 
 	for i, p := range m.permissions {
 		for j, r := range p.rules {
