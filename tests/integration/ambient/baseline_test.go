@@ -637,7 +637,7 @@ spec:
         principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
     to:
     - operation:
-        ports: ["18080"]
+        ports: ["80"]
         paths: ["/allowed-port"]
         methods: ["GET"]
   - from:
@@ -647,7 +647,7 @@ spec:
     - operation:
         paths: ["/denied-port"]
         methods: ["GET"]
-        ports: ["18081"]
+        ports: ["81"]
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
