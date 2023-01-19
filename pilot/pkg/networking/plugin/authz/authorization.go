@@ -73,24 +73,6 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	return NewBuilderSkipIdentity(actionType, push, proxy, "")
 }
 
-func (b *Builder) BuildTCPWithListener(listener string) []*listener.Filter {
-	if b == nil || b.builder == nil {
-		return nil
-	}
-	if b.tcpBuilt {
-		return b.tcpFilters
-	}
-	b.tcpBuilt = true
-
-	if listener != "" {
-		b.tcpFilters = b.builder.BuildTCPAmbient(listener)
-	} else {
-		b.tcpFilters = b.builder.BuildTCP()
-	}
-
-	return b.tcpFilters
-}
-
 func (b *Builder) BuildTCP() []*listener.Filter {
 	if b == nil || b.builder == nil {
 		return nil
