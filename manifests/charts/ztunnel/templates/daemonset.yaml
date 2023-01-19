@@ -176,22 +176,6 @@ spec:
             $IPTABLES -t mangle -F PREROUTING
             $IPTABLES -t nat -F OUTPUT
 
-            $IPTABLES-save | grep -v LOG | $IPTABLES-restore
-            $IPTABLES -t mangle -I PREROUTING -j LOG --log-prefix "mangle pre [$POD_NAME] "
-            $IPTABLES -t mangle -I POSTROUTING -j LOG --log-prefix "mangle post [$POD_NAME] "
-            $IPTABLES -t mangle -I INPUT -j LOG --log-prefix "mangle inp [$POD_NAME] "
-            $IPTABLES -t mangle -I OUTPUT -j LOG --log-prefix "mangle out [$POD_NAME] "
-            $IPTABLES -t mangle -I FORWARD -j LOG --log-prefix "mangle fw [$POD_NAME] "
-            $IPTABLES -t nat -I POSTROUTING -j LOG --log-prefix "nat post [$POD_NAME] "
-            $IPTABLES -t nat -I INPUT -j LOG --log-prefix "nat inp [$POD_NAME] "
-            $IPTABLES -t nat -I OUTPUT -j LOG --log-prefix "nat out [$POD_NAME] "
-            $IPTABLES -t nat -I PREROUTING -j LOG --log-prefix "nat pre [$POD_NAME] "
-            $IPTABLES -t raw -I PREROUTING -j LOG --log-prefix "raw pre [$POD_NAME] "
-            $IPTABLES -t raw -I OUTPUT -j LOG --log-prefix "raw out [$POD_NAME] "
-            $IPTABLES -t filter -I FORWARD -j LOG --log-prefix "filt fw [$POD_NAME] "
-            $IPTABLES -t filter -I OUTPUT -j LOG --log-prefix "filt out [$POD_NAME] "
-            $IPTABLES -t filter -I INPUT -j LOG --log-prefix "filt inp [$POD_NAME] "
-
             $IPTABLES -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -m tcp --dport=$POD_INBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND --on-ip 127.0.0.1
             $IPTABLES -t mangle -A PREROUTING -p tcp -i p$OUTBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_OUTBOUND --on-ip 127.0.0.1
             $IPTABLES -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
