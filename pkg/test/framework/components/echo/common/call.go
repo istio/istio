@@ -143,7 +143,18 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 		ServerName:              opts.TLS.ServerName,
 		NewConnectionPerRequest: opts.NewConnectionPerRequest,
 		ForceDNSLookup:          opts.ForceDNSLookup,
+		ProxyProtocolVersion:    getProxyProtoVersion(opts.ProxyProtocolVersion),
 	}
+}
+
+func getProxyProtoVersion(protoVer int) proto.ProxyProtoVersion {
+	if protoVer == 1 {
+		return proto.ProxyProtoVersion_V1
+	} else if protoVer == 2 {
+		return proto.ProxyProtoVersion_V2
+	}
+
+	return proto.ProxyProtoVersion_NONE
 }
 
 func getProtoALPN(alpn []string) *proto.Alpn {
