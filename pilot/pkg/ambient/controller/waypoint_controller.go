@@ -212,7 +212,7 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 			Reason:  string(v1alpha2.GatewayReasonAccepted),
 			Message: msg,
 		},
-	})
+	}, log)
 	if err != nil {
 		log.Errorf("unable to update Gateway status %v on create: %v", gw.Name, err)
 	}
@@ -221,7 +221,7 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 func (rc *WaypointProxyController) UpdateStatus(
 	gw *v1alpha2.Gateway,
 	conditions map[string]*istiogw.Condition,
-	log istiolog.Scope,
+	log *istiolog.Scope,
 ) error {
 	if gw == nil {
 		return nil
