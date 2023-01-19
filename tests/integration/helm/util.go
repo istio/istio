@@ -86,19 +86,19 @@ func InstallIstio(t test.Failer, cs cluster.Cluster, h *helm.Helm, overrideValue
 	// Install base chart
 	err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
-		t.Fatalf("failed to install istio %s chart: %v", BaseReleaseName, err)
+		t.Fatalf("failed to install istio %s chart: %v", BaseChart, err)
 	}
 
 	// Install discovery chart
 	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
-		t.Fatalf("failed to install istio %s chart: %v", IstiodReleaseName, err)
+		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChartsDir, err)
 	}
 
 	if installGateway {
 		err = h.InstallChart(IngressReleaseName, gatewayChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", IngressReleaseName, err)
+			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
 		}
 	}
 }
@@ -130,7 +130,7 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 	} else {
 		err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to upgrade istio %s chart", BaseReleaseName)
+			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
 		}
 	}
 
@@ -138,13 +138,13 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 	if useTestData {
 		err := h.InstallChart(IstiodReleaseName+"-"+revision, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", IstiodReleaseName)
+			t.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 		}
 	} else {
 		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir),
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", IstiodReleaseName)
+			t.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 		}
 
 	}

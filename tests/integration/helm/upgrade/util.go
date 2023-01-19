@@ -147,7 +147,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		h.AddRepo()
+		h.AddRepo(t)
 
 		t.CleanupConditionally(func() {
 			// only need to do call this once as helm doesn't need to remove
@@ -184,7 +184,7 @@ func performCanaryUpgradeFunc(previousVersion string) func(framework.TestContext
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		h.AddRepo()
+		h.AddRepo(t)
 		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, canaryTag)
 			if err != nil {
@@ -228,7 +228,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		h.AddRepo()
+		h.AddRepo(t)
 		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, latestRevisionTag)
 			if err != nil {
