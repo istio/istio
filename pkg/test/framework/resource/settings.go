@@ -165,6 +165,9 @@ type Settings struct {
 
 	// EnableDualStack indicates the test should have dual stack enabled or not.
 	EnableDualStack bool
+
+	//Helm repo to be used for tests
+	HelmRepo string
 }
 
 func (s Settings) Skip(class string) bool {
@@ -235,6 +238,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
 	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
 	result += fmt.Sprintf("MaxDumps:          %d\n", s.MaxDumps)
+	result += fmt.Sprintf("HelmRepo:          %v\n", s.HelmRepo)
 	return result
 }
 

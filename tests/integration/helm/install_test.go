@@ -70,8 +70,6 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		}
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		h.AddRepo()
-
 		s := t.Settings()
 		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, s.Image.Tag)
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
