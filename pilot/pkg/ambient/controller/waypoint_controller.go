@@ -140,7 +140,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
 		if err := controllers.IgnoreNotFound(err); err != nil {
-			istiolog.Errorf("unable to fetch Gateway: %v", err)
+			log.Errorf("unable to fetch Gateway: %v", err)
 			return err
 		}
 		return nil
