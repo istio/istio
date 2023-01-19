@@ -166,7 +166,7 @@ type Settings struct {
 	// EnableDualStack indicates the test should have dual stack enabled or not.
 	EnableDualStack bool
 
-	//Helm repo to be used for tests
+	// Helm repo to be used for tests
 	HelmRepo string
 }
 
