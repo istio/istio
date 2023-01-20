@@ -15,6 +15,8 @@
 package memory
 
 import (
+	"sync/atomic"
+
 	"istio.io/istio/pilot/pkg/model"
 	config2 "istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
@@ -47,7 +49,8 @@ type configStoreMonitor struct {
 	handlers map[config2.GroupVersionKind][]Handler
 	eventCh  chan ConfigEvent
 	// If enabled, events will be handled synchronously
-	sync bool
+	sync   bool
+	closed atomic.Bool
 }
 
 // NewMonitor returns new Monitor implementation with a default event buffer size.
@@ -77,6 +80,10 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Moni
 }
 
 func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
+	if m.closed.Load() {
+		return
+	}
+
 	if m.sync {
 		m.processConfigEvent(configEvent)
 	} else {
@@ -84,20 +91,21 @@ func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 	}
 }
 
+func (m *configStoreMonitor) run(stop <-chan struct{}) {
+	<-stop
+	m.closed.Store(true)
+	close(m.eventCh)
+}
+
 func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	if m.sync {
-		<-stop
+		m.run(stop)
 		return
 	}
-	for {
-		select {
-		case <-stop:
-			return
-		case ce, ok := <-m.eventCh:
-			if ok {
-				m.processConfigEvent(ce)
-			}
-		}
+	go m.run(stop)
+
+	for ce := range m.eventCh {
+		m.processConfigEvent(ce)
 	}
 }
 
