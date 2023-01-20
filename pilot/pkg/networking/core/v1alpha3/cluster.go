@@ -956,30 +956,6 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	}
 }
 
-// Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
-// Server side car uses this port after de-multiplexed from tunnel.
-func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.mutable == nil || direction == model.TrafficDirectionInbound {
-		return
-	}
-	if service == nil {
-		// At outbound, the service corresponding to the cluster has to be provided.
-		return
-	}
-
-	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.mutable.cluster)
-
-		// Add original_port field into istio metadata
-		// Endpoint could override this port but the chance should be small.
-		im.Fields["default_original_port"] = &structpb.Value{
-			Kind: &structpb.Value_NumberValue{
-				NumberValue: float64(port.Port),
-			},
-		}
-	}
-}
-
 // Build a struct which contains service metadata and will be added into cluster label.
 func buildServiceMetadata(svc *model.Service) *structpb.Value {
 	return &structpb.Value{
