@@ -104,6 +104,7 @@ type AdsClient struct {
 	PeerAddress  string              `json:"address"`
 	Labels       map[string]string   `json:"labels"`
 	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
+	Locality     *core.Locality      `json:"locality,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
@@ -205,7 +206,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 	s.addDebugHandler(mux, internalMux, "/debug/mcsz", "List information about Kubernetes MCS services", s.mcsz)
 
-	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
+	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.list)
 }
 
 func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.ServeMux,
@@ -567,6 +568,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 			PeerAddress:  c.peerAddr,
 			Labels:       c.proxy.Labels,
 			Metadata:     c.proxy.Metadata,
+			Locality:     c.proxy.Locality,
 			Watches:      map[string][]string{},
 		}
 		c.proxy.RLock()
@@ -628,7 +630,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 
 	includeEds := req.URL.Query().Get("include_eds") == "true"
-	dump, err := s.configDump(con, includeEds)
+	dump, err := s.connectionConfigDump(con, includeEds)
 	if err != nil {
 		handleHTTPError(w, err)
 		return
@@ -727,9 +729,9 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 	return dumps
 }
 
-// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// connectionConfigDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
-func (s *DiscoveryServer) configDump(conn *Connection, includeEds bool) (*admin.ConfigDump, error) {
+func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool) (*admin.ConfigDump, error) {
 	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true}
 	version := req.Push.PushVersion
 
@@ -943,8 +945,8 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// List all the supported debug commands in json.
-func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
+// list all the supported debug commands in json.
+func (s *DiscoveryServer) list(w http.ResponseWriter, req *http.Request) {
 	var cmdNames []string
 	for k := range s.debugHandlers {
 		key := strings.Replace(k, "/debug/", "", -1)
