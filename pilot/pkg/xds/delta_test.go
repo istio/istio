@@ -72,6 +72,9 @@ func TestDeltaEDS(t *testing.T) {
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 
+	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
+	s.EnsureSynced(t)
+
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe: []string{"outbound|80||test-1.default"},
