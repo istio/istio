@@ -29,6 +29,7 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -315,6 +316,7 @@ func setupDashboardTest(done <-chan struct{}) {
 						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
+					Check: check.OK(),
 					Retry: echo.Retry{
 						NoRetry: true,
 					},
