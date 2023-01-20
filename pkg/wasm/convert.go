@@ -98,18 +98,16 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
+	if ec.GetTypedConfig() == nil {
+		wasmLog.Errorf("typed extension config %+v does not contain any typed config.", ec)
+		return
+	} else if ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {
 			wasmLog.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %v", err)
 			return
 		}
-	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != xds.TypedStructType {
-		// This is not for Wasm module.
-		sendNack = false
-		wasmLog.Debugf("cannot find typed struct in %+v", ec)
-		return
-	} else {
+	} else if ec.GetTypedConfig().TypeUrl == xds.TypedStructType {
 		typedStruct := &udpa.TypedStruct{}
 		wasmTypedConfig := ec.GetTypedConfig()
 		if err := wasmTypedConfig.UnmarshalTo(typedStruct); err != nil {
@@ -118,7 +116,7 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		}
 
 		if typedStruct.TypeUrl != xds.WasmHTTPFilterType {
-			// This is not fro Wasm module.
+			// This is not for Wasm filter.
 			sendNack = false
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", typedStruct)
 			return
@@ -128,6 +126,11 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 			wasmLog.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)
 			return
 		}
+	} else {
+		// This is not for Wasm filer.
+		sendNack = false
+		wasmLog.Debugf("cannot find typed struct in %+v", ec)
+		return
 	}
 
 	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
