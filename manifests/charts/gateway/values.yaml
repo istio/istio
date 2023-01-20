@@ -73,6 +73,8 @@ autoscaling:
 # Pod environment variables
 env: {}
 
+envFrom: []
+
 # Labels to apply to all resources
 labels: {}
 

@@ -48,6 +48,9 @@
     "env": {
       "type": "object"
     },
+    "envFrom": {
+      "type": "array"
+    },
     "labels": {
       "type": "object"
     },

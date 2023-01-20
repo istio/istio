@@ -80,6 +80,10 @@ spec:
           - name: {{ $key }}
             value: {{ $val | quote }}
           {{- end }}
+          envFrom:
+          {{- with .Values.envFrom }}
+            {{- toYaml .| nindent 12 }}
+          {{- end }}
           ports:
           - containerPort: 15090
             protocol: TCP
