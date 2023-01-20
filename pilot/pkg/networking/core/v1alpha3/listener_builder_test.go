@@ -84,6 +84,22 @@ func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Lis
 	return l
 }
 
+func setNodeMetadataListenerExactBalance(m *model.NodeMetadata, enabled bool) {
+	if m.ProxyConfig == nil {
+		m.ProxyConfig = &model.NodeMetaProxyConfig{}
+	}
+	if m.ProxyConfig.ProxyMetadata == nil {
+		m.ProxyConfig.ProxyMetadata = make(map[string]string)
+	}
+	pm := m.ProxyConfig.ProxyMetadata
+	val := "true"
+	if !enabled {
+		val = "false"
+	}
+	pm["ISTIO_META_INBOUND_LISTENER_EXACT_BALANCE"] = val
+	pm["ISTIO_META_OUTBOUND_LISTENER_EXACT_BALANCE"] = val
+}
+
 func TestVirtualInboundListenerBuilder(t *testing.T) {
 	tests := []struct {
 		useExactBalance bool
@@ -99,10 +115,10 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	for _, tt := range tests {
 		proxy := &model.Proxy{
 			Metadata: &model.NodeMetadata{
-				InboundListenerExactBalance:  model.StringBool(tt.useExactBalance),
-				OutboundListenerExactBalance: model.StringBool(tt.useExactBalance),
-			},
-		}
+				ProxyConfig: &model.NodeMetaProxyConfig{
+					ProxyMetadata: make(map[string]string),
+				}}}
+		setNodeMetadataListenerExactBalance(proxy.Metadata, tt.useExactBalance)
 		listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
 		if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
 			t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
@@ -227,11 +243,9 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 // and this works only over TCP
 func TestSidecarInboundListenerWithQUICAndExactBalance(t *testing.T) {
 	proxy := &model.Proxy{
-		Metadata: &model.NodeMetadata{
-			InboundListenerExactBalance:  true,
-			OutboundListenerExactBalance: true,
-		},
+		Metadata: &model.NodeMetadata{},
 	}
+	setNodeMetadataListenerExactBalance(proxy.Metadata, true)
 	listeners := buildListeners(t, TestOptions{Services: testServicesWithQUIC}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	if l == nil {

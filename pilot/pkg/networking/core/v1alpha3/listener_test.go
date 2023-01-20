@@ -475,8 +475,7 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 				Spec: virtualServiceSpec,
 			}
 			for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-				proxy.Metadata.InboundListenerExactBalance = true
-				proxy.Metadata.OutboundListenerExactBalance = true
+				setNodeMetadataListenerExactBalance(proxy.Metadata, true)
 				listeners := buildOutboundListeners(t, proxy, nil, &virtualService, services...)
 
 				if len(listeners) != 1 {
@@ -597,8 +596,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			})
 
 			proxy := cg.SetupProxy(nil)
-			proxy.Metadata.InboundListenerExactBalance = true
-			proxy.Metadata.OutboundListenerExactBalance = true
+			setNodeMetadataListenerExactBalance(proxy.Metadata, true)
 
 			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
 			listenersToCheck := make([]string, 0)
@@ -1755,8 +1753,7 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 	// enable mysql filter that is used here
 	test.SetForTest(t, &features.EnableMysqlFilter, true)
 	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.Metadata.InboundListenerExactBalance = false
-		proxy.Metadata.OutboundListenerExactBalance = false
+		setNodeMetadataListenerExactBalance(proxy.Metadata, false)
 		listeners := buildOutboundListeners(t, proxy, sidecarConfig, nil, services...)
 		if len(listeners) != 1 {
 			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -1794,8 +1791,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	// enable use remote address to true
 	test.SetForTest(t, &features.UseRemoteAddress, true)
 	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.Metadata.InboundListenerExactBalance = false
-		proxy.Metadata.OutboundListenerExactBalance = false
+		setNodeMetadataListenerExactBalance(proxy.Metadata, false)
 		listeners := buildOutboundListeners(t, proxy, sidecarConfig, nil, services...)
 
 		if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
@@ -1858,8 +1854,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		},
 	}
 	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.Metadata.InboundListenerExactBalance = false
-		proxy.Metadata.OutboundListenerExactBalance = false
+		setNodeMetadataListenerExactBalance(proxy.Metadata, false)
 		listeners := buildOutboundListeners(t, proxy, sidecarConfig, nil, services...)
 		if len(listeners) != 4 {
 			t.Fatalf("expected %d listeners, found %d", 4, len(listeners))

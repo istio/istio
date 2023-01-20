@@ -1107,6 +1107,12 @@ type buildListenerOpts struct {
 	transport         istionetworking.TransportProtocol
 }
 
+func proxyMetdataOutboundListenerExactBalanceEnabled(o *buildListenerOpts) bool {
+	m := o.proxy.Metadata
+	return m.ProxyConfig != nil && m.ProxyConfig.ProxyMetadata != nil &&
+		m.ProxyConfig.ProxyMetadata["ISTIO_META_OUTBOUND_LISTENER_EXACT_BALANCE"] == "true"
+}
+
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 // Optionally for HTTP filters with TLS enabled, HTTP/3 can be supported by generating QUIC Mirror filters for the
 // same port (it is fine as QUIC uses UDP)
@@ -1219,7 +1225,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		}
 		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
 		// not have this set per Envoy docs for redirected listeners
-		if opts.proxy.Metadata.OutboundListenerExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
+		if proxyMetdataOutboundListenerExactBalanceEnabled(&opts) && trafficDirection == core.TrafficDirection_OUTBOUND {
 			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
 				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
 					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},

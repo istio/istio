@@ -326,6 +326,12 @@ func (lb *ListenerBuilder) inboundCustomListener(cc inboundChainConfig, chains [
 	return ll
 }
 
+func (lb *ListenerBuilder) nodeMetdataInboundListenerExactBalanceEnabled() bool {
+	nm := lb.node.Metadata
+	return nm.ProxyConfig != nil && nm.ProxyConfig.ProxyMetadata != nil &&
+		nm.ProxyConfig.ProxyMetadata["ISTIO_META_INBOUND_LISTENER_EXACT_BALANCE"] == "true"
+}
+
 func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string, tPort uint32,
 	bindToPort bool, chains []*listener.FilterChain,
 ) *listener.Listener {
@@ -342,7 +348,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 		// add extra addresses for the listener
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort, lb.node)
 	}
-	if lb.node.Metadata.InboundListenerExactBalance {
+	if lb.nodeMetdataInboundListenerExactBalanceEnabled() {
 		l.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{
 			BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
 				ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},

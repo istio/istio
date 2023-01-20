@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 42374
+
+releaseNotes:
+- |
+  **Fixed** exact balance enablement via `proxyMetadata`. Fixes (#42374)[https://github.com/istio/istio/issues/42374).
