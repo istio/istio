@@ -1732,15 +1732,13 @@ func (b *authzTest) Allow(allow allowValue) *authzTest {
 
 func (b *authzTest) Build(t framework.TestContext) *authzTest {
 	t.Helper()
-
-	// Fill in the defaults.
-	b.opts.FillDefaultsOrFail(t)
-
 	if b.allow {
 		b.opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 	} else {
 		b.opts.Check = check.Forbidden(b.opts.Port.Protocol)
 	}
+	// Fill in the defaults.
+	b.opts.FillDefaultsOrFail(t)
 	return b
 }
 

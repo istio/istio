@@ -229,7 +229,7 @@ func (o *CallOptions) FillDefaults() error {
 
 	// If no Check was specified, assume no error.
 	if o.Check == nil {
-		o.Check = NoChecker()
+		panic("o.Check not set")
 	}
 	return nil
 }
