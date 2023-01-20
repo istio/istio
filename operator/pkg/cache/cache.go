@@ -71,3 +71,11 @@ func RemoveObject(name, objHash string) {
 		objectCache.Mu.Unlock()
 	}
 }
+
+// RemoveCache removes the object Cache with the give name.
+func RemoveCache(name string) {
+	objectCachesMu.Lock()
+	defer objectCachesMu.Unlock()
+
+	delete(objectCaches, name)
+}
