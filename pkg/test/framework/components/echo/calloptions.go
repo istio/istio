@@ -227,9 +227,9 @@ func (o *CallOptions) FillDefaults() error {
 	// Fill in default retry options, if not specified.
 	o.fillRetryOptions()
 
-	// If no Check was specified, assume no error.
+	// check must be specified
 	if o.Check == nil {
-		o.Check = NoChecker()
+		panic("o.Check not set")
 	}
 	return nil
 }
