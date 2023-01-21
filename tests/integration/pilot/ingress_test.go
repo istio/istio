@@ -196,6 +196,7 @@ spec:
 									Path:    path,
 									Headers: headers.New().WithHost("my.domain.example").Build(),
 								},
+								Check: check.OK(),
 							})
 						}
 					})
@@ -209,6 +210,7 @@ spec:
 								Path:    "/",
 								Headers: headers.New().WithHost("my.domain.example").Build(),
 							},
+							Check: check.OK(),
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
