@@ -565,7 +565,7 @@ func TestFuzzServiceDeepCopy(t *testing.T) {
 	originalSvc := &Service{}
 	fuzzer.Fuzz(originalSvc)
 	copied := originalSvc.DeepCopy()
-	opts := []cmp.Option{cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex")}
+	opts := []cmp.Option{cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"), cmpopts.IgnoreFields(ServiceAttributes{}, "ServiceEntry")}
 	if !cmp.Equal(originalSvc, copied, opts...) {
 		diff := cmp.Diff(originalSvc, copied, opts...)
 		t.Errorf("unexpected diff %v", diff)

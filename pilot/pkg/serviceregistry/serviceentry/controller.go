@@ -108,7 +108,8 @@ type Controller struct {
 	// If all share one lock, then all the threads can have an obvious performance downgrade.
 	edsQueue queue.Instance
 
-	workloadHandlers []func(*model.WorkloadInstance, model.Event)
+	serviceEntryHandlers []model.ServiceHandler
+	workloadHandlers     []func(*model.WorkloadInstance, model.Event)
 
 	// callback function used to get the networkID according to workload ip and labels.
 	networkIDCallback func(IP string, labels labels.Instance) network.ID
@@ -373,6 +374,15 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		unchangedSvcs = cs
 	}
 
+	if cs != nil {
+		// fire off the k8s handlers
+		for _, h := range s.serviceEntryHandlers {
+			for _, se := range cs {
+				h(nil, se.DeepCopy(), event)
+			}
+		}
+	}
+
 	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
@@ -613,7 +623,9 @@ func (s *Controller) Cluster() cluster.ID {
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
-func (s *Controller) AppendServiceHandler(_ model.ServiceHandler) {}
+func (s *Controller) AppendServiceHandler(h model.ServiceHandler) {
+	s.serviceEntryHandlers = append(s.serviceEntryHandlers, h)
+}
 
 // AppendWorkloadHandler adds instance event handler. Service Entries does not use these handlers.
 func (s *Controller) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) {
@@ -635,11 +647,23 @@ func (s *Controller) Services() []*model.Service {
 	s.mutex.Lock()
 	allServices := s.services.getAllServices()
 	out := make([]*model.Service, 0, len(allServices))
+	weAllocated := s.services.allocateNeeded
 	if s.services.allocateNeeded {
 		autoAllocateIPs(allServices)
 		s.services.allocateNeeded = false
 	}
 	s.mutex.Unlock()
+
+	if weAllocated {
+		// only update if we actually changed during allocation
+		for _, svc := range allServices {
+			// fire off the k8s handlers
+			for _, h := range s.serviceEntryHandlers {
+				h(nil, svc.DeepCopy(), model.EventUpdate)
+			}
+		}
+	}
+
 	for _, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
 		// if return the pointer directly, there will be a race with `BuildNameTable`

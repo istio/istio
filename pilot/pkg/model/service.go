@@ -34,6 +34,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -616,6 +617,15 @@ type ServiceAttributes struct {
 	// a namespace when the namespace is imported.
 	ExportTo map[visibility.Instance]bool
 
+	// The service entry (if any) name
+	ServiceEntryName string
+
+	// The service entry (if any) namespace
+	ServiceEntryNamespace string
+
+	// The service entry spec (if any) this service was derived from.
+	ServiceEntry *networking.ServiceEntry
+
 	// LabelSelectors are the labels used by the service to select workloads.
 	// Applicable to both Kubernetes and ServiceEntries.
 	LabelSelectors map[string]string
@@ -656,6 +666,12 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	// AddressMap contains a mutex, which is safe to copy in this case.
 	// nolint: govet
 	out := *s
+
+	if s.ServiceEntry != nil {
+		out.ServiceEntry = s.ServiceEntry.DeepCopy()
+	}
+	out.ServiceEntryName = s.ServiceEntryName
+	out.ServiceEntryNamespace = s.ServiceEntryNamespace
 
 	if s.Labels != nil {
 		out.Labels = make(map[string]string, len(s.Labels))

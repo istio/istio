@@ -21,7 +21,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -59,6 +61,17 @@ type AmbientIndex struct {
 
 	// Map of Scope -> address
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
+
+	// we handle service entry events internally instead of adding a service entry handler to the controller
+	// because we need to support DNS auto allocation of IPs; calculating these IPs is an expensive operation
+	// and already batched elsewhere in the repo. instead we just wait for those events and events propagated
+	// from another service entry controller and act on those
+	handleServiceEntry func(svc *model.Service, event model.Event)
+
+	// map of service entry name/namespace to the derived service.
+	// used on pod updates to add VIPs to pods from service entries.
+	// also used on service entry updates to cleanup any old VIPs from pods/workloads maps.
+	servicesMap map[types.NamespacedName]*model.Service
 }
 
 func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
@@ -398,6 +411,166 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			}
 		},
 	}
+
+	idx.servicesMap = make(map[types.NamespacedName]*model.Service)
+	idx.handleServiceEntry = func(svc *model.Service, event model.Event) {
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+
+		if svc.Attributes.ServiceEntry == nil {
+			// event for e.g. kube svc; ignore
+			return
+		}
+
+		// We will accrue updates as we update our internal state
+		updates := sets.New[model.ConfigKey]()
+
+		if event != model.EventAdd {
+			c.cleanupOldServiceEntryVips(svc, updates)
+		}
+
+		serviceEntryNamespacedName := types.NamespacedName{
+			Name:      svc.Attributes.ServiceEntryName,
+			Namespace: svc.Attributes.ServiceEntryNamespace,
+		}
+
+		// Update indexes
+		if event == model.EventDelete {
+			// servicesMap is used when cleaning up old VIPs (e.g. `ServiceEntry.endpoints`) so we must
+			// delete this after we clean up VIPs
+			delete(idx.servicesMap, serviceEntryNamespacedName)
+		} else {
+			// servicesMap is used when constructing workloads so it must be up to date
+			c.ambientIndex.servicesMap[serviceEntryNamespacedName] = svc
+		}
+
+		pods := c.podsClient.List(metav1.NamespaceAll, klabels.Everything())
+		wls := make(map[string]*model.WorkloadInfo, len(pods))
+		for _, pod := range pods {
+			newWl := c.extractWorkload(pod)
+			if newWl != nil {
+				// Update the pod, since it now has new VIP info
+				networkAddrs := networkAddressFromWorkload(newWl)
+				for _, networkAddr := range networkAddrs {
+					c.ambientIndex.byPod[networkAddr] = newWl
+				}
+				c.ambientIndex.byUID[c.generatePodUID(pod)] = newWl
+				updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+				wls[newWl.Uid] = newWl
+			}
+		}
+
+		workloadEntries := c.getAllControllerWorkloadEntries()
+		for _, w := range workloadEntries {
+			wl := c.extractWorkloadEntry(w)
+			// Can be nil if the WorkloadEntry IP has not been mapped yet
+			//
+			// Note: this is a defensive check that mimics the logic for
+			// pods above. WorkloadEntries are mapped by their IP address
+			// in the following cases:
+			// 1. WorkloadEntry add/update
+			// 2. AuthorizationPolicy add/update
+			// 3. Namespace Ambient label add/update
+			if wl != nil {
+				// Update the WorkloadEntry, since it now has new VIP info
+				for _, networkAddr := range networkAddressFromWorkload(wl) {
+					idx.byWorkloadEntry[networkAddr] = wl
+				}
+				idx.byUID[c.generateServiceEntryUID(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, w.Spec.GetAddress())] = wl
+				updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+				wls[wl.Uid] = wl
+			}
+		}
+
+		for _, we := range svc.Attributes.ServiceEntry.Endpoints {
+			wli := c.extractWorkloadEntrySpec(we, svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, svc)
+			if wli != nil && event != model.EventDelete {
+				for _, networkAddr := range networkAddressFromWorkload(wli) {
+					idx.byWorkloadEntry[networkAddr] = wli
+				}
+				idx.byUID[c.generateServiceEntryUID(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, we.GetAddress())] = wli
+				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
+				wls[wli.Uid] = wli
+			}
+		}
+
+		vips := getVIPsFromServiceEntry(svc, nil)
+		var addrs []*workloadapi.NetworkAddress
+		var allPorts []*workloadapi.Port
+		for vip := range vips {
+			addrs = append(addrs, &workloadapi.NetworkAddress{
+				Network: c.network.String(),
+				Address: parseIP(vip),
+			})
+		}
+		for _, port := range svc.Attributes.ServiceEntry.Ports {
+			allPorts = append(allPorts, &workloadapi.Port{
+				ServicePort: port.Number,
+				TargetPort:  port.TargetPort,
+			})
+		}
+		var allSubjAltNames []string
+		allSubjAltNames = append(allSubjAltNames, svc.Attributes.ServiceEntry.SubjectAltNames...)
+
+		si := &model.ServiceInfo{
+			Service: &workloadapi.Service{
+				Name:            svc.Attributes.ServiceEntryName,
+				Namespace:       svc.Attributes.ServiceEntryNamespace,
+				Hostname:        string(svc.Hostname),
+				Addresses:       addrs,
+				Ports:           allPorts,
+				SubjectAltNames: allSubjAltNames,
+			},
+		}
+
+		networkAddrs := make([]networkAddress, 0, len(si.Addresses))
+		for _, addr := range si.Addresses {
+			if vip, ok := netip.AddrFromSlice(addr.Address); ok {
+				networkAddrs = append(networkAddrs, networkAddress{
+					ip:      vip.String(),
+					network: addr.Network,
+				})
+			}
+		}
+
+		// We send an update for each *workload* IP address previously in the service; they may have changed
+		for _, networkAddr := range networkAddrs {
+			for _, wl := range idx.byService[networkAddr] {
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+			}
+		}
+		// Update indexes
+		if event == model.EventDelete {
+			for _, networkAddr := range networkAddrs {
+				delete(idx.byService, networkAddr)
+				delete(idx.serviceByAddr, networkAddr)
+			}
+			delete(idx.serviceByHostname, si.ResourceName())
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
+		} else {
+			for _, networkAddr := range networkAddrs {
+				idx.byService[networkAddr] = wls
+				idx.serviceByAddr[networkAddr] = si
+			}
+			idx.serviceByHostname[si.ResourceName()] = si
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
+		}
+		// Fetch updates again, in case it changed from adding new workloads
+		for _, networkAddr := range networkAddrs {
+			for _, wl := range idx.byService[networkAddr] {
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+			}
+		}
+
+		if len(updates) > 0 {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: updates,
+				Reason:         []model.TriggerReason{model.AmbientUpdate},
+			})
+		}
+	}
+
 	c.services.AddEventHandler(serviceHandler)
 	return &idx
 }
@@ -673,6 +846,34 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	addresses := make([][]byte, 0, len(pod.Status.PodIPs))
 	for _, podIP := range pod.Status.PodIPs {
 		addresses = append(addresses, parseIP(podIP.IP))
+	}
+	for _, svc := range c.ambientIndex.servicesMap {
+
+		if svc.Attributes.ServiceEntry == nil {
+			// if we are here then this is dev error
+			log.Warn("dev error: service entry spec is nil; it should have been populated by the service entry handler")
+			continue
+		}
+
+		if svc.Attributes.ServiceEntry.WorkloadSelector == nil {
+			// nothing to do. we construct the ztunnel config if `endpoints` are provided in the service entry handler
+			continue
+		}
+
+		if svc.Attributes.ServiceEntry.Endpoints != nil {
+			// it is an error to provide both `endpoints` and `workloadSelector` in a service entry
+			continue
+		}
+
+		sel := svc.Attributes.ServiceEntry.WorkloadSelector.Labels
+		if !labels.Instance(sel).SubsetOf(pod.Labels) {
+			continue
+		}
+
+		vipsToPorts := getVIPsFromServiceEntry(svc, nil)
+		for vip, ports := range vipsToPorts {
+			vips[vip] = ports
+		}
 	}
 
 	wl := &workloadapi.Workload{
