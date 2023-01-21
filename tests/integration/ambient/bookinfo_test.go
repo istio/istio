@@ -29,13 +29,16 @@ import (
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -199,6 +202,12 @@ func TestBookinfo(t *testing.T) {
 				g.Expect(pod[0].Spec.Containers[0].Env).NotTo(haveEnvVar)
 				// modify template
 				systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
+				istio.GetOrFail(t, t).UpdateInjectionConfig(t, func(c *inject.Config) error {
+					c.RawTemplates["waypoint"] = file.MustAsString(templateFile)
+					return nil
+				}, cleanup.Conditionally)
+				// if we can't get the original cm, don't continue the test, as it may affect later tests
+				g.Expect(err).NotTo(gomega.HaveOccurred())
 				applyFileOrFail(t, systemNM.Name(), templateFile)
 				// wait to see modified waypoint deployment
 				getPodEnvVars := func() []v1.EnvVar {
