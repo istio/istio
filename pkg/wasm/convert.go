@@ -74,7 +74,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) bool {
 func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
-	sendNack = false
+	sendNack = true
 	status := noRemoteLoad
 	defer func() {
 		wasmConfigConversionCount.
@@ -92,41 +92,54 @@ func convert(resource *anypb.Any, cache Cache) (newExtensionConfig *anypb.Any, s
 		}
 	}()
 	if err := resource.UnmarshalTo(ec); err != nil {
-		wasmLog.Debugf("failed to unmarshal extension config resource: %v", err)
+		wasmLog.Errorf("failed to unmarshal extension config resource: %v", err)
 		return
 	}
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
+	if ec.GetTypedConfig() == nil {
+		wasmLog.Errorf("typed extension config %+v does not contain any typed config.", ec)
+		return
+	} else if ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {
-			wasmLog.Debugf("failed to unmarshal extension config resource into Wasm HTTP filter: %v", err)
+			wasmLog.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %v", err)
 			return
 		}
-	} else if ec.GetTypedConfig() == nil || ec.GetTypedConfig().TypeUrl != xds.TypedStructType {
+	} else if ec.GetTypedConfig().TypeUrl == xds.TypedStructType {
+		typedStruct := &udpa.TypedStruct{}
+		wasmTypedConfig := ec.GetTypedConfig()
+		if err := wasmTypedConfig.UnmarshalTo(typedStruct); err != nil {
+			wasmLog.Errorf("failed to unmarshal typed config for wasm filter: %v", err)
+			return
+		}
+
+		if typedStruct.TypeUrl != xds.WasmHTTPFilterType {
+			// This is not for Wasm filter.
+			sendNack = false
+			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", typedStruct)
+			return
+		}
+
+		if err := conversion.StructToMessage(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
+			wasmLog.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)
+			return
+		}
+	} else {
+		// This is not for Wasm filer.
+		sendNack = false
 		wasmLog.Debugf("cannot find typed struct in %+v", ec)
 		return
-	} else {
-		wasmStruct := &udpa.TypedStruct{}
-		wasmTypedConfig := ec.GetTypedConfig()
-		if err := wasmTypedConfig.UnmarshalTo(wasmStruct); err != nil {
-			wasmLog.Debugf("failed to unmarshal typed config for wasm filter: %v", err)
-			return
-		}
-
-		if wasmStruct.TypeUrl != xds.WasmHTTPFilterType {
-			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", wasmStruct)
-			return
-		}
-
-		if err := conversion.StructToMessage(wasmStruct.Value, wasmHTTPFilterConfig); err != nil {
-			wasmLog.Debugf("failed to convert extension config struct %+v to Wasm HTTP filter", wasmStruct)
-			return
-		}
 	}
 
 	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
+		if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetLocal() == nil {
+			wasmLog.Errorf("no remote and local load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
+			return
+		}
+		// This has a local Wasm. Let's bypass it.
+		sendNack = false
 		wasmLog.Debugf("no remote load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
 		return
 	}
