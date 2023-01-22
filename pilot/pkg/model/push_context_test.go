@@ -599,7 +599,7 @@ func TestWasmPlugins(t *testing.T) {
 			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], "istio-system"),
 				},
 			},
 		},
@@ -619,9 +619,9 @@ func TestWasmPlugins(t *testing.T) {
 			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], "istio-system"),
 				},
 			},
 		},
@@ -641,11 +641,11 @@ func TestWasmPlugins(t *testing.T) {
 			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], "istio-system"),
 				},
 				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"], "istio-system"),
 				},
 			},
 		},
@@ -674,10 +674,10 @@ func TestWasmPlugins(t *testing.T) {
 			},
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], "istio-system"),
 				},
 				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], "istio-system"),
 				},
 			},
 		},

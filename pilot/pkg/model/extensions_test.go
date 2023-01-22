@@ -219,11 +219,18 @@ func TestToSecretName(t *testing.T) {
 			wantResourceName:      "sec",
 			wantResourceNamespace: "nm",
 		},
+		{
+			name:                  "kubernetes://istio-system/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "istio-system",
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := toSecretResourceName(tt.name, tt.namespace)
+			got := toSecretResourceName(tt.name, tt.namespace, "istio-system")
 			if got != tt.want {
 				t.Errorf("got secret name %q, want %q", got, tt.want)
 			}
