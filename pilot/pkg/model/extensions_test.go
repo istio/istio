@@ -222,7 +222,7 @@ func TestToSecretName(t *testing.T) {
 		{
 			name:                  "kubernetes://istio-system/sec",
 			namespace:             "nm",
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			want:                  credentials.KubernetesSecretTypeURI + "istio-system/sec",
 			wantResourceName:      "sec",
 			wantResourceNamespace: "istio-system",
 		},
