@@ -34,7 +34,7 @@ type Handler func(config2.Config, config2.Config, model.Event)
 type Monitor interface {
 	Run(<-chan struct{})
 	AppendEventHandler(config2.GroupVersionKind, Handler)
-	ScheduleProcessEvent(ConfigEvent)
+	ScheduleProcessEvent(*ConfigEvent)
 }
 
 // ConfigEvent defines the event to be processed
@@ -47,7 +47,7 @@ type ConfigEvent struct {
 type configStoreMonitor struct {
 	store    model.ConfigStore
 	handlers map[config2.GroupVersionKind][]Handler
-	eventCh  chan ConfigEvent
+	eventCh  chan *ConfigEvent
 	// If enabled, events will be handled synchronously
 	sync   bool
 	closed atomic.Bool
@@ -58,7 +58,7 @@ func NewMonitor(store model.ConfigStore) Monitor {
 	return newBufferedMonitor(store, BufferSize, false)
 }
 
-// NewMonitor returns new Monitor implementation which will process events synchronously
+// NewSyncMonitor returns new Monitor implementation which will process events synchronously
 func NewSyncMonitor(store model.ConfigStore) Monitor {
 	return newBufferedMonitor(store, BufferSize, true)
 }
@@ -74,18 +74,18 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Moni
 	return &configStoreMonitor{
 		store:    store,
 		handlers: handlers,
-		eventCh:  make(chan ConfigEvent, bufferSize),
+		eventCh:  make(chan *ConfigEvent, bufferSize),
 		sync:     sync,
 	}
 }
 
-func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
-	if m.closed.Load() {
+func (m *configStoreMonitor) ScheduleProcessEvent(configEvent *ConfigEvent) {
+	if m.closed.Load() || configEvent == nil {
 		return
 	}
 
 	if m.sync {
-		m.processConfigEvent(configEvent)
+		m.processConfigEvent(*configEvent)
 	} else {
 		m.eventCh <- configEvent
 	}
@@ -94,7 +94,8 @@ func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 func (m *configStoreMonitor) run(stop <-chan struct{}) {
 	<-stop
 	m.closed.Store(true)
-	close(m.eventCh)
+	// indicating the monitor has exited.
+	m.eventCh <- nil
 }
 
 func (m *configStoreMonitor) Run(stop <-chan struct{}) {
@@ -105,7 +106,10 @@ func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	go m.run(stop)
 
 	for ce := range m.eventCh {
-		m.processConfigEvent(ce)
+		if ce == nil {
+			break
+		}
+		m.processConfigEvent(*ce)
 	}
 }
 
