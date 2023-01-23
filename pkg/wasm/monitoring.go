@@ -28,6 +28,7 @@ const (
 	conversionSuccess   = "success"
 	noRemoteLoad        = "no_remote_load"
 	marshalFailure      = "marshal_failure"
+	unmarshalFailure    = "unmarshal_failure"
 	fetchFailure        = "fetch_failure"
 	missRemoteFetchHint = "miss_remote_fetch_hint"
 )
