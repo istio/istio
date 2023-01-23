@@ -694,18 +694,6 @@ spec:
 					opt.Check = CheckDeny
 				}
 			}
-			waypointOnlyOverrideCheck := func(opt *echo.CallOptions) {
-				switch {
-				// sidecar won't work here with HBONE, see https://github.com/istio/istio/issues/42929
-				case dst.Config().HasSidecar():
-					opt.Check = CheckDeny
-				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
-					// No destination means no RBAC to apply. Make sure we do not accidentally reject
-					opt.Check = check.OK()
-				case !dst.Config().HasWaypointProxy() && !dst.Config().HasSidecar():
-					opt.Check = CheckDeny
-				}
-			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 				opt = opt.DeepCopy()
 				opt.HTTP.Path = "/deny"
@@ -724,11 +712,7 @@ spec:
 				opt = opt.DeepCopy()
 				opt.HTTP.Path = "/allowed-port"
 				opt.Check = check.OK()
-				// sidecar-uncaptured is failing this check
-				// seems like a bug in the sidecar HBONE implementation that
-				// may need rules transformation as well
-				// See: https://github.com/istio/istio/issues/42929
-				waypointOnlyOverrideCheck(&opt)
+				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("identity deny").Run(func(t framework.TestContext) {
