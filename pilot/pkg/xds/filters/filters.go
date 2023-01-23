@@ -45,13 +45,20 @@ import (
 )
 
 const (
-	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
-	AlpnFilterName = "istio.alpn"
-
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
+	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
+	AlpnFilterName = "istio.alpn"
+
 	MxFilterName = "istio.metadata_exchange"
+
+	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
+	// as the name defined in
+	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
+	AuthnFilterName = "istio_authn"
+
+	CaptureTLSFilterName = "capture_tls"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -173,14 +180,14 @@ var (
 	HTTPMx = buildHTTPMxFilter()
 
 	IstioNetworkAuthenticationFilter = &listener.Filter{
-		Name: "istio_authn",
+		Name: AuthnFilterName,
 		ConfigType: &listener.Filter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.network.authn.Config"),
 		},
 	}
 
 	CaptureTLS = &listener.Filter{
-		Name: "capture_tls",
+		Name: CaptureTLSFilterName,
 		ConfigType: &listener.Filter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.CaptureTLS"),
 		},

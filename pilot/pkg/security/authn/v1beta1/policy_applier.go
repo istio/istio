@@ -38,6 +38,7 @@ import (
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/pkg/log"
@@ -140,7 +141,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
 	// This has been modified to rely on the TCP filter
 
 	return &hcm.HttpFilter{
-		Name:       authn_model.AuthnFilterName,
+		Name:       filters.AuthnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
 	}
 }
