@@ -189,7 +189,7 @@ func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
 						// We do not use anyGenerator here, as this will always insert a `any: true` rule, which will
 						// always match. If we leave nil, nil, the permission generator inserts an `any: true`
 						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, nil)
-						count += 1
+						count++
 						break
 					}
 				}
@@ -200,7 +200,7 @@ func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
 						// We insert an any rule here, which will always match, because a matching notPorts will always have
 						// a match in this case
 						m.permissions[i].replaceRule(j, anyGenerator{}, attrAny, nil, []string{""})
-						count += 1
+						count++
 						break
 					}
 				}
