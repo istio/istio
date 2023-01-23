@@ -27,7 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -54,17 +53,15 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	wls, svcs := FindAssociatedResources(proxy, push)
+	_, svcs := FindAssociatedResources(proxy, push)
 
 	// We create 4 types of clusters:
 	// 1. `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
 	// 2. `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-	// 3. `inbound-pod||podip|port`. Points to inbound_CONNECT_originate with tunnel metadata set to hit the pod
-	// 4. inbound_CONNECT_originate. original dst with TLS added
+	// 3. inbound_CONNECT_originate. original dst with TLS added
 
 	clusters = append(clusters, cb.buildWaypointInboundVIPInternal(svcs)...)
 	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
-	clusters = append(clusters, cb.buildWaypointInboundPod(wls, configgen.Discovery)...)
 	clusters = append(clusters, cb.buildWaypointInboundConnect(proxy, push))
 
 	for _, c := range clusters {
@@ -73,41 +70,6 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBu
 		}
 	}
 	return clusters
-}
-
-func (cb *ClusterBuilder) buildWaypointInboundPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
-	address := wl.PodIP
-	tunnelPort := 15008
-	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
-	// and add some detunnel metadata that had the original port.
-	tunnelOrigLis := "inbound_CONNECT_originate"
-	llb := util.BuildInternalEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, port.Port, tunnelPort))
-	clusterType := cluster.Cluster_STATIC
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
-		model.TrafficDirectionInbound, &port, nil, nil)
-
-	// Apply internal_upstream, since we need to pass our the pod dest address in the metadata
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
-	return localCluster
-}
-
-// Cluster to forward to the inbound-pod listener. This is similar to the inbound-vip internal cluster, but has a single endpoint.
-// TODO: in the future maybe we could share the VIP cluster and just pre-select the IP.
-func (cb *ClusterBuilder) buildWaypointInboundInternalPodCluster(wl ambient.Workload, port model.Port) *MutableCluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "internal", host.Name(wl.PodIP), port.Port)
-	destName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port)
-	// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
-	// and add some detunnel metadata that had the original port.
-	llb := util.BuildInternalEndpoint(destName, nil)
-	clusterType := cluster.Cluster_STATIC
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
-		model.TrafficDirectionInbound, &port, nil, nil)
-	// Apply internal_upstream, since we need to pass our the pod dest address in the metadata
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = InternalUpstreamSocketMatch[0].TransportSocket
-	return localCluster
 }
 
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name (without internal subset)
@@ -208,32 +170,6 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Serv
 					}
 				}
 			}
-		}
-	}
-	return clusters
-}
-
-// `inbound-pod||podip|port`. Points to inbound_CONNECT_originate with tunnel metadata set to hit the pod
-func (cb *ClusterBuilder) buildWaypointInboundPod(wls []WorkloadAndServices, discovery model.ServiceDiscovery) []*cluster.Cluster {
-	clusters := []*cluster.Cluster{}
-	for _, wlx := range wls {
-		wl := wlx.WorkloadInfo
-		instances := discovery.GetProxyServiceInstances(&model.Proxy{
-			Type:            model.SidecarProxy,
-			IPAddresses:     []string{wl.PodIP},
-			ConfigNamespace: wl.Namespace,
-			Metadata: &model.NodeMetadata{
-				Namespace: wl.Namespace,
-				Labels:    wl.Labels,
-			},
-		})
-		for _, port := range getPorts(instances) {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-			clusters = append(clusters,
-				cb.buildWaypointInboundPodCluster(wl, port).build(),
-				cb.buildWaypointInboundInternalPodCluster(wl, port).build())
 		}
 	}
 	return clusters

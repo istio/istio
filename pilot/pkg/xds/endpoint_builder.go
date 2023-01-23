@@ -367,11 +367,6 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	dir, _, _, _ := model.ParseSubsetKey(b.clusterName)
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
-	if dir == model.TrafficDirectionInboundVIP {
-		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to internal per-pod listeners
-		target := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(e.Address), int(e.EndpointPort))
-		addr = util.BuildInternalAddress(target)
-	}
 	healthStatus := core.HealthStatus_HEALTHY
 	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
 	if e.HealthStatus == model.UnHealthy {
@@ -394,6 +389,17 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				Address: addr,
 			},
 		},
+	}
+	if dir == model.TrafficDirectionInboundVIP {
+		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
+		//target := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(e.Address), int(e.EndpointPort))
+		//addr = util.BuildInternalAddress(target)
+		address := e.Address
+		tunnelPort := 15008
+		// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
+		// and add some detunnel metadata that had the original port.
+		tunnelOrigLis := "inbound_CONNECT_originate"
+		ep = util.BuildInternalLbEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, int(e.EndpointPort), tunnelPort))
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
