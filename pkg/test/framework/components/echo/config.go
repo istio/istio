@@ -70,13 +70,13 @@ type Configurable interface {
 type VMDistro = string
 
 const (
-	UbuntuXenial VMDistro = "UbuntuXenial"
-	UbuntuJammy  VMDistro = "UbuntuJammy"
-	Debian11     VMDistro = "Debian9"
-	Centos7      VMDistro = "Centos7"
-	Rockylinux8  VMDistro = "Centos8"
+	UbuntuXenial  VMDistro = "UbuntuXenial"
+	UbuntuJammy   VMDistro = "UbuntuJammy"
+	Debian11      VMDistro = "Debian9"
+	Centos7       VMDistro = "Centos7"
+	CentosStream8 VMDistro = "CentosStream8"
 
-	DefaultVMDistro = UbuntuJammy
+	DefaultVMDistro = CentosStream8
 )
 
 // Config defines the options for creating an Echo component.

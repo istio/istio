@@ -1,0 +1,29 @@
+FROM quay.io/centos/centos:stream8
+
+# Install the certs.
+COPY certs/             /var/lib/istio/
+COPY certs/default/     /var/run/secrets/istio/
+
+RUN useradd -m --uid 1338 application
+# Sudoers used to allow to execute istio-start.sh
+COPY sudoers /etc/sudoers
+
+# hadolint ignore=DL3041
+RUN dnf -y upgrade --refresh --nobest && \
+    dnf -y install iptables iproute openssl sudo hostname procps && \
+    dnf -y clean all
+
+# Install the sidecar components
+COPY istio-sidecar.rpm  /tmp/istio-sidecar.rpm
+RUN rpm -vi /tmp/istio-sidecar.rpm && rm /tmp/istio-sidecar.rpm
+
+# It can only be done after installing istio-sidecar.rpm
+RUN chown -R istio-proxy /var/lib/istio
+
+# Install the Echo application
+COPY echo-start.sh /usr/local/bin/echo-start.sh
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/client /usr/local/bin/client
+COPY ${TARGETARCH:-amd64}/server /usr/local/bin/server
+
+ENTRYPOINT ["/usr/local/bin/echo-start.sh"]
