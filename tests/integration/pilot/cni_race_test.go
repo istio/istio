@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -85,7 +85,7 @@ func TestCNIRaceRepair(t *testing.T) {
 		})
 }
 
-func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *v1.DaemonSet {
+func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.DaemonSet {
 	cniDaemonSet, err := c.(istioKube.CLIClient).
 		Kube().AppsV1().DaemonSets("kube-system").
 		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
@@ -119,8 +119,8 @@ func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
-func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *v1.DaemonSet) {
-	deployDaemonSet := v1.DaemonSet{}
+func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *appsv1.DaemonSet) {
+	deployDaemonSet := appsv1.DaemonSet{}
 	deployDaemonSet.Spec = cniDaemonSet.Spec
 	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
 		Name:        cniDaemonSet.ObjectMeta.Name,
