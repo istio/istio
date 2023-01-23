@@ -440,7 +440,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 			}
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier("outbound-tunnel", net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(util.OutboundTunnel, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
