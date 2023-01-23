@@ -117,7 +117,9 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 			Metadata: &model.NodeMetadata{
 				ProxyConfig: &model.NodeMetaProxyConfig{
 					ProxyMetadata: make(map[string]string),
-				}}}
+				},
+			},
+		}
 		setNodeMetadataListenerExactBalance(proxy.Metadata, tt.useExactBalance)
 		listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
 		if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
