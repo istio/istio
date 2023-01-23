@@ -78,7 +78,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				return
 			}
 
-			newExtensionConfig, err := convertRemoteToLocalWasm(extConfig, wasmConfig, cache)
+			newExtensionConfig, err := convertWasmConfigFromRemoteToLocal(extConfig, wasmConfig, cache)
 			if err != nil {
 				if !wasmConfig.GetConfig().GetFailOpen() {
 					convertErr.Store(err)
@@ -101,9 +101,8 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	wg.Wait()
 	if err := convertErr.Load(); err != nil {
 		return err.(error)
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // tryUnmarshalIfRemoteWasm returns the typed extension config and wasm config by unmarsharling `resource`,
@@ -119,7 +118,7 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, 
 
 	// Wasm filter can be configured using typed struct and Wasm filter type
 	if ec.GetTypedConfig() == nil {
-		return nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config.", ec)
+		return nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config", ec)
 	} else if ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
@@ -158,7 +157,7 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, 
 	return ec, wasmHTTPFilterConfig, nil
 }
 
-func convertRemoteToLocalWasm(ec *core.TypedExtensionConfig, wasmHTTPFilterConfig *wasm.Wasm, cache Cache) (*anypb.Any, error) {
+func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPFilterConfig *wasm.Wasm, cache Cache) (*anypb.Any, error) {
 	status := conversionSuccess
 	defer func() {
 		wasmConfigConversionCount.
