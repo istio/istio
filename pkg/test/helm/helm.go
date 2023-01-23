@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 )
@@ -34,21 +33,6 @@ func New(kubeConfig string) *Helm {
 	return &Helm{
 		kubeConfig: kubeConfig,
 	}
-}
-
-// Add Repo adds the specified helm repo to use for installing the charts
-func (h *Helm) AddRepo(t framework.TestContext) {
-	command := fmt.Sprintf("helm repo add istio %s", t.Settings().HelmRepo)
-	_, err := execCommand(command)
-	if err != nil {
-		t.Fatalf("failed to add helm repo: %v", err)
-	}
-}
-
-// Delete Repo deletes the helm repo used for installing Istio charts
-func (h *Helm) DeleteRepo() error {
-	_, err := execCommand("helm repo remove istio")
-	return err
 }
 
 // InstallChartWithValues installs the specified chart with its given name to the given namespace
