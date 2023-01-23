@@ -23,6 +23,7 @@ import (
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -175,6 +176,7 @@ func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
 	_, _, _, portInt := model.ParseSubsetKey(listenerName)
 	port := fmt.Sprint(portInt) // the value and notValues from permissions is a string
 
+	count := 0
 	for i, p := range m.permissions {
 		for j, r := range p.rules {
 			if r.key == attrDestPort {
@@ -187,6 +189,7 @@ func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
 						// We do not use anyGenerator here, as this will always insert a `any: true` rule, which will
 						// always match. If we leave nil, nil, the permission generator inserts an `any: true`
 						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, nil)
+						count += 1
 						break
 					}
 				}
@@ -197,12 +200,15 @@ func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
 						// We insert an any rule here, which will always match, because a matching notPorts will always have
 						// a match in this case
 						m.permissions[i].replaceRule(j, anyGenerator{}, attrAny, nil, []string{""})
+						count += 1
 						break
 					}
 				}
 			}
 		}
 	}
+
+	log.Infof("Updated %d ambient rules for listener %s", count, listenerName)
 }
 
 // Generate generates the Envoy RBAC config from the model.
