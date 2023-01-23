@@ -37,7 +37,7 @@ func ApplyRouteConfigurationPatches(
 ) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
-		log.Errorf("route patch caused panic, so the patches did not take effect")
+		log.Errorf("route patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
 	out = routeConfiguration
