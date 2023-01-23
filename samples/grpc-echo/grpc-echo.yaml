@@ -19,6 +19,406 @@ spec:
   - name: tcp
     port: 9090
     targetPort: 19090
+  - name: peon-8100
+    port: 8100
+    protocol: TCP
+    targetPort: 8100
+  - name: peon-8101
+    port: 8101
+    protocol: TCP
+    targetPort: 8101
+  - name: peon-8102
+    port: 8102
+    protocol: TCP
+    targetPort: 8102
+  - name: peon-8103
+    port: 8103
+    protocol: TCP
+    targetPort: 8103
+  - name: peon-8104
+    port: 8104
+    protocol: TCP
+    targetPort: 8104
+  - name: peon-8105
+    port: 8105
+    protocol: TCP
+    targetPort: 8105
+  - name: peon-8106
+    port: 8106
+    protocol: TCP
+    targetPort: 8106
+  - name: peon-8107
+    port: 8107
+    protocol: TCP
+    targetPort: 8107
+  - name: peon-8108
+    port: 8108
+    protocol: TCP
+    targetPort: 8108
+  - name: peon-8109
+    port: 8109
+    protocol: TCP
+    targetPort: 8109
+  - name: peon-8110
+    port: 8110
+    protocol: TCP
+    targetPort: 8110
+  - name: peon-8111
+    port: 8111
+    protocol: TCP
+    targetPort: 8111
+  - name: peon-8112
+    port: 8112
+    protocol: TCP
+    targetPort: 8112
+  - name: peon-8113
+    port: 8113
+    protocol: TCP
+    targetPort: 8113
+  - name: peon-8114
+    port: 8114
+    protocol: TCP
+    targetPort: 8114
+  - name: peon-8115
+    port: 8115
+    protocol: TCP
+    targetPort: 8115
+  - name: peon-8116
+    port: 8116
+    protocol: TCP
+    targetPort: 8116
+  - name: peon-8117
+    port: 8117
+    protocol: TCP
+    targetPort: 8117
+  - name: peon-8118
+    port: 8118
+    protocol: TCP
+    targetPort: 8118
+  - name: peon-8119
+    port: 8119
+    protocol: TCP
+    targetPort: 8119
+  - name: peon-8120
+    port: 8120
+    protocol: TCP
+    targetPort: 8120
+  - name: peon-8121
+    port: 8121
+    protocol: TCP
+    targetPort: 8121
+  - name: peon-8122
+    port: 8122
+    protocol: TCP
+    targetPort: 8122
+  - name: peon-8123
+    port: 8123
+    protocol: TCP
+    targetPort: 8123
+  - name: peon-8124
+    port: 8124
+    protocol: TCP
+    targetPort: 8124
+  - name: peon-8125
+    port: 8125
+    protocol: TCP
+    targetPort: 8125
+  - name: peon-8126
+    port: 8126
+    protocol: TCP
+    targetPort: 8126
+  - name: peon-8127
+    port: 8127
+    protocol: TCP
+    targetPort: 8127
+  - name: peon-8128
+    port: 8128
+    protocol: TCP
+    targetPort: 8128
+  - name: peon-8129
+    port: 8129
+    protocol: TCP
+    targetPort: 8129
+  - name: peon-8130
+    port: 8130
+    protocol: TCP
+    targetPort: 8130
+  - name: peon-8131
+    port: 8131
+    protocol: TCP
+    targetPort: 8131
+  - name: peon-8132
+    port: 8132
+    protocol: TCP
+    targetPort: 8132
+  - name: peon-8133
+    port: 8133
+    protocol: TCP
+    targetPort: 8133
+  - name: peon-8134
+    port: 8134
+    protocol: TCP
+    targetPort: 8134
+  - name: peon-8135
+    port: 8135
+    protocol: TCP
+    targetPort: 8135
+  - name: peon-8136
+    port: 8136
+    protocol: TCP
+    targetPort: 8136
+  - name: peon-8137
+    port: 8137
+    protocol: TCP
+    targetPort: 8137
+  - name: peon-8138
+    port: 8138
+    protocol: TCP
+    targetPort: 8138
+  - name: peon-8139
+    port: 8139
+    protocol: TCP
+    targetPort: 8139
+  - name: peon-8140
+    port: 8140
+    protocol: TCP
+    targetPort: 8140
+  - name: peon-8141
+    port: 8141
+    protocol: TCP
+    targetPort: 8141
+  - name: peon-8142
+    port: 8142
+    protocol: TCP
+    targetPort: 8142
+  - name: peon-8143
+    port: 8143
+    protocol: TCP
+    targetPort: 8143
+  - name: peon-8144
+    port: 8144
+    protocol: TCP
+    targetPort: 8144
+  - name: peon-8145
+    port: 8145
+    protocol: TCP
+    targetPort: 8145
+  - name: peon-8146
+    port: 8146
+    protocol: TCP
+    targetPort: 8146
+  - name: peon-8147
+    port: 8147
+    protocol: TCP
+    targetPort: 8147
+  - name: peon-8148
+    port: 8148
+    protocol: TCP
+    targetPort: 8148
+  - name: peon-8149
+    port: 8149
+    protocol: TCP
+    targetPort: 8149
+  - name: peon-8150
+    port: 8150
+    protocol: TCP
+    targetPort: 8150
+  - name: peon-8151
+    port: 8151
+    protocol: TCP
+    targetPort: 8151
+  - name: peon-8152
+    port: 8152
+    protocol: TCP
+    targetPort: 8152
+  - name: peon-8153
+    port: 8153
+    protocol: TCP
+    targetPort: 8153
+  - name: peon-8154
+    port: 8154
+    protocol: TCP
+    targetPort: 8154
+  - name: peon-8155
+    port: 8155
+    protocol: TCP
+    targetPort: 8155
+  - name: peon-8156
+    port: 8156
+    protocol: TCP
+    targetPort: 8156
+  - name: peon-8157
+    port: 8157
+    protocol: TCP
+    targetPort: 8157
+  - name: peon-8158
+    port: 8158
+    protocol: TCP
+    targetPort: 8158
+  - name: peon-8159
+    port: 8159
+    protocol: TCP
+    targetPort: 8159
+  - name: peon-8160
+    port: 8160
+    protocol: TCP
+    targetPort: 8160
+  - name: peon-8161
+    port: 8161
+    protocol: TCP
+    targetPort: 8161
+  - name: peon-8162
+    port: 8162
+    protocol: TCP
+    targetPort: 8162
+  - name: peon-8163
+    port: 8163
+    protocol: TCP
+    targetPort: 8163
+  - name: peon-8164
+    port: 8164
+    protocol: TCP
+    targetPort: 8164
+  - name: peon-8165
+    port: 8165
+    protocol: TCP
+    targetPort: 8165
+  - name: peon-8166
+    port: 8166
+    protocol: TCP
+    targetPort: 8166
+  - name: peon-8167
+    port: 8167
+    protocol: TCP
+    targetPort: 8167
+  - name: peon-8168
+    port: 8168
+    protocol: TCP
+    targetPort: 8168
+  - name: peon-8169
+    port: 8169
+    protocol: TCP
+    targetPort: 8169
+  - name: peon-8170
+    port: 8170
+    protocol: TCP
+    targetPort: 8170
+  - name: peon-8171
+    port: 8171
+    protocol: TCP
+    targetPort: 8171
+  - name: peon-8172
+    port: 8172
+    protocol: TCP
+    targetPort: 8172
+  - name: peon-8173
+    port: 8173
+    protocol: TCP
+    targetPort: 8173
+  - name: peon-8174
+    port: 8174
+    protocol: TCP
+    targetPort: 8174
+  - name: peon-8175
+    port: 8175
+    protocol: TCP
+    targetPort: 8175
+  - name: peon-8176
+    port: 8176
+    protocol: TCP
+    targetPort: 8176
+  - name: peon-8177
+    port: 8177
+    protocol: TCP
+    targetPort: 8177
+  - name: peon-8178
+    port: 8178
+    protocol: TCP
+    targetPort: 8178
+  - name: peon-8179
+    port: 8179
+    protocol: TCP
+    targetPort: 8179
+  - name: peon-8180
+    port: 8180
+    protocol: TCP
+    targetPort: 8180
+  - name: peon-8181
+    port: 8181
+    protocol: TCP
+    targetPort: 8181
+  - name: peon-8182
+    port: 8182
+    protocol: TCP
+    targetPort: 8182
+  - name: peon-8183
+    port: 8183
+    protocol: TCP
+    targetPort: 8183
+  - name: peon-8184
+    port: 8184
+    protocol: TCP
+    targetPort: 8184
+  - name: peon-8185
+    port: 8185
+    protocol: TCP
+    targetPort: 8185
+  - name: peon-8186
+    port: 8186
+    protocol: TCP
+    targetPort: 8186
+  - name: peon-8187
+    port: 8187
+    protocol: TCP
+    targetPort: 8187
+  - name: peon-8188
+    port: 8188
+    protocol: TCP
+    targetPort: 8188
+  - name: peon-8189
+    port: 8189
+    protocol: TCP
+    targetPort: 8189
+  - name: peon-8190
+    port: 8190
+    protocol: TCP
+    targetPort: 8190
+  - name: peon-8191
+    port: 8191
+    protocol: TCP
+    targetPort: 8191
+  - name: peon-8192
+    port: 8192
+    protocol: TCP
+    targetPort: 8192
+  - name: peon-8193
+    port: 8193
+    protocol: TCP
+    targetPort: 8193
+  - name: peon-8194
+    port: 8194
+    protocol: TCP
+    targetPort: 8194
+  - name: peon-8195
+    port: 8195
+    protocol: TCP
+    targetPort: 8195
+  - name: peon-8196
+    port: 8196
+    protocol: TCP
+    targetPort: 8196
+  - name: peon-8197
+    port: 8197
+    protocol: TCP
+    targetPort: 8197
+  - name: peon-8198
+    port: 8198
+    protocol: TCP
+    targetPort: 8198
+  - name: peon-8199
+    port: 8199
+    protocol: TCP
+    targetPort: 8199
 ---
 apiVersion: apps/v1
 kind: Deployment
