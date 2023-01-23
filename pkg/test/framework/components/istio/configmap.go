@@ -273,20 +273,20 @@ func (mc *meshConfig) MeshConfigOrFail(t test.Failer) *meshconfig.MeshConfig {
 	return out
 }
 
-func (cm *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) error {
+func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) error {
 	// Invalidate the member variable. The next time it's requested, it will get a fresh value.
-	cm.mu.Lock()
-	cm.meshConfig = nil
-	cm.mu.Unlock()
+	mc.mu.Lock()
+	mc.meshConfig = nil
+	mc.mu.Unlock()
 
 	errG := multierror.Group{}
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
 
-	for _, c := range cm.ctx.AllClusters().Kube() {
+	for _, c := range mc.ctx.AllClusters().Kube() {
 		c := c
 		errG.Go(func() error {
-			cfgMap, err := cm.getConfigMap(c, cm.configMapName())
+			cfgMap, err := mc.getConfigMap(c, mc.configMapName())
 			if err != nil {
 				return err
 			}
@@ -296,32 +296,31 @@ func (cm *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 			if err != nil {
 				return err
 			}
-
 			// Store the original YAML so we can restore later.
 			mu.Lock()
 			origCfg[c.Name()] = mcYAML
 			mu.Unlock()
 
 			// Parse the YAML.
-			mc, err := yamlToMeshConfig(mcYAML)
+			ymc, err := yamlToMeshConfig(mcYAML)
 			if err != nil {
 				return err
 			}
 
 			// Apply the change.
-			if err := update(mc); err != nil {
+			if err := update(ymc); err != nil {
 				return err
 			}
 
 			// Store the updated MeshConfig back into the config map.
-			newYAML, err := meshConfigToYAML(mc)
+			newYAML, err := meshConfigToYAML(ymc)
 			if err != nil {
 				return err
 			}
 			setMeshConfigData(cfgMap, newYAML)
 
 			// Write the config map back to the cluster.
-			if err := cm.updateConfigMap(c, cfgMap); err != nil {
+			if err := mc.updateConfigMap(c, cfgMap); err != nil {
 				return err
 			}
 			scopes.Framework.Infof("patched %s meshconfig:\n%s", c.Name(), cfgMap.Data["mesh"])
@@ -332,23 +331,23 @@ func (cm *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	// Restore the original value of the MeshConfig when the context completes.
 	t.CleanupStrategy(cleanupStrategy, func() {
 		// Invalidate the member mesh config again, since we're rolling back the changes.
-		cm.mu.Lock()
-		cm.meshConfig = nil
-		cm.mu.Unlock()
+		mc.mu.Lock()
+		mc.meshConfig = nil
+		mc.mu.Unlock()
 
 		errG := multierror.Group{}
 		mu.RLock()
 		defer mu.RUnlock()
 		for cn, mcYAML := range origCfg {
 			cn, mcYAML := cn, mcYAML
-			c := cm.ctx.AllClusters().GetByName(cn)
+			c := mc.ctx.AllClusters().GetByName(cn)
 			errG.Go(func() error {
-				cfgMap, err := cm.getConfigMap(c, cm.configMapName())
+				cfgMap, err := mc.getConfigMap(c, mc.configMapName())
 				if err != nil {
 					return err
 				}
 				setMeshConfigData(cfgMap, mcYAML)
-				if err := cm.updateConfigMap(c, cfgMap); err != nil {
+				if err := mc.updateConfigMap(c, cfgMap); err != nil {
 					return err
 				}
 				scopes.Framework.Infof("cleanup patched %s meshconfig:\n%s", c.Name(), cfgMap.Data["mesh"])
@@ -463,18 +462,6 @@ func getInjectConfigYaml(cm *corev1.ConfigMap, configKey string) (string, error)
 		return "", fmt.Errorf("missing ConfigMap config key %q", configKey)
 	}
 	return configYaml, nil
-}
-
-func getValues(cm *corev1.ConfigMap, valuesKey string) (string, error) {
-	if cm == nil {
-		return "", fmt.Errorf("no ConfigMap found")
-	}
-
-	values, exists := cm.Data[valuesKey]
-	if !exists {
-		return "", fmt.Errorf("missing ConfigMap values key %q", valuesKey)
-	}
-	return values, nil
 }
 
 func injectConfigToYaml(config *inject.Config) (string, error) {
