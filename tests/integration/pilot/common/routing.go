@@ -1624,8 +1624,8 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
-			name:   d[0].Config().Service,
-			//This creates a Gateway with a TCP listener that will accept TCP traffic from host `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			name: d[0].Config().Service,
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") + tcpVirtualService("gateway", fqdn, fqdn, 80, d[0].PortForName("tcp").ServicePort),
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
@@ -1639,7 +1639,6 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 				Message: "This is a test TCP message",
 				Check: check.Each(
 					func(r echoClient.Response) error {
-
 						body := r.RawContent
 						ok := strings.Contains(body, "PROXY TCP4")
 						if !ok {
@@ -1649,7 +1648,6 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 					}),
 			},
 		},
-
 		)
 	}
 	return cases
@@ -1675,22 +1673,21 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
-			name:   d[0].Config().Service,
-			//This creates a Gateway with a TCP listener that will accept TCP traffic from host `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			name: d[0].Config().Service,
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") + tcpVirtualService("gateway", fqdn, fqdn, 80, d[0].PortForName("tcp").ServicePort),
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
-				Count:                1,
-				Port:                 echo.Port{ServicePort: 80},
-				Scheme:               scheme.TCP,
-				Address:              gateway,
+				Count:   1,
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.TCP,
+				Address: gateway,
 				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
 				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto#extensions-filters-listener-proxy-protocol-v3-proxyprotocol
-				Message: "This is a test TCP message",
+				Message:              "This is a test TCP message",
 				ProxyProtocolVersion: 1,
 				Check: check.Each(
 					func(r echoClient.Response) error {
-
 						body := r.RawContent
 						ok := strings.Contains(body, "PROXY TCP4")
 						if ok {

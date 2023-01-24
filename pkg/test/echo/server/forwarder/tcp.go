@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	proxyproto "github.com/pires/go-proxyproto"
+
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"

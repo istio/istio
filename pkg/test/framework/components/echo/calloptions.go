@@ -237,7 +237,7 @@ func (o *CallOptions) FillDefaults() error {
 		panic("o.Check not set")
 	}
 
-	//If ProxyProtoVersion is not 0, 1, or 2, default to 0 (disabled)
+	// If ProxyProtoVersion is not 0, 1, or 2, default to 0 (disabled)
 	o.fillProxyProtoVersion()
 
 	return nil

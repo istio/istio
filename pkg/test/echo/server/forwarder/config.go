@@ -56,10 +56,10 @@ type Config struct {
 	method                  string
 	secure                  bool
 
-	hboneTLSConfig    *tls.Config
-	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
-	hboneHeaders      http.Header
-	proxyProtocolVersion    int
+	hboneTLSConfig       *tls.Config
+	hboneClientConfig    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	hboneHeaders         http.Header
+	proxyProtocolVersion int
 }
 
 func (c *Config) fillDefaults() error {
