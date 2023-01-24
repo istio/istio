@@ -1606,7 +1606,7 @@ spec:
 
 // 1. Creates a TCP Gateway and VirtualService listener
 // 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter is applied
+// 3. Assumes that the proxy filter EnvoyFilter not is applied
 func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
 	gatewayListenPort := 80
@@ -1636,6 +1636,9 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 				ProxyProtocolVersion: 1,
 				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
 				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto#extensions-filters-listener-proxy-protocol-v3-proxyprotocol
+				//
+				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
+				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
 				Message: "This is a test TCP message",
 				Check: check.Each(
 					func(r echoClient.Response) error {
@@ -1655,7 +1658,7 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 
 // 1. Creates a TCP Gateway and VirtualService listener
 // 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter is not applied
+// 3. Assumes that the proxy filter EnvoyFilter is applied
 func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
 	gatewayListenPort := 80
