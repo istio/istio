@@ -18,23 +18,17 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"testing"
-	"time"
 
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/fake"
-	ktesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -66,7 +60,7 @@ global:
 			Templates: tmpl,
 			Values:    vc,
 		}
-	})
+	}, func(func()) {})
 	input := MergedInput{
 		Namespace:      "default",
 		GatewayName:    "gateway",
@@ -74,13 +68,13 @@ global:
 		ServiceAccount: "sa",
 		Cluster:        "cluster1",
 	}
-	deploy, err := cc.RenderDeploymentMerged(input)
+	deploy, err := cc.RenderDeploymentApply(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, c := range deploy.Spec.Template.Spec.Containers {
-		if c.ImagePullPolicy != policy {
+		if *c.ImagePullPolicy != policy {
 			t.Fatal(err)
 		}
 	}
@@ -113,7 +107,7 @@ global:
 					Templates: tmpl,
 					Values:    vc,
 				}
-			})
+			}, func(func()) {})
 			stop := make(chan struct{})
 			t.Cleanup(func() {
 				close(stop)
@@ -129,111 +123,32 @@ global:
 	})
 
 	run("full namespace gateway", func(t *testing.T, cc *WaypointProxyController) {
-		_, err := cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
-			Create(context.Background(), makeGateway("gateway", ""), metav1.CreateOptions{})
-		assert.NoError(t, err)
-		time.Sleep(time.Millisecond * 100)
+		g := gomega.NewGomegaWithT(t)
+		createGatewaysAndWait(g, cc, "test", makeGateway("gateway", ""))
+		// TODO: status update will fail and log due to different fake clients being used
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
-		assertCreated(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-waypoint-proxy", Namespace: "test"},
-		)
-
-		assert.NoError(t, cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
-			Delete(context.Background(), "gateway", metav1.DeleteOptions{}))
-		time.Sleep(time.Millisecond * 100)
-		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
-		assertDeleted(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-2-waypoint-proxy", Namespace: "test"},
+		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
+		g.Expect(gws.Items).To(
+			gomega.And(
+				gomega.ConsistOf(Names("sa-1-waypoint-proxy", "sa-2-waypoint-proxy")),
+				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
+			),
 		)
 	})
 
 	run("single SA gateway", func(t *testing.T, cc *WaypointProxyController) {
-		_, err := cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
-			Create(context.Background(), makeGateway("gateway", "sa-1"), metav1.CreateOptions{})
-		assert.NoError(t, err)
-		time.Sleep(time.Millisecond * 100)
+		g := gomega.NewGomegaWithT(t)
+		createGatewaysAndWait(g, cc, "test", makeGateway("gateway", "sa-1"))
+		// TODO: status update will fail and log due to different fake clients being used
 		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
-		assertCreated(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
-		)
-
-		assert.NoError(t, cc.client.GatewayAPI().GatewayV1alpha2().Gateways("test").
-			Delete(context.Background(), "gateway", metav1.DeleteOptions{}))
-		time.Sleep(time.Millisecond * 100)
-		assert.NoError(t, cc.Reconcile(types.NamespacedName{Name: "gateway", Namespace: "test"}))
-		assertDeleted(t, cc.client,
-			TypedNamed{Kind: gvk.Deployment, Name: "sa-1-waypoint-proxy", Namespace: "test"},
+		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
+		g.Expect(gws.Items).To(
+			gomega.And(
+				gomega.ConsistOf(Names("sa-1-waypoint-proxy")),
+				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
+			),
 		)
 	})
-}
-
-type TypedNamed struct {
-	Kind            config.GroupVersionKind
-	Name, Namespace string
-}
-
-func assertCreated(t test.Failer, c kube.Client, expected ...TypedNamed) {
-	t.Helper()
-	var have []TypedNamed
-	actions := c.Kube().(*fake.Clientset).Actions()
-	for _, action := range actions {
-		c, ok := action.(ktesting.CreateAction)
-		if !ok {
-			continue
-		}
-		o := c.GetObject().(metav1.Object)
-		t := c.GetObject().GetObjectKind().GroupVersionKind()
-		have = append(have, TypedNamed{
-			Kind: config.GroupVersionKind{
-				Group:   t.Group,
-				Version: t.Version,
-				Kind:    t.Kind,
-			},
-			Name:      o.GetName(),
-			Namespace: o.GetNamespace(),
-		})
-	}
-	sort.Slice(have, func(i, j int) bool {
-		return have[i].Name < have[j].Name
-	})
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i].Name < expected[j].Name
-	})
-	assert.Equal(t, expected, have)
-}
-
-func assertDeleted(t test.Failer, c kube.Client, expected ...TypedNamed) {
-	t.Helper()
-	have := []TypedNamed{}
-	actions := c.Kube().(*fake.Clientset).Actions()
-	for _, action := range actions {
-		c, ok := action.(ktesting.DeleteAction)
-		if !ok {
-			continue
-		}
-		tt, f := collections.All.FindByGroupVersionResource(c.GetResource())
-		if !f {
-			t.Fatalf("unknown resource %v", c.GetResource())
-		}
-		have = append(have, TypedNamed{
-			Kind: config.GroupVersionKind{
-				Group:   tt.Resource().Group(),
-				Version: tt.Resource().Version(),
-				Kind:    tt.Resource().Kind(),
-			},
-			Name:      c.GetName(),
-			Namespace: c.GetNamespace(),
-		})
-	}
-	sort.Slice(have, func(i, j int) bool {
-		return have[i].Name < have[j].Name
-	})
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i].Name < expected[j].Name
-	})
-	assert.Equal(t, expected, have)
 }
 
 func makeGateway(s string, sa string) *v1alpha2.Gateway {
@@ -252,4 +167,35 @@ func makeGateway(s string, sa string) *v1alpha2.Gateway {
 		}
 	}
 	return gw
+}
+
+func HaveName(name string) gomega.OmegaMatcher {
+	return gomega.HaveField("ObjectMeta", gomega.HaveField("Name", name))
+}
+
+func Names(names ...string) []gomega.OmegaMatcher {
+	elements := []gomega.OmegaMatcher{}
+	for _, name := range names {
+		elements = append(elements, HaveName(name))
+	}
+	return elements
+}
+
+func HaveOwner(name, kind string) gomega.OmegaMatcher {
+	return gomega.HaveField("ObjectMeta",
+		gomega.HaveField("OwnerReferences",
+			gomega.ContainElement(
+				gomega.And(gomega.HaveField("Name", name),
+					gomega.HaveField("Kind", kind)))))
+}
+
+func createGatewaysAndWait(g gomega.Gomega, cc *WaypointProxyController, ns string, gws ...*v1alpha2.Gateway) {
+	for _, gw := range gws {
+		g.Expect(cc.client.GatewayAPI().GatewayV1alpha2().Gateways(ns).
+			Create(context.Background(), gw, metav1.CreateOptions{})).
+			Error().NotTo(gomega.HaveOccurred())
+	}
+	g.Eventually(func() ([]*v1alpha2.Gateway, error) {
+		return cc.gateways.Gateways(ns).List(labels.Everything())
+	}).Should(gomega.ConsistOf(gws))
 }

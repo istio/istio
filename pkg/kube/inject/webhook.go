@@ -94,7 +94,9 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
 
-	watcher Watcher
+	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
+	watcher   Watcher
+	MultiCast *WatcherMulticast
 
 	env      *model.Environment
 	revision string
@@ -175,7 +177,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:   p.Revision,
 	}
 
-	p.Watcher.SetHandler(wh.updateConfig)
+	mc := NewMulticast(p.Watcher, wh.GetConfig)
+	mc.AddHandler(wh.updateConfig)
+	wh.MultiCast = mc
 	sidecarConfig, valuesConfig, err := p.Watcher.Get()
 	if err != nil {
 		return nil, err

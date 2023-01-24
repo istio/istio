@@ -284,7 +284,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		}
 		return inject.WebhookConfig{}
 	}
-	s.initAmbient(args, getWebhookConfig)
+	addhanlder := func(fn func()) {
+		wh.MultiCast.AddHandler(func(c *inject.Config, s string) error {
+			fn()
+			return nil
+		})
+	}
+	s.initAmbient(args, getWebhookConfig, addhanlder)
 
 	s.XDSServer.InitGenerators(e, args.Namespace, s.internalDebugMux)
 
@@ -1141,8 +1147,8 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initAmbient(args *PilotArgs, webhookConfig func() inject.WebhookConfig) {
-	ambientController := ambientcontroller.NewAggregate(args.Namespace, s.clusterID, args.PodName, args.Revision, webhookConfig, s.XDSServer, false)
+func (s *Server) initAmbient(args *PilotArgs, webhookConfig func() inject.WebhookConfig, addHandler func(func())) {
+	ambientController := ambientcontroller.NewAggregate(args.Namespace, s.clusterID, args.PodName, args.Revision, webhookConfig, s.XDSServer, false, addHandler)
 	s.environment.Cache = ambientController
 	if s.multiclusterController != nil {
 		s.multiclusterController.AddHandler(ambientController)

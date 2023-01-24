@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -27,13 +26,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -44,6 +49,7 @@ const (
 	bookinfoGateway = bookinfoDir + "networking/bookinfo-gateway.yaml"
 	routingV1       = bookinfoDir + "networking/virtual-service-all-v1.yaml"
 	headerRouting   = bookinfoDir + "networking/virtual-service-reviews-test-v2.yaml"
+	templateFile    = "testdata/modified-waypoint-template.yaml"
 )
 
 func TestBookinfo(t *testing.T) {
@@ -186,6 +192,31 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					})
 				})
+			})
+			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
+				// check that waypoint deployment is unmodified
+				g := gomega.NewGomegaWithT(t)
+				pod, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")()
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				haveEnvVar := gomega.ContainElement(gomega.BeEquivalentTo(v1.EnvVar{Name: "FOO", Value: "bar"}))
+				g.Expect(pod[0].Spec.Containers[0].Env).NotTo(haveEnvVar)
+				// modify template
+				istio.GetOrFail(t, t).UpdateInjectionConfig(t, func(c *inject.Config) error {
+					c.RawTemplates["waypoint"] = file.MustAsString(templateFile)
+					return nil
+				}, cleanup.Conditionally)
+				// wait to see modified waypoint deployment
+				getPodEnvVars := func() []v1.EnvVar {
+					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")()
+					g.Expect(err).NotTo(gomega.HaveOccurred())
+					var result []v1.EnvVar
+					// if old pods haven't shut down yet, include all pods env vars
+					for _, pod := range pods {
+						result = append(result, pod.Spec.Containers[0].Env...)
+					}
+					return result
+				}
+				g.Eventually(getPodEnvVars, time.Minute).Should(haveEnvVar)
 			})
 		})
 }

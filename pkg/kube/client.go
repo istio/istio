@@ -32,15 +32,18 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -235,7 +238,45 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
-	c.kube = fake.NewSimpleClientset(objects...)
+	f := fake.NewSimpleClientset(objects...)
+	f.PrependReactor(
+		"patch",
+		"deployments",
+		func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+			pa := action.(clienttesting.PatchAction)
+			if pa.GetPatchType() == types.ApplyPatchType {
+				// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
+				// if an apply patch occurs for a deployment that doesn't yet exist, create it.
+				// However, we already hold the fakeclient lock, so we can't use the front door.
+				rfunc := clienttesting.ObjectReaction(f.Tracker())
+				_, obj, err := rfunc(
+					clienttesting.NewGetAction(pa.GetResource(), pa.GetNamespace(), pa.GetName()),
+				)
+				if kerrors.IsNotFound(err) || obj == nil {
+					_, _, _ = rfunc(
+						clienttesting.NewCreateAction(
+							pa.GetResource(),
+							pa.GetNamespace(),
+							&appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      pa.GetName(),
+									Namespace: pa.GetNamespace(),
+								},
+							},
+						),
+					)
+				}
+				return rfunc(clienttesting.NewPatchAction(
+					pa.GetResource(),
+					pa.GetNamespace(),
+					pa.GetName(),
+					types.StrategicMergePatchType,
+					pa.GetPatch()))
+			}
+			return false, nil, nil
+		},
+	)
+	c.kube = f
 	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
 	s := FakeIstioScheme
 

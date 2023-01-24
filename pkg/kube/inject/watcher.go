@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -187,4 +188,33 @@ func readConfigMap(cm *v1.ConfigMap, configKey, valuesKey string) (*Config, stri
 		return nil, "", fmt.Errorf("missing ConfigMap values key %q", valuesKey)
 	}
 	return c, valuesConfig, nil
+}
+
+// WatcherMultiCast allows multiple event handlers to register for the same watcher,
+// simplifying injector based controllers.
+type WatcherMulticast struct {
+	handlers []func(*Config, string) error
+	impl     Watcher
+	Get      func() WebhookConfig
+}
+
+func NewMulticast(impl Watcher, getter func() WebhookConfig) *WatcherMulticast {
+	res := &WatcherMulticast{
+		impl: impl,
+		Get:  getter,
+	}
+	impl.SetHandler(func(c *Config, s string) error {
+		var err error
+		for _, h := range res.handlers {
+			multierr.AppendInto(&err, h(c, s))
+		}
+		return err
+	})
+	return res
+}
+
+// SetHandler sets the handler that is run when the config changes.
+// Must call this before Run.
+func (wm *WatcherMulticast) AddHandler(handler func(*Config, string) error) {
+	wm.handlers = append(wm.handlers, handler)
 }

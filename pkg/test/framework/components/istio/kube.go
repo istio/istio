@@ -40,6 +40,7 @@ import (
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	istiokube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
@@ -50,6 +51,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
@@ -80,7 +82,8 @@ type istioImpl struct {
 	env                  *kube.Environment
 	externalControlPlane bool
 	installer            *installer
-	*configMap
+	*meshConfig
+	injectConfig *injectConfig
 
 	mu sync.Mutex
 	// ingress components, indexed first by cluster name and then by gateway name.
@@ -256,7 +259,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		workDir:              workDir,
 		values:               iop.Spec.Values.Fields,
 		installer:            newInstaller(ctx, workDir),
-		configMap:            newConfigMap(ctx, cfg.SystemNamespace, revisions),
+		meshConfig:           &meshConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
+		injectConfig:         &injectConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
 		iopFiles:             iopFiles,
 		ingress:              map[string]map[string]ingress.Instance{},
 		istiod:               map[string]istiokube.PortForwarder{},
@@ -827,6 +831,14 @@ func (i *istioImpl) configureRemoteConfigForControlPlane(c cluster.Cluster) erro
 		}
 	}
 	return nil
+}
+
+func (i *istioImpl) UpdateInjectionConfig(t resource.Context, update func(*inject.Config) error, cleanup cleanup.Strategy) error {
+	return i.injectConfig.UpdateInjectionConfig(t, update, cleanup)
+}
+
+func (i *istioImpl) InjectionConfig() (*inject.Config, error) {
+	return i.injectConfig.InjectConfig()
 }
 
 func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i iopFiles, err error) {
