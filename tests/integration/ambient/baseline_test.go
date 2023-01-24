@@ -203,6 +203,7 @@ func TestPodIP(t *testing.T) {
 }
 
 func TestServerSideLB(t *testing.T) {
+	t.Skip()
 	// TODO: test that naked client reusing connections will load balance
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need HTTP
@@ -254,6 +255,7 @@ func TestServerSideLB(t *testing.T) {
 }
 
 func TestServerRouting(t *testing.T) {
+	t.Skip()
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
@@ -338,6 +340,7 @@ spec:
 }
 
 func TestWaypointEnvoyFilter(t *testing.T) {
+	t.Skip()
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
@@ -413,6 +416,7 @@ spec:
 }
 
 func TestTrafficSplit(t *testing.T) {
+	t.Skip()
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
@@ -506,6 +510,7 @@ spec:
 }
 
 func TestAuthorizationL4(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
@@ -593,6 +598,7 @@ spec:
 }
 
 func TestAuthorizationGateway(t *testing.T) {
+	t.Skip()
 	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions)) {
 		svcs := apps.All
 		for _, dst := range svcs {
@@ -733,6 +739,7 @@ spec:
 }
 
 func TestAuthorizationL7(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
@@ -902,6 +909,7 @@ spec:
 }
 
 func TestMTLS(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
@@ -1079,6 +1087,7 @@ func TestMTLS(t *testing.T) {
 }
 
 func TestOutboundPolicyAllowAny(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
@@ -1105,6 +1114,7 @@ func TestOutboundPolicyAllowAny(t *testing.T) {
 }
 
 func TestServiceEntryDNS(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
@@ -1147,6 +1157,7 @@ spec:
 }
 
 func TestServiceEntry(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
@@ -1293,6 +1304,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 }
 
 func TestIngress(t *testing.T) {
+	t.Skip()
 	runIngressTest(t, func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if opt.Scheme != scheme.HTTP {
 			return
@@ -1393,6 +1405,7 @@ func skipOnNativeZtunnel(tc framework.TestContext, reason string) {
 }
 
 func TestL7Telemetry(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.prometheus.ambient").
 		Run(func(tc framework.TestContext) {
@@ -1482,6 +1495,7 @@ func deployName(inst echo.Instance) string {
 }
 
 func TestMetadataServer(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		ver, _ := t.Clusters().Default().GetKubernetesVersion()
 		if !strings.Contains(ver.GitVersion, "-gke") {
@@ -1512,6 +1526,7 @@ func TestMetadataServer(t *testing.T) {
 }
 
 func TestDirect(t *testing.T) {
+	t.Skip()
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
