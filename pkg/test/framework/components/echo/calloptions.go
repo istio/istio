@@ -270,9 +270,8 @@ func (o *CallOptions) fillProxyProtoVersion() int {
 	if o.ProxyProtocolVersion > 0 && o.ProxyProtocolVersion < 3 {
 		// Nothing to do.
 		return o.ProxyProtocolVersion
-	} else {
-		return 0
 	}
+	return 0
 }
 
 func (o *CallOptions) numWorkloads() int {

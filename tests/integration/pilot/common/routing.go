@@ -118,7 +118,7 @@ func tcpVirtualService(gateway, host, destHost string, sourcePort, targetPort in
 		DestinationHost    string
 		SourcePort         int
 		TargetPort         int
-	}{gateway, host, "", sourcePort, targetPort})
+	}{gateway, host, destHost, sourcePort, targetPort})
 }
 
 const gatewayTmpl = `
@@ -1625,8 +1625,10 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
 			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") + tcpVirtualService("gateway", fqdn, fqdn, 80, d[0].PortForName("tcp").ServicePort),
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
+			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
+				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:                1,
@@ -1635,7 +1637,10 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 				Address:              gateway,
 				ProxyProtocolVersion: 1,
 				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
-				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto#extensions-filters-listener-proxy-protocol-v3-proxyprotocol
+				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
+				//
+				// If the PROXY protocol filter is enabled,
+				// Envoy will parse and consume the header out of the TCP payload, otherwise echo it back as-is)
 				//
 				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
 				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
@@ -1645,7 +1650,7 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 						body := r.RawContent
 						ok := strings.Contains(body, "PROXY TCP4")
 						if !ok {
-							return fmt.Errorf("Sent proxy protocol header, and it NOT was echoed back. If the PROXY protocol filter is enabled, Envoy should parse and consume the header out of the TCP payload, otherwise echo it back as-is")
+							return fmt.Errorf("Sent proxy protocol header, and it NOT was echoed back.")
 						}
 						return nil
 					}),
@@ -1677,8 +1682,10 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
 			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") + tcpVirtualService("gateway", fqdn, fqdn, 80, d[0].PortForName("tcp").ServicePort),
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
+			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
+				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -1686,15 +1693,16 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 				Scheme:  scheme.TCP,
 				Address: gateway,
 				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
-				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto#extensions-filters-listener-proxy-protocol-v3-proxyprotocol
-				Message:              "This is a test TCP message",
+				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
+				// If the PROXY protocol filter is enabled, Envoy should parse and consume the header out of the TCP payload, otherwise echo it back as-is.
+				Message: "This is a test TCP message",
 				ProxyProtocolVersion: 1,
 				Check: check.Each(
 					func(r echoClient.Response) error {
 						body := r.RawContent
 						ok := strings.Contains(body, "PROXY TCP4")
 						if ok {
-							return fmt.Errorf("Sent proxy protocol header, and it NOT was echoed back. If the PROXY protocol filter is enabled, Envoy should parse and consume the header out of the TCP payload, otherwise echo it back as-is")
+							return fmt.Errorf("Sent proxy protocol header, and it NOT was echoed back.")
 						}
 						return nil
 					}),
@@ -1721,7 +1729,8 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
 			name:   d[0].Config().Service,
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP") + httpVirtualService("gateway", fqdn, d[0].PortForName(gatewayListenPortName).ServicePort),
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP") +
+				httpVirtualService("gateway", fqdn, d[0].PortForName(gatewayListenPortName).ServicePort),
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
