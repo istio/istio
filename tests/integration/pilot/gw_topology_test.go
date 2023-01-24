@@ -170,7 +170,7 @@ spec:
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
 `).ApplyOrFail(t, apply.CleanupConditionally)
-			//Wait for gateway readiness
+			// Wait for gateway readiness
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
 				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
@@ -183,7 +183,7 @@ spec:
 				}
 			})
 
-			//Apply an envoy filter in a subtest to the existing gateway
+			// Apply an envoy filter in a subtest to the existing gateway
 			t.NewSubTest("filter").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 apiVersion: networking.istio.io/v1alpha3
