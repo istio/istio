@@ -263,7 +263,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-`).ApplyOrFail(t, apply.NoCleanup)
+`).ApplyOrFail(t, apply.CleanupConditionally)
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
 				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
