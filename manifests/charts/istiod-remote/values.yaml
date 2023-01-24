@@ -54,6 +54,9 @@ pilot:
   configMap: false
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
+  # topologySpreadConstraints control how pods are scheduled on a cluster
+  # Use this to spread istiod instances across availability zones and nodes
+  topologySpreadConstraints: []
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
