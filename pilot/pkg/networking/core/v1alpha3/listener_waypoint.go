@@ -288,9 +288,6 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 				ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 				TrafficDirection:  core.TrafficDirection_INBOUND,
 				FilterChains:      []*listener.FilterChain{},
-				ListenerFilters: []*listener.ListenerFilter{
-					util.InternalListenerSetAddressFilter(),
-				},
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector

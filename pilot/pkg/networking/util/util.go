@@ -479,15 +479,14 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, lbls labels.Instance,
-) *core.Metadata {
+	clusterID cluster.ID, lbls labels.Instance, metadata *core.Metadata) {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
-		return nil
+		return
 	}
 
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{},
+	if metadata.FilterMetadata == nil {
+		metadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
 
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
@@ -527,7 +526,7 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
 
-	return metadata
+	return
 }
 
 // MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.

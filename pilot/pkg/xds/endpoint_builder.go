@@ -389,6 +389,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				Address: addr,
 			},
 		},
+		Metadata: &core.Metadata{},
 	}
 	if dir == model.TrafficDirectionInboundVIP {
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
@@ -408,7 +409,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove pilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
+	util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
