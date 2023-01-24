@@ -179,11 +179,10 @@ func TestWasmConvertWithWrongMessages(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			wantNack := true // Nack should be returned due to the wrong input.
 			mc := &mockCache{}
-			gotNack := MaybeConvertWasmExtensionConfig(tc.input, mc)
-			if gotNack != wantNack {
-				t.Errorf("wasm config conversion send nack got %v want %v", gotNack, tc.wantNack)
+			gotErr := MaybeConvertWasmExtensionConfig(tc.input, mc)
+			if gotErr == nil {
+				t.Errorf("wasm config conversion should return error, but did not")
 			}
 		})
 	}
@@ -194,7 +193,7 @@ func TestWasmConvert(t *testing.T) {
 		name       string
 		input      []*core.TypedExtensionConfig
 		wantOutput []*core.TypedExtensionConfig
-		wantNack   bool
+		wantErr    bool
 	}{
 		{
 			name: "nil typed config ",
@@ -204,7 +203,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["nil-typed-config"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "remote load success",
@@ -214,7 +213,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "remote load success without typed struct",
@@ -224,7 +223,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "remote load fail",
@@ -234,7 +233,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-fail"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "mix",
@@ -246,7 +245,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail"],
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "remote load fail open",
@@ -256,7 +255,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-allow"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no typed struct",
@@ -266,7 +265,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["empty"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no wasm",
@@ -276,7 +275,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["no-wasm"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no remote load",
@@ -286,7 +285,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["no-remote-load"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no uri",
@@ -296,7 +295,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["no-http-uri"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "secret",
@@ -306,7 +305,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 	}
 
@@ -317,7 +316,7 @@ func TestWasmConvert(t *testing.T) {
 				resources = append(resources, protoconv.MessageToAny(i))
 			}
 			mc := &mockCache{}
-			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
+			gotErr := MaybeConvertWasmExtensionConfig(resources, mc)
 			if len(resources) != len(c.wantOutput) {
 				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(resources), len(c.wantOutput))
 			}
@@ -331,8 +330,10 @@ func TestWasmConvert(t *testing.T) {
 					t.Errorf("wasm config conversion output index %d got %v want %v", i, ec, c.wantOutput[i])
 				}
 			}
-			if gotNack != c.wantNack {
-				t.Errorf("wasm config conversion send nack got %v want %v", gotNack, c.wantNack)
+			if c.wantErr && gotErr == nil {
+				t.Error("wasm config conversion fails to raise an error")
+			} else if !c.wantErr && gotErr != nil {
+				t.Errorf("wasm config conversion got unexpected error: %v", gotErr)
 			}
 		})
 	}
