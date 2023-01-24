@@ -105,6 +105,17 @@ var (
 	}
 )
 
+func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checker {
+	// Check that each response saw one of the workload IPs for the src echo instance
+	addresses := sets.New(src.WorkloadsOrFail(t).Addresses()...)
+	return check.Each(func(response echot.Response) error {
+		if !addresses.Contains(response.IP) {
+			return fmt.Errorf("expected original source (%v) to be propogated, but got %v", addresses.UnsortedList(), response.IP)
+		}
+		return nil
+	})
+}
+
 func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	s := src.Config().HasSidecar()
 	d := dst.Config().HasSidecar() || dst.Config().HasWaypointProxy()
@@ -126,6 +137,17 @@ func TestServices(t *testing.T) {
 			// TODO: fix this and remove this skip
 			opt.Check = check.OK()
 		}
+
+		if !dst.Config().HasWaypointProxy() &&
+			!src.Config().HasWaypointProxy() &&
+			(src.Config().Service != dst.Config().Service) &&
+			!dst.Config().HasSidecar() {
+			// Check original source, unless there is a waypoint in the path. For waypoint, we don't (yet?) propagate original src.
+			// Self call is also (temporarily) broken
+			// Sidecars lose the original src
+			opt.Check = check.And(opt.Check, OriginalSourceCheck(t, src))
+		}
+
 		// TODO test from all source workloads as well
 		src.CallOrFail(t, opt)
 	})
