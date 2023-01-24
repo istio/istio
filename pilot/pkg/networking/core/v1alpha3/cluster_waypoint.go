@@ -109,7 +109,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
+	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket(util.TunnelHostMetadata)
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
 }
