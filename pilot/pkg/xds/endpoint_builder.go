@@ -400,6 +400,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		// and add some detunnel metadata that had the original port.
 		tunnelOrigLis := "inbound_CONNECT_originate"
 		ep = util.BuildInternalLbEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, int(e.EndpointPort), tunnelPort))
+		ep.LoadBalancingWeight = &wrappers.UInt32Value{
+			Value: e.GetLoadBalancingWeight(),
+		}
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
