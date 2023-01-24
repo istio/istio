@@ -99,7 +99,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	}
 
 	wg.Wait()
-	err := multierror.Append(convertErrs[0], convertErrs[1:]...).ErrorOrNil()
+	err := multierror.Append(nil, convertErrs...).ErrorOrNil()
 	if err != nil {
 		wasmLog.Errorf("convert the wasm config: %v", err)
 	}
