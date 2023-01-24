@@ -444,15 +444,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 							}
 							perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 						}
-					} else if node.Metadata.EnableHTTPHeaderSession {
-						// Check if Node enabled header based session state. If it is enabled configure
-						// session filter with "x-session-affinity" header.
-						perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
-							Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
-								StatefulSession: util.BuildStatefulSessionHeaderFilterConfig(),
-							},
-						}
-						perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 					}
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),

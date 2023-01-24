@@ -122,7 +122,13 @@ var (
 	PersistentSessionLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
 		"istio.io/persistent-session",
-		"If not empty, services with this label will use persistent sessions",
+		"If not empty, services with this label will use cookie based persistent sessions",
+	).Get()
+
+	PersistentSessionHeaderLabel = env.Register(
+		"PILOT_PERSISTENT_SESSION_HEADER_LABEL",
+		"istio.io/persistent-session-header",
+		"If not empty, services with this label will use header based persistent sessions",
 	).Get()
 
 	DrainingLabel = env.Register(

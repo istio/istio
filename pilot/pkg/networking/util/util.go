@@ -94,8 +94,6 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
-
-	DefaultHTTPSessionHeader = "x-session-affinity"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -806,38 +804,44 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 }
 
 func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
-	if features.PersistentSessionLabel == "" || svc == nil {
+	if svc == nil {
 		return nil
 	}
-	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
-	if sessionCookie == "" {
-		return nil
+	switch {
+	case features.PersistentSessionLabel != "":
+		sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
+		if sessionCookie == "" {
+			return nil
+		}
+		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
+		if !found {
+			cookiePath = "/"
+		}
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.cookie",
+				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+					Cookie: &httpv3.Cookie{
+						Path: cookiePath,
+						Ttl:  &durationpb.Duration{Seconds: 120},
+						Name: cookieName,
+					},
+				}),
+			},
+		}
+	case features.PersistentSessionHeaderLabel != "":
+		sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
+		if sessionHeader == "" {
+			return nil
+		}
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.header",
+				TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
+					Name: sessionHeader,
+				}),
+			},
+		}
 	}
-	cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
-	if !found {
-		cookiePath = "/"
-	}
-	return &statefulsession.StatefulSession{
-		SessionState: &core.TypedExtensionConfig{
-			Name: "envoy.http.stateful_session.cookie",
-			TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
-				Cookie: &httpv3.Cookie{
-					Path: cookiePath,
-					Ttl:  &durationpb.Duration{Seconds: 120},
-					Name: cookieName,
-				},
-			}),
-		},
-	}
-}
-
-func BuildStatefulSessionHeaderFilterConfig() *statefulsession.StatefulSession {
-	return &statefulsession.StatefulSession{
-		SessionState: &core.TypedExtensionConfig{
-			Name: "envoy.http.stateful_session.header",
-			TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
-				Name: DefaultHTTPSessionHeader,
-			}),
-		},
-	}
+	return nil
 }
