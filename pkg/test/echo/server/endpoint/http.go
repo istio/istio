@@ -31,8 +31,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 
+	"istio.io/istio/pkg/h2c"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/util/retry"
