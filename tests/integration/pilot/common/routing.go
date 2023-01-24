@@ -150,7 +150,7 @@ spec:
 ---
 `
 
-func httpGateway(host string, port int, portName, protocol string) string {
+func httpGateway(host string, port int, portName, protocol string) string { //nolint: unparam
 	return tmpl.MustEvaluate(gatewayTmpl, struct {
 		GatewayHost     string
 		GatewayPort     int
@@ -1629,7 +1629,7 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
 				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
-			call:   apps.Naked[0].CallOrFail,
+			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:                1,
 				Port:                 echo.Port{ServicePort: 80},
@@ -1650,7 +1650,7 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 						body := r.RawContent
 						ok := strings.Contains(body, "PROXY TCP4")
 						if !ok {
-							return fmt.Errorf("Sent proxy protocol header, and it NOT was echoed back.")
+							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
 						}
 						return nil
 					}),
@@ -1686,7 +1686,7 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
 				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
-			call:   apps.Naked[0].CallOrFail,
+			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Port:    echo.Port{ServicePort: 80},
@@ -1695,14 +1695,14 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
 				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
 				// If the PROXY protocol filter is enabled, Envoy should parse and consume the header out of the TCP payload, otherwise echo it back as-is.
-				Message: "This is a test TCP message",
+				Message:              "This is a test TCP message",
 				ProxyProtocolVersion: 1,
 				Check: check.Each(
 					func(r echoClient.Response) error {
 						body := r.RawContent
 						ok := strings.Contains(body, "PROXY TCP4")
 						if ok {
-							return fmt.Errorf("Sent proxy protocol header, and it NOT was echoed back.")
+							return fmt.Errorf("sent proxy protocol header, and it was echoed back")
 						}
 						return nil
 					}),
@@ -1728,10 +1728,10 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 		}
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
-			name:   d[0].Config().Service,
+			name: d[0].Config().Service,
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP") +
 				httpVirtualService("gateway", fqdn, d[0].PortForName(gatewayListenPortName).ServicePort),
-			call:   apps.Naked[0].CallOrFail,
+			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Port:    echo.Port{ServicePort: gatewayListenPort},
