@@ -17,7 +17,6 @@ package wasm
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
@@ -25,6 +24,7 @@ import (
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/hashicorp/go-multierror"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -48,8 +48,8 @@ func createAllowAllFilter(name string) (*anypb.Any, error) {
 func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error {
 	var wg sync.WaitGroup
 
-	var convertErr atomic.Value
 	numResources := len(resources)
+	convertErrs := make([]error, numResources)
 	wg.Add(numResources)
 
 	startTime := time.Now()
@@ -65,7 +65,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				wasmConfigConversionCount.
 					With(resultTag.Value(unmarshalFailure)).
 					Increment()
-				convertErr.Store(err)
+				convertErrs[i] = err
 				return
 			}
 
@@ -81,7 +81,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			newExtensionConfig, err := convertWasmConfigFromRemoteToLocal(extConfig, wasmConfig, cache)
 			if err != nil {
 				if !wasmConfig.GetConfig().GetFailOpen() {
-					convertErr.Store(err)
+					convertErrs[i] = err
 					return
 				}
 				// Use NOOP filter because the download failed.
@@ -89,7 +89,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				if err != nil {
 					// If the fallback is failing, send the Nack regardless of fail_open.
 					err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
-					convertErr.Store(err)
+					convertErrs[i] = err
 					return
 				}
 			}
@@ -99,12 +99,11 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	}
 
 	wg.Wait()
-	if err := convertErr.Load(); err != nil {
-		e := err.(error)
-		wasmLog.Errorf("MaybeConvertWasmExtensionConfig: %v", e)
-		return e
+	err := multierror.Append(convertErrs[0], convertErrs[1:]...).ErrorOrNil()
+	if err != nil {
+		wasmLog.Errorf("convert the wasm config: %v", err)
 	}
-	return nil
+	return err
 }
 
 // tryUnmarshalIfRemoteWasm returns the typed extension config and wasm config by unmarsharling `resource`,
