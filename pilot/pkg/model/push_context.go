@@ -1881,7 +1881,7 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
 	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(plugin, env.Mesh().RootNamespace); pluginWrapper != nil {
+		if pluginWrapper := convertToWasmPluginWrapper(plugin, ps.secretAllowed); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}
@@ -2217,10 +2217,15 @@ func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceNa
 	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
 	switch kind {
 	case gvk.Secret:
-		if ps.GatewayAPIController != nil {
-			return ps.GatewayAPIController.SecretAllowed(resourceName, namespace)
-		}
+		ps.secretAllowed(resourceName, namespace)
 	default:
+	}
+	return false
+}
+
+func (ps *PushContext) secretAllowed(resourceName string, namespace string) bool {
+	if ps.GatewayAPIController != nil {
+		return ps.GatewayAPIController.SecretAllowed(resourceName, namespace)
 	}
 	return false
 }

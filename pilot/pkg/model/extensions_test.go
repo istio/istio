@@ -229,8 +229,14 @@ func TestToSecretName(t *testing.T) {
 	}
 
 	for _, tt := range cases {
+		secretAllowed := func(resourceName string, namespace string) bool {
+			if resourceName == "kubernetes://istio-system/sec" && namespace == "nm" {
+				return true
+			}
+			return false
+		}
 		t.Run(tt.name, func(t *testing.T) {
-			got := toSecretResourceName(tt.name, tt.namespace, "istio-system")
+			got := toSecretResourceName(tt.name, tt.namespace, secretAllowed)
 			if got != tt.want {
 				t.Errorf("got secret name %q, want %q", got, tt.want)
 			}

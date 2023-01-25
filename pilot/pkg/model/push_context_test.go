@@ -562,6 +562,10 @@ func TestWasmPlugins(t *testing.T) {
 		},
 	}
 
+	secretAllowed := func(resourceName string, namespace string) bool {
+		return false
+	}
+
 	testCases := []struct {
 		name               string
 		node               *Proxy
@@ -599,7 +603,7 @@ func TestWasmPlugins(t *testing.T) {
 			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], secretAllowed),
 				},
 			},
 		},
@@ -619,9 +623,9 @@ func TestWasmPlugins(t *testing.T) {
 			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"], "istio-system"),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"], "istio-system"),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], secretAllowed),
 				},
 			},
 		},
@@ -641,11 +645,11 @@ func TestWasmPlugins(t *testing.T) {
 			listenerInfo: anyListener,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], secretAllowed),
 				},
 				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], "istio-system"),
-					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"], secretAllowed),
 				},
 			},
 		},
@@ -674,10 +678,10 @@ func TestWasmPlugins(t *testing.T) {
 			},
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], secretAllowed),
 				},
 				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], "istio-system"),
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], secretAllowed),
 				},
 			},
 		},

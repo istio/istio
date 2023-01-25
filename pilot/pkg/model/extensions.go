@@ -49,6 +49,8 @@ const (
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 )
 
+type ResourceReferenceAllowed func(string, string) bool
+
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
 	switch class {
 	case istionetworking.ListenerClassGateway:
@@ -126,7 +128,7 @@ func matchPorts(portSelectors []*typeapi.PortSelector, port int) bool {
 	return false
 }
 
-func convertToWasmPluginWrapper(originPlugin config.Config, rootNamespace string) *WasmPluginWrapper {
+func convertToWasmPluginWrapper(originPlugin config.Config, secretAllowed ResourceReferenceAllowed) *WasmPluginWrapper {
 	var ok bool
 	// Make a deep copy since we are going to mutate the resource later for secret env variable.
 	// We do not want to mutate the underlying resource at informer cache.
@@ -158,7 +160,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config, rootNamespace string
 		u.Scheme = ociScheme
 	}
 	// Normalize the image pull secret to the full resource name.
-	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace, rootNamespace)
+	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace, secretAllowed)
 	datasource := buildDataSource(u, wasmPlugin)
 	resourceName := plugin.Namespace + "." + plugin.Name
 	wasmExtensionConfig := &envoyWasmFilterV3.Wasm{
@@ -186,7 +188,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config, rootNamespace string
 // NOTE: the secret referenced by WasmPlugin has to be in the same namespace as the WasmPlugin,
 // so this function makes sure that the secret resource name, which will be used to retrieve secret at
 // xds generation time, has the same namespace as the WasmPlugin.
-func toSecretResourceName(name, pluginNamespace, rootNamespace string) string {
+func toSecretResourceName(name, pluginNamespace string, secretAllowed ResourceReferenceAllowed) string {
 	if name == "" {
 		return ""
 	}
@@ -198,10 +200,11 @@ func toSecretResourceName(name, pluginNamespace, rootNamespace string) string {
 		log.Debugf("Failed to parse wasm secret resource name %v", err)
 		return ""
 	}
-	// Forcely rewrite secret namespace to plugin namespace if it is not rootNamespace,
-	// since we require secret resource referenced by WasmPlugin co-located with WasmPlugin
-	// in the same namespace.
-	if sr.Namespace != rootNamespace {
+	// If secret resource referenced by WasmPlugin is not co-located with WasmPlugin
+	// in the same namespace, we need to check if it has been granted permission via
+	// ReferenceGrant to the pluginNamespace. Forcefully rewrite secret namespace to plugin
+	// namespace if the secret specified does not have reference grants specified.
+	if sr.Namespace != pluginNamespace && !secretAllowed(name, pluginNamespace) {
 		sr.Namespace = pluginNamespace
 	}
 	return sr.KubernetesResourceName()
