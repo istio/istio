@@ -16,10 +16,7 @@ package v1beta1
 
 import (
 	"fmt"
-	"net"
-	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -42,6 +39,8 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/security"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/log"
 )
 
@@ -233,23 +232,19 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 		provider.FromParams = jwtRule.FromParams
 
-		if features.EnableRemoteJwks && jwtRule.JwksUri != "" {
-			// Use remote jwks if jwksUri is non empty. Parse the jwksUri to get the cluster name,
-			// generate the jwt filter config using remoteJwks.
-			// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri.
-			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
-			// it will always let envoy to fetch the jwks for consistent behavior.
-			u, _ := url.Parse(jwtRule.JwksUri)
-			host, hostPort, _ := net.SplitHostPort(u.Host)
-			// TODO: Default port based on scheme ?
-			port := 80
-			if hostPort != "" {
-				var err error
-				if port, err = strconv.Atoi(hostPort); err != nil {
-					port = 80 // If port is not specified or there is an error in parsing default to 80.
-				}
+		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
+
+		// Use Envoy remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
+		// cluster name, generate the jwt filter config using remote Jwks.
+		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
+		// remoteJwksMode is Hybrid.
+		if features.JwksFetchMode != jwt.Istiod && jwtRule.JwksUri != "" {
+			jwksInfo, err := security.ParseJwksURI(jwtRule.JwksUri)
+			if err != nil {
+				authnLog.Errorf("Failed to parse jwt rule jwks uri %v", err)
 			}
-			_, cluster, err := extensionproviders.LookupCluster(push, host, port)
+			_, cluster, err := extensionproviders.LookupCluster(push, jwksInfo.Hostname.String(), jwksInfo.Port)
+			authnLog.Debugf("Look up cluster result: %v", cluster)
 
 			if err == nil && len(cluster) > 0 {
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
@@ -265,11 +260,28 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
-			} else {
+			} else if features.JwksFetchMode == jwt.Hybrid {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
+			} else {
+				// Log error and create remote JWKs with fake cluster
+				authnLog.Errorf("Failed to look up Envoy cluster %v. "+
+					"Please create ServiceEntry to register external JWKs server or "+
+					"set PILOT_JWT_ENABLE_REMOTE_JWKS to hybrid/istiod mode.", err)
+				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
+					RemoteJwks: &envoy_jwt.RemoteJwks{
+						HttpUri: &core.HttpUri{
+							Uri: jwtRule.JwksUri,
+							HttpUpstreamType: &core.HttpUri_Cluster{
+								Cluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", jwksInfo.Hostname, jwksInfo.Port),
+							},
+							Timeout: &durationpb.Duration{Seconds: 5},
+						},
+						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
+					},
+				}
 			}
 		} else {
-			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
+			// Use inline jwks as existing flow, either jwtRule.jwks is empty or let istiod to fetch the jwtRule.jwksUri
 			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
 		}
 

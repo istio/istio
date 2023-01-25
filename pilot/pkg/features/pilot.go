@@ -8,6 +8,8 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -203,12 +205,17 @@ var (
 			"if headless services have a large number of pods.",
 	).Get()
 
-	EnableRemoteJwks = env.RegisterBoolVar(
-		"PILOT_JWT_ENABLE_REMOTE_JWKS",
-		false,
-		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
-			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
-	).Get()
+	JwksFetchMode = func() jwt.JwksFetchMode {
+		v := env.RegisterStringVar(
+			"PILOT_JWT_ENABLE_REMOTE_JWKS",
+			"false",
+			"Mode of fetching JWKs from JwksUri in RequestAuthentication. Supported value: "+
+				"istiod, false, hybrid, true, envoy. The client fetching JWKs is as following: "+
+				"istiod/false - Istiod; hybrid/true - Envoy and fallback to Istiod if JWKs server is external; "+
+				"envoy - Envoy.",
+		).Get()
+		return jwt.ConvertToJwksFetchMode(v)
+	}()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
