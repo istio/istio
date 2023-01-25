@@ -151,7 +151,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "encap"},
 		}},
 		TypedPerFilterConfig: map[string]*any.Any{
-			"connect-authority": xdsfilters.ConnectAuthorityEnabled,
+			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
 		},
 	})
 
