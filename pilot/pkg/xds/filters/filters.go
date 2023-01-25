@@ -172,11 +172,23 @@ var (
 	}
 
 	ConnectBaggageFilter = &hcm.HttpFilter{
-		Name: "baggage",
+		Name: "connect_baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_baggage.Config"),
 		},
 	}
+
+	ConnectAuthorityFilter = &hcm.HttpFilter{
+		Name: "connect_authority",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_authority.Config"),
+		},
+	}
+
+	ConnectAuthorityEnabled = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
+		map[string]interface{}{
+			"enabled": true,
+		})
 
 	SetDstAddress = &listener.ListenerFilter{
 		Name: "set_dst_address",

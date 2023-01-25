@@ -93,9 +93,9 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 2. (many) VIP listeners, `inbound-vip||hostname|port`. This will apply service policies. For typical case (not redirecting to external service),
 	//    this will end up forwarding to a cluster for the same VIP, which will have endpoints for each Pod internal listener
 	// 3. Our final CONNECT listener, originating the tunnel
-	wls, svcs := FindAssociatedResources(lb.node, lb.push)
+	_, svcs := FindAssociatedResources(lb.node, lb.push)
 
-	listeners = append(listeners, lb.buildWaypointInboundTerminateConnect(svcs, wls))
+	listeners = append(listeners, lb.buildWaypointInboundTerminateConnect(svcs))
 
 	// VIP listeners
 	listeners = append(listeners, lb.buildWaypointInboundVIP(svcs)...)
@@ -107,7 +107,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 
 // Our top level terminating CONNECT listener, `inbound TERMINATE`. This has a route per destination and decapsulates the CONNECT,
 // forwarding to the VIP or Pod internal listener.
-func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Name]*model.Service, wls []WorkloadAndServices) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Name]*model.Service) *listener.Listener {
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// CONNECT listener
 	vhost := &route.VirtualHost{
@@ -139,39 +139,21 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 	}
 
 	// it's possible for us to hit this listener and target a Pod directly; route through the inbound-pod internal listener
-	// TODO: this shouldn't match on port; we should accept traffic to any port.
-	for _, wlx := range wls {
-		wl := wlx.WorkloadInfo
-		// TODO: fake proxy is really bad. Should have these take in Workload or similar
-		instances := lb.Discovery.GetProxyServiceInstances(&model.Proxy{
-			Type:            model.SidecarProxy,
-			IPAddresses:     []string{wl.PodIP},
-			ConfigNamespace: wl.Namespace,
-			Metadata: &model.NodeMetadata{
-				Namespace: wl.Namespace,
-				Labels:    wl.Labels,
-			},
-		})
-		// For each port, setup a route
-		for _, port := range getPorts(instances) {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "internal", host.Name(wl.PodIP), port.Port)
-			vhost.Routes = append(vhost.Routes, &route.Route{
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-					Headers: []*route.HeaderMatcher{
-						istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", wl.PodIP, port.Port)),
-					},
-				},
-				Action: &route.Route_Route{Route: &route.RouteAction{
-					UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-						UpgradeType:   "CONNECT",
-						ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-					}},
-					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				}},
-			})
-		}
-	}
+	vhost.Routes = append(vhost.Routes, &route.Route{
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+		},
+		Action: &route.Route_Route{Route: &route.RouteAction{
+			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+				UpgradeType:   "CONNECT",
+				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+			}},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "encap"},
+		}},
+		TypedPerFilterConfig: map[string]*any.Any{
+			"connect-authority": xdsfilters.ConnectAuthorityEnabled,
+		},
+	})
 
 	httpOpts := &httpListenerOpts{
 		routeConfig: &route.RouteConfiguration{
@@ -194,7 +176,10 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
 	}
-	h.HttpFilters = append([]*hcm.HttpFilter{xdsfilters.ConnectBaggageFilter}, h.HttpFilters...)
+	h.HttpFilters = append([]*hcm.HttpFilter{
+		xdsfilters.ConnectBaggageFilter,
+		xdsfilters.ConnectAuthorityFilter,
+	}, h.HttpFilters...)
 	name := "inbound_CONNECT_terminate"
 	l := &listener.Listener{
 		Name:    name,

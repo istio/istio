@@ -59,6 +59,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBu
 	// 1. `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
 	// 2. `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
 	// 3. inbound_CONNECT_originate. original dst with TLS added
+	// 4. encap, routes to internal listener to initiate CONNECT
 
 	clusters = append(clusters, cb.buildWaypointInboundVIPInternal(svcs)...)
 	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
@@ -139,6 +140,16 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPInternal(svcs map[host.Name]*mo
 			}
 			clusters = append(clusters, cb.buildWaypointInboundVIPInternalCluster(svc, *port).build())
 		}
+	}
+	{
+		clusterType := cluster.Cluster_STATIC
+		llb := util.BuildInternalEndpoint("inbound_CONNECT_originate", nil)
+		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
+			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
+		// no TLS
+		localCluster.cluster.TransportSocketMatches = nil
+		localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
+		clusters = append(clusters, localCluster.build())
 	}
 	return clusters
 }
