@@ -1081,8 +1081,15 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 		Name:                 util.OutboundTunnel,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       push.Mesh.ConnectTimeout,
-		CleanupInterval:      durationpb.New(60 * time.Second),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: 15008,
+				},
+			},
+		},
+		ConnectTimeout:  push.Mesh.ConnectTimeout,
+		CleanupInterval: durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
