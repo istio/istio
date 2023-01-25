@@ -92,14 +92,19 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 			updatedRootCertForMeshConfig: TestCACertFile,
 			expectedFail:                 true,
 		},
+		{
+			name:      "Root cert is not specified in mesh config and cert chain contains only intermediate CA(only leaf cert + intermediate CA)",
+			certChain: path.Join(env.IstioSrc, "samples/certs", "workload-foo-cert.pem"),
+		},
+		{
+			name:         "Root cert is not specified in mesh config and Root cert from cert chain is empty(only one leaf cert)",
+			certChain:    path.Join(env.IstioSrc, "samples/certs", "cert-chain.pem"),
+			expectedFail: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			csrPEM := createFakeCsr(t)
-			rootCertPem, err := os.ReadFile(tc.rootCertForMeshConfig)
-			if err != nil {
-				t.Errorf("Failed to read sample root-cert.pem")
-			}
 			certChainPem, err := os.ReadFile(tc.certChain)
 			if err != nil {
 				t.Errorf("Failed to read sample cert-chain.pem")
@@ -111,10 +116,16 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 			}
 			signer := "kubernates.io/kube-apiserver-client"
 			ra.certSignerDomain = "kubernates.io"
-			caCertificates := []*meshconfig.MeshConfig_CertificateData{
-				{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: string(rootCertPem)}, CertSigners: []string{signer}},
+			if tc.rootCertForMeshConfig != "" {
+				rootCertPem, err := os.ReadFile(tc.rootCertForMeshConfig)
+				if err != nil {
+					t.Errorf("Failed to read sample root-cert.pem")
+				}
+				caCertificates := []*meshconfig.MeshConfig_CertificateData{
+					{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: string(rootCertPem)}, CertSigners: []string{signer}},
+				}
+				ra.SetCACertificatesFromMeshConfig(caCertificates)
 			}
-			ra.SetCACertificatesFromMeshConfig(caCertificates)
 			subjectID := spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
 			certOptions := ca.CertOpts{
 				SubjectIDs: []string{subjectID},
