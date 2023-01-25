@@ -22,6 +22,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/ambient"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
 
@@ -106,7 +107,7 @@ func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
 		(meshMode == AmbientMeshNamespace.String() &&
 			namespace != nil &&
 			!HasLegacyLabel(namespace.GetLabels()) &&
-			namespace.GetLabels()["istio.io/dataplane-mode"] == "ambient") {
+			namespace.GetLabels()[constants.DataplaneMode] == "ambient") {
 		return true
 	}
 

@@ -29,6 +29,7 @@ import (
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -62,7 +63,7 @@ func TestBookinfo(t *testing.T) {
 				Prefix: "bookinfo",
 				Inject: false,
 				Labels: map[string]string{
-					"istio.io/dataplane-mode": "ambient",
+					constants.DataplaneMode: "ambient",
 				},
 			})
 			if err != nil {
