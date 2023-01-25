@@ -82,7 +82,7 @@ spec:
           {{- end }}
           envFrom:
           {{- with .Values.envFrom }}
-            {{- toYaml .| nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
           - containerPort: 15090
