@@ -59,7 +59,7 @@ func TypedStruct(typeURL string) *anypb.Any {
 func TypedStructWithFields(typeURL string, fields map[string]interface{}) *anypb.Any {
 	value, err := structpb.NewStruct(fields)
 	if err != nil {
-		log.Error(fmt.Sprintf("error marshalling struct %s: %v", typeURL, err))
+		log.Error(fmt.Sprintf("error marshaling struct %s: %v", typeURL, err))
 	}
 	return MessageToAny(&udpa.TypedStruct{
 		TypeUrl: typeURL,

@@ -479,7 +479,8 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildNewLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildNewLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, lbls labels.Instance) *core.Metadata {
+	clusterID cluster.ID, lbls labels.Instance,
+) *core.Metadata {
 	out := &core.Metadata{}
 	BuildLbEndpointMetadata(networkID, tlsMode, workloadname, namespace, clusterID, lbls, out)
 	return out
@@ -534,8 +535,6 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 		sb.WriteString(clusterID.String())
 		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
-
-	return
 }
 
 // MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.

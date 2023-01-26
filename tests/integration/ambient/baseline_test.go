@@ -1544,7 +1544,6 @@ func TestDirect(t *testing.T) {
 					}
 				})
 			}
-			const UnknownRoute = "round trip failed: 404 Not Found"
 			run("named destination", echo.CallOptions{
 				To:    apps.Waypoint,
 				Count: 1,

@@ -293,21 +293,6 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 	return listeners
 }
 
-func getPorts(services []*model.ServiceInstance) []model.Port {
-	p := map[int]model.Port{}
-	for _, s := range services {
-		p[int(s.Endpoint.EndpointPort)] = model.Port{
-			Port:     int(s.Endpoint.EndpointPort),
-			Protocol: s.ServicePort.Protocol,
-		}
-	}
-	pl := []model.Port{}
-	for _, m := range p {
-		pl = append(pl, m)
-	}
-	return pl
-}
-
 // buildWaypointInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
