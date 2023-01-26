@@ -1663,7 +1663,7 @@ func sidecarOutboundTunnelListener(push *model.PushContext, proxy *model.Proxy) 
 		StatPrefix:       name,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
+			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 			HeadersToAdd: []*core.HeaderValueOption{
 				{Header: &core.HeaderValue{
 					Key: "baggage",
@@ -1675,7 +1675,7 @@ func sidecarOutboundTunnelListener(push *model.PushContext, proxy *model.Proxy) 
 					),
 				}},
 				// TODO: remove this. But the ztunnel requires it for terrible reasons
-				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DYNAMIC_METADATA([\"tunnel\", \"destination\"])%"}},
+				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			},
 		},
 	}
