@@ -1750,7 +1750,7 @@ func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw c
 	})
 
 	if ctx.Credentials != nil {
-		if key, cert, err := ctx.Credentials.GetKeyAndCert(secret.Name, secret.Namespace); err != nil {
+		if key, cert, _, err := ctx.Credentials.GetKeyCertAndStaple(secret.Name, secret.Namespace); err != nil {
 			return "", &ConfigError{
 				Reason:  InvalidTLS,
 				Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
