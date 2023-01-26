@@ -25,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/ambient"
@@ -253,16 +252,9 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return &cluster.Cluster{
-		Name:                 "inbound_CONNECT_originate",
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
-			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-				UpstreamPortOverride: &wrappers.UInt32Value{
-					Value: 15008,
-				},
-			},
-		},
+		Name:                          "inbound_CONNECT_originate",
+		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
