@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -211,18 +210,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				},
 			},
 		})
-
-	// TODO: detect from UseWaypointProxy in echo.Config
-	if err := t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  name: waypoint
-  annotations:
-    istio.io/service-account: waypoint
-spec:
-  gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
-		return err
-	}
 
 	_, whErr := t.Clusters().Default().
 		Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().

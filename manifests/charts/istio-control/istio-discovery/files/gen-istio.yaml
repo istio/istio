@@ -1323,11 +1323,10 @@ data:
         apiVersion: apps/v1
         kind: Deployment
         metadata:
-          name: {{.ServiceAccount}}-waypoint-proxy
+          name: {{.GatewayName}}
           namespace: {{.Namespace}}
           labels:
             ambient-type: waypoint
-            ambient-proxy:  {{.ServiceAccount}}-waypoint-proxy
             gateway.istio.io/managed: "istio.io-mesh-controller"
             istio.io/gateway-name: "{{.GatewayName}}"
           ownerReferences:
@@ -1338,17 +1337,16 @@ data:
         spec:
           selector:
             matchLabels:
-              ambient-type: waypoint
-              ambient-proxy: {{.ServiceAccount}}-waypoint-proxy
+              istio.io/gateway-name: "{{.GatewayName}}"
           template:
             metadata:
               annotations:
                 prometheus.io/path: /stats/prometheus
                 prometheus.io/port: "15020"
                 prometheus.io/scrape: "true"
+                {{with .ForServiceAccount}}istio.io/service-account: "{{.}}"{{end}}
               labels:
                 ambient-type: waypoint
-                ambient-proxy: {{.ServiceAccount}}-waypoint-proxy
                 gateway.istio.io/managed: "istio.io-mesh-controller"
                 istio.io/gateway-name: "{{.GatewayName}}"
                 sidecar.istio.io/inject: "false"
@@ -1362,7 +1360,7 @@ data:
                 - --domain
                 - $(POD_NAMESPACE).svc.cluster.local
                 - --serviceCluster
-                - {{.ServiceAccount}}-waypoint-proxy.$(POD_NAMESPACE)
+                - {{.ServiceAccount}}.$(POD_NAMESPACE)
                 - --proxyLogLevel=warning
                 - --proxyComponentLogLevel=misc:error
                 - --trust-domain=cluster.local
@@ -1422,9 +1420,9 @@ data:
                 - name: ISTIO_META_INTERCEPTION_MODE
                   value: REDIRECT
                 - name: ISTIO_META_WORKLOAD_NAME
-                  value: {{.ServiceAccount}}-waypoint-proxy
+                  value: {{.GatewayName}}
                 - name: ISTIO_META_OWNER
-                  value: kubernetes://apis/apps/v1/namespaces/default/deployments/proxy
+                  value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.GatewayName}}
                 - name: ISTIO_META_MESH_ID
                   value: cluster.local
                 - name: PROXY_CONFIG
@@ -1628,7 +1626,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-remote-proxy-controller-istio-system
+  name: istiod-waypoint-controller-istio-system
   labels:
     app: istiod
     release: istio
@@ -1637,7 +1635,10 @@ rules:
   verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
   resources: [ "pods"]
 - apiGroups: [""]
-  verbs: [ "get", "watch", "list" ]
+  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+  resources: [ "services"]
+- apiGroups: [""]
+  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
   resources: [ "serviceaccounts"]
 ---
 # Source: istiod/templates/reader-clusterrole.yaml
@@ -1726,14 +1727,14 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-remote-proxy-controller-istio-system
+  name: istiod-waypoint-controller-istio-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-remote-proxy-controller-istio-system
+  name: istiod-waypoint-controller-istio-system
 subjects:
 - kind: ServiceAccount
   name: istiod

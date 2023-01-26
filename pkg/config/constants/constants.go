@@ -152,6 +152,7 @@ const (
 	CertProviderNone = "none"
 
 	ManagedGatewayLabel          = "gateway.istio.io/managed"
+	WaypointServiceAccount       = "istio.io/service-account"
 	ManagedGatewayController     = "istio.io-gateway-controller"
 	ManagedGatewayMeshController = "istio.io-mesh-controller"
 

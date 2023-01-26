@@ -360,7 +360,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      ambient-proxy: "{{.Destination}}-waypoint-proxy"
+      istio.io/gateway-name: "{{.Destination}}-waypoint"
   configPatches:
   - applyTo: HTTP_FILTER
     match:
@@ -1460,7 +1460,7 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 		"destination_canonical_service":  dst.ServiceName(),
 		"destination_canonical_revision": dst.Config().Version,
 		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
-		"destination_principal":          "spiffe://" + dst.Config().ServiceAccountName(),
+		"destination_principal":          "spiffe://" + dst.Config().ServiceAccountName() + "-waypoint",
 		"destination_service_name":       dst.Config().Service,
 		"destination_workload":           deployName(dst),
 		"destination_workload_namespace": destns,

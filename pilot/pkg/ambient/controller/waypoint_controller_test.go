@@ -130,7 +130,7 @@ global:
 		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
 		g.Expect(gws.Items).To(
 			gomega.And(
-				gomega.ConsistOf(Names("sa-1-waypoint-proxy", "sa-2-waypoint-proxy")),
+				gomega.ConsistOf(Names("gateway")),
 				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
 			),
 		)
@@ -144,7 +144,7 @@ global:
 		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
 		g.Expect(gws.Items).To(
 			gomega.And(
-				gomega.ConsistOf(Names("sa-1-waypoint-proxy")),
+				gomega.ConsistOf(Names("gateway")),
 				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
 			),
 		)

@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	appsv1ac "k8s.io/client-go/applyconfigurations/apps/v1"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -38,7 +40,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -151,46 +152,49 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		return nil
 	}
 
-	wantProxies := sets.New[string]()
-
-	// by default, match all
 	gatewaySA := gw.Annotations["istio.io/service-account"]
-	serviceAccounts, _ := rc.serviceAccounts.ServiceAccounts(gw.Namespace).
-		List(klabels.Everything())
-	for _, sa := range serviceAccounts {
-		if gatewaySA != "" && sa.Name != gatewaySA {
-			log.Debugf("skip service account %v, doesn't match gateway %v", sa.Name, gatewaySA)
-			continue
-		}
-		wantProxies.Insert(sa.Name)
+	forSa := gatewaySA
+	if gatewaySA == "" {
+		gatewaySA = "namespace"
+	}
+	gatewaySA += "-waypoint"
+
+	input := MergedInput{
+		Namespace:         gw.Namespace,
+		GatewayName:       gw.Name,
+		UID:               string(gw.UID),
+		ServiceAccount:    gatewaySA,
+		Cluster:           rc.cluster.String(),
+		ProxyConfig:       rc.injectConfig().MeshConfig.GetDefaultConfig(),
+		ForServiceAccount: forSa,
+	}
+	log.Infof("Updating waypoint proxy %q", gw.Name+"-waypoint")
+	proxySa := rc.RenderServiceAccountApply(input)
+	_, err = rc.client.Kube().
+		CoreV1().
+		ServiceAccounts(name.Namespace).
+		Apply(context.Background(), proxySa, metav1.ApplyOptions{
+			Force: true, FieldManager: waypointFM,
+		})
+	if err != nil {
+		return fmt.Errorf("waypoint service account patch error: %v", err)
 	}
 
-	for _, sa := range wantProxies.UnsortedList() {
-		input := MergedInput{
-			Namespace:      gw.Namespace,
-			GatewayName:    gw.Name,
-			UID:            string(gw.UID),
-			ServiceAccount: sa,
-			Cluster:        rc.cluster.String(),
-			ProxyConfig:    rc.injectConfig().MeshConfig.GetDefaultConfig(),
-		}
-		proxyDeploy, err := rc.RenderDeploymentApply(input)
-		if err != nil {
-			return err
-		}
-		// TODO: should support HPA, PDB, maybe others...
-		log.Infof("Updating waypoint proxy %q", sa+"-waypoint-proxy")
-		_, err = rc.client.Kube().
-			AppsV1().
-			Deployments(name.Namespace).
-			Apply(context.Background(), proxyDeploy, metav1.ApplyOptions{
-				Force: true, FieldManager: waypointFM,
-			})
-		if err != nil {
-			return fmt.Errorf("waypoint deployment patch error: %v", err)
-		}
-		rc.registerWaypointUpdate(gw, gatewaySA, log)
+	proxyDeploy, err := rc.RenderDeploymentApply(input)
+	if err != nil {
+		return err
 	}
+	// TODO: should support HPA, PDB, maybe others...
+	_, err = rc.client.Kube().
+		AppsV1().
+		Deployments(name.Namespace).
+		Apply(context.Background(), proxyDeploy, metav1.ApplyOptions{
+			Force: true, FieldManager: waypointFM,
+		})
+	if err != nil {
+		return fmt.Errorf("waypoint deployment patch error: %v", err)
+	}
+	rc.registerWaypointUpdate(gw, gatewaySA, log)
 	return nil
 }
 
@@ -266,6 +270,16 @@ func (rc *WaypointProxyController) ApplyObject(
 	return rc.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
+func (rc *WaypointProxyController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
+	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
+		WithLabels(map[string]string{istiogw.GatewayNameLabel: input.GatewayName}).
+		WithOwnerReferences(metav1ac.OwnerReference().
+			WithName(input.GatewayName).
+			WithUID(types.UID(input.UID)).
+			WithKind(gvk.KubernetesGateway.Kind).
+			WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
+}
+
 func (rc *WaypointProxyController) RenderDeploymentApply(
 	input MergedInput,
 ) (*appsv1ac.DeploymentApplyConfiguration, error) {
@@ -306,11 +320,12 @@ func unmarshalDeployApply(dyaml []byte) (*appsv1ac.DeploymentApplyConfiguration,
 type MergedInput struct {
 	GatewayName string
 
-	Namespace       string
-	UID             string
-	ServiceAccount  string
-	Cluster         string
-	Image           string
-	ImagePullPolicy string
-	ProxyConfig     *meshapi.ProxyConfig
+	Namespace         string
+	UID               string
+	ServiceAccount    string
+	Cluster           string
+	Image             string
+	ImagePullPolicy   string
+	ProxyConfig       *meshapi.ProxyConfig
+	ForServiceAccount string
 }
