@@ -203,7 +203,6 @@ func TestPodIP(t *testing.T) {
 }
 
 func TestServerSideLB(t *testing.T) {
-	t.Skip()
 	// TODO: test that naked client reusing connections will load balance
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need HTTP
