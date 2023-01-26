@@ -188,6 +188,7 @@ var (
 	ConnectAuthorityEnabled = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
 		map[string]interface{}{
 			"enabled": true,
+			"port":    15008,
 		})
 
 	SetDstAddress = &listener.ListenerFilter{

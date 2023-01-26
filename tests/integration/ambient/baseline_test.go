@@ -254,7 +254,6 @@ func TestServerSideLB(t *testing.T) {
 }
 
 func TestServerRouting(t *testing.T) {
-	t.Skip()
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
@@ -415,7 +414,6 @@ spec:
 }
 
 func TestTrafficSplit(t *testing.T) {
-	t.Skip()
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP
 		if opt.Scheme != scheme.HTTP {
