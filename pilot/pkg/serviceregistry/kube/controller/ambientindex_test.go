@@ -332,7 +332,7 @@ func TestAmbientIndex(t *testing.T) {
 		nil)
 
 	controller.client.Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{"istio.io/dataplane-mode": "none"}},
+		ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{constants.DataplaneMode: "none"}},
 	}, metav1.CreateOptions{})
 	assertEvent("127.0.0.1", "127.0.0.2")
 	assert.Equal(t,
@@ -340,7 +340,7 @@ func TestAmbientIndex(t *testing.T) {
 		workloadapi.Protocol_DIRECT)
 
 	controller.client.Kube().CoreV1().Namespaces().Update(context.Background(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
+		ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{constants.DataplaneMode: "ambient"}},
 	}, metav1.UpdateOptions{})
 	assertEvent("127.0.0.1", "127.0.0.2")
 	assert.Equal(t,
