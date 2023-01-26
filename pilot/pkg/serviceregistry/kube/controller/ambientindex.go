@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
@@ -92,7 +93,7 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func (a *AmbientIndex) updateWaypoint(sa types.NamespacedName, ipStr string, isDelete bool) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) updateWaypoint(sa types.NamespacedName, ipStr string, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	addr := netip.MustParseAddr(ipStr).AsSlice()
 	updates := map[model.ConfigKey]struct{}{}
 	if isDelete {
@@ -119,6 +120,7 @@ func (a *AmbientIndex) updateWaypoint(sa types.NamespacedName, ipStr string, isD
 					a.insertWorkloadToService(vip, wl)
 				}
 			}
+			c.updateEndpointsOnWaypointChange(wl.CanonicalName, wl.Namespace)
 		}
 	} else {
 		for _, wl := range a.byPod {
@@ -142,6 +144,7 @@ func (a *AmbientIndex) updateWaypoint(sa types.NamespacedName, ipStr string, isD
 					a.insertWorkloadToService(vip, wl)
 				}
 			}
+			c.updateEndpointsOnWaypointChange(wl.CanonicalName, wl.Namespace)
 		}
 	}
 	return updates
@@ -521,6 +524,24 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	}
 }
 
+func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
+	esLabelSelector := endpointSliceSelectorForService(name)
+	endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(namespace, esLabelSelector)
+	if err != nil {
+		log.Errorf("gihanson: error getting endpoints associated with workload (%v): %v", name, err)
+	}
+	var errs *multierror.Error
+	if len(endpointSlices) == 0 {
+		log.Errorf("gihanson: no endpoints associated with workload (%v)", name)
+	}
+	for _, ep := range endpointSlices {
+		errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+	}
+	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
+		log.Errorf("one or more errors while pushing endpoint updates in namespace %s: %v", namespace, err)
+	}
+}
+
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService: map[string][]*model.WorkloadInfo{},
@@ -538,14 +559,14 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			if isDelete || !IsPodReady(p) {
 				if idx.waypoints[n].Contains(ip) {
 					idx.waypoints[n].Delete(ip)
-					return idx.updateWaypoint(n, ip, true)
+					return idx.updateWaypoint(n, ip, true, c)
 				}
 			} else {
 				if _, f := idx.waypoints[n]; !f {
 					idx.waypoints[n] = sets.New[string]()
 				}
 				if !idx.waypoints[n].InsertContains(ip) {
-					return idx.updateWaypoint(n, ip, false)
+					return idx.updateWaypoint(n, ip, false, c)
 				}
 			}
 			return nil
@@ -588,6 +609,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		for vip := range wl.VirtualIps {
 			idx.insertWorkloadToService(vip, wl)
 		}
+
 		log.Debugf("%v: workload updated, pushing", wl.ResourceName())
 		return map[model.ConfigKey]struct{}{
 			// TODO: namespace for network?
@@ -629,7 +651,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(oldObj, newObj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           true,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -641,7 +663,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(nil, obj, true)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           true,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
