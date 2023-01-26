@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
@@ -525,20 +526,28 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 }
 
 func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
-	esLabelSelector := endpointSliceSelectorForService(name)
-	endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(namespace, esLabelSelector)
-	if err != nil {
-		log.Errorf("gihanson: error getting endpoints associated with workload (%v): %v", name, err)
-	}
 	var errs *multierror.Error
-	if len(endpointSlices) == 0 {
-		log.Errorf("gihanson: no endpoints associated with workload (%v)", name)
-	}
-	for _, ep := range endpointSlices {
-		errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+	esLabelSelector := endpointSliceSelectorForService(name)
+	switch c.endpoints.(type) {
+	case *endpointsController:
+		endpoints, err := listerv1.NewEndpointsLister(c.endpoints.getInformer().GetIndexer()).Endpoints(namespace).List(esLabelSelector)
+		if err != nil {
+			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
+		}
+		for _, ep := range endpoints {
+			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+		}
+	case *endpointSliceController:
+		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(namespace, esLabelSelector)
+		if err != nil {
+			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
+		}
+		for _, ep := range endpointSlices {
+			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+		}
 	}
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
-		log.Errorf("one or more errors while pushing endpoint updates in namespace %s: %v", namespace, err)
+		log.Errorf("one or more errors while pushing endpoint updates for waypoint %q in namespace %s: %v", name, namespace, err)
 	}
 }
 
@@ -651,7 +660,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(oldObj, newObj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           true,
+					Full:           false,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -663,7 +672,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(nil, obj, true)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           true,
+					Full:           false,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
