@@ -245,7 +245,7 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 			}
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				//clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
+				// clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
 				port: ServiceInstancePort{
 					Name:       port.Name,
 					Port:       uint32(port.Port),
@@ -265,7 +265,7 @@ func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Ser
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
 				Filters: lb.buildWaypointInboundVIPHTTPFilters(svc, cc),
-				//Filters: wlBuilder.buildInboundNetworkFiltersForHTTP(cc),
+				// Filters: wlBuilder.buildInboundNetworkFiltersForHTTP(cc),
 				Name: httpName,
 			}
 			l := &listener.Listener{

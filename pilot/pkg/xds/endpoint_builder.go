@@ -393,8 +393,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	}
 	if dir == model.TrafficDirectionInboundVIP {
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		//target := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(e.Address), int(e.EndpointPort))
-		//addr = util.BuildInternalAddress(target)
+		// target := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(e.Address), int(e.EndpointPort))
+		// addr = util.BuildInternalAddress(target)
 		address := e.Address
 		tunnelPort := 15008
 		// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
