@@ -189,7 +189,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Serv
 // inbound_CONNECT_originate. original dst with TLS added
 func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
+	security.ApplyToCommonTLSContext(ctx, proxy, []string{proxy.VerifiedIdentity.String()}, authn.TrustDomainsForValidation(push.Mesh), true)
 
 	ctx.AlpnProtocols = []string{"h2"}
 
