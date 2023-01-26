@@ -98,12 +98,44 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
+	t.Run("Full Push with updated services and virtual services", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "weighted.static.svc.cluster.local", Namespace: "default"},
+				model.ConfigKey{Kind: kind.VirtualService, Name: "vs", Namespace: "testns"},
+			),
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) != 1 {
+			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		}
+	})
+	t.Run("Full Push with updated services and destination rules", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "default"},
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) != 4 {
+			t.Fatalf("Expected a full EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		}
+	})
 	t.Run("Full Push with multiple updates", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: sets.New(
-				model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo.bar", Namespace: "default"},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "default"},
+				model.ConfigKey{Kind: kind.VirtualService, Name: "vs", Namespace: "testns"},
 				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {

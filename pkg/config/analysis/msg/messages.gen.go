@@ -107,7 +107,7 @@ var (
 
 	// NoServerCertificateVerificationDestinationLevel defines a diag.MessageType for message "NoServerCertificateVerificationDestinationLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate.
-	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Error, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
+	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Warning, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
 
 	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.

@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -156,6 +157,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
+				}
+				// If unset, assume they want to just check the request succeeds
+				if opts.Check == nil {
+					opts.Check = check.OK()
 				}
 				return opts
 			}

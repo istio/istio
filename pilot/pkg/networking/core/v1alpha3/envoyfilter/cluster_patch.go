@@ -35,7 +35,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 	c *cluster.Cluster, hosts []host.Name,
 ) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
-		log.Errorf("clusters patch caused panic, so the patches did not take effect")
+		log.Errorf("clusters patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 		IncrementEnvoyFilterErrorMetric(Cluster)
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.

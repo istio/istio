@@ -411,7 +411,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 
 	cb.setUpstreamProtocol(ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
-	addNetworkingMetadata(opts, service, direction)
 	return ec
 }
 
