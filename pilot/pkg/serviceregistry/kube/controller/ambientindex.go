@@ -528,7 +528,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
 	var errs *multierror.Error
 	esLabelSelector := endpointSliceSelectorForService(name)
-	switch c.endpoints.(type) {
+	switch endpointController := c.endpoints.(type) {
 	case *endpointsController:
 		endpoints, err := listerv1.NewEndpointsLister(c.endpoints.getInformer().GetIndexer()).Endpoints(namespace).List(esLabelSelector)
 		if err != nil {
@@ -538,7 +538,7 @@ func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
 			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
 		}
 	case *endpointSliceController:
-		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(namespace, esLabelSelector)
+		endpointSlices, err := endpointController.listSlices(namespace, esLabelSelector)
 		if err != nil {
 			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
 		}
