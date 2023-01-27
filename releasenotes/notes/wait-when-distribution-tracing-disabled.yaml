@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+releaseNotes:
+  - |
+    **Fixed** `x wait` has undecipherable message when PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING is not enabled.
