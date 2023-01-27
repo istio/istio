@@ -197,6 +197,11 @@ func poll(cmd *cobra.Command,
 		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
+			respStr := string(response)
+			if strings.Contains(respStr, xds.DistributionTrackingDisabledMessage) {
+				return 0, 0, 0, fmt.Errorf("config distribution tracking is disabled in pilot. " +
+					"Please set PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING=true in your pilot deployment to enable this feature")
+			}
 			return 0, 0, 0, err
 		}
 		printVerbosef(cmd, "sync status: %+v", configVersions)
