@@ -536,7 +536,7 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 }
 
 func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp string, expectedBuckets int) error {
-	promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s"}[24h])))`, sourceApp)
+	promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s",responsecode="200"}[24h])))`, sourceApp)
 	v, err := prom.RawQuery(cluster, promQL)
 	if err != nil {
 		return err
