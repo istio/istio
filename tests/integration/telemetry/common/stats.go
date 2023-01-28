@@ -19,6 +19,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -44,6 +45,10 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
+)
+
+const (
+	DefaultBucketCount = 20
 )
 
 var (
@@ -95,7 +100,7 @@ func GetTarget() echo.Target {
 
 // TestStatsFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T, feature features.Feature) {
+func TestStatsFilter(t *testing.T, feature features.Feature, expectedBuckets int) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
@@ -136,6 +141,18 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						if _, err := prom.QuerySum(c, appQuery); err != nil {
 							util.PromDiff(t, prom, c, appQuery)
 							return err
+						}
+
+						v, err := prom.RawQuery(c, `count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="a"}[24h])))`)
+						if err != nil {
+							return err
+						}
+						totalBuckets, err := prometheus.Sum(v)
+						if err != nil {
+							return err
+						}
+						if int(totalBuckets) != expectedBuckets {
+							return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
 						}
 
 						return nil
