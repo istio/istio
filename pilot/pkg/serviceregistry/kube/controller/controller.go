@@ -778,6 +778,7 @@ func (c *Controller) informersSynced() bool {
 // TODO: sync same kind of objects in parallel
 // This can cause great performance cost in multi clusters scenario.
 // Maybe just sync the cache and trigger one push at last.
+// TODO: process MCS
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error

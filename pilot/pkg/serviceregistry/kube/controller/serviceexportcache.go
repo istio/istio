@@ -220,6 +220,9 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 }
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
+	// This is called during the initiation of istiod.
+	// 1. If MCS CRD not installed, always return true.
+	// 2. TODO: If MCS CRD installed, we need to wait informer cache synced and also process each item.
 	return true
 }
 
