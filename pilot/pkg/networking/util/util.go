@@ -811,7 +811,7 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 	sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
 
 	switch {
-	case features.PersistentSessionLabel != "" && sessionCookie != "":
+	case sessionCookie != "":
 		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
 		if !found {
 			cookiePath = "/"
@@ -828,7 +828,7 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 				}),
 			},
 		}
-	case features.PersistentSessionHeaderLabel != "" && sessionHeader != "":
+	case sessionHeader != "":
 		return &statefulsession.StatefulSession{
 			SessionState: &core.TypedExtensionConfig{
 				Name: "envoy.http.stateful_session.header",
