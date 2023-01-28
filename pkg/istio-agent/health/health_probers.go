@@ -79,9 +79,8 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
 			DisableKeepAlives: true,
 		}
 	}
-	d := &net.Dialer{
-		LocalAddr: status.UpstreamLocalAddressIPv4,
-	}
+	d := status.ProbeDialer()
+	d.LocalAddr = status.UpstreamLocalAddressIPv4
 	if ipv6 {
 		d.LocalAddr = status.UpstreamLocalAddressIPv6
 	}
@@ -153,8 +152,10 @@ var _ Prober = &TCPProber{}
 
 func (t *TCPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	// if we cant connect, count as fail
+	d := status.ProbeDialer()
+	d.Timeout = timeout
 	hostPort := net.JoinHostPort(t.Config.Host, strconv.Itoa(int(t.Config.Port)))
-	conn, err := net.DialTimeout("tcp", hostPort, timeout)
+	conn, err := d.Dial("tcp", hostPort)
 	if err != nil {
 		return Unhealthy, err
 	}
