@@ -248,7 +248,7 @@ func NewServer(config Options) (*Server, error) {
 			return nil, err
 		}
 		if prober.HTTPGet != nil {
-			d := probeDialer()
+			d := ProbeDialer()
 			d.LocalAddr = s.upstreamLocalAddress
 			// nolint: gosec
 			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
@@ -752,7 +752,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	d := probeDialer()
+	d := ProbeDialer()
 	d.LocalAddr = s.upstreamLocalAddress
 	d.Timeout = timeout
 
