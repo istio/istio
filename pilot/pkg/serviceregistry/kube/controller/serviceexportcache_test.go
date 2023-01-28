@@ -68,7 +68,6 @@ func TestServiceNotExported(t *testing.T) {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
 					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
 					// Check that the endpoint is cluster-local
 					ec.checkServiceInstancesOrFail(t, false)
 				})
@@ -84,7 +83,6 @@ func TestServiceExported(t *testing.T) {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
 					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
 					// Export the service.
 					ec.export(t)
 
@@ -103,7 +101,6 @@ func TestServiceUnexported(t *testing.T) {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
 					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
 					// Export the service and then unexport it immediately.
 					ec.export(t)
 					ec.unExport(t)
@@ -147,7 +144,10 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, 
 	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
 	ec = c.exports.(*serviceExportCacheImpl)
-
+	close(ec.serviceExportCh)
+	retry.UntilOrFail(t, func() bool {
+		return ec.started.Load()
+	}, serviceExportTimeout)
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		if svc := ec.GetService(ec.serviceHostname()); svc == nil {
