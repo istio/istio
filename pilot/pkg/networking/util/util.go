@@ -807,12 +807,11 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 	if svc == nil {
 		return nil
 	}
+	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
+	sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
+
 	switch {
-	case features.PersistentSessionLabel != "":
-		sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
-		if sessionCookie == "" {
-			return nil
-		}
+	case features.PersistentSessionLabel != "" && sessionCookie != "":
 		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
 		if !found {
 			cookiePath = "/"
@@ -829,11 +828,7 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 				}),
 			},
 		}
-	case features.PersistentSessionHeaderLabel != "":
-		sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
-		if sessionHeader == "" {
-			return nil
-		}
+	case features.PersistentSessionHeaderLabel != "" && sessionHeader != "":
 		return &statefulsession.StatefulSession{
 			SessionState: &core.TypedExtensionConfig{
 				Name: "envoy.http.stateful_session.header",
