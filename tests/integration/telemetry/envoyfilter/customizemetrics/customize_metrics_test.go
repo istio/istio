@@ -145,6 +145,9 @@ func TestCustomizeMetrics(t *testing.T) {
 			}
 			util.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
 			util.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
+			if err := common.ValidateBucket(cluster, promInst, "client", 10); err != nil {
+				t.Errorf("failed to validate bucket: %v", err)
+			}
 		})
 }
 
@@ -158,7 +161,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-//goo:embed testdata/bootstrap_patch.yaml
+//go:embed testdata/bootstrap_patch.yaml
 var bootstrapPatch string
 
 func testSetup(ctx resource.Context) (err error) {

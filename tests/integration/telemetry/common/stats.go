@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -143,16 +144,8 @@ func TestStatsFilter(t *testing.T, feature features.Feature, expectedBuckets int
 							return err
 						}
 
-						v, err := prom.RawQuery(c, `count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="a"}[24h])))`)
-						if err != nil {
+						if err := ValidateBucket(c, prom, "a", expectedBuckets); err != nil {
 							return err
-						}
-						totalBuckets, err := prometheus.Sum(v)
-						if err != nil {
-							return err
-						}
-						if int(totalBuckets) != expectedBuckets {
-							return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
 						}
 
 						return nil
@@ -540,4 +533,21 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 		Metric: "istio_tcp_connections_opened_total",
 		Labels: labels,
 	}
+}
+
+func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp string, expectedBuckets int) error {
+	promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s"}[24h])))`, sourceApp)
+	v, err := prom.RawQuery(cluster, promQL)
+	if err != nil {
+		return err
+	}
+	totalBuckets, err := prometheus.Sum(v)
+	if err != nil {
+		return err
+	}
+	if int(totalBuckets) != expectedBuckets {
+		return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
+	}
+
+	return nil
 }
