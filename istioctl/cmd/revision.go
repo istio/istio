@@ -26,7 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admitv1 "k8s.io/api/admissionregistration/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -664,7 +664,7 @@ func filterWebhooksWithRevision(webhooks []admitv1.MutatingWebhookConfiguration,
 	return whFiltered
 }
 
-func transformToFilteredPodInfo(pods []v1.Pod) []*tag.PodFilteredInfo {
+func transformToFilteredPodInfo(pods []corev1.Pod) []*tag.PodFilteredInfo {
 	pfilInfo := []*tag.PodFilteredInfo{}
 	for _, p := range pods {
 		pfilInfo = append(pfilInfo, getFilteredPodInfo(&p))
@@ -672,7 +672,7 @@ func transformToFilteredPodInfo(pods []v1.Pod) []*tag.PodFilteredInfo {
 	return pfilInfo
 }
 
-func getFilteredPodInfo(pod *v1.Pod) *tag.PodFilteredInfo {
+func getFilteredPodInfo(pod *corev1.Pod) *tag.PodFilteredInfo {
 	return &tag.PodFilteredInfo{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -909,7 +909,7 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 	return enabledComponents
 }
 
-func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, error) {
+func getPodsForComponent(client kube.CLIClient, component string) ([]corev1.Pod, error) {
 	return getPodsWithSelector(client, istioNamespace, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),
@@ -918,15 +918,15 @@ func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, err
 	})
 }
 
-func getPodsWithSelector(client kube.CLIClient, ns string, selector *metav1.LabelSelector) ([]v1.Pod, error) {
+func getPodsWithSelector(client kube.CLIClient, ns string, selector *metav1.LabelSelector) ([]corev1.Pod, error) {
 	labelSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
-		return []v1.Pod{}, err
+		return []corev1.Pod{}, err
 	}
 	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
 		metav1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
-		return []v1.Pod{}, err
+		return []corev1.Pod{}, err
 	}
 	return podList.Items, nil
 }
