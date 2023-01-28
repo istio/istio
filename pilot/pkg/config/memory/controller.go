@@ -103,7 +103,7 @@ func (c *Controller) Get(kind config.GroupVersionKind, key, namespace string) *c
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
 	if revision, err = c.configStore.Create(config); err == nil {
-		c.monitor.ScheduleProcessEvent(&ConfigEvent{
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			config: config,
 			event:  model.EventAdd,
 		})
@@ -114,7 +114,7 @@ func (c *Controller) Create(config config.Config) (revision string, err error) {
 func (c *Controller) Update(config config.Config) (newRevision string, err error) {
 	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
 	if newRevision, err = c.configStore.Update(config); err == nil {
-		c.monitor.ScheduleProcessEvent(&ConfigEvent{
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    *oldconfig,
 			config: config,
 			event:  model.EventUpdate,
@@ -126,7 +126,7 @@ func (c *Controller) Update(config config.Config) (newRevision string, err error
 func (c *Controller) UpdateStatus(config config.Config) (newRevision string, err error) {
 	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
 	if newRevision, err = c.configStore.UpdateStatus(config); err == nil {
-		c.monitor.ScheduleProcessEvent(&ConfigEvent{
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    *oldconfig,
 			config: config,
 			event:  model.EventUpdate,
@@ -144,7 +144,7 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 		return "", fmt.Errorf("unsupported merge type: %s", typ)
 	}
 	if newRevision, err = c.configStore.Patch(cfg, patchFn); err == nil {
-		c.monitor.ScheduleProcessEvent(&ConfigEvent{
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    orig,
 			config: cfg,
 			event:  model.EventUpdate,
@@ -156,7 +156,7 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) (err error) {
 	if config := c.Get(kind, key, namespace); config != nil {
 		if err = c.configStore.Delete(kind, key, namespace, resourceVersion); err == nil {
-			c.monitor.ScheduleProcessEvent(&ConfigEvent{
+			c.monitor.ScheduleProcessEvent(ConfigEvent{
 				config: *config,
 				event:  model.EventDelete,
 			})

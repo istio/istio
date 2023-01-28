@@ -31,9 +31,9 @@ func TestMonitorLifecycle(t *testing.T) {
 	m := memory.NewMonitor(store)
 	stop := make(chan struct{})
 	go m.Run(stop)
-	m.ScheduleProcessEvent(&memory.ConfigEvent{})
+	m.ScheduleProcessEvent(memory.ConfigEvent{})
 	close(stop)
-	m.ScheduleProcessEvent(&memory.ConfigEvent{})
+	m.ScheduleProcessEvent(memory.ConfigEvent{})
 }
 
 func TestEventConsistency(t *testing.T) {

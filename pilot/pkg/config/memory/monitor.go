@@ -15,8 +15,9 @@
 package memory
 
 import (
-	"sync/atomic"
+	"sync"
 
+	"go.uber.org/atomic"
 	"istio.io/istio/pilot/pkg/model"
 	config2 "istio.io/istio/pkg/config"
 	"istio.io/pkg/log"
@@ -34,7 +35,7 @@ type Handler func(config2.Config, config2.Config, model.Event)
 type Monitor interface {
 	Run(<-chan struct{})
 	AppendEventHandler(config2.GroupVersionKind, Handler)
-	ScheduleProcessEvent(*ConfigEvent)
+	ScheduleProcessEvent(ConfigEvent)
 }
 
 // ConfigEvent defines the event to be processed
@@ -47,10 +48,12 @@ type ConfigEvent struct {
 type configStoreMonitor struct {
 	store    model.ConfigStore
 	handlers map[config2.GroupVersionKind][]Handler
-	eventCh  chan *ConfigEvent
+	eventCh  chan ConfigEvent
 	// If enabled, events will be handled synchronously
-	sync   bool
+	sync bool
+	// Indicates if the monitor is exited.
 	closed atomic.Bool
+	lock   sync.Locker
 }
 
 // NewMonitor returns new Monitor implementation with a default event buffer size.
@@ -64,7 +67,7 @@ func NewSyncMonitor(store model.ConfigStore) Monitor {
 }
 
 // NewBufferedMonitor returns new Monitor implementation with the specified event buffer size
-func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Monitor {
+func newBufferedMonitor(store model.ConfigStore, bufferSize int, syncMode bool) Monitor {
 	handlers := make(map[config2.GroupVersionKind][]Handler)
 
 	for _, s := range store.Schemas().All() {
@@ -74,42 +77,46 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Moni
 	return &configStoreMonitor{
 		store:    store,
 		handlers: handlers,
-		eventCh:  make(chan *ConfigEvent, bufferSize),
-		sync:     sync,
+		eventCh:  make(chan ConfigEvent, bufferSize),
+		sync:     syncMode,
+		lock:     &sync.RWMutex{},
 	}
 }
 
-func (m *configStoreMonitor) ScheduleProcessEvent(configEvent *ConfigEvent) {
-	if m.closed.Load() || configEvent == nil {
+func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
+	m.lock.Lock()
+	if m.closed.Load() {
+		m.lock.Unlock()
 		return
 	}
 
 	if m.sync {
-		m.processConfigEvent(*configEvent)
+		m.lock.Unlock()
+		m.processConfigEvent(configEvent)
 	} else {
 		m.eventCh <- configEvent
+		m.lock.Unlock()
 	}
 }
 
-func (m *configStoreMonitor) run(stop <-chan struct{}) {
+func (m *configStoreMonitor) waitAndCleanup(stop <-chan struct{}) {
 	<-stop
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.closed.Store(true)
 	// indicating the monitor has exited.
-	m.eventCh <- nil
+	close(m.eventCh)
 }
 
 func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	if m.sync {
-		m.run(stop)
+		m.waitAndCleanup(stop)
 		return
 	}
-	go m.run(stop)
+	go m.waitAndCleanup(stop)
 
 	for ce := range m.eventCh {
-		if ce == nil {
-			break
-		}
-		m.processConfigEvent(*ce)
+		m.processConfigEvent(ce)
 	}
 }
 
