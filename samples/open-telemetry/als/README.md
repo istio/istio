@@ -57,7 +57,7 @@ EOF
 
 ## Check ALS output
 
-Following [doc](../httpbin/README.md), start the `fortio` and `httpbin` services.
+Following [doc](../../httpbin/README.md), start the `fortio` and `httpbin` services.
 
 Run the following script to request `httpbin` from `fortio`.
 

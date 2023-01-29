@@ -12,6 +12,11 @@ spec:
       skywalking:
         service: tracing.istio-system.svc.cluster.local
         port: 11800
+    - name: otel
+      opentelemetry:
+        port: 4317
+        service: opentelemetry-collector.istio-system.svc.cluster.local
+    enableTracing: true
   components:
     egressGateways:
     - name: istio-egressgateway
