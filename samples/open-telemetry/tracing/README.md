@@ -7,7 +7,7 @@ This sample demonstrates the support for the OpenTelemetry tracing provider with
 First, deploy the `otel-collector` backend with simple configuration.
 
 ```bash
-kubectl apply -f otel.yaml -n istio-system
+kubectl apply -f ../otel.yaml -n istio-system
 ```
 
 The otel-collector will create a grpc receiver on port `4317`, and later the sidecars will report trace information to this grpc port. You can find more details from [here](https://github.com/open-telemetry/opentelemetry-collector).
@@ -107,5 +107,5 @@ You will see the requests' trace records.
 
 ```bash
 kubectl delete -f telemetry.yaml -n istio-system
-kubectl delete -f otel.yaml -n istio-system
+kubectl delete -f ../otel.yaml -n istio-system
 ```
