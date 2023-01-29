@@ -207,7 +207,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		}
 		cs, err := getEnabledComponents(iop)
 		if err != nil {
-			return fmt.Errorf("error while get IstioOperator Components: %v", err)
+			return fmt.Errorf("error while getting IstioOperator Components: %v", err)
 		}
 		iopInfo := &tag.IstioOperatorCRInfo{
 			IOP:            iop,
@@ -483,12 +483,12 @@ func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]
 		}
 		by, err := yaml.Marshal(iop)
 		if err != nil {
-			return nil, fmt.Errorf("error while marshal IstioOperator CR - %s/%s to yaml: %v", u.GetNamespace(), u.GetName(), err)
+			return nil, fmt.Errorf("error while marshaling IstioOperator CR - %s/%s to yaml: %v", u.GetNamespace(), u.GetName(), err)
 		}
 		profile := manifest.GetProfile(iop)
 		mergedIOP, err := manifest.GetMergedIOP(string(by), profile, "", "", client, logger)
 		if err != nil {
-			return nil, fmt.Errorf("error while merge IstioOperator CR - %s/%s with profile %s: %v", u.GetNamespace(), u.GetName(), profile, err)
+			return nil, fmt.Errorf("error while merging IstioOperator CR - %s/%s with profile %s: %v", u.GetNamespace(), u.GetName(), profile, err)
 		}
 		iopCRs = append(iopCRs, mergedIOP)
 	}
@@ -633,7 +633,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	for _, iop := range iopCRs {
 		cs, err := getEnabledComponents(iop)
 		if err != nil {
-			logger.LogAndErrorf("error while get IstioOperator %s/%s Components: %v", iop.Namespace, iop.Name, err)
+			logger.LogAndErrorf("error while getting IstioOperator %s/%s Components: %v", iop.Namespace, iop.Name, err)
 		}
 		revDescription.IstioOperatorCRs = append(revDescription.IstioOperatorCRs, &tag.IstioOperatorCRInfo{
 			IOP:            iop,
@@ -901,7 +901,7 @@ func getEnabledComponents(iop *iopv1alpha1.IstioOperator) ([]string, error) {
 		for _, c := range name2.AllCoreComponentNames {
 			enabled, err := translate.IsComponentEnabledInSpec(c, iop.Spec)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
+				return nil, fmt.Errorf("error while resolving whether the component is enabled: %v", err)
 			}
 			if enabled {
 				enabledComponents = append(enabledComponents, name2.UserFacingComponentName(c))
