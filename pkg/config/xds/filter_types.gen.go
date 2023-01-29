@@ -376,6 +376,8 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/watchdog/v3"
+	_ "github.com/envoyproxy/go-control-plane/ratelimit/config/ratelimit/v3"
+	_ "github.com/envoyproxy/go-control-plane/ratelimit/service/ratelimit/v3"
 
 	// Istio-specific Envoy filters
 	_ "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
