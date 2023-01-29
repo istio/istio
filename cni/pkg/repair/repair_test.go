@@ -25,7 +25,7 @@ import (
 
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -38,20 +38,20 @@ import (
 )
 
 func TestBrokenPodReconciler_detectPod(t *testing.T) {
-	makeDetectPod := func(name string, terminationMessage string, exitCode int) *v1.Pod {
+	makeDetectPod := func(name string, terminationMessage string, exitCode int) *corev1.Pod {
 		return makePod(makePodArgs{
 			PodName:     name,
 			Annotations: map[string]string{"sidecar.istio.io/status": "something"},
-			InitContainerStatus: &v1.ContainerStatus{
+			InitContainerStatus: &corev1.ContainerStatus{
 				Name: constants.ValidationContainerName,
-				State: v1.ContainerState{
-					Waiting: &v1.ContainerStateWaiting{
+				State: corev1.ContainerState{
+					Waiting: &corev1.ContainerStateWaiting{
 						Reason:  "CrashLoopBackOff",
 						Message: "Back-off 5m0s restarting failed blah blah blah",
 					},
 				},
-				LastTerminationState: v1.ContainerState{
-					Terminated: &v1.ContainerStateTerminated{
+				LastTerminationState: corev1.ContainerState{
+					Terminated: &corev1.ContainerStateTerminated{
 						Message:  terminationMessage,
 						ExitCode: int32(exitCode),
 					},
@@ -61,7 +61,7 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 	}
 
 	type args struct {
-		pod v1.Pod
+		pod corev1.Pod
 	}
 	tests := []struct {
 		name   string
@@ -215,7 +215,7 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 				pod: *makePod(makePodArgs{
 					PodName:             "Test",
 					Annotations:         map[string]string{"sidecar.istio.io/status": "something"},
-					InitContainerStatus: &v1.ContainerStatus{},
+					InitContainerStatus: &corev1.ContainerStatus{},
 				}),
 			},
 			false,
@@ -247,7 +247,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	tests := []struct {
 		name     string
 		fields   fields
-		wantList v1.PodList
+		wantList corev1.PodList
 	}{
 		{
 			name: "No broken pods",
@@ -260,7 +260,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 					InitExitCode:       126,
 				},
 			},
-			wantList: v1.PodList{Items: []v1.Pod{}},
+			wantList: corev1.PodList{Items: []corev1.Pod{}},
 		},
 		{
 			name: "With broken pods (including one with bad annotation)",
@@ -273,7 +273,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 					InitExitCode:       126,
 				},
 			},
-			wantList: v1.PodList{Items: []v1.Pod{brokenPodTerminating, brokenPodWaiting}},
+			wantList: corev1.PodList{Items: []corev1.Pod{brokenPodTerminating, brokenPodWaiting}},
 		},
 		{
 			name: "With Label Selector",
@@ -287,7 +287,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 					LabelSelectors:     "testlabel=true",
 				},
 			},
-			wantList: v1.PodList{Items: []v1.Pod{brokenPodTerminating}},
+			wantList: corev1.PodList{Items: []corev1.Pod{brokenPodTerminating}},
 		},
 		{
 			name: "With alternate sidecar annotation",
@@ -301,7 +301,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 					LabelSelectors:     "testlabel=true",
 				},
 			},
-			wantList: v1.PodList{Items: []v1.Pod{}},
+			wantList: corev1.PodList{Items: []corev1.Pod{}},
 		},
 	}
 	for _, tt := range tests {
@@ -362,7 +362,7 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 	}
 }
 
-func labelBrokenPodsClientset(pods ...v1.Pod) (cs kubernetes.Interface) {
+func labelBrokenPodsClientset(pods ...corev1.Pod) (cs kubernetes.Interface) {
 	var csPods []runtime.Object
 
 	for _, pod := range pods {
@@ -372,7 +372,7 @@ func labelBrokenPodsClientset(pods ...v1.Pod) (cs kubernetes.Interface) {
 	return
 }
 
-func makePodLabelMap(pods []v1.Pod) (podmap map[string]string) {
+func makePodLabelMap(pods []corev1.Pod) (podmap map[string]string) {
 	podmap = map[string]string{}
 	for _, pod := range pods {
 		podmap[pod.Name] = ""
@@ -483,7 +483,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 		name      string
 		fields    fields
 		wantErr   bool
-		wantPods  []v1.Pod
+		wantPods  []corev1.Pod
 		wantCount float64
 		wantTags  []tag.Tag
 	}{
@@ -497,7 +497,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 					InitTerminationMsg: "Died for some reason",
 				},
 			},
-			wantPods:  []v1.Pod{workingPod, workingPodDiedPreviously},
+			wantPods:  []corev1.Pod{workingPod, workingPodDiedPreviously},
 			wantErr:   false,
 			wantCount: 0,
 		},
@@ -511,7 +511,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 					InitTerminationMsg: "Died for some reason",
 				},
 			},
-			wantPods:  []v1.Pod{workingPod, workingPodDiedPreviously},
+			wantPods:  []corev1.Pod{workingPod, workingPodDiedPreviously},
 			wantErr:   false,
 			wantCount: 1,
 			wantTags:  []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSuccess}, {Key: tag.Key(typeLabel), Value: deleteType}},
@@ -624,7 +624,7 @@ func checkStats(wantCount float64, wantTags []tag.Tag, exp *testExporter) error 
 func TestAddToWorkerQueue(t *testing.T) {
 	tests := []struct {
 		name           string
-		pod            v1.Pod
+		pod            corev1.Pod
 		repairConfig   *config.RepairConfig
 		expectQueueLen int
 	}{
