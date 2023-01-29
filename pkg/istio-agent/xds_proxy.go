@@ -702,7 +702,9 @@ func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse)
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
 // Requests are serialized -- only one may be in-flight at a time.
 func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
+	p.connectedMutex.Lock()
 	if p.connected == nil {
+		p.connectedMutex.Unlock()
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
 
@@ -712,6 +714,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 
 	// Send to Istiod
 	p.connected.sendRequest(req)
+	p.connectedMutex.Unlock()
 
 	// Wait for expected response or timeout
 	for {
