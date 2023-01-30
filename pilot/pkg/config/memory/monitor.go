@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"go.uber.org/atomic"
+
 	"istio.io/istio/pilot/pkg/model"
 	config2 "istio.io/istio/pkg/config"
 	"istio.io/pkg/log"

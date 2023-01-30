@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory_test
+package memory
 
 import (
 	"sync"
 	"testing"
+	"time"
 
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
@@ -27,18 +27,69 @@ import (
 
 func TestMonitorLifecycle(t *testing.T) {
 	// Regression test to ensure no race conditions during monitor shutdown
-	store := memory.Make(collections.Mocks)
-	m := memory.NewMonitor(store)
+	for i := 0; i < 100; i++ {
+		store := Make(collections.Mocks)
+		m := NewMonitor(store)
+
+		stop := make(chan struct{})
+		exit := make(chan struct{})
+		go func() {
+			m.Run(stop)
+			close(exit)
+		}()
+		go func() {
+			for i := 0; i < 100; i++ {
+				m.ScheduleProcessEvent(ConfigEvent{
+					config: config.Config{
+						Meta: config.Meta{
+							GroupVersionKind: collections.Mock.Resource().GroupVersionKind(),
+						},
+					},
+				})
+			}
+		}()
+		go close(stop)
+		<-exit
+	}
+}
+
+func TestMonitorGracefulExit(t *testing.T) {
+	// Regression test to ensure no race conditions during monitor shutdown
+	store := Make(collections.Mocks)
+	m := NewMonitor(store)
+
+	var number int
+	m.AppendEventHandler(collections.Mock.Resource().GroupVersionKind(), func(c config.Config, c2 config.Config, event model.Event) {
+		number++
+		time.Sleep(time.Millisecond * 10)
+	})
+
 	stop := make(chan struct{})
-	go m.Run(stop)
-	m.ScheduleProcessEvent(memory.ConfigEvent{})
+	exit := make(chan struct{})
+	go func() {
+		m.Run(stop)
+		close(exit)
+	}()
+	eventsNumber := 100
+	for i := 0; i < eventsNumber; i++ {
+		m.ScheduleProcessEvent(ConfigEvent{
+			config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: collections.Mock.Resource().GroupVersionKind(),
+				},
+			},
+		})
+	}
 	close(stop)
-	m.ScheduleProcessEvent(memory.ConfigEvent{})
+	<-exit
+	if number != eventsNumber {
+		t.Fatalf("should process the handler %d times, get got %d", eventsNumber, number)
+	}
 }
 
 func TestEventConsistency(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	controller := memory.NewController(store)
+	store := Make(collections.Mocks)
+	controller := NewController(store)
 
 	testConfig := mock.Make(TestNamespace, 0)
 	var testEvent model.Event
