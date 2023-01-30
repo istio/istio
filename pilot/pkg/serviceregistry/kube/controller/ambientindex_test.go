@@ -268,7 +268,9 @@ func TestAmbientIndex(t *testing.T) {
 		controller.ambientIndex.Lookup("10.0.0.1")[0].WaypointAddresses,
 		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice()})
 
-	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshController}, map[string]string{constants.WaypointServiceAccount: "sa2"})
+	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa",
+		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshController},
+		map[string]string{constants.WaypointServiceAccount: "sa2"})
 	// Unrelated SA should not change anything
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
