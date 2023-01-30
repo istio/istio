@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -378,8 +379,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(filterdNs, "Namespaces", func(a any, event model.Event) error {
 		return nil
 	}, func(old, cur any) bool {
-		oldLabel := getNamespaceLabel(old, "istio.io/dataplane-mode")
-		newLabel := getNamespaceLabel(cur, "istio.io/dataplane-mode")
+		oldLabel := getNamespaceLabel(old, constants.DataplaneMode)
+		newLabel := getNamespaceLabel(cur, constants.DataplaneMode)
 		if oldLabel != newLabel {
 			c.handleSelectedNamespace(c.opts.EndpointMode, getNamespaceName(old, cur))
 		}
