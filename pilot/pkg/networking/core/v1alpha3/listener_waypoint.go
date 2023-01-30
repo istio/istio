@@ -176,6 +176,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
 	}
+	// Filters needed to propagate the tunnel metadata to the inner streams.
 	h.HttpFilters = append([]*hcm.HttpFilter{
 		xdsfilters.ConnectBaggageFilter,
 		xdsfilters.ConnectAuthorityFilter,
