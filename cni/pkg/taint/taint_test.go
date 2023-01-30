@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -27,7 +27,7 @@ import (
 )
 
 // can have nodes, pods  and configMap in a fake clientset unit testing
-func fakeClientset(pods []v1.Pod, nodes []v1.Node, configMaps []v1.ConfigMap) (cs kubernetes.Interface) {
+func fakeClientset(pods []corev1.Pod, nodes []corev1.Node, configMaps []corev1.ConfigMap) (cs kubernetes.Interface) {
 	var csObjs []runtime.Object
 	for _, node := range nodes {
 		csObjs = append(csObjs, node.DeepCopy())
@@ -47,13 +47,13 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 	tests := []struct {
 		name   string
 		client kubernetes.Interface
-		config v1.ConfigMap
+		config corev1.ConfigMap
 		wants  []ConfigSettings
 	}{
 		{
 			name: "istio-cni config",
 
-			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			client: fakeClientset([]corev1.Pod{}, []corev1.Node{}, []corev1.ConfigMap{istiocniConfig}),
 
 			config: istiocniConfig,
 			wants: []ConfigSettings{
@@ -62,7 +62,7 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 		},
 		{
 			name:   "general config",
-			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			client: fakeClientset([]corev1.Pod{}, []corev1.Node{}, []corev1.ConfigMap{istiocniConfig}),
 			config: combinedConfig,
 			wants: []ConfigSettings{
 				{Name: "istio-cni", Namespace: "kube-system", LabelSelector: "app=istio"},
@@ -71,7 +71,7 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 		},
 		{
 			name:   "list config",
-			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			client: fakeClientset([]corev1.Pod{}, []corev1.Node{}, []corev1.ConfigMap{istiocniConfig}),
 			config: listConfig,
 			wants: []ConfigSettings{
 				{Name: "critical-test1", Namespace: "test1", LabelSelector: "critical=test1"},
@@ -80,7 +80,7 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 		},
 		{
 			name:   "multi config",
-			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			client: fakeClientset([]corev1.Pod{}, []corev1.Node{}, []corev1.ConfigMap{istiocniConfig}),
 			config: multiLabelConfig,
 			wants: []ConfigSettings{
 				{Name: "critical-test1", Namespace: "test1", LabelSelector: "critical=test1"},
@@ -112,25 +112,25 @@ func TestTaintSetter_AddReadinessTaint(t *testing.T) {
 	tests := []struct {
 		name     string
 		client   kubernetes.Interface
-		node     v1.Node
-		wantList []v1.Taint
+		node     corev1.Node
+		wantList []corev1.Taint
 	}{
 		{
 			name: "working node already get taint",
 
-			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+			client: fakeClientset([]corev1.Pod{workingPod}, []corev1.Node{testingNode}, []corev1.ConfigMap{}),
 
 			node: testingNode,
 
-			wantList: []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
+			wantList: []corev1.Taint{{Key: TaintName, Effect: corev1.TaintEffectNoSchedule}},
 		},
 		{
 			name: "plain node add readiness taint",
 
-			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
+			client: fakeClientset([]corev1.Pod{workingPod}, []corev1.Node{plainNode}, []corev1.ConfigMap{}),
 			node:   plainNode,
 
-			wantList: []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
+			wantList: []corev1.Taint{{Key: TaintName, Effect: corev1.TaintEffectNoSchedule}},
 		},
 	}
 	for _, tt := range tests {
@@ -157,18 +157,18 @@ func TestTaintSetter_HasReadinessTaint(t *testing.T) {
 	tests := []struct {
 		name   string
 		client kubernetes.Interface
-		node   v1.Node
+		node   corev1.Node
 		want   bool
 	}{
 		{
 			name:   "working node already get taint",
-			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+			client: fakeClientset([]corev1.Pod{workingPod}, []corev1.Node{testingNode}, []corev1.ConfigMap{}),
 			node:   testingNode,
 			want:   true,
 		},
 		{
 			name:   "plain node add readiness taint",
-			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
+			client: fakeClientset([]corev1.Pod{workingPod}, []corev1.Node{plainNode}, []corev1.ConfigMap{}),
 			node:   plainNode,
 			want:   false,
 		},
@@ -190,20 +190,20 @@ func TestTaintSetter_RemoveReadinessTaint(t *testing.T) {
 	tests := []struct {
 		name     string
 		client   kubernetes.Interface
-		node     v1.Node
-		wantList []v1.Taint
+		node     corev1.Node
+		wantList []corev1.Taint
 	}{
 		{
 			name:     "working node already get taint",
-			client:   fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+			client:   fakeClientset([]corev1.Pod{workingPod}, []corev1.Node{testingNode}, []corev1.ConfigMap{}),
 			node:     testingNode,
-			wantList: []v1.Taint{},
+			wantList: []corev1.Taint{},
 		},
 		{
 			name:     "plain node add readiness taint",
-			client:   fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
+			client:   fakeClientset([]corev1.Pod{workingPod}, []corev1.Node{plainNode}, []corev1.ConfigMap{}),
 			node:     plainNode,
-			wantList: []v1.Taint{},
+			wantList: []corev1.Taint{},
 		},
 	}
 	for _, tt := range tests {
@@ -225,7 +225,7 @@ func TestTaintSetter_RemoveReadinessTaint(t *testing.T) {
 
 func TestGetNodeLatestReadiness(t *testing.T) {
 	type args struct {
-		node v1.Node
+		node corev1.Node
 	}
 	tests := []struct {
 		name string
