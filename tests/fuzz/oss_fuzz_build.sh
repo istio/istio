@@ -22,7 +22,7 @@ set -x
 cd "${SRC}"
 git clone https://github.com/AdamKorcz/instrumentation
 cd instrumentation
-go run main.go "${SRC}"/istio
+go run main.go --target_dir="${SRC}"/istio --check_io_length=true
 cd "${SRC}"/istio
 
 sed -i 's/\"testing\"/\"github.com\/AdamKorcz\/go-118-fuzz-build\/testing\"/g' "${SRC}"/istio/pkg/fuzz/util.go
