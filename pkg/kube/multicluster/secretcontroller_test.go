@@ -112,6 +112,8 @@ func Test_SecretController(t *testing.T) {
 		secret0UpdateKubeconfigSame    = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
 		secret0AddCluster              = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
 		secret0DeleteCluster           = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster            = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0ReDeleteCluster         = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
 		secret1                        = makeSecret("s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
@@ -132,9 +134,11 @@ func Test_SecretController(t *testing.T) {
 		{update: secret0UpdateKubeconfigSame},                       // 2
 		{update: secret0AddCluster, wantAdded: "c0-1"},              // 3
 		{update: secret0DeleteCluster, wantDeleted: "c0-1"},         // 4
-		{add: secret1, wantAdded: "c1"},                             // 5
-		{delete: secret0, wantDeleted: "c0"},                        // 6
-		{delete: secret1, wantDeleted: "c1"},                        // 7
+		{update: secret0ReAddCluster, wantAdded: "c0-1"},            // 5
+		{update: secret0ReDeleteCluster, wantDeleted: "c0-1"},       // 6
+		{add: secret1, wantAdded: "c1"},                             // 7
+		{delete: secret0, wantDeleted: "c0"},                        // 8
+		{delete: secret1, wantDeleted: "c1"},                        // 9
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
