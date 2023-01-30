@@ -647,7 +647,6 @@ spec:
     - operation:
         ports: ["80", "18080", "18081", "18085"]
         paths: ["/allowed-port"]
-        methods: ["GET"]
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
