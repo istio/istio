@@ -58,6 +58,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBu
 	// We create 4 types of clusters:
 	// 1. `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
 	// 2. `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
+	// 3. `passthrough_internal` routes to `passthrough_internal` internal listener.
 	// 3. inbound_CONNECT_originate. original dst with TLS added
 	// 4. encap, routes to internal listener to initiate CONNECT
 
@@ -142,11 +143,21 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPInternal(svcs map[host.Name]*mo
 		}
 	}
 	{
+		// This cluster routes to "passthrough_internal" listener.
+		clusterType := cluster.Cluster_STATIC
+		llb := util.BuildInternalEndpoint("passthrough_internal", nil)
+		localCluster := cb.buildDefaultCluster("passthrough_internal", clusterType, llb,
+			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
+		localCluster.cluster.TransportSocketMatches = nil
+		localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
+		clusters = append(clusters, localCluster.build())
+	}
+	{
+		// This cluster routes from "passthrough_internal" listener.
 		clusterType := cluster.Cluster_STATIC
 		llb := util.BuildInternalEndpoint("inbound_CONNECT_originate", nil)
 		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
-		// no TLS
 		localCluster.cluster.TransportSocketMatches = nil
 		localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
 		clusters = append(clusters, localCluster.build())

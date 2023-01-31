@@ -92,14 +92,13 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	//    forwarding to the VIP or Pod internal listener.
 	// 2. (many) VIP listeners, `inbound-vip||hostname|port`. This will apply service policies. For typical case (not redirecting to external service),
 	//    this will end up forwarding to a cluster for the same VIP, which will have endpoints for each Pod internal listener
-	// 3. Our final CONNECT listener, originating the tunnel
+	// 3. Passthrough internal listener for accessing service backends directly.
+	// 4. Our final CONNECT listener, originating the tunnel
 	_, svcs := FindAssociatedResources(lb.node, lb.push)
 
 	listeners = append(listeners, lb.buildWaypointInboundTerminateConnect(svcs))
-
-	// VIP listeners
 	listeners = append(listeners, lb.buildWaypointInboundVIP(svcs)...)
-
+	listeners = append(listeners, lb.buildWaypointPassthrough())
 	listeners = append(listeners, lb.buildWaypointInboundOriginateConnect())
 
 	return listeners
@@ -138,7 +137,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 		}
 	}
 
-	// it's possible for us to hit this listener and target a Pod directly; route through the inbound-pod internal listener
+	// it's possible for us to hit this listener and target a Pod directly; route through the passthrough internal listener
 	vhost.Routes = append(vhost.Routes, &route.Route{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
@@ -148,7 +147,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 				UpgradeType:   "CONNECT",
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "encap"},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "passthrough_internal"},
 		}},
 		TypedPerFilterConfig: map[string]*any.Any{
 			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
@@ -203,6 +202,27 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 				},
 			},
 		},
+	}
+	return l
+}
+
+func (lb *ListenerBuilder) buildWaypointPassthrough() *listener.Listener {
+	name := "passthrough_internal"
+	l := &listener.Listener{
+		Name:              name,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+						StatPrefix:       name,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "encap"},
+					}),
+				},
+			}},
+		}},
 	}
 	return l
 }
