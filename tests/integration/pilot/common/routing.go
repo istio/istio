@@ -1648,7 +1648,8 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 				Check: check.Each(
 					func(r echoClient.Response) error {
 						body := r.RawContent
-						ok := strings.Contains(body, "PROXY TCP4")
+						// Tests run for both TCP4 and 6
+						ok := (strings.Contains(body, "PROXY TCP4") || strings.Contains(body, "PROXY TCP6"))
 						if !ok {
 							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
 						}
