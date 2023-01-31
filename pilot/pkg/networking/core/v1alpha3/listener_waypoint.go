@@ -105,8 +105,8 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 
 	listeners = append(listeners, lb.buildWaypointInboundTerminateConnect(svcs))
 	listeners = append(listeners, lb.buildWaypointInboundVIP(svcs)...)
-	listeners = append(listeners, lb.buildWaypointPassthrough())
-	listeners = append(listeners, lb.buildWaypointInboundOriginateConnect())
+	listeners = append(listeners, lb.buildWaypointPassthrough(),
+		lb.buildWaypointInboundOriginateConnect())
 
 	return listeners
 }
