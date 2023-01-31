@@ -1606,7 +1606,7 @@ spec:
 
 // 1. Creates a TCP Gateway and VirtualService listener
 // 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter not is applied
+// 3. Assumes that the proxy filter EnvoyFilter is not applied
 func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
 	gatewayListenPort := 80
