@@ -377,6 +377,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			isH2 = true
 			// Write the token file.
 			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
+			//nolint: staticcheck  // Lightstep deprecated
 			err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
 			if err != nil {
 				return nil, err
