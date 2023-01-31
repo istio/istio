@@ -166,6 +166,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
 		useOTel := util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion))
 		if useOTel {
+			//nolint: staticcheck  // Lightstep deprecated
 			tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Lightstep.GetService(),
 				provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(_, hostname, clusterName string) (*anypb.Any, error) {
@@ -188,6 +189,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 					return anypb.New(dc)
 				}, serviceCluster)
 		} else {
+			//nolint: staticcheck  // Lightstep deprecated
 			tracing, err = buildHCMTracing(pushCtx, envoyLightstep, provider.Lightstep.GetService(), provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(_, hostname, clusterName string) (*anypb.Any, error) {
 					lc := &tracingcfg.LightstepConfig{
