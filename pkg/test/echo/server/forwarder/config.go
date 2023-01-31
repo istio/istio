@@ -56,9 +56,10 @@ type Config struct {
 	method                  string
 	secure                  bool
 
-	hboneTLSConfig    *tls.Config
-	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
-	hboneHeaders      http.Header
+	hboneTLSConfig       *tls.Config
+	hboneClientConfig    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	hboneHeaders         http.Header
+	proxyProtocolVersion int
 }
 
 func (c *Config) fillDefaults() error {
@@ -127,6 +128,15 @@ func (c *Config) fillDefaults() error {
 	default:
 		c.newConnectionPerRequest = c.Request.NewConnectionPerRequest
 		c.forceDNSLookup = c.newConnectionPerRequest && c.Request.ForceDNSLookup
+	}
+
+	switch c.Request.ProxyProtocolVersion {
+	case proto.ProxyProtoVersion_V1:
+		c.proxyProtocolVersion = 1
+	case proto.ProxyProtoVersion_V2:
+		c.proxyProtocolVersion = 2
+	default:
+		c.proxyProtocolVersion = 0
 	}
 
 	return nil
