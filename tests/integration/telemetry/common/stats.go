@@ -144,7 +144,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature, expectedBuckets int
 							return err
 						}
 
-						if err := ValidateBucket(c, prom, "a", expectedBuckets); err != nil {
+						if err := ValidateBucket(c, prom, cltInstance.Config().Service, expectedBuckets); err != nil {
 							return err
 						}
 

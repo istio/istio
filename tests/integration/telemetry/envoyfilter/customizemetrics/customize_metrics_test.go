@@ -145,6 +145,7 @@ func TestCustomizeMetrics(t *testing.T) {
 			}
 			util.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
 			util.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
+			// By default, envoy histogram has 20 buckets, testdata/bootstrap_patch.yaml change it to 10.
 			if err := common.ValidateBucket(cluster, promInst, "client", 10); err != nil {
 				t.Errorf("failed to validate bucket: %v", err)
 			}
