@@ -505,6 +505,61 @@ spec:
 	})
 }
 
+func TestSplitWaypoint(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		// Need HTTP
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		if src.Config().IsUncaptured() {
+			// For this case, it is broken if the src and dst are on the same node.
+			// TODO: fix this and remove this skip
+			//t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+		}
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+			"Waypoint":    apps.Waypoint.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  hosts:
+  - "{{.Waypoint}}"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+      weight: 1
+    - destination:
+        host: "{{.Waypoint}}"
+      weight: 1
+`).ApplyOrFail(t)
+		opt = opt.DeepCopy()
+		opt.Count = 5
+		opt.Timeout = time.Second * 10
+		opt.Check = check.And(
+			check.OK(),
+			func(result echo.CallResult, _ error) error {
+				hitDst := false
+				hitWaypoint := false
+				for _, r := range result.Responses {
+					if strings.HasPrefix(r.Hostname, dst.Config().Service) {
+						hitDst = true
+					}
+					if strings.HasPrefix(r.Hostname, apps.Waypoint.Config().Service) {
+						hitWaypoint = true
+					}
+				}
+				if !hitDst || !hitWaypoint {
+					return fmt.Errorf("wanted to hit dst (%v) and waypoint (%v): %v", hitDst, hitWaypoint, result.Responses)
+				}
+				return nil
+			})
+		src.CallOrFail(t, opt)
+	})
+}
+
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
