@@ -35,10 +35,11 @@ type WorkloadMetadata struct {
 
 // TODO shouldn't call this a workload. Maybe "node" encapsulates all of ztunnel, waypoints, workload
 type Workload struct {
-	UID       string
-	Name      string
-	Namespace string
-	Labels    map[string]string
+	UID         string
+	Name        string
+	Namespace   string
+	Annotations map[string]string
+	Labels      map[string]string
 
 	ServiceAccount string
 	NodeName       string
@@ -80,6 +81,9 @@ func (w Workload) Equals(w2 Workload) bool {
 		return false
 	}
 	if !maps.Equal(w.Labels, w2.Labels) {
+		return false
+	}
+	if !maps.Equal(w.Annotations, w2.Annotations) {
 		return false
 	}
 	if !slices.Equal(w.PodIPs, w2.PodIPs) {
@@ -133,6 +137,7 @@ type WorkloadIndex struct {
 
 	ByNamespacedName  map[types.NamespacedName]Workload
 	ByNode            map[string][]Workload
+	ByNamespace       map[string][]Workload
 	ByIdentity        map[string][]Workload
 	ByNodeAndIdentity map[string]map[string][]Workload
 	ByIP              map[string]Workload
@@ -154,6 +159,7 @@ func NewWorkloadIndex() *WorkloadIndex {
 	return &WorkloadIndex{
 		ByNamespacedName:  map[types.NamespacedName]Workload{},
 		ByNode:            map[string][]Workload{},
+		ByNamespace:       map[string][]Workload{},
 		ByIdentity:        map[string][]Workload{},
 		ByNodeAndIdentity: map[string]map[string][]Workload{},
 		ByIP:              map[string]Workload{},
@@ -204,6 +210,7 @@ func (wi *WorkloadIndex) Insert(workload Workload) {
 	if sa != "" {
 		wi.ByIdentity[sa] = append(wi.ByIdentity[sa], workload)
 	}
+	wi.ByNamespace[workload.Namespace] = append(wi.ByNamespace[workload.Namespace], workload)
 	if node != "" && sa != "" {
 		if wi.ByNodeAndIdentity[node] == nil {
 			wi.ByNodeAndIdentity[node] = map[string][]Workload{}
@@ -234,10 +241,12 @@ func (wi *WorkloadIndex) Remove(namespacedName types.NamespacedName) {
 		return
 	}
 	node, sa, ip := details.node, details.sa, details.ip
+	// TODO: this seems wrong, we are deleting the whole {node,identity,etc} when we remove a single workload
 	delete(wi.ByNamespacedName, namespacedName)
+	delete(wi.ByNamespace, namespacedName.Namespace)
 	delete(wi.details, namespacedName)
 	delete(wi.ByNode, node)
-	delete(wi.ByNode, sa)
+	delete(wi.ByIdentity, sa)
 	delete(wi.ByIP, ip)
 	if bySA, ok := wi.ByNodeAndIdentity[node]; ok {
 		delete(bySA, sa)

@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 )
 
@@ -72,9 +73,21 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 		sa: sa,
 	}
 	server.id = ctx.TrackResource(server)
+
+	// TODO: detect from UseWaypointProxy in echo.Config
+	if err := ctx.ConfigIstio().Eval(ns.Name(), sa, `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{.}}-waypoint
+  annotations:
+    istio.io/service-account: {{.}}
+spec:
+  gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
+		return nil, err
+	}
 	cls := ctx.Clusters().Kube().Default()
 	// Find the Prometheus pod and service, and start forwarding a local port.
-	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("ambient-proxy=%s-waypoint-proxy", sa))
+	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("istio.io/gateway-name=%s-waypoint", sa))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

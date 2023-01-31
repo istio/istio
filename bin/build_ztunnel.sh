@@ -106,7 +106,7 @@ function maybe_build_ztunnel() {
   fi
 
   pushd "${BUILD_ZTUNNEL_REPO}"
-  cargo build
+  cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}"
   echo "Copying $(pwd)/out/rust/debug/ztunnel to ${TARGET_OUT_LINUX}/ztunnel"
   mkdir -p "${ISTIO_ZTUNNEL_LINUX_DEBUG_DIR}"
   cp out/rust/debug/ztunnel "${TARGET_OUT_LINUX}/ztunnel"

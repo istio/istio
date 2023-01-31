@@ -239,43 +239,13 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		informerWatchesPending: atomic.NewInt32(0),
 	}
 	f := fake.NewSimpleClientset(objects...)
-	f.PrependReactor(
-		"patch",
-		"deployments",
-		func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
-			pa := action.(clienttesting.PatchAction)
-			if pa.GetPatchType() == types.ApplyPatchType {
-				// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
-				// if an apply patch occurs for a deployment that doesn't yet exist, create it.
-				// However, we already hold the fakeclient lock, so we can't use the front door.
-				rfunc := clienttesting.ObjectReaction(f.Tracker())
-				_, obj, err := rfunc(
-					clienttesting.NewGetAction(pa.GetResource(), pa.GetNamespace(), pa.GetName()),
-				)
-				if kerrors.IsNotFound(err) || obj == nil {
-					_, _, _ = rfunc(
-						clienttesting.NewCreateAction(
-							pa.GetResource(),
-							pa.GetNamespace(),
-							&appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      pa.GetName(),
-									Namespace: pa.GetNamespace(),
-								},
-							},
-						),
-					)
-				}
-				return rfunc(clienttesting.NewPatchAction(
-					pa.GetResource(),
-					pa.GetNamespace(),
-					pa.GetName(),
-					types.StrategicMergePatchType,
-					pa.GetPatch()))
-			}
-			return false, nil, nil
-		},
-	)
+	insertPatchReactor[*appsv1.Deployment](f, "deployments", func(om metav1.ObjectMeta) *appsv1.Deployment {
+		return &appsv1.Deployment{ObjectMeta: om}
+	})
+	insertPatchReactor[*v1.ServiceAccount](f, "serviceaccounts", func(om metav1.ObjectMeta) *v1.ServiceAccount {
+		return &v1.ServiceAccount{ObjectMeta: om}
+	})
+
 	c.kube = f
 	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
 	s := FakeIstioScheme
@@ -348,6 +318,47 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
 
 	return c
+}
+
+func insertPatchReactor[T runtime.Object](f *fake.Clientset, resource string, fn func(om metav1.ObjectMeta) T) {
+	f.PrependReactor(
+		"patch",
+		resource,
+		func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+			pa := action.(clienttesting.PatchAction)
+			if pa.GetPatchType() == types.ApplyPatchType {
+				// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
+				// if an apply patch occurs for a deployment that doesn't yet exist, create it.
+				// However, we already hold the fakeclient lock, so we can't use the front door.
+				rfunc := clienttesting.ObjectReaction(f.Tracker())
+				_, obj, err := rfunc(
+					clienttesting.NewGetAction(pa.GetResource(), pa.GetNamespace(), pa.GetName()),
+				)
+				if kerrors.IsNotFound(err) || obj == nil {
+
+					newMeta := metav1.ObjectMeta{
+						Name:      pa.GetName(),
+						Namespace: pa.GetNamespace(),
+					}
+					res := fn(newMeta)
+					_, _, _ = rfunc(
+						clienttesting.NewCreateAction(
+							pa.GetResource(),
+							pa.GetNamespace(),
+							res,
+						),
+					)
+				}
+				return rfunc(clienttesting.NewPatchAction(
+					pa.GetResource(),
+					pa.GetNamespace(),
+					pa.GetName(),
+					types.StrategicMergePatchType,
+					pa.GetPatch()))
+			}
+			return false, nil, nil
+		},
+	)
 }
 
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {

@@ -57,6 +57,7 @@ type AmbientIndex struct {
 	byPod map[string]*model.WorkloadInfo
 
 	// Map of ServiceAccount -> IP
+	// TODO: this is broken, should be set of IP addresses
 	waypoints map[types.NamespacedName]sets.String
 
 	handlePods func(pods []*v1.Pod)
@@ -99,7 +100,7 @@ func (a *AmbientIndex) updateWaypoint(sa types.NamespacedName, ipStr string, isD
 	updates := map[model.ConfigKey]struct{}{}
 	if isDelete {
 		for _, wl := range a.byPod {
-			if !(wl.Namespace == sa.Namespace && wl.ServiceAccount == sa.Name) {
+			if !(wl.Namespace == sa.Namespace && (sa.Name == "" || wl.ServiceAccount == sa.Name)) {
 				continue
 			}
 			wl := &model.WorkloadInfo{Workload: proto.Clone(wl).(*workloadapi.Workload)}
@@ -125,7 +126,7 @@ func (a *AmbientIndex) updateWaypoint(sa types.NamespacedName, ipStr string, isD
 		}
 	} else {
 		for _, wl := range a.byPod {
-			if !(wl.Namespace == sa.Namespace && wl.ServiceAccount == sa.Name) {
+			if !(wl.Namespace == sa.Namespace && (sa.Name == "" || wl.ServiceAccount == sa.Name)) {
 				continue
 			}
 			found := false
@@ -514,9 +515,15 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	if p == nil {
 		return nil
 	}
-	waypoints := sets.SortedList(c.ambientIndex.waypoints[types.NamespacedName{Namespace: p.Namespace, Name: p.Spec.ServiceAccountName}])
+	// First check for a waypoint for our SA explicit
+	// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
+	waypoints := c.ambientIndex.waypoints[types.NamespacedName{Namespace: p.Namespace, Name: p.Spec.ServiceAccountName}]
+	if len(waypoints) == 0 {
+		// if there are none, check namespace wide waypoints
+		waypoints = c.ambientIndex.waypoints[types.NamespacedName{Namespace: p.Namespace}]
+	}
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
-	wl := c.constructWorkload(p, waypoints, policies)
+	wl := c.constructWorkload(p, sets.SortedList(waypoints), policies)
 	if wl == nil {
 		return nil
 	}
@@ -558,28 +565,29 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		waypoints: map[types.NamespacedName]sets.String{},
 	}
 	// handlePod handles a Pod event. Returned is XDS events to trigger, if any.
-	handlePod := func(oldObj, newObj any, isDelete bool) map[model.ConfigKey]struct{} {
+	handlePod := func(oldObj, newObj any, isDelete bool) sets.Set[model.ConfigKey] {
 		oldPod := controllers.Extract[*v1.Pod](oldObj)
 		p := controllers.Extract[*v1.Pod](newObj)
+		updates := sets.New[model.ConfigKey]()
+		// This is a waypoint update
 		if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
-			// This is a waypoint update
-			n := types.NamespacedName{Namespace: p.Namespace, Name: p.Spec.ServiceAccountName}
+			n := types.NamespacedName{Namespace: p.Namespace, Name: p.Annotations["istio.io/service-account"]}
 			ip := p.Status.PodIP
 			if isDelete || !IsPodReady(p) {
 				if idx.waypoints[n].Contains(ip) {
 					idx.waypoints[n].Delete(ip)
-					return idx.updateWaypoint(n, ip, true, c)
+					updates.Merge(idx.updateWaypoint(n, ip, true, c))
 				}
 			} else {
 				if _, f := idx.waypoints[n]; !f {
 					idx.waypoints[n] = sets.New[string]()
 				}
 				if !idx.waypoints[n].InsertContains(ip) {
-					return idx.updateWaypoint(n, ip, false, c)
+					updates.Merge(idx.updateWaypoint(n, ip, false, c))
 				}
 			}
-			return nil
 		}
+
 		var wl *model.WorkloadInfo
 		if !isDelete {
 			wl = c.extractWorkload(p)
@@ -594,18 +602,17 @@ func (c *Controller) setupIndex() *AmbientIndex {
 					idx.dropWorkloadFromService(vip, p.Status.PodIP)
 				}
 				log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
-				return map[model.ConfigKey]struct{}{
-					// TODO: namespace for network?
-					{Kind: kind.Address, Name: p.Status.PodIP}: {},
-				}
+				// TODO: namespace for network?
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP})
+				return updates
 			}
 			// It was a 'delete' for a resource we didn't know yet, no need to send an event
-			return nil
+			return updates
 		}
 		oldWl := c.extractWorkload(oldPod)
 		if oldWl != nil && proto.Equal(wl.Workload, oldWl.Workload) {
 			log.Debugf("%v: no change, skipping", wl.ResourceName())
-			return nil
+			return updates
 		}
 		idx.byPod[p.Status.PodIP] = wl
 		if oldWl != nil {
@@ -620,10 +627,8 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		}
 
 		log.Debugf("%v: workload updated, pushing", wl.ResourceName())
-		return map[model.ConfigKey]struct{}{
-			// TODO: namespace for network?
-			{Kind: kind.Address, Name: p.Status.PodIP}: {},
-		}
+		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP})
+		return updates
 	}
 	idx.handlePods = func(pods []*v1.Pod) {
 		idx.mu.Lock()

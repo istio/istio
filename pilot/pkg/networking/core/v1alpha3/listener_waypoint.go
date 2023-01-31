@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -58,7 +58,14 @@ type WorkloadAndServices struct {
 
 func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
-	for _, wl := range push.AmbientIndex.Workloads.ByIdentity[node.VerifiedIdentity.String()] {
+	var workloads []ambient.Workload
+	if sa, f := node.Metadata.Annotations["istio.io/service-account"]; f {
+		ident := spiffe.MustGenSpiffeURI(node.ConfigNamespace, sa)
+		workloads = push.AmbientIndex.Workloads.ByIdentity[ident]
+	} else {
+		workloads = push.AmbientIndex.Workloads.ByNamespace[node.ConfigNamespace]
+	}
+	for _, wl := range workloads {
 		if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {
 			continue
 		}
@@ -189,6 +196,16 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 		class:                istionetworking.ListenerClassSidecarInbound,
 		skipTelemetryFilters: true, // do not include telemetry filters on the CONNECT termination chain
 		skipRBACFilters:      true,
+		connectionManager: &hcm.HttpConnectionManager{
+			// Append and forward client cert to backend.
+			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+				Subject: proto.BoolTrue,
+				Uri:     true,
+				Dns:     true,
+			},
+			ServerName: EnvoyServerName,
+		},
 	}
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
@@ -698,10 +715,13 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker svc account check
-	if service != nil && lb.node.VerifiedIdentity != nil && (service.MeshExternal ||
-		!sets.New(lb.push.ServiceAccounts(service.Hostname, service.Attributes.Namespace, port)...).Contains(lb.node.VerifiedIdentity.String())) {
-		dir, subset = model.TrafficDirectionOutbound, destination.Subset
+	if service != nil {
+		_, svcs := FindAssociatedResources(lb.node, lb.push)
+		_, f := svcs[service.Hostname]
+		if !f || service.MeshExternal {
+			// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker lookup
+			dir, subset = model.TrafficDirectionOutbound, destination.Subset
+		}
 	}
 
 	return model.BuildSubsetKey(
