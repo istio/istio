@@ -776,12 +776,12 @@ func (c *Controller) informersSynced() bool {
 
 	svcImport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
 		mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group, metav1.GetOptions{})
-	if svcImport != nil && !c.exports.HasSynced() {
+	if svcImport != nil && !c.imports.HasSynced() {
 		return false
 	}
 	svcExport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
 		mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group, metav1.GetOptions{})
-	if svcExport != nil && !c.imports.HasSynced() {
+	if svcExport != nil && !c.exports.HasSynced() {
 		return false
 	}
 
