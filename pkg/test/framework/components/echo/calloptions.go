@@ -157,6 +157,11 @@ type CallOptions struct {
 	// Check the server responses. If none is provided, only the number of responses received
 	// will be checked.
 	Check Checker
+
+	// If we have been asked to do TCP comms with a PROXY protocol header,
+	// determine which version (1 or 2), and send the header.
+	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+	ProxyProtocolVersion int
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following
@@ -231,6 +236,10 @@ func (o *CallOptions) FillDefaults() error {
 	if o.Check == nil {
 		panic("o.Check not set")
 	}
+
+	// If ProxyProtoVersion is not 0, 1, or 2, default to 0 (disabled)
+	o.fillProxyProtoVersion()
+
 	return nil
 }
 
@@ -255,6 +264,14 @@ func (o *CallOptions) fillCallCount() {
 	if newCount > o.Count {
 		o.Count = newCount
 	}
+}
+
+func (o *CallOptions) fillProxyProtoVersion() int {
+	if o.ProxyProtocolVersion > 0 && o.ProxyProtocolVersion < 3 {
+		// Nothing to do.
+		return o.ProxyProtocolVersion
+	}
+	return 0
 }
 
 func (o *CallOptions) numWorkloads() int {
