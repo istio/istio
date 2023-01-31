@@ -4,8 +4,7 @@ metadata:
   annotations:
     {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration") | nindent 4 }}
   labels:
-    {{ toYamlMap .Labels
-      (strdict "gateway.istio.io/managed" "istio.io-gateway-controller")
+    {{ toYamlMap .Labels .DefaultLabels
       | nindent 4}}
   name: {{.Name}}
   namespace: {{.Namespace}}
