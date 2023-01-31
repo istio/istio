@@ -15,16 +15,15 @@
 package xdstest
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -45,11 +44,26 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 	if err := l.Validate(); err != nil {
 		t.Errorf("listener %v is invalid: %v", l.Name, err)
 	}
+	bins := time.Now()
 	validateInspector(t, l)
+	ains := time.Now()
+	fmt.Println("inspector diff", ains.Sub(bins))
+	blist := time.Now()
 	validateListenerTLS(t, l)
+	alist := time.Now()
+	fmt.Println("listn diff", alist.Sub(blist))
+	bmatch := time.Now()
 	validateFilterChainMatch(t, l)
+	amatch := time.Now()
+	fmt.Println("match diff", amatch.Sub(bmatch))
+	binb := time.Now()
 	validateInboundListener(t, l)
+	ainb := time.Now()
+	fmt.Println("inb diff", ainb.Sub(binb))
+	blistf := time.Now()
 	validateListenerFilters(t, l)
+	alistf := time.Now()
+	fmt.Println("listf diff", alistf.Sub(blistf))
 }
 
 func validateListenerFilters(t testing.TB, l *listener.Listener) {
@@ -84,24 +98,34 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 	t.Helper()
 
 	// Check for duplicate filter chains, to avoid "multiple filter chains with the same matching rules are defined" error
+	check := map[string]int{}
 	for i1, l1 := range l.FilterChains {
-		for i2, l2 := range l.FilterChains {
-			if i1 == i2 {
-				continue
-			}
-			// We still create virtual inbound listeners before merging into single inbound
-			// This hack skips these ones, as they will be processed later
-			if hcm := ExtractHTTPConnectionManager(t, l1); strings.HasPrefix(hcm.GetStatPrefix(), "inbound_") && l.Name != "virtualInbound" {
-				continue
-			}
-			if cmp.Equal(l1.FilterChainMatch, l2.FilterChainMatch, protocmp.Transform()) {
-				fcms := []string{}
-				for _, fc := range l.FilterChains {
-					fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
-				}
-				t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
-			}
+		// We still create virtual inbound listeners before merging into single inbound
+		// This hack skips these ones, as they will be processed later
+		if hcm := ExtractHTTPConnectionManager(t, l1); strings.HasPrefix(hcm.GetStatPrefix(), "inbound_") && l.Name != "virtualInbound" {
+			continue
 		}
+
+		s := Dump(t, l1.FilterChainMatch)
+		if i2, ok := check[s]; ok {
+			var fcms []string
+			for _, fc := range l.FilterChains {
+				fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
+			}
+			t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
+		}
+		//for i2, l2 := range l.FilterChains {
+		//	if i1 == i2 {
+		//		continue
+		//	}
+		//	if cmp.Equal(l1.FilterChainMatch, l2.FilterChainMatch, protocmp.Transform()) {
+		//		var fcms []string
+		//		for _, fc := range l.FilterChains {
+		//			fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
+		//		}
+		//		t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
+		//	}
+		//}
 	}
 
 	// Due to the trie based logic of FCM, an unset field is only a wildcard if no
