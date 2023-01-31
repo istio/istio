@@ -203,7 +203,7 @@ func TestNewServer(t *testing.T) {
 func TestPprof(t *testing.T) {
 	pprofPath := "/debug/pprof/cmdline"
 	// Starts the pilot agent status server.
-	server, err := NewServer(Options{StatusPort: 0})
+	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true})
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
