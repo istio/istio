@@ -63,11 +63,12 @@ var (
 
 func TestK8sSignWithMeshConfig(t *testing.T) {
 	cases := []struct {
-		name                         string
-		rootCertForMeshConfig        string
-		certChain                    string
-		updatedRootCertForMeshConfig string
-		expectedFail                 bool
+		name                          string
+		rootCertForMeshConfig         string
+		certChain                     string
+		updatedRootCertForMeshConfig  string
+		expectedFail                  bool
+		expectedFailOnUpdatedRootCert bool
 	}{
 		{
 			name:                  "Root cert from mesh config and cert chain does not match",
@@ -78,7 +79,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 		{
 			name:                  "Root cert is specified in mesh config and Root cert from cert chain is empty(only one leaf cert)",
 			rootCertForMeshConfig: path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"),
-			certChain:             path.Join(env.IstioSrc, "samples/certs", "cert-chain.pem"),
+			certChain:             path.Join(env.IstioSrc, "samples/certs", "leaf-workload-foo-cert.pem"),
 		},
 		{
 			name:                  "Root cert is specified in mesh config and cert chain contains only intermediate CA(only leaf cert + intermediate CA) ",
@@ -86,11 +87,11 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 			certChain:             path.Join(env.IstioSrc, "samples/certs", "workload-foo-cert.pem"),
 		},
 		{
-			name:                         "Root cert is specified in mesh config and be updated to an invalid value",
-			rootCertForMeshConfig:        path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"),
-			certChain:                    path.Join(env.IstioSrc, "samples/certs", "cert-chain.pem"),
-			updatedRootCertForMeshConfig: TestCACertFile,
-			expectedFail:                 true,
+			name:                          "Root cert is specified in mesh config and be updated to an invalid value",
+			rootCertForMeshConfig:         path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"),
+			certChain:                     path.Join(env.IstioSrc, "samples/certs", "cert-chain.pem"),
+			updatedRootCertForMeshConfig:  TestCACertFile,
+			expectedFailOnUpdatedRootCert: true,
 		},
 		{
 			name:      "Root cert is not specified in mesh config and cert chain contains only intermediate CA(only leaf cert + intermediate CA)",
@@ -98,7 +99,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 		},
 		{
 			name:         "Root cert is not specified in mesh config and Root cert from cert chain is empty(only one leaf cert)",
-			certChain:    path.Join(env.IstioSrc, "samples/certs", "cert-chain.pem"),
+			certChain:    path.Join(env.IstioSrc, "samples/certs", "leaf-workload-foo-cert.pem"),
 			expectedFail: true,
 		},
 	}
@@ -107,7 +108,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 			csrPEM := createFakeCsr(t)
 			certChainPem, err := os.ReadFile(tc.certChain)
 			if err != nil {
-				t.Errorf("Failed to read sample cert-chain.pem")
+				t.Errorf("Failed to read sample %s", tc.certChain)
 			}
 			client := initFakeKubeClient(t, certChainPem)
 			ra, err := createFakeK8sRA(client, "")
@@ -119,7 +120,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 			if tc.rootCertForMeshConfig != "" {
 				rootCertPem, err := os.ReadFile(tc.rootCertForMeshConfig)
 				if err != nil {
-					t.Errorf("Failed to read sample root-cert.pem")
+					t.Errorf("Failed to read sample %s", tc.rootCertForMeshConfig)
 				}
 				caCertificates := []*meshconfig.MeshConfig_CertificateData{
 					{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: string(rootCertPem)}, CertSigners: []string{signer}},
@@ -132,14 +133,13 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 				TTL:        60 * time.Second, ForCA: false,
 				CertSigner: "kube-apiserver-client",
 			}
-			// expect to sign back successfully
 			_, err = ra.SignWithCertChain(csrPEM, certOptions)
-			if err != nil && !tc.expectedFail {
-				t.Fatal(err)
+			if (tc.expectedFail && err == nil) || (!tc.expectedFail && err != nil) {
+				t.Fatalf("expected failure: %t, got %v", tc.expectedFail, err)
 			}
 			if tc.updatedRootCertForMeshConfig != "" {
 				testCACert, err := os.ReadFile(tc.updatedRootCertForMeshConfig)
-				if err != nil && !tc.expectedFail {
+				if err != nil {
 					t.Errorf("Failed to read test CA Cert file")
 				}
 				updatedCACertificates := []*meshconfig.MeshConfig_CertificateData{
@@ -148,7 +148,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 				ra.SetCACertificatesFromMeshConfig(updatedCACertificates)
 				// expect failure in sign since root cert in mesh config does not match
 				_, err = ra.SignWithCertChain(csrPEM, certOptions)
-				if err == nil && !tc.expectedFail {
+				if err == nil && !tc.expectedFailOnUpdatedRootCert {
 					t.Fatalf("expected failed, got none")
 				}
 			}
