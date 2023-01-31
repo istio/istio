@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -49,6 +50,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/mcs"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
@@ -766,11 +768,23 @@ func (c *Controller) informersSynced() bool {
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodeInformer.HasSynced() ||
-		!c.exports.HasSynced() ||
-		!c.imports.HasSynced() {
+		!c.nodeInformer.HasSynced() {
 		return false
 	}
+
+	// wait for mcs sync if the CRD exists, otherwise do not wait for thenm
+
+	svcImport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
+		mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group, metav1.GetOptions{})
+	if svcImport != nil && !c.exports.HasSynced() {
+		return false
+	}
+	svcExport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
+		mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group, metav1.GetOptions{})
+	if svcExport != nil && !c.imports.HasSynced() {
+		return false
+	}
+
 	return true
 }
 

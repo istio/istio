@@ -303,7 +303,6 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	} else {
 		ic.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
 	}
-
 	// Register callbacks for Service events anywhere in the mesh.
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.
@@ -314,10 +313,7 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 }
 
 func (ic *serviceImportCacheImpl) HasSynced() bool {
-	// This is called during the initiation of istiod.
-	// 1. If MCS CRD not installed, always return true.
-	// 2. TODO: If MCS CRD installed, we need to wait informer cache synced and also process each item.
-	return true
+	return ic.started.Load()
 }
 
 func (ic *serviceImportCacheImpl) OnCRDEvent(name string) {
