@@ -158,7 +158,8 @@ func newProxyCommand() *cobra.Command {
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+				if err := initStatusServer(ctx, proxy, proxyConfig,
+					agentOptions.EnvoyPrometheusPort, proxyArgs.EnableProfiling, agent); err != nil {
 					return err
 				}
 			}
@@ -205,13 +206,16 @@ func addFlags(proxyCmd *cobra.Command) {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.OutlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	proxyCmd.PersistentFlags().BoolVar(&proxyArgs.EnableProfiling, "profiling", true,
+		"Enable profiling via web interface host:port/debug/pprof/.")
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, agent *istio_agent.Agent,
+	envoyPrometheusPort int, enableProfiling bool, agent *istio_agent.Agent,
 ) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
+	o.EnableProfiling = enableProfiling
 	o.Context = ctx
 	statusServer, err := status.NewServer(*o)
 	if err != nil {

@@ -127,6 +127,7 @@ type Options struct {
 	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
+	EnableProfiling     bool
 }
 
 // Server provides an endpoint for handling status probes.
@@ -144,6 +145,7 @@ type Server struct {
 	upstreamLocalAddress  *net.TCPAddr
 	config                Options
 	http                  *http.Client
+	enableProfiling       bool
 }
 
 func init() {
@@ -201,6 +203,7 @@ func NewServer(config Options) (*Server, error) {
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
+		enableProfiling:       config.EnableProfiling,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -349,12 +352,14 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
-	// Add the handler for pprof.
-	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
-	mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
-	mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
-	mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
-	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	if s.enableProfiling {
+		// Add the handler for pprof.
+		mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
+		mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
+		mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
+		mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
+		mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	}
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
