@@ -45,6 +45,11 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
+const (
+	ManagedByControllerLabel = "gateway.istio.io/managed"
+	ManagedByControllerValue = "istio.io-gateway-controller"
+)
+
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
 // to serve requests from. This is implemented with a Deployment and Service today.
 // The implementation makes a few non-obvious choices - namely using Server Side Apply from go templates
@@ -129,7 +134,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
+				options.LabelSelector = ManagedByControllerLabel + "=" + ManagedByControllerValue
 			},
 		)
 	})
@@ -203,13 +208,15 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
-	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw)}
+	defaultLabels := map[string]string{ManagedByControllerLabel: ManagedByControllerValue}
+
+	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw), DefaultLabels: defaultLabels}
 	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
 
-	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
+	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22), DefaultLabels: defaultLabels}
 	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
 		return fmt.Errorf("update deployment: %v", err)
 	}
@@ -302,12 +309,14 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 
 type serviceInput struct {
 	*gateway.Gateway
-	Ports []corev1.ServicePort
+	Ports         []corev1.ServicePort
+	DefaultLabels map[string]string
 }
 
 type deploymentInput struct {
 	*gateway.Gateway
 	KubeVersion122 bool
+	DefaultLabels  map[string]string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
