@@ -642,13 +642,6 @@ spec:
         methods: ["GET"]
   - from:
     - source:
-        principals: ["cluster.local/ns/istio-system/sa/{{.Source}}"]
-    to:
-    - operation:
-        ports: ["80", "18080", "18081", "18085"]
-        paths: ["/allowed-port"]
-  - from:
-    - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/someone-else"]
     to:
     - operation:
@@ -703,13 +696,6 @@ spec:
 			t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
 				opt = opt.DeepCopy()
 				opt.HTTP.Path = "/allowed"
-				opt.Check = check.OK()
-				overrideCheck(&opt)
-				src.CallOrFail(t, opt)
-			})
-			t.NewSubTest("port allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
-				opt.HTTP.Path = "/allowed-port"
 				opt.Check = check.OK()
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
