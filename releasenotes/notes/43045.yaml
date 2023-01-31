@@ -31,4 +31,4 @@ issue:
 # release notes.
 releaseNotes:
   - |-
-    **Fixed** `istioctl pc ep -f -` returns `Error: open -: no such file or directory`.
+    **Fixed** `istioctl proxy-config endpoint -f -` returns `Error: open -: no such file or directory`.
