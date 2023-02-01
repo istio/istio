@@ -208,15 +208,13 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
-	defaultLabels := map[string]string{ManagedByControllerLabel: ManagedByControllerValue}
-
-	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw), DefaultLabels: defaultLabels}
+	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw)}
 	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
 
-	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22), DefaultLabels: defaultLabels}
+	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
 	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
 		return fmt.Errorf("update deployment: %v", err)
 	}
@@ -264,6 +262,11 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 		return err
 	}
 	us := unstructured.Unstructured{Object: data}
+	// set managed-by label
+	err = unstructured.SetNestedField(us.Object, ManagedByControllerValue, "metadata", "labels", ManagedByControllerLabel)
+	if err != nil {
+		return err
+	}
 	gvr, err := controllers.UnstructuredToGVR(us)
 	if err != nil {
 		return err
@@ -309,14 +312,12 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 
 type serviceInput struct {
 	*gateway.Gateway
-	Ports         []corev1.ServicePort
-	DefaultLabels map[string]string
+	Ports []corev1.ServicePort
 }
 
 type deploymentInput struct {
 	*gateway.Gateway
 	KubeVersion122 bool
-	DefaultLabels  map[string]string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {

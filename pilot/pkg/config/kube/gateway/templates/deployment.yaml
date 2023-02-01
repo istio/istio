@@ -4,7 +4,7 @@ metadata:
   annotations:
     {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration") | nindent 4 }}
   labels:
-    {{ toYamlMap .Labels .DefaultLabels
+    {{ toYamlMap .Labels
       | nindent 4}}
   name: {{.Name}}
   namespace: {{.Namespace}}
