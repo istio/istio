@@ -273,6 +273,8 @@ type Controller struct {
 	workloadInstancesIndex workloadinstances.Index
 
 	multinetwork
+	mcsImportCrdInstalled bool
+	mcsExportCrdInstalled bool
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
@@ -772,16 +774,12 @@ func (c *Controller) informersSynced() bool {
 		return false
 	}
 
-	// wait for mcs sync if the CRD exists, otherwise do not wait for thenm
+	// wait for mcs sync if the CRD exists, otherwise do not wait for them
 
-	svcImport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
-		mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group, metav1.GetOptions{})
-	if svcImport != nil && !c.imports.HasSynced() {
+	if c.mcsImportCrdInstalled && !c.imports.HasSynced() {
 		return false
 	}
-	svcExport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
-		mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group, metav1.GetOptions{})
-	if svcExport != nil && !c.exports.HasSynced() {
+	if c.mcsExportCrdInstalled && !c.exports.HasSynced() {
 		return false
 	}
 
@@ -885,6 +883,19 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
+
+	// wait for mcs sync if the CRD exists, otherwise do not wait for them
+
+	svcImport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
+		mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group, metav1.GetOptions{})
+	if svcImport != nil {
+		c.mcsImportCrdInstalled = true
+	}
+	svcExport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
+		mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group, metav1.GetOptions{})
+	if svcExport != nil {
+		c.mcsExportCrdInstalled = true
+	}
 
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
