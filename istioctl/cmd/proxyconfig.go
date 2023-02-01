@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
@@ -662,7 +663,7 @@ func statsConfigCmd() *cobra.Command {
 }
 
 func logCmd() *cobra.Command {
-	var podName, podNamespace string
+	var podNamespace string
 	var podNames []string
 
 	logCmd := &cobra.Command{
@@ -707,17 +708,16 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if len(podNames) > 0 {
-					podName = podNames[0]
-				}
 			} else {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podNames, podNamespace, err = getPodNames(args[0]); err != nil {
 					return err
 				}
-				name, err := setupEnvoyLogConfig("", podName, podNamespace)
-				loggerNames = append(loggerNames, name)
-				if err != nil {
-					return err
+				for _, podName := range podNames {
+					name, err := setupEnvoyLogConfig("", podName, podNamespace)
+					loggerNames = append(loggerNames, name)
+					if err != nil {
+						return err
+					}
 				}
 			}
 
@@ -762,22 +762,31 @@ func logCmd() *cobra.Command {
 			}
 
 			var resp string
-			if len(destLoggerLevels) == 0 {
-				resp, err = setupEnvoyLogConfig("", podName, podNamespace)
-			} else {
-				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
-					// update levels of all loggers first
-					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
-					delete(destLoggerLevels, defaultLoggerName)
+			var errs *multierror.Error
+			for _, podName := range podNames {
+				if len(destLoggerLevels) == 0 {
+					resp, err = setupEnvoyLogConfig("", podName, podNamespace)
+				} else {
+					if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
+						// update levels of all loggers first
+						resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
+					}
+					for lg, ll := range destLoggerLevels {
+						if lg == defaultLoggerName {
+							continue
+						}
+						resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
+					}
 				}
-				for lg, ll := range destLoggerLevels {
-					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
+				if err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("error configuring log level for %v.%v: %v", podName, podNamespace, err))
+				} else {
+					_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 				}
 			}
-			if err != nil {
+			if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 			return nil
 		},
 		ValidArgsFunction: validPodsNameArgs,
@@ -1242,6 +1251,21 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(ecdsConfigCmd())
 
 	return configCmd
+}
+
+func getPodNames(podflag string) ([]string, string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return []string{}, "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	podNames, ns, err := handlers.InferPodsFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, defaultNamespace),
+		kubeClient.UtilFactory())
+	if err != nil {
+		log.Errorf("pods lookup failed")
+		return []string{}, "", err
+	}
+	return podNames, ns, nil
 }
 
 func getPodName(podflag string) (string, string, error) {
