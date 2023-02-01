@@ -67,7 +67,8 @@ type serviceImportCache interface {
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	ImportedServices() []importedService
-	OnCRDEvent(name string)
+	// HasCRDInstalled indicates whether the serviceImport crd has been installed.
+	HasCRDInstalled() bool
 }
 
 // newServiceImportCache creates a new cache of ServiceImport resources in the cluster.
@@ -77,7 +78,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 			Controller:      c,
 			serviceImportCh: make(chan struct{}),
 		}
-		c.AppendCrdHandlers(sic.OnCRDEvent)
+		c.crdWatcher.AddCallBack(sic.onCRDEvent)
 		return sic
 	}
 
@@ -316,7 +317,16 @@ func (ic *serviceImportCacheImpl) HasSynced() bool {
 	return ic.started.Load()
 }
 
-func (ic *serviceImportCacheImpl) OnCRDEvent(name string) {
+func (ic *serviceImportCacheImpl) HasCRDInstalled() bool {
+	select {
+	case <-ic.serviceImportCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (ic *serviceImportCacheImpl) onCRDEvent(name string) {
 	if name == mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group {
 		select {
 		case <-ic.serviceImportCh: // channel already closed
@@ -342,4 +352,6 @@ func (c disabledServiceImportCache) ImportedServices() []importedService {
 	return nil
 }
 
-func (c disabledServiceImportCache) OnCRDEvent(name string) {}
+func (c disabledServiceImportCache) HasCRDInstalled() bool {
+	return false
+}

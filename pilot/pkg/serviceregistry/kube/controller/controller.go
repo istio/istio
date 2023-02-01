@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -46,12 +45,11 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
-	"istio.io/istio/pkg/kube/mcs"
 	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
@@ -235,9 +233,10 @@ type Controller struct {
 	nodeInformer cache.SharedIndexInformer
 	nodeLister   listerv1.NodeLister
 
-	exports serviceExportCache
-	imports serviceImportCache
-	pods    *PodCache
+	crdWatcher *crdwatcher.Controller
+	exports    serviceExportCache
+	imports    serviceImportCache
+	pods       *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -401,24 +400,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
 	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
-		crdMetadataInformer := kubeClient.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
-			GroupVersionResource()).Informer()
-		_ = crdMetadataInformer.SetTransform(kubelib.StripUnusedFields)
-		_, _ = crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj any) {
-				crd, ok := obj.(*metav1.PartialObjectMetadata)
-				if !ok {
-					// Shouldn't happen
-					log.Errorf("wrong type %T: %v", obj, obj)
-					return
-				}
-				for _, handler := range c.crdHandlers {
-					handler(crd.Name)
-				}
-			},
-			UpdateFunc: nil,
-			DeleteFunc: nil,
-		})
+		c.crdWatcher = crdwatcher.NewController(kubeClient)
 	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -770,16 +752,16 @@ func (c *Controller) informersSynced() bool {
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodeInformer.HasSynced() {
+		!c.nodeInformer.HasSynced() ||
+		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
 		return false
 	}
 
 	// wait for mcs sync if the CRD exists, otherwise do not wait for them
-
-	if c.mcsImportCrdInstalled && !c.imports.HasSynced() {
+	if c.imports.HasCRDInstalled() && !c.imports.HasSynced() {
 		return false
 	}
-	if c.mcsExportCrdInstalled && !c.exports.HasSynced() {
+	if c.exports.HasCRDInstalled() && !c.exports.HasSynced() {
 		return false
 	}
 
@@ -883,19 +865,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-
-	// wait for mcs sync if the CRD exists, otherwise do not wait for them
-
-	svcImport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
-		mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group, metav1.GetOptions{})
-	if svcImport != nil {
-		c.mcsImportCrdInstalled = true
-	}
-	svcExport, _ := c.client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(),
-		mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group, metav1.GetOptions{})
-	if svcExport != nil {
-		c.mcsExportCrdInstalled = true
-	}
 
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order

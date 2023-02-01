@@ -22,7 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/configmapwatcher"
+	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
 	"istio.io/pkg/log"
 )
 
