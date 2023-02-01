@@ -80,6 +80,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 			name:                  "Root cert is specified in mesh config and Root cert from cert chain is empty(only one leaf cert)",
 			rootCertForMeshConfig: path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"),
 			certChain:             path.Join(env.IstioSrc, "samples/certs", "leaf-workload-foo-cert.pem"),
+			expectedFail:          true,
 		},
 		{
 			name:                  "Root cert is specified in mesh config and cert chain contains only intermediate CA(only leaf cert + intermediate CA) ",
