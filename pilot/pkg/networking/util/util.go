@@ -30,6 +30,7 @@ import (
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -805,27 +806,39 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 }
 
 func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
-	if features.PersistentSessionLabel == "" || svc == nil {
+	if svc == nil {
 		return nil
 	}
 	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
-	if sessionCookie == "" {
-		return nil
+	sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
+
+	switch {
+	case sessionCookie != "":
+		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
+		if !found {
+			cookiePath = "/"
+		}
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.cookie",
+				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+					Cookie: &httpv3.Cookie{
+						Path: cookiePath,
+						Ttl:  &durationpb.Duration{Seconds: 120},
+						Name: cookieName,
+					},
+				}),
+			},
+		}
+	case sessionHeader != "":
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.header",
+				TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
+					Name: sessionHeader,
+				}),
+			},
+		}
 	}
-	cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
-	if !found {
-		cookiePath = "/"
-	}
-	return &statefulsession.StatefulSession{
-		SessionState: &core.TypedExtensionConfig{
-			Name: "envoy.http.stateful_session.cookie",
-			TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
-				Cookie: &httpv3.Cookie{
-					Path: cookiePath,
-					Ttl:  &durationpb.Duration{Seconds: 120},
-					Name: cookieName,
-				},
-			}),
-		},
-	}
+	return nil
 }
