@@ -6,6 +6,7 @@ area: traffic-management
 # issue is a list of GitHub issues resolved in this note.
 # If issue is not in the current repo, specify its full URL instead.
 issue:
+  - https://github.com/istio/istio/pull/43103
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
@@ -24,8 +25,3 @@ upgradeNotes:
       to manage your istio gateways, the names of the Kubernetes Deployment and Service has been modified, and the default Service Account used
       has switched to used its own token. The `gateway.istio.io/name-override` and `gateway.istio.io/service-account` annotations can be used to
       continue using the old convention during upgrades.
-
-# docs is a list of related docs to the change.
-docs:
-
-
