@@ -124,9 +124,17 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 			option.Localhost(option.LocalhostIPv4),
 			option.Wildcard(option.WildcardIPv4),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
-	} else {
-		// IPv6 only and Dual Stack
+	} else if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+		// IPv6 only
 		opts = append(opts,
+			option.Localhost(option.LocalhostIPv6),
+			option.Wildcard(option.WildcardIPv6),
+			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
+	} else {
+		// Dual Stack
+		opts = append(opts,
+			option.Localhost(option.LocalhostIPv4),
+			option.Wildcard(option.WildcardIPv4),
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
