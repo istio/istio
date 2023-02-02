@@ -102,8 +102,7 @@ func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	// Here we set sync timeout as 10ms which is enough for the execution time of Client.RunAndWait.
-	test.SetForTest(t, &features.RemoteClusterTimeout, 10*time.Millisecond)
+
 	clientset := kube.NewFakeClient()
 
 	var (
@@ -187,6 +186,8 @@ func Test_SecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
+	// Here we set sync timeout as 10ms which is enough for the execution time of Client.RunAndWait.
+	test.SetForTest(t, &features.RemoteClusterTimeout, 10*time.Millisecond)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
 	c.AddHandler(&handler{})
 	_ = c.Run(stopCh)
