@@ -16,6 +16,7 @@ package wasm
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -236,8 +237,13 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 			PullSecret:      pullSecret,
 			PullPolicy:      pullPolicy,
 		})
-		wasmLog.Debugf("fetching Wasm module resource name %v retry later, error %v", ec.Name, err)
-		time.Sleep(b.NextBackOff())
+		if err != nil && strings.Contains(err.Error(), "file exists") {
+			// retry if the file exist.
+			wasmLog.Debugf("fetching Wasm module resource name %v retry later, error %v", ec.Name, err)
+			time.Sleep(b.NextBackOff())
+		} else {
+			break
+		}
 	}
 	if err != nil {
 		status = fetchFailure
