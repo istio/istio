@@ -234,7 +234,7 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 		})
 		wasmLog.Debugf("fetching Wasm module resource name %v retry later, error %v", ec.Name, err)
 		return err
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(timeout), cacheMaxRetry))
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(100*time.Millisecond), cacheMaxRetry))
 	if err != nil {
 		status = fetchFailure
 		return nil, fmt.Errorf("cannot fetch Wasm module %v: %w", remote.GetHttpUri().GetUri(), err)
