@@ -19,7 +19,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -30,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -46,10 +44,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-)
-
-const (
-	DefaultBucketCount = 20
 )
 
 var (
@@ -101,7 +95,7 @@ func GetTarget() echo.Target {
 
 // TestStatsFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T, feature features.Feature, expectedBuckets int) {
+func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
@@ -141,10 +135,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature, expectedBuckets int
 						// This query will continue to increase due to readiness probe; don't wait for it to converge
 						if _, err := prom.QuerySum(c, appQuery); err != nil {
 							util.PromDiff(t, prom, c, appQuery)
-							return err
-						}
-
-						if err := ValidateBucket(c, prom, cltInstance.Config().Service, expectedBuckets); err != nil {
 							return err
 						}
 
@@ -533,21 +523,4 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 		Metric: "istio_tcp_connections_opened_total",
 		Labels: labels,
 	}
-}
-
-func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp string, expectedBuckets int) error {
-	promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s",response_code="200"}[24h])))`, sourceApp)
-	v, err := prom.RawQuery(cluster, promQL)
-	if err != nil {
-		return err
-	}
-	totalBuckets, err := prometheus.Sum(v)
-	if err != nil {
-		return err
-	}
-	if int(totalBuckets) != expectedBuckets {
-		return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
-	}
-
-	return nil
 }

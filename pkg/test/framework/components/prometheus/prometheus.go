@@ -30,9 +30,6 @@ type Instance interface {
 	API() v1.API
 	APIForCluster(cluster cluster.Cluster) v1.API
 
-	// Query run the provided PromQL against the given cluster
-	RawQuery(cluster cluster.Cluster, promQL string) (prom.Value, error)
-
 	// Query Run the provided query against the given cluster
 	Query(cluster cluster.Cluster, query Query) (prom.Value, error)
 
