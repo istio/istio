@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -192,11 +191,8 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 	sha := sha256.Sum256([]byte(mkey.name))
 	hashedName := hex.EncodeToString(sha[:])
 	moduleDir := filepath.Join(baseDir, hashedName)
-	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(moduleDir, 0o755)
-		if err != nil {
-			return "", err
-		}
+	if err := os.Mkdir(moduleDir, 0o755); err != nil && !os.IsExist(err) {
+		return "", err
 	}
 	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
 }
