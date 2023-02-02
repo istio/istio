@@ -77,6 +77,10 @@ func shouldPodBeInEndpoints(pod *v1.Pod) bool {
 	}
 }
 
+func IsPodRunning(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodRunning
+}
+
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
 func IsPodReady(pod *v1.Pod) bool {
 	return IsPodReadyConditionTrue(pod.Status)
@@ -146,6 +150,7 @@ func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) == 0 {
+		log.Debugf("Pod name %s has no IP yet, skipping...", pod.Name, pod.Status.Phase)
 		return nil
 	}
 
