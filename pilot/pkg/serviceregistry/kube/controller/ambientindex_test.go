@@ -447,7 +447,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	// Service shouldn't change workload list
 	assertWorkloads("", "name1", "name2")
 	assertWorkloads("127.0.0.1", "name1")
-	//For pods that are in Ready state, VIPs should be populated.
+	// For pods that are in Ready state, VIPs should be populated.
 	assertWorkloads("10.0.0.1", "name1")
 }
 

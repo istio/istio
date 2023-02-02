@@ -695,7 +695,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			wl := idx.byPod[p.Status.PodIP]
 			// Only add Pods to the service VIP if Pod in Ready state -
 			// Pods with valid WorkloadInfos are not necessarily ready to
-			// recieve traffic.
+			// receive traffic.
 			if wl != nil && IsPodReady(p) {
 				wl = c.extractWorkload(p)
 				// Update the pod, since it now has new VIP info
@@ -820,7 +820,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 	// Create a workload entry for pods that may not be ready yet,
 	// so proxies handling their outbound traffic have a source workload,
 	// but explicitly do not add any VIPs to the entry until pods reach a state
-	// that indicates they are ready to recieve inbound traffic.
+	// that indicates they are ready to receive inbound traffic.
 	if IsPodReady(pod) {
 		if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
 			for _, svc := range services {
