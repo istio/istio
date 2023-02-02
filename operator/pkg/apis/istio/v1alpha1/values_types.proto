@@ -64,6 +64,8 @@ message CNIConfig {
 
   repeated string excludeNamespaces = 9;
 
+  google.protobuf.Struct affinity = 20;
+
   google.protobuf.Struct podAnnotations = 10 [deprecated=true];
 
   string psp_cluster_role = 11;
