@@ -5,4 +5,4 @@ issue:
   - 43063
 releaseNotes: 
   - |-
-    **Fixed** `istioctl proxy-config` failure when a user specifies a custom proxy admin port.
+    **Fixed** `istioctl proxy-config` failure when a user specifies a custom proxy admin port with `--proxy-admin-port`.
