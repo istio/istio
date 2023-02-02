@@ -44,6 +44,8 @@ const (
 
 	// sha256 scheme prefix
 	sha256SchemePrefix = "sha256:"
+
+	cacheMaxRetry = 3
 )
 
 // Cache models a Wasm module cache.

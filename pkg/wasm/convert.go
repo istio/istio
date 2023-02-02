@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
@@ -215,16 +216,25 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	// ec.Name is resourceName.
-	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
-	f, err := cache.Get(httpURI.GetUri(), GetOptions{
-		Checksum:        remote.Sha256,
-		ResourceName:    ec.Name,
-		ResourceVersion: resourceVersion,
-		RequestTimeout:  timeout,
-		PullSecret:      pullSecret,
-		PullPolicy:      pullPolicy,
-	})
+
+	var (
+		f   string
+		err error
+	)
+	err = backoff.Retry(func() error {
+		// ec.Name is resourceName.
+		// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
+		f, err = cache.Get(httpURI.GetUri(), GetOptions{
+			Checksum:        remote.Sha256,
+			ResourceName:    ec.Name,
+			ResourceVersion: resourceVersion,
+			RequestTimeout:  timeout,
+			PullSecret:      pullSecret,
+			PullPolicy:      pullPolicy,
+		})
+		wasmLog.Debugf("fetching Wasm module resource name %v retry later, error %v", ec.Name, err)
+		return err
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(timeout), cacheMaxRetry))
 	if err != nil {
 		status = fetchFailure
 		return nil, fmt.Errorf("cannot fetch Wasm module %v: %w", remote.GetHttpUri().GetUri(), err)
