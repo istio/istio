@@ -781,7 +781,7 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("error configuring log level for %v.%v: %v", podName, podNamespace, err))
 				} else {
-					_, _ = fmt.Fprint(c.OutOrStdout(), resp)
+					_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v", podName, podNamespace, resp)
 				}
 			}
 			if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
