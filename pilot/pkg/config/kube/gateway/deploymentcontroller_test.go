@@ -40,9 +40,21 @@ func TestConfigureIstioGateway(t *testing.T) {
 			"simple",
 			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default",
-					Namespace:   "default",
-					Annotations: map[string]string{gatewayNameOverride: "mygateway"},
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: DefaultClassName,
+				},
+			},
+		},
+		{
+			"manual-sa",
+			v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Annotations: map[string]string{gatewaySAOverrice: "custom-sa"},
 				},
 				Spec: v1alpha2.GatewaySpec{
 					GatewayClassName: DefaultClassName,
@@ -53,10 +65,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 			"manual-ip",
 			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "default",
+					Name:        "default",
+					Namespace:   "default",
+					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: DefaultClassName,
 					Addresses: []v1beta1.GatewayAddress{{
 						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
@@ -68,11 +82,15 @@ func TestConfigureIstioGateway(t *testing.T) {
 			"cluster-ip",
 			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default",
-					Namespace:   "default",
-					Annotations: map[string]string{"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP)},
+					Name:      "default",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP),
+						gatewayNameOverride:                "default",
+					},
 				},
 				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: DefaultClassName,
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -85,11 +103,13 @@ func TestConfigureIstioGateway(t *testing.T) {
 			"multinetwork",
 			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "default",
-					Labels:    map[string]string{"topology.istio.io/network": "network-1"},
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"topology.istio.io/network": "network-1"},
+					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: DefaultClassName,
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -103,7 +123,10 @@ func TestConfigureIstioGateway(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			d := &DeploymentController{
-				client:    kube.NewFakeClient(),
+				client: kube.NewFakeClient(
+					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
+					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
+				),
 				templates: processTemplates(),
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 					b, err := yaml.JSONToYAML(data)
