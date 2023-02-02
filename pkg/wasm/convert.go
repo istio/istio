@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
@@ -31,6 +30,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/config/xds"
 )
 
@@ -218,10 +218,14 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 	}
 
 	var (
-		f   string
-		err error
+		f        string
+		err      error
+		attempts = 0
 	)
-	err = backoff.Retry(func() error {
+
+	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+	for attempts < cacheMaxTry {
+		attempts++
 		// ec.Name is resourceName.
 		// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
 		f, err = cache.Get(httpURI.GetUri(), GetOptions{
@@ -233,8 +237,8 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 			PullPolicy:      pullPolicy,
 		})
 		wasmLog.Debugf("fetching Wasm module resource name %v retry later, error %v", ec.Name, err)
-		return err
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(100*time.Millisecond), cacheMaxRetry))
+		time.Sleep(b.NextBackOff())
+	}
 	if err != nil {
 		status = fetchFailure
 		return nil, fmt.Errorf("cannot fetch Wasm module %v: %w", remote.GetHttpUri().GetUri(), err)
