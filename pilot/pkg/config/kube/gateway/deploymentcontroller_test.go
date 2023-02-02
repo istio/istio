@@ -40,10 +40,13 @@ func TestConfigureIstioGateway(t *testing.T) {
 			"simple",
 			v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "default",
+					Name:        "default",
+					Namespace:   "default",
+					Annotations: map[string]string{gatewayNameOverride: "mygateway"},
 				},
-				Spec: v1alpha2.GatewaySpec{},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: DefaultClassName,
+				},
 			},
 		},
 		{

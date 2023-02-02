@@ -47,6 +47,8 @@ const (
 	ControllerName               = "istio.io/gateway-controller"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
+	gatewayNameOverride          = "gateway.istio.io/name-override"
+	gatewaySAOverrice            = "istio.io/service-account"
 )
 
 // KubernetesResources stores all inputs to our conversion
