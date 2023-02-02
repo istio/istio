@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -186,8 +185,6 @@ func Test_SecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
-	// Here we set sync timeout as 10ms which is enough for the execution time of Client.RunAndWait.
-	test.SetForTest(t, &features.RemoteClusterTimeout, 10*time.Millisecond)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
 	c.AddHandler(&handler{})
 	_ = c.Run(stopCh)
