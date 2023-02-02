@@ -272,8 +272,7 @@ type Controller struct {
 	workloadInstancesIndex workloadinstances.Index
 
 	multinetwork
-	mcsImportCrdInstalled bool
-	mcsExportCrdInstalled bool
+
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
