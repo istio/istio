@@ -286,7 +286,7 @@ func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *cor
 		WithLabels(map[string]string{GatewayNameLabel: input.Name}).
 		WithOwnerReferences(metav1ac.OwnerReference().
 			WithName(input.Name).
-			WithUID(types.UID(input.UID)).
+			WithUID(input.UID).
 			WithKind(gvk.KubernetesGateway.Kind).
 			WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
 }
