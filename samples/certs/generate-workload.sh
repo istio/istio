@@ -103,6 +103,8 @@ openssl x509 -req -in "$FINAL_DIR"/workload.csr -CA "$cacert" -CAkey "$cakey" -C
 
 cp "$FINAL_DIR/leaf-workload-$sa-cert.pem" "$FINAL_DIR/workload-$sa-cert.pem"
 cat "$certchain" >> "$FINAL_DIR/workload-$sa-cert.pem"
+cp "$certchain" "$FINAL_DIR/workload-$sa-root-certs.pem"
+cat "$rootcert" >> "$FINAL_DIR/workload-$sa-root-certs.pem"
 
 echo "Generated workload-$sa-[cert|key].pem with URI SAN $san"
 openssl verify -CAfile <(cat "$certchain" "$rootcert") "$FINAL_DIR/workload-$sa-cert.pem"
