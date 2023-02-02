@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -536,18 +537,19 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 }
 
 func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp string, expectedBuckets int) error {
-	promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s",response_code="200"}[24h])))`, sourceApp)
-	v, err := prom.RawQuery(cluster, promQL)
-	if err != nil {
-		return err
-	}
-	totalBuckets, err := prometheus.Sum(v)
-	if err != nil {
-		return err
-	}
-	if int(totalBuckets) != expectedBuckets {
-		return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
-	}
-
-	return nil
+	return retry.UntilSuccess(func() error {
+		promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s",response_code="200"}[24h])))`, sourceApp)
+		v, err := prom.RawQuery(cluster, promQL)
+		if err != nil {
+			return err
+		}
+		totalBuckets, err := prometheus.Sum(v)
+		if err != nil {
+			return err
+		}
+		if int(totalBuckets) != expectedBuckets {
+			return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
+		}
+		return nil
+	}, retry.Delay(time.Second), retry.Timeout(time.Second*20))
 }
