@@ -13,7 +13,7 @@ ztunnel:
 
   env: {}
   podAnnotations:
-    prometheus.io/port: "15021"
+    prometheus.io/port: "15020"
     prometheus.io/scrape: "true"
 
   # Additional labels to apply to the deployment.
