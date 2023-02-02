@@ -18,7 +18,6 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config/schema/collections"
@@ -29,7 +28,7 @@ import (
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.
 // The ConfigMap is passed to the callback, or nil if it doesn't exist.
 type Controller struct {
-	informer  informersv1.ConfigMapInformer
+	informer  cache.SharedIndexInformer
 	mutex     sync.RWMutex
 	callbacks []func(name string)
 }
@@ -61,16 +60,17 @@ func NewController(client kube.Client, callbacks ...func(name string)) *Controll
 		DeleteFunc: nil,
 	})
 
+	c.informer = crdMetadataInformer
 	return c
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.informer.Informer().Run(stop)
+	go c.informer.Run(stop)
 }
 
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
 func (c *Controller) HasSynced() bool {
-	return c.informer.Informer().HasSynced()
+	return c.informer.HasSynced()
 }
 
 func (c *Controller) AddCallBack(cb func(name string)) {
