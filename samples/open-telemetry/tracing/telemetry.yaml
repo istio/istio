@@ -2,9 +2,8 @@ apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
   name: otel-demo
-  namespace: istio-system
 spec:
   tracing:
   - providers:
     - name: otel
-    randomSamplingPercentage: 100
+    randomSamplingPercentage: 0

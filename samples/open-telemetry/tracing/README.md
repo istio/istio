@@ -7,12 +7,18 @@ This sample demonstrates the support for the OpenTelemetry tracing provider with
 First, deploy the `otel-collector` backend with simple configuration.
 
 ```bash
-kubectl apply -f ../otel.yaml -n istio-system
+kubectl -n <namespace> apply -f ../otel.yaml
+```
+
+In this example, we use `otel-collector` as the namespace to deploy the `otel-collector` backend:
+
+```ba
+kubectl -n otel-collector apply -f ../otel.yaml
 ```
 
 The otel-collector will create a grpc receiver on port `4317`, and later the sidecars will report trace information to this grpc port. You can find more details from [here](https://github.com/open-telemetry/opentelemetry-collector).
 
-The receiver is defined as the following configuration:
+Below is the configuration:
 
 ```yaml
 receivers:
@@ -33,35 +39,30 @@ service:
       exporters: [logging]
 ```
 
-In this example, `zipkin` is the exporter for gathering the traces, which is defined as:
+In this example, `Jaeger` is the exporter for gathering the traces. Assuming you have already deployed Jaeger as your tracing system with [this](https://istio.io/latest/docs/ops/integrations/jaeger/) installation, you are good to go to the next steps. If you already have your own `Jaeger` deployed, you may need to modify the otel collector config. The configmap name is `opentelemetry-collector-conf` in the namespace you deployed the otel collector, and the related config is defined as:
 
 ```yaml
 exporters:
-  zipkin:
-    # Export to zipkin for easy querying
-    endpoint: http://zipkin.istio-system.svc:9411/api/v2/spans
+  jaeger:
+    endpoint: jaeger-collector.istio-system.svc.cluster.local:14250
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+    retry_on_failure:
+      enabled: true
 service:
   pipelines:
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [logging]
     traces:
-      receivers:
-      - otlp
-      - opencensus
       exporters:
-      - zipkin # add the exporter here
-      - logging
+      - jaeger
 ```
 
-If you have not deployed the `zipkin` service, you can use the following command:
+You need to modify the jaeger exporter endpoint with the one you deployed, in this case it's `jaeger-collector.istio-system.svc.cluster.local:14250`.
 
-```bash
-kubectl apply -f ../../addons/extras/zipkin.yaml -n istio-system
-```
+If you have not deployed the `Jaeger` service, you can follow [this](https://istio.io/latest/docs/ops/integrations/jaeger/) installation to install the service.
 
-You may also choose any existing tracing system if you have, and you should change the exporter settings in the otel-collector configmap.
+You may also choose any existing tracing system if you have, and you should change the exporter settings in the configmap mentioned above.
 
 ## Update mesh config
 
@@ -75,30 +76,42 @@ Or ensure you have the following additional mesh config set in your Istio:
 
 ```yaml
 defaultConfig:
-  enableTracing: true
   extensionProviders:
   - name: otel
     opentelemetry:
       port: 4317
-      service: opentelemetry-collector.istio-system.svc.cluster.local
+      service: opentelemetry-collector.otel-collector.svc.cluster.local
 ```
+
+Make sure the service name matches the one you deployed if you select a different namespace.
 
 ## Apply the Telemetry resource to report traces
 
 Next, add a Telemetry resource that tells Istio to send trace records to the OpenTelemetry collector.
 
 ```yaml
-kubectl apply -f telemetry.yaml -n istio-system
+kubectl -n otel-collector apply -f ./telemetry.yaml
 ```
+
+The core config is:
+
+```yaml
+tracing:
+- providers:
+  - name: otel
+  randomSamplingPercentage: 0
+```
+
+As you see, the `randomSamplingPercentage` is 0, which means the tracing is still not enabled because of `0` sampling percentage. The tracing can be opt-on by increasing the `randomSamplingPercentage` value to `1-100`. The `Telemetry` resource can also be manipulated in workload/namespace/global levels, you can check [here](https://istio.io/latest/docs/reference/config/telemetry/) for more config examples.
 
 ## Check tracing results
 
 If you have followed [this](https://istio.io/latest/docs/setup/getting-started/) getting started steps, you have the sample bookinfo applications installed. Try to make some requests to the productpage to generate some traces.
 
-Then open up the `zipkin` dashboard with:
+Then open up the `Jaeger` dashboard with:
 
 ```bash
-istioctl dashboard zipkin
+istioctl dashboard jaeger
 ```
 
 You will see the requests' trace records.
@@ -106,6 +119,6 @@ You will see the requests' trace records.
 ## Cleanup
 
 ```bash
-kubectl delete -f telemetry.yaml -n istio-system
-kubectl delete -f ../otel.yaml -n istio-system
+kubectl -n otel-collector delete -f ./telemetry.yaml
+kubectl -n otel-collector delete -f ../otel.yaml
 ```
