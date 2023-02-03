@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/schema#",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "global": {
       "type": "object"
