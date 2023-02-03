@@ -5,4 +5,4 @@ issue:
   - 42964
 releaseNotes:
   - |
-    **Fixed** `istioctl verify-install` doesn't work with multiple iops.  
+    **Fixed** `istioctl verify-install` fails when using multiple iops.  
