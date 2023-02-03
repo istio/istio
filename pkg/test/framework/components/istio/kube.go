@@ -419,7 +419,7 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 
 		// there are a few tests that require special gateway setup which will cause eastwest gateway fail to start
 		// exclude these tests from installing eastwest gw for now
-		if !i.cfg.DeployEastWestGW {
+		if !i.cfg.DeployEastWestGW || !i.ctx.Environment().IsMultiCluster() {
 			return nil
 		}
 
