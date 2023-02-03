@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
@@ -814,9 +813,6 @@ func logCmd() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			var err error
 			var loggerNames []string
-			if len(args) > 0 && strings.Contains(args[0], "/ztunnel") {
-				labelSelector = "app=ztunnel"
-			}
 			if labelSelector != "" {
 				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
 					return err
@@ -840,31 +836,19 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				podNames = append(podNames, podName)
 			}
 
 			destLoggerLevels := map[string]Level{}
 			if strings.HasPrefix(podName, "ztunnel") {
-				_, ok := stringToLevel[loggerLevelString]
-				if !ok {
-					return fmt.Errorf("unrecognized logging level: %v", loggerLevelString)
-				}
 				q := "level=" + loggerLevelString
 				if reset {
 					q += "&reset"
 				}
-				var errs *multierror.Error
-				for _, ztunnel := range podNames {
-					resp, err := setupEnvoyLogConfig(q, ztunnel, podNamespace)
-					if err == nil {
-						_, _ = fmt.Fprint(c.OutOrStdout(), resp)
-					} else {
-						errs = multierror.Append(fmt.Errorf("%v.%v: %v", ztunnel, podNamespace, err))
-					}
+				resp, err := setupEnvoyLogConfig(q, podName, podNamespace)
+				if err != nil {
+					return err
 				}
-				if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
-					log.Warnf("one or more errors occurred setting log level for ztunnel: %v", err)
-				}
+				_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 				return nil
 			}
 			if reset {
