@@ -63,6 +63,7 @@ func TestNewCredFetcher(t *testing.T) {
 	// Disable token refresh for GCE VM credential fetcher.
 	plugin.SetTokenRotation(false)
 	for id, tc := range testCases {
+		id, tc := id, tc
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
 			cf, err := NewCredFetcher(
