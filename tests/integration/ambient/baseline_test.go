@@ -1445,6 +1445,58 @@ func TestL7Telemetry(t *testing.T) {
 		})
 }
 
+func TestL4Telemetry(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.stats.prometheus.ambient").
+		Run(func(tc framework.TestContext) {
+			// ensure that some traffic from each captured workload is
+			// sent to each waypoint proxy. This will likely have happened in
+			// the other tests (without the teardown), but we want to make
+			// sure that some traffic is seen. This test will not validate
+			// exact traffic counts, but rather focus on validating that
+			// the telemetry is being created and collected properly.
+			for _, src := range apps.Captured {
+				for _, dst := range apps.Captured {
+					tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
+						localDst := dst
+						localSrc := src
+						opt := echo.CallOptions{
+							Port:    echo.Port{Name: "tcp"},
+							Scheme:  scheme.TCP,
+							Count:   5,
+							Timeout: time.Second,
+							Check:   check.OK(),
+							To:      localDst,
+						}
+						// allow for delay between prometheus pulls from target pod
+						// pulls should happen every 15s, so timeout if not found within 30s
+
+						query := buildL4Query(localSrc, localDst)
+						stc.Logf("prometheus query: %#v", query)
+						err := retry.Until(func() bool {
+							stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
+							localSrc.CallOrFail(stc, opt)
+							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+							if err != nil {
+								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+							if reqs == 0.0 {
+								stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+							return true
+						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+						if err != nil {
+							util.PromDiff(t, prom, localSrc.Config().Cluster, query)
+							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+						}
+					})
+				}
+			}
+		})
+}
+
 func buildQuery(src, dst echo.Instance) prometheus.Query {
 	query := prometheus.Query{}
 
@@ -1473,6 +1525,36 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 	}
 
 	query.Metric = "istio_requests_total"
+	query.Labels = labels
+
+	return query
+}
+
+func buildL4Query(src, dst echo.Instance) prometheus.Query {
+	query := prometheus.Query{}
+
+	srcns := src.NamespaceName()
+	destns := dst.NamespaceName()
+
+	labels := map[string]string{
+		"reporter":                       "destination",
+		"connection_security_policy":     "mutual_tls",
+		"destination_canonical_service":  dst.ServiceName(),
+		"destination_canonical_revision": dst.Config().Version,
+		//"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
+		//"destination_service_name":       dst.Config().Service,
+		//"destination_service_namespace":  destns,
+		"destination_principal":          "spiffe://" + dst.Config().ServiceAccountName(),
+		"destination_workload":           deployName(dst),
+		"destination_workload_namespace": destns,
+		"source_canonical_service":       src.ServiceName(),
+		"source_canonical_revision":      src.Config().Version,
+		"source_principal":               "spiffe://" + src.Config().ServiceAccountName(),
+		"source_workload":                deployName(src),
+		"source_workload_namespace":      srcns,
+	}
+
+	query.Metric = "istio_tcp_connections_opened_total"
 	query.Labels = labels
 
 	return query
