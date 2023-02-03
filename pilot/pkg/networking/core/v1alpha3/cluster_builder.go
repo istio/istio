@@ -482,9 +482,9 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
 		// https://github.com/envoyproxy/envoy/issues/9811
 		// https://github.com/envoyproxy/envoy/pull/22639
-		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
-		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
-		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
+		// the extra source address for UpstreamBindConfig shoulde be added if dual stack is enabled and there are
+		// more than 1 IP for proxy
+		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 {
 			// add extra source addresses to cluster builder
 			var extraSrcAddrs []*core.ExtraSourceAddress
 			for _, extraBdIP := range cb.passThroughBindIPs[1:] {
