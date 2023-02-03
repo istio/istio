@@ -693,10 +693,8 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		var wls []*model.WorkloadInfo
 		for _, p := range pods {
 			wl := idx.byPod[p.Status.PodIP]
-			// Only add Pods to the service VIP if Pod in Ready state -
-			// Pods with valid WorkloadInfos are not necessarily ready to
-			// receive traffic.
-			if wl != nil && IsPodReady(p) {
+			// Can be nil if it's not ready, hostNetwork, etc
+			if wl != nil {
 				wl = c.extractWorkload(p)
 				// Update the pod, since it now has new VIP info
 				idx.byPod[p.Status.PodIP] = wl
@@ -804,49 +802,35 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 	if pod == nil {
 		return nil
 	}
-
-	// In some scenarios (e.g. outbound traffic that gates pod health checks) we must allow
-	// outbound traffic from pods that are in the Running phase but not yet at Ready status.
-	// If they are in neither state, no workload entry should be created.
-	if !IsPodReady(pod) && !IsPodRunning(pod) {
+	if !IsPodReady(pod) {
 		return nil
 	}
 	if pod.Spec.HostNetwork {
 		return nil
 	}
-
 	vips := map[string]*workloadapi.PortList{}
-
-	// Create a workload entry for pods that may not be ready yet,
-	// so proxies handling their outbound traffic have a source workload,
-	// but explicitly do not add any VIPs to the entry until pods reach a state
-	// that indicates they are ready to receive inbound traffic.
-	if IsPodReady(pod) {
-		if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
-			for _, svc := range services {
-				for _, vip := range getVIPs(svc) {
-					if vips[vip] == nil {
-						vips[vip] = &workloadapi.PortList{}
+	if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+		for _, svc := range services {
+			for _, vip := range getVIPs(svc) {
+				if vips[vip] == nil {
+					vips[vip] = &workloadapi.PortList{}
+				}
+				for _, port := range svc.Spec.Ports {
+					if port.Protocol != v1.ProtocolTCP {
+						continue
 					}
-					for _, port := range svc.Spec.Ports {
-						if port.Protocol != v1.ProtocolTCP {
-							continue
-						}
-						targetPort, err := FindPort(pod, &port)
-						if err != nil {
-							log.Debug(err)
-							continue
-						}
-						vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
-							ServicePort: uint32(port.Port),
-							TargetPort:  uint32(targetPort),
-						})
+					targetPort, err := FindPort(pod, &port)
+					if err != nil {
+						log.Debug(err)
+						continue
 					}
+					vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
+						ServicePort: uint32(port.Port),
+						TargetPort:  uint32(targetPort),
+					})
 				}
 			}
 		}
-	} else {
-		log.Debugf("Pod %s is Running but not yet in Ready state, creating workload entry without VIPs", pod.Name)
 	}
 
 	wl := &workloadapi.Workload{
