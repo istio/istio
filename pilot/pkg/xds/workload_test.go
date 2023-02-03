@@ -242,6 +242,7 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 		},
 		Status: corev1.PodStatus{
 			PodIP: ip,
+			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
 				{
 					Type:               corev1.PodReady,
@@ -259,6 +260,9 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 		if err != nil {
 			s.t.Fatal(err)
 		}
+	}
+	if _, err := s.kubeClient.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
+		s.t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
 	}
 }
 

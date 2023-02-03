@@ -802,7 +802,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 	if pod == nil {
 		return nil
 	}
-	if !IsPodReady(pod) {
+	if !IsPodRunning(pod) {
 		return nil
 	}
 	if pod.Spec.HostNetwork {
@@ -842,6 +842,10 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		Node:                  pod.Spec.NodeName,
 		VirtualIps:            vips,
 		AuthorizationPolicies: policies,
+		Status:                workloadapi.WorkloadStatus_HEALTHY,
+	}
+	if !IsPodReady(pod) {
+		wl.Status = workloadapi.WorkloadStatus_UNHEALTHY
 	}
 	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
 		wl.TrustDomain = td
