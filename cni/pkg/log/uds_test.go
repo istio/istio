@@ -65,6 +65,8 @@ func TestUDSLog(t *testing.T) {
 		t.Fatalf("Number of logs want %v, got %v logs: %v", want, got, gotLogs)
 	}
 
+	t.Logf("received logs: %s", gotLogs)
+
 	for i, l := range gotLogs {
 		// For each line, there should be two level string, e.g.
 		// "2021-07-09T03:26:08.984951Z	debug	debug log"
