@@ -133,21 +133,28 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
 		// Dual Stack
-		// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
-		// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-		netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
-		if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
-			opts = append(opts,
-				option.Localhost(option.LocalhostIPv6),
-				option.Wildcard(option.WildcardIPv6),
-				option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
+		if features.EnableDualStack {
+			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
+			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
+			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv6),
+					option.Wildcard(option.WildcardIPv6),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
+			} else {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv4),
+					option.Wildcard(option.WildcardIPv4),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+			}
 		} else {
+			// keep the original logic if Dual Stack is disable
 			opts = append(opts,
 				option.Localhost(option.LocalhostIPv4),
 				option.Wildcard(option.WildcardIPv4),
 				option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
 		}
-
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
