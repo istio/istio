@@ -283,6 +283,7 @@ func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *cor
 	//  - https://github.com/kubernetes/kubernetes/issues/115511
 	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
 		WithLabels(map[string]string{GatewayNameLabel: input.Name})
+	// nolint: gocritic
 	// WithOwnerReferences(metav1ac.OwnerReference().
 	// 	WithName(input.Name).
 	// 	WithUID(input.UID).
