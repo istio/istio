@@ -841,7 +841,7 @@ func logCmd() *cobra.Command {
 			destLoggerLevels := map[string]Level{}
 			if strings.HasPrefix(podNames[0], "ztunnel") {
 				_, ok := stringToLevel[loggerLevelString]
-				if !ok {
+				if !ok && !reset {
 					return fmt.Errorf("unrecognized logging level: %v", loggerLevelString)
 				}
 				q := "level=" + loggerLevelString
@@ -852,7 +852,7 @@ func logCmd() *cobra.Command {
 				for _, ztunnel := range podNames {
 					resp, err := setupEnvoyLogConfig(q, ztunnel, podNamespace)
 					if err == nil {
-						_, _ = fmt.Fprint(c.OutOrStdout(), resp)
+						_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v\n", ztunnel, podNamespace, resp)
 					} else {
 						errs = multierror.Append(fmt.Errorf("%v.%v: %v", ztunnel, podNamespace, err))
 					}
