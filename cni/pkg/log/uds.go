@@ -115,6 +115,7 @@ func (l *UDSLogger) processLog(body []byte) {
 	defer l.mu.Unlock()
 	for _, m := range messages {
 		// There is no fatal log from CNI plugin
+		m.Msg = "[UDS] " + m.Msg
 		switch m.Level {
 		case "debug":
 			pluginLog.Debug(m.Msg)
