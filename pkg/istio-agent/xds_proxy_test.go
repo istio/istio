@@ -59,7 +59,7 @@ func TestXdsLeak(t *testing.T) {
 	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
 	f := xdstest.NewMockServer(t)
 	setDialOptions(proxy, f.Listener)
-	proxy.istiodDialOptions = append(proxy.istiodDialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
+	proxy.dialOptions = append(proxy.dialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstreamWithoutResponse(t, downstream)
@@ -284,8 +284,8 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 }
 
 func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
-	// Override istiodDialOptions so that the test can connect with plain text and with buffcon listener.
-	p.istiodDialOptions = []grpc.DialOption{
+	// Override dialOptions so that the test can connect with plain text and with buffcon listener.
+	p.dialOptions = []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
@@ -404,7 +404,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 			t.Fatal(err)
 		}
 		proxy.istiodAddress = listener.Addr().String()
-		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
+		proxy.dialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 		// Setup gRPC server
 		grpcServer := grpc.NewServer()
