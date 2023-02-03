@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
-	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -282,13 +281,18 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 }
 
 func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
+	// TODO: GregHanson
+	// race condition with pod delete and service account delete, need to re-add owner reference labels once resolved
+	// related issues:
+	//  - https://github.com/kubernetes/kubernetes/issues/115459
+	//  - https://github.com/kubernetes/kubernetes/issues/115511
 	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
-		WithLabels(map[string]string{GatewayNameLabel: input.Name}).
-		WithOwnerReferences(metav1ac.OwnerReference().
-			WithName(input.Name).
-			WithUID(input.UID).
-			WithKind(gvk.KubernetesGateway.Kind).
-			WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
+		WithLabels(map[string]string{GatewayNameLabel: input.Name})
+	// WithOwnerReferences(metav1ac.OwnerReference().
+	// 	WithName(input.Name).
+	// 	WithUID(input.UID).
+	// 	WithKind(gvk.KubernetesGateway.Kind).
+	// 	WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
 }
 
 // ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
