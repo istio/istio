@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/authz"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -42,16 +43,10 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 	}}},
 }
 
-// General setting to control behavior
-type Option struct {
-	IsCustomBuilder  bool
-	UseAuthenticated bool
-}
-
 // Builder builds Istio authorization policy to Envoy filters.
 type Builder struct {
 	trustDomainBundle trustdomain.Bundle
-	option            Option
+	option            authz.Option
 
 	// populated when building for CUSTOM action.
 	customPolicies []model.AuthorizationPolicy
@@ -66,9 +61,11 @@ type Builder struct {
 	logger *AuthzLogger
 }
 
+var _ authz.PolicyApplier = &Builder{}
+
 // New returns a new builder for the given workload with the authorization policy.
 // Returns nil if none of the authorization policies are enabled for the workload.
-func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies model.AuthorizationPoliciesResult, option Option) *Builder {
+func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies model.AuthorizationPoliciesResult, option authz.Option) *Builder {
 	if option.IsCustomBuilder {
 		if len(policies.Custom) == 0 {
 			return nil
@@ -353,7 +350,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 	}
 }
 
-func policyName(namespace, name string, rule int, option Option) string {
+func policyName(namespace, name string, rule int, option authz.Option) string {
 	prefix := ""
 	if option.IsCustomBuilder {
 		prefix = extAuthzMatchPrefix + "-"

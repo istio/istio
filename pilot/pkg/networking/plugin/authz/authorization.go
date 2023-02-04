@@ -17,11 +17,11 @@ package authz
 import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/security/authz/builder"
+	"istio.io/istio/pilot/pkg/security/authz"
+	"istio.io/istio/pilot/pkg/security/authz/factory"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
@@ -40,37 +40,38 @@ type Builder struct {
 
 	httpFilters []*hcm.HttpFilter
 	tcpFilters  []*listener.Filter
-	builder     *builder.Builder
+	applier     authz.PolicyApplier
 }
 
 func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
-	option := builder.Option{
+	option := authz.Option{
 		IsCustomBuilder: actionType == Custom,
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 	if !util.IsIstioVersionGE117(proxy.IstioVersion) {
 		option.UseAuthenticated = true
 	}
-	b := builder.New(tdBundle, push, policies, option)
-	return &Builder{builder: b}
+
+	applier := factory.NewPolicyApplier(tdBundle, push, policies, option)
+	return &Builder{applier: applier}
 }
 
 func (b *Builder) BuildTCP() []*listener.Filter {
-	if b == nil || b.builder == nil {
+	if b == nil || b.applier == nil {
 		return nil
 	}
 	if b.tcpBuilt {
 		return b.tcpFilters
 	}
 	b.tcpBuilt = true
-	b.tcpFilters = b.builder.BuildTCP()
+	b.tcpFilters = b.applier.BuildTCP()
 
 	return b.tcpFilters
 }
 
 func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
-	if b == nil || b.builder == nil {
+	if b == nil || b.applier == nil {
 		return nil
 	}
 	if class == networking.ListenerClassSidecarOutbound {
@@ -81,7 +82,7 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		return b.httpFilters
 	}
 	b.httpBuilt = true
-	b.httpFilters = b.builder.BuildHTTP()
+	b.httpFilters = b.applier.BuildHTTP()
 
 	return b.httpFilters
 }

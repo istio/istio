@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/authz"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
@@ -252,7 +253,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 	baseDir := "http/"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			option := Option{
+			option := authz.Option{
 				IsCustomBuilder: tc.meshConfig != nil,
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
@@ -318,7 +319,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 	baseDir := "tcp/"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			option := Option{
+			option := authz.Option{
 				IsCustomBuilder: tc.meshConfig != nil,
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
