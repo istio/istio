@@ -41,6 +41,8 @@ const (
 	summaryOutput          = "short"
 	prometheusOutput       = "prom"
 	prometheusMergedOutput = "prom-merged"
+
+	defaultProxyAdminPort = 15000
 )
 
 var (
@@ -56,6 +58,8 @@ var (
 
 	// output format (yaml or short)
 	outputFormat string
+
+	proxyAdminPort int
 )
 
 // Level is an enumeration of all supported log levels.
@@ -162,7 +166,7 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 	if eds {
 		path += "?include_eds=true"
 	}
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
@@ -221,7 +225,7 @@ func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat str
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -261,7 +265,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path)
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "POST", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -294,7 +298,7 @@ func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clust
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -1237,6 +1241,7 @@ func proxyConfig() *cobra.Command {
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 
 	configCmd.AddCommand(clusterConfigCmd())
 	configCmd.AddCommand(allConfigCmd())
