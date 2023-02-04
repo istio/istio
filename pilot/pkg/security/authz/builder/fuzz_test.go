@@ -16,6 +16,7 @@ package builder
 
 import (
 	"testing"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
