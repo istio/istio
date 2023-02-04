@@ -147,7 +147,7 @@ func ExpandWithTrustDomains(spiffeIdentities sets.String, trustDomainAliases []s
 		}
 		for _, td := range trustDomainAliases {
 			m.TrustDomain = td
-			out[m.String()] = struct{}{}
+			out.Insert(m.String())
 		}
 	}
 	return out
