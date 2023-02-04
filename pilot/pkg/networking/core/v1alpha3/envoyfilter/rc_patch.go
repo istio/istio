@@ -94,7 +94,7 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if removedVirtualHosts.Len() > 0 {
-		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
+		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts)-removedVirtualHosts.Len())
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
 			if removedVirtualHosts.Contains(virtualHost.Name) {
 				continue
