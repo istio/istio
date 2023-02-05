@@ -25,7 +25,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v23.0.0-rc.2+incompatible
-	github.com/envoyproxy/go-control-plane v0.10.3-0.20230127183106-977884f68664
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230202164348-98e9e8eacc1a
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.3
@@ -80,7 +80,7 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.107.0
 	google.golang.org/genproto v0.0.0-20230109162033-3c3c17ce83e6
-	google.golang.org/grpc v1.52.0
+	google.golang.org/grpc v1.52.3
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
