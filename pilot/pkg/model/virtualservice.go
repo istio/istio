@@ -99,7 +99,7 @@ func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
-		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))
+		rule.Hosts[i] = ResolveShortnameToFQDN(h, meta).String()
 	}
 	// resolve gateways to bind to
 	for i, g := range rule.Gateways {
@@ -118,11 +118,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		}
 		for _, w := range d.Route {
 			if w.Destination != nil {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, meta).String()
 			}
 		}
 		if d.Mirror != nil {
-			d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, meta))
+			d.Mirror.Host = ResolveShortnameToFQDN(d.Mirror.Host, meta).String()
 		}
 	}
 	// resolve host in tcp route.destination
@@ -136,7 +136,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		}
 		for _, w := range d.Route {
 			if w.Destination != nil {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, meta).String()
 			}
 		}
 	}
@@ -151,7 +151,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		}
 		for _, w := range tls.Route {
 			if w.Destination != nil {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, meta).String()
 			}
 		}
 	}

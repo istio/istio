@@ -1768,7 +1768,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 			inheritedConfigs[configs[i].Namespace] = ConvertConsolidatedDestRule(&configs[i])
 		}
 
-		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
+		rule.Host = ResolveShortnameToFQDN(rule.Host, configs[i].Meta).String()
 		exportToMap := make(map[visibility.Instance]bool)
 
 		// destination rules with workloadSelector should not be exported to other namespaces

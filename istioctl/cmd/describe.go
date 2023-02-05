@@ -293,7 +293,7 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 	mismatchNotes := []string{}
 	match := false
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
+		fqdn := model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}).String()
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
 				if contains(nonmatchingSubsets, dest.Destination.Subset) {
@@ -354,7 +354,7 @@ func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.TCPRo
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
+		fqdn := model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}).String()
 		if extendFQDN(fqdn) == svcHost {
 			match = true
 		}
