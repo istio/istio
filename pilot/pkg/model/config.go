@@ -207,20 +207,21 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 		// only happens when the gateway-api BackendRef is invalid
 		return ""
 	}
-	out := hostname
+
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
 	if hostname == "*" {
-		return host.Name(out)
+		return host.Name(hostname)
 	}
 
 	// if the hostname is a valid ipv4 or ipv6 address, do not append domain or namespace
 	if netutil.IsValidIPAddress(hostname) {
-		return host.Name(out)
+		return host.Name(hostname)
 	}
 
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(hostname, ".") {
+		out := hostname
 		if meta.Namespace != "" {
 			out = out + "." + meta.Namespace
 		}
@@ -233,7 +234,7 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 		}
 	}
 
-	return host.Name(out)
+	return host.Name(hostname)
 }
 
 // resolveGatewayName uses metadata information to resolve a reference
