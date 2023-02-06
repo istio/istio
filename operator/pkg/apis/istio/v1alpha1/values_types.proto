@@ -720,6 +720,8 @@ message PilotConfig {
 
   repeated string plugins = 33;
 
+  repeated string extraArgs = 40;
+
   string hub = 34;
 
   google.protobuf.Value tag = 35;
