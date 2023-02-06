@@ -571,7 +571,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		updates := sets.New[model.ConfigKey]()
 		// This is a waypoint update
 		if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
-			n := types.NamespacedName{Namespace: p.Namespace, Name: p.Annotations["istio.io/service-account"]}
+			n := types.NamespacedName{Namespace: p.Namespace, Name: p.Annotations[constants.WaypointServiceAccount]}
 			ip := p.Status.PodIP
 			if isDelete || !IsPodReady(p) {
 				if idx.waypoints[n].Contains(ip) {
