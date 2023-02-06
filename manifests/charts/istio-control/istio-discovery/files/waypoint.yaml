@@ -22,7 +22,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        {{with .ForServiceAccount}}istio.io/service-account: "{{.}}"{{end}}
+        {{with .ForServiceAccount}}istio.io/for-service-account: "{{.}}"{{end}}
       labels:
         ambient-type: waypoint
         gateway.istio.io/managed: "istio.io-mesh-controller"

@@ -85,7 +85,7 @@ kind: Gateway
 metadata:
   name: {{.name}}
   annotations:
-    istio.io/service-account: {{.sa}}
+    istio.io/for-service-account: {{.sa}}
 spec:
   gatewayClassName: {{.class}}`).Apply(apply.NoCleanup); err != nil {
 		return nil, err
