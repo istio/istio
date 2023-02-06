@@ -102,6 +102,7 @@ type Client struct {
 
 	// crdWatches notifies consumers when a CRD is present
 	crdWatches map[config.GroupVersionKind]*waiter
+	stop       <-chan struct{}
 }
 
 type Option struct {
@@ -178,6 +179,10 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 			gvk.GatewayClass:      newWaiter(),
 		},
 	}
+
+	out.crdWatcher.AddCallBack(func(name string) {
+		handleCRDAdd(out, name)
+	})
 	known, err := knownCRDs(client.Ext())
 	if err != nil {
 		return nil, err
@@ -190,10 +195,10 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 			crd = false
 		}
 		if !crd {
-			handleCRDAdd(out, name, nil)
+			handleCRDAdd(out, name)
 		} else {
 			if _, f := known[name]; f {
-				handleCRDAdd(out, name, nil)
+				handleCRDAdd(out, name)
 			} else {
 				out.logger.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 			}
@@ -233,6 +238,8 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
 
+	cl.stop = stop
+
 	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
@@ -240,11 +247,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.SyncAll()
 	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-
-	cl.crdWatcher.AddCallBack(func(name string) {
-		handleCRDAdd(cl, name, stop)
-	})
-	cl.crdWatcher.Run(stop)
 
 	cl.queue.Run(stop)
 	cl.logger.Infof("controller terminated")
@@ -490,7 +492,7 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 	}
 }
 
-func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
+func handleCRDAdd(cl *Client, name string) {
 	cl.logger.Debugf("adding CRD %q", name)
 	s, f := cl.schemasByCRDName[name]
 	if !f {
@@ -507,20 +509,15 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		return
 	}
 	var i informers.GenericInformer
-	var ifactory starter
 	var err error
 	switch s.Resource().Group() {
 	case gvk.KubernetesGateway.Group:
-		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
 	case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group:
-		ifactory = cl.client.KubeInformer()
 		i, err = cl.client.KubeInformer().ForResource(gvr)
 	case gvk.CustomResourceDefinition.Group:
-		ifactory = cl.client.ExtInformer()
 		i, err = cl.client.ExtInformer().ForResource(gvr)
 	default:
-		ifactory = cl.client.IstioInformer()
 		i, err = cl.client.IstioInformer().ForResource(gvr)
 	}
 
@@ -538,11 +535,11 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 			close(w.stop)
 		})
 	}
-	if stop != nil {
-		// Start informer factory, only if stop is defined. In startup case, we will not start here as
-		// we will start all factories once we are ready to initialize.
-		// For dynamically added CRDs, we need to start immediately though
-		ifactory.Start(stop)
+	// Start informer. In startup case, we will not start here as
+	// we will start all factories once we are ready to initialize.
+	// For dynamically added CRDs, we need to start immediately though
+	if cl.stop != nil {
+		i.Informer().Run(cl.stop)
 	}
 }
 
