@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** `istioctl operator remove` not working properly.
+    **Fixed** `istioctl operator remove` cannot remove the operator controller due to the `no Deployment detected` error.
