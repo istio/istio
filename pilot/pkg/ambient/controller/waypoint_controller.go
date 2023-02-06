@@ -160,12 +160,10 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		proxyName = override
 	}
 
-	gatewaySA := gw.Annotations[constants.WaypointServiceAccount]
-	forSa := gatewaySA
-	if gatewaySA == "" {
-		gatewaySA = defaultName
-	} else {
-		gatewaySA = fmt.Sprintf("%v-%v", gatewaySA, string(gw.Spec.GatewayClassName))
+	gatewaySA := defaultName
+	forSa := gw.Annotations[constants.WaypointServiceAccount]
+	if override, exists := gw.Annotations[istiogw.GatewaySAOverride]; exists {
+		gatewaySA = override
 	}
 
 	input := MergedInput{
