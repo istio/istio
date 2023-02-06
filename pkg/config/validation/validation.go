@@ -737,7 +737,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, 
 		// Make sure workloadSelector based destination rule does not use exportTo other than current namespace
 		if isDestinationRuleWithSelector && !exportToSet.IsEmpty() {
 			if exportToSet.Contains(namespace) {
-				if len(exportToSet) > 1 {
+				if exportToSet.Len() > 1 {
 					errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have multiple entries in exportTo"))
 				}
 			} else {

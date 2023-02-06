@@ -230,8 +230,8 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
 	}
-	if len(removedFilters) > 0 {
-		tempArray := make([]*listener.ListenerFilter, 0, len(lis.ListenerFilters)-len(removedFilters))
+	if removedFilters.Len() > 0 {
+		tempArray := make([]*listener.ListenerFilter, 0, len(lis.ListenerFilters)-removedFilters.Len())
 		for _, filter := range lis.ListenerFilters {
 			if removedFilters.Contains(filter.Name) {
 				continue

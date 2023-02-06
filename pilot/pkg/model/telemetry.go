@@ -487,7 +487,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		allKeys.Insert(k)
 	}
 
-	m := make([]telemetryFilterConfig, 0, len(allKeys))
+	m := make([]telemetryFilterConfig, 0, allKeys.Len())
 	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
 		if p == nil {
@@ -545,7 +545,7 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 			}
 		}
 
-		if len(names) > 0 {
+		if names.Len() > 0 {
 			providerNames = names.UnsortedList()
 		}
 	}
