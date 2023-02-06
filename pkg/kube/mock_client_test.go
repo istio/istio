@@ -59,6 +59,46 @@ func TestMockClient_GetIstioVersions(t *testing.T) {
 				Version: "1.12.0",
 			},
 		},
+		{
+			version: "1.12.0-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty-Clean",
+			expected: version2.BuildInfo{
+				Version:       "1.12.0",
+				GitRevision:   "016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty",
+				GolangVersion: "",
+				BuildStatus:   "Clean",
+				GitTag:        "1.12.0",
+			},
+		},
+		{
+			version: "1.12.0-cus-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-Clean",
+			expected: version2.BuildInfo{
+				Version:       "1.12.0-cus",
+				GitRevision:   "016bc46f4a5e0ef3fa135b3c5380ab7765467c1a",
+				GolangVersion: "",
+				BuildStatus:   "Clean",
+				GitTag:        "1.12.0-cus",
+			},
+		},
+		{
+			version: "1.12.0-cus-other-vvv-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-Clean",
+			expected: version2.BuildInfo{
+				Version:       "1.12.0-cus-other-vvv",
+				GitRevision:   "016bc46f4a5e0ef3fa135b3c5380ab7765467c1a",
+				GolangVersion: "",
+				BuildStatus:   "Clean",
+				GitTag:        "1.12.0-cus-other-vvv",
+			},
+		},
+		{
+			version: "1.12.0-cus-other-vvv-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty-Clean",
+			expected: version2.BuildInfo{
+				Version:       "1.12.0-cus-other-vvv",
+				GitRevision:   "016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty",
+				GolangVersion: "",
+				BuildStatus:   "Clean",
+				GitTag:        "1.12.0-cus-other-vvv",
+			},
+		},
 	}
 	for _, test := range tests {
 		mc := MockClient{IstiodVersion: test.version}

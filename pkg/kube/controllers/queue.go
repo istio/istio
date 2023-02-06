@@ -19,8 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"istio.io/istio/pkg/config"
 	istiolog "istio.io/pkg/log"
 )
+
+type ReconcilerFn func(key types.NamespacedName) error
 
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
@@ -55,7 +58,7 @@ func WithMaxAttempts(n int) func(q *Queue) {
 }
 
 // WithReconciler defines the handler function to handle items in the queue.
-func WithReconciler(f func(key types.NamespacedName) error) func(q *Queue) {
+func WithReconciler(f ReconcilerFn) func(q *Queue) {
 	return func(q *Queue) {
 		q.workFn = func(key any) error {
 			return f(key.(types.NamespacedName))
@@ -95,10 +98,7 @@ func (q Queue) Add(item any) {
 
 // AddObject takes an Object and adds the types.NamespacedName associated.
 func (q Queue) AddObject(obj Object) {
-	q.queue.Add(types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	})
+	q.queue.Add(config.NamespacedName(obj))
 }
 
 // Run the queue. This is synchronous, so should typically be called in a goroutine.
@@ -163,7 +163,7 @@ func (q Queue) processNextItem() bool {
 
 	err := q.workFn(key)
 	if err != nil {
-		retryCount := q.queue.NumRequeues(key)
+		retryCount := q.queue.NumRequeues(key) + 1
 		if retryCount < q.maxAttempts {
 			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", key, retryCount, err)
 			q.queue.AddRateLimited(key)

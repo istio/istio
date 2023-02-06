@@ -19,11 +19,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	filter "istio.io/istio/pkg/kube/namespace"
 )
 
@@ -47,54 +48,49 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
 ) {
 	otype := "Namespaces"
-	c.nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
+	_, _ = c.nsInformer.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
+		AddFunc: func(ns *v1.Namespace) {
 			incrementEvent(otype, "add")
-			ns := obj.(*v1.Namespace)
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
 				c.queue.Push(func() error {
 					c.handleSelectedNamespace(endpointMode, ns.Name)
+					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
+					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
+					if features.EnableEnhancedResourceScoping {
+						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+							Full:   true,
+							Reason: []model.TriggerReason{model.NamespaceUpdate},
+						})
+					}
 					return nil
 				})
 			}
 		},
-		UpdateFunc: func(old, new any) {
+		UpdateFunc: func(old, new *v1.Namespace) {
 			incrementEvent(otype, "update")
-			oldNs := old.(*v1.Namespace)
-			newNs := new.(*v1.Namespace)
-			membershipChanged, namespaceAdded := discoveryNamespacesFilter.NamespaceUpdated(oldNs.ObjectMeta, newNs.ObjectMeta)
+			membershipChanged, namespaceAdded := discoveryNamespacesFilter.NamespaceUpdated(old.ObjectMeta, new.ObjectMeta)
 			if membershipChanged {
-				var handleFunc func() error
-				if namespaceAdded {
-					handleFunc = func() error {
-						c.handleSelectedNamespace(endpointMode, newNs.Name)
-						return nil
+				handleFunc := func() error {
+					if namespaceAdded {
+						c.handleSelectedNamespace(endpointMode, new.Name)
+					} else {
+						c.handleDeselectedNamespace(kubeClient, endpointMode, new.Name)
 					}
-				} else {
-					handleFunc = func() error {
-						c.handleDeselectedNamespace(kubeClient, endpointMode, newNs.Name)
-						return nil
+					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
+					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
+					if features.EnableEnhancedResourceScoping {
+						c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+							Full:   true,
+							Reason: []model.TriggerReason{model.NamespaceUpdate},
+						})
 					}
+					return nil
 				}
 				c.queue.Push(handleFunc)
 			}
 		},
-		DeleteFunc: func(obj any) {
+		DeleteFunc: func(ns *v1.Namespace) {
 			incrementEvent(otype, "delete")
-			ns, ok := obj.(*v1.Namespace)
-			if !ok {
-				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					if cast, ok := tombstone.Obj.(*v1.Namespace); ok {
-						ns = cast
-					} else {
-						log.Errorf("Failed to convert to tombstoned namespace object: %v", obj)
-						return
-					}
-				} else {
-					log.Errorf("Failed to convert to namespace object: %v", obj)
-					return
-				}
-			}
 			discoveryNamespacesFilter.NamespaceDeleted(ns.ObjectMeta)
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
 		},
@@ -128,6 +124,16 @@ func (c *Controller) initMeshWatcherHandler(
 				return nil
 			})
 		}
+
+		if features.EnableEnhancedResourceScoping && (len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0) {
+			c.queue.Push(func() error {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: []model.TriggerReason{model.GlobalUpdate},
+				})
+				return nil
+			})
+		}
 	})
 }
 
@@ -143,7 +149,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		return
 	}
 	for _, svc := range services {
-		errs = multierror.Append(errs, c.onServiceEvent(svc, model.EventAdd))
+		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventAdd))
 	}
 
 	pods, err := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(ns).List(labels.Everything())
@@ -152,7 +158,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		return
 	}
 	for _, pod := range pods {
-		errs = multierror.Append(errs, c.pods.onEvent(pod, model.EventAdd))
+		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventAdd))
 	}
 	if c.ambientIndex != nil {
 		c.ambientIndex.handlePods(pods)
@@ -166,7 +172,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 			return
 		}
 		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
 		}
 	case EndpointSliceOnly:
 		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
@@ -175,8 +181,12 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 			return
 		}
 		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
 		}
+	}
+
+	for _, handler := range c.namespaceDiscoveryHandlers {
+		handler(ns, model.EventAdd)
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
@@ -198,7 +208,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		return
 	}
 	for _, svc := range services {
-		errs = multierror.Append(errs, c.onServiceEvent(svc, model.EventDelete))
+		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventDelete))
 	}
 
 	pods, err := kubeClient.KubeInformer().Core().V1().Pods().Lister().Pods(ns).List(labels.Everything())
@@ -207,7 +217,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		return
 	}
 	for _, pod := range pods {
-		errs = multierror.Append(errs, c.pods.onEvent(pod, model.EventDelete))
+		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventDelete))
 	}
 
 	switch endpointMode {
@@ -218,7 +228,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 			return
 		}
 		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
 		}
 	case EndpointSliceOnly:
 		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
@@ -227,8 +237,12 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 			return
 		}
 		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventDelete))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
 		}
+	}
+
+	for _, handler := range c.namespaceDiscoveryHandlers {
+		handler(ns, model.EventDelete)
 	}
 
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {

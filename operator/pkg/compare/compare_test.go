@@ -880,7 +880,6 @@ data:
       configPath: "/etc/istio/proxyv1"
       serviceCluster: istio-proxy
       drainDuration: 45s
-      parentShutdownDuration: 1m0s
       proxyAdminPortA: 15000
       concurrency: 2
       tracing:
@@ -902,7 +901,6 @@ data:
       configPath: "/etc/istio/proxyv2"
       serviceCluster: istio-proxy
       drainDuration: 45s
-      parentShutdownDuration: 1m0s
       proxyAdminPortB: 15000
       concurrency: 2
       tracing:

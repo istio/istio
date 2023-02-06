@@ -55,7 +55,7 @@ func initWorkloadCache(opts Options) *workloadCache {
 		_, hasType := o.GetLabels()[ambient.LabelType]
 		return hasType
 	})
-	opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(proxyHandler)
+	_, _ = opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(proxyHandler)
 
 	go queue.Run(opts.Stop)
 	return wc

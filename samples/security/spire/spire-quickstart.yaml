@@ -306,7 +306,7 @@ spec:
       shareProcessNamespace: true
       containers:
         - name: spire-server
-          image: gcr.io/spiffe-io/spire-server:1.2.0
+          image: gcr.io/spiffe-io/spire-server:1.5.3
           args:
             - -config
             - /run/spire/config/server.conf
@@ -337,7 +337,7 @@ spec:
               mountPath: /run/spire/sockets
               readOnly: false
         - name: k8s-workload-registrar
-          image: gcr.io/spiffe-io/k8s-workload-registrar:1.2.0
+          image: gcr.io/spiffe-io/k8s-workload-registrar:1.5.3
           args:
             - -config
             - /run/spire/config/k8s-workload-registrar.conf
@@ -453,6 +453,13 @@ data:
           # Minikube does not have a cert in the cluster CA bundle that
           # can authenticate the kubelet cert, so skip validation.
           skip_kubelet_verification = true
+
+          # We need to set disable_container_selectors = true if we make holdApplicationUntilProxyStarts = true in istio
+          # see https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#ProxyConfig
+          # If true, container selectors are not produced. 
+          # This can be used to produce pod selectors when the workload pod is known
+          # but the workload container is not ready at the time of attestation.
+          # disable_container_selectors = true
         }
       }
       WorkloadAttestor "unix" {
@@ -494,11 +501,11 @@ spec:
           # This is a small image with wait-for-it, choose whatever image
           # you prefer that waits for a service to be up. This image is built
           # from https://github.com/lqhl/wait-for-it
-          image: gcr.io/spiffe-io/wait-for-it
+          image: gcr.io/spiffe-io/wait-for-it:latest
           args: ["-t", "30", "spire-server:8081"]
       containers:
         - name: spire-agent
-          image: gcr.io/spiffe-io/spire-agent:1.2.0
+          image: gcr.io/spiffe-io/spire-agent:1.5.3
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:
             - name: spire-config

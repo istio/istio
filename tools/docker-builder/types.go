@@ -68,6 +68,7 @@ type Args struct {
 	Variants          []string
 	Architectures     []string
 	BaseVersion       string
+	BaseImageRegistry string
 	ProxyVersion      string
 	IstioVersion      string
 	Tags              []string
@@ -86,19 +87,20 @@ func (a Args) PlanFor(arch string) BuildPlan {
 
 func (a Args) String() string {
 	var b strings.Builder
-	b.WriteString("Push:          " + fmt.Sprint(a.Push) + "\n")
-	b.WriteString("Save:          " + fmt.Sprint(a.Save) + "\n")
-	b.WriteString("NoClobber:     " + fmt.Sprint(a.NoClobber) + "\n")
-	b.WriteString("NoCache:       " + fmt.Sprint(a.NoCache) + "\n")
-	b.WriteString("Targets:       " + fmt.Sprint(a.Targets) + "\n")
-	b.WriteString("Variants:      " + fmt.Sprint(a.Variants) + "\n")
-	b.WriteString("Architectures: " + fmt.Sprint(a.Architectures) + "\n")
-	b.WriteString("BaseVersion:   " + fmt.Sprint(a.BaseVersion) + "\n")
-	b.WriteString("ProxyVersion:  " + fmt.Sprint(a.ProxyVersion) + "\n")
-	b.WriteString("IstioVersion:  " + fmt.Sprint(a.IstioVersion) + "\n")
-	b.WriteString("Tags:          " + fmt.Sprint(a.Tags) + "\n")
-	b.WriteString("Hubs:          " + fmt.Sprint(a.Hubs) + "\n")
-	b.WriteString("Builder:       " + fmt.Sprint(a.Builder) + "\n")
+	b.WriteString("Push:              " + fmt.Sprint(a.Push) + "\n")
+	b.WriteString("Save:              " + fmt.Sprint(a.Save) + "\n")
+	b.WriteString("NoClobber:         " + fmt.Sprint(a.NoClobber) + "\n")
+	b.WriteString("NoCache:           " + fmt.Sprint(a.NoCache) + "\n")
+	b.WriteString("Targets:           " + fmt.Sprint(a.Targets) + "\n")
+	b.WriteString("Variants:          " + fmt.Sprint(a.Variants) + "\n")
+	b.WriteString("Architectures:     " + fmt.Sprint(a.Architectures) + "\n")
+	b.WriteString("BaseVersion:       " + fmt.Sprint(a.BaseVersion) + "\n")
+	b.WriteString("BaseImageRegistry: " + fmt.Sprint(a.BaseImageRegistry) + "\n")
+	b.WriteString("ProxyVersion:      " + fmt.Sprint(a.ProxyVersion) + "\n")
+	b.WriteString("IstioVersion:      " + fmt.Sprint(a.IstioVersion) + "\n")
+	b.WriteString("Tags:              " + fmt.Sprint(a.Tags) + "\n")
+	b.WriteString("Hubs:              " + fmt.Sprint(a.Hubs) + "\n")
+	b.WriteString("Builder:           " + fmt.Sprint(a.Builder) + "\n")
 	return b.String()
 }
 
@@ -236,6 +238,7 @@ func DefaultArgs() Args {
 		Hubs:              hub,
 		Tags:              tag,
 		BaseVersion:       fetchBaseVersion(),
+		BaseImageRegistry: fetchIstioBaseReg(),
 		IstioVersion:      fetchIstioVersion(),
 		ProxyVersion:      pv,
 		Architectures:     arch,
@@ -282,6 +285,25 @@ func fetchIstioVersion() string {
 		return "unknown"
 	}
 	match := istioVersionRegexp.FindSubmatch(b)
+	if len(match) < 2 {
+		log.Fatalf("failed to find match")
+		return "unknown"
+	}
+	return string(match[1])
+}
+
+var istioBaseRegRegexp = regexp.MustCompile(`ISTIO_BASE_REGISTRY \?= (.*)`)
+
+func fetchIstioBaseReg() string {
+	if b, f := os.LookupEnv("ISTIO_BASE_REGISTRY"); f {
+		return b
+	}
+	b, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
+	if err != nil {
+		log.Fatalf("failed to read file: %v", err)
+		return "unknown"
+	}
+	match := istioBaseRegRegexp.FindSubmatch(b)
 	if len(match) < 2 {
 		log.Fatalf("failed to find match")
 		return "unknown"

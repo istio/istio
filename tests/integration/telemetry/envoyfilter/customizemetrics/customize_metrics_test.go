@@ -18,6 +18,7 @@
 package customizemetrics
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -59,6 +60,46 @@ const (
 	registryUser   = "user"
 	registryPasswd = "passwd"
 )
+
+func TestMetricDefinitions(t *testing.T) {
+	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Features("observability.telemetry.stats.prometheus.customize-metric").
+		Run(func(t framework.TestContext) {
+			t.Cleanup(func() {
+				if t.Failed() {
+					util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_custom_total"})
+				}
+			})
+			urlPath := "/custom_path"
+			httpSourceQuery := buildCustomQuery(urlPath)
+			cluster := t.Clusters().Default()
+			retry.UntilSuccessOrFail(t, func() error {
+				if err := sendHTTPTraffic(urlPath); err != nil {
+					t.Log("failed to send traffic")
+					return err
+				}
+				if _, err := util.QueryPrometheus(t, cluster, httpSourceQuery, promInst); err != nil {
+					util.PromDiff(t, promInst, cluster, httpSourceQuery)
+					return err
+				}
+				return nil
+			}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
+			util.ValidateMetric(t, cluster, promInst, httpSourceQuery, 1)
+		})
+}
+
+func buildCustomQuery(urlPath string) (destinationQuery prometheus.Query) {
+	labels := map[string]string{
+		"url_path":        urlPath,
+		"response_status": "200",
+	}
+	sourceQuery := prometheus.Query{}
+	sourceQuery.Metric = "istio_custom_total"
+	sourceQuery.Labels = labels
+
+	return sourceQuery
+}
 
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
@@ -104,6 +145,10 @@ func TestCustomizeMetrics(t *testing.T) {
 			}
 			util.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
 			util.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
+			// By default, envoy histogram has 20 buckets, testdata/bootstrap_patch.yaml change it to 10.
+			if err := common.ValidateBucket(cluster, promInst, "client", 10); err != nil {
+				t.Errorf("failed to validate bucket: %v", err)
+			}
 		})
 }
 
@@ -117,25 +162,10 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
+//go:embed testdata/bootstrap_patch.yaml
+var bootstrapPatch string
+
 func testSetup(ctx resource.Context) (err error) {
-	// enable custom tag in the stats
-	bootstrapPatch := `
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: bootstrap-tag
-  namespace: istio-system
-spec:
-  configPatches:
-  - applyTo: BOOTSTRAP
-    patch:
-      operation: MERGE
-      value:
-        stats_config:
-          stats_tags:
-          - regex: "(custom_dimension=\\.=(.*?);\\.;)"
-            tag_name: "custom_dimension"
-`
 	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(apply.Wait); err != nil {
 		return err
 	}
@@ -212,30 +242,14 @@ proxyMetadata:
 	return nil
 }
 
+//go:embed testdata/setup_config.yaml
+var cfgValue string
+
 func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfValue := `
-values:
- telemetry:
-   v2:
-     prometheus:
-       configOverride:
-         inboundSidecar:
-           debug: false
-           stat_prefix: istio
-           metrics:
-           - name: requests_total
-             dimensions:
-               response_code: istio_responseClass
-               request_operation: istio_operationId
-               grpc_response_status: istio_grpcResponseStatus
-               custom_dimension: "'test'"
-             tags_to_remove:
-             - %s
-`
-	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
+	cfg.ControlPlaneValues = fmt.Sprintf(cfgValue, removedTag)
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
@@ -261,6 +275,30 @@ func setupWasmExtension(ctx resource.Context) error {
 	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").
 		Apply(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func sendHTTPTraffic(urlPath string) error {
+	for _, cltInstance := range client {
+		httpOpts := echo.CallOptions{
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Path:   urlPath,
+				Method: "GET",
+			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
+		}
+
+		if _, err := cltInstance.Call(httpOpts); err != nil {
+			return err
+		}
 	}
 
 	return nil

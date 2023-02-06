@@ -424,6 +424,24 @@ func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 	}
 }
 
+func TestCmdAddWithExcludeInterfaces(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	testAnnotations[excludeInterfacesKey] = "net2"
+	testContainers = []string{"mockContainer"}
+
+	testCmdAdd(t)
+
+	value, ok := testAnnotations[excludeInterfacesKey]
+	if !ok {
+		t.Fatalf("expected excludeInterfaces annotation to exist")
+	}
+
+	if value != testAnnotations[excludeInterfacesKey] {
+		t.Fatalf(fmt.Sprintf("expected excludeInterfaces annotation to equals %s", testAnnotations[excludeInterfacesKey]))
+	}
+}
+
 func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 	defer resetGlobalTestVariables()
 

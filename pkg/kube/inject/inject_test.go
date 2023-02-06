@@ -104,7 +104,6 @@ func TestInjection(t *testing.T) {
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.DrainDuration = durationpb.New(time.Second * 23)
-				m.DefaultConfig.ParentShutdownDuration = durationpb.New(time.Second * 42)
 			},
 		},
 		{
@@ -307,6 +306,14 @@ func TestInjection(t *testing.T) {
 			in:          "hello-host-network-with-ns.yaml",
 			want:        "hello-host-network-with-ns.yaml.injected",
 			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
+		},
+		{
+			// Verifies ISTIO_KUBE_APP_PROBERS are correctly merged during multiple injections.
+			in:   "merge-probers.yaml",
+			want: "merge-probers.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
 		},
 	}
 	// Keep track of tests we add options above
@@ -879,6 +886,7 @@ func TestAppendMultusNetwork(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			actual := appendMultusNetwork(tc.in, "istio-cni")

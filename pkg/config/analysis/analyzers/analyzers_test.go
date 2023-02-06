@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/pkg/config/analysis/analyzers/sidecar"
+	"istio.io/istio/pkg/config/analysis/analyzers/telemetry"
 	"istio.io/istio/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -736,6 +737,14 @@ var testGrid = []testCase{
 			{msg.ConflictingGateways, "Gateway alpha"},
 			{msg.ConflictingGateways, "Gateway alpha-l"},
 			{msg.ConflictingGateways, "Gateway beta-l"},
+		},
+	},
+	{
+		name:       "Analyze invalid telemetry",
+		inputFiles: []string{"testdata/telemetry-invalid-provider.yaml"},
+		analyzer:   &telemetry.ProdiverAnalyzer{},
+		expected: []message{
+			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
 	},
 }

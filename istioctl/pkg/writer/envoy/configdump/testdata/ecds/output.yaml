@@ -1,0 +1,41 @@
+ecdsFilters:
+- ecdsFilter:
+    '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
+    name: default.httpbin-rate-limiting
+    typedConfig:
+      '@type': type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+      config:
+        configuration: {}
+        name: default.httpbin-rate-limiting
+        vmConfig:
+          code:
+            local:
+              filename: /var/lib/istio/data/fe482be5ac123d3d387b0c68b9ed7f8ed65824e7d0bbc88a9a9a71dd8391d96c/d8ef3957b4cf09da9ed25e88bc75ac397ea875d88c5cbed356872f936a86d928.wasm
+          environmentVariables:
+            keyValues:
+              ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION: "1605"
+          runtime: envoy.wasm.runtime.v8
+  lastUpdated: "2022-12-08T11:03:53.361Z"
+  versionInfo: 2022-12-08T09:07:09Z/10
+- ecdsFilter:
+    '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
+    name: default.display-metadata
+    typedConfig:
+      '@type': type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+      config:
+        configuration:
+          '@type': type.googleapis.com/google.protobuf.StringValue
+          value: '{"header_1":"some_value_1","header_2":"another_value"}'
+        name: default.display-metadata
+        vmConfig:
+          code:
+            local:
+              filename: /var/lib/istio/data/a53784b18caf61bdcce2bb73d45d6bae13e81f9173295992e4612db7be72b439/064f7cd90a62e9345e77031bffcaf949c07d76fefe63be0ff969a1579de5ae57.wasm
+          environmentVariables:
+            hostEnvKeys:
+            - POD_NAMESPACE
+            keyValues:
+              ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION: "1606"
+          runtime: envoy.wasm.runtime.v8
+  lastUpdated: "2022-12-08T11:03:53.225Z"
+  versionInfo: 2022-12-08T09:07:09Z/10

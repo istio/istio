@@ -7,7 +7,7 @@ This sample demonstrates Istio's Open Telemetry ALS support.
 First, create an `otel-collector` backend with simple configuration.
 
 ```bash
-kubectl apply -f otel.yaml -nistio-system
+kubectl apply -f otel.yaml -n istio-system
 ```
 
 With following configuration, otel-collector will create a grpc receiver on port `4317`, and output to stdout. You can find more details from [here](https://github.com/open-telemetry/opentelemetry-collector).

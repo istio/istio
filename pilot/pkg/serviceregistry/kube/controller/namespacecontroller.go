@@ -49,6 +49,9 @@ type NamespaceController struct {
 	namespaceLister    listerv1.NamespaceLister
 	configmapLister    listerv1.ConfigMapLister
 
+	cmHandle cache.ResourceEventHandlerRegistration
+	nsHandle cache.ResourceEventHandlerRegistration
+
 	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
@@ -70,7 +73,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 
-	c.configMapInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	c.cmHandle, _ = c.configMapInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if o.GetName() != CACertNamespaceConfigMap {
 			// This is a change to a configmap we don't watch, ignore it
 			return false
@@ -85,7 +88,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		}
 		return true
 	}))
-	c.namespacesInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	c.nsHandle, _ = c.namespacesInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if inject.IgnoredNamespaces.Contains(o.GetName()) {
 			// skip special kubernetes system namespaces
 			return false
@@ -108,6 +111,8 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 	}
 	go nc.startCaBundleWatcher(stopCh)
 	nc.queue.Run(stopCh)
+	_ = nc.configMapInformer.RemoveEventHandler(nc.cmHandle)
+	_ = nc.namespacesInformer.RemoveEventHandler(nc.nsHandle)
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and update cm in each namespace

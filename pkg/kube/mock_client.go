@@ -151,6 +151,10 @@ func (c MockClient) MetadataClient() metadata.Interface {
 	panic("not used in mock")
 }
 
+func (c MockClient) Shutdown() {
+	panic("not used in mock")
+}
+
 func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][]byte, error) {
 	return c.Results, nil
 }
@@ -234,6 +238,10 @@ func (c MockClient) DeleteYAMLFiles(string, ...string) error {
 }
 
 func (c MockClient) DeleteYAMLFilesDryRun(string, ...string) error {
+	panic("not implemented by mock")
+}
+
+func (c MockClient) InvalidateDiscovery() {
 	panic("not implemented by mock")
 }
 

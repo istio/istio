@@ -165,7 +165,10 @@ func isTCPReachable(host string, port int) bool {
 		// No connection yet, so no need to conn.Close()
 		return false
 	}
-	conn.Close()
+	err = conn.Close()
+	if err != nil {
+		log.Infof("tcp connection is not closed: %v", err)
+	}
 	return true
 }
 

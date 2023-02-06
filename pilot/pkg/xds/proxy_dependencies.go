@@ -73,16 +73,18 @@ func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *mo
 		}
 	case model.Router:
 		if config.Kind == kind.ServiceEntry {
+			// If config is ServiceEntry, name of the config is service's FQDN
 			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, proxy) {
 				return false
 			}
 
-			// If config is ServiceEntry, name of the config is service's FQDN
-			svc, exist := push.ServiceIndex.HostnameAndNamespace[host.Name(config.Name)][config.Namespace]
-			if exist {
-				if !push.IsServiceVisible(svc, proxy.Metadata.Namespace) {
-					return false
-				}
+			hostname := host.Name(config.Name)
+			// gateways have default sidecar scopes
+			if proxy.SidecarScope.GetService(hostname) == nil &&
+				proxy.PrevSidecarScope.GetService(hostname) == nil {
+				// skip the push when the service is not visible to the gateway,
+				// and the old service is not visible/existent
+				return false
 			}
 		}
 		return true

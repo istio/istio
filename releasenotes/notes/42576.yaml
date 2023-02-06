@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: test
+area: istioctl
+releaseNotes:
+  - |
+    **Removed** Remove useless code in grpc.go

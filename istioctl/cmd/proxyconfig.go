@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
@@ -41,6 +42,8 @@ const (
 	summaryOutput          = "short"
 	prometheusOutput       = "prom"
 	prometheusMergedOutput = "prom-merged"
+
+	defaultProxyAdminPort = 15000
 )
 
 var (
@@ -57,6 +60,8 @@ var (
 
 	// output format (yaml or short)
 	outputFormat string
+
+	proxyAdminPort int
 )
 
 // Level is an enumeration of all supported log levels.
@@ -163,7 +168,7 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 	if eds {
 		path += "?include_eds=true"
 	}
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
@@ -260,7 +265,7 @@ func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat str
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -300,7 +305,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path)
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "POST", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -333,7 +338,7 @@ func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clust
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -779,7 +784,7 @@ func statsConfigCmd() *cobra.Command {
 }
 
 func logCmd() *cobra.Command {
-	var podName, podNamespace string
+	var podNamespace string
 	var podNames []string
 
 	logCmd := &cobra.Command{
@@ -824,33 +829,20 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if len(podNames) > 0 {
-					podName = podNames[0]
-				}
 			} else {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podNames, podNamespace, err = getPodNames(args[0]); err != nil {
 					return err
 				}
-				name, err := setupEnvoyLogConfig("", podName, podNamespace)
-				loggerNames = append(loggerNames, name)
-				if err != nil {
-					return err
+				for _, podName := range podNames {
+					name, err := setupEnvoyLogConfig("", podName, podNamespace)
+					loggerNames = append(loggerNames, name)
+					if err != nil {
+						return err
+					}
 				}
 			}
 
 			destLoggerLevels := map[string]Level{}
-			if strings.HasPrefix(podName, "ztunnel") {
-				q := "level=" + loggerLevelString
-				if reset {
-					q += "&reset"
-				}
-				resp, err := setupEnvoyLogConfig(q, podName, podNamespace)
-				if err != nil {
-					return err
-				}
-				_, _ = fmt.Fprint(c.OutOrStdout(), resp)
-				return nil
-			}
 			if reset {
 				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
 				levelString, _ := getLogLevelFromConfigMap()
@@ -891,22 +883,43 @@ func logCmd() *cobra.Command {
 			}
 
 			var resp string
-			if len(destLoggerLevels) == 0 {
-				resp, err = setupEnvoyLogConfig("", podName, podNamespace)
-			} else {
-				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
-					// update levels of all loggers first
-					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
-					delete(destLoggerLevels, defaultLoggerName)
+			var errs *multierror.Error
+			for _, podName := range podNames {
+				if strings.HasPrefix(podName, "ztunnel") {
+					q := "level=" + loggerLevelString
+					if reset {
+						q += "&reset"
+					}
+					resp, err := setupEnvoyLogConfig(q, podName, podNamespace)
+					if err != nil {
+						return err
+					}
+					_, _ = fmt.Fprint(c.OutOrStdout(), resp)
+					return nil
 				}
-				for lg, ll := range destLoggerLevels {
-					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
+				if len(destLoggerLevels) == 0 {
+					resp, err = setupEnvoyLogConfig("", podName, podNamespace)
+				} else {
+					if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
+						// update levels of all loggers first
+						resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
+					}
+					for lg, ll := range destLoggerLevels {
+						if lg == defaultLoggerName {
+							continue
+						}
+						resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
+					}
+				}
+				if err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("error configuring log level for %v.%v: %v", podName, podNamespace, err))
+				} else {
+					_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v", podName, podNamespace, resp)
 				}
 			}
-			if err != nil {
+			if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 			return nil
 		},
 		ValidArgsFunction: validPodsNameArgs,
@@ -1357,6 +1370,7 @@ func proxyConfig() *cobra.Command {
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 
 	configCmd.AddCommand(clusterConfigCmd())
 	configCmd.AddCommand(allConfigCmd())
@@ -1368,9 +1382,25 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(edsConfigCmd())
 	configCmd.AddCommand(secretConfigCmd())
 	configCmd.AddCommand(rootCACompareConfigCmd())
+	configCmd.AddCommand(ecdsConfigCmd())
 	configCmd.AddCommand(workloadConfigCmd())
 
 	return configCmd
+}
+
+func getPodNames(podflag string) ([]string, string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return []string{}, "", fmt.Errorf("failed to create k8s client: %w", err)
+	}
+	podNames, ns, err := handlers.InferPodsFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, defaultNamespace),
+		kubeClient.UtilFactory())
+	if err != nil {
+		log.Errorf("pods lookup failed")
+		return []string{}, "", err
+	}
+	return podNames, ns, nil
 }
 
 func getPodName(podflag string) (string, string, error) {
@@ -1409,4 +1439,59 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 	}
 	ns = pl.Items[0].Namespace
 	return podNames, ns, nil
+}
+
+func ecdsConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+
+	ecdsConfigCmd := &cobra.Command{
+		Use:     "ecds [<type>/]<name>[.<namespace>]",
+		Aliases: []string{"ec"},
+		Short:   "Retrieves typed extension configuration for the Envoy in the specified pod",
+		Long:    `Retrieve information about typed extension configuration for the Envoy instance in the specified pod.`,
+		Example: `  # Retrieve full typed extension configuration for a given pod from Envoy.
+  istioctl proxy-config ecds <pod-name[.namespace]>
+
+  # Retrieve endpoint summary without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config ecds --file envoy-config.json
+`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) == 1) != (configDumpFile == "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("ecds requires pod name or --file parameter")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			var configWriter *configdump.ConfigWriter
+			var err error
+			if len(args) == 1 {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
+			} else {
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+			}
+			if err != nil {
+				return err
+			}
+
+			switch outputFormat {
+			case summaryOutput:
+				return configWriter.PrintEcdsSummary()
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintEcds(outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", outputFormat)
+			}
+		},
+		ValidArgsFunction: validPodsNameArgs,
+	}
+
+	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml")
+	ecdsConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "", "Envoy config dump JSON file")
+
+	return ecdsConfigCmd
 }

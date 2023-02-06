@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type TestOptions struct {
@@ -113,6 +114,7 @@ type ConfigGenTest struct {
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
+	MemServiceRegistry   serviceregistry.Simple
 }
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
@@ -146,12 +148,13 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = cluster2.ID(provider.Mock)
-	serviceDiscovery.AddRegistry(serviceregistry.Simple{
+	memserviceRegistry := serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
 		ProviderID:       provider.Mock,
 		ServiceDiscovery: msd,
 		Controller:       msd.Controller,
-	})
+	}
+	serviceDiscovery.AddRegistry(memserviceRegistry)
 	for _, reg := range opts.ServiceRegistries {
 		serviceDiscovery.AddRegistry(reg)
 	}
@@ -174,6 +177,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		stop:                 test.NewStop(t),
 		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
+		MemServiceRegistry:   memserviceRegistry,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
 		pushContextLock:      opts.PushContextLock,
@@ -219,7 +223,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.17.0"
+		p.Metadata.IstioVersion = "1.18.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -271,7 +275,7 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 
 func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
-	configUpdated map[model.ConfigKey]struct{},
+	configUpdated sets.Set[model.ConfigKey],
 	watched *model.WatchedResource,
 ) ([]*cluster.Cluster, []string, bool) {
 	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,

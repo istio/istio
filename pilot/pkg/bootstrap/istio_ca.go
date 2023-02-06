@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ra"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -206,7 +206,7 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 	}
 	payload := jwtSplit[1]
 
-	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	payloadBytes, err := util.DecodeJwtPart(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode jwt: %v", err.Error())
 	}
@@ -357,8 +357,7 @@ func (s *Server) handleCACertsFileWatch() {
 				log.Debug("plugin cacerts watch stopped")
 				return
 			}
-
-			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				if timerC == nil {
 					timerC = time.After(100 * time.Millisecond)
 				}

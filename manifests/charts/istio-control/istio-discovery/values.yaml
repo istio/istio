@@ -218,6 +218,11 @@ meshConfig:
 global:
   # Used to locate istiod.
   istioNamespace: istio-system
+  # List of cert-signers to allow "approve" action in the istio cluster role
+  #
+  # certSigners:
+  #   - clusterissuers.cert-manager.io/istio-ca
+  certSigners: []
   # enable pod disruption budget for the control plane, which is used to
   # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
@@ -532,3 +537,10 @@ global:
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
+
+  # If enabled, gateway-api types will be validated using the standard upstream validation logic.
+  # This is an alternative to deploying the standalone validation server the project provides.
+  # This is disabled by default, as the cluster may already have a validation server; while technically
+  # it works to have multiple redundant validations, this adds complexity and operational risks.
+  # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
+  validateGateway: false

@@ -375,13 +375,10 @@ func TestScrtUpdated(t *testing.T) {
 			scrt.Data[ca.RootCertFile] = []byte(exampleCACert2)
 		}
 
-		var newScrt any
-		if tc.invalidNewSecret {
-			// point to an invalid secret object
-			newScrt = &v1.ConfigMap{}
-		} else {
+		var newScrt *v1.Secret
+		if !tc.invalidNewSecret {
 			newScrt = &v1.Secret{}
-			scrt.DeepCopyInto(newScrt.(*v1.Secret))
+			scrt.DeepCopyInto(newScrt)
 		}
 		wc.scrtUpdated(scrt, newScrt)
 

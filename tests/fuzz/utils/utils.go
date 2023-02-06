@@ -34,6 +34,8 @@ func (n NopTester) Log(args ...any) {}
 
 func (n NopTester) Logf(format string, args ...any) {}
 
+func (n NopTester) Skip(args ...any) {}
+
 func (n NopTester) TempDir() string {
 	tempDir, _ := os.MkdirTemp("", "test")
 	return tempDir

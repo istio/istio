@@ -42,6 +42,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		RequireMinVersion(20). // versions less than 1.20 doesn't have kube-root-ca.crt configmap. https://github.com/istio/istio/pull/42111
 		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
 		RequireMaxVersion(21).
 		Setup(istio.Setup(&inst, setupConfig)).

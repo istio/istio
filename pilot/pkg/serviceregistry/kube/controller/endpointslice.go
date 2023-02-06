@@ -21,7 +21,6 @@ import (
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/discovery/v1"
@@ -33,8 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	filterinformer "istio.io/istio/pkg/kube/informer"
 )
 
@@ -106,21 +105,11 @@ func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selec
 	return
 }
 
-func (esc *endpointSliceController) onEvent(curr any, event model.Event) error {
-	ep, ok := curr.(metav1.Object)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
-			return nil
-		}
-		epGvk, ok := tombstone.Obj.(runtime.Object)
-		if !ok || epGvk.GetObjectKind().GroupVersionKind().Kind != "EndpointSlice" {
-			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
-			return nil
-		}
+func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) error {
+	ep := controllers.ExtractObject(curr)
+	if ep == nil {
+		return nil
 	}
-
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
 		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
@@ -308,7 +297,7 @@ func (esc *endpointSliceController) getServiceNamespacedName(es any) types.Names
 	}
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, lbls labels.Instance) []*model.ServiceInstance {
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
 	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
 	if err != nil {
@@ -336,16 +325,8 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		}
 		for _, e := range slice.Endpoints() {
 			for _, a := range e.Addresses {
-				var podLabels labels.Instance
 				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
 				if pod == nil && expectedPod {
-					continue
-				}
-				if pod != nil {
-					podLabels = pod.Labels
-				}
-				// check that one of the input labels is a subset of the labels
-				if !lbls.SubsetOf(podLabels) {
 					continue
 				}
 

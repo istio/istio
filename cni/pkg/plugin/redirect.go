@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/pkg/log"
 )
@@ -40,6 +39,7 @@ const (
 	defaultKubevirtInterfaces    = ""
 	defaultIncludeInboundPorts   = "*"
 	defaultIncludeOutboundPorts  = ""
+	defaultExcludeInterfaces     = ""
 )
 
 var (
@@ -49,6 +49,7 @@ var (
 	includeInboundPortsKey  = annotation.SidecarTrafficIncludeInboundPorts.Name
 	excludeOutboundPortsKey = annotation.SidecarTrafficExcludeOutboundPorts.Name
 	includeOutboundPortsKey = annotation.SidecarTrafficIncludeOutboundPorts.Name
+	excludeInterfacesKey    = annotation.SidecarTrafficExcludeInterfaces.Name
 
 	sidecarInterceptModeKey = annotation.SidecarInterceptionMode.Name
 	sidecarPortListKey      = annotation.SidecarStatusPort.Name
@@ -67,6 +68,7 @@ var (
 		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
 		"includeOutboundPorts": {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
 		"kubevirtInterfaces":   {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
+		"excludeInterfaces":    {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
 	}
 )
 
@@ -252,12 +254,17 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	}
 	redir.excludeInboundPorts += "15020,15021,15090"
 	redir.excludeInboundPorts = strings.Join(dedupPorts(splitPorts(redir.excludeInboundPorts)), ",")
+	isFound, redir.excludeInterfaces, valErr = getAnnotationOrDefault("excludeInterfaces", pi.Annotations)
+	if valErr != nil {
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
+			"excludeInterfaces", isFound, valErr)
+	}
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
 	}
-	if v, found := pi.ProxyEnvironments[options.DNSCaptureByAgent.Name]; found {
+	if v, found := pi.ProxyEnvironments["ISTIO_META_DNS_CAPTURE"]; found {
 		// parse and set the bool value of dnsRedirect
 		redir.dnsRedirect, valErr = strconv.ParseBool(v)
 		if valErr != nil {

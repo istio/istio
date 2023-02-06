@@ -42,75 +42,82 @@ import (
 )
 
 const (
-	IstioNamespace      = "istio-system"
-	ReleasePrefix       = "istio-"
-	BaseChart           = "base"
-	CRDsFolder          = "crds"
-	DiscoveryChart      = "istio-discovery"
-	IngressGatewayChart = "istio-ingress"
-	EgressGatewayChart  = "istio-egress"
-	BaseReleaseName     = ReleasePrefix + BaseChart
-	IstiodReleaseName   = "istiod"
-	IngressReleaseName  = IngressGatewayChart
-	EgressReleaseName   = EgressGatewayChart
-	ControlChartsDir    = "istio-control"
-	GatewayChartsDir    = "gateways"
-	RetryDelay          = 2 * time.Second
-	RetryTimeOut        = 5 * time.Minute
-	Timeout             = 2 * time.Minute
+	IstioNamespace         = "istio-system"
+	ReleasePrefix          = "istio-"
+	BaseChart              = "base"
+	CRDsFolder             = "crds"
+	DiscoveryChartsDir     = "istio-discovery"
+	BaseReleaseName        = ReleasePrefix + BaseChart
+	RepoBaseChartPath      = BaseChart
+	RepoDiscoveryChartPath = "istiod"
+	RepoGatewayChartPath   = "gateway"
+	IstiodReleaseName      = "istiod"
+	IngressReleaseName     = "istio-ingress"
+	ControlChartsDir       = "istio-control"
+	GatewayChartsDir       = "gateway"
+
+	RetryDelay   = 2 * time.Second
+	RetryTimeOut = 5 * time.Minute
+	Timeout      = 2 * time.Minute
 )
 
 // ManifestsChartPath is path of local Helm charts used for testing.
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
-// TestDataChartPath is path of local Helm charts used for testing.
-var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata")
-
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool,
+func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile, version string, installGateway bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
 
+	versionArgs := ""
+	baseChartPath := RepoBaseChartPath
+	discoveryChartPath := RepoDiscoveryChartPath
+	gatewayChartPath := RepoGatewayChartPath
+
+	if version != "" {
+		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+	} else {
+		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
+		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
+		gatewayChartPath = filepath.Join(ManifestsChartPath, version, GatewayChartsDir)
+
+	}
 	// Install base chart
-	err := h.InstallChart(BaseReleaseName, filepath.Join(relPath, version, BaseChart+suffix),
-		IstioNamespace, overrideValuesFile, Timeout)
+	err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart: %v", BaseChart, err)
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChart)+suffix,
-		IstioNamespace, overrideValuesFile, Timeout)
+	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
-		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChart, err)
+		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChartsDir, err)
 	}
 
-	if installGateways {
-		// Install ingress gateway chart
-		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, IngressGatewayChart)+suffix,
-			IstioNamespace, overrideValuesFile, Timeout)
+	if installGateway {
+		err = h.InstallChart(IngressReleaseName, gatewayChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", IngressGatewayChart, err)
-		}
-
-		// Install egress gateway chart
-		err = h.InstallChart(EgressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, EgressGatewayChart)+suffix,
-			IstioNamespace, overrideValuesFile, Timeout)
-		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", EgressGatewayChart, err)
+			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
 		}
 	}
 }
 
 // InstallIstioWithRevision install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, fileSuffix, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool,
+func InstallIstioWithRevision(t framework.TestContext, cs cluster.Cluster,
+	h *helm.Helm, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
-
+	versionArgs := ""
+	baseChartPath := RepoBaseChartPath
+	discoveryChartPath := RepoDiscoveryChartPath
+	if version != "" {
+		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+	} else {
+		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
+		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
+	}
 	// base chart may already be installed if the Istio was previously already installed
 	if upgradeBaseChart {
 		// upgrade is always done with ../manifests/charts/base
@@ -120,8 +127,7 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
 		}
 	} else {
-		err := h.InstallChart(BaseReleaseName, filepath.Join(TestDataChartPath, version, BaseChart+fileSuffix),
-			IstioNamespace, overrideValuesFile, Timeout)
+		err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
 			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
 		}
@@ -129,22 +135,18 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 
 	// install discovery chart with --set revision=NAME
 	if useTestData {
-		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(TestDataChartPath, version, ControlChartsDir, DiscoveryChart+fileSuffix),
-			IstioNamespace, overrideValuesFile, Timeout)
+		err := h.InstallChart(IstiodReleaseName+"-"+revision, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+			t.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 		}
 	} else {
-		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChart),
+		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir),
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+			t.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 		}
 
 	}
-
-	// TODO: ingress and egress charts for use with revisions is considered experimental
-	// and are not a part of this test for now
 }
 
 func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
@@ -164,9 +166,6 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 // deleteIstio deletes installed Istio Helm charts and resources
 func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 	scopes.Framework.Infof("cleaning up resources")
-	if err := h.DeleteChart(EgressReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release: %v", EgressReleaseName, err)
-	}
 	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
 	}
@@ -185,20 +184,21 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateways bool) {
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
+
+	VerifyValidatingWebhookConfigurations(ctx, cs, []string{
+		"istiod-default-validator",
+	})
 
 	retry.UntilSuccessOrFail(ctx, func() error {
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
 
-		if verifyGateways {
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingressgateway")); err != nil {
+		if verifyGateway {
+			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingress")); err != nil {
 				return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
-			}
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-egressgateway")); err != nil {
-				return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 			}
 		}
 		return nil
@@ -206,13 +206,30 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGat
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
+func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision, revisionTag, version string) {
+	scopes.Framework.Infof("=== setting revision tag with version === ")
+	template, err := h.Template(IstiodReleaseName+"-"+revision, RepoDiscoveryChartPath,
+		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", version, "--repo", ctx.Settings().HelmRepo, "--set",
+		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
+	if err != nil {
+		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
+	}
+
+	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()
+	if err != nil {
+		ctx.Fatalf("failed to apply templated revision tags yaml: %v", err)
+	}
+
+	scopes.Framework.Infof("=== succeeded === ")
+}
+
 func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revision, revisionTag, relPath, version string) {
 	scopes.Framework.Infof("=== setting revision tag === ")
-	template, err := h.Template(IstiodReleaseName+"-"+revision, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChart)+fileSuffix,
+	template, err := h.Template(IstiodReleaseName+"-"+revision, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChartsDir)+fileSuffix,
 		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
-		ctx.Fatalf("failed to install istio %s chart", DiscoveryChart)
+		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 	}
 
 	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()
@@ -233,9 +250,9 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-// ValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
+// VerifyValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
 // revisions and revision tags
-func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
+func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
 	scopes.Framework.Infof("=== verifying validating webhook configurations === ")
 	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs.Kube(), names); !ok {
 		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)
@@ -243,8 +260,8 @@ func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Clust
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-// VerifyValidation verifies that Istio resource validation is active on the cluster.
-func VerifyValidation(ctx framework.TestContext) {
+// verifyValidation verifies that Istio resource validation is active on the cluster.
+func verifyValidation(ctx framework.TestContext) {
 	ctx.Helper()
 	invalidGateway := &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{

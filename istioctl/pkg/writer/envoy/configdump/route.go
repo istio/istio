@@ -121,18 +121,18 @@ func unexpandDomains(domains []string) []string {
 	shouldDelete := sets.New[string]()
 	for _, h := range domains {
 		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
-		if _, f := unique[stripFull]; f && stripFull != h {
+		if unique.Contains(stripFull) && stripFull != h {
 			shouldDelete.Insert(h)
 		}
 		stripPartial := strings.TrimSuffix(h, ".svc")
-		if _, f := unique[stripPartial]; f && stripPartial != h {
+		if unique.Contains(stripPartial) && stripPartial != h {
 			shouldDelete.Insert(h)
 		}
 	}
 	// Filter from original list to keep original order
 	ret := make([]string, 0, len(domains))
 	for _, h := range domains {
-		if _, f := shouldDelete[h]; !f {
+		if !shouldDelete.Contains(h) {
 			ret = append(ret, h)
 		}
 	}
@@ -258,5 +258,5 @@ func isPassthrough(action any) bool {
 	if !ok {
 		return false
 	}
-	return cl.Cluster == "PassthroughCluster"
+	return cl.Cluster == pilot_util.PassthroughCluster
 }

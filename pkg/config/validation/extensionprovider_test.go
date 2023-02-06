@@ -460,3 +460,60 @@ func TestValidateExtensionProviderEnvoyTCPAls(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateExtensionProviderTracingOpentelemetry(t *testing.T) {
+	cases := []struct {
+		name     string
+		provider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider
+		valid    bool
+	}{
+		{
+			name: "normal",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service: "collector.namespace.svc",
+				Port:    4317,
+			},
+			valid: true,
+		},
+		{
+			name: "service with namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service: "namespace/collector.namespace.svc",
+				Port:    4317,
+			},
+			valid: true,
+		},
+		{
+			name: "service with invalid namespace",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service: "name/space/collector.namespace.svc",
+				Port:    4317,
+			},
+			valid: false,
+		},
+		{
+			name: "service with port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service: "collector.namespace.svc:4000",
+				Port:    4317,
+			},
+			valid: false,
+		},
+		{
+			name: "missing port",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service: "collector.namespace.svc",
+			},
+			valid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateExtensionProviderTracingOpentelemetry(c.provider)
+			valid := err == nil
+			if valid != c.valid {
+				t.Errorf("Expected valid=%v, got valid=%v for %v", c.valid, valid, c.provider)
+			}
+		})
+	}
+}

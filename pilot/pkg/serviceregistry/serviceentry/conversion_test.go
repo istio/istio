@@ -51,7 +51,7 @@ var (
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking.ServicePort{
 				{Number: 80, Name: "http-number", Protocol: "http"},
 				{Number: 8080, Name: "http2-number", Protocol: "http2"},
 			},
@@ -71,7 +71,7 @@ var tcpNone = &config.Config{
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpnone.com"},
 		Addresses: []string{"172.217.0.0/16"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -88,7 +88,7 @@ var httpStatic = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
@@ -124,7 +124,7 @@ var httpStaticOverlay = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 4567, Name: "http-port", Protocol: "http"},
 		},
 		Endpoints: []*networking.WorkloadEntry{
@@ -147,7 +147,7 @@ var httpDNSnoEndpoints = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"google.com", "www.wikipedia.org"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
@@ -166,7 +166,7 @@ var httpDNSRRnoEndpoints = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"api.istio.io"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
@@ -185,7 +185,7 @@ var dnsTargetPort = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"google.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-port", Protocol: "http", TargetPort: 8080},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -202,7 +202,7 @@ var httpDNS = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
@@ -236,7 +236,7 @@ var httpDNSRR = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.istio.io"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-port", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
@@ -245,15 +245,6 @@ var httpDNSRR = &config.Config{
 				Address: "api-v1.istio.io",
 				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
 				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
-			{
-				Address: "api-v2.istio.io",
-				Ports:   map[string]uint32{"http-port": 1080},
-				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
-			{
-				Address: "api-v3.istio.io",
-				Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 			},
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
@@ -270,7 +261,7 @@ var tcpDNS = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"tcpdns.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
 		Endpoints: []*networking.WorkloadEntry{
@@ -298,7 +289,7 @@ var tcpStatic = &config.Config{
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpstatic.com"},
 		Addresses: []string{"172.217.0.1"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
 		Endpoints: []*networking.WorkloadEntry{
@@ -325,7 +316,7 @@ var httpNoneInternal = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 80, Name: "http-number", Protocol: "http"},
 			{Number: 8080, Name: "http2-number", Protocol: "http2"},
 		},
@@ -344,7 +335,7 @@ var tcpNoneInternal = &config.Config{
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpinternal.com"},
 		Addresses: []string{"172.217.0.0/16"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
@@ -362,7 +353,7 @@ var multiAddrInternal = &config.Config{
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcp1.com", "tcp2.com"},
 		Addresses: []string{"1.1.1.0/16", "2.2.2.0/16"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 		},
 		Location:   networking.ServiceEntry_MESH_INTERNAL,
@@ -380,7 +371,7 @@ var udsLocal = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"uds.cluster.local"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 6553, Name: "grpc-1", Protocol: "grpc"},
 		},
 		Endpoints: []*networking.WorkloadEntry{
@@ -400,7 +391,7 @@ var selectorDNS = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 			{Number: 445, Name: "http-445", Protocol: "http"},
 		},
@@ -421,7 +412,7 @@ var selector = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 			{Number: 445, Name: "http-445", Protocol: "http"},
 		},
@@ -443,7 +434,7 @@ var dnsSelector = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"dns.selector.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 			{Number: 445, Name: "http-445", Protocol: "http"},
 		},
@@ -451,6 +442,42 @@ var dnsSelector = &config.Config{
 			Labels: map[string]string{"app": "dns-wle"},
 		},
 		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
+// Service Entry with DNSRoundRobinLB
+var dnsRoundRobinLBSE1 = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-round-robin-1",
+		Namespace:         "dns",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.ServicePort{
+			{Number: 445, Name: "http-445", Protocol: "http"},
+			{Number: 446, Name: "http-446", Protocol: "http"},
+		},
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+	},
+}
+
+var dnsRoundRobinLBSE2 = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-round-robin-2",
+		Namespace:         "dns",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.ServicePort{
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 	},
 }
 
@@ -527,7 +554,7 @@ const (
 
 // nolint: unparam
 func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string,
+	svcPort *networking.ServicePort, svcLabels map[string]string, serviceAccount string,
 ) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
 	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
@@ -536,7 +563,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int
 
 // nolint: unparam
 func makeInstance(cfg *config.Config, address string, port int,
-	svcPort *networking.Port, svcLabels map[string]string, mtlsMode MTLSMode,
+	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) *model.ServiceInstance {
 	services := convertServices(*cfg)
 	svc := services[0] // default
@@ -898,7 +925,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 					}
 					serviceInstance.Endpoint.Network = network.ID(tt.wle.Network)
 					serviceInstance.Endpoint.Labels = labelutil.AugmentLabels(serviceInstance.Endpoint.Labels,
-						tt.clusterID, tt.wle.Locality, network.ID(tt.wle.Network))
+						tt.clusterID, tt.wle.Locality, "", network.ID(tt.wle.Network))
 				}
 			}
 

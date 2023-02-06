@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,7 +129,7 @@ func (d *deployment) Restart() error {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
-	curTimestamp := time.Now().Format("RFC3339")
+	curTimestamp := time.Now().Format(time.RFC3339)
 	for _, deploymentName := range deploymentNames {
 		patchOpts := metav1.PatchOptions{}
 		patchData := fmt.Sprintf(`{
@@ -143,13 +144,13 @@ func (d *deployment) Restart() error {
 			}
 		}`, curTimestamp) // e.g., “2006-01-02T15:04:05Z07:00”
 		var err error
-		appsv1 := d.cfg.Cluster.Kube().AppsV1()
+		appsv1Client := d.cfg.Cluster.Kube().AppsV1()
 
 		if d.cfg.IsStatefulSet() {
-			_, err = appsv1.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+			_, err = appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
 				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		} else {
-			_, err = appsv1.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+			_, err = appsv1Client.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
 				types.StrategicMergePatchType, []byte(patchData), patchOpts)
 		}
 		if err != nil {
@@ -159,24 +160,24 @@ func (d *deployment) Restart() error {
 
 		if err := retry.UntilSuccess(func() error {
 			if d.cfg.IsStatefulSet() {
-				sts, err := appsv1.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				sts, err := appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				if sts.Spec.Replicas == nil || *sts.Spec.Replicas != sts.Status.UpdatedReplicas {
+				if sts.Spec.Replicas == nil || !statefulsetComplete(sts) {
 					return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
 				}
 			} else {
-				dep, err := appsv1.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+				dep, err := appsv1Client.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				if dep.Spec.Replicas == nil || *dep.Spec.Replicas != dep.Status.UpdatedReplicas {
+				if dep.Spec.Replicas == nil || !deploymentComplete(dep) {
 					return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
 				}
 			}
 			return nil
-		}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second)); err != nil {
+		}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
 				d.cfg.Namespace.Name(), deploymentName, err))
 		}
@@ -357,30 +358,31 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	}
 
 	params := map[string]any{
-		"ImageHub":            settings.Image.Hub,
-		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
-		"ImagePullPolicy":     settings.Image.PullPolicy,
-		"ImagePullSecretName": imagePullSecretName,
-		"Service":             cfg.Service,
-		"StatefulSet":         cfg.StatefulSet,
-		"ProxylessGRPC":       cfg.IsProxylessGRPC(),
-		"GRPCMagicPort":       grpcMagicPort,
-		"Locality":            cfg.Locality,
-		"ServiceAccount":      cfg.ServiceAccount,
-		"AppContainers":       appContainers,
-		"ContainerPorts":      getContainerPorts(cfg),
-		"Subsets":             cfg.Subsets,
-		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.Cluster.Name(),
-		"ReadinessTCPPort":    cfg.ReadinessTCPPort,
-		"ReadinessGRPCPort":   cfg.ReadinessGRPCPort,
-		"StartupProbe":        supportStartupProbe,
-		"IncludeExtAuthz":     cfg.IncludeExtAuthz,
-		"Revisions":           settings.Revisions.TemplateMap(),
-		"Compatibility":       settings.Compatibility,
-		"WorkloadClass":       cfg.WorkloadClass(),
-		"OverlayIstioProxy":   canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
-		"Ambient":             settings.Ambient,
+		"ImageHub":                settings.Image.Hub,
+		"ImageTag":                strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImagePullPolicy":         settings.Image.PullPolicy,
+		"ImagePullSecretName":     imagePullSecretName,
+		"Service":                 cfg.Service,
+		"StatefulSet":             cfg.StatefulSet,
+		"ProxylessGRPC":           cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":           grpcMagicPort,
+		"Locality":                cfg.Locality,
+		"ServiceAccount":          cfg.ServiceAccount,
+		"DisableAutomountSAToken": cfg.DisableAutomountSAToken,
+		"AppContainers":           appContainers,
+		"ContainerPorts":          getContainerPorts(cfg),
+		"Subsets":                 cfg.Subsets,
+		"TLSSettings":             cfg.TLSSettings,
+		"Cluster":                 cfg.Cluster.Name(),
+		"ReadinessTCPPort":        cfg.ReadinessTCPPort,
+		"ReadinessGRPCPort":       cfg.ReadinessGRPCPort,
+		"StartupProbe":            supportStartupProbe,
+		"IncludeExtAuthz":         cfg.IncludeExtAuthz,
+		"Revisions":               settings.Revisions.TemplateMap(),
+		"Compatibility":           settings.Compatibility,
+		"WorkloadClass":           cfg.WorkloadClass(),
+		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
+		"Ambient":                 settings.Ambient,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""
@@ -740,4 +742,20 @@ func getIstioRevision(n namespace.Instance) string {
 		return ""
 	}
 	return nsLabels[label.IoIstioRev.Name]
+}
+
+func statefulsetComplete(statefulset *appsv1.StatefulSet) bool {
+	return statefulset.Status.UpdatedReplicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.Replicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.AvailableReplicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.ReadyReplicas == *(statefulset.Spec.Replicas) &&
+		statefulset.Status.ObservedGeneration >= statefulset.Generation
+}
+
+func deploymentComplete(deployment *appsv1.Deployment) bool {
+	return deployment.Status.UpdatedReplicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.Replicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.AvailableReplicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.ReadyReplicas == *(deployment.Spec.Replicas) &&
+		deployment.Status.ObservedGeneration >= deployment.Generation
 }

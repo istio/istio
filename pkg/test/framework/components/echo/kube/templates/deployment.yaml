@@ -64,6 +64,9 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
+{{- if $.DisableAutomountSAToken }}
+      automountServiceAccountToken: false
+{{- end}}
 {{- if ne $.ImagePullSecretName "" }}
       imagePullSecrets:
       - name: {{ $.ImagePullSecretName }}

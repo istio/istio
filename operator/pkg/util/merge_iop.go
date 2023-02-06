@@ -185,7 +185,6 @@ type (
 
 type proxyConfig struct {
 	DrainDuration                  *durationpb.Duration                    `json:"drainDuration" patchStrategy:"replace"`
-	ParentShutdownDuration         *durationpb.Duration                    `json:"parentShutdownDuration" patchStrategy:"replace"`
 	DiscoveryRefreshDelay          *durationpb.Duration                    `json:"discoveryRefreshDelay" patchStrategy:"replace"`
 	TerminationDrainDuration       *durationpb.Duration                    `json:"terminationDrainDuration" patchStrategy:"replace"`
 	Concurrency                    *wrappers.Int32Value                    `json:"concurrency" patchStrategy:"replace"`

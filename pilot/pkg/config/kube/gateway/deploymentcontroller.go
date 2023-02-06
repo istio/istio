@@ -30,6 +30,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -44,6 +45,11 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/pkg/log"
+)
+
+const (
+	ManagedByControllerLabel = "gateway.istio.io/managed"
+	ManagedByControllerValue = "istio.io-gateway-controller"
 )
 
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
@@ -76,6 +82,15 @@ type DeploymentController struct {
 	patcher            Patcher
 	gatewayLister      lister.GatewayLister
 	gatewayClassLister lister.GatewayClassLister
+
+	serviceInformer    cache.SharedIndexInformer
+	serviceHandle      cache.ResourceEventHandlerRegistration
+	deploymentInformer cache.SharedIndexInformer
+	deploymentHandle   cache.ResourceEventHandlerRegistration
+	gwInformer         cache.SharedIndexInformer
+	gwHandle           cache.ResourceEventHandlerRegistration
+	gwClassInformer    cache.SharedIndexInformer
+	gwClassHandle      cache.ResourceEventHandlerRegistration
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -112,7 +127,8 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
-	client.KubeInformer().Core().V1().Services().Informer().
+	dc.serviceInformer = client.KubeInformer().Core().V1().Services().Informer()
+	dc.serviceHandle, _ = client.KubeInformer().Core().V1().Services().Informer().
 		AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
@@ -125,12 +141,14 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		)
 	})
 	_ = deployInformer.SetTransform(kube.StripUnusedFields)
-	deployInformer.AddEventHandler(handler)
+	dc.deploymentHandle, _ = deployInformer.AddEventHandler(handler)
+	dc.deploymentInformer = deployInformer
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
-	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
-	gwc.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		o.GetName()
+	dc.gwInformer = gw.Informer()
+	dc.gwClassHandle, _ = dc.gwInformer.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	dc.gwClassInformer = gwc.Informer()
+	dc.gwClassHandle, _ = dc.gwClassInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		gws, _ := dc.gatewayLister.List(klabels.Everything())
 		for _, g := range gws {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
@@ -144,6 +162,10 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
 	d.queue.Run(stop)
+	_ = d.serviceInformer.RemoveEventHandler(d.serviceHandle)
+	_ = d.deploymentInformer.RemoveEventHandler(d.deploymentHandle)
+	_ = d.gwInformer.RemoveEventHandler(d.gwHandle)
+	_ = d.gwClassInformer.RemoveEventHandler(d.gwClassHandle)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
@@ -188,14 +210,43 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
-	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw)}
-	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
+	defaultName := getDefaultName(gw.Name, &gw.Spec)
+	gatewayName := defaultName
+	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
+		gatewayName = nameOverride
+	}
+
+	gatewaySA := defaultName
+	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
+		gatewaySA = saOverride
+	}
+
+	input := MergedInput{
+		Gateway:        &gw,
+		GatewayName:    gatewayName,
+		ServiceAccount: gatewaySA,
+		Ports:          extractServicePorts(gw),
+		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
+	}
+
+	ingressSa := d.RenderServiceAccountApply(input)
+	_, err := d.client.Kube().
+		CoreV1().
+		ServiceAccounts(gw.Namespace).
+		Apply(context.Background(), ingressSa, metav1.ApplyOptions{
+			Force: true, FieldManager: "istio gateway controller",
+		})
+	if err != nil {
+		return fmt.Errorf("update service account: %v", err)
+	}
+	log.Info("service account updated")
+
+	if err := d.ApplyTemplate("service.yaml", input); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
 
-	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
-	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
+	if err := d.ApplyTemplate("deployment.yaml", input); err != nil {
 		return fmt.Errorf("update deployment: %v", err)
 	}
 	log.Info("deployment updated")
@@ -230,6 +281,22 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	return nil
 }
 
+func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
+	// TODO: GregHanson
+	// race condition with pod delete and service account delete, need to re-add owner reference labels once resolved
+	// related issues:
+	//  - https://github.com/kubernetes/kubernetes/issues/115459
+	//  - https://github.com/kubernetes/kubernetes/issues/115511
+	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
+		WithLabels(map[string]string{GatewayNameLabel: input.Name})
+	// nolint: gocritic
+	// WithOwnerReferences(metav1ac.OwnerReference().
+	// 	WithName(input.Name).
+	// 	WithUID(input.UID).
+	// 	WithKind(gvk.KubernetesGateway.Kind).
+	// 	WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
+}
+
 // ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
 func (d *DeploymentController) ApplyTemplate(template string, input metav1.Object, subresources ...string) error {
 	var buf bytes.Buffer
@@ -242,6 +309,11 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 		return err
 	}
 	us := unstructured.Unstructured{Object: data}
+	// set managed-by label
+	err = unstructured.SetNestedField(us.Object, ManagedByControllerValue, "metadata", "labels", ManagedByControllerLabel)
+	if err != nil {
+		return err
+	}
 	gvr, err := controllers.UnstructuredToGVR(us)
 	if err != nil {
 		return err
@@ -285,13 +357,11 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	return res
 }
 
-type serviceInput struct {
+type MergedInput struct {
 	*gateway.Gateway
-	Ports []corev1.ServicePort
-}
-
-type deploymentInput struct {
-	*gateway.Gateway
+	GatewayName    string
+	ServiceAccount string
+	Ports          []corev1.ServicePort
 	KubeVersion122 bool
 }
 

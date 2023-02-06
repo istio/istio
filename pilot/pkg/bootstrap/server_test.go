@@ -29,6 +29,8 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
+	cert "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/filewatcher"
 )
 
@@ -104,14 +107,15 @@ func TestNewServerCertInit(t *testing.T) {
 	tlsArgcaCertFile := filepath.Join(tlsArgCertsDir, "ca-cert.pem")
 
 	cases := []struct {
-		name         string
-		FSCertsPaths TLSFSLoadPaths
-		tlsOptions   *TLSOptions
-		enableCA     bool
-		certProvider string
-		expNewCert   bool
-		expCert      []byte
-		expKey       []byte
+		name                      string
+		FSCertsPaths              TLSFSLoadPaths
+		tlsOptions                *TLSOptions
+		enableCA                  bool
+		certProvider              string
+		expNewCert                bool
+		expCert                   []byte
+		expKey                    []byte
+		expSecureDiscoveryService bool
 	}{
 		{
 			name:         "Load from existing DNS cert",
@@ -121,11 +125,12 @@ func TestNewServerCertInit(t *testing.T) {
 				KeyFile:    tlsArgkeyFile,
 				CaCertFile: tlsArgcaCertFile,
 			},
-			enableCA:     false,
-			certProvider: constants.CertProviderKubernetes,
-			expNewCert:   false,
-			expCert:      testcerts.ServerCert,
-			expKey:       testcerts.ServerKey,
+			enableCA:                  false,
+			certProvider:              constants.CertProviderKubernetes,
+			expNewCert:                false,
+			expCert:                   testcerts.ServerCert,
+			expKey:                    testcerts.ServerKey,
+			expSecureDiscoveryService: true,
 		},
 		{
 			name:         "Create new DNS cert using Istiod",
@@ -135,11 +140,12 @@ func TestNewServerCertInit(t *testing.T) {
 				KeyFile:    "",
 				CaCertFile: "",
 			},
-			enableCA:     true,
-			certProvider: constants.CertProviderIstiod,
-			expNewCert:   true,
-			expCert:      []byte{},
-			expKey:       []byte{},
+			enableCA:                  true,
+			certProvider:              constants.CertProviderIstiod,
+			expNewCert:                true,
+			expCert:                   []byte{},
+			expKey:                    []byte{},
+			expSecureDiscoveryService: true,
 		},
 		{
 			name:         "No DNS cert created because CA is disabled",
@@ -158,12 +164,13 @@ func TestNewServerCertInit(t *testing.T) {
 				constants.DefaultPilotTLSKey,
 				constants.DefaultPilotTLSCaCert,
 			},
-			tlsOptions:   &TLSOptions{},
-			enableCA:     false,
-			certProvider: constants.CertProviderNone,
-			expNewCert:   false,
-			expCert:      testcerts.ServerCert,
-			expKey:       testcerts.ServerKey,
+			tlsOptions:                &TLSOptions{},
+			enableCA:                  false,
+			certProvider:              constants.CertProviderNone,
+			expNewCert:                false,
+			expCert:                   testcerts.ServerCert,
+			expKey:                    testcerts.ServerKey,
+			expSecureDiscoveryService: true,
 		},
 		{
 			name: "DNS cert loaded from known location, even if CA is Disabled, with a fallback CA path",
@@ -172,12 +179,13 @@ func TestNewServerCertInit(t *testing.T) {
 				constants.DefaultPilotTLSKey,
 				constants.DefaultPilotTLSCaCertAlternatePath,
 			},
-			tlsOptions:   &TLSOptions{},
-			enableCA:     false,
-			certProvider: constants.CertProviderNone,
-			expNewCert:   false,
-			expCert:      testcerts.ServerCert,
-			expKey:       testcerts.ServerKey,
+			tlsOptions:                &TLSOptions{},
+			enableCA:                  false,
+			certProvider:              constants.CertProviderNone,
+			expNewCert:                false,
+			expCert:                   testcerts.ServerCert,
+			expKey:                    testcerts.ServerKey,
+			expSecureDiscoveryService: true,
 		},
 		{
 			name:         "No cert provider",
@@ -247,6 +255,12 @@ func TestNewServerCertInit(t *testing.T) {
 					if _, err := s.getIstiodCertificate(nil); err == nil {
 						t.Errorf("Istiod should not generate new DNS cert")
 					}
+				}
+			}
+
+			if c.expSecureDiscoveryService {
+				if s.secureGrpcServer == nil {
+					t.Errorf("Istiod secure grpc server was not started.")
 				}
 			}
 		})
@@ -622,6 +636,73 @@ func TestInitOIDC(t *testing.T) {
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
+			}
+		})
+	}
+}
+
+func TestWatchDNSCertForK8sCA(t *testing.T) {
+	tests := []struct {
+		name        string
+		certToWatch []byte
+		certRotated bool
+	}{
+		{
+			name:        "expired cert rotation",
+			certToWatch: testcerts.ExpiredServerCert,
+			certRotated: true,
+		},
+		{
+			name:        "valid cert no rotation",
+			certToWatch: testcerts.ServerCert,
+			certRotated: false,
+		},
+	}
+
+	csr := &cert.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "abc.xyz",
+		},
+		Status: cert.CertificateSigningRequestStatus{
+			Certificate: testcerts.ServerCert,
+		},
+	}
+	s := &Server{
+		server:                  server.New(),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+		kubeClient:              kube.NewFakeClient(csr),
+		dnsNames:                []string{"abc.xyz"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stop := make(chan struct{})
+
+			s.istiodCertBundleWatcher.SetAndNotify(testcerts.ServerKey, tt.certToWatch, testcerts.CACert)
+			go s.RotateDNSCertForK8sCA(stop, "", "test-signer", true, time.Duration(0))
+
+			var certRotated bool
+			var rotatedCertBytes []byte
+			err := retry.Until(func() bool {
+				time.Sleep(time.Second)
+				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
+				st := string(rotatedCertBytes)
+				certRotated = st != string(tt.certToWatch)
+				return certRotated == tt.certRotated
+			}, retry.Timeout(10*time.Second))
+
+			close(stop)
+			if err != nil {
+				t.Fatalf("expect certRotated is %v while actual certRotated is %v", tt.certRotated, certRotated)
+			}
+			cert, certErr := util.ParsePemEncodedCertificate(rotatedCertBytes)
+			if certErr != nil {
+				t.Fatalf("rotated cert is not valid")
+			}
+			currTime := time.Now()
+			timeToExpire := cert.NotAfter.Sub(currTime)
+			if timeToExpire < 0 {
+				t.Fatalf("rotated cert is already expired")
 			}
 		})
 	}

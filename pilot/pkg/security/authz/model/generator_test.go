@@ -121,7 +121,6 @@ func TestGenerator(t *testing.T) {
            key: io.istio.peer_principal
            string_match:
             safeRegex:
-              googleRe2: {}
               regex: .*/ns/foo/.*`),
 		},
 		{
@@ -134,7 +133,6 @@ func TestGenerator(t *testing.T) {
            key: io.istio.peer_principal
            string_match:
             safeRegex:
-              googleRe2: {}
               regex: .*/ns/foo/.*`),
 		},
 		{

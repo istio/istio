@@ -244,6 +244,11 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
 	}
+	// gateway resources associated with specific istiooperator CR
+	if name.ComponentName(componentName).IsGateway() && h.iop.GetName() != "" && h.iop.GetNamespace() != "" {
+		labels[OwningResourceName] = h.iop.GetName()
+		labels[OwningResourceNamespace] = h.iop.GetNamespace()
+	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	resources := h.NamespacedResources()
 	gvkList := append(resources, ClusterCPResources...)
