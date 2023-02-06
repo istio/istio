@@ -53,6 +53,10 @@ pilot:
 
   plugins: []
 
+  ## This is used to add extra arguments
+  ## very usefull to add arguments like --tlsCertFile, --tlsKeyFile, --caCertFile
+  extraArgs: []
+
   # The following is used to limit how long a sidecar can be connected
   # to a pilot. It balances out load across pilot instances at the cost of
   # increasing system churn.

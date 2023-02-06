@@ -103,6 +103,9 @@ spec:
 {{- if .Values.pilot.plugins }}
           - --plugins={{ .Values.pilot.plugins }}
 {{- end }}
+{{- if .Values.pilot.extraArgs }}
+{{ toYaml .Values.pilot.extraArgs | trim | indent 10 }}
+{{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
           ports:
