@@ -95,6 +95,6 @@ func CreateIndex[O runtime.Object, K comparable](
 			deleteObj(obj)
 		},
 	}
-	informer.AddEventHandler(handler)
+	_, _ = informer.AddEventHandler(handler)
 	return &idx
 }

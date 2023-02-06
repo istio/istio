@@ -47,7 +47,7 @@ func initAutolabel(opts Options) {
 
 	ignored := sets.New(append(strings.Split(features.AmbientAutolabelIgnore, ","), opts.SystemNamespace)...)
 	workloadHandler := controllers.FilteredObjectHandler(queue.AddObject, ambientLabelFilter(ignored))
-	opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(workloadHandler)
+	_, _ = opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(workloadHandler)
 	go queue.Run(opts.Stop)
 }
 

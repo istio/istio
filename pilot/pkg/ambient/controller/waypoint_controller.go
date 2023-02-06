@@ -94,12 +94,12 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
 	gateways := rc.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
 	rc.gateways = gateways.Lister()
 	rc.gatewayInformer = gateways.Informer()
-	rc.gatewayInformer.AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
+	_, _ = rc.gatewayInformer.AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
 
 	sas := rc.client.KubeInformer().Core().V1().ServiceAccounts()
 	rc.serviceAccounts = sas.Lister()
 	rc.saInformer = sas.Informer()
-	rc.saInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	_, _ = rc.saInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// Anytime SA change, trigger all gateways in the namespace. This could probably be more efficient...
 		gws, _ := rc.gateways.Gateways(o.GetNamespace()).List(klabels.Everything())
 		for _, gw := range gws {
