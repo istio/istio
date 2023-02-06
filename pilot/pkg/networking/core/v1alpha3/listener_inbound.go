@@ -306,7 +306,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 // inboundVirtualListener builds the virtual inbound listener.
 func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain) *listener.Listener {
-	actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 
 	// Build the "virtual" inbound listener. This will capture all inbound redirected traffic and contains:
 	// * Passthrough filter chains, matching all unmatched traffic. There are a few of these to handle all cases
@@ -339,7 +339,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 		Address:          address,
 		TrafficDirection: core.TrafficDirection_INBOUND,
 	}
-	if len(addresses) > 1 {
+	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort, lb.node)
 	}
@@ -411,9 +411,10 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			TargetPort: i.Endpoint.EndpointPort,
 			Protocol:   i.ServicePort.Protocol,
 		}
-		actualWildcards, _ := getWildcardsAndLocalHostForDualStack(lb.node.GetIPMode())
+		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
-			ingressPortListSet.Contains(int(port.Port)) {
+			// ingress listener port means the target port, may not equal to service port
+			ingressPortListSet.Contains(int(port.TargetPort)) {
 			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
 			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
 			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
@@ -756,7 +757,6 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 	if lb.node.SupportsIPv6() {
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
-
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
 	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
@@ -857,8 +857,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	var filters []*listener.Filter
 
-	if cc.hbone {
-	} else {
+	if !cc.hbone {
 		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
 			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 		}
@@ -893,8 +892,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 
 	var filters []*listener.Filter
 
-	if fcc.hbone {
-	} else {
+	if !fcc.hbone {
 		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
 			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 		}

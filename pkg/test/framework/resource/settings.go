@@ -168,6 +168,9 @@ type Settings struct {
 
 	// EnableDualStack indicates the test should have dual stack enabled or not.
 	EnableDualStack bool
+
+	// Helm repo to be used for tests
+	HelmRepo string
 }
 
 func (s Settings) Skip(class string) bool {
@@ -181,11 +184,11 @@ func (s Settings) Skip(class string) bool {
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.String {
-	return sets.New(s.SkipWorkloadClasses...)
+	return sets.New[string](s.SkipWorkloadClasses...)
 }
 
 func (s *Settings) OnlyWorkloadClassesAsSet() sets.String {
-	return sets.New(s.OnlyWorkloadClasses...)
+	return sets.New[string](s.OnlyWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -238,6 +241,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
 	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
 	result += fmt.Sprintf("MaxDumps:          %d\n", s.MaxDumps)
+	result += fmt.Sprintf("HelmRepo:          %v\n", s.HelmRepo)
 	return result
 }
 

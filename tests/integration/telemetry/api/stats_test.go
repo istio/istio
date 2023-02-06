@@ -29,7 +29,7 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestTelemetryAPIStats(t *testing.T) {
-	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.nullvm")
+	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.nullvm", common.DefaultBucketCount)
 }
 
 func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer

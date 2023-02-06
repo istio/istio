@@ -44,6 +44,11 @@ spec:
       hostNetwork: true
       nodeSelector:
         kubernetes.io/os: linux
+      # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      {{- with .Values.cni.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule
@@ -89,6 +94,9 @@ spec:
           args:
             {{- if .Values.global.logging.level }}
             - --log_output_level={{ .Values.global.logging.level }}
+            {{- end}}
+            {{- if .Values.global.logAsJson }}
+            - --log_as_json
             {{- end}}
           env:
 {{- if .Values.cni.cniConfFileName }}

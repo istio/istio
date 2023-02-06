@@ -34,6 +34,7 @@ spec:
   - match:
     - uri:
         prefix: /weighted-100
+    name: default.http.1
     route:
     - destination:
         host: foo-svc.default.svc.domain.suffix
@@ -43,17 +44,10 @@ spec:
         request:
           add:
             foo: bar
-  - fault:
-      abort:
-        httpStatus: 503
-        percentage:
-          value: 100
+  - directResponse:
+      status: 500
     match:
     - uri:
         prefix: /get
-    route:
-    - destination:
-        host: httpbin-zero.default.svc.domain.suffix
-        port:
-          number: 8080
+    name: default.http.0
 ---

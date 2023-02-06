@@ -24,13 +24,13 @@ root-ca: root-key.pem root-cert.pem
 
 root-cert.pem: root-cert.csr root-key.pem
 	@echo "generating $@"
-	@openssl x509 -req -days $(ROOTCA_DAYS) -signkey root-key.pem \
+	@openssl x509 -req -sha256 -days $(ROOTCA_DAYS) -signkey root-key.pem \
 		-extensions req_ext -extfile root-ca.conf \
 		-in $< -out $@
 
 root-cert.csr: root-key.pem root-ca.conf
 	@echo "generating $@"
-	@openssl req -new -key $< -config root-ca.conf -out $@
+	@openssl req -sha256 -new -key $< -config root-ca.conf -out $@
 
 root-key.pem:
 	@echo "generating $@"
@@ -51,7 +51,7 @@ root-key.pem:
 
 %/ca-cert.pem: %/cluster-ca.csr root-key.pem root-cert.pem
 	@echo "generating $@"
-	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
+	@openssl x509 -req -sha256 -days $(INTERMEDIATE_DAYS) \
 		-CA root-cert.pem -CAkey root-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
 		-in $< -out $@
@@ -59,7 +59,7 @@ root-key.pem:
 %/cluster-ca.csr: L=$(dir $@)
 %/cluster-ca.csr: %/ca-key.pem %/intermediate.conf
 	@echo "generating $@"
-	@openssl req -new -config $(L)/intermediate.conf -key $< -out $@
+	@openssl req -sha256 -new -config $(L)/intermediate.conf -key $< -out $@
 
 %/ca-key.pem:
 	@echo "generating $@"
@@ -82,7 +82,7 @@ root-key.pem:
 
 %/workload-cert.pem: %/workload.csr
 	@echo "generating $@"
-	@openssl x509 -req -days $(WORKLOAD_DAYS) \
+	@openssl x509 -sha256 -req -days $(WORKLOAD_DAYS) \
 		-CA $(dir $<)/ca-cert.pem  -CAkey $(dir $<)/ca-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
@@ -90,7 +90,7 @@ root-key.pem:
 %/workload.csr: L=$(dir $@)
 %/workload.csr: %/key.pem %/workload.conf
 	@echo "generating $@"
-	@openssl req -new -config $(L)/workload.conf -key $< -out $@
+	@openssl req -sha256 -new -config $(L)/workload.conf -key $< -out $@
 
 %/key.pem:
 	@echo "generating $@"

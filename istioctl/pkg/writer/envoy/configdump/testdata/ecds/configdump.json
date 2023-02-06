@@ -1,0 +1,71 @@
+{
+    "configs": [
+        {
+            "@type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump",
+            "ecds_filters": [
+                {
+                    "version_info": "2022-12-08T09:07:09Z/10",
+                    "ecds_filter": {
+                        "@type": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                        "name": "default.httpbin-rate-limiting",
+                        "typed_config": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm",
+                            "config": {
+                                "name": "default.httpbin-rate-limiting",
+                                "vm_config": {
+                                    "runtime": "envoy.wasm.runtime.v8",
+                                    "code": {
+                                        "local": {
+                                            "filename": "/var/lib/istio/data/fe482be5ac123d3d387b0c68b9ed7f8ed65824e7d0bbc88a9a9a71dd8391d96c/d8ef3957b4cf09da9ed25e88bc75ac397ea875d88c5cbed356872f936a86d928.wasm"
+                                        }
+                                    },
+                                    "environment_variables": {
+                                        "key_values": {
+                                            "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION": "1605"
+                                        }
+                                    }
+                                },
+                                "configuration": {}
+                            }
+                        }
+                    },
+                    "last_updated": "2022-12-08T11:03:53.361Z"
+                },
+                {
+                    "version_info": "2022-12-08T09:07:09Z/10",
+                    "ecds_filter": {
+                        "@type": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                        "name": "default.display-metadata",
+                        "typed_config": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm",
+                            "config": {
+                                "name": "default.display-metadata",
+                                "vm_config": {
+                                    "runtime": "envoy.wasm.runtime.v8",
+                                    "code": {
+                                        "local": {
+                                            "filename": "/var/lib/istio/data/a53784b18caf61bdcce2bb73d45d6bae13e81f9173295992e4612db7be72b439/064f7cd90a62e9345e77031bffcaf949c07d76fefe63be0ff969a1579de5ae57.wasm"
+                                        }
+                                    },
+                                    "environment_variables": {
+                                        "host_env_keys": [
+                                            "POD_NAMESPACE"
+                                        ],
+                                        "key_values": {
+                                            "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION": "1606"
+                                        }
+                                    }
+                                },
+                                "configuration": {
+                                    "@type": "type.googleapis.com/google.protobuf.StringValue",
+                                    "value": "{\"header_1\":\"some_value_1\",\"header_2\":\"another_value\"}"
+                                }
+                            }
+                        }
+                    },
+                    "last_updated": "2022-12-08T11:03:53.225Z"
+                }
+            ]
+        }
+    ]
+}

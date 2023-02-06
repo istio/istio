@@ -18,10 +18,10 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/ambient"
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -46,6 +46,7 @@ type Options struct {
 
 	forceAutoLabel bool
 	addHandler     func(func())
+	waitForCRD     func(k config.GroupVersionKind, stop <-chan struct{}) bool
 }
 
 var (
@@ -62,6 +63,7 @@ func NewAggregate(
 	xdsUpdater model.XDSUpdater,
 	forceAutoLabel bool,
 	addHandler func(func()),
+	waitForCRD func(k config.GroupVersionKind, stop <-chan struct{}) bool,
 ) *Aggregate {
 	return &Aggregate{
 		localCluster: localCluster,
@@ -73,6 +75,7 @@ func NewAggregate(
 			revision:        revision,
 			forceAutoLabel:  forceAutoLabel,
 			addHandler:      addHandler,
+			waitForCRD:      waitForCRD,
 		},
 
 		clusters: make(map[cluster.ID]*ambientController),
@@ -142,7 +145,7 @@ func initForCluster(opts Options) *ambientController {
 				opt := opts
 				opt.Stop = leaderStop
 				initAutolabel(opt)
-				if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+				if opts.waitForCRD != nil && opts.waitForCRD(gvk.KubernetesGateway, leaderStop) {
 					waypointController := NewWaypointProxyController(opts.Client, opts.ClusterID, opts.WebhookConfig, opts.addHandler)
 
 					waypointController.Run(leaderStop)

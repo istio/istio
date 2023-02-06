@@ -146,8 +146,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
 	// no TLS, we are just going to internal address
-	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
 	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket(util.TunnelHostMetadata, util.IstioHostMetadata)
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
 }
@@ -165,7 +165,7 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 	defaultTransportSocketMatch(),
 }
 
-var BaggagePassthroughTransportSocket = util.InternalUpstreamTransportSocket(util.IstioClusterMetadata)
+var BaggagePassthroughTransportSocket = util.InternalUpstreamTransportSocket(util.IstioClusterMetadata, util.IstioHostMetadata)
 
 // `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
 func (cb *ClusterBuilder) buildWaypointInboundVIPInternal(svcs map[host.Name]*model.Service) []*cluster.Cluster {

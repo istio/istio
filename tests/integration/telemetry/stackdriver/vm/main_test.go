@@ -23,10 +23,9 @@ import (
 	"strings"
 	"testing"
 
+	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
-	"github.com/golang/protobuf/jsonpb"
-	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"istio.io/api/annotation"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/telemetry"
 	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
 )
@@ -267,7 +267,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	}
 	cltRequestCount = &monitoring.TimeSeries{}
 	srvRequestCount = &monitoring.TimeSeries{}
-	if err = jsonpb.UnmarshalString(sr, srvRequestCount); err != nil {
+	if err = protomarshal.UnmarshalString(sr, srvRequestCount); err != nil {
 		return
 	}
 	cltRequestCountTmpl, err := os.ReadFile(clientRequestCount)
@@ -281,7 +281,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err != nil {
 		return
 	}
-	err = jsonpb.UnmarshalString(cr, cltRequestCount)
+	protomarshal.UnmarshalString(cr, cltRequestCount)
 	return
 }
 
@@ -298,7 +298,7 @@ func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err er
 		return
 	}
 	srvLogEntry = &loggingpb.LogEntry{}
-	if err = jsonpb.UnmarshalString(sr, srvLogEntry); err != nil {
+	if err = protomarshal.UnmarshalString(sr, srvLogEntry); err != nil {
 		return
 	}
 	return

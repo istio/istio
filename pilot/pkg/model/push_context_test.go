@@ -87,7 +87,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:  true,
 				Push:  push0,
 				Start: t0,
-				ConfigsUpdated: map[ConfigKey]struct{}{
+				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
@@ -96,7 +96,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:  false,
 				Push:  push1,
 				Start: t1,
-				ConfigsUpdated: map[ConfigKey]struct{}{
+				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: []TriggerReason{EndpointUpdate},
@@ -105,7 +105,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:  true,
 				Push:  push1,
 				Start: t0,
-				ConfigsUpdated: map[ConfigKey]struct{}{
+				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
@@ -115,7 +115,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
-			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
+			&PushRequest{Full: true, ConfigsUpdated: sets.Set[ConfigKey]{{
 				Kind: kind.Kind(2),
 			}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
@@ -1050,7 +1050,7 @@ func TestInitPushContext(t *testing.T) {
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
 	if err := newPush.InitContext(env, old, &PushRequest{
-		ConfigsUpdated: map[ConfigKey]struct{}{
+		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Secret}: {},
 		},
 	}); err != nil {
@@ -1268,7 +1268,7 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	newPush.Mesh = env.Mesh()
 	svcName := "svc6.foo.cluster.local"
 	if err := newPush.InitContext(env, oldPush, &PushRequest{
-		ConfigsUpdated: map[ConfigKey]struct{}{
+		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
 		},
 		Reason: nil,
@@ -2722,7 +2722,7 @@ func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Instance) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstance {
 	return l.serviceInstances
 }
 

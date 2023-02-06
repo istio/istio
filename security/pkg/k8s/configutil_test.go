@@ -19,21 +19,19 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
+	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/informers"
-	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
 const (
@@ -126,7 +124,7 @@ func TestInsertDataToConfigMap(t *testing.T) {
 		caBundle          []byte
 		expectedActions   []ktesting.Action
 		expectedErr       string
-		client            *fake.Clientset
+		clientMod         func(*fake.Clientset)
 	}{
 		{
 			name:              "non-existing ConfigMap",
@@ -162,7 +160,7 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			},
 			expectedErr: fmt.Sprintf("error when creating configmap %v: no permission to create configmap",
 				configMapName),
-			client: createConfigMapDisabledClient(),
+			clientMod: createConfigMapDisabledClient,
 		},
 		{
 			name:              "creation: concurrently created by other client",
@@ -174,7 +172,7 @@ func TestInsertDataToConfigMap(t *testing.T) {
 					map[string]string{dataName: "test-data"})),
 			},
 			expectedErr: "",
-			client:      createConfigMapAlreadyExistClient(),
+			clientMod:   createConfigMapAlreadyExistClient,
 		},
 		{
 			name:              "creation: namespace is deleting",
@@ -186,37 +184,33 @@ func TestInsertDataToConfigMap(t *testing.T) {
 					map[string]string{dataName: "test-data"})),
 			},
 			expectedErr: "",
-			client:      createConfigMapNamespaceDeletingClient(),
+			clientMod:   createConfigMapNamespaceDeletingClient,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var client *fake.Clientset
-			if tc.client == nil {
-				client = fake.NewSimpleClientset()
-			} else {
-				client = tc.client
-			}
-			cmInformer, cancel := createFakeConfigmapInformer(client)
-			defer cancel()
+			var objs []runtime.Object
 			if tc.existingConfigMap != nil {
-				if _, err := client.CoreV1().ConfigMaps(tc.meta.Namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
-					t.Errorf("failed to create configmap %v", err)
-				}
-				if err := cmInformer.Informer().GetIndexer().Add(tc.existingConfigMap); err != nil {
-					t.Errorf("failed to add configmap to informer %v", err)
-				}
+				objs = []runtime.Object{tc.existingConfigMap}
 			}
-			client.ClearActions()
-			err := InsertDataToConfigMap(client.CoreV1(), cmInformer.Lister(), tc.meta, tc.caBundle)
+			client := kube.NewFakeClient(objs...)
+			fake := client.Kube().(*fake.Clientset)
+			if tc.clientMod != nil {
+				tc.clientMod(fake)
+			}
+			cmInformer := client.KubeInformer().Core().V1().ConfigMaps()
+			cmInformer.Informer() // load the informer
+			client.RunAndWait(test.NewStop(t))
+			fake.ClearActions()
+			err := InsertDataToConfigMap(client.Kube().CoreV1(), cmInformer.Lister(), tc.meta, tc.caBundle)
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
 			if err == nil {
 				if tc.expectedErr != "" {
-					t.Errorf("expecting error %s but got no error", tc.expectedErr)
-				} else if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+					t.Errorf("expecting error %s but got no error; actions: %+v", tc.expectedErr, fake.Actions())
+				} else if err := checkActions(fake.Actions(), tc.expectedActions); err != nil {
 					t.Error(err)
 				}
 			}
@@ -224,37 +218,26 @@ func TestInsertDataToConfigMap(t *testing.T) {
 	}
 }
 
-func createConfigMapDisabledClient() *fake.Clientset {
-	client := &fake.Clientset{}
-	fakeWatch := watch.NewFake()
-	client.AddWatchReactor("configmaps", ktesting.DefaultWatchReactor(fakeWatch, nil))
-	client.AddReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+func createConfigMapDisabledClient(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
 	})
-	client.AddReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, errors.NewUnauthorized("no permission to create configmap")
 	})
-	return client
 }
 
-func createConfigMapAlreadyExistClient() *fake.Clientset {
-	client := &fake.Clientset{}
-	fakeWatch := watch.NewFake()
-	client.AddWatchReactor("configmaps", ktesting.DefaultWatchReactor(fakeWatch, nil))
-	client.AddReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+func createConfigMapAlreadyExistClient(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
 	})
-	client.AddReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, errors.NewAlreadyExists(v1.Resource("configmaps"), configMapName)
 	})
-	return client
 }
 
-func createConfigMapNamespaceDeletingClient() *fake.Clientset {
-	client := &fake.Clientset{}
-	fakeWatch := watch.NewFake()
-	client.AddWatchReactor("configmaps", ktesting.DefaultWatchReactor(fakeWatch, nil))
-	client.AddReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+func createConfigMapNamespaceDeletingClient(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
 	})
 
@@ -265,10 +248,9 @@ func createConfigMapNamespaceDeletingClient() *fake.Clientset {
 		Message: fmt.Sprintf("namespace %s is being terminated", namespaceName),
 		Field:   "metadata.namespace",
 	})
-	client.AddReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, err
 	})
-	return client
 }
 
 // nolint: unparam
@@ -292,20 +274,11 @@ func checkActions(actual, expected []ktesting.Action) error {
 		verb := expectedAction.GetVerb()
 		resource := expectedAction.GetResource().Resource
 		if !action.Matches(verb, resource) {
-			return fmt.Errorf("unexpected %dth action, want \n%+v but got \n%+v", i, expectedAction, action)
+			return fmt.Errorf("unexpected %dth action, want \n%+v but got \n%+v\n%v", i, expectedAction, action, cmp.Diff(expectedAction, action))
 		}
 	}
 
 	return nil
-}
-
-func createFakeConfigmapInformer(kubeClient *fake.Clientset) (informersv1.ConfigMapInformer, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second)
-	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
-	go configmapInformer.Run(ctx.Done())
-	kube.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
-	return informerFactory.Core().V1().ConfigMaps(), cancel
 }
 
 func Test_insertData(t *testing.T) {

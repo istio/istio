@@ -107,7 +107,7 @@ var (
 
 	// NoServerCertificateVerificationDestinationLevel defines a diag.MessageType for message "NoServerCertificateVerificationDestinationLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate.
-	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Error, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
+	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Warning, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
 
 	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
@@ -220,6 +220,10 @@ var (
 	// UnsupportedGatewayAPIVersion defines a diag.MessageType for message "UnsupportedGatewayAPIVersion".
 	// Description: The Gateway API CRD version is not supported
 	UnsupportedGatewayAPIVersion = diag.NewMessageType(diag.Error, "IST0156", "The Gateway API CRD version %v is lower than the minimum version: %v")
+
+	// InvalidTelemetryProvider defines a diag.MessageType for message "InvalidTelemetryProvider".
+	// Description: The Telemetry with empty providers will be ignored
+	InvalidTelemetryProvider = diag.NewMessageType(diag.Warning, "IST0157", "The Telemetry %v in namespace %q with empty providers will be ignored.")
 )
 
 // All returns a list of all known message types.
@@ -278,6 +282,7 @@ func All() []*diag.MessageType {
 		EnvoyFilterUsesRemoveOperationIncorrectly,
 		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 		UnsupportedGatewayAPIVersion,
+		InvalidTelemetryProvider,
 	}
 }
 
@@ -798,5 +803,15 @@ func NewUnsupportedGatewayAPIVersion(r *resource.Instance, version string, minim
 		r,
 		version,
 		minimumVersion,
+	)
+}
+
+// NewInvalidTelemetryProvider returns a new diag.Message based on InvalidTelemetryProvider.
+func NewInvalidTelemetryProvider(r *resource.Instance, name string, namespace string) diag.Message {
+	return diag.NewMessage(
+		InvalidTelemetryProvider,
+		r,
+		name,
+		namespace,
 	)
 }

@@ -75,7 +75,7 @@ func (s *Server) setupHandlers() {
 		)
 	})
 	_ = podInformer.SetTransform(kube.StripUnusedFields)
-	podInformer.AddEventHandler(controllers.EventHandler(func(o controllers.Event) {
+	podInformer.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
 	}))
 	s.podLister = listerv1.NewPodLister(podInformer.GetIndexer())

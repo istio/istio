@@ -90,6 +90,37 @@ func httpVirtualService(gateway, host string, port int) string {
 	}{gateway, host, "", port, ""})
 }
 
+const tcpVirtualServiceTmpl = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: "{{.VirtualServiceHost|replace "*" "wild"}}"
+spec:
+  gateways:
+  - {{.Gateway}}
+  hosts:
+  - "{{.VirtualServiceHost}}"
+  tcp:
+  - match:
+    - port: {{.SourcePort}}
+    route:
+    - destination:
+        host: "{{.DestinationHost | default .VirtualServiceHost}}"
+        port:
+          number: {{.TargetPort}}
+---
+`
+
+func tcpVirtualService(gateway, host, destHost string, sourcePort, targetPort int) string {
+	return tmpl.MustEvaluate(tcpVirtualServiceTmpl, struct {
+		Gateway            string
+		VirtualServiceHost string
+		DestinationHost    string
+		SourcePort         int
+		TargetPort         int
+	}{gateway, host, destHost, sourcePort, targetPort})
+}
+
 const gatewayTmpl = `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -119,7 +150,7 @@ spec:
 ---
 `
 
-func httpGateway(host string) string {
+func httpGateway(host string, port int, portName, protocol string) string { //nolint: unparam
 	return tmpl.MustEvaluate(gatewayTmpl, struct {
 		GatewayHost     string
 		GatewayPort     int
@@ -127,7 +158,7 @@ func httpGateway(host string) string {
 		GatewayProtocol string
 		Credential      string
 	}{
-		host, 80, "http", "HTTP", "",
+		host, port, portName, protocol, "",
 	})
 }
 
@@ -1046,13 +1077,16 @@ func gatewayCases(t TrafficContext) {
 
 	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
 	singleTarget := []match.Matcher{match.RegularPod}
+
+	gatewayListenPort := 80
+	gatewayListenPortName := "http"
 	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
 	t.RunTraffic(TrafficTestCase{
 		name:             "404",
 		targetMatchers:   singleTarget,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config:           httpGateway("*"),
+		config:           httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP"),
 		opts: echo.CallOptions{
 			Count: 1,
 			Port: echo.Port{
@@ -1570,8 +1604,119 @@ spec:
 	}
 }
 
+// 1. Creates a TCP Gateway and VirtualService listener
+// 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+// 3. Assumes that the proxy filter EnvoyFilter is not applied
+func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
+	var cases []TrafficTestCase
+	gatewayListenPort := 80
+	gatewayListenPortName := "tcp"
+
+	destinationSets := []echo.Instances{
+		apps.A,
+	}
+
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+
+		fqdn := d[0].Config().ClusterLocalFQDN()
+		cases = append(cases, TrafficTestCase{
+			name: d[0].Config().Service,
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
+			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
+				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
+			call: apps.Naked[0].CallOrFail,
+			opts: echo.CallOptions{
+				Count:                1,
+				Port:                 echo.Port{ServicePort: 80},
+				Scheme:               scheme.TCP,
+				Address:              gateway,
+				ProxyProtocolVersion: 1,
+				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
+				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
+				//
+				// If the PROXY protocol filter is enabled,
+				// Envoy will parse and consume the header out of the TCP payload, otherwise echo it back as-is)
+				//
+				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
+				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
+				Message: "This is a test TCP message",
+				Check: check.Each(
+					func(r echoClient.Response) error {
+						body := r.RawContent
+						// Tests run for both TCP4 and 6
+						ok := (strings.Contains(body, "PROXY TCP4") || strings.Contains(body, "PROXY TCP6"))
+						if !ok {
+							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
+						}
+						return nil
+					}),
+			},
+		},
+		)
+	}
+	return cases
+}
+
+// 1. Creates a TCP Gateway and VirtualService listener
+// 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+// 3. Assumes that the proxy filter EnvoyFilter is applied
+func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
+	var cases []TrafficTestCase
+	gatewayListenPort := 80
+	gatewayListenPortName := "tcp"
+
+	destinationSets := []echo.Instances{
+		apps.A,
+	}
+
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+
+		fqdn := d[0].Config().ClusterLocalFQDN()
+		cases = append(cases, TrafficTestCase{
+			name: d[0].Config().Service,
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
+			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
+				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
+			call: apps.Naked[0].CallOrFail,
+			opts: echo.CallOptions{
+				Count:   1,
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.TCP,
+				Address: gateway,
+				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
+				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
+				// If the PROXY protocol filter is enabled, Envoy should parse and consume the header out of the TCP payload, otherwise echo it back as-is.
+				Message:              "This is a test TCP message",
+				ProxyProtocolVersion: 1,
+				Check: check.Each(
+					func(r echoClient.Response) error {
+						body := r.RawContent
+						ok := strings.Contains(body, "PROXY TCP4")
+						if ok {
+							return fmt.Errorf("sent proxy protocol header, and it was echoed back")
+						}
+						return nil
+					}),
+			},
+		})
+	}
+	return cases
+}
+
 func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
+	gatewayListenPort := 80
+	gatewayListenPortName := "http"
 
 	destinationSets := []echo.Instances{
 		apps.A,
@@ -1584,12 +1729,13 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 		}
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
-			name:   d[0].Config().Service,
-			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].PortForName("http").ServicePort),
-			call:   apps.Naked[0].CallOrFail,
+			name: d[0].Config().Service,
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP") +
+				httpVirtualService("gateway", fqdn, d[0].PortForName(gatewayListenPortName).ServicePort),
+			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
-				Port:    echo.Port{ServicePort: 80},
+				Port:    echo.Port{ServicePort: gatewayListenPort},
 				Scheme:  scheme.HTTP,
 				Address: gateway,
 				HTTP: echo.HTTP{
@@ -2993,6 +3139,13 @@ spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    outputClaimToHeaders:
+    - header: "x-jwt-nested-key"
+      claim: "nested.nested-2.key2"
+    - header: "x-jwt-iss"
+      claim: "iss"
+    - header: "x-jwt-wrong-header"
+      claim: "wrong_claim"
 ---
 `
 	podB := []match.Matcher{match.ServiceName(t.Apps.B.NamespacedName())}
@@ -3009,11 +3162,93 @@ spec:
 		"Host":                            {"foo.bar"},
 		"request.auth.claims.nested.key1": {"valueA"},
 	}
+	headersWithToken2 := map[string][]string{
+		"Host":             {"foo.bar"},
+		"Authorization":    {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
+		"X-Jwt-Nested-Key": {"value_to_be_replaced"},
+	}
+	headersWithToken2WithAddedHeader := map[string][]string{
+		"Host":               {"foo.bar"},
+		"Authorization":      {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
+		"x-jwt-wrong-header": {"header_to_be_deleted"},
+	}
 
 	type configData struct {
 		Name, Match, Value string
 	}
 
+	t.RunTraffic(TrafficTestCase{
+		name:             "matched with nested claim using claim to header:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{{"X-Jwt-Nested-Key", "exact", "valueC"}},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken2,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "matched with nested claim and single claim using claim to header:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"X-Jwt-Nested-Key", "exact", "valueC"},
+					{"X-Jwt-Iss", "exact", "test-issuer-1@istio.io"},
+				},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken2,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "unmatched with wrong claim and added header:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{{"x-jwt-wrong-header", "exact", "header_to_be_deleted"}},
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken2WithAddedHeader,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claims:200",
 		targetMatchers:   podB,

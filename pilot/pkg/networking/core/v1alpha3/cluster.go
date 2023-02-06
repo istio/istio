@@ -230,7 +230,7 @@ func shouldUseDelta(updates *model.PushRequest) bool {
 }
 
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
-func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
+func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey]) bool {
 	for k := range cfgs {
 		if !deltaConfigTypes.Contains(k.Kind.String()) {
 			return false
@@ -405,7 +405,7 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	clustersToBuild := make(map[int][]*model.ServiceInstance)
 
 	ingressPortListSet := sets.New[int]()
@@ -422,7 +422,7 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 		clustersToBuild[ep] = append(clustersToBuild[ep], instance)
 	}
 
-	bind := actualLocalHost
+	bind := actualLocalHosts[0]
 	if features.EnableInboundPassthrough {
 		bind = ""
 	}
@@ -461,8 +461,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
-	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
-
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
@@ -531,7 +530,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
 			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
-				endpointAddress = actualLocalHost
+				endpointAddress = actualLocalHosts[0]
 			}
 		}
 		// Find the service instance that corresponds to this ingress listener by looking
@@ -959,30 +958,6 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	} else if direction == model.TrafficDirectionOutbound {
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
 		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
-	}
-}
-
-// Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
-// Server side car uses this port after de-multiplexed from tunnel.
-func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.mutable == nil || direction == model.TrafficDirectionInbound {
-		return
-	}
-	if service == nil {
-		// At outbound, the service corresponding to the cluster has to be provided.
-		return
-	}
-
-	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.mutable.cluster)
-
-		// Add original_port field into istio metadata
-		// Endpoint could override this port but the chance should be small.
-		im.Fields["default_original_port"] = &structpb.Value{
-			Kind: &structpb.Value_NumberValue{
-				NumberValue: float64(port.Port),
-			},
-		}
 	}
 }
 

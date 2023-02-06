@@ -13,7 +13,7 @@ status:
     status: "False"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: hostname "eastwestgateway.istio-system.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "eastwestgateway-istio.istio-system.svc.domain.suffix"
       not found'
     reason: AddressNotAssigned
     status: "False"
@@ -41,6 +41,11 @@ status:
       reason: Attached
       status: "False"
       type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready
@@ -74,6 +79,11 @@ status:
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
       reason: Ready
       status: "True"
       type: Ready
@@ -103,6 +113,11 @@ status:
       reason: Attached
       status: "False"
       type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
     - lastTransitionTime: fake
       message: No errors found
       reason: Ready

@@ -24,7 +24,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb" // nolint: depguard
 	gogoproto "github.com/gogo/protobuf/proto"   // nolint: depguard
 	gogotypes "github.com/gogo/protobuf/types"   // nolint: depguard
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -149,7 +148,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 		return nil, err
 	}
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+	if err := protomarshal.Unmarshal(js, pbs); err != nil {
 		return nil, err
 	}
 	return protoconv.MessageToAnyWithError(pbs)
@@ -180,12 +179,17 @@ func ToPrettyJSON(s Spec) ([]byte, error) {
 }
 
 func toJSON(s Spec, pretty bool) ([]byte, error) {
+	indent := ""
+	if pretty {
+		indent = "    "
+	}
+
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			b, err := protomarshal.Marshal(pb)
+			b, err := protomarshal.MarshalIndent(pb, indent)
 			return b, err
 		}
 	}
@@ -193,11 +197,11 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 	b := &bytes.Buffer{}
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
-		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
+		err := (&gogojsonpb.Marshaler{Indent: indent}).Marshal(b, pb)
 		return b.Bytes(), err
 	}
 	if pretty {
-		return json.MarshalIndent(s, "", "\t")
+		return json.MarshalIndent(s, "", indent)
 	}
 	return json.Marshal(s)
 }
@@ -308,17 +312,31 @@ func (meta *Meta) Key() string {
 		meta.Name, meta.Namespace)
 }
 
+func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:              meta.Name,
+		Namespace:         meta.Namespace,
+		UID:               kubetypes.UID(meta.UID),
+		ResourceVersion:   meta.ResourceVersion,
+		Generation:        meta.Generation,
+		CreationTimestamp: metav1.NewTime(meta.CreationTimestamp),
+		Labels:            meta.Labels,
+		Annotations:       meta.Annotations,
+		OwnerReferences:   meta.OwnerReferences,
+	}
+}
+
 func (c Config) DeepCopy() Config {
 	var clone Config
 	clone.Meta = c.Meta
 	if c.Labels != nil {
-		clone.Labels = make(map[string]string)
+		clone.Labels = make(map[string]string, len(c.Labels))
 		for k, v := range c.Labels {
 			clone.Labels[k] = v
 		}
 	}
 	if c.Annotations != nil {
-		clone.Annotations = make(map[string]string)
+		clone.Annotations = make(map[string]string, len(c.Annotations))
 		for k, v := range c.Annotations {
 			clone.Annotations[k] = v
 		}
@@ -328,6 +346,14 @@ func (c Config) DeepCopy() Config {
 		clone.Status = DeepCopy(c.Status)
 	}
 	return clone
+}
+
+func (c Config) GetName() string {
+	return c.Name
+}
+
+func (c Config) GetNamespace() string {
+	return c.Namespace
 }
 
 var _ fmt.Stringer = GroupVersionKind{}
@@ -371,3 +397,15 @@ func (g GroupVersionKind) CanonicalGroup() string {
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
 // parameter and the returned Config will be applied.
 type PatchFunc func(cfg Config) (Config, kubetypes.PatchType)
+
+type Namer interface {
+	GetName() string
+	GetNamespace() string
+}
+
+func NamespacedName(n Namer) kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: n.GetNamespace(),
+		Name:      n.GetName(),
+	}
+}

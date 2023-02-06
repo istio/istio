@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/log"
 )
@@ -43,20 +44,8 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 		return err
 	}
 
-	currItem, ok := curr.(runtime.Object)
-	if !ok && event == model.EventDelete {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			scope.Warnf("Couldn't get object from tombstone %v, type %T", curr, curr)
-			return nil
-		}
-		currItem, ok = tombstone.Obj.(runtime.Object)
-		if !ok {
-			scope.Warnf("Tombstone's Object is not runtime Object %v, type %T", tombstone.Obj, tombstone.Obj)
-			return nil
-		}
-	} else if !ok {
-		scope.Warnf("Object can not be converted to runtime Object %v, is type %T", curr, curr)
+	currItem := controllers.ExtractObject(curr)
+	if currItem == nil {
 		return nil
 	}
 
@@ -72,11 +61,30 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 	}
 
+	if h.client.objectInRevision(&currConfig) {
+		h.callHandlers(oldConfig, currConfig, event)
+		return nil
+	}
+
+	// Check if the object was in our revision, but has been moved to a different revision. If so,
+	// it has been effectively deleted from our revision, so process it as a delete event.
+	if event == model.EventUpdate && old != nil && h.client.objectInRevision(&oldConfig) {
+		log.Debugf("Object %s/%s has been moved to a different revision, deleting",
+			currConfig.Namespace, currConfig.Name)
+		h.callHandlers(oldConfig, currConfig, model.EventDelete)
+		return nil
+	}
+
+	log.Debugf("Skipping event %s for object %s/%s from different revision",
+		event, currConfig.Namespace, currConfig.Name)
+	return nil
+}
+
+func (h *cacheHandler) callHandlers(old config.Config, curr config.Config, event model.Event) {
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
 	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
-		f(oldConfig, currConfig, event)
+		f(old, curr, event)
 	}
-	return nil
 }
 
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {

@@ -18,7 +18,6 @@ import (
 	"sort"
 	"strings"
 
-	xxhashv2 "github.com/cespare/xxhash/v2"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -58,12 +58,14 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := xxhashv2.New()
-	// the error will always return nil
-	_, _ = hash.Write([]byte{byte(key.Kind)})
-	_, _ = hash.Write([]byte(key.Name))
-	_, _ = hash.Write([]byte(key.Namespace))
-	return ConfigHash(hash.Sum64())
+	h := hash.New()
+	h.Write([]byte{byte(key.Kind)})
+	// Add separator / to avoid collision.
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Namespace))
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Name))
+	return ConfigHash(h.Sum64())
 }
 
 func (key ConfigKey) String() string {
@@ -71,8 +73,8 @@ func (key ConfigKey) String() string {
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey]struct{} {
-	ret := make(map[ConfigKey]struct{})
+func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigKey] {
+	ret := make(sets.Set[ConfigKey])
 
 	for conf := range configs {
 		if conf.Kind == kind {
@@ -83,18 +85,8 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[ConfigKey
 	return ret
 }
 
-// ConfigsHaveKind checks if configurations have the specified kind.
-func ConfigsHaveKind(configs map[ConfigKey]struct{}, kind kind.Kind) bool {
-	for conf := range configs {
-		if conf.Kind == kind {
-			return true
-		}
-	}
-	return false
-}
-
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[string]struct{} {
+func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String {
 	ret := sets.New[string]()
 
 	for conf := range configs {

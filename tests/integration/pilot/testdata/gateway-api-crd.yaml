@@ -1,10 +1,10 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=21bba43681b3db3a62d7ca9f108bf3be4c0cea71"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.6.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gatewayclasses.gateway.networking.k8s.io
@@ -149,13 +149,14 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    \n \ttype FooStatus struct{ \t    // Represents the observations
+                    of a foo's current state. \t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\" \t    //
+                    +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map
+                    \t    // +listMapKey=type \t    Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields
+                    \t}"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -350,13 +351,14 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    \n \ttype FooStatus struct{ \t    // Represents the observations
+                    of a foo's current state. \t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\" \t    //
+                    +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map
+                    \t    // +listMapKey=type \t    Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields
+                    \t}"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -437,8 +439,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gateways.gateway.networking.k8s.io
@@ -462,8 +464,8 @@ spec:
     - jsonPath: .status.addresses[*].value
       name: Address
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
+    - jsonPath: .status.conditions[?(@.type=="Programmed")].status
+      name: Programmed
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -794,8 +796,8 @@ spec:
                               group:
                                 default: ""
                                 description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
+                                  example, "gateway.networking.k8s.io". When unspecified
+                                  or empty string, core API group is inferred.
                                 maxLength: 253
                                 pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
@@ -926,6 +928,11 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Accepted
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Programmed
                 description: "Conditions describe the current conditions of the Gateway.
                   \n Implementations should prefer to express Gateway conditions using
                   the `GatewayConditionType` and `GatewayConditionReason` constants
@@ -936,13 +943,14 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    \n \ttype FooStatus struct{ \t    // Represents the observations
+                    of a foo's current state. \t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\" \t    //
+                    +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map
+                    \t    // +listMapKey=type \t    Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields
+                    \t}"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -1022,14 +1030,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -1158,8 +1167,8 @@ spec:
     - jsonPath: .status.addresses[*].value
       name: Address
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
+    - jsonPath: .status.conditions[?(@.type=="Programmed")].status
+      name: Programmed
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -1487,8 +1496,8 @@ spec:
                               group:
                                 default: ""
                                 description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
+                                  example, "gateway.networking.k8s.io". When unspecified
+                                  or empty string, core API group is inferred.
                                 maxLength: 253
                                 pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
@@ -1619,6 +1628,11 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Accepted
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Programmed
                 description: "Conditions describe the current conditions of the Gateway.
                   \n Implementations should prefer to express Gateway conditions using
                   the `GatewayConditionType` and `GatewayConditionReason` constants
@@ -1629,13 +1643,14 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    \n \ttype FooStatus struct{ \t    // Represents the observations
+                    of a foo's current state. \t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\" \t    //
+                    +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map
+                    \t    // +listMapKey=type \t    Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields
+                    \t}"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -1715,14 +1730,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -1855,8 +1871,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: grpcroutes.gateway.networking.k8s.io
@@ -1888,23 +1904,20 @@ spec:
           under extended support within the Gateway API. Within the following specification,
           the word \"MUST\" indicates that an implementation supporting GRPCRoute
           must conform to the indicated requirement, but an implementation not supporting
-          need not follow the requirement unless explicitly indicated. \n Virtually
-          all existing gRPC connections happen directly over HTTP/2 without first
-          upgrading from HTTP/1. Nearly no server implementations support the upgrade
-          and next to no clients start with HTTP/1. As such, certain restrictions
-          are placed on implementations that claim support for GRPCRoute. \n Implementations
-          supporting `GRPCRoute` with the `HTTPS` `ProtocolType` MUST accept HTTP/2
-          connections without an initial upgrade from HTTP/1.1, i.e. via ALPN. If
-          the implementation does not support this, then it MUST set the \"Accepted\"
+          this route type need not follow the requirement unless explicitly indicated.
+          \n Implementations supporting `GRPCRoute` with the `HTTPS` `ProtocolType`
+          MUST accept HTTP/2 connections without an initial upgrade from HTTP/1.1,
+          i.e. via ALPN. If the implementation does not support this, then it MUST
+          set the \"Accepted\" condition to \"False\" for the affected listener with
+          a reason of \"UnsupportedProtocol\".  Implementations MAY also accept HTTP/2
+          connections with an upgrade from HTTP/1. \n Implementations supporting `GRPCRoute`
+          with the `HTTP` `ProtocolType` MUST support HTTP/2 over cleartext TCP (h2c,
+          https://www.rfc-editor.org/rfc/rfc7540#section-3.1) without an initial upgrade
+          from HTTP/1.1, i.e. with prior knowledge (https://www.rfc-editor.org/rfc/rfc7540#section-3.4).
+          If the implementation does not support this, then it MUST set the \"Accepted\"
           condition to \"False\" for the affected listener with a reason of \"UnsupportedProtocol\".
-          Note that a compliant implementation MAY also accept HTTP/2 connections
-          with an upgrade from HTTP/1. \n Implementations supporting `GRPCRoute` with
-          the `HTTP` `ProtocolType` MUST support cleartext HTTP/2 without an initial
-          upgrade from HTTP/1.1. If the implementation does not support this, then
-          it MUST set the \"Accepted\" condition to \"False\" for the affected listener
-          with a reason of \"UnsupportedProtocol\". Note that a compliant implementation
-          MAY also accept HTTP/2 connections with an upgrade from HTTP/1. \n Support:
-          Extended"
+          Implementations MAY also accept HTTP/2 connections with an upgrade from
+          HTTP/1, i.e. without prior knowledge. \n Support: Extended"
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -1922,7 +1935,7 @@ spec:
             description: Spec defines the desired state of GRPCRoute.
             properties:
               hostnames:
-                description: "Hostnames defines a set of hostname to match against
+                description: "Hostnames defines a set of hostnames to match against
                   the GRPC Host header to select a GRPCRoute to process the request.
                   This matches the RFC 1123 definition of a hostname with 2 notable
                   exceptions: \n 1. IPs are not allowed. 2. A hostname may be prefixed
@@ -1948,17 +1961,18 @@ spec:
                   and `test.example.net`, `test.example.net` MUST NOT be considered
                   for a match. \n If both the Listener and GRPCRoute have specified
                   hostnames, and none match with the criteria above, then the GRPCRoute
-                  is not accepted. The implementation MUST raise an 'Accepted' Condition
-                  with a status of `False` in the corresponding RouteParentStatus.
-                  \n If a Route (A) of type HTTPRoute or GRPCRoute is attached to
-                  a Listener and that listener already has another Route (B) of the
-                  other type attached and the intersection of the hostnames of A and
-                  B is non-empty, then the implementation MUST accept exactly one
-                  of these two routes, determined by the following criteria, in order:
-                  \n * The oldest Route based on creation timestamp. * The Route appearing
-                  first in alphabetical order by   \"{namespace}/{name}\". \n The
-                  rejected Route MUST raise an 'Accepted' condition with a status
-                  of 'False' in the corresponding RouteParentStatus. \n Support: Core"
+                  MUST NOT be accepted by the implementation. The implementation MUST
+                  raise an 'Accepted' Condition with a status of `False` in the corresponding
+                  RouteParentStatus. \n If a Route (A) of type HTTPRoute or GRPCRoute
+                  is attached to a Listener and that listener already has another
+                  Route (B) of the other type attached and the intersection of the
+                  hostnames of A and B is non-empty, then the implementation MUST
+                  accept exactly one of these two routes, determined by the following
+                  criteria, in order: \n * The oldest Route based on creation timestamp.
+                  * The Route appearing first in alphabetical order by   \"{namespace}/{name}\".
+                  \n The rejected Route MUST raise an 'Accepted' condition with a
+                  status of 'False' in the corresponding RouteParentStatus. \n Support:
+                  Core"
                 items:
                   description: "Hostname is the fully qualified domain name of a network
                     host. This matches the RFC 1123 definition of a hostname with
@@ -1992,7 +2006,12 @@ spec:
                   that may be collapsed by an implementation. For example, some implementations
                   may choose to merge compatible Gateway Listeners together. If that
                   is the case, the list of routes attached to those resources should
-                  also be merged."
+                  also be merged. \n Note that for ParentRefs that cross namespace
+                  boundaries, there are specific rules. Cross-namespace references
+                  are only valid if they are explicitly allowed by something in the
+                  namespace they are referring to. For example, Gateway has the AllowedRoutes
+                  field, and ReferenceGrant provides a generic way to enable any other
+                  kind of cross-namespace reference."
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -2004,7 +2023,10 @@ spec:
                   properties:
                     group:
                       default: gateway.networking.k8s.io
-                      description: "Group is the group of the referent. \n Support:
+                      description: "Group is the group of the referent. When unspecified,
+                        \"gateway.networking.k8s.io\" is inferred. To set the core
+                        API group (such as for a \"Service\" kind referent), Group
+                        must be explicitly set to \"\" (empty string). \n Support:
                         Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -2026,6 +2048,12 @@ spec:
                     namespace:
                       description: "Namespace is the namespace of the referent. When
                         unspecified, this refers to the local namespace of the Route.
+                        \n Note that there are specific rules for ParentRefs which
+                        cross namespace boundaries. Cross-namespace references are
+                        only valid if they are explicitly allowed by something in
+                        the namespace they are referring to. For example: Gateway
+                        has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
                         \n Support: Core"
                       maxLength: 63
                       minLength: 1
@@ -2092,8 +2120,8 @@ spec:
                       type: Exact
                 description: Rules are a list of GRPC matchers, filters and actions.
                 items:
-                  description: GRPCRouteRule defines semantics for matching an gRPC
-                    request based on conditions (matches), processing it (filters),
+                  description: GRPCRouteRule defines the semantics for matching an
+                    gRPC request based on conditions (matches), processing it (filters),
                     and forwarding the request to an API object (backendRefs).
                   properties:
                     backendRefs:
@@ -2146,8 +2174,9 @@ spec:
                                   properties:
                                     group:
                                       description: Group is the group of the referent.
-                                        For example, "networking.k8s.io". When unspecified
-                                        (empty string), core API group is inferred.
+                                        For example, "gateway.networking.k8s.io".
+                                        When unspecified or empty string, core API
+                                        group is inferred.
                                       maxLength: 253
                                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
@@ -2179,9 +2208,9 @@ spec:
                                         appends to any existing values associated
                                         with the header name. \n Input:   GET /foo
                                         HTTP/1.1   my-header: foo \n Config:   add:
-                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \  - name: \"my-header\"     value: \"bar,baz\"
                                         \n Output:   GET /foo HTTP/1.1   my-header:
-                                        foo   my-header: bar"
+                                        foo,bar,baz"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -2308,9 +2337,9 @@ spec:
                                         group:
                                           default: ""
                                           description: Group is the group of the referent.
-                                            For example, "networking.k8s.io". When
-                                            unspecified (empty string), core API group
-                                            is inferred.
+                                            For example, "gateway.networking.k8s.io".
+                                            When unspecified or empty string, core
+                                            API group is inferred.
                                           maxLength: 253
                                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                           type: string
@@ -2361,6 +2390,115 @@ spec:
                                   required:
                                   - backendRef
                                   type: object
+                                responseHeaderModifier:
+                                  description: "ResponseHeaderModifier defines a schema
+                                    for a filter that modifies response headers. \n
+                                    Support: Extended \n <gateway:experimental>"
+                                  properties:
+                                    add:
+                                      description: "Add adds the given header(s) (name,
+                                        value) to the request before the action. It
+                                        appends to any existing values associated
+                                        with the header name. \n Input:   GET /foo
+                                        HTTP/1.1   my-header: foo \n Config:   add:
+                                        \  - name: \"my-header\"     value: \"bar,baz\"
+                                        \n Output:   GET /foo HTTP/1.1   my-header:
+                                        foo,bar,baz"
+                                      items:
+                                        description: HTTPHeader represents an HTTP
+                                          Header name and value as defined by RFC
+                                          7230.
+                                        properties:
+                                          name:
+                                            description: "Name is the name of the
+                                              HTTP Header to be matched. Name matching
+                                              MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                              \n If multiple entries specify equivalent
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
+                                              Due to the case-insensitivity of header
+                                              names, \"foo\" and \"Foo\" are considered
+                                              equivalent."
+                                            maxLength: 256
+                                            minLength: 1
+                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                            type: string
+                                          value:
+                                            description: Value is the value of HTTP
+                                              Header to be matched.
+                                            maxLength: 4096
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      maxItems: 16
+                                      type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
+                                    remove:
+                                      description: "Remove the given header(s) from
+                                        the HTTP request before the action. The value
+                                        of Remove is a list of HTTP header names.
+                                        Note that the header names are case-insensitive
+                                        (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+                                        \n Input:   GET /foo HTTP/1.1   my-header1:
+                                        foo   my-header2: bar   my-header3: baz \n
+                                        Config:   remove: [\"my-header1\", \"my-header3\"]
+                                        \n Output:   GET /foo HTTP/1.1   my-header2:
+                                        bar"
+                                      items:
+                                        type: string
+                                      maxItems: 16
+                                      type: array
+                                    set:
+                                      description: "Set overwrites the request with
+                                        the given header (name, value) before the
+                                        action. \n Input:   GET /foo HTTP/1.1   my-header:
+                                        foo \n Config:   set:   - name: \"my-header\"
+                                        \    value: \"bar\" \n Output:   GET /foo
+                                        HTTP/1.1   my-header: bar"
+                                      items:
+                                        description: HTTPHeader represents an HTTP
+                                          Header name and value as defined by RFC
+                                          7230.
+                                        properties:
+                                          name:
+                                            description: "Name is the name of the
+                                              HTTP Header to be matched. Name matching
+                                              MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                              \n If multiple entries specify equivalent
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
+                                              Due to the case-insensitivity of header
+                                              names, \"foo\" and \"Foo\" are considered
+                                              equivalent."
+                                            maxLength: 256
+                                            minLength: 1
+                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                            type: string
+                                          value:
+                                            description: Value is the value of HTTP
+                                              Header to be matched.
+                                            maxLength: 4096
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      maxItems: 16
+                                      type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
+                                  type: object
                                 type:
                                   description: "Type identifies the type of filter
                                     to apply. As with other API fields, types are
@@ -2389,6 +2527,7 @@ spec:
                                     requests that would have been processed by that
                                     filter MUST receive a HTTP error response. \n "
                                   enum:
+                                  - ResponseHeaderModifier
                                   - RequestHeaderModifier
                                   - RequestMirror
                                   - ExtensionRef
@@ -2401,8 +2540,8 @@ spec:
                           group:
                             default: ""
                             description: Group is the group of the referent. For example,
-                              "networking.k8s.io". When unspecified (empty string),
-                              core API group is inferred.
+                              "gateway.networking.k8s.io". When unspecified or empty
+                              string, core API group is inferred.
                             maxLength: 253
                             pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -2474,11 +2613,11 @@ spec:
                         change in the future based on feedback during the alpha stage.
                         \n Conformance-levels at this level are defined based on the
                         type of filter: \n - ALL core filters MUST be supported by
-                        all implementations. - Implementers are encouraged to support
-                        extended filters. - Implementation-specific custom filters
-                        have no API guarantees across   implementations. \n Specifying
-                        a core filter multiple times has unspecified or implementation-specific
-                        conformance. Support: Core"
+                        all implementations that support   GRPCRoute. - Implementers
+                        are encouraged to support extended filters. - Implementation-specific
+                        custom filters have no API guarantees across   implementations.
+                        \n Specifying a core filter multiple times has unspecified
+                        or implementation-specific conformance. Support: Core"
                       items:
                         description: GRPCRouteFilter defines processing steps that
                           must be completed during the request or response lifecycle.
@@ -2498,8 +2637,8 @@ spec:
                             properties:
                               group:
                                 description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
+                                  example, "gateway.networking.k8s.io". When unspecified
+                                  or empty string, core API group is inferred.
                                 maxLength: 253
                                 pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
@@ -2531,8 +2670,8 @@ spec:
                                   to any existing values associated with the header
                                   name. \n Input:   GET /foo HTTP/1.1   my-header:
                                   foo \n Config:   add:   - name: \"my-header\"     value:
-                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
-                                  foo   my-header: bar"
+                                  \"bar,baz\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo,bar,baz"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -2650,8 +2789,9 @@ spec:
                                   group:
                                     default: ""
                                     description: Group is the group of the referent.
-                                      For example, "networking.k8s.io". When unspecified
-                                      (empty string), core API group is inferred.
+                                      For example, "gateway.networking.k8s.io". When
+                                      unspecified or empty string, core API group
+                                      is inferred.
                                     maxLength: 253
                                     pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
@@ -2699,6 +2839,107 @@ spec:
                             required:
                             - backendRef
                             type: object
+                          responseHeaderModifier:
+                            description: "ResponseHeaderModifier defines a schema
+                              for a filter that modifies response headers. \n Support:
+                              Extended \n <gateway:experimental>"
+                            properties:
+                              add:
+                                description: "Add adds the given header(s) (name,
+                                  value) to the request before the action. It appends
+                                  to any existing values associated with the header
+                                  name. \n Input:   GET /foo HTTP/1.1   my-header:
+                                  foo \n Config:   add:   - name: \"my-header\"     value:
+                                  \"bar,baz\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo,bar,baz"
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: "Name is the name of the HTTP Header
+                                        to be matched. Name matching MUST be case
+                                        insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                        \n If multiple entries specify equivalent
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
+                                        of header names, \"foo\" and \"Foo\" are considered
+                                        equivalent."
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: "Remove the given header(s) from the
+                                  HTTP request before the action. The value of Remove
+                                  is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+                                  \n Input:   GET /foo HTTP/1.1   my-header1: foo
+                                  \  my-header2: bar   my-header3: baz \n Config:
+                                  \  remove: [\"my-header1\", \"my-header3\"] \n Output:
+                                  \  GET /foo HTTP/1.1   my-header2: bar"
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                              set:
+                                description: "Set overwrites the request with the
+                                  given header (name, value) before the action. \n
+                                  Input:   GET /foo HTTP/1.1   my-header: foo \n Config:
+                                  \  set:   - name: \"my-header\"     value: \"bar\"
+                                  \n Output:   GET /foo HTTP/1.1   my-header: bar"
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: "Name is the name of the HTTP Header
+                                        to be matched. Name matching MUST be case
+                                        insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+                                        \n If multiple entries specify equivalent
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
+                                        of header names, \"foo\" and \"Foo\" are considered
+                                        equivalent."
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
                           type:
                             description: "Type identifies the type of filter to apply.
                               As with other API fields, types are classified into
@@ -2725,6 +2966,7 @@ spec:
                               been processed by that filter MUST receive a HTTP error
                               response. \n "
                             enum:
+                            - ResponseHeaderModifier
                             - RequestHeaderModifier
                             - RequestMirror
                             - ExtensionRef
@@ -2772,8 +3014,8 @@ spec:
                           if all conditions are satisfied. \n For example, the match
                           below will match a gRPC request only if its service is `foo`
                           AND it contains the `version: v1` header: \n ``` matches:
-                          - method:    type: Exact    service: \"foo\"   headers:
-                          \  - name: \"version\"     value \"v1\" ```"
+                          \  - method:     type: Exact     service: \"foo\"     headers:
+                          \  - name: \"version\"     value \"v1\" \n ```"
                         properties:
                           headers:
                             description: Headers specifies gRPC request header matchers.
@@ -2823,27 +3065,27 @@ spec:
                           method:
                             default:
                               type: Exact
-                            description: Path specifies a gRPC request service/method
+                            description: Method specifies a gRPC request service/method
                               matcher. If this field is not specified, all services
                               and methods will match.
                             properties:
                               method:
-                                default: ""
                                 description: "Value of the method to match against.
                                   If left empty or omitted, will match all services.
                                   \n At least one of Service and Method MUST be a
-                                  non-empty string."
+                                  non-empty string. \n A GRPC Method must be a valid
+                                  Protobuf Method (https://protobuf.com/docs/language-spec#methods)."
                                 maxLength: 1024
-                                pattern: ^[^\/]*$
+                                pattern: ^[A-Za-z_][A-Za-z_0-9]*$
                                 type: string
                               service:
-                                default: ""
                                 description: "Value of the service to match against.
-                                  If left empty or omitted, will match all services.
+                                  If left empty or omitted, will match any service.
                                   \n At least one of Service and Method MUST be a
-                                  non-empty string."
+                                  non-empty string. \n A GRPC Service must be a valid
+                                  Protobuf Type Name (https://protobuf.com/docs/language-spec#type-references)."
                                 maxLength: 1024
-                                pattern: ^[^\/]*$
+                                pattern: ^(?i)\.?[a-z_][a-z_0-9]*(\.[a-z_][a-z_0-9]*)*$
                                 type: string
                               type:
                                 default: Exact
@@ -2905,14 +3147,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -2999,8 +3242,11 @@ spec:
                       properties:
                         group:
                           default: gateway.networking.k8s.io
-                          description: "Group is the group of the referent. \n Support:
-                            Core"
+                          description: "Group is the group of the referent. When unspecified,
+                            \"gateway.networking.k8s.io\" is inferred. To set the
+                            core API group (such as for a \"Service\" kind referent),
+                            Group must be explicitly set to \"\" (empty string). \n
+                            Support: Core"
                           maxLength: 253
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -3022,7 +3268,13 @@ spec:
                         namespace:
                           description: "Namespace is the namespace of the referent.
                             When unspecified, this refers to the local namespace of
-                            the Route. \n Support: Core"
+                            the Route. \n Note that there are specific rules for ParentRefs
+                            which cross namespace boundaries. Cross-namespace references
+                            are only valid if they are explicitly allowed by something
+                            in the namespace they are referring to. For example: Gateway
+                            has the AllowedRoutes field, and ReferenceGrant provides
+                            a generic way to enable any other kind of cross-namespace
+                            reference. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -3107,8 +3359,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: httproutes.gateway.networking.k8s.io
@@ -3225,7 +3477,12 @@ spec:
                   that may be collapsed by an implementation. For example, some implementations
                   may choose to merge compatible Gateway Listeners together. If that
                   is the case, the list of routes attached to those resources should
-                  also be merged."
+                  also be merged. \n Note that for ParentRefs that cross namespace
+                  boundaries, there are specific rules. Cross-namespace references
+                  are only valid if they are explicitly allowed by something in the
+                  namespace they are referring to. For example, Gateway has the AllowedRoutes
+                  field, and ReferenceGrant provides a generic way to enable any other
+                  kind of cross-namespace reference."
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -3237,7 +3494,10 @@ spec:
                   properties:
                     group:
                       default: gateway.networking.k8s.io
-                      description: "Group is the group of the referent. \n Support:
+                      description: "Group is the group of the referent. When unspecified,
+                        \"gateway.networking.k8s.io\" is inferred. To set the core
+                        API group (such as for a \"Service\" kind referent), Group
+                        must be explicitly set to \"\" (empty string). \n Support:
                         Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -3259,6 +3519,12 @@ spec:
                     namespace:
                       description: "Namespace is the namespace of the referent. When
                         unspecified, this refers to the local namespace of the Route.
+                        \n Note that there are specific rules for ParentRefs which
+                        cross namespace boundaries. Cross-namespace references are
+                        only valid if they are explicitly allowed by something in
+                        the namespace they are referring to. For example: Gateway
+                        has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
                         \n Support: Core"
                       maxLength: 63
                       minLength: 1
@@ -3379,8 +3645,9 @@ spec:
                                   properties:
                                     group:
                                       description: Group is the group of the referent.
-                                        For example, "networking.k8s.io". When unspecified
-                                        (empty string), core API group is inferred.
+                                        For example, "gateway.networking.k8s.io".
+                                        When unspecified or empty string, core API
+                                        group is inferred.
                                       maxLength: 253
                                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
@@ -3412,9 +3679,9 @@ spec:
                                         appends to any existing values associated
                                         with the header name. \n Input:   GET /foo
                                         HTTP/1.1   my-header: foo \n Config:   add:
-                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \  - name: \"my-header\"     value: \"bar,baz\"
                                         \n Output:   GET /foo HTTP/1.1   my-header:
-                                        foo   my-header: bar"
+                                        foo,bar,baz"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -3541,9 +3808,9 @@ spec:
                                         group:
                                           default: ""
                                           description: Group is the group of the referent.
-                                            For example, "networking.k8s.io". When
-                                            unspecified (empty string), core API group
-                                            is inferred.
+                                            For example, "gateway.networking.k8s.io".
+                                            When unspecified or empty string, core
+                                            API group is inferred.
                                           maxLength: 253
                                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                           type: string
@@ -3672,13 +3939,13 @@ spec:
                                       description: "Scheme is the scheme to be used
                                         in the value of the `Location` header in the
                                         response. When empty, the scheme of the request
-                                        is used. \n Support: Extended \n Note that
-                                        values may be added to this enum, implementations
-                                        must ensure that unknown values will not cause
-                                        a crash. \n Unknown values here must result
-                                        in the implementation setting the Accepted
-                                        Condition for the Route to `status: False`,
-                                        with a Reason of `UnsupportedValue`."
+                                        is used. \n Note that values may be added
+                                        to this enum, implementations must ensure
+                                        that unknown values will not cause a crash.
+                                        \n Unknown values here must result in the
+                                        implementation setting the Accepted Condition
+                                        for the Route to `status: False`, with a Reason
+                                        of `UnsupportedValue`. \n Support: Extended"
                                       enum:
                                       - http
                                       - https
@@ -3686,13 +3953,14 @@ spec:
                                     statusCode:
                                       default: 302
                                       description: "StatusCode is the HTTP status
-                                        code to be used in response. \n Support: Core
-                                        \n Note that values may be added to this enum,
-                                        implementations must ensure that unknown values
-                                        will not cause a crash. \n Unknown values
-                                        here must result in the implementation setting
-                                        the Accepted Condition for the Route to `status:
-                                        False`, with a Reason of `UnsupportedValue`."
+                                        code to be used in response. \n Note that
+                                        values may be added to this enum, implementations
+                                        must ensure that unknown values will not cause
+                                        a crash. \n Unknown values here must result
+                                        in the implementation setting the Accepted
+                                        Condition for the Route to `status: False`,
+                                        with a Reason of `UnsupportedValue`. \n Support:
+                                        Core"
                                       enum:
                                       - 301
                                       - 302
@@ -3709,9 +3977,9 @@ spec:
                                         appends to any existing values associated
                                         with the header name. \n Input:   GET /foo
                                         HTTP/1.1   my-header: foo \n Config:   add:
-                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \  - name: \"my-header\"     value: \"bar,baz\"
                                         \n Output:   GET /foo HTTP/1.1   my-header:
-                                        foo   my-header: bar"
+                                        foo,bar,baz"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -3916,8 +4184,8 @@ spec:
                           group:
                             default: ""
                             description: Group is the group of the referent. For example,
-                              "networking.k8s.io". When unspecified (empty string),
-                              core API group is inferred.
+                              "gateway.networking.k8s.io". When unspecified or empty
+                              string, core API group is inferred.
                             maxLength: 253
                             pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -4019,8 +4287,8 @@ spec:
                             properties:
                               group:
                                 description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
+                                  example, "gateway.networking.k8s.io". When unspecified
+                                  or empty string, core API group is inferred.
                                 maxLength: 253
                                 pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
@@ -4052,8 +4320,8 @@ spec:
                                   to any existing values associated with the header
                                   name. \n Input:   GET /foo HTTP/1.1   my-header:
                                   foo \n Config:   add:   - name: \"my-header\"     value:
-                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
-                                  foo   my-header: bar"
+                                  \"bar,baz\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo,bar,baz"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -4171,8 +4439,9 @@ spec:
                                   group:
                                     default: ""
                                     description: Group is the group of the referent.
-                                      For example, "networking.k8s.io". When unspecified
-                                      (empty string), core API group is inferred.
+                                      For example, "gateway.networking.k8s.io". When
+                                      unspecified or empty string, core API group
+                                      is inferred.
                                     maxLength: 253
                                     pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
@@ -4293,12 +4562,12 @@ spec:
                                 description: "Scheme is the scheme to be used in the
                                   value of the `Location` header in the response.
                                   When empty, the scheme of the request is used. \n
-                                  Support: Extended \n Note that values may be added
-                                  to this enum, implementations must ensure that unknown
-                                  values will not cause a crash. \n Unknown values
-                                  here must result in the implementation setting the
-                                  Accepted Condition for the Route to `status: False`,
-                                  with a Reason of `UnsupportedValue`."
+                                  Note that values may be added to this enum, implementations
+                                  must ensure that unknown values will not cause a
+                                  crash. \n Unknown values here must result in the
+                                  implementation setting the Accepted Condition for
+                                  the Route to `status: False`, with a Reason of `UnsupportedValue`.
+                                  \n Support: Extended"
                                 enum:
                                 - http
                                 - https
@@ -4306,12 +4575,13 @@ spec:
                               statusCode:
                                 default: 302
                                 description: "StatusCode is the HTTP status code to
-                                  be used in response. \n Support: Core \n Note that
-                                  values may be added to this enum, implementations
-                                  must ensure that unknown values will not cause a
-                                  crash. \n Unknown values here must result in the
-                                  implementation setting the Accepted Condition for
-                                  the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                  be used in response. \n Note that values may be
+                                  added to this enum, implementations must ensure
+                                  that unknown values will not cause a crash. \n Unknown
+                                  values here must result in the implementation setting
+                                  the Accepted Condition for the Route to `status:
+                                  False`, with a Reason of `UnsupportedValue`. \n
+                                  Support: Core"
                                 enum:
                                 - 301
                                 - 302
@@ -4328,8 +4598,8 @@ spec:
                                   to any existing values associated with the header
                                   name. \n Input:   GET /foo HTTP/1.1   my-header:
                                   foo \n Config:   add:   - name: \"my-header\"     value:
-                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
-                                  foo   my-header: bar"
+                                  \"bar,baz\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo,bar,baz"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -4558,8 +4828,8 @@ spec:
                           if all conditions are satisfied. \n For example, the match
                           below will match a HTTP request only if its path starts
                           with `/foo` AND it contains the `version: v1` header: \n
-                          ``` match:   path:     value: \"/foo\"   headers:   - name:
-                          \"version\"     value \"v1\" ```"
+                          ``` match: \n \tpath: \t  value: \"/foo\" \theaders: \t-
+                          name: \"version\" \t  value \"v1\" \n ```"
                         properties:
                           headers:
                             description: Headers specifies HTTP request header matchers.
@@ -4678,12 +4948,12 @@ spec:
                                     be ignored. \n If a query param is repeated in
                                     an HTTP request, the behavior is purposely left
                                     undefined, since different data planes have different
-                                    capabilities. However, it's *recommended* that
+                                    capabilities. However, it is *recommended* that
                                     implementations should match against the first
                                     value of the param if the data plane supports
                                     it, as this behavior is expected in other load
                                     balancing contexts outside of the Gateway API.
-                                    Users should not route traffic based on repeated
+                                    \n Users SHOULD NOT route traffic based on repeated
                                     query params to guard themselves against potential
                                     differences in the implementations."
                                   maxLength: 256
@@ -4767,14 +5037,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -4861,8 +5132,11 @@ spec:
                       properties:
                         group:
                           default: gateway.networking.k8s.io
-                          description: "Group is the group of the referent. \n Support:
-                            Core"
+                          description: "Group is the group of the referent. When unspecified,
+                            \"gateway.networking.k8s.io\" is inferred. To set the
+                            core API group (such as for a \"Service\" kind referent),
+                            Group must be explicitly set to \"\" (empty string). \n
+                            Support: Core"
                           maxLength: 253
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -4884,7 +5158,13 @@ spec:
                         namespace:
                           description: "Namespace is the namespace of the referent.
                             When unspecified, this refers to the local namespace of
-                            the Route. \n Support: Core"
+                            the Route. \n Note that there are specific rules for ParentRefs
+                            which cross namespace boundaries. Cross-namespace references
+                            are only valid if they are explicitly allowed by something
+                            in the namespace they are referring to. For example: Gateway
+                            has the AllowedRoutes field, and ReferenceGrant provides
+                            a generic way to enable any other kind of cross-namespace
+                            reference. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -5059,7 +5339,12 @@ spec:
                   that may be collapsed by an implementation. For example, some implementations
                   may choose to merge compatible Gateway Listeners together. If that
                   is the case, the list of routes attached to those resources should
-                  also be merged."
+                  also be merged. \n Note that for ParentRefs that cross namespace
+                  boundaries, there are specific rules. Cross-namespace references
+                  are only valid if they are explicitly allowed by something in the
+                  namespace they are referring to. For example, Gateway has the AllowedRoutes
+                  field, and ReferenceGrant provides a generic way to enable any other
+                  kind of cross-namespace reference."
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -5071,7 +5356,10 @@ spec:
                   properties:
                     group:
                       default: gateway.networking.k8s.io
-                      description: "Group is the group of the referent. \n Support:
+                      description: "Group is the group of the referent. When unspecified,
+                        \"gateway.networking.k8s.io\" is inferred. To set the core
+                        API group (such as for a \"Service\" kind referent), Group
+                        must be explicitly set to \"\" (empty string). \n Support:
                         Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -5093,6 +5381,12 @@ spec:
                     namespace:
                       description: "Namespace is the namespace of the referent. When
                         unspecified, this refers to the local namespace of the Route.
+                        \n Note that there are specific rules for ParentRefs which
+                        cross namespace boundaries. Cross-namespace references are
+                        only valid if they are explicitly allowed by something in
+                        the namespace they are referring to. For example: Gateway
+                        has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
                         \n Support: Core"
                       maxLength: 63
                       minLength: 1
@@ -5213,8 +5507,9 @@ spec:
                                   properties:
                                     group:
                                       description: Group is the group of the referent.
-                                        For example, "networking.k8s.io". When unspecified
-                                        (empty string), core API group is inferred.
+                                        For example, "gateway.networking.k8s.io".
+                                        When unspecified or empty string, core API
+                                        group is inferred.
                                       maxLength: 253
                                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
@@ -5246,9 +5541,9 @@ spec:
                                         appends to any existing values associated
                                         with the header name. \n Input:   GET /foo
                                         HTTP/1.1   my-header: foo \n Config:   add:
-                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \  - name: \"my-header\"     value: \"bar,baz\"
                                         \n Output:   GET /foo HTTP/1.1   my-header:
-                                        foo   my-header: bar"
+                                        foo,bar,baz"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -5375,9 +5670,9 @@ spec:
                                         group:
                                           default: ""
                                           description: Group is the group of the referent.
-                                            For example, "networking.k8s.io". When
-                                            unspecified (empty string), core API group
-                                            is inferred.
+                                            For example, "gateway.networking.k8s.io".
+                                            When unspecified or empty string, core
+                                            API group is inferred.
                                           maxLength: 253
                                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                           type: string
@@ -5506,13 +5801,13 @@ spec:
                                       description: "Scheme is the scheme to be used
                                         in the value of the `Location` header in the
                                         response. When empty, the scheme of the request
-                                        is used. \n Support: Extended \n Note that
-                                        values may be added to this enum, implementations
-                                        must ensure that unknown values will not cause
-                                        a crash. \n Unknown values here must result
-                                        in the implementation setting the Accepted
-                                        Condition for the Route to `status: False`,
-                                        with a Reason of `UnsupportedValue`."
+                                        is used. \n Note that values may be added
+                                        to this enum, implementations must ensure
+                                        that unknown values will not cause a crash.
+                                        \n Unknown values here must result in the
+                                        implementation setting the Accepted Condition
+                                        for the Route to `status: False`, with a Reason
+                                        of `UnsupportedValue`. \n Support: Extended"
                                       enum:
                                       - http
                                       - https
@@ -5520,13 +5815,14 @@ spec:
                                     statusCode:
                                       default: 302
                                       description: "StatusCode is the HTTP status
-                                        code to be used in response. \n Support: Core
-                                        \n Note that values may be added to this enum,
-                                        implementations must ensure that unknown values
-                                        will not cause a crash. \n Unknown values
-                                        here must result in the implementation setting
-                                        the Accepted Condition for the Route to `status:
-                                        False`, with a Reason of `UnsupportedValue`."
+                                        code to be used in response. \n Note that
+                                        values may be added to this enum, implementations
+                                        must ensure that unknown values will not cause
+                                        a crash. \n Unknown values here must result
+                                        in the implementation setting the Accepted
+                                        Condition for the Route to `status: False`,
+                                        with a Reason of `UnsupportedValue`. \n Support:
+                                        Core"
                                       enum:
                                       - 301
                                       - 302
@@ -5543,9 +5839,9 @@ spec:
                                         appends to any existing values associated
                                         with the header name. \n Input:   GET /foo
                                         HTTP/1.1   my-header: foo \n Config:   add:
-                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \  - name: \"my-header\"     value: \"bar,baz\"
                                         \n Output:   GET /foo HTTP/1.1   my-header:
-                                        foo   my-header: bar"
+                                        foo,bar,baz"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -5750,8 +6046,8 @@ spec:
                           group:
                             default: ""
                             description: Group is the group of the referent. For example,
-                              "networking.k8s.io". When unspecified (empty string),
-                              core API group is inferred.
+                              "gateway.networking.k8s.io". When unspecified or empty
+                              string, core API group is inferred.
                             maxLength: 253
                             pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -5853,8 +6149,8 @@ spec:
                             properties:
                               group:
                                 description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
+                                  example, "gateway.networking.k8s.io". When unspecified
+                                  or empty string, core API group is inferred.
                                 maxLength: 253
                                 pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
@@ -5886,8 +6182,8 @@ spec:
                                   to any existing values associated with the header
                                   name. \n Input:   GET /foo HTTP/1.1   my-header:
                                   foo \n Config:   add:   - name: \"my-header\"     value:
-                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
-                                  foo   my-header: bar"
+                                  \"bar,baz\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo,bar,baz"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -6005,8 +6301,9 @@ spec:
                                   group:
                                     default: ""
                                     description: Group is the group of the referent.
-                                      For example, "networking.k8s.io". When unspecified
-                                      (empty string), core API group is inferred.
+                                      For example, "gateway.networking.k8s.io". When
+                                      unspecified or empty string, core API group
+                                      is inferred.
                                     maxLength: 253
                                     pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
@@ -6127,12 +6424,12 @@ spec:
                                 description: "Scheme is the scheme to be used in the
                                   value of the `Location` header in the response.
                                   When empty, the scheme of the request is used. \n
-                                  Support: Extended \n Note that values may be added
-                                  to this enum, implementations must ensure that unknown
-                                  values will not cause a crash. \n Unknown values
-                                  here must result in the implementation setting the
-                                  Accepted Condition for the Route to `status: False`,
-                                  with a Reason of `UnsupportedValue`."
+                                  Note that values may be added to this enum, implementations
+                                  must ensure that unknown values will not cause a
+                                  crash. \n Unknown values here must result in the
+                                  implementation setting the Accepted Condition for
+                                  the Route to `status: False`, with a Reason of `UnsupportedValue`.
+                                  \n Support: Extended"
                                 enum:
                                 - http
                                 - https
@@ -6140,12 +6437,13 @@ spec:
                               statusCode:
                                 default: 302
                                 description: "StatusCode is the HTTP status code to
-                                  be used in response. \n Support: Core \n Note that
-                                  values may be added to this enum, implementations
-                                  must ensure that unknown values will not cause a
-                                  crash. \n Unknown values here must result in the
-                                  implementation setting the Accepted Condition for
-                                  the Route to `status: False`, with a Reason of `UnsupportedValue`."
+                                  be used in response. \n Note that values may be
+                                  added to this enum, implementations must ensure
+                                  that unknown values will not cause a crash. \n Unknown
+                                  values here must result in the implementation setting
+                                  the Accepted Condition for the Route to `status:
+                                  False`, with a Reason of `UnsupportedValue`. \n
+                                  Support: Core"
                                 enum:
                                 - 301
                                 - 302
@@ -6162,8 +6460,8 @@ spec:
                                   to any existing values associated with the header
                                   name. \n Input:   GET /foo HTTP/1.1   my-header:
                                   foo \n Config:   add:   - name: \"my-header\"     value:
-                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
-                                  foo   my-header: bar"
+                                  \"bar,baz\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo,bar,baz"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -6392,8 +6690,8 @@ spec:
                           if all conditions are satisfied. \n For example, the match
                           below will match a HTTP request only if its path starts
                           with `/foo` AND it contains the `version: v1` header: \n
-                          ``` match:   path:     value: \"/foo\"   headers:   - name:
-                          \"version\"     value \"v1\" ```"
+                          ``` match: \n \tpath: \t  value: \"/foo\" \theaders: \t-
+                          name: \"version\" \t  value \"v1\" \n ```"
                         properties:
                           headers:
                             description: Headers specifies HTTP request header matchers.
@@ -6512,12 +6810,12 @@ spec:
                                     be ignored. \n If a query param is repeated in
                                     an HTTP request, the behavior is purposely left
                                     undefined, since different data planes have different
-                                    capabilities. However, it's *recommended* that
+                                    capabilities. However, it is *recommended* that
                                     implementations should match against the first
                                     value of the param if the data plane supports
                                     it, as this behavior is expected in other load
                                     balancing contexts outside of the Gateway API.
-                                    Users should not route traffic based on repeated
+                                    \n Users SHOULD NOT route traffic based on repeated
                                     query params to guard themselves against potential
                                     differences in the implementations."
                                   maxLength: 256
@@ -6601,14 +6899,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -6695,8 +6994,11 @@ spec:
                       properties:
                         group:
                           default: gateway.networking.k8s.io
-                          description: "Group is the group of the referent. \n Support:
-                            Core"
+                          description: "Group is the group of the referent. When unspecified,
+                            \"gateway.networking.k8s.io\" is inferred. To set the
+                            core API group (such as for a \"Service\" kind referent),
+                            Group must be explicitly set to \"\" (empty string). \n
+                            Support: Core"
                           maxLength: 253
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -6718,7 +7020,13 @@ spec:
                         namespace:
                           description: "Namespace is the namespace of the referent.
                             When unspecified, this refers to the local namespace of
-                            the Route. \n Support: Core"
+                            the Route. \n Note that there are specific rules for ParentRefs
+                            which cross namespace boundaries. Cross-namespace references
+                            are only valid if they are explicitly allowed by something
+                            in the namespace they are referring to. For example: Gateway
+                            has the AllowedRoutes field, and ReferenceGrant provides
+                            a generic way to enable any other kind of cross-namespace
+                            reference. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -6805,8 +7113,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencegrants.gateway.networking.k8s.io
@@ -6837,9 +7145,11 @@ spec:
           add to the set of trusted sources of inbound references for the namespace
           they are defined within. \n All cross-namespace references in Gateway API
           (with the exception of cross-namespace Gateway-route attachment) require
-          a ReferenceGrant. \n ReferenceGrant is a form of runtime verification. Implementations
-          that support ReferenceGrant MUST respond to removal of a grant by revoking
-          the access that grant allowed. \n Support: Core"
+          a ReferenceGrant. \n ReferenceGrant is a form of runtime verification allowing
+          users to assert which cross-namespace object references are permitted. Implementations
+          that support ReferenceGrant MUST NOT permit cross-namespace references which
+          have no grant, and MUST respond to the removal of a grant by revoking the
+          access that the grant allowed. \n Support: Core"
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -6859,8 +7169,8 @@ spec:
               from:
                 description: "From describes the trusted namespaces and kinds that
                   can reference the resources described in \"To\". Each entry in this
-                  list must be considered to be an additional place that references
-                  can be valid from, or to put this another way, entries must be combined
+                  list MUST be considered to be an additional place that references
+                  can be valid from, or to put this another way, entries MUST be combined
                   using OR. \n Support: Core"
                 items:
                   description: ReferenceGrantFrom describes trusted namespaces and
@@ -6900,9 +7210,9 @@ spec:
                 type: array
               to:
                 description: "To describes the resources that may be referenced by
-                  the resources described in \"From\". Each entry in this list must
+                  the resources described in \"From\". Each entry in this list MUST
                   be considered to be an additional place that references can be valid
-                  to, or to put this another way, entries must be combined using OR.
+                  to, or to put this another way, entries MUST be combined using OR.
                   \n Support: Core"
                 items:
                   description: ReferenceGrantTo describes what Kinds are allowed as
@@ -6946,6 +7256,131 @@ spec:
     served: true
     storage: true
     subresources: {}
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: "ReferenceGrant identifies kinds of resources in other namespaces
+          that are trusted to reference the specified kinds of resources in the same
+          namespace as the policy. \n Each ReferenceGrant can be used to represent
+          a unique trust relationship. Additional Reference Grants can be used to
+          add to the set of trusted sources of inbound references for the namespace
+          they are defined within. \n All cross-namespace references in Gateway API
+          (with the exception of cross-namespace Gateway-route attachment) require
+          a ReferenceGrant. \n ReferenceGrant is a form of runtime verification allowing
+          users to assert which cross-namespace object references are permitted. Implementations
+          that support ReferenceGrant MUST NOT permit cross-namespace references which
+          have no grant, and MUST respond to the removal of a grant by revoking the
+          access that the grant allowed. \n Support: Core"
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of ReferenceGrant.
+            properties:
+              from:
+                description: "From describes the trusted namespaces and kinds that
+                  can reference the resources described in \"To\". Each entry in this
+                  list MUST be considered to be an additional place that references
+                  can be valid from, or to put this another way, entries MUST be combined
+                  using OR. \n Support: Core"
+                items:
+                  description: ReferenceGrantFrom describes trusted namespaces and
+                    kinds.
+                  properties:
+                    group:
+                      description: "Group is the group of the referent. When empty,
+                        the Kubernetes core API group is inferred. \n Support: Core"
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      description: "Kind is the kind of the referent. Although implementations
+                        may support additional resources, the following types are
+                        part of the \"Core\" support level for this field. \n When
+                        used to permit a SecretObjectReference: \n * Gateway \n When
+                        used to permit a BackendObjectReference: \n * GRPCRoute *
+                        HTTPRoute * TCPRoute * TLSRoute * UDPRoute"
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    namespace:
+                      description: "Namespace is the namespace of the referent. \n
+                        Support: Core"
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - namespace
+                  type: object
+                maxItems: 16
+                minItems: 1
+                type: array
+              to:
+                description: "To describes the resources that may be referenced by
+                  the resources described in \"From\". Each entry in this list MUST
+                  be considered to be an additional place that references can be valid
+                  to, or to put this another way, entries MUST be combined using OR.
+                  \n Support: Core"
+                items:
+                  description: ReferenceGrantTo describes what Kinds are allowed as
+                    targets of the references.
+                  properties:
+                    group:
+                      description: "Group is the group of the referent. When empty,
+                        the Kubernetes core API group is inferred. \n Support: Core"
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      description: "Kind is the kind of the referent. Although implementations
+                        may support additional resources, the following types are
+                        part of the \"Core\" support level for this field: \n * Secret
+                        when used to permit a SecretObjectReference * Service when
+                        used to permit a BackendObjectReference"
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the referent. When unspecified,
+                        this policy refers to all resources of the specified Group
+                        and Kind in the local namespace.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  type: object
+                maxItems: 16
+                minItems: 1
+                type: array
+            required:
+            - from
+            - to
+            type: object
+        type: object
+    served: true
+    storage: false
+    subresources: {}
 status:
   acceptedNames:
     kind: ""
@@ -6957,8 +7392,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tcproutes.gateway.networking.k8s.io
@@ -7014,7 +7449,12 @@ spec:
                   that may be collapsed by an implementation. For example, some implementations
                   may choose to merge compatible Gateway Listeners together. If that
                   is the case, the list of routes attached to those resources should
-                  also be merged."
+                  also be merged. \n Note that for ParentRefs that cross namespace
+                  boundaries, there are specific rules. Cross-namespace references
+                  are only valid if they are explicitly allowed by something in the
+                  namespace they are referring to. For example, Gateway has the AllowedRoutes
+                  field, and ReferenceGrant provides a generic way to enable any other
+                  kind of cross-namespace reference."
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -7026,7 +7466,10 @@ spec:
                   properties:
                     group:
                       default: gateway.networking.k8s.io
-                      description: "Group is the group of the referent. \n Support:
+                      description: "Group is the group of the referent. When unspecified,
+                        \"gateway.networking.k8s.io\" is inferred. To set the core
+                        API group (such as for a \"Service\" kind referent), Group
+                        must be explicitly set to \"\" (empty string). \n Support:
                         Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -7048,6 +7491,12 @@ spec:
                     namespace:
                       description: "Namespace is the namespace of the referent. When
                         unspecified, this refers to the local namespace of the Route.
+                        \n Note that there are specific rules for ParentRefs which
+                        cross namespace boundaries. Cross-namespace references are
+                        only valid if they are explicitly allowed by something in
+                        the namespace they are referring to. For example: Gateway
+                        has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
                         \n Support: Core"
                       maxLength: 63
                       minLength: 1
@@ -7133,8 +7582,8 @@ spec:
                           group:
                             default: ""
                             description: Group is the group of the referent. For example,
-                              "networking.k8s.io". When unspecified (empty string),
-                              core API group is inferred.
+                              "gateway.networking.k8s.io". When unspecified or empty
+                              string, core API group is inferred.
                             maxLength: 253
                             pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -7248,14 +7697,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -7342,8 +7792,11 @@ spec:
                       properties:
                         group:
                           default: gateway.networking.k8s.io
-                          description: "Group is the group of the referent. \n Support:
-                            Core"
+                          description: "Group is the group of the referent. When unspecified,
+                            \"gateway.networking.k8s.io\" is inferred. To set the
+                            core API group (such as for a \"Service\" kind referent),
+                            Group must be explicitly set to \"\" (empty string). \n
+                            Support: Core"
                           maxLength: 253
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -7365,7 +7818,13 @@ spec:
                         namespace:
                           description: "Namespace is the namespace of the referent.
                             When unspecified, this refers to the local namespace of
-                            the Route. \n Support: Core"
+                            the Route. \n Note that there are specific rules for ParentRefs
+                            which cross namespace boundaries. Cross-namespace references
+                            are only valid if they are explicitly allowed by something
+                            in the namespace they are referring to. For example: Gateway
+                            has the AllowedRoutes field, and ReferenceGrant provides
+                            a generic way to enable any other kind of cross-namespace
+                            reference. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -7452,8 +7911,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tlsroutes.gateway.networking.k8s.io
@@ -7555,7 +8014,12 @@ spec:
                   that may be collapsed by an implementation. For example, some implementations
                   may choose to merge compatible Gateway Listeners together. If that
                   is the case, the list of routes attached to those resources should
-                  also be merged."
+                  also be merged. \n Note that for ParentRefs that cross namespace
+                  boundaries, there are specific rules. Cross-namespace references
+                  are only valid if they are explicitly allowed by something in the
+                  namespace they are referring to. For example, Gateway has the AllowedRoutes
+                  field, and ReferenceGrant provides a generic way to enable any other
+                  kind of cross-namespace reference."
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -7567,7 +8031,10 @@ spec:
                   properties:
                     group:
                       default: gateway.networking.k8s.io
-                      description: "Group is the group of the referent. \n Support:
+                      description: "Group is the group of the referent. When unspecified,
+                        \"gateway.networking.k8s.io\" is inferred. To set the core
+                        API group (such as for a \"Service\" kind referent), Group
+                        must be explicitly set to \"\" (empty string). \n Support:
                         Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -7589,6 +8056,12 @@ spec:
                     namespace:
                       description: "Namespace is the namespace of the referent. When
                         unspecified, this refers to the local namespace of the Route.
+                        \n Note that there are specific rules for ParentRefs which
+                        cross namespace boundaries. Cross-namespace references are
+                        only valid if they are explicitly allowed by something in
+                        the namespace they are referring to. For example: Gateway
+                        has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
                         \n Support: Core"
                       maxLength: 63
                       minLength: 1
@@ -7677,8 +8150,8 @@ spec:
                           group:
                             default: ""
                             description: Group is the group of the referent. For example,
-                              "networking.k8s.io". When unspecified (empty string),
-                              core API group is inferred.
+                              "gateway.networking.k8s.io". When unspecified or empty
+                              string, core API group is inferred.
                             maxLength: 253
                             pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -7792,14 +8265,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -7886,8 +8360,11 @@ spec:
                       properties:
                         group:
                           default: gateway.networking.k8s.io
-                          description: "Group is the group of the referent. \n Support:
-                            Core"
+                          description: "Group is the group of the referent. When unspecified,
+                            \"gateway.networking.k8s.io\" is inferred. To set the
+                            core API group (such as for a \"Service\" kind referent),
+                            Group must be explicitly set to \"\" (empty string). \n
+                            Support: Core"
                           maxLength: 253
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -7909,7 +8386,13 @@ spec:
                         namespace:
                           description: "Namespace is the namespace of the referent.
                             When unspecified, this refers to the local namespace of
-                            the Route. \n Support: Core"
+                            the Route. \n Note that there are specific rules for ParentRefs
+                            which cross namespace boundaries. Cross-namespace references
+                            are only valid if they are explicitly allowed by something
+                            in the namespace they are referring to. For example: Gateway
+                            has the AllowedRoutes field, and ReferenceGrant provides
+                            a generic way to enable any other kind of cross-namespace
+                            reference. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -7996,8 +8479,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1086
-    gateway.networking.k8s.io/bundle-version: v0.6.0-dev
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/1538
+    gateway.networking.k8s.io/bundle-version: v0.6.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: udproutes.gateway.networking.k8s.io
@@ -8053,7 +8536,12 @@ spec:
                   that may be collapsed by an implementation. For example, some implementations
                   may choose to merge compatible Gateway Listeners together. If that
                   is the case, the list of routes attached to those resources should
-                  also be merged."
+                  also be merged. \n Note that for ParentRefs that cross namespace
+                  boundaries, there are specific rules. Cross-namespace references
+                  are only valid if they are explicitly allowed by something in the
+                  namespace they are referring to. For example, Gateway has the AllowedRoutes
+                  field, and ReferenceGrant provides a generic way to enable any other
+                  kind of cross-namespace reference."
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -8065,7 +8553,10 @@ spec:
                   properties:
                     group:
                       default: gateway.networking.k8s.io
-                      description: "Group is the group of the referent. \n Support:
+                      description: "Group is the group of the referent. When unspecified,
+                        \"gateway.networking.k8s.io\" is inferred. To set the core
+                        API group (such as for a \"Service\" kind referent), Group
+                        must be explicitly set to \"\" (empty string). \n Support:
                         Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -8087,6 +8578,12 @@ spec:
                     namespace:
                       description: "Namespace is the namespace of the referent. When
                         unspecified, this refers to the local namespace of the Route.
+                        \n Note that there are specific rules for ParentRefs which
+                        cross namespace boundaries. Cross-namespace references are
+                        only valid if they are explicitly allowed by something in
+                        the namespace they are referring to. For example: Gateway
+                        has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
                         \n Support: Core"
                       maxLength: 63
                       minLength: 1
@@ -8172,8 +8669,8 @@ spec:
                           group:
                             default: ""
                             description: Group is the group of the referent. For example,
-                              "networking.k8s.io". When unspecified (empty string),
-                              core API group is inferred.
+                              "gateway.networking.k8s.io". When unspecified or empty
+                              string, core API group is inferred.
                             maxLength: 253
                             pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
@@ -8287,14 +8784,15 @@ spec:
                         description: "Condition contains details for one aspect of
                           the current state of this API Resource. --- This struct
                           is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                          .status.conditions.  For example, \n \ttype FooStatus struct{
+                          \t    // Represents the observations of a foo's current
+                          state. \t    // Known .status.conditions.type are: \"Available\",
+                          \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type
+                          \t    // +patchStrategy=merge \t    // +listType=map \t
+                          \   // +listMapKey=type \t    Conditions []metav1.Condition
+                          `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                          protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other
+                          fields \t}"
                         properties:
                           lastTransitionTime:
                             description: lastTransitionTime is the last time the condition
@@ -8381,8 +8879,11 @@ spec:
                       properties:
                         group:
                           default: gateway.networking.k8s.io
-                          description: "Group is the group of the referent. \n Support:
-                            Core"
+                          description: "Group is the group of the referent. When unspecified,
+                            \"gateway.networking.k8s.io\" is inferred. To set the
+                            core API group (such as for a \"Service\" kind referent),
+                            Group must be explicitly set to \"\" (empty string). \n
+                            Support: Core"
                           maxLength: 253
                           pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
@@ -8404,7 +8905,13 @@ spec:
                         namespace:
                           description: "Namespace is the namespace of the referent.
                             When unspecified, this refers to the local namespace of
-                            the Route. \n Support: Core"
+                            the Route. \n Note that there are specific rules for ParentRefs
+                            which cross namespace boundaries. Cross-namespace references
+                            are only valid if they are explicitly allowed by something
+                            in the namespace they are referring to. For example: Gateway
+                            has the AllowedRoutes field, and ReferenceGrant provides
+                            a generic way to enable any other kind of cross-namespace
+                            reference. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$

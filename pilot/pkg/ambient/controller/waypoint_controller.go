@@ -28,6 +28,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
@@ -208,12 +209,12 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 		msg += fmt.Sprintf(" for %q service account", gatewaySA)
 	}
 	err := rc.UpdateStatus(gw, map[string]*istiogw.Condition{
-		string(v1alpha2.GatewayConditionReady): {
-			Reason:  string(v1alpha2.GatewayReasonReady),
+		string(v1beta1.GatewayConditionReady): {
+			Reason:  string(v1beta1.GatewayReasonReady),
 			Message: msg,
 		},
-		string(v1alpha2.GatewayConditionAccepted): {
-			Reason:  string(v1alpha2.GatewayReasonAccepted),
+		string(v1beta1.GatewayConditionAccepted): {
+			Reason:  string(v1beta1.GatewayReasonAccepted),
 			Message: msg,
 		},
 	}, log)

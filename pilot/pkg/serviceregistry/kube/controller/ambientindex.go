@@ -542,7 +542,7 @@ func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
 			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
 		}
 		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
 		}
 	case *endpointSliceController:
 		endpointSlices, err := endpointController.listSlices(namespace, esLabelSelector)
@@ -550,7 +550,7 @@ func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
 			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
 		}
 		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(ep, model.EventAdd))
+			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
 		}
 	}
 	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {

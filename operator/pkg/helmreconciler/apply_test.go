@@ -21,7 +21,7 @@ import (
 	"sync"
 	"testing"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -61,7 +61,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 				client: cl,
 				opts:   &Options{},
 				iop: &v1alpha1.IstioOperator{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-operator",
 						Namespace: "istio-operator-test",
 					},

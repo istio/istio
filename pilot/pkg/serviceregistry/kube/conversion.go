@@ -19,7 +19,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
@@ -58,10 +57,14 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	var extrAddrs []string
 	resolution := model.ClientSideLB
 	meshExternal := false
+	nodeLocal := false
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		resolution = model.DNSLB
 		meshExternal = true
+	}
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == corev1.ServiceInternalTrafficPolicyLocal {
+		nodeLocal = true
 	}
 
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone { // headless services should not be load balanced
@@ -122,6 +125,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			Labels:          svc.Labels,
 			ExportTo:        exportTo,
 			LabelSelectors:  svc.Spec.Selector,
+			NodeLocal:       nodeLocal,
 		},
 	}
 
@@ -159,6 +163,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		}
 	}
 
+	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
 
 	return istioService
@@ -190,14 +195,6 @@ func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []
 		})
 	}
 	return out
-}
-
-// NamespacedNameForK8sObject is a helper that creates a NamespacedName for the given K8s Object.
-func NamespacedNameForK8sObject(obj metav1.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	}
 }
 
 // ServiceHostname produces FQDN for a k8s service

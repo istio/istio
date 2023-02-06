@@ -30,7 +30,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
-		Schemas:      collections.Istio,
+		Schemas:      collections.PilotGatewayAPI,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Mux:          s.httpsMux,
 	}

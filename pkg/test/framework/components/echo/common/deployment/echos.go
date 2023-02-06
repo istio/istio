@@ -160,12 +160,13 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 	var defaultConfigs []echo.Config
 
 	a := echo.Config{
-		Service:         ASvc,
-		ServiceAccount:  true,
-		Ports:           ports.All(),
-		Subsets:         []echo.SubsetConfig{{}},
-		Locality:        "region.zone.subzone",
-		IncludeExtAuthz: c.IncludeExtAuthz,
+		Service:                 ASvc,
+		ServiceAccount:          true,
+		Ports:                   ports.All(),
+		Subsets:                 []echo.SubsetConfig{{}},
+		Locality:                "region.zone.subzone",
+		IncludeExtAuthz:         c.IncludeExtAuthz,
+		DisableAutomountSAToken: true,
 	}
 
 	b := echo.Config{

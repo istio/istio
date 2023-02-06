@@ -29,7 +29,7 @@ if [ "$#" -ne 2 ]; then
     display_usage
     exit 0
   else
-    echo "Incorrect parameters"
+    echo "Incorrect parameters" "$@"
     display_usage
     exit 1
   fi
@@ -56,30 +56,30 @@ fi
 
 pushd "$SCRIPTDIR/productpage"
   ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-productpage-v1:${VERSION}" -t "${PREFIX}/examples-bookinfo-productpage-v1:latest" .
-  #flooding
+  # flooding
   ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-productpage-v-flooding:${VERSION}" -t "${PREFIX}/examples-bookinfo-productpage-v-flooding:latest" --build-arg flood_factor=100 .
 popd
 
 pushd "$SCRIPTDIR/details"
-  #plain build -- no calling external book service to fetch topics
+  # plain build -- no calling external book service to fetch topics
   ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-details-v1:${VERSION}" -t "${PREFIX}/examples-bookinfo-details-v1:latest" --build-arg service_version=v1 .
-  #with calling external book service to fetch topic for the book
+  # with calling external book service to fetch topic for the book
   ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-details-v2:${VERSION}" -t "${PREFIX}/examples-bookinfo-details-v2:latest" --build-arg service_version=v2 \
 	 --build-arg enable_external_book_service=true .
 popd
 
 
 pushd "$SCRIPTDIR/reviews"
-  #java build the app.
+  # java build the app.
   docker run --rm -u root -v "$(pwd)":/home/gradle/project -w /home/gradle/project gradle:4.8.1 gradle clean build
   
   pushd reviews-wlpcfg
-    #plain build -- no ratings
+    # plain build -- no ratings
     ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v1:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v1:latest" --build-arg service_version=v1 . 
-    #with ratings black stars
+    # with ratings black stars
     ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v2:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v2:latest" --build-arg service_version=v2 \
 	   --build-arg enable_ratings=true .
-    #with ratings red stars
+    # with ratings red stars
     ${DOCKER_BUILD_ARGS} --pull -t "${PREFIX}/examples-bookinfo-reviews-v3:${VERSION}" -t "${PREFIX}/examples-bookinfo-reviews-v3:latest" --build-arg service_version=v3 \
 	   --build-arg enable_ratings=true --build-arg star_color=red .
   popd

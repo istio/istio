@@ -158,7 +158,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
 
-	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
+	_, _ = secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
 }
 
@@ -347,7 +347,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
-			c.deleteCluster(secretKey, existingCluster.ID)
+			c.deleteCluster(secretKey, existingCluster)
 		}
 	}
 
@@ -406,33 +406,24 @@ func (c *Controller) deleteSecret(secretKey string) {
 			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, secretKey)
 			continue
 		}
-		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
-		cluster.Stop()
-		err := c.handleDelete(cluster.ID)
-		if err != nil {
-			log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
-				cluster.ID, secretKey, err)
-		}
-		c.cs.Delete(secretKey, cluster.ID)
+
+		c.deleteCluster(secretKey, cluster)
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) deleteCluster(secretKey string, clusterID cluster.ID) {
-	c.cs.Lock()
-	defer func() {
-		c.cs.Unlock()
-		log.Infof("Number of remote clusters: %d", c.cs.Len())
-	}()
-	log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
-	c.cs.remoteClusters[secretKey][clusterID].Stop()
-	err := c.handleDelete(clusterID)
+func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
+	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
+	cluster.Stop()
+	err := c.handleDelete(cluster.ID)
 	if err != nil {
 		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
-			clusterID, secretKey, err)
+			cluster.ID, secretKey, err)
 	}
-	delete(c.cs.remoteClusters[secretKey], clusterID)
+	c.cs.Delete(secretKey, cluster.ID)
+
+	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
 func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) error {

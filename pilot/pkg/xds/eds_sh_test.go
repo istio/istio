@@ -80,8 +80,6 @@ func TestSplitHorizonEds(t *testing.T) {
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
-	fmt.Println("gateways", s.Env().NetworkManager.AllGateways())
-
 	tests := []struct {
 		network   string
 		sidecarID string
@@ -253,6 +251,29 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 	}
 }
 
+// reconcileServiceShards makes up for the fact that mem registry doesn't properly populate EDS shards
+// TODO: make mem registry handle this properly.
+func reconcileServiceShards(s *xds.FakeDiscoveryServer, registry serviceregistry.Instance) {
+	// Each registry acts as a shard - we don't want to combine them because some
+	// may individually update their endpoints incrementally
+	shard := model.ShardKeyFromRegistry(registry)
+	for _, svc := range registry.Services() {
+		endpoints := make([]*model.IstioEndpoint, 0)
+		for _, port := range svc.Ports {
+			if port.Protocol == protocol.UDP {
+				continue
+			}
+
+			// This loses track of grouping (shards)
+			for _, inst := range registry.InstancesByPort(svc, port.Port) {
+				endpoints = append(endpoints, inst.Endpoint)
+			}
+		}
+
+		s.Discovery.EDSCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
+	}
+}
+
 // initRegistry creates and initializes a memory registry that holds a single
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
@@ -262,12 +283,13 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	memRegistry := memory.NewServiceDiscovery()
 	memRegistry.XdsUpdater = server.Discovery
 
-	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
+	reg := serviceregistry.Simple{
 		ClusterID:        clusterID,
 		ProviderID:       provider.Mock,
 		ServiceDiscovery: memRegistry,
 		Controller:       &memory.ServiceController{},
-	})
+	}
+	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(reg)
 
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
@@ -322,6 +344,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 		}
 	}
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
+	reconcileServiceShards(server, reg)
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {

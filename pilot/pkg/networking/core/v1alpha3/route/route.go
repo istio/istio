@@ -419,7 +419,7 @@ func translateRoute(
 	}
 
 	if in.Redirect != nil {
-		applyRedirect(out, in.Redirect, listenPort)
+		applyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		applyDirectResponse(out, in.DirectResponse)
 	} else {
@@ -477,7 +477,20 @@ func applyHTTPRouteDestination(
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
-		action.PrefixRewrite = in.Rewrite.GetUri()
+		action.ClusterSpecifier = &route.RouteAction_Cluster{
+			Cluster: in.Name,
+		}
+		uri := in.Rewrite.GetUri()
+		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
+			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+				Pattern: &matcher.RegexMatcher{
+					Regex: "/.+",
+				},
+				Substitution: fullURI,
+			}
+		} else {
+			action.PrefixRewrite = uri
+		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
 		}
@@ -567,11 +580,11 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
-	applyRedirect(out, redirect, port)
+func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySemantics bool) {
+	applyRedirect(out, redirect, port, useGatewaySemantics)
 }
 
-func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
+func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySemantics bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
@@ -579,6 +592,14 @@ func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 				PathRedirect: redirect.Uri,
 			},
 		},
+	}
+
+	if useGatewaySemantics {
+		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "%PREFIX()%"); isPrefixReplace {
+			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
+				PrefixRewrite: uri,
+			}
+		}
 	}
 
 	if redirect.Scheme != "" {
@@ -861,8 +882,7 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 					// use regex.
 					out.PathSpecifier = &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							EngineType: util.RegexEngine,
-							Regex:      regexp.QuoteMeta(path) + prefixMatchRegex,
+							Regex: regexp.QuoteMeta(path) + prefixMatchRegex,
 						},
 					}
 				}
@@ -872,8 +892,7 @@ func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 		case *networking.StringMatch_Regex:
 			out.PathSpecifier = &route.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: util.RegexEngine,
-					Regex:      m.Regex,
+					Regex: m.Regex,
 				},
 			}
 		}
@@ -920,8 +939,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 			StringMatch: &matcher.StringMatcher{
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
-						EngineType: util.RegexEngine,
-						Regex:      m.Regex,
+						Regex: m.Regex,
 					},
 				},
 			},
@@ -1098,17 +1116,13 @@ func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *m
 			MaxStreamDuration: action.Timeout,
 		}
 	} else {
-		// Set MaxStreamDuration only for notimeout cases otherwise it wont be honored.
+		// If not configured at all, the grpc-timeout header is not used and
+		// gRPC requests time out like any other requests using timeout or its default.
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
 		if action.Timeout.AsDuration().Nanoseconds() == 0 {
-			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-				MaxStreamDuration:    notimeout,
-				GrpcTimeoutHeaderMax: notimeout,
-			}
+			action.MaxGrpcTimeout = notimeout
 		} else {
-			// If not configured at all, the grpc-timeout header is not used and
-			// gRPC requests time out like any other requests using timeout or its default.
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
 			action.MaxGrpcTimeout = action.Timeout
 		}
 	}
@@ -1412,4 +1426,11 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
+}
+
+func cutPrefix(s, prefix string) (after string, found bool) {
+	if !strings.HasPrefix(s, prefix) {
+		return s, false
+	}
+	return s[len(prefix):], true
 }

@@ -575,7 +575,7 @@ func (lb *ListenerBuilder) translateRoute(
 	}
 
 	if in.Redirect != nil {
-		istio_route.ApplyRedirect(out, in.Redirect, listenPort)
+		istio_route.ApplyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
 	} else {
 		lb.routeDestination(out, in, authority, listenPort)
 	}

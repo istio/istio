@@ -30,6 +30,7 @@ import (
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 )
@@ -40,6 +41,7 @@ type autoServiceExportController struct {
 	client          kube.Client
 	queue           queue.Instance
 	serviceInformer cache.SharedInformer
+	serviceHandle   cache.ResourceEventHandlerRegistration
 
 	// We use this flag to short-circuit the logic and stop the controller
 	// if the CRD does not exist (or is deleted)
@@ -66,8 +68,8 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	log.Infof("%s starting controller", c.logPrefix())
 
 	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
-	c.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) { c.onServiceAdd(obj) },
+	c.serviceHandle, _ = c.serviceInformer.AddEventHandler(controllers.EventHandler[*v1.Service]{
+		AddFunc: func(obj *v1.Service) { c.onServiceAdd(obj) },
 
 		// Do nothing on update. The controller only acts on parts of the service
 		// that are immutable (e.g. name).
@@ -80,18 +82,15 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	return c
 }
 
-func (c *autoServiceExportController) onServiceAdd(obj any) {
+func (c *autoServiceExportController) onServiceAdd(svc *v1.Service) {
+	if svc == nil {
+		return
+	}
 	c.queue.Push(func() error {
 		if !c.mcsSupported {
 			// Don't create ServiceExport if MCS is not supported on the cluster.
 			log.Debugf("%s ignoring added Service, since !mcsSupported", c.logPrefix())
 			return nil
-		}
-
-		svc, err := extractService(obj)
-		if err != nil {
-			log.Warnf("%s failed converting service: %v", c.logPrefix(), err)
-			return err
 		}
 
 		if c.isClusterLocalService(svc) {
@@ -111,7 +110,8 @@ func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
 		return
 	}
 	log.Infof("%s started", c.logPrefix())
-	go c.queue.Run(stopCh)
+	c.queue.Run(stopCh)
+	_ = c.serviceInformer.RemoveEventHandler(c.serviceHandle)
 }
 
 func (c *autoServiceExportController) logPrefix() string {

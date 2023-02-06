@@ -338,6 +338,34 @@ spec:
           ports:
             - containerPort: 5000
 `
+	validPortNamingSvcWithAppProtocol = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  ports:
+    - appProtocol: http
+      port: 9080`
+	validPortNamingSvcWithAppProtocol2 = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  ports:
+    - appProtocol: http
+      name: fake # should not have error since the appProtocol field
+      port: 9080`
+	inValidPortNamingSvcWithAppProtocol = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  ports:
+    - appProtocol: fake
+      port: 9080`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -440,6 +468,21 @@ func TestValidateResource(t *testing.T) {
 			name:  "exportTo=.",
 			in:    validVirtualService2,
 			valid: true,
+		},
+		{
+			name:  "appProtocol=http",
+			in:    validPortNamingSvcWithAppProtocol,
+			valid: true,
+		},
+		{
+			name:  "appProtocol=http,name=fake",
+			in:    validPortNamingSvcWithAppProtocol2,
+			valid: true,
+		},
+		{
+			name:  "appProtocol=fake",
+			in:    inValidPortNamingSvcWithAppProtocol,
+			valid: false,
 		},
 	}
 

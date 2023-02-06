@@ -170,7 +170,7 @@ func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
 	if manifestsPath != "" {
 		flags = append(flags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
 	}
-	if revision != "" {
+	if revision != "" && revision != "default" {
 		flags = append(flags, fmt.Sprintf("revision=%s", revision))
 	}
 	return flags
