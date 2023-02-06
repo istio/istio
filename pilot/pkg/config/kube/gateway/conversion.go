@@ -43,6 +43,8 @@ const (
 	ControllerName               = "istio.io/gateway-controller"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
+	gatewayNameOverride          = "gateway.istio.io/name-override"
+	gatewaySAOverride            = "gateway.istio.io/service-account"
 )
 
 // KubernetesResources stores all inputs to our conversion
@@ -1290,6 +1292,10 @@ func referencesToInternalNames(parents []routeParentReference) []string {
 	return ret
 }
 
+func getDefaultName(name string, kgw *k8s.GatewaySpec) string {
+	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
+}
+
 func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.SectionName]*parentInfo, sets.String) {
 	// result stores our generated Istio Gateways
 	result := []config.Config{}
@@ -1526,7 +1532,7 @@ func IsManagedBeta(gw *k8sbeta.GatewaySpec) bool {
 
 func extractGatewayServices(r KubernetesResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
 	if IsManaged(kgw) {
-		return []string{fmt.Sprintf("%s.%s.svc.%v", obj.Name, obj.Namespace, r.Domain)}, nil
+		return []string{fmt.Sprintf("%s.%s.svc.%v", getDefaultName(obj.Name, kgw), obj.Namespace, r.Domain)}, nil
 	}
 	gatewayServices := []string{}
 	skippedAddresses := []string{}

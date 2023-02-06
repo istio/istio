@@ -30,6 +30,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -188,14 +189,43 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
-	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw)}
-	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
+	defaultName := getDefaultName(gw.Name, &gw.Spec)
+	gatewayName := defaultName
+	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
+		gatewayName = nameOverride
+	}
+
+	gatewaySA := defaultName
+	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
+		gatewaySA = saOverride
+	}
+
+	input := MergedInput{
+		Gateway:        &gw,
+		GatewayName:    gatewayName,
+		ServiceAccount: gatewaySA,
+		Ports:          extractServicePorts(gw),
+		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
+	}
+
+	ingressSa := d.RenderServiceAccountApply(input)
+	_, err := d.client.Kube().
+		CoreV1().
+		ServiceAccounts(gw.Namespace).
+		Apply(context.Background(), ingressSa, metav1.ApplyOptions{
+			Force: true, FieldManager: "istio gateway controller",
+		})
+	if err != nil {
+		return fmt.Errorf("update service account: %v", err)
+	}
+	log.Info("service account updated")
+
+	if err := d.ApplyTemplate("service.yaml", input); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
 
-	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
-	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
+	if err := d.ApplyTemplate("deployment.yaml", input); err != nil {
 		return fmt.Errorf("update deployment: %v", err)
 	}
 	log.Info("deployment updated")
@@ -228,6 +258,22 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("gateway updated")
 	return nil
+}
+
+func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
+	// TODO: GregHanson
+	// race condition with pod delete and service account delete, need to re-add owner reference labels once resolved
+	// related issues:
+	//  - https://github.com/kubernetes/kubernetes/issues/115459
+	//  - https://github.com/kubernetes/kubernetes/issues/115511
+	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
+		WithLabels(map[string]string{GatewayNameLabel: input.Name})
+	// nolint: gocritic
+	// WithOwnerReferences(metav1ac.OwnerReference().
+	// 	WithName(input.Name).
+	// 	WithUID(input.UID).
+	// 	WithKind(gvk.KubernetesGateway.Kind).
+	// 	WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
 }
 
 // ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
@@ -285,13 +331,11 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	return res
 }
 
-type serviceInput struct {
+type MergedInput struct {
 	*gateway.Gateway
-	Ports []corev1.ServicePort
-}
-
-type deploymentInput struct {
-	*gateway.Gateway
+	GatewayName    string
+	ServiceAccount string
+	Ports          []corev1.ServicePort
 	KubeVersion122 bool
 }
 
