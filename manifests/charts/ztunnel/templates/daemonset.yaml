@@ -59,14 +59,11 @@ spec:
           - -c
           - |
             set -ex
-            # START https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L198-L205
-            PROXY_OUTBOUND_MARK=0x401/0xfff
-            PROXY_INBOUND_MARK=0x402/0xfff
+
             PROXY_ORG_SRC_MARK=0x4d2/0xfff
             # tproxy mark, it's only used here.
             MARK=0x400/0xfff
             ORG_SRC_RET_MARK=0x4d3/0xfff
-            # END https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L198-L205
 
             # Below is from config.sh but used in redirect-worker.sh as well
             POD_OUTBOUND=15001
@@ -109,7 +106,6 @@ spec:
             # needed for original src.
             PROXY_ROUTE_TABLE=102
 
-            # START https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L185-L196
             set +e # Only for delete, we don't care if this fails
             ip link del p$INBOUND_TUN
             ip link del p$OUTBOUND_TUN
@@ -129,9 +125,7 @@ spec:
 
             echo 0 > /proc/sys/net/ipv4/conf/p$INBOUND_TUN/rp_filter
             echo 0 > /proc/sys/net/ipv4/conf/p$OUTBOUND_TUN/rp_filter
-            # END https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L185-L196
 
-            # START https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L206-L238
             set +e # Only for delete, we don't care if this fails
             ip rule del priority 20000
             ip rule del priority 20001
@@ -144,8 +138,6 @@ spec:
             set -e
 
             ip rule add priority 20000 fwmark $MARK lookup 100
-            ip rule add priority 20001 fwmark $PROXY_OUTBOUND_MARK lookup 101
-            ip rule add priority 20002 fwmark $PROXY_INBOUND_MARK lookup 102
             ip rule add priority 20003 fwmark $ORG_SRC_RET_MARK lookup 100
             ip route add local 0.0.0.0/0 dev lo table 100
 
@@ -181,7 +173,6 @@ spec:
             $IPTABLES -t mangle -A PREROUTING -p tcp -i p$INBOUND_TUN -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
 
             $IPTABLES -t mangle -A PREROUTING -p tcp -i eth0 ! --dst $INSTANCE_IP -j MARK --set-mark $ORG_SRC_RET_MARK
-            # END https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L206-L238
             # With normal linux routing we need to disable the rp_filter
             # as we get packets from a tunnel that doesn't have default routes.
             echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
