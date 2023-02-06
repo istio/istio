@@ -219,9 +219,10 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 		return host.Name(hostname)
 	}
 
+	out := hostname
+
 	// if FQDN is specified, do not append domain or namespace to hostname
 	if !strings.Contains(hostname, ".") {
-		out := hostname
 		if meta.Namespace != "" {
 			out = out + "." + meta.Namespace
 		}
@@ -234,7 +235,7 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 		}
 	}
 
-	return host.Name(hostname)
+	return host.Name(out)
 }
 
 // resolveGatewayName uses metadata information to resolve a reference
