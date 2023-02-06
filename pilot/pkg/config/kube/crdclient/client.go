@@ -509,18 +509,22 @@ func handleCRDAdd(cl *Client, name string) {
 		return
 	}
 	var i informers.GenericInformer
+	var ifactory starter
 	var err error
 	switch s.Resource().Group() {
 	case gvk.KubernetesGateway.Group:
+		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
 	case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group:
+		ifactory = cl.client.KubeInformer()
 		i, err = cl.client.KubeInformer().ForResource(gvr)
 	case gvk.CustomResourceDefinition.Group:
+		ifactory = cl.client.ExtInformer()
 		i, err = cl.client.ExtInformer().ForResource(gvr)
 	default:
+		ifactory = cl.client.IstioInformer()
 		i, err = cl.client.IstioInformer().ForResource(gvr)
 	}
-
 	if err != nil {
 		// Shouldn't happen
 		cl.logger.Errorf("failed to create informer for %v: %v", resourceGVK, err)
@@ -539,7 +543,7 @@ func handleCRDAdd(cl *Client, name string) {
 	// we will start all factories once we are ready to initialize.
 	// For dynamically added CRDs, we need to start immediately though
 	if cl.stop != nil {
-		i.Informer().Run(cl.stop)
+		ifactory.Start(cl.stop)
 	}
 }
 
