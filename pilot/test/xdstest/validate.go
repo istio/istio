@@ -113,6 +113,8 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 				fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
 			}
 			t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
+		} else {
+			check[s] = i1
 		}
 		//for i2, l2 := range l.FilterChains {
 		//	if i1 == i2 {
