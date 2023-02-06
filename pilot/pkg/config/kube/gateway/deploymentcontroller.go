@@ -189,14 +189,14 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
-	defaultName := getDefaultName(gw.Name, &gw.Spec)
+	defaultName := GetDefaultGatewayName(gw.Name, &gw.Spec)
 	gatewayName := defaultName
-	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
+	if nameOverride, exists := gw.Annotations[GatewayNameOverride]; exists {
 		gatewayName = nameOverride
 	}
 
 	gatewaySA := defaultName
-	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
+	if saOverride, exists := gw.Annotations[GatewaySAOverride]; exists {
 		gatewaySA = saOverride
 	}
 

@@ -28,6 +28,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
@@ -35,6 +36,7 @@ import (
 	istiogw "istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -147,19 +149,26 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		return nil
 	}
 
-	if gw.Spec.GatewayClassName != "istio-mesh" {
+	if gw.Spec.GatewayClassName != v1beta1.ObjectName(constants.WaypointGatewayClassName) {
 		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return nil
 	}
 
-	gatewaySA := gw.Annotations["istio.io/service-account"]
+	defaultName := istiogw.GetDefaultGatewayName(gw.Name, &gw.Spec)
+	proxyName := defaultName
+	if override, exists := gw.Annotations[istiogw.GatewayNameOverride]; exists {
+		proxyName = override
+	}
+
+	gatewaySA := gw.Annotations[constants.WaypointServiceAccount]
 	forSa := gatewaySA
 	if gatewaySA == "" {
-		gatewaySA = "namespace"
+		gatewaySA = defaultName
 	}
-	gatewaySA += "-waypoint"
+	gatewaySA += string(gw.Spec.GatewayClassName)
 
 	input := MergedInput{
+		Name:              proxyName,
 		Namespace:         gw.Namespace,
 		GatewayName:       gw.Name,
 		UID:               string(gw.UID),
@@ -168,7 +177,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		ProxyConfig:       rc.injectConfig().MeshConfig.GetDefaultConfig(),
 		ForServiceAccount: forSa,
 	}
-	log.Infof("Updating waypoint proxy %q", gw.Name+"-waypoint")
+	log.Infof("Updating waypoint proxy %q", proxyName)
 	proxySa := rc.RenderServiceAccountApply(input)
 	_, err = rc.client.Kube().
 		CoreV1().
@@ -318,8 +327,8 @@ func unmarshalDeployApply(dyaml []byte) (*appsv1ac.DeploymentApplyConfiguration,
 }
 
 type MergedInput struct {
-	GatewayName string
-
+	GatewayName       string
+	Name              string
 	Namespace         string
 	UID               string
 	ServiceAccount    string

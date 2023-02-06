@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -462,7 +463,7 @@ func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []ambient.Wo
 	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
 	is := ident.ServiceAccount
 	for _, w := range workloads {
-		if sa, f := w.Annotations["istio.io/service-account"]; f && is == sa {
+		if sa, f := w.Annotations[constants.WaypointServiceAccount]; f && is == sa {
 			sas = append(sas, w)
 		} else if !f {
 			namespace = append(namespace, w)

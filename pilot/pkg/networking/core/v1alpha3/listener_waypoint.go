@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -59,7 +60,7 @@ type WorkloadAndServices struct {
 func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
 	var workloads []ambient.Workload
-	if sa, f := node.Metadata.Annotations["istio.io/service-account"]; f {
+	if sa, f := node.Metadata.Annotations[constants.WaypointServiceAccount]; f {
 		ident := spiffe.MustGenSpiffeURI(node.ConfigNamespace, sa)
 		workloads = push.AmbientIndex.Workloads.ByIdentity[ident]
 	} else {
