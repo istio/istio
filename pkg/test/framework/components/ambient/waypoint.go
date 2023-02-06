@@ -83,7 +83,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 	}, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: {{.name}}-{{.class}}
+  name: {{.name}}
   annotations:
     istio.io/service-account: {{.sa}}
 spec:

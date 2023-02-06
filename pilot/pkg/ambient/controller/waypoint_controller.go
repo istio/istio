@@ -164,8 +164,9 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 	forSa := gatewaySA
 	if gatewaySA == "" {
 		gatewaySA = defaultName
+	} else {
+		gatewaySA = fmt.Sprintf("%v-%v", gatewaySA, string(gw.Spec.GatewayClassName))
 	}
-	gatewaySA += string(gw.Spec.GatewayClassName)
 
 	input := MergedInput{
 		Name:              proxyName,
