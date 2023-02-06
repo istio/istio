@@ -244,7 +244,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			}
 
 			if b.option.IsAmbient {
-				m.AmbientDestinationPortAdapations(b.AmbientListenerName)
+				m.AmbientDestinationPortAdaptations(b.AmbientListenerName)
 			}
 
 			generated, err := m.Generate(forTCP, b.option.UseAuthenticated, action)

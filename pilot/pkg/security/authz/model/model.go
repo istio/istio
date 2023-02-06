@@ -171,7 +171,7 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 // as necessary. For not matches, we add an `any: true` as it will always match. For value match,
 // we replace with a nil, which the generator replaces with an `any: true` if there are no other
 // rules to evaluate. We leave non-matching ports so they do not match any requests.
-func (m *Model) AmbientDestinationPortAdapations(listenerName string) {
+func (m *Model) AmbientDestinationPortAdaptations(listenerName string) {
 	// Extract port from listener name (e.g. inbound-pod|80||10.244.2.4)
 	_, _, _, portInt := model.ParseSubsetKey(listenerName)
 	port := fmt.Sprint(portInt) // the value and notValues from permissions is a string
