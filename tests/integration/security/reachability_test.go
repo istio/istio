@@ -436,7 +436,7 @@ func TestReachability(t *testing.T) {
 								Port: ports.HTTP,
 							},
 							{
-								Port: ports.HTTP,
+								Port:   ports.HTTP,
 								Scheme: scheme.WebSocket,
 							},
 							{
