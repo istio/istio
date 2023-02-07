@@ -184,8 +184,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
-		// Waypoint proxies do not need outbound clusters in most cases
-		// @TODO better to go through and filter what we do not need out, or only add those we need in
+		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
+		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterServices(req.Push.ServicesAttachedToMesh(), services))
+		cacheStats = cacheStats.merge(cs)
+		resources = append(resources, ob...)
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push)...)
@@ -223,6 +226,16 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		return resources, model.DefaultXdsLogDetails
 	}
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
+}
+
+func filterServices(mesh sets.String, services []*model.Service) []*model.Service {
+	res := []*model.Service{}
+	for _, s := range services {
+		if mesh.Contains(s.Hostname.String()) {
+			res = append(res, s)
+		}
+	}
+	return res
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {

@@ -511,10 +511,9 @@ func TestSplitWaypoint(t *testing.T) {
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// TODO: fix this and remove this skip
-			//t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+		// We are only testing from waypoint proxy
+		if !src.Config().HasWaypointProxy() {
+			return
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
@@ -538,6 +537,8 @@ spec:
 		opt = opt.DeepCopy()
 		opt.Count = 5
 		opt.Timeout = time.Second * 10
+		// We always send to waypoint, destination traffic is from the split
+		opt.To = apps.Waypoint
 		opt.Check = check.And(
 			check.OK(),
 			func(result echo.CallResult, _ error) error {

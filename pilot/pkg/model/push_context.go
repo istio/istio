@@ -109,9 +109,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
-	}
-	if features.FilterGatewayClusterConfig {
-		out.destinationsByGateway = make(map[string]sets.String)
+		destinationsByGateway:        map[string]sets.String{},
 	}
 	return out
 }
@@ -802,6 +800,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
 
 	return gwSvcs
+}
+
+func (ps *PushContext) ServicesAttachedToMesh() sets.String {
+	return ps.virtualServiceIndex.destinationsByGateway[constants.IstioMeshGateway]
 }
 
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
@@ -1606,19 +1608,14 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			}
 		}
 
-		if features.FilterGatewayClusterConfig {
-			for _, gw := range gwNames {
-				if gw == constants.IstioMeshGateway {
-					continue
-				}
-				if _, f := ps.virtualServiceIndex.destinationsByGateway[gw]; !f {
-					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.New[string]()
-				}
-				for host := range virtualServiceDestinations(rule) {
-					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
-				}
-				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
+		for _, gw := range gwNames {
+			if _, f := ps.virtualServiceIndex.destinationsByGateway[gw]; !f {
+				ps.virtualServiceIndex.destinationsByGateway[gw] = sets.New[string]()
 			}
+			for host := range virtualServiceDestinations(rule) {
+				ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
+			}
+			addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 		}
 	}
 
