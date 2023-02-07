@@ -177,4 +177,3 @@ newer versions appear to be slightly broken (same node works, cross node request
 ```shell
 v1.22.6-eks-7d68063
 ```
-
