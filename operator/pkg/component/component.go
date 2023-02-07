@@ -424,7 +424,7 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	scope.Debugf("Merged values:\n%s\n", mergedYAML)
 
 	my, err := cf.renderer.RenderManifestFiltered(mergedYAML, func(s string) bool {
-		return len(cf.Filter) == 0 || cf.Filter.Contains(s)
+		return cf.Filter.IsEmpty() || cf.Filter.Contains(s)
 	})
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)

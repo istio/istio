@@ -60,6 +60,11 @@ status:
       type: Detached
     - lastTransitionTime: fake
       message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
       reason: Ready
       status: "True"
       type: Ready
@@ -95,8 +100,23 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: b-example
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      kind: Service
+      name: a-example
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -135,8 +155,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      kind: Mesh
-      name: istio
+      kind: Service
+      name: a-example
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid

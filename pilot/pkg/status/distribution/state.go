@@ -63,6 +63,7 @@ type Controller struct {
 	workers         *status.Controller
 	StaleInterval   time.Duration
 	cmInformer      cache.SharedIndexInformer
+	cmHandle        cache.ResourceEventHandlerRegistration
 }
 
 func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore, m *status.Manager) *Controller {
@@ -102,7 +103,7 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		})).
 		Core().V1().ConfigMaps()
 	c.cmInformer = i.Informer()
-	i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
+	c.cmHandle, _ = c.cmInformer.AddEventHandler(&DistroReportHandler{dc: c})
 
 	return c
 }
@@ -111,25 +112,22 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	scope.Info("Starting status leader controller")
 
 	// this will list all existing configmaps, as well as updates, right?
-	ctx := status.NewIstioContext(stop)
-	go c.cmInformer.Run(ctx.Done())
+	go c.cmInformer.Run(stop)
 
 	//  create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t:
-				staleReporters := c.writeAllStatus()
-				if len(staleReporters) > 0 {
-					c.removeStaleReporters(staleReporters)
-				}
+	for {
+		select {
+		case <-stop:
+			_ = c.cmInformer.RemoveEventHandler(c.cmHandle)
+			return
+		case <-t:
+			staleReporters := c.writeAllStatus()
+			if len(staleReporters) > 0 {
+				c.removeStaleReporters(staleReporters)
 			}
 		}
-	}()
+	}
 }
 
 func (c *Controller) handleReport(d Report) {

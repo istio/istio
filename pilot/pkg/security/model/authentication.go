@@ -56,11 +56,6 @@ const (
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter. This should be the same as the name defined
 	// in https://github.com/envoyproxy/envoy/blob/v1.9.1/source/extensions/filters/http/well_known_names.h#L48
 	EnvoyJwtFilterName = "envoy.filters.http.jwt_authn"
-
-	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
-	// as the name defined in
-	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
-	AuthnFilterName = "istio_authn"
 )
 
 var SDSAdsConfig = &core.ConfigSource{
@@ -99,7 +94,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	}
 }
 
-// ConstructSdsSecretConfigForSDSEndpoint constructs SDS Secret Configuration based on CredentialNameSocketPath
+// ConstructSdsSecretConfigForCredentialSocket constructs SDS Secret Configuration based on CredentialNameSocketPath
 // if CredentialNameSocketPath exists, use a static cluster 'sds-external'
 func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConfig {
 	return &tls.SdsSecretConfig{

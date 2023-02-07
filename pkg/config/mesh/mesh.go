@@ -42,7 +42,6 @@ func DefaultProxyConfig() *meshconfig.ProxyConfig {
 		ConfigPath:               constants.ConfigPathDir,
 		ClusterName:              &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: constants.ServiceClusterName},
 		DrainDuration:            durationpb.New(45 * time.Second),
-		ParentShutdownDuration:   durationpb.New(60 * time.Second),
 		TerminationDrainDuration: durationpb.New(5 * time.Second),
 		ProxyAdminPort:           15000,
 		Concurrency:              &wrappers.Int32Value{Value: 2},

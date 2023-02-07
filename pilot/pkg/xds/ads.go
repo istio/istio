@@ -613,7 +613,7 @@ func setTopologyLabels(proxy *model.Proxy) {
 		localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
 	} else {
 		// If no service instances(this maybe common for a pure client), respect LocalityLabel
-		localityStr = proxy.Metadata.Labels[model.LocalityLabel]
+		localityStr = proxy.Labels[model.LocalityLabel]
 	}
 	if localityStr != "" {
 		proxy.Locality = util.ConvertLocality(localityStr)
@@ -630,7 +630,7 @@ func setTopologyLabels(proxy *model.Proxy) {
 
 	locality := util.LocalityToString(proxy.Locality)
 	// add topology labels to proxy labels
-	proxy.Labels = labelutil.AugmentLabels(proxy.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
+	proxy.Labels = labelutil.AugmentLabels(proxy.Labels, proxy.Metadata.ClusterID, locality, proxy.GetNodeName(), proxy.Metadata.Network)
 }
 
 // initializeProxy completes the initialization of a proxy. It is expected to be called only after
@@ -853,7 +853,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 		// Make sure the ConfigsUpdated map exists
 		if req.ConfigsUpdated == nil {
-			req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+			req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
 		}
 	}
 

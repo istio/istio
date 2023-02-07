@@ -81,6 +81,14 @@ const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
+const (
+	// InitContainers is the name of the property in k8s pod spec
+	InitContainers = "initContainers"
+
+	// Containers is the name of the property in k8s pod spec
+	Containers = "containers"
+)
+
 type WebhookConfig struct {
 	Templates  Templates
 	Values     ValuesConfig
@@ -110,6 +118,12 @@ func (wh *Webhook) GetConfig() WebhookConfig {
 		Values:     wh.valuesConfig,
 		MeshConfig: wh.meshConfig,
 	}
+}
+
+// ParsedContainers holds the unmarshalled containers and initContainers
+type ParsedContainers struct {
+	Containers     []corev1.Container `json:"containers,omitempty"`
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 }
 
 // nolint directives: interfacer
@@ -432,20 +446,25 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 // Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
 // the user has defined an `istio-proxy` container in their own pod spec.
 func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
-	type podOverrides struct {
-		Containers     []corev1.Container `json:"containers,omitempty"`
-		InitContainers []corev1.Container `json:"initContainers,omitempty"`
-	}
-
-	overrides := podOverrides{}
-	existingOverrides := podOverrides{}
+	overrides := ParsedContainers{}
+	existingOverrides := ParsedContainers{}
 	if annotationOverrides, f := originalPod.Annotations[annotation.ProxyOverrides.Name]; f {
 		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
 			return nil, err
 		}
 	}
-
+	parsedInjectedStatus := ParsedContainers{}
+	status, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
+	if alreadyInjected {
+		parsedInjectedStatus = parseStatus(status)
+	}
 	for _, c := range templatePod.Spec.Containers {
+		// sidecarStatus annotation is added on the pod by webhook. We should use new container template
+		// instead of restoring what maybe previously injected. Doing this ensures we are correctly calculating
+		// env variables like ISTIO_META_APP_CONTAINERS and ISTIO_META_POD_PORTS.
+		if match := FindContainer(c.Name, parsedInjectedStatus.Containers); match != nil {
+			continue
+		}
 		match := FindContainer(c.Name, existingOverrides.Containers)
 		if match == nil {
 			match = FindContainer(c.Name, originalPod.Spec.Containers)
@@ -465,6 +484,9 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod = newMergedPod
 	}
 	for _, c := range templatePod.Spec.InitContainers {
+		if match := FindContainer(c.Name, parsedInjectedStatus.InitContainers); match != nil {
+			continue
+		}
 		match := FindContainer(c.Name, existingOverrides.InitContainers)
 		if match == nil {
 			match = FindContainer(c.Name, originalPod.Spec.InitContainers)
@@ -484,7 +506,6 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod = newMergedPod
 	}
 
-	_, alreadyInjected := originalPod.Annotations[annotation.SidecarStatus.Name]
 	if !alreadyInjected && (len(overrides.Containers) > 0 || len(overrides.InitContainers) > 0) {
 		// We found any overrides. Put them in the pod annotation so we can re-apply them on re-injection
 		js, err := json.Marshal(overrides)
@@ -498,6 +519,29 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	}
 
 	return finalPod, nil
+}
+
+// parseStatus extracts containers from injected SidecarStatus annotation
+func parseStatus(status string) ParsedContainers {
+	parsedContainers := ParsedContainers{}
+	var unMarshalledStatus map[string]interface{}
+	if err := json.Unmarshal([]byte(status), &unMarshalledStatus); err != nil {
+		log.Errorf("Failed to unmarshal %s : %v", annotation.SidecarStatus.Name, err)
+		return parsedContainers
+	}
+	parser := func(key string, obj map[string]interface{}) []corev1.Container {
+		out := make([]corev1.Container, 0)
+		if value, exist := obj[key]; exist && value != nil {
+			for _, v := range value.([]interface{}) {
+				out = append(out, corev1.Container{Name: v.(string)})
+			}
+		}
+		return out
+	}
+	parsedContainers.Containers = parser(Containers, unMarshalledStatus)
+	parsedContainers.InitContainers = parser(InitContainers, unMarshalledStatus)
+
+	return parsedContainers
 }
 
 // reinsertOverrides applies the containers listed in OverrideAnnotation to a pod. This is to achieve
@@ -636,11 +680,50 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	// We don't have to escape json encoding here when using golang libraries.
 	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
-			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+			// If sidecar.istio.io/status is not present then append instead of merge.
+			_, previouslyInjected := pod.Annotations[annotation.SidecarStatus.Name]
+			sidecar.Env = mergeOrAppendProbers(previouslyInjected, sidecar.Env, prober)
 		}
 		patchRewriteProbe(pod.Annotations, pod, req.meshConfig.GetDefaultConfig().GetStatusPort())
 	}
 	return nil
+}
+
+// mergeOrAppendProbers ensures that if sidecar has existing ISTIO_KUBE_APP_PROBERS,
+// then probers should be merged.
+func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newProbers string) []corev1.EnvVar {
+	if !previouslyInjected {
+		return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
+	}
+	for idx, env := range envVars {
+		if env.Name == status.KubeAppProberEnvName {
+			var existingKubeAppProber KubeAppProbers
+			err := json.Unmarshal([]byte(env.Value), &existingKubeAppProber)
+			if err != nil {
+				log.Errorf("failed to unmarshal existing kubeAppProbers %v", err)
+				return envVars
+			}
+			var newKubeAppProber KubeAppProbers
+			err = json.Unmarshal([]byte(newProbers), &newKubeAppProber)
+			if err != nil {
+				log.Errorf("failed to unmarshal new kubeAppProbers %v", err)
+				return envVars
+			}
+			for k, v := range existingKubeAppProber {
+				// merge old and new probers.
+				newKubeAppProber[k] = v
+			}
+			marshalledKubeAppProber, err := json.Marshal(newKubeAppProber)
+			if err != nil {
+				log.Errorf("failed to serialize the merged app prober config %v", err)
+				return envVars
+			}
+			// replace old env var with new value.
+			envVars[idx] = corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: string(marshalledKubeAppProber)}
+			return envVars
+		}
+	}
+	return envVars
 }
 
 var emptyScrape = status.PrometheusScrapeConfiguration{}
@@ -983,8 +1066,10 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		ar, err = kube.AdmissionReviewKubeToAdapter(out)
 		if err != nil {
 			handleError(fmt.Sprintf("Could not decode object: %v", err))
+			reviewResponse = toAdmissionResponse(err)
+		} else {
+			reviewResponse = wh.inject(ar, path)
 		}
-		reviewResponse = wh.inject(ar, path)
 	}
 
 	response := kube.AdmissionReview{}

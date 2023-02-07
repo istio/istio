@@ -117,7 +117,7 @@ func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 	if e.cache == nil {
 		return
 	}
-	e.cache.Clear(map[ConfigKey]struct{}{{
+	e.cache.Clear(sets.Set[ConfigKey]{{
 		Kind:      kind.ServiceEntry,
 		Name:      svc,
 		Namespace: ns,

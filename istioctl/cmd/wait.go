@@ -185,7 +185,7 @@ func poll(cmd *cobra.Command,
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
+	path := fmt.Sprintf("debug/config_distribution?resource=%s", targetResource)
 	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("unable to query pilot for distribution "+

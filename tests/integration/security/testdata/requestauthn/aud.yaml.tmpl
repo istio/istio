@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: {{ .To.ServiceName }}-part1
@@ -16,7 +16,7 @@ spec:
     audiences:
     - "bar"
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: {{ .To.ServiceName }}-part2

@@ -161,8 +161,8 @@ metadata:
   name: b
 spec:
   parentRefs:
-  - kind: Mesh
-    name: istio
+  - kind: Service
+    name: b
   - name: gateway
     namespace: istio-system
   hostnames: ["b"]
@@ -196,6 +196,7 @@ spec:
 									Path:    path,
 									Headers: headers.New().WithHost("my.domain.example").Build(),
 								},
+								Check: check.OK(),
 							})
 						}
 					})
@@ -209,6 +210,7 @@ spec:
 								Path:    "/",
 								Headers: headers.New().WithHost("my.domain.example").Build(),
 							},
+							Check: check.OK(),
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {

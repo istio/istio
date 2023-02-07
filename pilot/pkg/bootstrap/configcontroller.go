@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"net/url"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -155,12 +158,14 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
+	s.waitForCRD = configController.WaitForCRD
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD,
+			s.environment.CredentialsController, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
@@ -188,7 +193,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
-						if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
 							controller := gateway.NewDeploymentController(s.kubeClient)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
@@ -250,6 +255,14 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 					IstioRevision: args.Revision,
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
+				GrpcOpts: []grpc.DialOption{
+					args.KeepaliveOptions.ConvertToClientOption(),
+					// Because we use the custom grpc options for adsc, here we should
+					// explicitly set transport credentials.
+					// TODO: maybe we should use the tls settings within ConfigSource
+					// to secure the connection between istiod and remote xds server.
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
@@ -331,19 +344,19 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
+				AddRunFunction(func(leaderStop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start
 					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore, s.statusManager)
 					s.statusReporter.SetController(controller)
-					controller.Start(stop)
+					controller.Start(leaderStop)
 				}).Run(stop)
 			return nil
 		})
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
 	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,

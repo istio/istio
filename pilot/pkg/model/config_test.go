@@ -497,52 +497,6 @@ func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
 	}
 }
 
-func TestConfigsOnlyHaveKind(t *testing.T) {
-	tests := []struct {
-		name    string
-		configs map[model.ConfigKey]struct{}
-		want    bool
-	}{
-		{
-			name: "mix",
-			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Deployment}: {},
-				{Kind: kind.Secret}:     {},
-			},
-			want: true,
-		},
-		{
-			name: "no secret",
-			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Deployment}: {},
-			},
-			want: false,
-		},
-		{
-			name: "only secret",
-			configs: map[model.ConfigKey]struct{}{
-				{Kind: kind.Secret}: {},
-				{Kind: kind.Secret}: {},
-			},
-			want: true,
-		},
-		{
-			name:    "empty",
-			configs: map[model.ConfigKey]struct{}{},
-			want:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := model.ConfigsHaveKind(tt.configs, kind.Secret)
-			if tt.want != got {
-				t.Errorf("got %v want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func BenchmarkHashCode(b *testing.B) {
 	benchmarks := []struct {
 		name   string
@@ -579,5 +533,23 @@ func BenchmarkHashCode(b *testing.B) {
 				bm.config.HashCode()
 			}
 		})
+	}
+}
+
+func TestHashCodeCollision(t *testing.T) {
+	config1 := model.ConfigKey{
+		Kind:      kind.VirtualService,
+		Name:      "abc",
+		Namespace: "ns-foo",
+	}
+
+	config2 := model.ConfigKey{
+		Kind:      kind.VirtualService,
+		Name:      "ab",
+		Namespace: "cns-foo",
+	}
+
+	if config1.HashCode() == config2.HashCode() {
+		t.Fatalf("Hash code of config1 %s should not be equal to config2 %s", config1.String(), config2.String())
 	}
 }

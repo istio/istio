@@ -107,7 +107,7 @@ func ExtractJwtAud(jwt string) ([]string, bool) {
 	}
 	payload := jwtSplit[1]
 
-	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	payloadBytes, err := DecodeJwtPart(payload)
 	if err != nil {
 		return nil, false
 	}
@@ -128,7 +128,7 @@ func parseJwtClaims(token string) (map[string]any, error) {
 	}
 
 	// Decode the second part.
-	claimBytes, err := decodeSegment(parts[1])
+	claimBytes, err := DecodeJwtPart(parts[1])
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func parseJwtClaims(token string) (map[string]any, error) {
 	return claims, nil
 }
 
-func decodeSegment(seg string) ([]byte, error) {
+func DecodeJwtPart(seg string) ([]byte, error) {
 	if l := len(seg) % 4; l > 0 {
 		seg += strings.Repeat("=", 4-l)
 	}

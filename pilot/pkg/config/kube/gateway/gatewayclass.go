@@ -49,7 +49,7 @@ func NewClassController(client kube.Client) *ClassController {
 	class := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	gc.classes = class.Lister()
 	gc.directClient = client.GatewayAPI().GatewayV1beta1().GatewayClasses()
-	class.Informer().
+	_, _ = class.Informer().
 		AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
 			return o.GetName() == DefaultClassName
 		}))

@@ -947,11 +947,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 										},
 									}}}},
 								}}}},
-								"default_original_port": {
-									Kind: &structpb.Value_NumberValue{
-										NumberValue: float64(8080),
-									},
-								},
 							},
 						},
 					},
@@ -1055,11 +1050,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 									},
 								}}}},
 							}}}},
-							"default_original_port": {
-								Kind: &structpb.Value_NumberValue{
-									NumberValue: float64(8080),
-								},
-							},
 						}},
 					},
 				},

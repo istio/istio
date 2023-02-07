@@ -20,6 +20,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 )
 
+type ServiceHandler func(*Service, *Service, Event)
+
 // Controller defines an event controller loop.  Proxy agent registers itself
 // with the controller loop and receives notifications on changes to the
 // service topology or changes to the configuration artifacts.
@@ -39,7 +41,7 @@ type Controller interface {
 	// For per cluster handlers, they should be registered by the `AppendXXXHandlerForCluster` interface.
 
 	// AppendServiceHandler notifies about changes to the service catalog.
-	AppendServiceHandler(f func(*Service, Event))
+	AppendServiceHandler(f ServiceHandler)
 
 	// AppendWorkloadHandler notifies about changes to workloads. This differs from InstanceHandler,
 	// which deals with service instances (the result of a merge of Service and Workload)
@@ -57,7 +59,7 @@ type AggregateController interface {
 	Controller
 	// AppendServiceHandlerForCluster is similar to Controller.AppendServiceHandler,
 	// but it is used to store the handler from a specific cluster.
-	AppendServiceHandlerForCluster(clusterID cluster.ID, f func(*Service, Event))
+	AppendServiceHandlerForCluster(clusterID cluster.ID, f ServiceHandler)
 	// AppendWorkloadHandlerForCluster is similar to Controller.AppendWorkloadHandler,
 	// but it is used to store the handler from a specific cluster.
 	AppendWorkloadHandlerForCluster(clusterID cluster.ID, f func(*WorkloadInstance, Event))
@@ -67,14 +69,14 @@ type AggregateController interface {
 // ControllerHandlers is a utility to help Controller implementations manage their lists of handlers.
 type ControllerHandlers struct {
 	mutex            sync.RWMutex
-	serviceHandlers  []func(*Service, Event)
+	serviceHandlers  []ServiceHandler
 	workloadHandlers []func(*WorkloadInstance, Event)
 }
 
-func (c *ControllerHandlers) AppendServiceHandler(f func(*Service, Event)) {
+func (c *ControllerHandlers) AppendServiceHandler(f ServiceHandler) {
 	// Copy on write.
 	c.mutex.Lock()
-	handlers := make([]func(*Service, Event), 0, len(c.serviceHandlers)+1)
+	handlers := make([]ServiceHandler, 0, len(c.serviceHandlers)+1)
 	handlers = append(handlers, c.serviceHandlers...)
 	handlers = append(handlers, f)
 	c.serviceHandlers = handlers
@@ -91,7 +93,7 @@ func (c *ControllerHandlers) AppendWorkloadHandler(f func(*WorkloadInstance, Eve
 	c.mutex.Unlock()
 }
 
-func (c *ControllerHandlers) GetServiceHandlers() []func(*Service, Event) {
+func (c *ControllerHandlers) GetServiceHandlers() []ServiceHandler {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	// Return a shallow copy of the array
@@ -105,9 +107,9 @@ func (c *ControllerHandlers) GetWorkloadHandlers() []func(*WorkloadInstance, Eve
 	return c.workloadHandlers
 }
 
-func (c *ControllerHandlers) NotifyServiceHandlers(svc *Service, event Event) {
+func (c *ControllerHandlers) NotifyServiceHandlers(prev, curr *Service, event Event) {
 	for _, f := range c.GetServiceHandlers() {
-		f(svc, event)
+		f(prev, curr, event)
 	}
 }
 

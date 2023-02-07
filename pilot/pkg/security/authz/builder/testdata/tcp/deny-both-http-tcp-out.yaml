@@ -45,7 +45,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-1/.*
       ns[foo]-policy[httpbin-deny]-rule[4]:
         permissions:
@@ -85,7 +84,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-2/.*
       ns[foo]-policy[httpbin-deny]-rule[7]:
         permissions:
@@ -103,7 +101,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-1/.*
       ns[foo]-policy[httpbin-deny]-rule[8]:
         permissions:
@@ -195,7 +192,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*principal-suffix
                 - filterState:
                     key: io.istio.peer_principal
@@ -205,7 +201,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
@@ -218,7 +213,6 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: spiffe://.*not-principal-suffix
                   - filterState:
                       key: io.istio.peer_principal
@@ -228,7 +222,6 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - orIds:
                 ids:
@@ -236,25 +229,21 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*ns-suffix/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-prefix.*/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
@@ -263,25 +252,21 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*not-ns-suffix/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns-prefix.*/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
@@ -333,25 +318,21 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*ns-suffix/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-prefix.*/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
@@ -360,25 +341,21 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*not-ns-suffix/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns-prefix.*/.*
                   - filterState:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
@@ -390,7 +367,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*principal-suffix
                 - filterState:
                     key: io.istio.peer_principal
@@ -400,7 +376,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
@@ -413,7 +388,6 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: spiffe://.*not-principal-suffix
                   - filterState:
                       key: io.istio.peer_principal
@@ -423,7 +397,6 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
   shadowRulesStatPrefix: istio_dry_run_allow_
   statPrefix: tcp.

@@ -17,11 +17,13 @@ package grpc
 import (
 	"context"
 	"io"
+	"math"
 	"strings"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
@@ -76,6 +78,38 @@ func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnarySe
 	}
 
 	return grpcOptions
+}
+
+const (
+	defaultClientMaxReceiveMessageSize = math.MaxInt32
+	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
+)
+
+// ClientOptions returns consistent grpc dial options with custom dial options
+func ClientOptions(options *istiokeepalive.Options, tlsOpts *TLSOptions) ([]grpc.DialOption, error) {
+	if options == nil {
+		options = istiokeepalive.DefaultOption()
+	}
+	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:    options.Time,
+		Timeout: options.Timeout,
+	})
+
+	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
+	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
+	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
+	var tlsDialOpts grpc.DialOption
+	var err error
+	if tlsOpts != nil {
+		tlsDialOpts, err = getTLSDialOption(tlsOpts)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		tlsDialOpts = grpc.WithTransportCredentials(insecure.NewCredentials())
+	}
+	return []grpc.DialOption{keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption, tlsDialOpts}, nil
 }
 
 var expectedGrpcFailureMessages = sets.New(

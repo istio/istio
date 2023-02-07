@@ -1425,10 +1425,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			server: &networking.Server{
 				Name: "server1",
 				Port: &networking.Port{
-					Name:       "https-app",
-					Number:     443,
-					TargetPort: 8443,
-					Protocol:   "HTTPS",
+					Name:     "https-app",
+					Number:   443,
+					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org"},
 				Tls: &networking.ServerTLSSettings{
@@ -2542,7 +2541,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 
 func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	virtualServiceSpec := &networking.VirtualService{
-		Hosts: []string{"*.example.org"},
+		Hosts: []string{"*"},
 		Http: []*networking.HTTPRoute{
 			{
 				Route: []*networking.HTTPRouteDestination{
@@ -2849,6 +2848,174 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				}},
 			})
+		})
+	}
+}
+
+func TestGatewayFilterChainSNIOverlap(t *testing.T) {
+	cases := []struct {
+		name            string
+		gateways        []config.Config
+		virtualServices []config.Config
+	}{
+		{
+			name: "no sni overlap",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "example", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: "example", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gw"},
+						Hosts:    []string{"example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										SniHosts: []string{"example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "example",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "sni overlap in one gateway",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "example", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+							{
+								Port:  &networking.Port{Name: "wildcard-tls", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: "example", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gw"},
+						Hosts:    []string{"example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										SniHosts: []string{"example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "example",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "sni overlap in two gateways",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "example", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gw2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "wildcard-tls", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: "example", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gw2"},
+						Hosts:    []string{"example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										SniHosts: []string{"example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "example",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			configs := make([]config.Config, 0)
+			configs = append(configs, tt.gateways...)
+			configs = append(configs, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: configs,
+			})
+			proxy := cg.SetupProxy(&proxyGateway)
+			proxy.Metadata = &proxyGatewayMetadata
+
+			builder := cg.ConfigGen.buildGatewayListeners(NewListenerBuilder(cg.ConfigGen, proxy, cg.PushContext()))
+			xdstest.ValidateListeners(t, builder.gatewayListeners)
 		})
 	}
 }

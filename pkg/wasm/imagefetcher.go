@@ -255,7 +255,9 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 	const wasmPluginFileName = "plugin.wasm"
 
 	// Search for the file walking through the archive.
-	tr := tar.NewReader(gr)
+
+	// Limit wasm binary to 256mb; in reality it must be much smaller
+	tr := tar.NewReader(io.LimitReader(gr, 1024*1024*256))
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {

@@ -46,9 +46,9 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
-		var ports []*v1alpha3.Port
+		var ports []*v1alpha3.ServicePort
 		for _, p := range s.Ports {
-			ports = append(ports, &v1alpha3.Port{
+			ports = append(ports, &v1alpha3.ServicePort{
 				Number:   uint32(p.Port),
 				Name:     p.Name,
 				Protocol: string(p.Protocol),

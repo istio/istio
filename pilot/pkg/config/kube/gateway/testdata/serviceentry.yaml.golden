@@ -31,7 +31,8 @@ spec:
   hosts:
   - '*'
   http:
-  - route:
+  - name: default.http.0
+    route:
     - destination:
         host: google.com
         port:

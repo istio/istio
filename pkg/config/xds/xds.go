@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
@@ -25,7 +24,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -78,15 +76,15 @@ func StructToMessage(pbst *structpb.Struct, out proto.Message, strict bool) erro
 		return errors.New("nil struct")
 	}
 
-	buf := &bytes.Buffer{}
-	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, pbst); err != nil {
+	buf, err := protomarshal.MarshalProtoNames(pbst)
+	if err != nil {
 		return err
 	}
 
 	// If strict is not set, ignore unknown fields as they may be sending versions of
 	// the proto we are not internally using
 	if strict {
-		return protomarshal.Unmarshal(buf.Bytes(), out)
+		return protomarshal.Unmarshal(buf, out)
 	}
-	return protomarshal.UnmarshalAllowUnknown(buf.Bytes(), out)
+	return protomarshal.UnmarshalAllowUnknown(buf, out)
 }

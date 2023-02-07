@@ -36,8 +36,10 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-  - kind: Mesh
-    name: istio
+  - kind: Service
+    name: a-example
+  - kind: Service
+    name: b-example
   hostnames: ["a.domain.example", "b.domain.example"]
   rules:
   - matches:
@@ -68,8 +70,8 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-  - kind: Mesh
-    name: istio
+  - kind: Service
+    name: a-example
   hostnames: ["a.domain.example"]
   rules:
   - matches:

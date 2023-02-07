@@ -731,15 +731,15 @@ func (sc *SecretManagerClient) handleFileWatch() {
 }
 
 func isWrite(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Write == fsnotify.Write
+	return event.Has(fsnotify.Write)
 }
 
 func isCreate(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Create == fsnotify.Create
+	return event.Has(fsnotify.Create)
 }
 
 func isRemove(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Remove == fsnotify.Remove
+	return event.Has(fsnotify.Remove)
 }
 
 // concatCerts concatenates PEM certificates, making sure each one starts on a new line

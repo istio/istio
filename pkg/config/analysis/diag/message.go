@@ -119,7 +119,7 @@ func (m *Message) UnstructuredAnalysisMessageBase() map[string]any {
 	if err != nil {
 		return r
 	}
-	json.Unmarshal(j, &r) // nolint: errcheck
+	_ = json.Unmarshal(j, &r)
 
 	return r
 }

@@ -73,6 +73,13 @@ func TestIptables(t *testing.T) {
 				cfg.OwnerGroupsExclude = "888,ftp"
 			},
 		},
+		{
+			"inbound-interception-mode",
+			func(cfg *config.Config) {
+				cfg.InboundInterceptionMode = "TPROXY"
+				cfg.InboundTProxyMark = "1337"
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

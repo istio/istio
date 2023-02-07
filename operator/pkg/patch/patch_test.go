@@ -24,7 +24,7 @@ import (
 
 func TestPatchYAMLManifestSuccess(t *testing.T) {
 	base := `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -52,7 +52,7 @@ a:
 			path:  `a.b.[name:n1].value`,
 			value: `v2`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -74,7 +74,7 @@ a:
 			path:  `a.b.[name:n1].value`,
 			value: `v2`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -96,7 +96,7 @@ a:
 			path:  `a.b.[name:n2].list.[v2]`,
 			value: `v3`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -117,7 +117,7 @@ a:
 			desc: "DeleteListEntry",
 			path: `a.b.[name:n1]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -136,7 +136,7 @@ a:
 			desc: "DeleteListEntryValue",
 			path: `a.b.[name:n2].list.[v2]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -156,7 +156,7 @@ a:
 			desc: "DeleteListEntryValueRegex",
 			path: `a.b.[name:n2].list.[v3]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -178,7 +178,7 @@ a:
 			value: `
       d: n3`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -201,7 +201,7 @@ a:
 			path:  `a.b.[name:n2].list.[3]`,
 			value: `v4`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -241,7 +241,7 @@ a:
 
 func TestPatchYAMLManifestRealYAMLSuccess(t *testing.T) {
 	base := `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -276,7 +276,7 @@ spec:
 			desc: "DeleteLeafListLeaf",
 			path: `spec.template.spec.containers.[name:galley].command.[--validation-webhook-config-file]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -304,7 +304,7 @@ spec:
 			path:  `spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]`,
 			value: `--livenessProbeInterval=1111s`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -333,7 +333,7 @@ spec:
 			path:  `spec.template.spec.containers.[name:galley].ports.[containerPort:15014].containerPort`,
 			value: `22222`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -361,7 +361,7 @@ spec:
 			desc: "DeleteLeafList",
 			path: `spec.template.spec.containers.[name:galley].ports.[containerPort:9901]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -388,7 +388,7 @@ spec:
 			desc: "DeleteInternalNode",
 			path: `spec.template.spec.containers.[name:deleteThis]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -414,7 +414,7 @@ spec:
 			desc: "DeleteLeafListEntry",
 			path: `spec.template.spec.containers.[name:galley].command.[--validation-webhook-config-file]`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel
@@ -443,7 +443,7 @@ spec:
 			value: `
       fooPort: 15015`,
 			want: `
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-citadel

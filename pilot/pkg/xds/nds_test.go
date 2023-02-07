@@ -14,7 +14,9 @@
 package xds_test
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -22,6 +24,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -42,7 +45,7 @@ func TestNDS(t *testing.T) {
 			expected: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"random-1.host.example": {
-						Ips:      []string{"240.240.0.1"},
+						Ips:      []string{"240.240.114.167"},
 						Registry: "External",
 					},
 					"random-2.host.example": {
@@ -50,7 +53,7 @@ func TestNDS(t *testing.T) {
 						Registry: "External",
 					},
 					"random-3.host.example": {
-						Ips:      []string{"240.240.0.2"},
+						Ips:      []string{"240.240.48.215"},
 						Registry: "External",
 					},
 				},
@@ -96,6 +99,62 @@ func TestNDS(t *testing.T) {
 			}
 			if diff := cmp.Diff(nt, tt.expected, protocmp.Transform()); diff != "" {
 				t.Fatalf("name table does not match expected value:\n %v", diff)
+			}
+		})
+	}
+}
+
+func TestGenerate(t *testing.T) {
+	nt := &dnsProto.NameTable{
+		Table: make(map[string]*dnsProto.NameTable_NameInfo),
+	}
+	emptyNameTable := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
+
+	cases := []struct {
+		name      string
+		proxy     *model.Proxy
+		resources []string
+		request   *model.PushRequest
+		nameTable []*discovery.Resource
+	}{
+		{
+			name:      "partial push with headless endpoint update",
+			proxy:     &model.Proxy{Type: model.SidecarProxy},
+			request:   &model.PushRequest{Reason: []model.TriggerReason{model.HeadlessEndpointUpdate}},
+			nameTable: emptyNameTable,
+		},
+		{
+			name:      "full push",
+			proxy:     &model.Proxy{Type: model.SidecarProxy},
+			request:   &model.PushRequest{Full: true},
+			nameTable: emptyNameTable,
+		},
+		{
+			name:      "partial push with no headless endpoint update",
+			proxy:     &model.Proxy{Type: model.SidecarProxy},
+			request:   &model.PushRequest{},
+			nameTable: nil,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+
+			gen := s.Discovery.Generators[v3.NameTableType]
+			tt.request.Start = time.Now()
+			nametable, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			if len(tt.nameTable) == 0 {
+				if len(nametable) != 0 {
+					t.Errorf("unexpected nametable. want: %v, got: %v", tt.nameTable, nametable)
+				}
+			} else {
+				if !reflect.DeepEqual(tt.nameTable[0].Resource, nametable[0].Resource) {
+					t.Errorf("unexpected nametable. want: %v, got: %v", tt.nameTable, nametable)
+				}
 			}
 		})
 	}

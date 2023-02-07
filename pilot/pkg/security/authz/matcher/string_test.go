@@ -94,9 +94,6 @@ func TestStringMatcherRegex(t *testing.T) {
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
 						Regex: "*",
-						EngineType: &matcher.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-						},
 					},
 				},
 			},
@@ -108,9 +105,6 @@ func TestStringMatcherRegex(t *testing.T) {
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
 						Regex: "+?",
-						EngineType: &matcher.RegexMatcher_GoogleRe2{
-							GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-						},
 					},
 				},
 			},

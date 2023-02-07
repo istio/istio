@@ -43,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -167,13 +168,13 @@ type CLIClient interface {
 	// Revision of the Istio control plane.
 	Revision() string
 
-	// EnvoyDo makes an http request to the Envoy in the specified pod.
+	// EnvoyDo makes a http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
-	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	// EnvoyDoWithPort makes a http request to the Envoy in the specified pod and port.
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
-	// AllDiscoveryDo makes an http request to each Istio discovery instance.
+	// AllDiscoveryDo makes a http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
 
 	// GetIstioVersions gets the version for each Istio control plane component.
@@ -222,6 +223,12 @@ type CLIClient interface {
 
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
+
+	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
+	InvalidateDiscovery()
+
+	// Shutdown closes all informers and waits for them to terminate
+	Shutdown()
 }
 
 type PortManager func() (uint16, error)
@@ -304,7 +311,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 
-	// discoveryv1/EndpontSlices readable from discoveryv1beta1/EndpointSlices
+	// discoveryv1/EndpointSlices readable from discoveryv1beta1/EndpointSlices
 	c.mirrorQueue = queue.NewQueue(1 * time.Second)
 	mirrorResource(
 		c.mirrorQueue,
@@ -397,7 +404,7 @@ type client struct {
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
 	started atomic.Bool
-	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
+	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
@@ -413,6 +420,9 @@ type client struct {
 	version lazy.Lazy[*kubeVersion.Info]
 
 	portManager PortManager
+
+	// http is a client for HTTP requests
+	http *http.Client
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -484,6 +494,9 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 
 	c.portManager = defaultAvailablePort
 
+	c.http = &http.Client{
+		Timeout: time.Second * 15,
+	}
 	var clientWithTimeout kubernetes.Interface
 	clientWithTimeout = c.kube
 	restConfig := c.RESTConfig()
@@ -617,6 +630,16 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.gatewayapiInformer.WaitForCacheSync(stop)
 		c.extInformer.WaitForCacheSync(stop)
 	}
+}
+
+func (c *client) Shutdown() {
+	c.kubeInformer.Shutdown()
+	// TODO: use these once they are implemented
+	// c.dynamicInformer.Shutdown()
+	// c.metadataInformer.Shutdown()
+	// c.istioInformer.Shutdown()
+	// c.gatewayapiInformer.Shutdown()
+	c.extInformer.Shutdown()
 }
 
 func (c *client) startInformer(stop <-chan struct{}) {
@@ -774,7 +797,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
@@ -864,7 +887,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 	if err != nil {
 		return nil, formatError(err)
 	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := c.http.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, formatError(err)
 	}
@@ -1157,11 +1180,15 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 			log.Warnf("Failed to read %s: %v", file, err)
 		}
 		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
-			c.discoveryClient.Invalidate()
-			c.mapper.Reset()
+			c.InvalidateDiscovery()
 		}
 	}
 	return nil
+}
+
+func (c *client) InvalidateDiscovery() {
+	c.discoveryClient.Invalidate()
+	c.mapper.Reset()
 }
 
 func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {
@@ -1295,7 +1322,10 @@ func isEmptyFile(f string) bool {
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
-var IstioScheme = istioScheme()
+var (
+	IstioScheme = istioScheme()
+	IstioCodec  = serializer.NewCodecFactory(IstioScheme)
+)
 
 // FakeIstioScheme is an IstioScheme that has List type registered.
 var FakeIstioScheme = func() *runtime.Scheme {
@@ -1326,13 +1356,18 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	nParts := len(versionParts)
 	if nParts >= 3 {
 		// The format will be like 1.12.0-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty-Modified
-		// version is '1.12.0'
-		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
-		// status is 'Modified'
-		serverInfo.Version = versionParts[0]
-		serverInfo.GitTag = serverInfo.Version
-		serverInfo.GitRevision = strings.Join(versionParts[1:nParts-1], "-")
+		// version is '1.12.0' || '1.12.0-custom-build'
+		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a' || '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
+		// status is 'Modified' || 'Clean'
+		// Ref From common/scripts/report_build_info.sh
+		serverInfo.Version = strings.Join(versionParts[:nParts-2], "-")
+		serverInfo.GitRevision = versionParts[nParts-2]
 		serverInfo.BuildStatus = versionParts[nParts-1]
+		if serverInfo.GitRevision == "dirty" {
+			serverInfo.GitRevision = strings.Join([]string{versionParts[nParts-3], "dirty"}, "-")
+			serverInfo.Version = strings.Join(versionParts[:nParts-3], "-")
+		}
+		serverInfo.GitTag = serverInfo.Version
 	} else {
 		serverInfo.Version = istioInfo
 	}

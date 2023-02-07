@@ -30,7 +30,7 @@ func TestGetWorkloadServiceEntries(t *testing.T) {
 		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-1"},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking.ServicePort{
 				{Number: 80, Name: "http-number", Protocol: "http"},
 				{Number: 8080, Name: "http2-number", Protocol: "http2"},
 			},
@@ -43,7 +43,7 @@ func TestGetWorkloadServiceEntries(t *testing.T) {
 		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-2"},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking.ServicePort{
 				{Number: 80, Name: "http-number", Protocol: "http"},
 				{Number: 8080, Name: "http2-number", Protocol: "http2"},
 			},
@@ -57,7 +57,7 @@ func TestGetWorkloadServiceEntries(t *testing.T) {
 		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-3"},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"www.wikipedia.org"},
-			Ports: []*networking.Port{
+			Ports: []*networking.ServicePort{
 				{Number: 80, Name: "http-number", Protocol: "http"},
 				{Number: 8080, Name: "http2-number", Protocol: "http2"},
 			},

@@ -75,7 +75,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
-  name: invalid-tls
+  name: invalid-cert-kind
   namespace: istio-system
 spec:
   addresses:
@@ -95,21 +95,46 @@ spec:
         kind: unknown
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
+kind: Gateway
 metadata:
-  name: invalid-filter
-  namespace: default
+  name: invalid-cert-notfound
+  namespace: istio-system
 spec:
-  hostnames: ["first.domain.example"]
-  parentRefs:
-  - name: gateway
-    namespace: istio-system
-  rules:
-  - filters:
-    - type: ExtensionRef
-    backendRefs:
-    - name: httpbin
-      port: 80
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "domain.example"
+    port: 34001
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: nonexistent
+        kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: invalid-cert-malformed
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "domain.example"
+    port: 34002
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: malformed
+        kind: Secret
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -183,3 +208,20 @@ spec:
     backendRefs:
     - name: httpbin
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: no-backend
+  namespace: default
+spec:
+  parentRefs:
+  - kind: Service
+    name: httpbin
+  rules:
+  - filters:
+    - type: RequestMirror
+      requestMirror:
+        backendRef:
+          name: httpbin
+          port: 80

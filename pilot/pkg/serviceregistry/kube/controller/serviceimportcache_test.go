@@ -211,6 +211,11 @@ func newTestServiceImportCache(t test.Failer, mode EndpointMode) (c *FakeControl
 	})
 
 	ic = c.imports.(*serviceImportCacheImpl)
+	close(ic.serviceImportCh)
+	retry.UntilOrFail(t, func() bool {
+		return ic.started.Load()
+	}, serviceImportTimeout)
+
 	return
 }
 

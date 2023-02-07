@@ -21,7 +21,8 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -102,7 +103,7 @@ type XdsCache interface {
 	// whether the entry exists in the cache.
 	Get(entry XdsCacheEntry) (*discovery.Resource, bool)
 	// Clear removes the cache entries that are dependent on the configs passed.
-	Clear(map[ConfigKey]struct{})
+	Clear(sets.Set[ConfigKey])
 	// ClearAll clears the entire cache.
 	ClearAll()
 	// Keys returns all currently configured keys. This is for testing/debug only
@@ -137,7 +138,7 @@ func NewLenientXdsCache() XdsCache {
 
 type lruCache struct {
 	enableAssertions bool
-	store            simplelru.LRUCache
+	store            simplelru.LRUCache[string, cacheValue]
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
 	token       CacheToken
@@ -151,7 +152,7 @@ type lruCache struct {
 
 var _ XdsCache = &lruCache{}
 
-func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
+func newLru(evictCallback simplelru.EvictCallback[string, cacheValue]) simplelru.LRUCache[string, cacheValue] {
 	sz := features.XDSCacheMaxSize
 	if sz <= 0 {
 		sz = 20000
@@ -172,7 +173,7 @@ func (l *lruCache) recordDependentConfigSize() {
 }
 
 // This is the callback passed to LRU, it will be called whenever a key is removed.
-func (l *lruCache) onEvict(k any, v any) {
+func (l *lruCache) onEvict(k string, v cacheValue) {
 	if l.evictedOnClear {
 		xdsCacheEvictsionsOnClear.Increment()
 	} else {
@@ -183,10 +184,7 @@ func (l *lruCache) onEvict(k any, v any) {
 	// because, passive eviction might be triggered by one of many dependent configs and we need to clear the
 	// reference from other dependents.
 	// We don't need to acquire locks, since this function is called when we write to the store.
-	key := k.(string)
-	value := v.(cacheValue)
-
-	l.clearIndexes(key, value)
+	l.clearIndexes(k, v)
 }
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
@@ -276,13 +274,13 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	cur, f := l.store.Get(k)
 	if f {
 		// This is the stale resource
-		if token < cur.(cacheValue).token || token < l.token {
+		if token <= cur.token || token < l.token {
 			// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 			// after we call Get.
 			return
 		}
 		if l.enableAssertions {
-			l.assertUnchanged(k, cur.(cacheValue).value, value)
+			l.assertUnchanged(k, cur.value, value)
 		}
 	}
 
@@ -293,8 +291,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	// we have to make sure we evict old entries with the same key
 	// to prevent leaking in the index maps
 	if f {
-		value := cur.(cacheValue)
-		l.clearIndexes(k, value)
+		l.clearIndexes(k, cur)
 	}
 
 	dependentConfigs := entry.DependentConfigs()
@@ -321,12 +318,11 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	k := entry.Key()
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	val, ok := l.store.Get(k)
+	cv, ok := l.store.Get(k)
 	if !ok {
 		miss()
 		return nil, false
 	}
-	cv := val.(cacheValue)
 	if cv.value == nil {
 		miss()
 		return nil, false
@@ -335,7 +331,7 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	return cv.value, true
 }
 
-func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
+func (l *lruCache) Clear(configs sets.Set[ConfigKey]) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
@@ -374,12 +370,7 @@ func (l *lruCache) ClearAll() {
 func (l *lruCache) Keys() []string {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	iKeys := l.store.Keys()
-	keys := make([]string, 0, len(iKeys))
-	for _, ik := range iKeys {
-		keys = append(keys, ik.(string))
-	}
-	return keys
+	return slices.Clone(l.store.Keys())
 }
 
 func (l *lruCache) Snapshot() map[string]*discovery.Resource {
@@ -393,7 +384,7 @@ func (l *lruCache) Snapshot() map[string]*discovery.Resource {
 			continue
 		}
 
-		res[ik.(string)] = v.(cacheValue).value
+		res[ik] = v.value
 	}
 	return res
 }
@@ -409,7 +400,7 @@ func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, bool) {
 	return nil, false
 }
 
-func (d DisabledCache) Clear(configsUpdated map[ConfigKey]struct{}) {}
+func (d DisabledCache) Clear(configsUpdated sets.Set[ConfigKey]) {}
 
 func (d DisabledCache) ClearAll() {}
 

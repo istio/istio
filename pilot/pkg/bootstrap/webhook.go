@@ -75,7 +75,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		w.WriteHeader(http.StatusOK)
 	})
 	// nolint: gosec
-	// This is calling to our own localhost
+	// This is calling to our own localhost.
 	s.httpsReadyClient = &http.Client{
 		Timeout: time.Second,
 		Transport: &http.Transport{

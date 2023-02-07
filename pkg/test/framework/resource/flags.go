@@ -87,6 +87,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.CustomGRPCEchoImage = env.GRPC_ECHO_IMAGE.ValueOrDefault("")
 	}
 
+	if s.HelmRepo == "" {
+		s.HelmRepo = "https://istio-release.storage.googleapis.com/charts"
+	}
+
 	if err = validate(s); err != nil {
 		return nil, err
 	}
@@ -197,4 +201,6 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.EnableDualStack, "istio.test.enableDualStack", settingsFromCommandLine.EnableDualStack,
 		"Deploy Istio with Dual Stack enabled.")
+
+	flag.StringVar(&settingsFromCommandLine.HelmRepo, "istio.test.helmRepo", settingsFromCommandLine.HelmRepo, "Helm repo to use to pull the charts.")
 }

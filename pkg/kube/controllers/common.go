@@ -149,7 +149,7 @@ func (e Event) Latest() Object {
 	return e.Old
 }
 
-func EventHandler(handler func(o Event)) cache.ResourceEventHandler {
+func FromEventHandler(handler func(o Event)) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			o := ExtractObject(obj)
@@ -261,6 +261,8 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 	}
 }
 
+// Extract pulls a T from obj, handling tombstones.
+// This will return nil if the object cannot be extracted.
 func Extract[T Object](obj any) T {
 	var empty T
 	if obj == nil {
@@ -270,12 +272,12 @@ func Extract[T Object](obj any) T {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
+			log.Errorf("couldn't get object from tombstone: %+v", obj)
 			return empty
 		}
 		o, ok = tombstone.Obj.(T)
 		if !ok {
-			log.Errorf("tombstone contained object that is not an object %+v", obj)
+			log.Errorf("tombstone contained object that is not an object (key:%v, obj:%T)", tombstone.Key, tombstone.Obj)
 			return empty
 		}
 	}
@@ -283,20 +285,7 @@ func Extract[T Object](obj any) T {
 }
 
 func ExtractObject(obj any) Object {
-	o, ok := obj.(Object)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Errorf("couldn't get object from tombstone %+v", obj)
-			return nil
-		}
-		o, ok = tombstone.Obj.(Object)
-		if !ok {
-			log.Errorf("tombstone contained object that is not an object %+v", obj)
-			return nil
-		}
-	}
-	return o
+	return Extract[Object](obj)
 }
 
 // IgnoreNotFound returns nil on NotFound errors.
@@ -307,3 +296,30 @@ func IgnoreNotFound(err error) error {
 	}
 	return err
 }
+
+// EventHandler mirrors ResourceEventHandlerFuncs, but takes typed T objects instead of any.
+type EventHandler[T Object] struct {
+	AddFunc    func(obj T)
+	UpdateFunc func(oldObj, newObj T)
+	DeleteFunc func(obj T)
+}
+
+func (e EventHandler[T]) OnAdd(obj interface{}) {
+	if e.AddFunc != nil {
+		e.AddFunc(Extract[T](obj))
+	}
+}
+
+func (e EventHandler[T]) OnUpdate(oldObj, newObj interface{}) {
+	if e.UpdateFunc != nil {
+		e.UpdateFunc(Extract[T](oldObj), Extract[T](newObj))
+	}
+}
+
+func (e EventHandler[T]) OnDelete(obj interface{}) {
+	if e.DeleteFunc != nil {
+		e.DeleteFunc(Extract[T](obj))
+	}
+}
+
+var _ cache.ResourceEventHandler = EventHandler[Object]{}
