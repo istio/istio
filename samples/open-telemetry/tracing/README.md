@@ -64,6 +64,19 @@ If you have not deployed the `Jaeger` service, you can follow [this](https://ist
 
 You may also choose any existing tracing system if you have, and you should change the exporter settings in the configmap mentioned above.
 
+You may also choose to use your own otel collector if you have, and the key part is to have the `otlp` grpc protocol receiver to receive the traces. One important thing is to make sure your otel collector service's grpc port starts with `grpc-` prefix, which is like:
+
+```ya
+spec:
+  ports:
+    - name: grpc-otlp
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+```
+
+Otherwise the traces may not be reported.
+
 ## Update mesh config
 
 Install or update Istio with the `demo` profile to make sure you have the OpenTelemetry tracing provider enabled:
