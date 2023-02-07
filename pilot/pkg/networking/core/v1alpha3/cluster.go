@@ -184,14 +184,15 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
+		wls, svcs := FindAssociatedResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterServices(req.Push.ServicesAttachedToMesh(), services))
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterServices(req.Push.ServicesAttachedToMesh(), svcs, services))
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push)...)
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wls, svcs)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
@@ -228,10 +229,26 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-func filterServices(mesh sets.String, services []*model.Service) []*model.Service {
-	res := []*model.Service{}
+// filterServices looks at:
+// * referencedServices: all services referenced by mesh virtual services
+// * waypointServices: all services referenced by this waypoint
+// * all services
+// We want to find any VirtualServices that are from a waypointServices to a non-waypointService
+func filterServices(referencedServices map[string]sets.String, waypointServices map[host.Name]*model.Service, services []*model.Service) []*model.Service {
+	outboundServices := sets.New[string]()
+	for waypointService := range waypointServices {
+		refs := referencedServices[waypointService.String()]
+		for ref := range refs {
+			// We reference this service. Is it "inbound" for the waypoint or "outbound"?
+			ws, f := waypointServices[host.Name(ref)]
+			if !f || ws.MeshExternal {
+				outboundServices.Insert(ref)
+			}
+		}
+	}
+	res := make([]*model.Service, 0, len(outboundServices))
 	for _, s := range services {
-		if mesh.Contains(s.Hostname.String()) {
+		if outboundServices.Contains(s.Hostname.String()) {
 			res = append(res, s)
 		}
 	}
