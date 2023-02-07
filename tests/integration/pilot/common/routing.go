@@ -1056,7 +1056,7 @@ func gatewayCases(t TrafficContext) {
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
 			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-			"Port":               ports.HTTP.ServicePort,
+			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
 		}
@@ -1197,7 +1197,7 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.HTTP.ServicePort,
+				"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			}
 		},
 	})
@@ -1369,7 +1369,7 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.AutoHTTP.ServicePort,
+				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
 			}
 		},
 	})
@@ -1416,7 +1416,7 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.AutoHTTP.ServicePort,
+				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
 			}
 		},
 	})
