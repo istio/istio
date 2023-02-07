@@ -22,7 +22,7 @@ func Of[T any](t T) *T {
 
 // OrEmpty returns *t if its non-nil, or else an empty T
 func OrEmpty[T any](t *T) T {
-	if t == nil {
+	if t != nil {
 		return *t
 	}
 	var empty T
@@ -31,7 +31,7 @@ func OrEmpty[T any](t *T) T {
 
 // OrDefault returns *t if its non-nil, or else def.
 func OrDefault[T any](t *T, def T) T {
-	if t == nil {
+	if t != nil {
 		return *t
 	}
 	return def
