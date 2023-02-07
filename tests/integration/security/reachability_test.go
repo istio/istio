@@ -433,23 +433,35 @@ func TestReachability(t *testing.T) {
 					if len(allOpts) == 0 {
 						allOpts = []echo.CallOptions{
 							{
-								Port: ports.HTTP,
+								Port: echo.Port{
+									Name: ports.HTTP.Name,
+								},
 							},
 							{
-								Port:   ports.HTTP,
+								Port: echo.Port{
+									Name: ports.HTTP.Name,
+								},
 								Scheme: scheme.WebSocket,
 							},
 							{
-								Port: ports.HTTP2,
+								Port: echo.Port{
+									Name: ports.HTTP2.Name,
+								},
 							},
 							{
-								Port: ports.HTTPS,
+								Port: echo.Port{
+									Name: ports.HTTPS.Name,
+								},
 							},
 							{
-								Port: ports.TCP,
+								Port: echo.Port{
+									Name: ports.TCP.Name,
+								},
 							},
 							{
-								Port: ports.GRPC,
+								Port: echo.Port{
+									Name: ports.GRPC.Name,
+								},
 							},
 						}
 					}

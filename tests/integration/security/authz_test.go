@@ -1749,7 +1749,7 @@ func (b *authzTest) BuildForPorts(t framework.TestContext, ports ...echo.Port) a
 	out := make(authzTests, 0, len(ports))
 	for _, p := range ports {
 		opts := b.opts.DeepCopy()
-		opts.Port = p
+		opts.Port.Name = p.Name
 
 		tst := (&authzTest{
 			prefix: b.prefix,
