@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -366,10 +367,22 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		if cb.supportsIPv4 {
+		if networkutil.AllIPv4(cb.proxyIPAddresses) {
+			// IPv4 only
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		} else {
+		} else if networkutil.AllIPv6(cb.proxyIPAddresses) {
+			// IPv6 only
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+		} else {
+			// Dual Stack
+			if features.EnableDualStack {
+				// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
+				c.DnsLookupFamily = cluster.Cluster_ALL
+			} else {
+				// keep the original logic if Dual Stack is disable
+				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+			}
 		}
 		dnsRate := cb.req.Push.Mesh.DnsRefreshRate
 		c.DnsRefreshRate = dnsRate
