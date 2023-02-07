@@ -52,9 +52,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
+	cb *ClusterBuilder,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	wls []WorkloadAndServices,
+	svcs map[host.Name]*model.Service,
+) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	wls, svcs := FindAssociatedResources(proxy, push)
 
 	// We create 4 types of clusters:
 	// 1. `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
