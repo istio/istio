@@ -28,12 +28,10 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*-suffix-principal
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
   shadowRulesStatPrefix: istio_dry_run_allow_
