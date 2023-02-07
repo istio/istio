@@ -130,16 +130,19 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 				nameInfo.Shortname = svc.Attributes.Name
 			}
 			out.Table[hostName.String()] = nameInfo
-		} else {
-			ni.Ips = append(ni.Ips, addressList...)
-			// If the ServiceEntry is a decorator of the k8s service, retain k8s attributes
-			if provider.ID(ni.Registry) != provider.Kubernetes &&
-				svc.Attributes.ServiceRegistry == provider.Kubernetes {
+		} else if provider.ID(ni.Registry) != provider.Kubernetes {
+			// 2 possible cases:
+			// 1. If the SE has multiple addresses(vips) specified, merge the ips
+			// 2. If the previous SE is a decorator of the k8s service, give precedence to the k8s service
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				ni.Ips = addressList
 				ni.Registry = string(provider.Kubernetes)
 				if !strings.HasSuffix(hostName.String(), "."+constants.DefaultClusterSetLocalDomain) {
 					ni.Namespace = svc.Attributes.Namespace
 					ni.Shortname = svc.Attributes.Name
 				}
+			} else {
+				ni.Ips = append(ni.Ips, addressList...)
 			}
 		}
 	}

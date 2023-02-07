@@ -472,7 +472,7 @@ func TestNameTable(t *testing.T) {
 			expectedNameTable: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					serviceWithVIP1.Hostname.String(): {
-						Ips:       []string{serviceWithVIP1.DefaultAddress, decoratedService.DefaultAddress},
+						Ips:       []string{decoratedService.DefaultAddress},
 						Registry:  provider.Kubernetes.String(),
 						Shortname: decoratedService.Attributes.Name,
 						Namespace: decoratedService.Attributes.Namespace,
