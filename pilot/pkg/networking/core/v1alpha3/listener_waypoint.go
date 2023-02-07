@@ -44,20 +44,12 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
-
-func GetWaypointScope(node *model.Proxy) model.WaypointScope {
-	return model.WaypointScope{
-		Namespace:      node.ConfigNamespace,
-		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
-	}
-}
 
 type WorkloadAndServices struct {
 	WorkloadInfo *model.WorkloadInfo
@@ -66,7 +58,7 @@ type WorkloadAndServices struct {
 
 func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
-	scope := GetWaypointScope(node)
+	scope := node.WaypointScope()
 	workloads := push.WorkloadsForWaypoint(scope)
 	for _, wl := range workloads {
 		wls = append(wls, WorkloadAndServices{WorkloadInfo: wl})

@@ -181,7 +181,7 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
 
 	// Restrict upstream SAN to waypoint scope.
-	scope := GetWaypointScope(proxy)
+	scope := proxy.WaypointScope()
 	m := &matcher.StringMatcher{}
 	if scope.ServiceAccount != "" {
 		m.MatchPattern = &matcher.StringMatcher_Exact{

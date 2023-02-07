@@ -314,7 +314,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			// Currently the HBONE implementation leads to different endpoint generation depending on if the
 			// client proxy supports HBONE or not. This breaks the cache.
 			// For now, just disable caching
-			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(b, ep)
+			eep := buildEnvoyLbEndpoint(b, ep)
+			if eep == nil {
+				continue
+			}
+			ep.EnvoyEndpoint = eep
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
@@ -401,20 +405,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		},
 		Metadata: &core.Metadata{},
 	}
-	if dir == model.TrafficDirectionInboundVIP {
-		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		// target := model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(e.Address), int(e.EndpointPort))
-		// addr = util.BuildInternalAddress(target)
-		address := e.Address
-		tunnelPort := 15008
-		// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
-		// and add some detunnel metadata that had the original port.
-		tunnelOrigLis := "inbound_CONNECT_originate"
-		ep = util.BuildInternalLbEndpoint(tunnelOrigLis, util.BuildTunnelMetadata(address, int(e.EndpointPort), tunnelPort))
-		ep.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: e.GetLoadBalancingWeight(),
-		}
-	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
@@ -468,8 +458,43 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 			},
 		}
 	}
+	if dir == model.TrafficDirectionInboundVIP {
+		inScope := waypointInScope(b.proxy, e)
+		if !inScope {
+			// A waypoint can *partially* select a Service in edge cases. In this case, some % of requests will
+			// go through the waypoint, and the rest direct. Since these have already been load balanced across,
+			// we want to make sure we only send to workloads behind our waypoint
+			return nil
+		}
+		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
+		if supportsTunnel {
+			address := e.Address
+			tunnelPort := 15008
+			// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
+			// and add some detunnel metadata that had the original port.
+			tunnelOrigLis := "inbound_CONNECT_originate"
+			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
+			ep = util.BuildInternalLbEndpoint(tunnelOrigLis, ep.Metadata)
+			ep.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: e.GetLoadBalancingWeight(),
+			}
+		}
+	}
 
 	return ep
+}
+
+// waypointInScope computes whether the endpoint is owned by the waypoint
+func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
+	scope := waypoint.WaypointScope()
+	if scope.Namespace != e.Namespace {
+		return false
+	}
+	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
+	if scope.ServiceAccount != "" && (scope.ServiceAccount != ident.ServiceAccount) {
+		return false
+	}
+	return true
 }
 
 func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
