@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -178,16 +179,21 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 
 	// Restrict upstream SAN to waypoint scope.
 	scope := GetWaypointScope(proxy)
-	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
+	m := &matcher.StringMatcher{}
 	if scope.ServiceAccount != "" {
-		validationCtx.MatchSubjectAltNames = append(validationCtx.MatchSubjectAltNames, util.StringToExactMatch([]string{
-			spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount),
-		})...)
+		m.MatchPattern = &matcher.StringMatcher_Exact{
+			Exact: spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount),
+		}
 	} else {
-		validationCtx.MatchSubjectAltNames = append(validationCtx.MatchSubjectAltNames, util.StringToPrefixMatch([]string{
-			spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
-		})...)
+		m.MatchPattern = &matcher.StringMatcher_Prefix{
+			Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
+		}
 	}
+	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
+	validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+		SanType: tls.SubjectAltNameMatcher_URI,
+		Matcher: m,
+	})
 
 	ctx.AlpnProtocols = []string{"h2"}
 
