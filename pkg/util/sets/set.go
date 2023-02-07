@@ -216,3 +216,27 @@ func (s Set[T]) Len() int {
 func (s Set[T]) IsEmpty() bool {
 	return len(s) == 0
 }
+
+// InsertOrNew inserts t into the set if the set exists, or returns a new set with t if not.
+// Works well with DeleteCleanupLast.
+// Example:
+//
+//	m[key] = InsertOrNew(m[key], value)
+func InsertOrNew[T comparable](s Set[T], t T) Set[T] {
+	if s == nil {
+		return New(t)
+	}
+	s.Insert(t)
+	return s
+}
+
+// DeleteCleanupLast removes an element from a set in a map of sets, deleting the key from the map if there are no keys left.
+// Works well with InsertOrNew.
+// Example:
+//
+//  sets.DeleteCleanupLast(m, key, value)
+func DeleteCleanupLast[K comparable, T comparable](m map[K]Set[T], k K, v T) {
+	if m[k].Delete(v).IsEmpty() {
+		delete(m, k)
+	}
+}
