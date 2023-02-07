@@ -73,6 +73,16 @@ func (c *Controller) HasSynced() bool {
 	return c.informer.HasSynced()
 }
 
+// List returns a list of all the currently non-empty accumulators
+func (c *Controller) List() []any {
+	return c.informer.GetIndexer().List()
+}
+
+// GetByKey returns the accumulator associated with the given key
+func (c *Controller) GetByKey(key string) (item any, exists bool, err error) {
+	return c.informer.GetIndexer().GetByKey(key)
+}
+
 func (c *Controller) AddCallBack(cb func(name string)) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

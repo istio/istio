@@ -48,6 +48,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/mcs"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/network"
@@ -757,13 +758,18 @@ func (c *Controller) informersSynced() bool {
 	}
 
 	// wait for mcs sync if the CRD exists, otherwise do not wait for them
-	if c.imports.HasCRDInstalled() && !c.imports.HasSynced() {
-		return false
+	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
+	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
+	if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
+		if !c.imports.HasSynced() {
+			return false
+		}
 	}
-	if c.exports.HasCRDInstalled() && !c.exports.HasSynced() {
-		return false
+	if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
+		if !c.exports.HasSynced() {
+			return false
+		}
 	}
-
 	return true
 }
 
