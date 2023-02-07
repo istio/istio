@@ -127,7 +127,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
 		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error())
+			pkiRaLog.Infof("failed to find root cert from signed cert-chain (%v)", err.Error())
 		}
 		rootCertFromMeshConfig, err = r.GetRootCertFromMeshConfig(certSigner)
 		if err != nil {
