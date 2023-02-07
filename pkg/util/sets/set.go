@@ -234,9 +234,10 @@ func InsertOrNew[T comparable](s Set[T], t T) Set[T] {
 // Works well with InsertOrNew.
 // Example:
 //
-//  sets.DeleteCleanupLast(m, key, value)
-func DeleteCleanupLast[K comparable, T comparable](m map[K]Set[T], k K, v T) {
+//	sets.DeleteCleanupLast(m, key, value)
+func DeleteCleanupLast[K comparable, T comparable](m map[K]Set[T], k K, v T) map[K]Set[T] {
 	if m[k].Delete(v).IsEmpty() {
 		delete(m, k)
 	}
+	return m
 }

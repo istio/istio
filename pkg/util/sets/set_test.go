@@ -324,3 +324,17 @@ func BenchmarkSet(b *testing.B) {
 		}
 	})
 }
+
+func TestMapOfSet(t *testing.T) {
+	m := map[int]String{}
+	m[1] = InsertOrNew(m[1], "a")
+	m[1] = InsertOrNew(m[1], "b")
+	m[2] = InsertOrNew(m[2], "c")
+	assert.Equal(t, m, map[int]String{1: New("a", "b"), 2: New("c")})
+
+	m = DeleteCleanupLast(m, 1, "a")
+	assert.Equal(t, m, map[int]String{1: New("b"), 2: New("c")})
+	m = DeleteCleanupLast(m, 1, "b")
+	m = DeleteCleanupLast(m, 1, "not found")
+	assert.Equal(t, m, map[int]String{2: New("c")})
+}
