@@ -263,3 +263,13 @@ func (methodGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permi
 func (methodGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
+
+type anyGenerator struct{}
+
+func (anyGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return permissionAny(), nil
+}
+
+func (anyGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
+	return nil, fmt.Errorf("unimplemented")
+}

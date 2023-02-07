@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
@@ -110,9 +111,11 @@ func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
 		virtualInboundListener:  lb.virtualInboundListener,
 		envoyFilterWrapper:      lb.envoyFilterWrapper,
 		authnBuilder:            lb.authnBuilder,
-		authzBuilder:            authz.NewBuilder(authz.Local, lb.push, dummy),
-		authzCustomBuilder:      authz.NewBuilder(authz.Custom, lb.push, dummy),
-		Discovery:               lb.Discovery,
+		authzBuilder: authz.NewBuilderWithOptions(authz.Local, lb.push, dummy, builder.Option{
+			IsAmbient: true,
+		}),
+		authzCustomBuilder: authz.NewBuilder(authz.Custom, lb.push, dummy),
+		Discovery:          lb.Discovery,
 	}
 }
 
@@ -411,7 +414,14 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
-		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+
+		var httpauthz []*hcm.HttpFilter
+		if lb.node.Type == model.Waypoint {
+			httpauthz = lb.authzBuilder.BuildHTTPWithListener(httpOpts.class, httpOpts.routeConfig.Name)
+		} else {
+			httpauthz = lb.authzBuilder.BuildHTTP(httpOpts.class)
+		}
+		filters = append(filters, httpauthz...)
 
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
