@@ -119,7 +119,7 @@ func TestReachability(t *testing.T) {
 			migrationOpts := []echo.CallOptions{
 				{
 					Port: echo.Port{
-						Name: ports.HTTP,
+						Name: ports.HTTP.Name,
 					},
 					HTTP: echo.HTTP{
 						Path: migrationPathIstio,
@@ -127,7 +127,7 @@ func TestReachability(t *testing.T) {
 				},
 				{
 					Port: echo.Port{
-						Name: ports.HTTP,
+						Name: ports.HTTP.Name,
 					},
 					HTTP: echo.HTTP{
 						Path: migrationPathNonIstio,
@@ -433,35 +433,23 @@ func TestReachability(t *testing.T) {
 					if len(allOpts) == 0 {
 						allOpts = []echo.CallOptions{
 							{
-								Port: echo.Port{
-									Name: ports.HTTP,
-								},
+								Port: ports.HTTP,
 							},
 							{
-								Port: echo.Port{
-									Name: ports.HTTP,
-								},
+								Port: ports.HTTP,
 								Scheme: scheme.WebSocket,
 							},
 							{
-								Port: echo.Port{
-									Name: ports.HTTP2,
-								},
+								Port: ports.HTTP2,
 							},
 							{
-								Port: echo.Port{
-									Name: ports.HTTPS,
-								},
+								Port: ports.HTTPS,
 							},
 							{
-								Port: echo.Port{
-									Name: ports.TCP,
-								},
+								Port: ports.TCP,
 							},
 							{
-								Port: echo.Port{
-									Name: ports.GRPC,
-								},
+								Port: ports.GRPC,
 							},
 						}
 					}

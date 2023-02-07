@@ -39,7 +39,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 		Features("security.filterchain").
 		Run(func(t framework.TestContext) {
 			type expect struct {
-				port string
+				port echo.Port
 				// Plaintext will be sent from Naked pods.
 				plaintextSucceeds bool
 				// MTLS will be sent from all pods other than Naked.
@@ -396,7 +396,8 @@ spec:
 						ConditionallyTo(echotest.SameNetwork).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							for _, expect := range tc.expected {
-								p := to.PortForName(expect.port)
+								expect := expect
+								p := expect.port
 								opts := echo.CallOptions{
 									// Do not set To, otherwise fillInCallOptions() will
 									// complain with port does not match.
