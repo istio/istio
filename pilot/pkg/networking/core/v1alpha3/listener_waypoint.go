@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strconv"
 
+	xds "github.com/cncf/xds/go/xds/core/v3"
+	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -38,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
-	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -94,73 +95,42 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	listeners := []*listener.Listener{}
-	// We create 4 listeners:
-	// 1. Our top level terminating CONNECT listener, `inbound TERMINATE`. This has a route per destination and decapsulates the CONNECT,
-	//    forwarding to the VIP or Pod internal listener.
-	// 2. (many) VIP listeners, `inbound-vip||hostname|port`. This will apply service policies. For typical case (not redirecting to external service),
-	//    this will end up forwarding to a cluster for the same VIP, which will have endpoints for each Pod internal listener
-	// 3. Passthrough internal listener for accessing service backends directly.
-	// 4. Our final CONNECT listener, originating the tunnel
-	_, svcs := FindAssociatedResources(lb.node, lb.push)
+	// We create 3 listeners:
+	// 1. Decapsulation CONNECT listener, `inbound TERMINATE`.
+	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
+	// 3. Encapsulation CONNECT listener, originating the tunnel
+	wls, svcs := FindAssociatedResources(lb.node, lb.push)
 
-	listeners = append(listeners, lb.buildWaypointInboundTerminateConnect(svcs))
-	listeners = append(listeners, lb.buildWaypointInboundVIP(svcs)...)
-	listeners = append(listeners, lb.buildWaypointPassthrough(),
+	listeners = append(listeners,
+		lb.buildWaypointInboundTerminateConnect(),
+		lb.buildWaypointInternal(wls, svcs),
 		lb.buildWaypointInboundOriginateConnect())
 
 	return listeners
 }
 
-// Our top level terminating CONNECT listener, `inbound TERMINATE`. This has a route per destination and decapsulates the CONNECT,
-// forwarding to the VIP or Pod internal listener.
-func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Name]*model.Service) *listener.Listener {
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
-	// CONNECT listener
+func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
 	vhost := &route.VirtualHost{
-		Name:    "connect",
+		Name:    "default",
 		Domains: []string{"*"},
-	}
-	for _, svc := range svcs {
-		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "internal", svc.Hostname, port.Port)
-			vhost.Routes = append(vhost.Routes, &route.Route{
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-					Headers: []*route.HeaderMatcher{
-						istiomatcher.HeaderMatcher(":authority", fmt.Sprintf("%s:%d", svc.GetAddressForProxy(lb.node), port.Port)),
-					},
-				},
-				Action: &route.Route_Route{Route: &route.RouteAction{
-					UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-						UpgradeType:   "CONNECT",
-						ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-					}},
-					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+		Routes: []*route.Route{{
+			Match: &route.RouteMatch{
+				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+			},
+			Action: &route.Route_Route{Route: &route.RouteAction{
+				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+					UpgradeType:   "CONNECT",
+					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 				}},
-			})
-		}
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
+			}},
+			TypedPerFilterConfig: map[string]*any.Any{
+				xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
+			},
+		}},
 	}
 
-	// it's possible for us to hit this listener and target a Pod directly; route through the passthrough internal listener
-	vhost.Routes = append(vhost.Routes, &route.Route{
-		Match: &route.RouteMatch{
-			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-		},
-		Action: &route.Route_Route{Route: &route.RouteAction{
-			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
-				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-			}},
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "passthrough_internal"},
-		}},
-		TypedPerFilterConfig: map[string]*any.Any{
-			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-		},
-	})
-
+	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	httpOpts := &httpListenerOpts{
 		routeConfig: &route.RouteConfiguration{
 			Name:             "local_route",
@@ -205,7 +175,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 			{
 				Name: name,
 				TransportSocket: &core.TransportSocket{
-					Name: "envoy.transport_sockets.tls",
+					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
 						CommonTlsContext: buildCommonTLSContext(lb.node, nil, lb.push, true),
 					})},
@@ -223,23 +193,122 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect(svcs map[host.Na
 	return l
 }
 
-func (lb *ListenerBuilder) buildWaypointPassthrough() *listener.Listener {
-	name := "passthrough_internal"
-	l := &listener.Listener{
-		Name:              name,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		FilterChains: []*listener.FilterChain{{
+func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
+	ipMatcher := &matcher.IPMatcher{}
+	chains := []*listener.FilterChain{}
+	for _, svc := range svcs {
+		portMapper := match.NewDestinationPort()
+		for _, port := range svc.Ports {
+			if port.Protocol == protocol.UDP {
+				continue
+			}
+			portString := fmt.Sprintf("%d", port.Port)
+			cc := inboundChainConfig{
+				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
+				// clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
+				port: ServiceInstancePort{
+					Name:       port.Name,
+					Port:       uint32(port.Port),
+					TargetPort: uint32(port.Port),
+					Protocol:   port.Protocol,
+				},
+				bind:  "0.0.0.0",
+				hbone: true,
+			}
+			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
+			tcpName := name + "-tcp"
+			tcpChain := &listener.FilterChain{
+				Filters: lb.buildInboundNetworkFilters(cc),
+				Name:    tcpName,
+			}
+			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
+			httpName := name + "-http"
+			httpChain := &listener.FilterChain{
+				Filters: lb.buildWaypointInboundVIPHTTPFilters(svc, cc),
+				// Filters: wlBuilder.buildInboundNetworkFiltersForHTTP(cc),
+				Name: httpName,
+			}
+			if port.Protocol.IsUnsupported() {
+				// If we need to sniff, insert two chains and the protocol detector
+				chains = append(chains, tcpChain, httpChain)
+				portMapper.Map[portString] = match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+					TCP:  match.ToChain(tcpName),
+					HTTP: match.ToChain(httpName),
+				}))
+			} else if port.Protocol.IsHTTP() {
+				// Otherwise, just insert HTTP/TCP
+				chains = append(chains, httpChain)
+				portMapper.Map[portString] = match.ToChain(httpChain.Name)
+			} else {
+				chains = append(chains, tcpChain)
+				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+			}
+		}
+		if len(portMapper.Map) > 0 {
+			cidr := util.ConvertAddressToCidr(svc.GetAddressForProxy(lb.node))
+			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
+				Ranges: []*xds.CidrRange{{
+					AddressPrefix: cidr.AddressPrefix,
+					PrefixLen:     cidr.PrefixLen,
+				}},
+				OnMatch: match.ToMatcher(portMapper.Matcher),
+			}
+			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers, rangeMatcher)
+		}
+	}
+
+	{
+		// Direct pod access chain.
+		directChain := &listener.FilterChain{
+			Name: "direct",
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       name,
+						StatPrefix:       "direct",
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "encap"},
 					}),
 				},
 			}},
-		}},
+		}
+		// Workload IP filtering happens here.
+		ipRange := []*xds.CidrRange{}
+		for _, wlx := range wls {
+			cidr := util.ConvertAddressToCidr(wlx.WorkloadInfo.PodIP)
+			ipRange = append(ipRange, &xds.CidrRange{
+				AddressPrefix: cidr.AddressPrefix,
+				PrefixLen:     cidr.PrefixLen,
+			})
+		}
+		chains = append(chains, directChain)
+		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
+			&matcher.IPMatcher_IPRangeMatcher{
+				Ranges:  ipRange,
+				OnMatch: match.ToChain(directChain.Name),
+			})
+	}
+	l := &listener.Listener{
+		Name:              "internal",
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters: []*listener.ListenerFilter{
+			util.InternalListenerSetAddressFilter(),
+			xdsfilters.HTTPInspector,
+		},
+		TrafficDirection: core.TrafficDirection_INBOUND,
+		FilterChains:     chains,
+		FilterChainMatcher: &matcher.Matcher{
+			MatcherType: &matcher.Matcher_MatcherTree_{
+				MatcherTree: &matcher.Matcher_MatcherTree{
+					Input: match.DestinationIP,
+					TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
+						CustomMatch: &xds.TypedExtensionConfig{
+							Name:        "ip",
+							TypedConfig: protoconv.MessageToAny(ipMatcher),
+						},
+					},
+				},
+			},
+		},
 	}
 	return l
 }
@@ -270,65 +339,6 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 		}},
 	}
 	return l
-}
-
-// VIP listeners, `inbound||hostname|port`. This will apply service policies. For typical case (not redirecting to external service),
-// this will end up forwarding to a cluster for the same VIP, which will have endpoints for each Pod internal listener
-func (lb *ListenerBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Service) []*listener.Listener {
-	listeners := []*listener.Listener{}
-	for _, svc := range svcs {
-		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-			cc := inboundChainConfig{
-				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				// clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
-				port: ServiceInstancePort{
-					Name:       port.Name,
-					Port:       uint32(port.Port),
-					TargetPort: uint32(port.Port),
-					Protocol:   port.Protocol,
-				},
-				bind:  "0.0.0.0",
-				hbone: true,
-			}
-			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
-			tcpName := name + "-tcp"
-			tcpChain := &listener.FilterChain{
-				Filters: lb.buildInboundNetworkFilters(cc),
-				Name:    tcpName,
-			}
-			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
-			httpName := name + "-http"
-			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundVIPHTTPFilters(svc, cc),
-				// Filters: wlBuilder.buildInboundNetworkFiltersForHTTP(cc),
-				Name: httpName,
-			}
-			l := &listener.Listener{
-				Name:              name,
-				ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-				TrafficDirection:  core.TrafficDirection_INBOUND,
-				FilterChains:      []*listener.FilterChain{},
-			}
-			if port.Protocol.IsUnsupported() {
-				// If we need to sniff, insert two chains and the protocol detector
-				l.FilterChains = append(l.FilterChains, tcpChain, httpChain)
-				l.FilterChainMatcher = match.NewAppProtocol(match.ProtocolMatch{
-					TCP:  match.ToChain(tcpName),
-					HTTP: match.ToChain(httpName),
-				})
-			} else if port.Protocol.IsHTTP() {
-				// Otherwise, just insert HTTP/TCP
-				l.FilterChains = append(l.FilterChains, httpChain)
-			} else {
-				l.FilterChains = append(l.FilterChains, tcpChain)
-			}
-			listeners = append(listeners, l)
-		}
-	}
-	return listeners
 }
 
 // buildWaypointInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.

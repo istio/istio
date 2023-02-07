@@ -55,15 +55,12 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBu
 	clusters := make([]*cluster.Cluster, 0)
 	_, svcs := FindAssociatedResources(proxy, push)
 
-	// We create 4 types of clusters:
-	// 1. `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
-	// 2. `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-	// 3. `passthrough_internal` routes to `passthrough_internal` internal listener.
-	// 3. inbound_CONNECT_originate. original dst with TLS added
-	// 4. encap, routes to internal listener to initiate CONNECT
-
-	clusters = append(clusters, cb.buildWaypointInboundVIPInternal(svcs)...)
+	// Creates "internal" cluster to route to the main "internal" listener.
+	// Creates "encap" listener to route to the encap listener.
+	clusters = append(clusters, cb.buildWaypointInboundInternal()...)
+	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
+	// Upstream of the "encap" listener.
 	clusters = append(clusters, cb.buildWaypointInboundConnect(proxy, push))
 
 	for _, c := range clusters {
@@ -72,21 +69,6 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBu
 		}
 	}
 	return clusters
-}
-
-// `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name (without internal subset)
-func (cb *ClusterBuilder) buildWaypointInboundVIPInternalCluster(svc *model.Service, port model.Port) *MutableCluster {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "internal", svc.Hostname, port.Port)
-	destinationName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
-
-	clusterType := cluster.Cluster_STATIC
-	llb := util.BuildInternalEndpoint(destinationName, nil)
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, llb,
-		model.TrafficDirectionInbound, &port, nil, nil)
-	// no TLS
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
-	return localCluster
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
@@ -131,29 +113,20 @@ var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
 
 var BaggagePassthroughTransportSocket = util.InternalUpstreamTransportSocket(util.IstioClusterMetadata)
 
-// `inbound-vip|internal|hostname|port`. Will send to internal listener of the same name.
-func (cb *ClusterBuilder) buildWaypointInboundVIPInternal(svcs map[host.Name]*model.Service) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
-	for _, svc := range svcs {
-		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-			clusters = append(clusters, cb.buildWaypointInboundVIPInternalCluster(svc, *port).build())
-		}
-	}
 	{
-		// This cluster routes to "passthrough_internal" listener.
+		// This cluster routes to "internal" listener.
 		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint("passthrough_internal", nil)
-		localCluster := cb.buildDefaultCluster("passthrough_internal", clusterType, llb,
+		llb := util.BuildInternalEndpoint("internal", nil)
+		localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
 		localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
 		clusters = append(clusters, localCluster.build())
 	}
 	{
-		// This cluster routes from "passthrough_internal" listener.
+		// This cluster routes from "internal" listener.
 		clusterType := cluster.Cluster_STATIC
 		llb := util.BuildInternalEndpoint("inbound_CONNECT_originate", nil)
 		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
