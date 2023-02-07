@@ -210,15 +210,7 @@ func TestNameTable(t *testing.T) {
 
 	cpush := model.NewPushContext()
 	cpush.Mesh = mesh
-	wpush.AddPublicServices([]*model.Service{cidrService})
-
-	vpush := model.NewPushContext()
-	vpush.Mesh = mesh
-	vpush.AddPublicServices([]*model.Service{serviceWithVIP1, serviceWithVIP2})
-
-	dpush := model.NewPushContext()
-	dpush.Mesh = mesh
-	dpush.AddPublicServices([]*model.Service{serviceWithVIP1, decoratedService})
+	cpush.AddPublicServices([]*model.Service{cidrService})
 
 	sepush := model.NewPushContext()
 	sepush.Mesh = mesh
@@ -455,7 +447,12 @@ func TestNameTable(t *testing.T) {
 		{
 			name:  "service entry with multiple VIPs",
 			proxy: proxy,
-			push:  vpush,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{serviceWithVIP1, serviceWithVIP2})
+				return push
+			}(),
 			expectedNameTable: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					serviceWithVIP1.Hostname.String(): {
@@ -466,9 +463,34 @@ func TestNameTable(t *testing.T) {
 			},
 		},
 		{
-			name:  "service entry as a decorator",
+			name:  "service entry as a decorator(created before k8s service)",
 			proxy: proxy,
-			push:  dpush,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{serviceWithVIP1, decoratedService})
+				return push
+			}(),
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					serviceWithVIP1.Hostname.String(): {
+						Ips:       []string{decoratedService.DefaultAddress},
+						Registry:  provider.Kubernetes.String(),
+						Shortname: decoratedService.Attributes.Name,
+						Namespace: decoratedService.Attributes.Namespace,
+					},
+				},
+			},
+		},
+		{
+			name:  "service entry as a decorator(created after k8s service)",
+			proxy: proxy,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{decoratedService, serviceWithVIP2})
+				return push
+			}(),
 			expectedNameTable: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					serviceWithVIP1.Hostname.String(): {
