@@ -53,10 +53,14 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
+	cb *ClusterBuilder,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	wls []WorkloadAndServices,
+	svcs map[host.Name]*model.Service,
+) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	_, svcs := FindAssociatedResources(proxy, push)
-
 	// Creates "internal" cluster to route to the main "internal" listener.
 	// Creates "encap" listener to route to the encap listener.
 	clusters = append(clusters, cb.buildWaypointInboundInternal()...)

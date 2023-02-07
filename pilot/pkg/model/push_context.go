@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -101,6 +102,9 @@ type virtualServiceIndex struct {
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
 	destinationsByGateway map[string]sets.String
+
+	// Map of VS hostname -> referenced hostnames
+	referencedDestinations map[string]sets.String
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -109,6 +113,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
+		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
 		out.destinationsByGateway = make(map[string]sets.String)
@@ -802,6 +807,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
 
 	return gwSvcs
+}
+
+func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
+	return ps.virtualServiceIndex.referencedDestinations
 }
 
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
@@ -1517,6 +1526,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
+	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
 
 	if features.FilterGatewayClusterConfig {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
@@ -1618,6 +1628,18 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
 				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
+			}
+		}
+
+		// For mesh virtual services, build a map of host -> referenced destinations
+		if len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway) {
+			for host := range virtualServiceDestinations(rule) {
+				for _, rhost := range rule.Hosts {
+					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
+						ps.virtualServiceIndex.referencedDestinations[rhost] = sets.New[string]()
+					}
+					ps.virtualServiceIndex.referencedDestinations[rhost].Insert(host)
+				}
 			}
 		}
 	}
