@@ -122,7 +122,7 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 		localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
-		localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
+		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
 		clusters = append(clusters, localCluster.build())
 	}
 	{
@@ -132,7 +132,7 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
-		localCluster.cluster.TransportSocket = BaggagePassthroughTransportSocket
+		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
 		clusters = append(clusters, localCluster.build())
 	}
 	return clusters

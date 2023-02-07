@@ -292,7 +292,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			util.InternalListenerSetAddressFilter(),
-			xdsfilters.HTTPInspector,
+			//			xdsfilters.HTTPInspector,
 		},
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     chains,
