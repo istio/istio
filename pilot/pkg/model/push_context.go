@@ -315,6 +315,9 @@ type XDSUpdater interface {
 	// SvcUpdate is called when a service definition is updated/deleted.
 	SvcUpdate(shard ShardKey, hostname string, namespace string, event Event)
 
+	// SvcAudit is called when services may have been deleted during a controller update.
+	SvcAudit(shard ShardKey, services []*Service)
+
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
 	ConfigUpdate(req *PushRequest)

@@ -43,7 +43,7 @@ func NewMulticluster(configCluster cluster.ID) *Multicluster {
 	return m
 }
 
-func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) error {
+func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}, update bool) error {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
 	sc := NewCredentialsController(cluster.Client, cluster.ID)
 	m.m.Lock()

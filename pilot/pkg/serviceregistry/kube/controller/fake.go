@@ -96,6 +96,8 @@ func (fx *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, hostname, _ string, e
 	}
 }
 
+func (fx *FakeXdsUpdater) SvcAudit(_ model.ShardKey, _ []*model.Service) {}
+
 // SvcUpdate is called when a service port mapping definition is updated.
 // This interface is WIP - labels, annotations and other changes to service may be
 // updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect

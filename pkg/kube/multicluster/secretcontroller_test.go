@@ -71,7 +71,7 @@ var _ ClusterHandler = &handler{}
 
 type handler struct{}
 
-func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}, update bool) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = cluster.ID

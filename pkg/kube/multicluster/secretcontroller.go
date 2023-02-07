@@ -80,7 +80,7 @@ var (
 )
 
 type ClusterHandler interface {
-	ClusterAdded(cluster *Cluster, stop <-chan struct{}) error
+	ClusterAdded(cluster *Cluster, stop <-chan struct{}, update bool) error
 	ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error
 	ClusterDeleted(clusterID cluster.ID) error
 }
@@ -171,7 +171,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
-	if err := c.handleAdd(configCluster, stopCh); err != nil {
+	if err := c.handleAdd(configCluster, stopCh, false); err != nil {
 		return fmt.Errorf("failed initializing primary cluster %s: %v", c.configClusterID, err)
 	}
 	go func() {
@@ -359,35 +359,37 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			continue
 		}
 
-		action, callback := "Adding", c.handleAdd
+		update := false
 		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
-			action, callback = "Updating", c.handleUpdate
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				logger.Infof("skipping update (kubeconfig are identical)")
+				logger.Infof("skipping update (kubeconfigs are identical)")
 				continue
 			}
 			// stop previous remote cluster
 			prev.Stop()
+			c.handleUpdate(prev, prev.stop)
+			update = true
+
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")
 			continue
 		}
-		logger.Infof("%s cluster", action)
+		logger.Infof("Cluster being added with update = %s", update)
 
 		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
 		if err != nil {
-			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
+			logger.Errorf("%s cluster: create remote cluster failed: %v", err)
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
+		if err := c.handleAdd(remoteCluster, remoteCluster.stop, update); err != nil {
 			remoteCluster.Stop()
-			logger.Errorf("%s cluster: initialize cluster failed: %v", action, err)
+			logger.Errorf("%s cluster: initialize cluster failed: %v", err)
 			c.cs.Delete(secretKey, remoteCluster.ID)
-			err = fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, clusterID, secretKey, err)
+			err = fmt.Errorf("cluster_id=%s from secret=%v: %w", clusterID, secretKey, err)
 			errs = multierror.Append(errs, err)
 			continue
 		}
@@ -426,10 +428,10 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) error {
+func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}, update bool) error {
 	var errs *multierror.Error
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.ClusterAdded(cluster, stop))
+		errs = multierror.Append(errs, handler.ClusterAdded(cluster, stop, update))
 	}
 	return errs.ErrorOrNil()
 }

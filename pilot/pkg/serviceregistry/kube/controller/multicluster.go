@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +41,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/webhooks"
 )
 
@@ -147,7 +149,7 @@ func (m *Multicluster) close() (err error) {
 // ClusterAdded is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
+func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}, update bool) error {
 	m.m.Lock()
 	kubeController, kubeRegistry, options, configCluster, err := m.addCluster(cluster)
 	if err != nil {
@@ -156,22 +158,26 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	}
 	m.m.Unlock()
 	// clusterStopCh is a channel that will be closed when this cluster removed.
+	if update {
+		kubeController.updated.Store(true)
+	}
 	return m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, clusterStopCh)
 }
 
 // ClusterUpdated is passed to the secret controller as a callback to be called
 // when a remote cluster is updated.
 func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
-	m.m.Lock()
-	m.deleteCluster(cluster.ID)
-	kubeController, kubeRegistry, options, configCluster, err := m.addCluster(cluster)
-	if err != nil {
-		m.m.Unlock()
-		return err
+
+	kc := m.remoteKubeControllers[cluster.ID]
+	// Wait for queue to close before calling delete and informer removal
+	if err := queue.WaitForClose(kc.queue, 30*time.Second); err != nil {
+		log.Warnf("queue for removed kube registry %q may not be done processing: %v", kc.Cluster(), err)
 	}
+	m.m.Lock()
+	// Call delete cluster but skip CleanUP
+	m.deleteCluster(cluster.ID, false)
 	m.m.Unlock()
-	// clusterStopCh is a channel that will be closed when this cluster removed.
-	return m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, stop)
+	return nil
 }
 
 // ClusterDeleted is passed to the secret controller as a callback to be called
@@ -179,7 +185,7 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 // are removed.
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	m.m.Lock()
-	m.deleteCluster(clusterID)
+	m.deleteCluster(clusterID, true)
 	m.m.Unlock()
 	if m.XDSUpdater != nil {
 		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
@@ -372,7 +378,7 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 
 // deleteCluster deletes cluster resources and does not trigger push.
 // This call is not thread safe.
-func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
+func (m *Multicluster) deleteCluster(clusterID cluster.ID, cleanup bool) {
 	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
@@ -383,8 +389,10 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 	if kc.workloadEntryController != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
-	if err := kc.Cleanup(); err != nil {
-		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
+	if cleanup {
+		if err := kc.Cleanup(); err != nil {
+			log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
+		}
 	}
 	delete(m.remoteKubeControllers, clusterID)
 }

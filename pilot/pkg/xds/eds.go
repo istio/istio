@@ -45,6 +45,28 @@ const (
 	FullPush
 )
 
+// SvcAudit is called when a controller updates to ensure the
+// services in informer cache after HasSynced matches what is
+// in the Env.
+func (s *DiscoveryServer) SvcAudit(shard model.ShardKey, newServices []*model.Service) {
+	oldServices := s.Env.ServiceDiscovery.Services()
+	omap := make(map[string]*model.Service, len(oldServices))
+	nmap := make(map[string]*model.Service, len(newServices))
+	for _, osvc := range oldServices {
+		omap[string(osvc.Hostname)] = osvc
+	}
+	for _, nsvc := range newServices {
+		nmap[string(nsvc.Hostname)] = nsvc
+	}
+	for _, osvc := range oldServices {
+		if _, f := nmap[string(osvc.Hostname)]; !f {
+			log.Debugf("Deleting old service after Audit %s", string(osvc.Hostname))
+			inboundServiceDeletes.Increment()
+			s.Env.EndpointIndex.DeleteServiceShard(shard, string(osvc.Hostname), osvc.Attributes.Namespace, false)
+		}
+	}
+}
+
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
 	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointIndex to

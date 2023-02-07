@@ -275,6 +275,7 @@ type Controller struct {
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
+	updated     *atomic.Bool // Controller updated - Audits needed
 }
 
 // NewController creates a new Kubernetes controller
@@ -291,6 +292,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
+		updated:                    atomic.NewBool(false),
 
 		multinetwork: initMultinetwork(),
 	}
@@ -529,6 +531,18 @@ func (c *Controller) Cleanup() error {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
 	return nil
+}
+
+func (c *Controller) auditOldServices(services []any) {
+	newServices := make([]*model.Service, 0, len(services))
+	for _, curr := range services {
+		svc := controllers.Extract[*v1.Service](curr)
+		if svc != nil {
+			svcConv := kube.ConvertService(*svc, c.opts.DomainSuffix, c.Cluster())
+			newServices = append(newServices, svcConv)
+		}
+	}
+	c.opts.XDSUpdater.SvcAudit(model.ShardKeyFromRegistry(c), newServices)
 }
 
 func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
@@ -793,6 +807,7 @@ func (c *Controller) SyncAll() error {
 }
 
 func (c *Controller) syncSystemNamespace() error {
+	// TODO confirm with experts we don't need an Audit here
 	var err error
 	if c.nsLister != nil {
 		sysNs, _ := c.nsLister.Get(c.opts.SystemNamespace)
@@ -805,6 +820,7 @@ func (c *Controller) syncSystemNamespace() error {
 }
 
 func (c *Controller) syncDiscoveryNamespaces() error {
+	// TODO confirm with experts we don't need an Audit here
 	var err error
 	if c.nsLister != nil {
 		err = c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
@@ -813,6 +829,7 @@ func (c *Controller) syncDiscoveryNamespaces() error {
 }
 
 func (c *Controller) syncNodes() error {
+	// TODO confirm with experts we don't need an Audit here
 	var err *multierror.Error
 	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
@@ -826,6 +843,11 @@ func (c *Controller) syncServices() error {
 	var err *multierror.Error
 	services, _ := c.serviceInformer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d services", len(services))
+	if c.updated.Load() {
+		// If the controller was updated then services deleted
+		// during the updated period need to be cleaned up.
+		c.auditOldServices(services)
+	}
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(nil, s, model.EventAdd))
 	}
@@ -833,6 +855,7 @@ func (c *Controller) syncServices() error {
 }
 
 func (c *Controller) syncPods() error {
+	// TODO confirm with experts we don't need an Audit here
 	var err *multierror.Error
 	pods, _ := c.pods.informer.List(metav1.NamespaceAll)
 	log.Debugf("initializing %d pods", len(pods))
@@ -843,6 +866,10 @@ func (c *Controller) syncPods() error {
 }
 
 func (c *Controller) syncEndpoints() error {
+	// TODO confirm with experts we don't need to Audit the
+	// endpoints. This eventually triggers an edsCacheUpdate
+	// call which replaces all the old endpoints with the new
+	// endpoints so an Audit is not needed.
 	var err *multierror.Error
 	endpoints := c.endpoints.getInformer().GetIndexer().List()
 	log.Debugf("initializing %d endpoints", len(endpoints))
@@ -875,8 +902,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
+		// TODO if sync fails when c.updated decide behavior
 		log.Errorf("one or more errors force-syncing resources: %v", err)
 	}
+	c.updated.Store(false)
 	c.initialSync.Store(true)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
