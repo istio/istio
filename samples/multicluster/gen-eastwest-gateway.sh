@@ -73,6 +73,9 @@ spec:
         label:
           istio: eastwestgateway
           app: istio-eastwestgateway
+        k8s:
+          hpaSpec:
+            minReplicas: 2
 EOF
 )
 
