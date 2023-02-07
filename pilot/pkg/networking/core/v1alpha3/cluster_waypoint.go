@@ -57,7 +57,6 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	cb *ClusterBuilder,
 	proxy *model.Proxy,
 	push *model.PushContext,
-	wls []WorkloadAndServices,
 	svcs map[host.Name]*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
