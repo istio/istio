@@ -134,6 +134,7 @@ func TestExtAuthz(t *testing.T) {
 					t.Errorf(err.Error())
 				} else {
 					got = resp.StatusCode
+					resp.Body.Close()
 				}
 			}
 			if got != tc.want {
