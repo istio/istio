@@ -221,13 +221,14 @@ func (s Set[T]) IsEmpty() bool {
 // Works well with DeleteCleanupLast.
 // Example:
 //
-//	m[key] = InsertOrNew(m[key], value)
-func InsertOrNew[T comparable](s Set[T], t T) Set[T] {
-	if s == nil {
-		return New(t)
+//	InsertOrNew(m, key, value)
+func InsertOrNew[K comparable, T comparable](m map[K]Set[T], k K, v T) {
+	s, f := m[k]
+	if !f {
+		m[k] = New(v)
+	} else {
+		s.Insert(v)
 	}
-	s.Insert(t)
-	return s
 }
 
 // DeleteCleanupLast removes an element from a set in a map of sets, deleting the key from the map if there are no keys left.
@@ -235,9 +236,8 @@ func InsertOrNew[T comparable](s Set[T], t T) Set[T] {
 // Example:
 //
 //	sets.DeleteCleanupLast(m, key, value)
-func DeleteCleanupLast[K comparable, T comparable](m map[K]Set[T], k K, v T) map[K]Set[T] {
+func DeleteCleanupLast[K comparable, T comparable](m map[K]Set[T], k K, v T) {
 	if m[k].Delete(v).IsEmpty() {
 		delete(m, k)
 	}
-	return m
 }

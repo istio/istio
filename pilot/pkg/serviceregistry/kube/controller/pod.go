@@ -262,11 +262,7 @@ func (pc *PodCache) update(ip, key string) {
 func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.New(key)
-	} else {
-		pc.needResync[ip].Insert(key)
-	}
+	sets.InsertOrNew(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
@@ -274,10 +270,7 @@ func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 func (pc *PodCache) endpointDeleted(key string, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	delete(pc.needResync[ip], key)
-	if len(pc.needResync[ip]) == 0 {
-		delete(pc.needResync, ip)
-	}
+	sets.DeleteCleanupLast(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
