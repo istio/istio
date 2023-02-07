@@ -836,7 +836,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 	wl := &workloadapi.Workload{
 		Name:                  pod.Name,
 		Namespace:             pod.Namespace,
-		Address:               netip.MustParseAddr(pod.Status.PodIP).AsSlice(),
+		Address:               parseIP(pod.Status.PodIP),
 		Network:               c.network.String(),
 		ServiceAccount:        pod.Spec.ServiceAccountName,
 		Node:                  pod.Spec.NodeName,
@@ -875,6 +875,14 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		wl.NativeHbone = true
 	}
 	return wl
+}
+
+func parseIP(ip string) []byte {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return nil
+	}
+	return addr.AsSlice()
 }
 
 func getVIPs(svc *v1.Service) []string {
