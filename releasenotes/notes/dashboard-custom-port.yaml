@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** local flags for different `istioctl dashboard` commands to allow users to specify the component port to use for the dashboard.
