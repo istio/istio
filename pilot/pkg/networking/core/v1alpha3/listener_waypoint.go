@@ -52,6 +52,19 @@ import (
 	"istio.io/pkg/log"
 )
 
+// WaypointScope is either an entire namespace or an individual service account in the namespace.
+type WaypointScope struct {
+	Namespace      string
+	ServiceAccount string // optional
+}
+
+func GetWaypointScope(node *model.Proxy) WaypointScope {
+	return WaypointScope{
+		Namespace:      node.ConfigNamespace,
+		ServiceAccount: node.Metadata.Annotations["istio.io/service-account"],
+	}
+}
+
 type WorkloadAndServices struct {
 	WorkloadInfo ambient.Workload
 	Services     []*model.Service
@@ -59,12 +72,13 @@ type WorkloadAndServices struct {
 
 func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
+	scope := GetWaypointScope(node)
 	var workloads []ambient.Workload
-	if sa, f := node.Metadata.Annotations["istio.io/service-account"]; f {
-		ident := spiffe.MustGenSpiffeURI(node.ConfigNamespace, sa)
+	if scope.ServiceAccount != "" {
+		ident := spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount)
 		workloads = push.AmbientIndex.Workloads.ByIdentity[ident]
 	} else {
-		workloads = push.AmbientIndex.Workloads.ByNamespace[node.ConfigNamespace]
+		workloads = push.AmbientIndex.Workloads.ByNamespace[scope.Namespace]
 	}
 	for _, wl := range workloads {
 		if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {

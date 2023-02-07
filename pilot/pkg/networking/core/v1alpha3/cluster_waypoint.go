@@ -35,6 +35,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -173,7 +174,20 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Serv
 // inbound_CONNECT_originate. original dst with TLS added
 func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, []string{proxy.VerifiedIdentity.String()}, authn.TrustDomainsForValidation(push.Mesh), true)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
+
+	// Restrict upstream SAN to waypoint scope.
+	scope := GetWaypointScope(proxy)
+	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
+	if scope.ServiceAccount != "" {
+		validationCtx.MatchSubjectAltNames = append(validationCtx.MatchSubjectAltNames, util.StringToExactMatch([]string{
+			spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount),
+		})...)
+	} else {
+		validationCtx.MatchSubjectAltNames = append(validationCtx.MatchSubjectAltNames, util.StringToPrefixMatch([]string{
+			spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
+		})...)
+	}
 
 	ctx.AlpnProtocols = []string{"h2"}
 
@@ -190,7 +204,7 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket: &core.TransportSocket{
-			Name: "envoy.transport_sockets.tls",
+			Name: "tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
 				CommonTlsContext: ctx,
 			})},
