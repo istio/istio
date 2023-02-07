@@ -98,6 +98,9 @@ type Client struct {
 
 	// namespacesFilter is only used to initiate filtered informer.
 	namespacesFilter func(obj interface{}) bool
+
+	// crdWatches notifies consumers when a CRD is present
+	crdWatches map[config.GroupVersionKind]*waiter
 }
 
 type Option struct {
@@ -109,17 +112,12 @@ type Option struct {
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, opts Option) (model.ConfigStoreController, error) {
+func New(client kube.Client, opts Option) (*Client, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
 	}
 	return NewForSchemas(client, opts, schemas)
-}
-
-var crdWatches = map[config.GroupVersionKind]*waiter{
-	gvk.KubernetesGateway: newWaiter(),
-	gvk.GatewayClass:      newWaiter(),
 }
 
 type waiter struct {
@@ -137,8 +135,8 @@ func newWaiter() *waiter {
 // WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
 // indicates the CRD does not exist but the wait failed or was canceled.
 // This is useful to conditionally enable controllers based on CRDs being created.
-func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
-	ch, f := crdWatches[k]
+func (cl *Client) WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
+	ch, f := cl.crdWatches[k]
 	if !f {
 		log.Warnf("waiting for CRD %s that is not registered", k.String())
 		return false
@@ -151,7 +149,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) (model.ConfigStoreController, error) {
+func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) (*Client, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -175,6 +173,10 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		initialSync:      atomic.NewBool(false),
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
+		crdWatches: map[config.GroupVersionKind]*waiter{
+			gvk.KubernetesGateway: newWaiter(),
+			gvk.GatewayClass:      newWaiter(),
+		},
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
@@ -241,7 +243,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 
-	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
@@ -298,8 +300,10 @@ func (cl *Client) SyncAll() {
 					continue
 				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
-				for _, f := range handlers {
-					f(config.Config{}, currConfig, model.EventAdd)
+				if cl.objectInRevision(&currConfig) {
+					for _, f := range handlers {
+						f(config.Config{}, currConfig, model.EventAdd)
+					}
 				}
 			}
 		}()
@@ -539,7 +543,7 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	_ = i.Informer().SetTransform(kube.StripUnusedFields)
 
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
-	if w, f := crdWatches[resourceGVK]; f {
+	if w, f := cl.crdWatches[resourceGVK]; f {
 		cl.logger.Infof("notifying watchers %v was created", resourceGVK)
 		w.once.Do(func() {
 			close(w.stop)

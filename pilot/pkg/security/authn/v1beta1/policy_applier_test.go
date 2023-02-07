@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/jwt"
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
 )
@@ -55,10 +56,10 @@ func TestJwtFilter(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name             string
-		in               []*config.Config
-		enableRemoteJwks bool
-		expected         *hcm.HttpFilter
+		name          string
+		in            []*config.Config
+		jwksFetchMode jwt.JwksFetchMode
+		expected      *hcm.HttpFilter
 	}{
 		{
 			name:     "No policy",
@@ -142,7 +143,7 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "JWT policy with Mesh cluster as issuer and remote jwks enabled",
+			name: "JWT policy with Mesh cluster as issuer and remote jwks mode Hybrid",
 			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
@@ -155,7 +156,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: true,
+			jwksFetchMode: jwt.Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -215,7 +216,80 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "JWT policy with non Mesh cluster as issuer and remote jwks enabled",
+			name: "JWT policy with Mesh cluster as issuer and remote jwks mode Envoy",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "mesh cluster",
+								JwksUri: "http://jwt-token-issuer.mesh:7443/jwks",
+							},
+						},
+					},
+				},
+			},
+			jwksFetchMode: jwt.Envoy,
+			expected: &hcm.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &emptypb.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "mesh cluster",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
+										RemoteJwks: &envoy_jwt.RemoteJwks{
+											HttpUri: &core.HttpUri{
+												Uri: "http://jwt-token-issuer.mesh:7443/jwks",
+												HttpUpstreamType: &core.HttpUri_Cluster{
+													Cluster: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
+												},
+												Timeout: &durationpb.Duration{Seconds: 5},
+											},
+											CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "mesh cluster",
+								},
+							},
+							BypassCorsPreflight: true,
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with non Mesh cluster as issuer and remote jwks mode Hybrid",
 			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
@@ -228,7 +302,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: true,
+			jwksFetchMode: jwt.Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -271,6 +345,79 @@ func TestJwtFilter(t *testing.T) {
 											Specifier: &core.DataSource_InlineString{
 												InlineString: test.JwtPubKey2,
 											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "invalid|7443|",
+								},
+							},
+							BypassCorsPreflight: true,
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with non Mesh cluster as issuer and remote jwks mode Envoy",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "invalid|7443|",
+								JwksUri: "http://invalid-issuer.com:7443/jwks",
+							},
+						},
+					},
+				},
+			},
+			jwksFetchMode: jwt.Envoy,
+			expected: &hcm.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &emptypb.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "invalid|7443|",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
+										RemoteJwks: &envoy_jwt.RemoteJwks{
+											HttpUri: &core.HttpUri{
+												Uri: "http://invalid-issuer.com:7443/jwks",
+												HttpUpstreamType: &core.HttpUri_Cluster{
+													Cluster: "outbound|7443||invalid-issuer.com",
+												},
+												Timeout: &durationpb.Duration{Seconds: 5},
+											},
+											CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 										},
 									},
 									Forward:           false,
@@ -690,8 +837,83 @@ func TestJwtFilter(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Output claim to header",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:               "https://secret.foo.com",
+								JwksUri:              jwksURI,
+								ForwardOriginalToken: true,
+								OutputClaimToHeaders: []*v1beta1.ClaimToHeader{
+									{Header: "x-jwt-key1", Claim: "value1"},
+									{Header: "x-jwt-key2", Claim: "value2"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &hcm.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &emptypb.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
+											},
+										},
+									},
+									Forward: true,
+									ClaimToHeaders: []*envoy_jwt.JwtClaimToHeader{
+										{HeaderName: "x-jwt-key1", ClaimName: "value1"},
+										{HeaderName: "x-jwt-key2", ClaimName: "value2"},
+									},
+									PayloadInMetadata: "https://secret.foo.com",
+								},
+							},
+							BypassCorsPreflight: true,
+						}),
+				},
+			},
+		},
 	}
-
 	push := model.NewPushContext()
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
@@ -704,7 +926,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			istiotest.SetForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
+			istiotest.SetForTest(t, &features.JwksFetchMode, c.jwksFetchMode)
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}

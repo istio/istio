@@ -69,6 +69,9 @@ spec:
       containers:
         - name: istio-proxy
           image: auto
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}

@@ -30,6 +30,7 @@ const (
 	clusters  configTypeURL = "type.googleapis.com/envoy.admin.v3.ClustersConfigDump"
 	routes    configTypeURL = "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
 	secrets   configTypeURL = "type.googleapis.com/envoy.admin.v3.SecretsConfigDump"
+	ecds      configTypeURL = "type.googleapis.com/envoy.admin.v3.EcdsConfigDump"
 )
 
 // getSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL

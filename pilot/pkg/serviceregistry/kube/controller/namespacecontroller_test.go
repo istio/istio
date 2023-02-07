@@ -39,10 +39,9 @@ import (
 )
 
 func TestNamespaceController(t *testing.T) {
-	// Cannot use t.SetForTest() here as it results in DATA RACE.
-	// Need to wait for https://github.com/kubernetes/kubernetes/pull/112200
-	features.EnableEnhancedResourceScoping = false
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
@@ -88,10 +87,9 @@ func TestNamespaceController(t *testing.T) {
 }
 
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
-	// Cannot use t.SetForTest() here as it results in DATA RACE.
-	// Need to wait for https://github.com/kubernetes/kubernetes/pull/112200
-	features.EnableEnhancedResourceScoping = true
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)

@@ -33,7 +33,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -120,7 +120,7 @@ the configuration objects that affect that pod.`,
 				return err
 			}
 
-			matchingServices := make([]v1.Service, 0, len(svcs.Items))
+			matchingServices := make([]corev1.Service, 0, len(svcs.Items))
 			for _, svc := range svcs.Items {
 				if len(svc.Spec.Selector) > 0 {
 					svcSelector := klabels.SelectorFromSet(svc.Spec.Selector)
@@ -287,7 +287,7 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -349,7 +349,7 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 	return match, facts
 }
 
-func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.TCPRoute, svc v1.Service) (bool, []string) {
+func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.TCPRoute, svc corev1.Service) (bool, []string) {
 	match := false
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
@@ -419,7 +419,7 @@ func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
 	return strings.TrimSpace(retval)
 }
 
-func printPod(writer io.Writer, pod *v1.Pod, revision string) {
+func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 	ports := []string{}
 	UserID := int64(1337)
 	for _, container := range pod.Spec.Containers {
@@ -449,8 +449,8 @@ func printPod(writer io.Writer, pod *v1.Pod, revision string) {
 		fmt.Fprintf(writer, "   Pod does not expose ports\n")
 	}
 
-	if pod.Status.Phase != v1.PodRunning {
-		fmt.Printf("   Pod is not %s (%s)\n", v1.PodRunning, pod.Status.Phase)
+	if pod.Status.Phase != corev1.PodRunning {
+		fmt.Printf("   Pod is not %s (%s)\n", corev1.PodRunning, pod.Status.Phase)
 		return
 	}
 
@@ -498,7 +498,7 @@ func kname(meta metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", meta.Name, meta.Namespace)
 }
 
-func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
+func printService(writer io.Writer, svc corev1.Service, pod *corev1.Pod) {
 	fmt.Fprintf(writer, "Service: %s\n", kname(svc.ObjectMeta))
 	for _, port := range svc.Spec.Ports {
 		if port.Protocol != "TCP" {
@@ -516,9 +516,9 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 	}
 }
 
-func findProtocolForPort(port *v1.ServicePort) string {
+func findProtocolForPort(port *corev1.ServicePort) string {
 	var protocol string
-	if port.Name == "" && port.AppProtocol == nil && port.Protocol != v1.ProtocolUDP {
+	if port.Name == "" && port.AppProtocol == nil && port.Protocol != corev1.ProtocolUDP {
 		protocol = "auto-detect"
 	} else {
 		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
@@ -536,7 +536,7 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-func isMeshed(pod *v1.Pod) bool {
+func isMeshed(pod *corev1.Pod) bool {
 	var sidecar bool
 
 	for _, container := range pod.Spec.Containers {
@@ -651,7 +651,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*hcm.H
 }
 
 // getIstioVirtualServiceNameForSvc returns name, namespace
-func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
+func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc corev1.Service, port int32) (string, string, error) {
 	path, err := getIstioVirtualServicePathForSvcFromRoute(cd, svc, port)
 	if err != nil {
 		return "", "", err
@@ -668,7 +668,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 }
 
 // getIstioVirtualServicePathForSvcFromRoute returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
-func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
+func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc corev1.Service, port int32) (string, error) {
 	sPort := strconv.Itoa(int(port))
 
 	// Routes know their destination Service name, namespace, and port, and the DR that configures them
@@ -699,7 +699,7 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 }
 
 // routeDestinationMatchesSvc determines whether or not to use this service as a destination
-func routeDestinationMatchesSvc(vhRoute *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
+func routeDestinationMatchesSvc(vhRoute *route.Route, svc corev1.Service, vh *route.VirtualHost, port int32) bool {
 	if vhRoute == nil {
 		return false
 	}
@@ -749,7 +749,7 @@ func getIstioConfig(metadata *core.Metadata) (string, error) {
 }
 
 // getIstioDestinationRuleNameForSvc returns name, namespace
-func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, string, error) {
+func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc corev1.Service, port int32) (string, string, error) {
 	path, err := getIstioDestinationRulePathForSvc(cd, svc, port)
 	if err != nil || path == "" {
 		return "", "", err
@@ -766,7 +766,7 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc v1.Service, p
 }
 
 // getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
-func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, port int32) (string, error) {
+func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc corev1.Service, port int32) (string, error) {
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	filter := istio_envoy_configdump.ClusterFilter{
 		FQDN: host.Name(svcHost),
@@ -804,7 +804,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
+func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
 	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)
@@ -881,7 +881,7 @@ func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, 
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []klabels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.CLIClient) error { // nolint: lll
+func printIngressInfo(writer io.Writer, matchingServices []corev1.Service, podsLabels []klabels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.CLIClient) error { // nolint: lll
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -960,7 +960,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	return nil
 }
 
-func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v1.Pod, ip string) {
+func printIngressService(writer io.Writer, ingressSvc *corev1.Service, ingressPod *corev1.Pod, ip string) {
 	// The ingressgateway service offers a lot of ports but the pod doesn't listen to all
 	// of them.  For example, it doesn't listen on 443 without additional setup.  This prints
 	// the most basic output.
@@ -995,7 +995,7 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 	}
 }
 
-func getIngressIP(service v1.Service, pod v1.Pod) string {
+func getIngressIP(service corev1.Service, pod corev1.Pod) string {
 	if len(service.Status.LoadBalancer.Ingress) > 0 {
 		return service.Status.LoadBalancer.Ingress[0].IP
 	}
@@ -1046,7 +1046,7 @@ the configuration objects that affect that service.`,
 				return err
 			}
 
-			matchingPods := []v1.Pod{}
+			matchingPods := []corev1.Pod{}
 			selectedPodCount := 0
 			if len(svc.Spec.Selector) > 0 {
 				svcSelector := klabels.SelectorFromSet(svc.Spec.Selector)
@@ -1054,8 +1054,8 @@ the configuration objects that affect that service.`,
 					if svcSelector.Matches(klabels.Set(pod.ObjectMeta.Labels)) {
 						selectedPodCount++
 
-						if pod.Status.Phase != v1.PodRunning {
-							fmt.Printf("   Pod is not %s (%s)\n", v1.PodRunning, pod.Status.Phase)
+						if pod.Status.Phase != corev1.PodRunning {
+							fmt.Printf("   Pod is not %s (%s)\n", corev1.PodRunning, pod.Status.Phase)
 							continue
 						}
 
@@ -1105,7 +1105,7 @@ the configuration objects that affect that service.`,
 			pod := matchingPods[0]
 
 			// Only consider the service invoked with this command, not other services that might select the pod
-			svcs := []v1.Service{*svc}
+			svcs := []corev1.Service{*svc}
 
 			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels)
 			if err != nil {
@@ -1124,7 +1124,7 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *v1.Pod, matchingServices []v1.Service, podsLabels []klabels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set) error { // nolint: lll
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
 	if err != nil {
 		if ignoreUnmeshed {
@@ -1204,7 +1204,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 	return nil
 }
 
-func containerReady(pod *v1.Pod, containerName string) (bool, error) {
+func containerReady(pod *corev1.Pod, containerName string) (bool, error) {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.Name == containerName {
 			return containerStatus.Ready, nil

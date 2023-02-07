@@ -115,8 +115,6 @@ data:
         {{ end -}}
         - --drainDuration
         - "{{ formatDuration .ProxyConfig.DrainDuration }}"
-        - --parentShutdownDuration
-        - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
         - --discoveryAddress
         - "{{ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress }}"
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
@@ -221,6 +219,10 @@ data:
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:

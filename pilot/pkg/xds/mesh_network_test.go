@@ -481,7 +481,7 @@ func (w *workload) configs() []config.Config {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{w.name},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: uint32(w.port), Name: "http", Protocol: "HTTP"},
 				},
 				Endpoints: []*networking.WorkloadEntry{{

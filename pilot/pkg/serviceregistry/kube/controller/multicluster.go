@@ -240,6 +240,10 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		m.configController.RegisterEventHandler(gvk.AuthorizationPolicy, kubeRegistry.AuthorizationPolicyHandler)
 	}
 
+	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
+		kubeRegistry.AppendNamespaceDiscoveryHandlers(m.serviceEntryController.NamespaceDiscoveryHandler)
+	}
+
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {
@@ -256,6 +260,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				// ServiceEntry selects WorkloadEntry from remote cluster
 				kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
+				if features.EnableEnhancedResourceScoping {
+					kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
+				}
 				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
 				go configStore.Run(clusterStopCh)
 			} else {

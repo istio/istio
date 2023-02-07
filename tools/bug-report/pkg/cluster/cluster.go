@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -303,7 +303,7 @@ func PodKey(namespace, pod string) string {
 	return path.Path{namespace, pod}.String()
 }
 
-func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
+func getOwnerDeployment(pod *corev1.Pod, replicasets []appsv1.ReplicaSet) string {
 	for _, o := range pod.OwnerReferences {
 		if o.Kind == "ReplicaSet" {
 			for _, rs := range replicasets {

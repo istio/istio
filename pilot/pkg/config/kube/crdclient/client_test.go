@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/exp/slices"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,13 +29,16 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -327,6 +331,74 @@ func TestClient(t *testing.T) {
 	})
 }
 
+// TestClientInitialSyncSkipsOtherRevisions tests that the initial sync skips objects from other
+// revisions.
+func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
+	fake := kube.NewFakeClient()
+	for _, s := range collections.Istio.All() {
+		createCRD(t, fake, s.Resource())
+	}
+
+	// Populate the client with some ServiceEntrys such that 1/3 are in the default revision and
+	// 2/3 are in different revisions.
+	labels := []map[string]string{
+		nil,
+		{"istio.io/rev": "canary"},
+		{"istio.io/rev": "prod"},
+	}
+	var expectedCfgs []config.Config
+	for i := 0; i < 9; i++ {
+		selectedLabels := labels[i%len(labels)]
+		obj := &clientnetworkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-service-entry-%d", i),
+				Namespace: "test",
+				Labels:    selectedLabels,
+			},
+			Spec: v1alpha3.ServiceEntry{},
+		}
+		_, err := fake.Istio().NetworkingV1alpha3().ServiceEntries(obj.Namespace).Create(
+			context.TODO(), obj, metav1.CreateOptions{})
+		assert.NoError(t, err)
+		// Only SEs from the default revision should generate events.
+		if selectedLabels == nil {
+			expectedCfgs = append(expectedCfgs, TranslateObject(obj, gvk.ServiceEntry, ""))
+		}
+	}
+
+	// Create a config store with a handler that records add events
+	store, err := New(fake, Option{})
+	assert.NoError(t, err)
+
+	var cfgsAdded []config.Config
+	store.RegisterEventHandler(
+		gvk.ServiceEntry,
+		func(old config.Config, curr config.Config, event model.Event) {
+			if event != model.EventAdd {
+				t.Fatalf("unexpected event: %v", event)
+			}
+			cfgsAdded = append(cfgsAdded, curr)
+		},
+	)
+
+	stop := test.NewStop(t)
+	fake.RunAndWait(stop)
+
+	// We don't call Run() and immediately close the stop channel as it occasionally leads to
+	// duplicate add events from the informer that cause test flakes. Instead, just call SyncAll()
+	// to only trigger the initial bootstrap sync.
+	store.SyncAll()
+
+	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
+	sortFunc := func(a, b config.Config) bool {
+		return a.Key() < b.Key()
+	}
+	slices.SortFunc(cfgsAdded, sortFunc)
+	slices.SortFunc(expectedCfgs, sortFunc)
+
+	assert.Equal(t, expectedCfgs, cfgsAdded)
+}
+
 func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	t.Helper()
 	crd := &v1.CustomResourceDefinition{
@@ -338,7 +410,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 		t.Fatal(err)
 	}
 
-	// Metadata client fake is not kept in sync, so if using a fake clinet update that as well
+	// Metadata client fake is not kept in sync, so if using a fake client update that as well
 	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
 	if !ok {
 		return

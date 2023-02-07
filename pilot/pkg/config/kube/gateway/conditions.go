@@ -20,6 +20,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
@@ -123,8 +124,9 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 type ParentErrorReason string
 
 const (
-	ParentErrorNotAllowed = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
-	ParentErrorNoHostname = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
+	ParentErrorNotAllowed        = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
+	ParentErrorNoHostname        = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
+	ParentErrorParentRefConflict = ParentErrorReason("ParentRefConflict")
 )
 
 type ConfigErrorReason = string
@@ -145,9 +147,9 @@ const (
 	// InvalidFilter indicates an issue with the filters
 	InvalidFilter ConfigErrorReason = "InvalidFilter"
 	// InvalidTLS indicates an issue with TLS settings
-	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCertificateRef)
+	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8sbeta.ListenerReasonInvalidCertificateRef)
 	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
-	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
+	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8sbeta.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
 )
@@ -259,8 +261,8 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 		cond := gs.Listeners[index].Conditions
 		supported, valid := generateSupportedKinds(l)
 		if !valid {
-			conditions[string(k8s.ListenerConditionResolvedRefs)] = &Condition{
-				Reason:  string(k8s.ListenerReasonInvalidRouteKinds),
+			conditions[string(k8sbeta.ListenerConditionResolvedRefs)] = &Condition{
+				Reason:  string(k8sbeta.ListenerReasonInvalidRouteKinds),
 				Status:  metav1.ConditionFalse,
 				Message: "Invalid route kinds",
 			}
@@ -278,13 +280,13 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	supported := []k8s.RouteGroupKind{}
 	switch l.Protocol {
-	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
+	case k8sbeta.HTTPProtocolType, k8sbeta.HTTPSProtocolType:
 		// Only terminate allowed, so its always HTTP
 		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)}}
-	case k8s.TCPProtocolType:
+	case k8sbeta.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
-	case k8s.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
+	case k8sbeta.TLSProtocolType:
+		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8sbeta.TLSModePassthrough {
 			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)}}
 		} else {
 			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}

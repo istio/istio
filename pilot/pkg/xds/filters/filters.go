@@ -24,6 +24,7 @@ import (
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
@@ -39,17 +40,23 @@ import (
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
 	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 const (
-	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
-	AlpnFilterName = "istio.alpn"
-
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
+	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
+	AlpnFilterName = "istio.alpn"
+
 	MxFilterName = "istio.metadata_exchange"
+
+	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
+	// as the name defined in
+	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
+	AuthnFilterName = "istio_authn"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -128,6 +135,12 @@ var (
 			}),
 		},
 	}
+	EmptySessionFilter = &hcm.HttpFilter{
+		Name: util.StatefulSessionFilter,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{}),
+		},
+	}
 	Alpn = &hcm.HttpFilter{
 		Name: AlpnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -165,7 +178,7 @@ var (
 	HTTPMx = buildHTTPMxFilter()
 
 	IstioNetworkAuthenticationFilter = &listener.Filter{
-		Name: "istio_authn",
+		Name: AuthnFilterName,
 		ConfigType: &listener.Filter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.network.authn.Config"),
 		},

@@ -136,7 +136,9 @@ func applyLocalityWeight(
 
 			// remove groups of endpoints in a locality that miss matched
 			for i := range misMatched {
-				loadAssignment.Endpoints[i].LbEndpoints = nil
+				if loadAssignment.Endpoints[i] != nil {
+					loadAssignment.Endpoints[i].LbEndpoints = nil
+				}
 			}
 			break
 		}

@@ -47,6 +47,8 @@ func createArgs(args Args, target string, variant string, architecture string) m
 	m := map[string]string{
 		// Base version defines the tag of the base image to use. Typically, set in the Makefile and not overridden.
 		"BASE_VERSION": args.BaseVersion,
+		// Registry where the base image is stored
+		"ISTIO_BASE_REGISTRY": args.BaseImageRegistry,
 		// Base distribution picks which variant to build
 		"BASE_DISTRIBUTION": baseDist,
 		// Additional metadata injected into some images

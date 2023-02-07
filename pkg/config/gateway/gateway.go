@@ -20,8 +20,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-// IsNonHTTPTLSServer returns true if this server is non HTTP, but with some TLS settings for termination/passthrough
-func IsNonHTTPTLSServer(server *v1alpha3.Server) bool {
+// IsTLSServer returns true if this server is non HTTP, but with some TLS settings for termination/passthrough
+func IsTLSServer(server *v1alpha3.Server) bool {
+	// to filter out https redirect
 	if server.Tls != nil && !protocol.Parse(server.Port.Protocol).IsHTTP() {
 		return true
 	}

@@ -197,7 +197,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
 					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
-						log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
+						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
@@ -291,13 +291,13 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
 							}
 							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
-							http3AdvertisingRoutes[routeName] = struct{}{}
+							http3AdvertisingRoutes.Insert(routeName)
 						}
 					}
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
 					gatewayPorts[resolvedPort] = true
-					if !gateway.IsNonHTTPTLSServer(s) {
+					if !gateway.IsTLSServer(s) {
 						plainTextServers[serverPort.Number] = serverPort
 					}
 					if gateway.IsHTTPServer(s) {
@@ -306,7 +306,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
 							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
-							http3AdvertisingRoutes[routeName] = struct{}{}
+							http3AdvertisingRoutes.Insert(routeName)
 
 							if mergedQUICServers[serverPort] == nil {
 								// This should be treated like non-passthrough HTTPS case. There will be multiple filter

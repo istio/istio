@@ -15,6 +15,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -70,13 +72,33 @@ func HandleNamespace(ns, defaultNamespace string) string {
 	return ns
 }
 
-// InferPodInfoFromTypedResource gets a pod name, from an expression like Deployment/httpbin, or Deployment/productpage-v1.bookinfo
-func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Factory) (string, string, error) {
+func InferPodsFromTypedResource(name, defaultNS string, factory cmdutil.Factory) ([]string, string, error) {
 	resname, ns := inferNsInfo(name, defaultNS)
 	if !strings.Contains(resname, "/") {
-		return resname, ns, nil
+		return []string{resname}, ns, nil
+	}
+	client, podName, namespace, selector, err := getClientForResource(resname, ns, factory)
+	if err != nil {
+		return []string{}, "", err
+	}
+	if podName != "" {
+		return []string{podName}, namespace, err
 	}
 
+	options := metav1.ListOptions{LabelSelector: selector}
+	podList, err := client.Pods(namespace).List(context.TODO(), options)
+	if err != nil {
+		return []string{}, "", err
+	}
+	pods := []string{}
+	for i := range podList.Items {
+		pods = append(pods, podList.Items[i].Name)
+	}
+
+	return pods, namespace, nil
+}
+
+func getClientForResource(resname, ns string, factory cmdutil.Factory) (*corev1client.CoreV1Client, string, string, string, error) {
 	// Pod is referred to using something like "deployment/httpbin".  Use the kubectl
 	// libraries to look up the resource name, find the pods it selects, and return
 	// one of those pods.
@@ -87,32 +109,48 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	builder.ResourceNames("pods", resname)
 	infos, err := builder.Do().Infos()
 	if err != nil {
-		return "", "", fmt.Errorf("failed retrieving: %v in the %q namespace", err, ns)
+		return nil, "", "", "", fmt.Errorf("failed retrieving: %v in the %q namespace", err, ns)
 	}
 	if len(infos) != 1 {
-		return "", "", errors.New("expected a resource")
+		return nil, "", "", "", errors.New("expected a resource")
 	}
 	_, ok := infos[0].Object.(*v1.Pod)
 	if ok {
 		// If we got a pod, just use its name
-		return infos[0].Name, infos[0].Namespace, nil
+		return nil, infos[0].Name, infos[0].Namespace, "", nil
 	}
 	namespace, selector, err := SelectorsForObject(infos[0].Object)
 	if err != nil {
-		return "", "", fmt.Errorf("%q does not refer to a pod: %v", resname, err)
+		return nil, "", "", "", fmt.Errorf("%q does not refer to a pod: %v", resname, err)
 	}
 	clientConfig, err := factory.ToRESTConfig()
 	if err != nil {
-		return "", "", err
+		return nil, "", "", "", err
 	}
 	clientset, err := corev1client.NewForConfig(clientConfig)
 	if err != nil {
+		return nil, "", "", "", err
+	}
+	return clientset, "", namespace, selector.String(), nil
+}
+
+// InferPodInfoFromTypedResource gets a pod name, from an expression like Deployment/httpbin, or Deployment/productpage-v1.bookinfo
+func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Factory) (string, string, error) {
+	resname, ns := inferNsInfo(name, defaultNS)
+	if !strings.Contains(resname, "/") {
+		return resname, ns, nil
+	}
+	client, podName, namespace, selector, err := getClientForResource(resname, defaultNS, factory)
+	if err != nil {
 		return "", "", err
+	}
+	if podName != "" {
+		return podName, namespace, nil
 	}
 	// We need to pass in a sorter, and the one used by `kubectl logs` is good enough.
 	sortBy := func(pods []*v1.Pod) sort.Interface { return podutils.ByLogging(pods) }
 	timeout := 2 * time.Second
-	pod, _, err := polymorphichelpers.GetFirstPod(clientset, namespace, selector.String(), timeout, sortBy)
+	pod, _, err := polymorphichelpers.GetFirstPod(client, namespace, selector, timeout, sortBy)
 	if err != nil {
 		return "", "", fmt.Errorf("no pods match %q", resname)
 	}

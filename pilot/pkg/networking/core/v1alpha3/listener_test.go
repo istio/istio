@@ -170,7 +170,7 @@ func TestInboundListenerConfig(t *testing.T) {
 	t.Run("merge sidecar ingress ports and service ports", func(t *testing.T) {
 		features.EnableSidecarServiceInboundListenerMerge = true
 		testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t, getProxy(),
-			buildService("test1.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second)))
+			buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow.Add(1*time.Second)))
 	})
 	t.Run("merge sidecar ingress and service ports, same port in both sidecar and service", func(t *testing.T) {
 		features.EnableSidecarServiceInboundListenerMerge = true
@@ -976,7 +976,7 @@ func TestGetDualStackActualWildcard(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPMode()
-		actualWildcards, _ := getWildcardsAndLocalHostForDualStack(tt.proxy.GetIPMode())
+		actualWildcards, _ := getWildcardsAndLocalHost(tt.proxy.GetIPMode())
 		if len(actualWildcards) != len(tt.expected) {
 			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, actualWildcards)
 		}
@@ -1013,7 +1013,7 @@ func TestGetDualStackLocalHost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPMode()
-		_, actualLocalHosts := getWildcardsAndLocalHostForDualStack(tt.proxy.GetIPMode())
+		_, actualLocalHosts := getWildcardsAndLocalHost(tt.proxy.GetIPMode())
 		if len(actualLocalHosts) != len(tt.expected) {
 			t.Errorf("Test %s failed, expected: %v got: %v", tt.name, tt.expected, actualLocalHosts)
 		}
@@ -1474,6 +1474,26 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 					Bind:            "1.1.1.1",
 					DefaultEndpoint: "127.0.0.1:8084",
 				},
+				{
+					// not conflict with service port
+					Port: &networking.Port{
+						Number:   80,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+				{
+					// conflict with service target port
+					Port: &networking.Port{
+						Number:   8080,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:8080",
+				},
 			},
 		},
 	}
@@ -1482,8 +1502,8 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 		Configs:  []config.Config{sidecarConfig},
 	}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if len(l.FilterChains) != 12 {
-		t.Fatalf("expected %d listener filter chains, found %d", 12, len(l.FilterChains))
+	if len(l.FilterChains) != 14 {
+		t.Fatalf("expected %d listener filter chains, found %d", 14, len(l.FilterChains))
 	}
 	verifyFilterChainMatch(t, l)
 }

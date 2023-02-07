@@ -85,6 +85,8 @@ message ForwardEchoRequest {
 
   // HBONE communication settings. If provided, requests will be tunnelled.
   HBONE hbone = 24;
+
+  ProxyProtoVersion proxyProtocolVersion = 25;
 }
 
 message HBONE {
@@ -110,4 +112,10 @@ message Alpn {
 
 message ForwardEchoResponse {
   repeated string output = 1;
+}
+
+enum ProxyProtoVersion {
+  NONE = 0;
+  V1 = 1;
+  V2 = 2;
 }

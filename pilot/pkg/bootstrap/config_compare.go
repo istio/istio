@@ -35,13 +35,23 @@ func needsPush(prev config.Config, curr config.Config) bool {
 	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
 		return true
 	}
-	// If current metadata has "*istio.io" label/annotation, just push
+	// If current/previous metadata has "*istio.io" label/annotation, just push
 	for label := range curr.Meta.Labels {
 		if strings.Contains(label, "istio.io") {
 			return true
 		}
 	}
 	for annotation := range curr.Meta.Annotations {
+		if strings.Contains(annotation, "istio.io") {
+			return true
+		}
+	}
+	for label := range prev.Meta.Labels {
+		if strings.Contains(label, "istio.io") {
+			return true
+		}
+	}
+	for annotation := range prev.Meta.Annotations {
 		if strings.Contains(annotation, "istio.io") {
 			return true
 		}

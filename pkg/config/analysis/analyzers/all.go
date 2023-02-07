@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/pkg/config/analysis/analyzers/serviceentry"
 	"istio.io/istio/pkg/config/analysis/analyzers/sidecar"
+	"istio.io/istio/pkg/config/analysis/analyzers/telemetry"
 	"istio.io/istio/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 )
@@ -63,6 +64,7 @@ func All() []analysis.Analyzer {
 		&serviceentry.ProtocolAddressesAnalyzer{},
 		&webhook.Analyzer{},
 		&envoyfilter.EnvoyPatchAnalyzer{},
+		&telemetry.ProdiverAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

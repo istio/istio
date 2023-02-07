@@ -192,6 +192,19 @@ func ValidateExtensionProviderEnvoyOtelAls(provider *meshconfig.MeshConfig_Exten
 	return
 }
 
+func ValidateExtensionProviderTracingOpentelemetry(provider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider) (errs error) {
+	if provider == nil {
+		return fmt.Errorf("nil OpenTelemetryTracingProvider")
+	}
+	if err := ValidatePort(int(provider.Port)); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := validateExtensionProviderService(provider.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	return
+}
+
 func ValidateExtensionProviderEnvoyHTTPAls(provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) (errs error) {
 	if provider == nil {
 		return fmt.Errorf("nil EnvoyHttpGrpcV3LogProvider")
@@ -239,6 +252,7 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingZipkin(provider.Zipkin))
+		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
@@ -255,6 +269,8 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyOtelAls(provider.EnvoyOtelAls))
+		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
+			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderTracingOpentelemetry(provider.Opentelemetry))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
 			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyHTTPAls(provider.EnvoyHttpAls))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:

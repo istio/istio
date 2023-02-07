@@ -64,6 +64,8 @@ message CNIConfig {
 
   repeated string excludeNamespaces = 9;
 
+  google.protobuf.Struct affinity = 20;
+
   google.protobuf.Struct podAnnotations = 10 [deprecated=true];
 
   string psp_cluster_role = 11;
@@ -176,6 +178,8 @@ message EgressGatewayConfig {
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
+
+  google.protobuf.BoolValue customService = 6;
 
   // Controls whether an egress gateway is enabled.
   google.protobuf.BoolValue enabled = 7;
@@ -290,6 +294,9 @@ message GlobalConfig {
   //
   // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
   ArchConfig arch = 1 [deprecated=true];
+
+  // List of certSigners to allow "approve" action in the ClusterRole
+  repeated string certSigners = 68;
 
   string configRootNamespace = 50;
 
@@ -1130,6 +1137,7 @@ message BaseConfig {
   // For istioctl usage to disable istio config crds in base
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
+  google.protobuf.BoolValue validateGateway = 4;
 }
 
 message IstiodRemoteConfig {

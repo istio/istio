@@ -447,7 +447,6 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/inject: "true"
         traffic.sidecar.istio.io/includeInboundPorts: ""   # do not intercept any inbound ports
         traffic.sidecar.istio.io/includeOutboundIPRanges: ""  # do not intercept any outbound traffic
         proxy.istio.io/config: |  # configure an env variable `OUTPUT_CERTS` to write certificates to the given folder
@@ -460,6 +459,7 @@ spec:
         release: prometheus
         chart: prometheus-13.6.0
         heritage: Helm
+        sidecar.istio.io/inject: "true"
     spec:
       serviceAccountName: prometheus
       containers:

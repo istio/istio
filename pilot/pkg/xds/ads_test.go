@@ -215,16 +215,16 @@ func TestAdsPushScoping(t *testing.T) {
 	)
 
 	removeServiceByNames := func(ns string, names ...string) {
-		configsUpdated := map[model.ConfigKey]struct{}{}
+		configsUpdated := sets.New[model.ConfigKey]()
 
 		for _, name := range names {
 			hostname := host.Name(name)
-			s.Discovery.MemRegistry.RemoveService(hostname)
-			configsUpdated[model.ConfigKey{
+			s.MemRegistry.RemoveService(hostname)
+			configsUpdated.Insert(model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
-			}] = struct{}{}
+			})
 		}
 
 		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
@@ -239,7 +239,7 @@ func TestAdsPushScoping(t *testing.T) {
 		removeServiceByNames(ns, names...)
 	}
 	addServiceByNames := func(ns string, names ...string) {
-		configsUpdated := map[model.ConfigKey]struct{}{}
+		configsUpdated := sets.New[model.ConfigKey]()
 
 		for _, name := range names {
 			hostname := host.Name(name)
@@ -249,7 +249,7 @@ func TestAdsPushScoping(t *testing.T) {
 				Namespace: ns,
 			}] = struct{}{}
 
-			s.Discovery.MemRegistry.AddService(&model.Service{
+			s.MemRegistry.AddService(&model.Service{
 				Hostname:       hostname,
 				DefaultAddress: "10.11.0.1",
 				Ports: []*model.Port{
@@ -277,12 +277,10 @@ func TestAdsPushScoping(t *testing.T) {
 
 	addServiceInstance := func(hostname host.Name, indexes ...int) {
 		for _, i := range indexes {
-			s.Discovery.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
+			s.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace}: {},
-		}})
+		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace})})
 	}
 
 	addVirtualService := func(i int, hosts []string, dest string) {
@@ -786,7 +784,7 @@ func TestAdsUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS()
 
-	s.Discovery.MemRegistry.AddService(&model.Service{
+	s.MemRegistry.AddService(&model.Service{
 		Hostname:       "adsupdate.default.svc.cluster.local",
 		DefaultAddress: "10.11.0.1",
 		Ports: []*model.Port{
@@ -803,7 +801,7 @@ func TestAdsUpdate(t *testing.T) {
 	})
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200)
-	s.Discovery.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
+	s.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
 	cluster := "outbound|2080||adsupdate.default.svc.cluster.local"
@@ -819,7 +817,7 @@ func TestAdsUpdate(t *testing.T) {
 		t.Fatalf("expected endpoints [10.2.0.1:80] got %v", eps)
 	}
 
-	_ = s.Discovery.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
+	_ = s.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.1.7.1", 1080)
 
 	// will trigger recompute and push for all clients - including some that may be closing
@@ -893,7 +891,7 @@ func TestEdsCache(t *testing.T) {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"foo.com"},
-				Ports: []*networking.Port{{
+				Ports: []*networking.ServicePort{{
 					Number:   80,
 					Protocol: "HTTP",
 					Name:     "http",

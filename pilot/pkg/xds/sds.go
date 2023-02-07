@@ -18,10 +18,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	xxhashv2 "github.com/cespare/xxhash/v2"
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	qat "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/qat/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -37,14 +40,20 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
 type SecretResource struct {
 	credentials.SecretResource
+	pkpConfHash string
 }
 
 var _ model.XdsCacheEntry = SecretResource{}
+
+func (sr SecretResource) Key() string {
+	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
+}
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
 func (sr SecretResource) DependentTypes() []kind.Kind {
@@ -67,9 +76,13 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 	if len(updates) == 0 {
 		return true
 	}
-	if model.ConfigsHaveKind(updates, kind.Secret) ||
-		model.ConfigsHaveKind(updates, kind.ReferenceGrant) {
-		return true
+	for update := range updates {
+		switch update.Kind {
+		case kind.Secret:
+			return true
+		case kind.ReferenceGrant:
+			return true
+		}
 	}
 	return false
 }
@@ -78,6 +91,11 @@ func sdsNeedsPush(updates model.XdsUpdates) bool {
 // Invalid resource names are ignored
 func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretResource {
 	res := make([]SecretResource, 0, len(names))
+	pkpConf := (*mesh.ProxyConfig)(proxy.Metadata.ProxyConfig).GetPrivateKeyProvider()
+	pkpConfHashStr := ""
+	if pkpConf != nil {
+		pkpConfHashStr = strconv.FormatUint(xxhashv2.Sum64String(pkpConf.String()), 10)
+	}
 	for _, resource := range names {
 		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
 		if err != nil {
@@ -85,7 +103,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 			log.Warnf("error parsing resource name: %v", err)
 			continue
 		}
-		res = append(res, SecretResource{sr})
+		res = append(res, SecretResource{sr, pkpConfHashStr})
 	}
 	return res
 }
@@ -98,7 +116,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	var updatedSecrets map[model.ConfigKey]struct{}
+	var updatedSecrets sets.Set[model.ConfigKey]
 	if !req.Full {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
@@ -344,6 +362,34 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 				},
 			},
 		})
+	case *mesh.PrivateKeyProvider_Qat:
+		qatConf := pkpConf.GetQat()
+		msg := protoconv.MessageToAny(&qat.QatPrivateKeyMethodConfig{
+			PollDelay: durationpb.New(time.Duration(qatConf.GetPollDelay().Nanos)),
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: key,
+				},
+			},
+		})
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_TlsCertificate{
+				TlsCertificate: &envoytls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: cert,
+						},
+					},
+					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
+						ProviderName: "qat",
+						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
+							TypedConfig: msg,
+						},
+					},
+				},
+			},
+		})
 	default:
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
@@ -369,7 +415,7 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 	}
 }
 
-func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
+func containsAny(mp sets.Set[model.ConfigKey], keys []model.ConfigKey) bool {
 	for _, k := range keys {
 		if _, f := mp[k]; f {
 			return true

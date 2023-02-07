@@ -15,13 +15,19 @@
 package gateway
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -29,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -42,7 +49,7 @@ var (
 				Name:          "default",
 				Port:          9009,
 				Protocol:      "HTTP",
-				AllowedRoutes: &k8s.AllowedRoutes{Namespaces: &k8s.RouteNamespaces{From: func() *k8s.FromNamespaces { x := k8s.NamespacesFromAll; return &x }()}},
+				AllowedRoutes: &k8s.AllowedRoutes{Namespaces: &k8s.RouteNamespaces{From: func() *k8s.FromNamespaces { x := k8sbeta.NamespacesFromAll; return &x }()}},
 			},
 		},
 	}
@@ -77,11 +84,15 @@ var (
 	}
 )
 
+var AlwaysReady = func(class config.GroupVersionKind, stop <-chan struct{}) bool {
+	return true
+}
+
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, controller.Options{})
+	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c, err := controller.List(typ, "ns1")
@@ -94,7 +105,7 @@ func TestListGatewayResourceType(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, controller.Options{})
+	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	store.Create(config.Config{
 		Meta: config.Meta{
@@ -141,7 +152,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
-	controller := NewController(clientSet, store, controller.Options{})
+	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	store.Create(config.Config{
 		Meta: config.Meta{
@@ -179,4 +190,69 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 		g.Expect(c.Namespace).To(Equal("ns1"))
 		g.Expect(c.Spec).To(Equal(expectedvs))
 	}
+}
+
+func TestNamespaceEvent(t *testing.T) {
+	g := NewWithT(t)
+
+	clientSet := kube.NewFakeClient()
+	store := memory.NewController(memory.Make(collections.All))
+	c := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
+	s := controller.NewFakeXDS()
+
+	c.RegisterEventHandler(gvk.Namespace, func(_, cfg config.Config, _ model.Event) {
+		s.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: []model.TriggerReason{model.NamespaceUpdate},
+		})
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	c.Run(ctx.Done())
+	c.state.ReferencedNamespaceKeys = sets.String{"allowed": struct{}{}}
+
+	ns1 := v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: "ns1",
+		Labels: map[string]string{
+			"foo": "bar",
+		},
+	}}
+	ns2 := v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: "ns2",
+		Labels: map[string]string{
+			"allowed": "true",
+		},
+	}}
+
+	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns1, metav1.CreateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+
+	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns2, metav1.CreateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+
+	ns1.Annotations = map[string]string{"foo": "bar"}
+	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+
+	ns2.Annotations = map[string]string{"foo": "bar"}
+	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+
+	ns1.Labels["bar"] = "foo"
+	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+
+	ns2.Labels["foo"] = "bar"
+	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+
+	ns1.Labels["allowed"] = "true"
+	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+
+	ns2.Labels["allowed"] = "false"
+	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
 }

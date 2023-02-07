@@ -287,7 +287,7 @@ func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
 
 func (s *CredentialsController) AddEventHandler(h func(name string, namespace string)) {
 	// register handler before informer starts
-	s.secretInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	_, _ = s.secretInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		h(o.GetName(), o.GetNamespace())
 	}))
 }

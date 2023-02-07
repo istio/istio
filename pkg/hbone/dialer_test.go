@@ -17,6 +17,7 @@ package hbone
 import (
 	"net"
 	"testing"
+	"time"
 )
 
 func newTCPServer(t testing.TB, data string) string {
@@ -44,13 +45,16 @@ func newTCPServer(t testing.TB, data string) string {
 }
 
 func TestDialerError(t *testing.T) {
+	timeout := 500 * time.Millisecond
 	d := NewDialer(Config{
 		ProxyAddress: "127.0.0.10:1", // Random address that should fail to dial
 		Headers: map[string][]string{
 			"some-addition-metadata": {"test-value"},
 		},
-		TLS: nil, // No TLS for simplification
+		TLS:     nil, // No TLS for simplification
+		Timeout: &timeout,
 	})
+
 	_, err := d.Dial("tcp", "fake")
 	if err == nil {
 		t.Fatal("expected error, got none.")
@@ -58,6 +62,7 @@ func TestDialerError(t *testing.T) {
 }
 
 func TestDialer(t *testing.T) {
+	timeout := 500 * time.Millisecond
 	testAddr := newTCPServer(t, "hello")
 	proxy := newHBONEServer(t)
 	d := NewDialer(Config{
@@ -65,7 +70,8 @@ func TestDialer(t *testing.T) {
 		Headers: map[string][]string{
 			"some-addition-metadata": {"test-value"},
 		},
-		TLS: nil, // No TLS for simplification
+		TLS:     nil, // No TLS for simplification
+		Timeout: &timeout,
 	})
 	send := func() {
 		client, err := d.Dial("tcp", testAddr)

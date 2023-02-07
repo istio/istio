@@ -25,6 +25,7 @@ from jaeger_client.codecs import B3Codec
 from opentracing.ext import tags
 from opentracing.propagation import Format
 from opentracing_instrumentation.request_context import get_current_span, span_in_context
+from prometheus_client import Counter, generate_latest
 import simplejson as json
 import requests
 import sys
@@ -92,6 +93,8 @@ service_dict = {
     "details": details,
     "reviews": reviews,
 }
+
+request_result_counter = Counter('request_result', 'Results of requests', ['destination_app', 'response_code'])
 
 # A note on distributed tracing:
 #
@@ -354,6 +357,11 @@ def ratingsRoute(product_id):
     return json.dumps(ratings), status, {'Content-Type': 'application/json'}
 
 
+@app.route('/metrics')
+def metrics():
+    return generate_latest()
+
+
 # Data providers:
 def getProducts():
     return [
@@ -380,9 +388,11 @@ def getProductDetails(product_id, headers):
     except BaseException:
         res = None
     if res and res.status_code == 200:
+        request_result_counter.labels(destination_app='details', response_code=200).inc()
         return 200, res.json()
     else:
         status = res.status_code if res is not None and res.status_code else 500
+        request_result_counter.labels(destination_app='details', response_code=status).inc()
         return status, {'error': 'Sorry, product details are currently unavailable for this book.'}
 
 
@@ -396,8 +406,10 @@ def getProductReviews(product_id, headers):
         except BaseException:
             res = None
         if res and res.status_code == 200:
+            request_result_counter.labels(destination_app='reviews', response_code=200).inc()
             return 200, res.json()
     status = res.status_code if res is not None and res.status_code else 500
+    request_result_counter.labels(destination_app='reviews', response_code=status).inc()
     return status, {'error': 'Sorry, product reviews are currently unavailable for this book.'}
 
 
@@ -408,9 +420,11 @@ def getProductRatings(product_id, headers):
     except BaseException:
         res = None
     if res and res.status_code == 200:
+        request_result_counter.labels(destination_app='ratings', response_code=200).inc()
         return 200, res.json()
     else:
         status = res.status_code if res is not None and res.status_code else 500
+        request_result_counter.labels(destination_app='ratings', response_code=status).inc()
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
 

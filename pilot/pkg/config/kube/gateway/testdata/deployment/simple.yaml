@@ -4,7 +4,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
-  name: default
+  name: default-istio
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -27,7 +27,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
-  name: default
+  name: default-istio
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -76,6 +76,7 @@ spec:
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
+      serviceAccountName: default-istio
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
