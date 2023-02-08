@@ -205,10 +205,10 @@ var ValidCipherSuites = sets.New(
 	"DES-CBC3-SHA",
 )
 
-// ValidEcdhCurves contains a list of all ecdh curves supported in MeshConfig.meshExternalTLS.ecdhCurves
+// ValidECDHCurves contains a list of all ecdh curves supported in MeshConfig.MeshExternal_TLS.ecdhCurves
 // Source:
 // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
-var ValidEcdhCurves = sets.New(
+var ValidECDHCurves = sets.New(
 	"P-224",
 	"P-256",
 	"P-521",
@@ -229,32 +229,11 @@ func IsValidCipherSuite(cs string) bool {
 	return ValidCipherSuites.Contains(cs)
 }
 
-func IsValidEcdhCurve(cs string) bool {
+func IsValidECDHCurve(cs string) bool {
 	if cs == "" {
 		return true
 	}
-	return ValidEcdhCurves.Contains(cs)
-}
-
-// FilterEcdhCurves filters out invalid ecdh_curves which would lead Envoy to NACKing.
-func FilterEcdhCurves(suites []string) []string {
-	if len(suites) == 0 {
-		return nil
-	}
-	ret := make([]string, 0, len(suites))
-	validEcdhCurves := sets.New[string]()
-	for _, s := range suites {
-		if IsValidEcdhCurve(s) {
-			if !validEcdhCurves.InsertContains(s) {
-				ret = append(ret, s)
-			} else if log.DebugEnabled() {
-				log.Debugf("ignoring duplicated ecdhCurves: %q", s)
-			}
-		} else if log.DebugEnabled() {
-			log.Debugf("ignoring unsupported ecdhCurves: %q", s)
-		}
-	}
-	return ret
+	return ValidECDHCurves.Contains(cs)
 }
 
 // FilterCipherSuites filters out invalid cipher suites which would lead Envoy to NACKing.

@@ -1748,7 +1748,7 @@ func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) error {
 	}
 	if meshExternalTLS := mesh.MeshExternal_TLS; meshExternalTLS != nil {
 		for _, cs := range meshExternalTLS.EcdhCurves {
-			if !security.IsValidEcdhCurve(cs) {
+			if !security.IsValidECDHCurve(cs) {
 				invalidEcdhCurves.Insert(cs)
 			} else if validEcdhCurves.InsertContains(cs) {
 				duplicateEcdhCurves.Insert(cs)
