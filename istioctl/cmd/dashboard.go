@@ -526,34 +526,34 @@ func dashboard() *cobra.Command {
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	kiali := kialiDashCmd()
-	kiali.PersistentFlags().IntVar(&kialiPort, "kiali_port", defaultKialiPort, "Kiali port")
+	kiali.PersistentFlags().IntVar(&kialiPort, "ui-port", defaultKialiPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(kiali)
 
 	prom := promDashCmd()
-	prom.PersistentFlags().IntVar(&promPort, "prom_port", defaultPrometheusPort, "Prometheus port")
+	prom.PersistentFlags().IntVar(&promPort, "ui-port", defaultPrometheusPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(prom)
 
 	graf := grafanaDashCmd()
-	graf.PersistentFlags().IntVar(&grafanaPort, "grafana_port", defaultGrafanaPort, "Grafana port")
+	graf.PersistentFlags().IntVar(&grafanaPort, "ui-port", defaultGrafanaPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(graf)
 
 	jaeger := jaegerDashCmd()
-	jaeger.PersistentFlags().IntVar(&jaegerPort, "jaeger_port", defaultJaegerPort, "Jaeger port")
+	jaeger.PersistentFlags().IntVar(&jaegerPort, "ui-port", defaultJaegerPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(jaeger)
 
 	zipkin := zipkinDashCmd()
-	zipkin.PersistentFlags().IntVar(&zipkinPort, "zipkin_port", defaultZipkinPort, "Zipkin port")
+	zipkin.PersistentFlags().IntVar(&zipkinPort, "ui-port", defaultZipkinPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(zipkin)
 
 	skywalking := skywalkingDashCmd()
-	skywalking.PersistentFlags().IntVar(&skywalkingPort, "skywalking_port", defaultSkywalkingPort, "Skywalking port")
+	skywalking.PersistentFlags().IntVar(&skywalkingPort, "ui-port", defaultSkywalkingPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(skywalking)
 
 	envoy := envoyDashCmd()
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", defaultNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
-	envoy.PersistentFlags().IntVar(&proxyAdminPort, "envoy_port", defaultProxyAdminPort, "Envoy listen port")
+	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", defaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)
 
 	controlz := controlZDashCmd()
