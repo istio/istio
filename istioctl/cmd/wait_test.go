@@ -46,6 +46,9 @@ func TestWaitCmd(t *testing.T) {
 	cannedResponse, _ := json.Marshal(cannedResponseObj)
 	cannedResponseMap := map[string][]byte{"onlyonepilot": cannedResponse}
 
+	distributionTrackingDisabledResponse := xds.DistributionTrackingDisabledMessage
+	distributionTrackingDisabledResponseMap := map[string][]byte{"onlyonepilot": []byte(distributionTrackingDisabledResponse)}
+
 	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
@@ -82,6 +85,12 @@ func TestWaitCmd(t *testing.T) {
 			execClientConfig: cannedResponseMap,
 			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
 			wantException:    false,
+		},
+		{
+			execClientConfig: distributionTrackingDisabledResponseMap,
+			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
+			wantException:    true,
+			expectedString:   distributionTrackingDisabledErrorString,
 		},
 	}
 

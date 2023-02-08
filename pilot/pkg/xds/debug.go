@@ -392,8 +392,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, resp, req)
 }
 
-var DistributionTrackingDisabledMessage = "Pilot Version tracking is disabled.  Please set the " +
-	"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true to enable."
+const DistributionTrackingDisabledMessage = "Pilot Version tracking is disabled. It may be enabled by setting the " +
+	"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true."
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
 	if !features.EnableDistributionTracking {
