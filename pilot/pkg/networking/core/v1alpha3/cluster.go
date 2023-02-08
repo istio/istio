@@ -119,10 +119,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
 		_, _, svcHost, port := model.ParseSubsetKey(cluster)
-		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.New[string]()
-		}
-		serviceClusters[string(svcHost)].Insert(cluster)
+		sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
 		if servicePorts[string(svcHost)] == nil {
 			servicePorts[string(svcHost)] = make(map[int]string)
 		}
