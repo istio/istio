@@ -549,6 +549,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: instance.Endpoint.GetLoadBalancingWeight(),
 			},
+			Metadata: &core.Metadata{},
 		}
 
 		labels := instance.Endpoint.Labels
@@ -567,8 +568,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			}
 		}
 
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
-			ns, instance.Endpoint.Locality.ClusterID, labels)
+		util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			ns, instance.Endpoint.Locality.ClusterID, labels, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
