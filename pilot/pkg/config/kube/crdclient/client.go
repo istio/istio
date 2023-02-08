@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
@@ -90,17 +91,18 @@ type Client struct {
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial processing of all objects.
-	initialSync         *atomic.Bool
-	schemasByCRDName    map[string]collection.Schema
-	client              kube.Client
-	crdMetadataInformer cache.SharedIndexInformer
-	logger              *log.Scope
+	initialSync      *atomic.Bool
+	schemasByCRDName map[string]collection.Schema
+	client           kube.Client
+	crdWatcher       *crdwatcher.Controller
+	logger           *log.Scope
 
 	// namespacesFilter is only used to initiate filtered informer.
 	namespacesFilter func(obj interface{}) bool
 
 	// crdWatches notifies consumers when a CRD is present
 	crdWatches map[config.GroupVersionKind]*waiter
+	stop       <-chan struct{}
 }
 
 type Option struct {
@@ -167,8 +169,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		client:           client,
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
-		crdMetadataInformer: client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
-			GroupVersionResource()).Informer(),
+		crdWatcher:       crdwatcher.NewController(client),
 		beginSync:        atomic.NewBool(false),
 		initialSync:      atomic.NewBool(false),
 		logger:           scope.WithLabels("controller", opts.Identifier),
@@ -178,8 +179,10 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 			gvk.GatewayClass:      newWaiter(),
 		},
 	}
-	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
+	out.crdWatcher.AddCallBack(func(name string) {
+		handleCRDAdd(out, name)
+	})
 	known, err := knownCRDs(client.Ext())
 	if err != nil {
 		return nil, err
@@ -192,10 +195,10 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 			crd = false
 		}
 		if !crd {
-			handleCRDAdd(out, name, nil)
+			handleCRDAdd(out, name)
 		} else {
 			if _, f := known[name]; f {
-				handleCRDAdd(out, name, nil)
+				handleCRDAdd(out, name)
 			} else {
 				out.logger.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
 			}
@@ -235,6 +238,8 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
 
+	cl.stop = stop
+
 	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
@@ -242,20 +247,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.SyncAll()
 	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-
-	_, _ = cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			crd, ok := obj.(*metav1.PartialObjectMetadata)
-			if !ok {
-				// Shouldn't happen
-				cl.logger.Errorf("wrong type %T: %v", obj, obj)
-				return
-			}
-			handleCRDAdd(cl, crd.Name, stop)
-		},
-		UpdateFunc: nil,
-		DeleteFunc: nil,
-	})
 
 	cl.queue.Run(stop)
 	cl.logger.Infof("controller terminated")
@@ -501,7 +492,7 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 	}
 }
 
-func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
+func handleCRDAdd(cl *Client, name string) {
 	cl.logger.Debugf("adding CRD %q", name)
 	s, f := cl.schemasByCRDName[name]
 	if !f {
@@ -534,7 +525,6 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		ifactory = cl.client.IstioInformer()
 		i, err = cl.client.IstioInformer().ForResource(gvr)
 	}
-
 	if err != nil {
 		// Shouldn't happen
 		cl.logger.Errorf("failed to create informer for %v: %v", resourceGVK, err)
@@ -549,11 +539,11 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 			close(w.stop)
 		})
 	}
-	if stop != nil {
-		// Start informer factory, only if stop is defined. In startup case, we will not start here as
-		// we will start all factories once we are ready to initialize.
-		// For dynamically added CRDs, we need to start immediately though
-		ifactory.Start(stop)
+	// Start informer. In startup case, we will not start here as
+	// we will start all factories once we are ready to initialize.
+	// For dynamically added CRDs, we need to start immediately though
+	if cl.stop != nil {
+		ifactory.Start(cl.stop)
 	}
 }
 
