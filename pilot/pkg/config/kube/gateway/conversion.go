@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -420,7 +421,8 @@ func buildHTTPVirtualServices(
 			// for mesh routes, build one VS per namespace+host
 			routeMap = meshRoutes
 			routeKey = ns
-			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", gw.OriginalReference.Name, defaultIfNil((*string)(gw.OriginalReference.Namespace), ns), ctx.Domain)}
+			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+				gw.OriginalReference.Name, ptr.OrDefault(gw.OriginalReference.Namespace, k8s.Namespace(ns)), ctx.Domain)}
 		}
 		if _, f := routeMap[routeKey]; !f {
 			routeMap[routeKey] = make(map[string]*config.Config)
@@ -537,7 +539,7 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
 	empty := parentKey{}
-	kind := defaultIfNil((*string)(p.Kind), gvk.KubernetesGateway.Kind)
+	kind := ptr.OrDefault((*string)(p.Kind), gvk.KubernetesGateway.Kind)
 	var ik config.GroupVersionKind
 	var ns string
 	// Currently supported types are Gateway and Service
@@ -550,7 +552,7 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
 	}
 	// Unset namespace means "same namespace"
-	ns = defaultIfNil((*string)(p.Namespace), localNamespace)
+	ns = ptr.OrDefault((*string)(p.Namespace), localNamespace)
 	return parentKey{
 		Kind:      ik,
 		Name:      string(p.Name),
@@ -622,7 +624,7 @@ func referenceAllowed(
 	// Also make sure this route kind is allowed
 	matched := false
 	for _, ak := range p.AllowedKinds {
-		if string(ak.Kind) == routeKind.Kind && defaultIfNil((*string)(ak.Group), gvk.GatewayClass.Group) == routeKind.Group {
+		if string(ak.Kind) == routeKind.Kind && ptr.OrDefault((*string)(ak.Group), gvk.GatewayClass.Group) == routeKind.Group {
 			matched = true
 			break
 		}
@@ -938,7 +940,7 @@ func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.D
 		}
 	}
 
-	namespace := defaultIfNil((*string)(to.Namespace), ns)
+	namespace := ptr.OrDefault((*string)(to.Namespace), ns)
 	var invalidBackendErr *ConfigError
 	if nilOrEqual((*string)(to.Group), "") && nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
 		// Service
@@ -1002,7 +1004,7 @@ func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.D
 	}
 	return &istio.Destination{}, &ConfigError{
 		Reason:  InvalidDestinationKind,
-		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
+		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
 	}
 }
 
@@ -1422,7 +1424,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
 				AllowedKinds:     allowed,
 				Hostnames:        server.Hosts,
-				OriginalHostname: emptyIfNil((*string)(l.Hostname)),
+				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
 			}
 			pri.ReportAttachedRoutes = func() {
 				reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
@@ -1508,9 +1510,9 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 			InternalName: "mesh",
 			// Mesh has no configurable AllowedKinds, so allow all supported
 			AllowedKinds: []k8s.RouteGroupKind{
-				{Group: (*k8s.Group)(StrPointer(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
-				{Group: (*k8s.Group)(StrPointer(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)},
-				{Group: (*k8s.Group)(StrPointer(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)},
+				{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
+				{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)},
+				{Group: (*k8s.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)},
 			},
 		},
 	}
@@ -1709,7 +1711,7 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 		if err != nil {
 			return nil, err
 		}
-		credNs := defaultIfNil((*string)(tls.CertificateRefs[0].Namespace), namespace)
+		credNs := ptr.OrDefault((*string)(tls.CertificateRefs[0].Namespace), namespace)
 		sameNamespace := credNs == namespace
 		if !sameNamespace && !ctx.AllowedReferences.SecretAllowed(creds.ToResourceName(cred), namespace) {
 			return nil, &ConfigError{
@@ -1738,7 +1740,7 @@ func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw c
 	secret := model.ConfigKey{
 		Kind:      kind.Secret,
 		Name:      string(ref.Name),
-		Namespace: defaultIfNil((*string)(ref.Namespace), gw.Namespace),
+		Namespace: ptr.OrDefault((*string)(ref.Namespace), gw.Namespace),
 	}
 
 	ctx.resourceReferences[secret] = append(ctx.resourceReferences[secret], model.ConfigKey{
@@ -1766,19 +1768,19 @@ func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw c
 
 func objectReferenceString(ref k8s.SecretObjectReference) string {
 	return fmt.Sprintf("%s/%s/%s.%s",
-		emptyIfNil((*string)(ref.Group)),
-		emptyIfNil((*string)(ref.Kind)),
+		ptr.OrEmpty(ref.Group),
+		ptr.OrEmpty(ref.Kind),
 		ref.Name,
-		emptyIfNil((*string)(ref.Namespace)))
+		ptr.OrEmpty(ref.Namespace))
 }
 
 func parentRefString(ref k8s.ParentReference) string {
 	return fmt.Sprintf("%s/%s/%s/%s.%s",
-		emptyIfNil((*string)(ref.Group)),
-		emptyIfNil((*string)(ref.Kind)),
+		ptr.OrEmpty(ref.Group),
+		ptr.OrEmpty(ref.Kind),
 		ref.Name,
-		emptyIfNil((*string)(ref.SectionName)),
-		emptyIfNil((*string)(ref.Namespace)))
+		ptr.OrEmpty(ref.SectionName),
+		ptr.OrEmpty(ref.Namespace))
 }
 
 // buildHostnameMatch generates a VirtualService.spec.hosts section from a listener
@@ -1836,23 +1838,8 @@ func namespacesFromSelector(localNamespace string, r KubernetesResources, lr *k8
 	return namespaces
 }
 
-func emptyIfNil(s *string) string {
-	return defaultIfNil(s, "")
-}
-
-func defaultIfNil(s *string, d string) string {
-	if s != nil {
-		return *s
-	}
-	return d
-}
-
 func nilOrEqual(have *string, expected string) bool {
 	return have == nil || *have == expected
-}
-
-func StrPointer(s string) *string {
-	return &s
 }
 
 func humanReadableJoin(ss []string) string {
