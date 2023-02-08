@@ -265,7 +265,7 @@ spec:
 						if _, err := cltInstance.Call(echo.CallOptions{
 							Address: "fake.external.com",
 							Scheme:  scheme.HTTPS,
-							Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTPS).ServicePort},
+							Port:    ports.HTTPS,
 							Count:   1,
 							Retry:   echo.Retry{NoRetry: true}, // we do retry in outer loop
 							Check:   check.OK(),
