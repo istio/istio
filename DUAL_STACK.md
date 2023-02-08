@@ -2,7 +2,6 @@
 
 Dual-stack support in Kubernetes has been around since 1.16 (alpha). It went beta in 1.21 and is now considered stable as of 1.22. Cloud providers are increasingly providing support for dual-stack IPv4/IPv6 Kubernetes clusters. The dual stack feature for Istio is almost ready in this `experimental-dual-stack` branch and this documentation will describe how to enable it, including the image building and installation with dual stack feature enabled.
 
-
 In this README:
 
 - [Image building](#image-building)
@@ -12,19 +11,18 @@ In this README:
 
 In addition, here are some other information you may wish to read:
 
-- [Dual Stack Proposal](https://docs.google.com/document/d/1oT6pmRhOw7AtsldU0-HbfA0zA26j9LYiBD_eepeErsQ/edit#heading=h.se6wjxq9mtpk) - describes the whole design and solution for dual stack feature in Istio 
+- [Dual Stack Proposal](https://docs.google.com/document/d/1oT6pmRhOw7AtsldU0-HbfA0zA26j9LYiBD_eepeErsQ/edit#heading=h.se6wjxq9mtpk) - describes the whole design and solution for dual stack feature in Istio
 - [Dual Stack Slack](#dual-stack-support) - there are many enterprise and personal users in this slack channel, we would communicate some news or progresses on dual stack in it.
-
 
 ## Image building
 
 Jacob's working on here.
 
-Note: 
+Note:
 
 - User can build necessary binary via command `make build`
 
-- User can build image in your local envrionment via command `make docker`, `make docker.pilot` and `make docker.proxyv2`, etc. 
+- User can build image in your local envrionment via command `make docker`, `make docker.pilot` and `make docker.proxyv2`, etc.
 
 ## Installation
 
@@ -47,9 +45,10 @@ There are 2 installation approaches will be introduced in this section:
         ...... \
         -n istio-system
 
-> Note: For environment variable PILOT_USE_ENDPOINT_SLICE, it will be true by default for some kubernetes version, such as 1.21+.  
+> Note: For environment variable PILOT_USE_ENDPOINT_SLICE, it will be true by default for some kubernetes version, such as 1.21+.
 
 ## Who are using the feature
+
 - **Ecloud**
 
   As China Mobile's strategic platform, [Ecloud](https://ecloud.10086.cn/home/) is currently the fastest-growing public cloud in China.
