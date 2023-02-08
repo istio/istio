@@ -510,7 +510,6 @@ func applyHTTPRouteDestination(
 		}
 	}
 
-	var totalWeight uint32
 	// TODO: eliminate this logic and use the total_weight option in envoy route
 	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 	for _, dst := range in.Route {
@@ -530,7 +529,6 @@ func applyHTTPRouteDestination(
 			Name:   n,
 			Weight: weight,
 		}
-		totalWeight += weight.GetValue()
 		if dst.Headers != nil {
 			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
@@ -572,8 +570,7 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters:    weighted,
-				TotalWeight: wrappers.UInt32(totalWeight),
+				Clusters: weighted,
 			},
 		}
 	}
