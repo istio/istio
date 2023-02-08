@@ -1719,7 +1719,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
 	}
 
-	v = appendValidation(v, ValidateMeshTlsConfig(mesh))
+	v = appendValidation(v, ValidateMeshTLSConfig(mesh))
 
 	return v.Unwrap()
 }
@@ -1736,7 +1736,7 @@ func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
-func ValidateMeshTlsConfig(mesh *meshconfig.MeshConfig) error {
+func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) error {
 	invalidEcdhCurves := sets.New[string]()
 	validEcdhCurves := sets.New[string]()
 	duplicateEcdhCurves := sets.New[string]()

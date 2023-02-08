@@ -24,7 +24,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -1185,7 +1184,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 // ApplyEcdhCurves applies the ecdh curves from mesh config to UpstreamTlsContext
 // Used for building upstream TLS context for mesh external TLS/mTLS origination
-func ApplyEcdhCurves(tlsContext *tls.UpstreamTlsContext, mesh *meshconfig.MeshConfig) {
+func ApplyEcdhCurves(tlsContext *auth.UpstreamTlsContext, mesh *meshconfig.MeshConfig) {
 	if mesh != nil && mesh.MeshExternal_TLS != nil && len(mesh.MeshExternal_TLS.EcdhCurves) > 0 {
 		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = mesh.MeshExternal_TLS.EcdhCurves
 	}
