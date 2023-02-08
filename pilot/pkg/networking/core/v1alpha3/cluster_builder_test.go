@@ -2694,17 +2694,21 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name: "tls mode SIMPLE, with EcdhCurves specified",
+			name: "tls mode SIMPLE, with EcdhCurves specified in Mesh Config",
 			opts: &buildClusterOpts{
 				mutable:          newTestCluster(),
 				isDrWithSelector: true,
+				mesh: &meshconfig.MeshConfig{
+					MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256"},
+					},
+				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
 				CredentialName:  credentialName,
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
-				EcdhCurves:      []string{"P-256"},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{

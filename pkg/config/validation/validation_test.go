@@ -415,6 +415,9 @@ func TestValidateMeshConfig(t *testing.T) {
 				},
 			},
 		},
+		MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+			EcdhCurves: []string{"P-256", "P-256", "invalid"},
+		},
 	}
 
 	_, err := ValidateMeshConfig(invalid)
@@ -435,6 +438,8 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
+			"detected invalid ecdh curves",
+			"detected duplicate ecdh curves",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
@@ -1540,33 +1545,6 @@ func TestValidateTlsOptions(t *testing.T) {
 				CipherSuites: []string{"not-a-cipher-suite"},
 			},
 			"requires a private key", "not-a-cipher-suite",
-		},
-		{
-			"invalid ecdh curves",
-			&networking.ServerTLSSettings{
-				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: "sds-name",
-				EcdhCurves:     []string{"not-an-ecdh-curve"},
-			},
-			"", "not-an-ecdh-curve",
-		},
-		{
-			"valid ecdh curves",
-			&networking.ServerTLSSettings{
-				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: "sds-name",
-				EcdhCurves:     []string{"P-256"},
-			},
-			"", "",
-		},
-		{
-			"duplicate ecdh curves",
-			&networking.ServerTLSSettings{
-				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: "sds-name",
-				EcdhCurves:     []string{"P-256", "P-256"},
-			},
-			"", "P-256",
 		},
 	}
 	for _, tt := range tests {

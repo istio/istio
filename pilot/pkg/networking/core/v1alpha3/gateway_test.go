@@ -56,6 +56,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 		server            *networking.Server
 		result            *auth.DownstreamTlsContext
 		transportProtocol istionetworking.TransportProtocol
+		mesh              *meshconfig.MeshConfig
 	}{
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
@@ -679,7 +680,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "duplicated ecdh suites with tls SIMPLE",
+			name: "ecdh curves specified in mesh config with tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Port: &networking.Port{
@@ -689,7 +690,11 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
 					PrivateKey:        "private-key.key",
-					EcdhCurves:        []string{"P-256", "P-256"},
+				},
+			},
+			mesh: &meshconfig.MeshConfig{
+				MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+					EcdhCurves: []string{"P-256"},
 				},
 			},
 			result: &auth.DownstreamTlsContext{
@@ -894,7 +899,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
+			ret := buildGatewayListenerTLSContext(tc.mesh, tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
 			}, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
@@ -905,6 +910,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 }
 
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
 	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	testCases := []struct {
 		name              string
@@ -1555,7 +1561,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},
 			}}
 			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server.Port, tc.server,
-				tc.routeName, tc.proxyConfig, tc.transportProtocol, nil)
+				tc.routeName, tc.proxyConfig, tc.transportProtocol, cg.PushContext())
 			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff in tls context: %v", diff)
 			}

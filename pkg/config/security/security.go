@@ -205,7 +205,7 @@ var ValidCipherSuites = sets.New(
 	"DES-CBC3-SHA",
 )
 
-// ValidEcdhCurves contains a list of all ecdh curves supported in Gateway.server.tls.ecdhCurves
+// ValidEcdhCurves contains a list of all ecdh curves supported in MeshConfig.meshExternalTLS.ecdhCurves
 // Source:
 // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
 var ValidEcdhCurves = sets.New(

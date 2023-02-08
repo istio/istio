@@ -225,7 +225,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 			opts = getTLSFilterChainMatchOptions(lp)
-			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP, false)
+			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
@@ -459,7 +459,6 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				// User provided custom TLS settings
 				cc.tlsSettings = i.Tls.DeepCopy()
 				cc.tlsSettings.CipherSuites = security.FilterCipherSuites(cc.tlsSettings.CipherSuites)
-				cc.tlsSettings.EcdhCurves = security.FilterEcdhCurves(cc.tlsSettings.EcdhCurves)
 				cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			}
 

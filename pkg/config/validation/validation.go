@@ -605,25 +605,6 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", sets.SortedList(duplicateCiphers))
 	}
 
-	invalidEcdhCurves := sets.New[string]()
-	validEcdhCurves := sets.New[string]()
-	duplicateEcdhCurves := sets.New[string]()
-	for _, cs := range tls.EcdhCurves {
-		if !security.IsValidEcdhCurve(cs) {
-			invalidEcdhCurves.Insert(cs)
-		} else if validEcdhCurves.InsertContains(cs) {
-			duplicateEcdhCurves.Insert(cs)
-		}
-	}
-
-	if len(invalidEcdhCurves) > 0 {
-		v = appendWarningf(v, "ignoring invalid ecdh curves: %v", sets.SortedList(invalidEcdhCurves))
-	}
-
-	if len(duplicateEcdhCurves) > 0 {
-		v = appendWarningf(v, "ignoring duplicate ecdh curves: %v", sets.SortedList(duplicateEcdhCurves))
-	}
-
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
@@ -1738,6 +1719,8 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
 	}
 
+	v = appendValidation(v, ValidateMeshTlsConfig(mesh))
+
 	return v.Unwrap()
 }
 
@@ -1751,6 +1734,36 @@ func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
 		}
 	}
 	return
+}
+
+func ValidateMeshTlsConfig(mesh *meshconfig.MeshConfig) error {
+	invalidEcdhCurves := sets.New[string]()
+	validEcdhCurves := sets.New[string]()
+	duplicateEcdhCurves := sets.New[string]()
+	var errs error
+	if meshMTLS := mesh.MeshMTLS; meshMTLS != nil {
+		if meshMTLS.EcdhCurves != nil {
+			errs = multierror.Append(errs, errors.New("mesh mtls does not support ecdh curves configuration"))
+		}
+	}
+	if meshExternalTLS := mesh.MeshExternal_TLS; meshExternalTLS != nil {
+		for _, cs := range meshExternalTLS.EcdhCurves {
+			if !security.IsValidEcdhCurve(cs) {
+				invalidEcdhCurves.Insert(cs)
+			} else if validEcdhCurves.InsertContains(cs) {
+				duplicateEcdhCurves.Insert(cs)
+			}
+		}
+	}
+
+	if len(invalidEcdhCurves) > 0 {
+		errs = multierror.Append(errs, fmt.Errorf("detected invalid ecdh curves: %v", sets.SortedList(invalidEcdhCurves)))
+	}
+
+	if len(duplicateEcdhCurves) > 0 {
+		errs = multierror.Append(errs, fmt.Errorf("detected duplicate ecdh curves: %v", sets.SortedList(duplicateEcdhCurves)))
+	}
+	return errs
 }
 
 func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
