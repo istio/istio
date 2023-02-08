@@ -1345,12 +1345,12 @@ data:
         apiVersion: apps/v1
         kind: Deployment
         metadata:
-          name: {{.GatewayName}}
+          name: {{.Name}}
           namespace: {{.Namespace}}
           labels:
             ambient-type: waypoint
             gateway.istio.io/managed: "istio.io-mesh-controller"
-            istio.io/gateway-name: "{{.GatewayName}}"
+            istio.io/gateway-name: "{{.Name}}"
           ownerReferences:
           - apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
@@ -1359,18 +1359,18 @@ data:
         spec:
           selector:
             matchLabels:
-              istio.io/gateway-name: "{{.GatewayName}}"
+              istio.io/gateway-name: "{{.Name}}"
           template:
             metadata:
               annotations:
                 prometheus.io/path: /stats/prometheus
                 prometheus.io/port: "15020"
                 prometheus.io/scrape: "true"
-                {{with .ForServiceAccount}}istio.io/service-account: "{{.}}"{{end}}
+                {{with .ForServiceAccount}}istio.io/for-service-account: "{{.}}"{{end}}
               labels:
                 ambient-type: waypoint
                 gateway.istio.io/managed: "istio.io-mesh-controller"
-                istio.io/gateway-name: "{{.GatewayName}}"
+                istio.io/gateway-name: "{{.Name}}"
                 sidecar.istio.io/inject: "false"
             spec:
               terminationGracePeriodSeconds: 2
@@ -1442,9 +1442,9 @@ data:
                 - name: ISTIO_META_INTERCEPTION_MODE
                   value: REDIRECT
                 - name: ISTIO_META_WORKLOAD_NAME
-                  value: {{.GatewayName}}
+                  value: {{.Name}}
                 - name: ISTIO_META_OWNER
-                  value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.GatewayName}}
+                  value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.Name}}
                 - name: ISTIO_META_MESH_ID
                   value: cluster.local
                 - name: PROXY_CONFIG
