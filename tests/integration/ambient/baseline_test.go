@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/http/headers"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -1533,7 +1534,7 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 		"destination_canonical_service":  dst.ServiceName(),
 		"destination_canonical_revision": dst.Config().Version,
 		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
-		"destination_principal":          "spiffe://" + dst.Config().ServiceAccountName() + "-waypoint",
+		"destination_principal":          fmt.Sprintf("spiffe://%v-%v", dst.Config().ServiceAccountName(), constants.WaypointGatewayClassName),
 		"destination_service_name":       dst.Config().Service,
 		"destination_workload":           deployName(dst),
 		"destination_workload_namespace": destns,
