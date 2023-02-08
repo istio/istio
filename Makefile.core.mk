@@ -38,7 +38,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.18-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-01-26T19-01-58
+BASE_VERSION ?= master-2023-02-08T19-00-55
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
