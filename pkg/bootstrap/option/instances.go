@@ -36,7 +36,8 @@ const (
 	WildcardIPv4        WildcardValue        = "0.0.0.0"
 	WildcardIPv6        WildcardValue        = "::"
 	DNSLookupFamilyIPv4 DNSLookupFamilyValue = "V4_ONLY"
-	DNSLookupFamilyIPv6 DNSLookupFamilyValue = "AUTO"
+	DNSLookupFamilyIPv6 DNSLookupFamilyValue = "V6_ONLY"
+	DNSLookupFamilyIPS  DNSLookupFamilyValue = "ALL"
 )
 
 func ProxyConfig(value *model.NodeMetaProxyConfig) Instance {
