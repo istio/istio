@@ -131,6 +131,8 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig
 		version    *model.IstioVersion
 		input      string
+		ambient    bool
+		listener   string
 		want       []string
 	}{
 		{
@@ -142,6 +144,13 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "allow-full-rule",
 			input: "allow-full-rule-in.yaml",
 			want:  []string{"allow-full-rule-out.yaml"},
+		},
+		{
+			name:     "allow-full-rule-ambient",
+			input:    "allow-full-rule-ambient-in.yaml",
+			ambient:  true,
+			listener: "listener-pod|80||1.2.3.4",
+			want:     []string{"allow-full-rule-ambient-out.yaml"},
 		},
 		{
 			name:  "allow-nil-rule",
@@ -219,6 +228,13 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			want:  []string{"multiple-policies-out.yaml"},
 		},
 		{
+			name:     "multiple-policies-ambient",
+			input:    "multiple-policies-in.yaml",
+			ambient:  true,
+			listener: "listener-pod|80||1.2.3.4",
+			want:     []string{"multiple-policies-ambient-out.yaml"},
+		},
+		{
 			name:  "single-policy",
 			input: "single-policy-in.yaml",
 			want:  []string{"single-policy-out.yaml"},
@@ -254,6 +270,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
+				IsAmbient:       tc.ambient,
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(tc.version)
@@ -262,7 +279,12 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
-			got := g.BuildHTTP()
+			var got []*hcm.HttpFilter
+			if tc.ambient {
+				got = g.BuildHTTPAmbient(tc.listener)
+			} else {
+				got = g.BuildHTTP()
+			}
 			verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
 		})
 	}

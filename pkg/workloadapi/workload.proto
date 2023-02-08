@@ -71,6 +71,15 @@ message Workload {
   // NOTE: this *only* includes Selector based policies. Namespace and global polices
   // are returned out of band.
   repeated string authorization_policies = 16;
+
+  WorkloadStatus status = 17;
+}
+
+enum WorkloadStatus {
+  // Workload is healthy and ready to serve traffic.
+  HEALTHY = 0;
+  // Workload is unhealthy and NOT ready to serve traffic.
+  UNHEALTHY = 1;
 }
 
 enum WorkloadType {

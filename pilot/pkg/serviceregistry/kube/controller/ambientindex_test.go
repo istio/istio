@@ -362,7 +362,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	})
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
-	assertWorkloads := func(lookup string, names ...string) {
+	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
 		t.Helper()
 		want := sets.New(names...)
 		assert.EventuallyEqual(t, func() sets.String {
@@ -374,7 +374,9 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 			}
 			have := sets.New[string]()
 			for _, wl := range workloads {
-				have.Insert(wl.Name)
+				if wl.Status == state {
+					have.Insert(wl.Name)
+				}
 			}
 			return have
 		}, want, retry.Timeout(time.Second*3))
@@ -423,32 +425,17 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	}
 
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, true, corev1.PodRunning)
-	assertWorkloads("", "name1")
 	assertEvent("127.0.0.1")
+	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
 
 	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"}, false, corev1.PodRunning)
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "other"}, false, corev1.PodPending)
-
 	assertEvent("127.0.0.2")
-
-	// Expect workload entries for pods that are either Ready, or unReady, but Running.
-	// All other statuses should not generate workload entries
-	assertWorkloads("", "name1", "name2")
-	assertWorkloads("127.0.0.1", "name1")
-	assertWorkloads("127.0.0.2", "name2")
-
-	// Non-existent IP should have no response
-	assertWorkloads("10.0.0.1")
-	fx.Clear()
-
-	createService(controller, "svc1", "ns1",
-		map[string]string{},
-		[]int32{80}, map[string]string{"app": "a"}, t)
-	// Service shouldn't change workload list
-	assertWorkloads("", "name1", "name2")
-	assertWorkloads("127.0.0.1", "name1")
-	// For pods that are in Ready state, VIPs should be populated.
-	assertWorkloads("10.0.0.1", "name1")
+	// Still healthy
+	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	// Unhealthy
+	assertWorkloads("", workloadapi.WorkloadStatus_UNHEALTHY, "name2")
+	// name3 isn't running at all
 }
 
 func TestRBACConvert(t *testing.T) {

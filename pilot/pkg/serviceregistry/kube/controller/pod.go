@@ -157,7 +157,6 @@ func (pc *PodCache) onEvent(_, curr any, ev model.Event) error {
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) == 0 {
-		log.Debugf("Pod name %s has no IP yet, skipping...", pod.Name, pod.Status.Phase)
 		return nil
 	}
 

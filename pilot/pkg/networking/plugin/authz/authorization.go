@@ -58,6 +58,17 @@ func NewBuilderSkipIdentity(actionType ActionType, push *model.PushContext, prox
 	return &Builder{builder: b}
 }
 
+// NewBuilderWithOptions allows a builder with custom defined options
+func NewBuilderWithOptions(actionType ActionType, push *model.PushContext, proxy *model.Proxy, option builder.Option) *Builder {
+	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
+	if !util.IsIstioVersionGE117(proxy.IstioVersion) {
+		option.UseAuthenticated = true
+	}
+	b := builder.New(tdBundle, push, policies, option)
+	return &Builder{builder: b}
+}
+
 func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
 	return NewBuilderSkipIdentity(actionType, push, proxy, "")
 }
@@ -75,7 +86,7 @@ func (b *Builder) BuildTCP() []*listener.Filter {
 	return b.tcpFilters
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
+func (b *Builder) BuildHTTPWithListener(class networking.ListenerClass, listener string) []*hcm.HttpFilter {
 	if b == nil || b.builder == nil {
 		return nil
 	}
@@ -87,7 +98,15 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		return b.httpFilters
 	}
 	b.httpBuilt = true
-	b.httpFilters = b.builder.BuildHTTP()
+	if listener != "" {
+		b.httpFilters = b.builder.BuildHTTPAmbient(listener)
+	} else {
+		b.httpFilters = b.builder.BuildHTTP()
+	}
 
 	return b.httpFilters
+}
+
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
+	return b.BuildHTTPWithListener(class, "")
 }
