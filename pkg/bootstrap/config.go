@@ -141,12 +141,12 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),
-					option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			} else {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv4),
 					option.Wildcard(option.WildcardIPv4),
-					option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			}
 		} else {
 			// keep the original logic if Dual Stack is disable
