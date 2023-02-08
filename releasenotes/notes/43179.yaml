@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issues:
+  - 43178
+releaseNotes:
+  - |
+    **Fixed** disabling ALL_METERS does not work as expected.
