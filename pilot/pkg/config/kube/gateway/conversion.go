@@ -127,7 +127,7 @@ type Reference struct {
 type ConfigContext struct {
 	KubernetesResources
 	AllowedReferences AllowedReferences
-	GatewayReferences map[parentKey]map[k8s.SectionName]*parentInfo
+	GatewayReferences map[parentKey][]*parentInfo
 
 	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
 	resourceReferences map[model.ConfigKey][]model.ConfigKey
@@ -561,35 +561,49 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 }
 
 func referenceAllowed(
-	p *parentInfo,
+	parent *parentInfo,
 	routeKind config.GroupVersionKind,
-	parent parentKey,
+	parentRef parentReference,
 	hostnames []k8s.Hostname,
 	namespace string,
 ) *ParentError {
-	if parent.Kind == gvk.Service {
+	if parentRef.Kind == gvk.Service {
 		// TODO: check if the service reference is valid
 		if false {
 			return &ParentError{
 				Reason:  ParentErrorParentRefConflict,
-				Message: fmt.Sprintf("parent service: %q is invalid", parent.Name),
+				Message: fmt.Sprintf("parent service: %q is invalid", parentRef.Name),
 			}
 		}
 	} else {
-		// First check the hostnames are a match. This is a bi-directional wildcard match. Only one route
+		// First, check section and port apply. This must come first
+		if parentRef.Port != 0 && parentRef.Port != parent.Port {
+			return &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("port %v not found", parentRef.Port),
+			}
+		}
+		if len(parentRef.SectionName) > 0 && parentRef.SectionName != parent.SectionName {
+			return &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("sectionName %q not found", parentRef.SectionName),
+			}
+		}
+
+		// Next check the hostnames are a match. This is a bi-directional wildcard match. Only one route
 		// hostname must match for it to be allowed (but the others will be filtered at runtime)
 		// If either is empty its treated as a wildcard which always matches
 
 		if len(hostnames) == 0 {
 			hostnames = []k8s.Hostname{"*"}
 		}
-		if len(p.Hostnames) > 0 {
+		if len(parent.Hostnames) > 0 {
 			// TODO: the spec actually has a label match, not a string match. That is, *.com does not match *.apple.com
 			// We are doing a string match here
 			matched := false
 			hostMatched := false
 			for _, routeHostname := range hostnames {
-				for _, parentHostNamespace := range p.Hostnames {
+				for _, parentHostNamespace := range parent.Hostnames {
 					spl := strings.Split(parentHostNamespace, "/")
 					parentNamespace, parentHostname := spl[0], spl[1]
 					hostnameMatch := host.Name(parentHostname).Matches(host.Name(routeHostname))
@@ -607,7 +621,7 @@ func referenceAllowed(
 						Reason: ParentErrorNotAllowed,
 						Message: fmt.Sprintf(
 							"hostnames matched parent hostname %q, but namespace %q is not allowed by the parent",
-							p.OriginalHostname, namespace,
+							parent.OriginalHostname, namespace,
 						),
 					}
 				}
@@ -615,7 +629,7 @@ func referenceAllowed(
 					Reason: ParentErrorNoHostname,
 					Message: fmt.Sprintf(
 						"no hostnames matched parent hostname %q",
-						p.OriginalHostname,
+						parent.OriginalHostname,
 					),
 				}
 			}
@@ -623,7 +637,7 @@ func referenceAllowed(
 	}
 	// Also make sure this route kind is allowed
 	matched := false
-	for _, ak := range p.AllowedKinds {
+	for _, ak := range parent.AllowedKinds {
 		if string(ak.Kind) == routeKind.Kind && ptr.OrDefault((*string)(ak.Group), gvk.GatewayClass.Group) == routeKind.Group {
 			matched = true
 			break
@@ -638,7 +652,7 @@ func referenceAllowed(
 	return nil
 }
 
-func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*parentInfo, routeRefs []k8s.ParentReference,
+func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs []k8s.ParentReference,
 	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
 ) []routeParentReference {
 	parentRefs := []routeParentReference{}
@@ -648,7 +662,12 @@ func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*pare
 			// Cannot handle the reference. Maybe it is for another controller, so we just ignore it
 			continue
 		}
-		appendParent := func(pr *parentInfo, pk parentKey) {
+		pk := parentReference{
+			parentKey:   ir,
+			SectionName: ptr.OrEmpty(ref.SectionName),
+			Port:        ptr.OrEmpty(ref.Port),
+		}
+		appendParent := func(pr *parentInfo, pk parentReference) {
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
 				Hostname:          pr.OriginalHostname,
@@ -665,16 +684,9 @@ func extractParentReferenceInfo(gateways map[parentKey]map[k8s.SectionName]*pare
 		if ir.Kind == gvk.Service {
 			gk = meshParentKey
 		}
-		if ref.SectionName != nil {
-			// We are selecting a specific section, so attach just that section
-			if pr, f := gateways[gk][*ref.SectionName]; f {
-				appendParent(pr, ir)
-			}
-		} else {
-			// no section name set, match all sections
-			for _, pr := range gateways[gk] {
-				appendParent(pr, ir)
-			}
+		for _, gw := range gateways[gk] {
+			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
+			appendParent(gw, pk)
 		}
 	}
 	return parentRefs
@@ -1251,6 +1263,13 @@ type parentKey struct {
 	Namespace string
 }
 
+type parentReference struct {
+	parentKey
+
+	SectionName k8s.SectionName
+	Port        k8sbeta.PortNumber
+}
+
 var meshGVK = config.GroupVersionKind{
 	Group:   gvk.KubernetesGateway.Group,
 	Version: gvk.KubernetesGateway.Version,
@@ -1281,6 +1300,8 @@ type parentInfo struct {
 	// ReportAttachedRoutes is a callback that should be triggered once all AttachedRoutes are computed, to
 	// actually store the attached route count in the status
 	ReportAttachedRoutes func()
+	SectionName          k8s.SectionName
+	Port                 k8sbeta.PortNumber
 }
 
 // routeParentReference holds information about a route's parent reference
@@ -1330,11 +1351,11 @@ func getDefaultName(name string, kgw *k8s.GatewaySpec) string {
 	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
 }
 
-func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.SectionName]*parentInfo, sets.String) {
+func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentInfo, sets.String) {
 	// result stores our generated Istio Gateways
 	result := []config.Config{}
 	// gwMap stores an index to access parentInfo (which corresponds to a Kubernetes Gateway)
-	gwMap := map[parentKey]map[k8s.SectionName]*parentInfo{}
+	gwMap := map[parentKey][]*parentInfo{}
 	// namespaceLabelReferences keeps track of all namespace label keys referenced by Gateways. This is
 	// used to ensure we handle namespace updates for those keys.
 	namespaceLabelReferences := sets.New[string]()
@@ -1416,7 +1437,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				Namespace: obj.Namespace,
 			}
 			if _, f := gwMap[ref]; !f {
-				gwMap[ref] = map[k8s.SectionName]*parentInfo{}
+				gwMap[ref] = []*parentInfo{}
 			}
 
 			allowed, _ := generateSupportedKinds(l)
@@ -1425,11 +1446,13 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 				AllowedKinds:     allowed,
 				Hostnames:        server.Hosts,
 				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
+				SectionName:      l.Name,
+				Port:             l.Port,
 			}
 			pri.ReportAttachedRoutes = func() {
 				reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
 			}
-			gwMap[ref][l.Name] = pri
+			gwMap[ref] = append(gwMap[ref], pri)
 			result = append(result, gatewayConfig)
 			servers = append(servers, server)
 		}
@@ -1505,8 +1528,8 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey]map[k8s.Se
 		reportGatewayCondition(obj, gatewayConditions)
 	}
 	// Insert a parent for Mesh references.
-	gwMap[meshParentKey] = map[k8s.SectionName]*parentInfo{
-		"": {
+	gwMap[meshParentKey] = []*parentInfo{
+		{
 			InternalName: "mesh",
 			// Mesh has no configurable AllowedKinds, so allow all supported
 			AllowedKinds: []k8s.RouteGroupKind{
