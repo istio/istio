@@ -237,10 +237,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 			continue
 		}
 		for _, pi := range *proxyInfo {
-			if proxyVersionsMap[revision] == nil {
-				proxyVersionsMap[revision] = sets.New[string]()
-			}
-			proxyVersionsMap[revision].Insert(pi.IstioVersion)
+			sets.InsertOrNew(proxyVersionsMap, revision, pi.IstioVersion)
 		}
 	}
 	for revision, vmap := range proxyVersionsMap {
