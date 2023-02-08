@@ -1115,8 +1115,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				}
 			}
 		}
-		// Apply Ecdh Curves from MeshConfig
-		ApplyEcdhCurves(tlsContext, opts.mesh)
+		// Apply ECDH Curves from MeshConfig
+		ApplyECDHCurves(tlsContext, opts.mesh)
 
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1171,8 +1171,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		// Apply Ecdh Curves from MeshConfig
-		ApplyEcdhCurves(tlsContext, opts.mesh)
+		// Apply ECDH Curves from MeshConfig
+		ApplyECDHCurves(tlsContext, opts.mesh)
 
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1182,9 +1182,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
-// ApplyEcdhCurves applies the ecdh curves from mesh config to UpstreamTlsContext
+// ApplyECDHCurves applies the ECDH curves from mesh config to UpstreamTlsContext
 // Used for building upstream TLS context for mesh external TLS/mTLS origination
-func ApplyEcdhCurves(tlsContext *auth.UpstreamTlsContext, mesh *meshconfig.MeshConfig) {
+func ApplyECDHCurves(tlsContext *auth.UpstreamTlsContext, mesh *meshconfig.MeshConfig) {
 	if mesh != nil && mesh.MeshExternal_TLS != nil && len(mesh.MeshExternal_TLS.EcdhCurves) > 0 {
 		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = mesh.MeshExternal_TLS.EcdhCurves
 	}
