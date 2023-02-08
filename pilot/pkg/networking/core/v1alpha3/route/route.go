@@ -573,8 +573,7 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters:    weighted,
-				TotalWeight: wrappers.UInt32(totalWeight),
+				Clusters: weighted,
 			},
 		}
 	}
