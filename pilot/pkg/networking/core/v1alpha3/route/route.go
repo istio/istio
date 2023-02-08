@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/pkg/log"
 )
@@ -673,7 +672,7 @@ func buildHTTP3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption 
 	}
 	headerVal := strings.Join(valParts, ", ")
 	return &core.HeaderValueOption{
-		Append: proto.BoolTrue,
+		AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 		Header: &core.HeaderValue{
 			Key:   util.AltSvcHeader,
 			Value: headerVal,
@@ -747,13 +746,18 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) ([]*core
 		if isInternalHeader(key) {
 			continue
 		}
-		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
+		headerValueOption := &core.HeaderValueOption{
 			Header: &core.HeaderValue{
 				Key:   key,
 				Value: value,
 			},
-			Append: &wrappers.BoolValue{Value: appendFlag},
-		})
+		}
+		if appendFlag {
+			headerValueOption.AppendAction = core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD
+		} else {
+			headerValueOption.AppendAction = core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD
+		}
+		headerValueOptionList = append(headerValueOptionList, headerValueOption)
 	}
 	sort.Stable(SortHeaderValueOption(headerValueOptionList))
 	return headerValueOptionList, authority
