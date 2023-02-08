@@ -141,17 +141,10 @@ type WorkloadIndex struct {
 	ByIdentity        map[string][]Workload
 	ByNodeAndIdentity map[string]map[string][]Workload
 	ByIP              map[string]Workload
-
-	// we cache this so we can cleanup the other indexes on removal without searching
-	details map[types.NamespacedName]subindexDetails
 }
 
 func (wi *WorkloadIndex) MarshalJSON() ([]byte, error) {
 	return json.Marshal(wi.All())
-}
-
-type subindexDetails struct {
-	sa, node, ip string
 }
 
 func NewWorkloadIndex() *WorkloadIndex {
@@ -163,7 +156,6 @@ func NewWorkloadIndex() *WorkloadIndex {
 		ByIdentity:        map[string][]Workload{},
 		ByNodeAndIdentity: map[string]map[string][]Workload{},
 		ByIP:              map[string]Workload{},
-		details:           map[types.NamespacedName]subindexDetails{},
 	}
 }
 
@@ -203,7 +195,6 @@ func (wi *WorkloadIndex) Insert(workload Workload) {
 	// TODO if we start indexing by a mutable key, call Remove here
 
 	wi.ByNamespacedName[namespacedName] = workload
-	wi.details[namespacedName] = subindexDetails{node: node, sa: sa, ip: ip}
 	if node != "" {
 		wi.ByNode[node] = append(wi.ByNode[node], workload)
 	}
@@ -236,21 +227,17 @@ func (wi *WorkloadIndex) MergeInto(other *WorkloadIndex) *WorkloadIndex {
 func (wi *WorkloadIndex) Remove(namespacedName types.NamespacedName) {
 	wi.Lock()
 	defer wi.Unlock()
-	details, ok := wi.details[namespacedName]
+	wl, ok := wi.ByNamespacedName[namespacedName]
 	if !ok {
 		return
 	}
-	node, sa, ip := details.node, details.sa, details.ip
-	wl := wi.ByNamespacedName[namespacedName]
+	node, sa, ip := wl.NodeName, wl.Identity(), wl.PodIP
 	delete(wi.ByNamespacedName, namespacedName)
 	deleteFrom(wi.ByNamespace, namespacedName.Namespace, wl)
-	delete(wi.details, namespacedName)
 	deleteFrom(wi.ByNode, node, wl)
 	deleteFrom(wi.ByIdentity, sa, wl)
 	delete(wi.ByIP, ip)
-	if bySA, ok := wi.ByNodeAndIdentity[node]; ok {
-		deleteFrom(bySA, sa, wl)
-	}
+	deleteFrom(wi.ByNodeAndIdentity[node], sa, wl)
 	if len(wi.ByNodeAndIdentity[node]) == 0 {
 		delete(wi.ByNodeAndIdentity, node)
 	}
