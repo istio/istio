@@ -32,6 +32,7 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -41,6 +42,8 @@ const (
 
 	// TCPListener identifies a listener as being of TCP type by the presence of TCP proxy filter
 	TCPListener = wellknown.TCPProxy
+
+	IPMatcher = "type.googleapis.com/xds.type.matcher.v3.IPMatcher"
 )
 
 // ListenerFilter is used to pass filter information into listener based config writer print functions
@@ -158,48 +161,50 @@ func (c *ConfigWriter) PrintRemoteListenerSummary() error {
 		for _, fc := range chains {
 
 			name := fc.GetName()
-			match := newMatcher(fc, l)
+			matches := newMatcher(fc, l)
 			destination := getFilterType(fc.GetFilters())
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", lname, name, match, destination)
+			for _, match := range matches {
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", lname, name, match, destination)
+			}
 		}
 	}
 	return w.Flush()
 }
 
-func newMatcher(fc *listener.FilterChain, l *listener.Listener) string {
+func newMatcher(fc *listener.FilterChain, l *listener.Listener) []string {
 	if l.FilterChainMatcher == nil {
-		return getMatches(fc.GetFilterChainMatch())
+		return []string{getMatches(fc.GetFilterChainMatch())}
 	}
 	switch v := l.GetFilterChainMatcher().GetOnNoMatch().GetOnMatch().(type) {
 	case *matcher.Matcher_OnMatch_Action:
 		if v.Action.GetName() == fc.GetName() {
-			return "UNMATCHED"
+			return []string{"UNMATCHED"}
 		}
 	case *matcher.Matcher_OnMatch_Matcher:
 		ms, f := recurse(fc.GetName(), v.Matcher)
 		if !f {
-			return "NONE"
+			return []string{"NONE"}
 		}
 		return ms
 	}
 	ms, f := recurse(fc.GetName(), l.GetFilterChainMatcher())
 	if !f {
-		return "NONE"
+		return []string{"NONE"}
 	}
 	return ms
 }
 
-func recurse(name string, match *matcher.Matcher) (string, bool) {
+func recurse(name string, match *matcher.Matcher) ([]string, bool) {
 	switch v := match.GetOnNoMatch().GetOnMatch().(type) {
 	case *matcher.Matcher_OnMatch_Action:
 		if v.Action.GetName() == name {
 			// TODO this only makes sense in context of a chain... do we need a way to give it context
-			return "ANY", true
+			return []string{"ANY"}, true
 		}
 	case *matcher.Matcher_OnMatch_Matcher:
 		ms, f := recurse(name, v.Matcher)
 		if !f {
-			return "NONE", true
+			return []string{"NONE"}, true
 		}
 		return ms, true
 	}
@@ -215,26 +220,44 @@ func recurse(name string, match *matcher.Matcher) (string, bool) {
 		m = v.PrefixMatchMap.Map
 		equality = "^"
 	case *matcher.Matcher_MatcherTree_CustomMatch:
-		panic("unhandled")
-
+		tc := v.CustomMatch.GetTypedConfig()
+		switch tc.TypeUrl {
+		case IPMatcher:
+			ip := protoconv.SilentlyUnmarshalAny[matcher.IPMatcher](tc)
+			m = map[string]*matcher.Matcher_OnMatch{}
+			for _, rm := range ip.GetRangeMatchers() {
+				for _, r := range rm.Ranges {
+					cidr := r.AddressPrefix
+					pl := r.PrefixLen.GetValue()
+					if pl != 32 && pl != 128 {
+						cidr += fmt.Sprintf("/%d", pl)
+					}
+					m[cidr] = rm.OnMatch
+				}
+			}
+		default:
+			panic("unhandled")
+		}
 	}
+	outputs := []string{}
 	for k, v := range m {
 		switch v := v.GetOnMatch().(type) {
 		case *matcher.Matcher_OnMatch_Action:
 			if v.Action.GetName() == name {
-				return fmt.Sprintf("%v%v%v", n, equality, k), true
+				outputs = append(outputs, fmt.Sprintf("%v%v%v", n, equality, k))
 			}
 			continue
 		case *matcher.Matcher_OnMatch_Matcher:
-			child, match := recurse(name, v.Matcher)
+			children, match := recurse(name, v.Matcher)
 			if !match {
 				continue
 			}
-			// TODO what if there are multiple? We return early
-			return fmt.Sprintf("%v%v%v -> %v", n, equality, k, child), true
+			for _, child := range children {
+				outputs = append(outputs, fmt.Sprintf("%v%v%v -> %v", n, equality, k, child))
+			}
 		}
 	}
-	return "", false
+	return outputs, len(outputs) > 0
 }
 
 // PrintListenerSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout

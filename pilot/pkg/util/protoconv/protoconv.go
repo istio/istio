@@ -66,3 +66,19 @@ func TypedStructWithFields(typeURL string, fields map[string]interface{}) *anypb
 		Value:   value,
 	})
 }
+
+func SilentlyUnmarshalAny[T any](a *anypb.Any) *T {
+	res, err := UnmarshalAny[T](a)
+	if err != nil {
+		return nil
+	}
+	return res
+}
+
+func UnmarshalAny[T any](a *anypb.Any) (*T, error) {
+	dst := any(new(T)).(proto.Message)
+	if err := a.UnmarshalTo(dst); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal to %T: %v", dst, err)
+	}
+	return any(dst).(*T), nil
+}
