@@ -21,10 +21,10 @@ import (
 
 func TestDeleteFrom(t *testing.T) {
 	indexer := map[string][]Workload{
-		"1": []Workload{{
+		"1": {{
 			UID: "uid1",
 		}},
-		"2": []Workload{
+		"2": {
 			{
 				UID: "uid2",
 			},
@@ -60,7 +60,7 @@ func TestDeleteFrom(t *testing.T) {
 				},
 			},
 			want: map[string][]Workload{
-				"2": []Workload{
+				"2": {
 					{
 						UID: "uid2",
 					},
@@ -86,7 +86,7 @@ func TestDeleteFrom(t *testing.T) {
 				},
 			},
 			want: map[string][]Workload{
-				"2": []Workload{
+				"2": {
 					{
 						UID: "uid3",
 					},
@@ -109,7 +109,7 @@ func TestDeleteFrom(t *testing.T) {
 				},
 			},
 			want: map[string][]Workload{
-				"2": []Workload{
+				"2": {
 					{
 						UID: "uid3",
 					},
@@ -129,7 +129,7 @@ func TestDeleteFrom(t *testing.T) {
 				},
 			},
 			want: map[string][]Workload{
-				"2": []Workload{
+				"2": {
 					{
 						UID: "uid3",
 					},
