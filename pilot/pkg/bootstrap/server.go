@@ -288,13 +288,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		}
 		return inject.WebhookConfig{}
 	}
-	addhanlder := func(fn func()) {
+	addHandler := func(fn func()) {
 		wh.MultiCast.AddHandler(func(c *inject.Config, s string) error {
 			fn()
 			return nil
 		})
 	}
-	s.initAmbient(args, getWebhookConfig, addhanlder)
+	s.initAmbient(args, getWebhookConfig, addHandler)
 
 	s.XDSServer.InitGenerators(e, args.Namespace, s.internalDebugMux)
 
