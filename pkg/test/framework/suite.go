@@ -67,10 +67,6 @@ var (
 		".*/istio.io/istio/tests/integration/",
 		".*/istio.io/istio/",
 
-		// TODO remove before upstreaming
-		".*/istio.io/istio-sidecarless/tests/integration/",
-		".*/istio.io/istio-sidecarless/",
-
 		// These are also used for istio.io/istio, but make help to satisfy
 		// the feature label enforcement when running with BUILD_WITH_CONTAINER=1.
 		"^/work/tests/integration/",

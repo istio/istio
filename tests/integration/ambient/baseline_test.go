@@ -123,6 +123,14 @@ func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	return (s || d) && isL7Scheme
 }
 
+// Waypoint does not currently do L7 for pod IP traffic
+func supportsL7PodIP(opt echo.CallOptions, src, dst echo.Instance) bool {
+	s := src.Config().HasSidecar()
+	d := dst.Config().HasSidecar()
+	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
+	return (s || d) && isL7Scheme
+}
+
 func TestServices(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
@@ -134,7 +142,7 @@ func TestServices(t *testing.T) {
 		if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// Because client request is not captured to perform the hairpin
-			// TODO: fix this and remove this skip
+			// TODO(https://github.com/istio/istio/issues/43238): fix this and remove this skip
 			opt.Check = check.OK()
 		}
 
@@ -154,7 +162,6 @@ func TestServices(t *testing.T) {
 }
 
 func TestPodIP(t *testing.T) {
-	t.Skip("https://github.com/solo-io/istio-sidecarless/issues/106")
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
@@ -164,25 +171,21 @@ func TestPodIP(t *testing.T) {
 						for _, dstWl := range dst.WorkloadsOrFail(t) {
 							t.NewSubTestf("to %v %v", dst.Config().Service, dstWl.Address()).Run(func(t framework.TestContext) {
 								src, dst, srcWl, dstWl := src, dst, srcWl, dstWl
-								if src.Config().HasWaypointProxy() || dst.Config().HasWaypointProxy() {
+								if src.Config().HasSidecar() {
 									t.Skip("not supported yet")
 								}
 								for _, opt := range callOptions {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
-									if supportsL7(opt, src, dst) {
+									if supportsL7PodIP(opt, src, dst) {
 										opt.Check = httpValidator
 									} else {
 										opt.Check = tcpValidator
 									}
+
 									if selfSend {
 										// Calls to ourself (by pod IP) are not captured
 										opt.Check = tcpValidator
-									} else if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
-										// For this case, it is broken if the src and dst are on the same node.
-										// Because client request is not captured to perform the hairpin
-										// TODO: fix this and remove this skip
-										opt.Check = check.OK()
 									}
 									opt.Address = dstWl.Address()
 									opt.Check = check.And(opt.Check, check.Hostname(dstWl.PodName()))
@@ -263,9 +266,8 @@ func TestServerRouting(t *testing.T) {
 			return
 		}
 		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			t.Skip("https://github.com/istio/istio/issues/43238")
 		}
 		t.NewSubTest("set header").Run(func(t framework.TestContext) {
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -347,9 +349,8 @@ func TestWaypointEnvoyFilter(t *testing.T) {
 			return
 		}
 		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			t.Skip("https://github.com/istio/istio/issues/43238")
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
@@ -422,9 +423,8 @@ func TestTrafficSplit(t *testing.T) {
 			return
 		}
 		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
 			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			t.Skip("https://github.com/istio/istio/issues/43238")
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
@@ -563,7 +563,7 @@ spec:
 
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
+		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -584,7 +584,7 @@ spec:
 			if src.Config().IsUncaptured() {
 				// For this case, it is broken if the src and dst are on the same node.
 				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 			if dst.Config().HasWaypointProxy() {
 				t.Skip("https://github.com/istio/istio/issues/43009")
@@ -670,7 +670,7 @@ func TestAuthorizationGateway(t *testing.T) {
 		}
 	}
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
+		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -804,7 +804,7 @@ spec:
 
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
-		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
+		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -823,9 +823,8 @@ spec:
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 			if src.Config().IsUncaptured() {
-				// For this case, it is broken if the src and dst are on the same node.
 				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 			if dst.Config().HasWaypointProxy() {
 				t.Skip("https://github.com/istio/istio/issues/43009")
@@ -979,7 +978,7 @@ func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
-			skipOnNativeZtunnel(t, "PeerAuthentication not implemented")
+			t.Skip("https://github.com/istio/istio/issues/42696")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
@@ -1023,7 +1022,7 @@ func TestMTLS(t *testing.T) {
 								return true
 							}
 							if !from.Config().HasProxyCapabilities() && !opts.To.Config().HasSidecar() {
-								// TODO: https://github.com/solo-io/istio-sidecarless/issues/243
+								// TODO: https://github.com/istio/istio/issues/42696
 								return true
 							}
 							return false
@@ -1075,7 +1074,7 @@ func TestMTLS(t *testing.T) {
 					Include:    Always,
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
 						if !from.Config().HasProxyCapabilities() && !opts.To.Config().HasSidecar() {
-							// TODO: https://github.com/solo-io/istio-sidecarless/issues/243
+							// TODO: https://github.com/istio/istio/issues/42696
 							return true
 						}
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
@@ -1132,7 +1131,7 @@ func TestMTLS(t *testing.T) {
 							if opts.To.Config().HasWaypointProxy() {
 								return true
 							}
-							// TODO: https://github.com/solo-io/istio-sidecarless/issues/244
+							// TODO: https://github.com/istio/istio/issues/43242
 							return false
 						}
 						return true
@@ -1224,7 +1223,7 @@ func TestServiceEntry(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
-			skipOnNativeZtunnel(t, "ServiceEntry not supported")
+			t.Skip("https://github.com/istio/istio/issues/43240")
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
 				resolution v1alpha3.ServiceEntry_Resolution
@@ -1283,9 +1282,6 @@ spec:
 							"Location":   tc.location.String(),
 						})).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							if from.Config().Service == to.Config().Service {
-								t.Skip("https://github.com/solo-io/istio-sidecarless/issues/263")
-							}
 							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 							from.CallOrFail(t, echo.CallOptions{
 								Address: "111.111.222.222",
@@ -1344,8 +1340,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 						check.OK(),
 						check.ReachedTargetClusters(t))
 					if expectMTLS {
-						// TODO(https://github.com/solo-io/istio-sidecarless/issues/150)
-						_ = expectMTLS
+						opt.Check = check.And(opt.Check, check.MTLSForHTTP())
 					}
 				} else {
 					tpe = "negative"
@@ -1614,7 +1609,7 @@ func TestDirect(t *testing.T) {
 				Count: 1,
 				Port:  echo.Port{Name: ports.HTTP},
 				HBONE: hb,
-				// TODO(https://github.com/solo-io/istio-sidecarless/issues/269)
+				// This is not supported now, discussion in https://github.com/istio/istio/issues/43241
 				Check: check.Error(),
 			})
 			run("VIP destination", echo.CallOptions{

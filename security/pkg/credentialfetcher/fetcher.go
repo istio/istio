@@ -32,8 +32,6 @@ func NewCredFetcher(credtype, trustdomain, jwtPath, identityProvider string) (se
 			return nil, nil // no cred fetcher - using certificates only
 		}
 		return plugin.CreateTokenPlugin(jwtPath), nil
-	case security.TokenRequest:
-		return plugin.TokenRequest(trustdomain, identityProvider, plugin.CreateTokenPlugin(jwtPath))
 	case security.Mock: // for test only
 		return plugin.CreateMockPlugin("test_token"), nil
 	default:

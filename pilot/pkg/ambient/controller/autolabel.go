@@ -61,7 +61,7 @@ func ambientLabelFilter(ignoredNamespaces sets.String) func(o controllers.Object
 	return func(o controllers.Object) bool {
 		_, alreadyLabelled := o.GetLabels()[ambient.LabelType] // Waypoints and ztunnels will already be labeled
 		ignored := inject.IgnoredNamespaces.Contains(o.GetNamespace()) || ignoredNamespaces.Contains(o.GetNamespace())
-		// TODO(https://github.com/solo-io/istio-sidecarless/issues/154) allow this
+		// TODO(https://github.com/istio/istio/issues/43244) allow this
 		_, injected := o.GetLabels()[label.SecurityTlsMode.Name]
 		return !alreadyLabelled && !ignored && !injected
 	}

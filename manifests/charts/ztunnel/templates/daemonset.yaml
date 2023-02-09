@@ -43,7 +43,7 @@ spec:
 {{- if contains "/" .Values.ztunnel.image }}
         image: "{{ .Values.ztunnel.image }}"
 {{- else }}
-        {{/*  TODO(https://github.com/solo-io/istio-sidecarless/issues/281): use distroless, but we are depending on a variant of things not in the distroless image */}}
+        {{/*  TODO(https://github.com/istio/istio/issues/43243): use distroless, but we are depending on a variant of things not in the distroless image */}}
         image: "{{ .Values.ztunnel.hub | default .Values.global.hub }}/{{ .Values.ztunnel.image | default "ztunnel" }}:{{ .Values.ztunnel.tag | default .Values.global.tag }}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
