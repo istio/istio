@@ -25,7 +25,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
+	// To install the xds resolvers and balancers.
+	_ "google.golang.org/grpc/xds"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/cmd"

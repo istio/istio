@@ -23,7 +23,6 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pilot/pkg/networking/ambientgen"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -80,18 +79,6 @@ func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 
 // Generate returns ECDS resources for a given proxy.
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	isWorkloadMeta := false
-	for _, name := range w.ResourceNames {
-		if strings.EqualFold(name, ambientgen.WorkloadMetadataListenerFilterName) {
-			isWorkloadMeta = true
-			break
-		}
-	}
-	if isWorkloadMeta {
-		wg := &ambientgen.WorkloadMetadataGenerator{}
-		return wg.Generate(proxy, w, req)
-	}
-
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

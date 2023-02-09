@@ -240,14 +240,12 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 }
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.
-// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh
 func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool) error {
 	var err error
 
 	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
 
 	// Check if chain exists, if it exists flush.. otherwise initialize
-	// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L28
 	err = execute(s.IptablesCmd(), "-t", "mangle", "-C", "output", "-j", constants.ChainZTunnelOutput)
 	if err == nil {
 		log.Debugf("Chain %s already exists, flushing", constants.ChainOutput)
@@ -261,7 +259,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	}
 
 	// Create ipset of pod members.
-	// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L85
 	log.Debug("Creating ipset")
 	err = Ipset.CreateSet()
 	if err != nil && !errors.Is(err, os.ErrExist) {
@@ -270,7 +267,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 	appendRules := []*iptablesRule{
 		// Skip things that come from the tunnels, but don't apply the conn skip mark
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L88
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -278,14 +274,12 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"-j", "MARK",
 			"--set-mark", constants.SkipMark,
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L89
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
 			"-i", constants.InboundTun,
 			"-j", "RETURN",
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L90
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -293,7 +287,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"-j", "MARK",
 			"--set-mark", constants.SkipMark,
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L91
 		newIptableRule(constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
 			"-i", constants.OutboundTun,
@@ -302,7 +295,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 		// Make sure that whatever is skipped is also skipped for returning packets.
 		// If we have a skip mark, save it to conn mark.
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L95
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelForward,
@@ -316,7 +308,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		// Input chain might be needed for things in host namespace that are skipped.
 		// Place the mark here after routing was done, not sure if conn-tracking will figure
 		// it out if I do it before, as NAT might change the connection tuple.
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L99
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelInput,
@@ -330,7 +321,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 		// For things with the proxy mark, we need different routing just on returning packets
 		// so we give a different mark to them.
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L103
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelForward,
@@ -341,7 +331,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--nfmask", constants.ProxyMask,
 			"--ctmask", constants.ProxyMask,
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L104
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelInput,
@@ -352,7 +341,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--nfmask", constants.ProxyMask,
 			"--ctmask", constants.ProxyMask,
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L106
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelOutput,
@@ -363,7 +351,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 		// If we have an outbound mark, we don't need kube-proxy to do anything,
 		// so accept it before kube-proxy translates service vips to pod ips
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L122
 		newIptableRule(
 			constants.TableNat,
 			constants.ChainZTunnelPrerouting,
@@ -371,7 +358,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--mark", constants.OutboundMark,
 			"-j", "ACCEPT",
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L123
 		newIptableRule(
 			constants.TableNat,
 			constants.ChainZTunnelPostrouting,
@@ -399,7 +385,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	appendRules2 := []*iptablesRule{
 		// Don't set anything on the tunnel (geneve port is 6081), as the tunnel copies
 		// the mark to the un-tunneled packet.
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L126
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -411,7 +396,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 		// If we have the conn mark, restore it to mark, to make sure that the other side of the connection
 		// is skipped as well.
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L129-L130
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -429,7 +413,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		),
 
 		// If we have the proxy mark in, set the return mark to make sure that original src packets go to ztunnel
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L133-L134
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -450,7 +433,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		// Send fake source outbound connections to the outbound route table (for original src)
 		// if it's original src, the source ip of packets coming from the proxy might be that of a pod, so
 		// make sure we don't tproxy it
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L139-L140
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -469,7 +451,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 		// Make sure anything that leaves ztunnel is routed normally (xds, connections to other ztunnels,
 		// connections to upstream pods...)
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L143
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -479,7 +460,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		),
 
 		// skip udp so DNS works. We can make this more granular.
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L146
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -490,7 +470,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 		// Skip things from host ip - these are usually kubectl probes
 		// skip anything with skip mark. This can be used to add features like port exclusions
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L149
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelPrerouting,
@@ -500,7 +479,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		),
 
 		// Mark outbound connections to route them to the proxy using ip rules/route tables
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L151
 		// Per Yuval, interface_prefix can be left off this rule... but we should check this (hard to automate
 		// detection).
 		newIptableRule(
@@ -541,7 +519,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	}
 
 	// Create tunnels
-	// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L153-L161
 	inbnd := &netlink.Geneve{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.InboundTun,
@@ -624,42 +601,36 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	}
 
 	routes := []*ExecList{
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L164
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableOutbound), ztunnelIP,
 				"dev", ztunnelVeth, "scope", "link",
 			},
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L166
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableOutbound), "0.0.0.0/0",
 				"via", constants.ZTunnelOutboundTunIP, "dev", constants.OutboundTun,
 			},
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L168
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableProxy), ztunnelIP,
 				"dev", ztunnelVeth, "scope", "link",
 			},
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L169
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableProxy), "0.0.0.0/0",
 				"via", ztunnelIP, "dev", ztunnelVeth, "onlink",
 			},
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L171
 		newExec("ip",
 			[]string{
 				"route", "add", "table", fmt.Sprint(constants.RouteTableInbound), ztunnelIP,
 				"dev", ztunnelVeth, "scope", "link",
 			},
 		),
-		// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L62-L77
 		// Everything with the skip mark goes directly to the main table
 		newExec("ip",
 			[]string{

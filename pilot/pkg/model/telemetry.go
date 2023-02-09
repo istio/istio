@@ -832,15 +832,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 	}
 }
 
-func statsRootIDForClass(class networking.ListenerClass) string {
-	switch class {
-	case networking.ListenerClassSidecarInbound:
-		return "stats_inbound"
-	default:
-		return "stats_outbound"
-	}
-}
-
 var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
 	TypeUrl: "type.googleapis.com/stats.PluginConfig",
 	Value: &structpb.Struct{
@@ -871,21 +862,9 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 				res = append(res, f)
 			} else {
 				statsCfg := generateStatsConfig(class, cfg)
-				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-				root := statsRootIDForClass(class)
-				vmConfig.VmConfig.VmId = root
-
-				wasmConfig := &httpwasm.Wasm{
-					Config: &wasm.PluginConfig{
-						RootId:        root,
-						Vm:            vmConfig,
-						Configuration: statsCfg,
-					},
-				}
-
 				f := &hcm.HttpFilter{
 					Name:       xds.StatsFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
 				}
 				res = append(res, f)
 			}
@@ -929,21 +908,9 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 				res = append(res, f)
 			} else {
 				cfg := generateStatsConfig(class, telemetryCfg)
-				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-				root := statsRootIDForClass(class)
-				vmConfig.VmConfig.VmId = "tcp_" + root
-
-				wasmConfig := &wasmfilter.Wasm{
-					Config: &wasm.PluginConfig{
-						RootId:        root,
-						Vm:            vmConfig,
-						Configuration: cfg,
-					},
-				}
-
 				f := &listener.Filter{
 					Name:       xds.StatsFilterName,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
 				}
 				res = append(res, f)
 			}
@@ -1114,9 +1081,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFil
 		}
 		cfg.Metrics = append(cfg.Metrics, mc)
 	}
-	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
-	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return protoconv.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+	return protoconv.MessageToAny(&cfg)
 }
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {

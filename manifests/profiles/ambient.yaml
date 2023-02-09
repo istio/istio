@@ -35,7 +35,7 @@ spec:
     cni:
       logLevel: "debug"
       privileged: true
-      # TODO: For enhanced security, ambient defaults to distroless images
+      # TODO: https://github.com/istio/istio/issues/43243
       # variant: distroless
     telemetry:
       # Telemetry handled with Telemetry API only

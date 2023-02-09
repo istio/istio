@@ -82,7 +82,6 @@ func (s *Server) IptablesCmd() string {
 }
 
 // Initialize the chains and lists for ztunnel
-// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L36-L47
 func (s *Server) initializeLists() error {
 	var err error
 
@@ -132,7 +131,6 @@ func (s *Server) initializeLists() error {
 }
 
 // Flush the chains and lists for ztunnel
-// https://github.com/solo-io/istio-sidecarless/blob/master/redirect-worker.sh#L29-L34
 func (s *Server) flushLists() {
 	var err error
 

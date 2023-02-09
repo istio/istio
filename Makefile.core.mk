@@ -265,7 +265,7 @@ lint-helm-global:
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
-	# @testlinter # Disables since linter assumes istio/istio isues link
+	@testlinter
 	@envvarlinter istioctl pilot security
 
 go-gen:

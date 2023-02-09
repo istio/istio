@@ -209,7 +209,7 @@ func (c *instance) Config() echo.Config {
 
 func (c *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
 	n := *c
-	c.workloadFilter = wls
+	n.workloadFilter = wls
 	return &n
 }
 

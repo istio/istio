@@ -121,7 +121,7 @@ spec:
             timeoutSeconds: 5
           env:
           # TODO: dynamically turn autolabel on/off based on meshconfig api
-          {{- if ne .Values.meshConfig.ambientMesh.mode "OFF"}}
+          {{- if ne ((.Values.meshConfig).ambientMesh).mode "OFF"}}
           - name: AMBIENT_AUTO_LABEL
             value: "true"
           {{- end }}

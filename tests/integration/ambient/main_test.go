@@ -219,7 +219,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 	// Only setup sidecar tests if webhook is installed
 	if whErr == nil {
-		// TODO(https://github.com/solo-io/istio-sidecarless/issues/154) support sidecars that are captured
+		// TODO(https://github.com/istio/istio/issues/43244) support sidecars that are captured
 		//builder = builder.WithConfig(echo.Config{
 		//	Service:   SidecarWaypoint,
 		//	Namespace: apps.Namespace,

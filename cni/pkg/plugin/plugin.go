@@ -184,20 +184,18 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	} else {
 		loggedPrevResult = conf.PrevResult
 	}
-	// TODO: Reset back to Debugf
-	log.Infof("istio-cni IfName=%s", args.IfName)
-	log.Infof("istio-cni CmdAdd config: %+v", conf)
-	log.Infof("istio-cni CmdAdd previous result: %+v", loggedPrevResult)
+	log.Debugf("istio-cni IfName=%s", args.IfName)
+	log.Debugf("istio-cni CmdAdd config: %+v", conf)
+	log.Debugf("istio-cni CmdAdd previous result: %+v", loggedPrevResult)
 
 	// Determine if running under k8s by checking the CNI args
-	log.Infof("istio-cni cmdAdd args: %+v", args.Args)
+	log.Debugf("istio-cni cmdAdd args: %+v", args.Args)
 	k8sArgs := K8sArgs{}
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return err
 	}
 
-	// TODO: Reset back to Debugf
-	log.Infof("istio-cni cmdAdd with k8s args: %+v", k8sArgs)
+	log.Debugf("istio-cni cmdAdd with k8s args: %+v", k8sArgs)
 	if conf.Kubernetes.InterceptRuleMgrType != "" {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
@@ -221,8 +219,8 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 				break
 			}
 		}
-		log.Infof("ambientConf.Mode: %s", ambientConf.Mode)
-		log.Infof("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
+		log.Debugf("ambientConf.Mode: %s", ambientConf.Mode)
+		log.Debugf("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
 		added := false
 		if !excludePod && ambientConf.Mode != ambient.AmbientMeshOff.String() && ambientConf.ZTunnelReady {
 			podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
