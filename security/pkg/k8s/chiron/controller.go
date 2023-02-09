@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -139,7 +140,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioDNSSecretType})
 		scrtLW := cache.NewListWatchFromClient(client.CoreV1().RESTClient(), "secrets", secretNamespace, istioSecretSelector)
 		// The certificate rotation is handled by scrtUpdated().
-		c.scrtStore, c.scrtController = cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+		c.scrtStore, c.scrtController = cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, controllers.EventHandler[*v1.Secret]{
 			DeleteFunc: c.scrtDeleted,
 			UpdateFunc: c.scrtUpdated,
 		})
@@ -226,13 +227,8 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 	return nil
 }
 
-func (wc *WebhookController) scrtDeleted(obj any) {
+func (wc *WebhookController) scrtDeleted(scrt *v1.Secret) {
 	log.Debugf("enter WebhookController.scrtDeleted()")
-	scrt, ok := obj.(*v1.Secret)
-	if !ok {
-		log.Warnf("failed to convert to secret object: %v", obj)
-		return
-	}
 
 	scrtName := scrt.Name
 	if wc.isWebhookSecret(scrtName, scrt.GetNamespace()) {
@@ -252,11 +248,9 @@ func (wc *WebhookController) scrtDeleted(obj any) {
 
 // scrtUpdated() is the callback function for update event. It handles
 // the certificate rotations.
-func (wc *WebhookController) scrtUpdated(oldObj, newObj any) {
+func (wc *WebhookController) scrtUpdated(_, scrt *v1.Secret) {
 	log.Debugf("enter WebhookController.scrtUpdated()")
-	scrt, ok := newObj.(*v1.Secret)
-	if !ok {
-		log.Warnf("failed to convert to secret object: %v", newObj)
+	if scrt == nil {
 		return
 	}
 	namespace := scrt.GetNamespace()

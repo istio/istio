@@ -49,17 +49,17 @@ var (
 
 	expectedComponentsPerRevision = map[string]map[string]bool{
 		"stable": {
-			"base":                          true,
-			"istiod":                        true,
-			"ingress:istio-ingressgateway":  true,
-			"ingress:istio-eastwestgateway": true,
-			"egress:istio-egressgateway":    true,
+			"Istio core":                             true,
+			"Istiod":                                 true,
+			"Ingress gateways:istio-ingressgateway":  true,
+			"Ingress gateways:istio-eastwestgateway": true,
+			"Egress gateways:istio-egressgateway":    true,
 		},
 		"canary": {
-			"istiod":                        true,
-			"ingress:istio-ingressgateway":  true,
-			"ingress:istio-eastwestgateway": true,
-			"egress:istio-egressgateway":    true,
+			"Istiod":                                 true,
+			"Ingress gateways:istio-ingressgateway":  true,
+			"Ingress gateways:istio-eastwestgateway": true,
+			"Egress gateways:istio-egressgateway":    true,
 		},
 	}
 )
@@ -266,7 +266,7 @@ func verifyRevisionOutput(t framework.TestContext, descr *tag.RevisionDescriptio
 	actualComponents := map[string]bool{}
 	for _, iop := range descr.IstioOperatorCRs {
 		for _, comp := range iop.Components {
-			if comp == "cni" {
+			if comp == "CNI" {
 				continue
 			}
 			actualComponents[comp] = true

@@ -947,11 +947,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 										},
 									}}}},
 								}}}},
-								"default_original_port": {
-									Kind: &structpb.Value_NumberValue{
-										NumberValue: float64(8080),
-									},
-								},
 							},
 						},
 					},
@@ -1055,11 +1050,6 @@ func TestBuildDefaultCluster(t *testing.T) {
 									},
 								}}}},
 							}}}},
-							"default_original_port": {
-								Kind: &structpb.Value_NumberValue{
-									NumberValue: float64(8080),
-								},
-							},
 						}},
 					},
 				},
@@ -1214,7 +1204,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: util.BuildNewLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1234,7 +1224,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
+							Metadata: util.BuildNewLbEndpointMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1266,7 +1256,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
+							Metadata: util.BuildNewLbEndpointMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
 							},
@@ -1332,7 +1322,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("", "", "", "", "cluster-1", map[string]string{}),
+							Metadata: util.BuildNewLbEndpointMetadata("", "", "", "", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1453,7 +1443,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
+							Metadata: util.BuildNewLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
 								"version": "v1",
 								"app":     "example",
 							}),

@@ -22,15 +22,20 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -1090,7 +1095,7 @@ func TestEndpointMetadata(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels); !reflect.DeepEqual(got, tt.want) {
+			if got := BuildNewLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
 			}
 		})
@@ -1150,6 +1155,67 @@ func TestDomainName(t *testing.T) {
 		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
 			if got := DomainName(tt.host, tt.port); got != tt.match {
 				t.Fatalf("got %v wanted %v", got, tt.match)
+			}
+		})
+	}
+}
+
+func TestStatefulSessionFilterConfig(t *testing.T) {
+	cases := []struct {
+		name           string
+		service        *model.Service
+		expectedconfig *statefulsession.StatefulSession
+	}{
+		{
+			name:           "nil service",
+			expectedconfig: nil,
+		},
+		{
+			name: "service without cookie path",
+			service: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Labels: map[string]string{features.PersistentSessionLabel: "test-cookie"},
+				},
+			},
+			expectedconfig: &statefulsession.StatefulSession{
+				SessionState: &core.TypedExtensionConfig{
+					Name: "envoy.http.stateful_session.cookie",
+					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+						Cookie: &httpv3.Cookie{
+							Path: "/",
+							Ttl:  &durationpb.Duration{Seconds: 120},
+							Name: "test-cookie",
+						},
+					}),
+				},
+			},
+		},
+		{
+			name: "service with cookie path",
+			service: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Labels: map[string]string{features.PersistentSessionLabel: "test-cookie:/path"},
+				},
+			},
+			expectedconfig: &statefulsession.StatefulSession{
+				SessionState: &core.TypedExtensionConfig{
+					Name: "envoy.http.stateful_session.cookie",
+					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+						Cookie: &httpv3.Cookie{
+							Path: "/path",
+							Ttl:  &durationpb.Duration{Seconds: 120},
+							Name: "test-cookie",
+						},
+					}),
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionConfig := MaybeBuildStatefulSessionFilterConfig(tt.service)
+			if !reflect.DeepEqual(tt.expectedconfig, sessionConfig) {
+				t.Errorf("unexpected stateful session filter config, expected: %v, got :%v", tt.expectedconfig, sessionConfig)
 			}
 		})
 	}

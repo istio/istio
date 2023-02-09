@@ -211,6 +211,24 @@ func TestDeploymentYAML(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "disable-automount-sa",
+			wantFilePath: "testdata/disable-automount-sa.yaml",
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						WorkloadPort: 8090,
+						ServicePort:  8090,
+					},
+				},
+				ServiceAccount:          true,
+				DisableAutomountSAToken: true,
+			},
+		},
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {

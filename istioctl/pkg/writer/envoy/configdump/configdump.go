@@ -15,13 +15,12 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
 
-	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	adminv3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -37,14 +36,14 @@ type ConfigWriter struct {
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := configdump.Wrapper{}
-	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
-	// Issue to track -> https://github.com/golang/protobuf/issues/632
-	err := json.Unmarshal(b, &cd)
+	cd := &adminv3.ConfigDump{}
+	err := protomarshal.UnmarshalWithGlobalTypesResolver(b, cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}
-	c.configDump = &cd
+	c.configDump = &configdump.Wrapper{
+		ConfigDump: cd,
+	}
 	return nil
 }
 
@@ -194,7 +193,7 @@ func (c *ConfigWriter) PrintPodRootCAFromDynamicSecretDump() (string, error) {
 	return "", fmt.Errorf("can not find ROOTCA from secret")
 }
 
-func (c *ConfigWriter) getIstioVersionInfo(bootstrapDump *envoy_admin_v3.BootstrapConfigDump) (version, sha string) {
+func (c *ConfigWriter) getIstioVersionInfo(bootstrapDump *adminv3.BootstrapConfigDump) (version, sha string) {
 	const (
 		istioVersionKey  = "ISTIO_VERSION"
 		istioProxyShaKey = "ISTIO_PROXY_SHA"
@@ -215,7 +214,7 @@ func (c *ConfigWriter) getIstioVersionInfo(bootstrapDump *envoy_admin_v3.Bootstr
 	return
 }
 
-func (c *ConfigWriter) getUserAgentVersionInfo(bootstrapDump *envoy_admin_v3.BootstrapConfigDump) string {
+func (c *ConfigWriter) getUserAgentVersionInfo(bootstrapDump *adminv3.BootstrapConfigDump) string {
 	const (
 		buildLabelKey = "build.label"
 		buildTypeKey  = "build.type"

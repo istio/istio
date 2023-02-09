@@ -22,14 +22,17 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestServiceInstancesStore(t *testing.T) {
 	store := serviceInstancesStore{
-		ip2instance:   map[string][]*model.ServiceInstance{},
-		instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		ip2instance:            map[string][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
 	instances := []*model.ServiceInstance{
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
@@ -72,7 +75,7 @@ func TestServiceInstancesStore(t *testing.T) {
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}}
-	key := types.NamespacedName{Namespace: selector.Namespace, Name: selector.Name}
+	key := config.NamespacedName(selector)
 	store.updateServiceEntryInstances(key, expectedSeInstances)
 
 	gotSeInstances := store.getServiceEntryInstances(key)
@@ -112,8 +115,8 @@ func TestServiceStore(t *testing.T) {
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 	}
 
-	store.updateServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name}, expectedServices)
-	got := store.getServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
+	store.updateServices(config.NamespacedName(httpDNSRR), expectedServices)
+	got := store.getServices(config.NamespacedName(httpDNSRR))
 	if !reflect.DeepEqual(got, expectedServices) {
 		t.Errorf("got unexpected services %v", got)
 	}
@@ -126,12 +129,63 @@ func TestServiceStore(t *testing.T) {
 		t.Errorf("expected allocate needed")
 	}
 	store.allocateNeeded = false
-	store.deleteServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
+	store.deleteServices(config.NamespacedName(httpDNSRR))
 	got = store.getAllServices()
 	if got != nil {
 		t.Errorf("got unexpected services %v", got)
 	}
 	if store.allocateNeeded {
 		t.Errorf("expected no allocate needed")
+	}
+}
+
+// Tests that when multiple service entries with "DNSRounbRobinLB" resolution type
+// are created with different/same endpoints, we only consider the first service because
+// Envoy's LogicalDNS type of cluster does not allow more than one locality LB Enpoint.
+func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
+	store := serviceInstancesStore{
+		ip2instance:            map[string][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHostAndPort: sets.Set[hostPort]{},
+	}
+	instances := []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+	}
+	cKey := configKey{
+		namespace: "dns",
+		name:      "dns-round-robin-1",
+	}
+	// Add instance related to first Service Entry and validate they are added correctly.
+	store.addInstances(cKey, instances)
+	gotInstances := store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	})
+	expected := []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+	}
+	if !reflect.DeepEqual(gotInstances, expected) {
+		t.Errorf("got unexpected instances : %v", gotInstances)
+	}
+
+	// Add instance related to second Service Entry and validate it is ignored.
+	instances = []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE2, "2.2.2.2", 444, dnsRoundRobinLBSE2.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+	}
+	cKey = configKey{
+		namespace: "dns",
+		name:      "dns-round-robin-2",
+	}
+	store.addInstances(cKey, instances)
+
+	gotInstances = store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	})
+	if !reflect.DeepEqual(gotInstances, expected) {
+		t.Errorf("got unexpected instances : %v", gotInstances)
 	}
 }

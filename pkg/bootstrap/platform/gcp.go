@@ -30,6 +30,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"istio.io/istio/pkg/lazy"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -123,13 +124,9 @@ type (
 
 type gcpEnv struct {
 	sync.Mutex
-	metadata map[string]string
+	metadata     map[string]string
+	fillMetadata lazy.Lazy[bool]
 }
-
-var (
-	fillMetadata bool
-	gcpEnvOnce   sync.Once
-)
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
 func IsGCP() bool {
@@ -144,21 +141,26 @@ func IsGCP() bool {
 // Metadata returned by the GCP Environment is taken from the GCE metadata
 // service.
 func NewGCP() Environment {
-	return &gcpEnv{}
+	return &gcpEnv{
+		fillMetadata: lazy.New(func() (bool, error) {
+			return shouldFillMetadata(), nil
+		}),
+	}
+}
+
+func (e *gcpEnv) shouldFillMetadata() bool {
+	res, _ := e.fillMetadata.Get()
+	return res
 }
 
 // Metadata returns GCP environmental data, including project, cluster name, and
 // location information.
 func (e *gcpEnv) Metadata() map[string]string {
-	gcpEnvOnce.Do(func() {
-		fillMetadata = shouldFillMetadata()
-	})
-
 	md := map[string]string{}
 	if e == nil {
 		return md
 	}
-	if GCPMetadata == "" && !fillMetadata {
+	if GCPMetadata == "" && !e.shouldFillMetadata() {
 		return md
 	}
 
@@ -182,7 +184,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPCluster] = envCN
 	}
 
-	if fillMetadata {
+	if e.shouldFillMetadata() {
 		// suppliers is an array of functions that supply the metadata for missing properties
 		var suppliers []metadataSupplier
 		if _, found := md[GCPProject]; !found {
@@ -206,7 +208,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPQuotaProject] = GCPQuotaProjectVar
 	}
 	// Exit early now if not on GCE. This allows setting env var when not on GCE.
-	if !fillMetadata {
+	if !e.shouldFillMetadata() {
 		e.metadata = md
 		return md
 	}
@@ -288,7 +290,7 @@ func zoneToRegion(z string) (string, error) {
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
-	if fillMetadata {
+	if e.shouldFillMetadata() {
 		z, zerr := metadata.Zone()
 		if zerr != nil {
 			log.Warnf("Error fetching GCP zone: %v", zerr)
@@ -376,10 +378,26 @@ func createMetadataSupplier(property string, fn func() (string, error)) metadata
 }
 
 func isMetadataEndpointAccessible() bool {
-	_, err := net.DialTimeout("tcp", "metadata.google.internal:80", 5*time.Second)
+	// From the Go package, but private so copied here
+	const metadataHostEnv = "GCE_METADATA_HOST"
+	const metadataIP = "169.254.169.254"
+	host := os.Getenv(metadataHostEnv)
+	if host == "" {
+		host = metadataIP
+	}
+	_, err := net.DialTimeout("tcp", defaultPort(host, "80"), 5*time.Second)
 	if err != nil {
 		log.Warnf("cannot reach the Google Instance metadata endpoint %v", err)
 		return false
 	}
 	return true
+}
+
+// defaultPort appends the default port, if a port is not already present
+func defaultPort(hostMaybePort, dp string) string {
+	_, _, err := net.SplitHostPort(hostMaybePort)
+	if err != nil {
+		return net.JoinHostPort(hostMaybePort, dp)
+	}
+	return hostMaybePort
 }

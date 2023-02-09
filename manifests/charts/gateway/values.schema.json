@@ -185,6 +185,10 @@
     "networkGateway": {
       "type": "string"
     },
+    "imagePullPolicy": {
+      "type": "string",
+      "enum": ["", "Always", "IfNotPresent", "Never"]
+    },
     "imagePullSecrets": {
       "type": "array",
       "items": {

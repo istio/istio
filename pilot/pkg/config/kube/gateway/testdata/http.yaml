@@ -102,6 +102,34 @@ spec:
         port: 8080
         statusCode: 302
         scheme: https
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /replace-full
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: redirect-prefix-replace
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["redirect.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /original
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        port: 8080
+        statusCode: 302
+        scheme: https
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /replacement
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -116,7 +144,8 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /original
+        value: /prefix-original
+    name: prefix-path-rewrite
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -127,9 +156,15 @@ spec:
     backendRefs:
     - name: httpbin
       port: 80
-  - filters:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full-original
+    name: full-path-rewrite
+    filters:
     - type: URLRewrite
       urlRewrite:
+        hostname: "new.example.com"
         path:
           type: ReplaceFullPath # Not currently supported
           replaceFullPath: "/replacement"

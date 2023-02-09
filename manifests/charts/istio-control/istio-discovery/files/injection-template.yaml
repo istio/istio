@@ -279,6 +279,10 @@ spec:
       value: "{{ $containers | join "," }}"
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+    - name: ISTIO_META_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
     {{- if .Values.global.network }}
@@ -388,6 +392,10 @@ spec:
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
     {{- end }}
+    {{- if eq .Values.global.pilotCertProvider "kubernetes" }}
+    - mountPath: /var/run/secrets/istio/kubernetes
+      name: kube-ca-cert
+    {{- end }}
     - mountPath: /var/lib/istio/data
       name: istio-data
     {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
@@ -466,6 +474,11 @@ spec:
   - name: istiod-ca-cert
     configMap:
       name: istio-ca-root-cert
+  {{- end }}
+  {{- if eq .Values.global.pilotCertProvider "kubernetes" }}
+  - name: kube-ca-cert
+    configMap:
+      name: kube-root-ca.crt
   {{- end }}
   {{- if .Values.global.mountMtlsCerts }}
   # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.

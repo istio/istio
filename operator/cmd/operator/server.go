@@ -43,20 +43,29 @@ import (
 
 // Should match deploy/service.yaml
 const (
-	metricsHost       = "0.0.0.0"
-	metricsPort int32 = 8383
+	metricsHost        = "0.0.0.0"
+	metricsPort uint32 = 8383
 )
+
+type monitoringArgs struct {
+	host string
+	port uint32
+}
 
 type serverArgs struct {
 	// force proceeds even if there are validation errors
 	force bool
 	// maxConcurrentReconciles defines the concurrency limit for operator to reconcile IstioOperatorSpec in parallel
 	maxConcurrentReconciles int
+
+	monitoring monitoringArgs
 }
 
 func addServerFlags(cmd *cobra.Command, args *serverArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, root.ForceFlagHelpStr)
 	cmd.PersistentFlags().IntVar(&args.maxConcurrentReconciles, "max-concurrent-reconciles", 1, root.MaxConcurrentReconcilesFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.monitoring.host, "monitoring-host", metricsHost, "HTTP host to use for operator's self-monitoring information")
+	cmd.PersistentFlags().Uint32Var(&args.monitoring.port, "monitoring-port", metricsPort, "HTTP port to use for operator's self-monitoring information")
 }
 
 func serverCmd() *cobra.Command {
@@ -149,11 +158,13 @@ func run(sArgs *serverArgs) {
 		leaderElectionID += "-" + operatorRevision
 	}
 	log.Infof("Leader election cm: %s", leaderElectionID)
+
+	monitoringBindAddress := fmt.Sprintf("%s:%d", sArgs.monitoring.host, sArgs.monitoring.port)
 	if len(watchNamespaces) > 0 {
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
 		mgrOpt = manager.Options{
 			NewCache:                cache.MultiNamespacedCacheBuilder(watchNamespaces),
-			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			MetricsBindAddress:      monitoringBindAddress,
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
@@ -164,7 +175,7 @@ func run(sArgs *serverArgs) {
 		// Create manager option for watching all namespaces.
 		mgrOpt = manager.Options{
 			Namespace:               "",
-			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			MetricsBindAddress:      monitoringBindAddress,
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
@@ -179,7 +190,7 @@ func run(sArgs *serverArgs) {
 		log.Fatalf("Could not create a controller manager: %v", err)
 	}
 
-	log.Info("Creating operator metrics exporter")
+	log.Infof("Creating operator metrics exporter available at %s", monitoringBindAddress)
 	exporter, err := ocprom.NewExporter(ocprom.Options{
 		Registry:  ctrlmetrics.Registry.(*prometheus.Registry),
 		Namespace: "istio_install_operator",

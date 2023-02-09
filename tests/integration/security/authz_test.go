@@ -1629,6 +1629,7 @@ func TestAuthz_CustomServer(t *testing.T) {
 										return provider.IsProtocolSupported(tst.opts.Port.Protocol)
 									})
 								for _, tst := range tsts {
+									tst := tst
 									params := ""
 									if c.headers != nil {
 										params = fmt.Sprintf("?%s=%s", authz.XExtAuthz, c.headers.Get(authz.XExtAuthz))
@@ -1732,10 +1733,10 @@ func (b *authzTest) Allow(allow allowValue) *authzTest {
 
 func (b *authzTest) Build(t framework.TestContext) *authzTest {
 	t.Helper()
-
-	// Fill in the defaults.
+	// Set check now, as FillDefaults requires it
+	b.opts.Check = check.OK()
+	// Fill in the defaults; we need this to get the dest protocol
 	b.opts.FillDefaultsOrFail(t)
-
 	if b.allow {
 		b.opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
 	} else {

@@ -106,7 +106,7 @@ func (w *fileWatcher) Run(stop <-chan struct{}) {
 			}
 			log.Debugf("Injector watch update: %+v", event)
 			// use a timer to debounce configuration updates
-			if ((event.Op&fsnotify.Write == fsnotify.Write) || (event.Op&fsnotify.Create == fsnotify.Create)) && timerC == nil {
+			if (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
 		case err, ok := <-w.watcher.Errors:

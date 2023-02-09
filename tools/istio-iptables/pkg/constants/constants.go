@@ -126,6 +126,12 @@ The wildcard character "*" can be used to configure redirection of traffic from 
 		`Comma separated list of groups whose outgoing traffic is to be excluded from redirection to Envoy.
 A group can be specified either by name or by a numeric GID.
 Only applies when traffic from all groups (i.e. "*") is being redirected to Envoy.`)
+
+	IstioInboundInterceptionMode = env.Register("INBOUND_INTERCEPTION_MODE", "",
+		`The mode used to redirect inbound connections to Envoy, either "REDIRECT" or "TPROXY"`)
+
+	IstioInboundTproxyMark = env.Register("INBOUND_TPROXY_MARK", "",
+		``)
 )
 
 const (

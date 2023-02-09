@@ -65,7 +65,7 @@ func TestServiceExportController(t *testing.T) {
 
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
-	sc.Run(stop)
+	go sc.Run(stop)
 
 	t.Run("exportable", func(t *testing.T) {
 		createSimpleService(t, client.Kube(), "exportable-ns", "foo")

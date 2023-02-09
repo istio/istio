@@ -114,10 +114,22 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
+	EnablePersistentSessionFilter = env.Register(
+		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
+		false,
+		"If enabled, Istiod sets up persistent session filter for listeners, if services have 'PILOT_PERSISTENT_SESSION_LABEL' set.",
+	).Get()
+
 	PersistentSessionLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
 		"istio.io/persistent-session",
-		"If not empty, services with this label will use persistent sessions",
+		"If not empty, services with this label will use cookie based persistent sessions",
+	).Get()
+
+	PersistentSessionHeaderLabel = env.Register(
+		"PILOT_PERSISTENT_SESSION_HEADER_LABEL",
+		"istio.io/persistent-session-header",
+		"If not empty, services with this label will use header based persistent sessions",
 	).Get()
 
 	DrainingLabel = env.Register(
@@ -216,12 +228,17 @@ var (
 			"if headless services have a large number of pods.",
 	).Get()
 
-	EnableRemoteJwks = env.Register(
-		"PILOT_JWT_ENABLE_REMOTE_JWKS",
-		false,
-		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
-			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
-	).Get()
+	JwksFetchMode = func() jwt.JwksFetchMode {
+		v := env.Register(
+			"PILOT_JWT_ENABLE_REMOTE_JWKS",
+			"false",
+			"Mode of fetching JWKs from JwksUri in RequestAuthentication. Supported value: "+
+				"istiod, false, hybrid, true, envoy. The client fetching JWKs is as following: "+
+				"istiod/false - Istiod; hybrid/true - Envoy and fallback to Istiod if JWKs server is external; "+
+				"envoy - Envoy.",
+		).Get()
+		return jwt.ConvertToJwksFetchMode(v)
+	}()
 
 	EnableEDSForHeadless = env.Register(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
@@ -474,7 +491,8 @@ var (
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
 
 	ValidationWebhookConfigName = env.Register("VALIDATION_WEBHOOK_CONFIG_NAME", "istio-istio-system",
-		"Name of the validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.").Get()
+		"If not empty, the controller will automatically patch validatingwebhookconfiguration when the CA certificate changes. "+
+			"Only works in kubernetes environment.").Get()
 
 	SpiffeBundleEndpoints = env.Register("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
@@ -714,6 +732,12 @@ var (
 		false,
 		"If set, it allows creating inbound listeners for service ports and sidecar ingress listeners ",
 	).Get()
+
+	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
+		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
+
+	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
+		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

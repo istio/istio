@@ -73,7 +73,10 @@ func handleConnect(w http.ResponseWriter, r *http.Request) bool {
 	go func() {
 		// downstream (hbone client) <-- upstream (app)
 		copyBuffered(w, dst, log.WithLabels("name", "dst to w"))
-		r.Body.Close()
+		err = r.Body.Close()
+		if err != nil {
+			log.Infof("connection to hbone client is not closed: %v", err)
+		}
 		wg.Done()
 	}()
 	// downstream (hbone client) --> upstream (app)

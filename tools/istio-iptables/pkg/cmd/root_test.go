@@ -35,6 +35,7 @@ func TestGetLocalIP(t *testing.T) {
 	tests := []struct {
 		name     string
 		lipas    func() ([]net.Addr, error)
+		isDS     bool
 		expected bool
 	}{
 		{
@@ -45,6 +46,7 @@ func TestGetLocalIP(t *testing.T) {
 					netip.MustParseAddr("1.2.3.5"),
 				})
 			},
+			isDS:     false,
 			expected: false,
 		},
 		{
@@ -55,6 +57,7 @@ func TestGetLocalIP(t *testing.T) {
 					netip.MustParseAddr("2222:3333::1"),
 				})
 			},
+			isDS:     false,
 			expected: true,
 		},
 		{
@@ -67,12 +70,28 @@ func TestGetLocalIP(t *testing.T) {
 					netip.MustParseAddr("2222:3333::1"),
 				})
 			},
+			isDS:     false,
 			expected: false,
+		},
+
+		{
+			name: "mixed ipv4 and ipv6 local ip addresses with dual stack enable",
+			lipas: func() ([]net.Addr, error) {
+				return tesrLocalIPAddrs([]netip.Addr{
+					netip.MustParseAddr("::1"),
+					netip.MustParseAddr("127.0.0.1"),
+					netip.MustParseAddr("1.2.3.5"),
+					netip.MustParseAddr("2222:3333::1"),
+				})
+			},
+			isDS:     true,
+			expected: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			LocalIPAddrs = tt.lipas
+			DualStackEnv = tt.isDS
 			result := constructConfig()
 			if result.EnableInboundIPv6 != tt.expected {
 				t.Errorf("unexpected EnableInboundIPv6 result, expected: %t got: %t", tt.expected, result.EnableInboundIPv6)

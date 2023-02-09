@@ -233,7 +233,7 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 	}
 	defaultCNIConfigFilepath := filepath.Join(cfg.MountedCNINetDir, defaultCNIConfigFilename)
 	if defaultCNIConfigFilepath != cniConfigFilepath {
-		if len(cfg.CNIConfName) > 0 {
+		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
 			installLog.Warnf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)

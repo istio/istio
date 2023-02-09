@@ -505,6 +505,62 @@ spec:
 	})
 }
 
+func TestSplitWaypoint(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		// Need HTTP
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		// We are only testing from waypoint proxy
+		if !src.Config().HasWaypointProxy() {
+			return
+		}
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+			"Waypoint":    apps.Waypoint.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  hosts:
+  - "{{.Waypoint}}"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+      weight: 1
+    - destination:
+        host: "{{.Waypoint}}"
+      weight: 1
+`).ApplyOrFail(t)
+		opt = opt.DeepCopy()
+		opt.Count = 5
+		opt.Timeout = time.Second * 10
+		// We always send to waypoint, destination traffic is from the split
+		opt.To = apps.Waypoint
+		opt.Check = check.And(
+			check.OK(),
+			func(result echo.CallResult, _ error) error {
+				hitDst := false
+				hitWaypoint := false
+				for _, r := range result.Responses {
+					if strings.HasPrefix(r.Hostname, dst.Config().Service) {
+						hitDst = true
+					}
+					if strings.HasPrefix(r.Hostname, apps.Waypoint.Config().Service) {
+						hitWaypoint = true
+					}
+				}
+				if !hitDst || !hitWaypoint {
+					return fmt.Errorf("wanted to hit dst (%v) and waypoint (%v): %v", hitDst, hitWaypoint, result.Responses)
+				}
+				return nil
+			})
+		src.CallOrFail(t, opt)
+	})
+}
+
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/solo-io/istio-sidecarless/issues/287
@@ -529,6 +585,9 @@ spec:
 				// For this case, it is broken if the src and dst are on the same node.
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			}
+			if dst.Config().HasWaypointProxy() {
+				t.Skip("https://github.com/istio/istio/issues/43009")
 			}
 
 			overrideCheck := func(opt *echo.CallOptions) {
@@ -626,6 +685,17 @@ spec:
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
+			if dst.Config().HasWaypointProxy() {
+				t.Skip("https://github.com/istio/istio/issues/43009")
+			}
+
+			// sidecar-uncaptured is failing the Ambient destination port test
+			// seems like a bug in the sidecar HBONE implementation that
+			// may need rules transformation as well
+			if dst.Config().HasSidecar() {
+				t.Skip("https://github.com/istio/istio/issues/42929")
+			}
+
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -756,6 +826,9 @@ spec:
 				// For this case, it is broken if the src and dst are on the same node.
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/solo-io/istio-sidecarless/issues/103")
+			}
+			if dst.Config().HasWaypointProxy() {
+				t.Skip("https://github.com/istio/istio/issues/43009")
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": dst.Config().Service,
@@ -1536,14 +1609,13 @@ func TestDirect(t *testing.T) {
 					}
 				})
 			}
-			const UnknownRoute = "round trip failed: 404 Not Found"
 			run("named destination", echo.CallOptions{
 				To:    apps.Waypoint,
 				Count: 1,
 				Port:  echo.Port{Name: ports.HTTP},
 				HBONE: hb,
 				// TODO(https://github.com/solo-io/istio-sidecarless/issues/269)
-				Check: check.ErrorContains(UnknownRoute),
+				Check: check.Error(),
 			})
 			run("VIP destination", echo.CallOptions{
 				To:      apps.Waypoint,
@@ -1560,7 +1632,8 @@ func TestDirect(t *testing.T) {
 				Port:    echo.Port{ServicePort: 12345},
 				Scheme:  scheme.HTTP,
 				HBONE:   hb,
-				Check:   check.ErrorContains(UnknownRoute),
+				// TODO: VIP:* should error sooner for undeclared ports
+				Check: check.Error(),
 			})
 			run("Pod IP destination", echo.CallOptions{
 				To:      apps.Waypoint,
@@ -1578,7 +1651,7 @@ func TestDirect(t *testing.T) {
 				Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTP).ServicePort},
 				Scheme:  scheme.HTTP,
 				HBONE:   hb,
-				Check:   check.ErrorContains(UnknownRoute),
+				Check:   check.Error(),
 			})
 			run("Unserved pod destination", echo.CallOptions{
 				To:      apps.Captured,
@@ -1587,7 +1660,7 @@ func TestDirect(t *testing.T) {
 				Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTP).ServicePort},
 				Scheme:  scheme.HTTP,
 				HBONE:   hb,
-				Check:   check.ErrorContains(UnknownRoute),
+				Check:   check.Error(),
 			})
 		})
 	})

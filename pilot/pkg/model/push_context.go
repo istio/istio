@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -101,6 +102,9 @@ type virtualServiceIndex struct {
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
 	destinationsByGateway map[string]sets.String
+
+	// Map of VS hostname -> referenced hostnames
+	referencedDestinations map[string]sets.String
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -109,6 +113,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
+		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
 		out.destinationsByGateway = make(map[string]sets.String)
@@ -347,7 +352,7 @@ type PushRequest struct {
 	// If this is empty, then all proxies will get an update.
 	// Otherwise only proxies depend on these configs will get an update.
 	// The kind of resources are defined in pkg/config/schemas.
-	ConfigsUpdated map[ConfigKey]struct{}
+	ConfigsUpdated sets.Set[ConfigKey]
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
@@ -386,6 +391,8 @@ type TriggerReason string
 const (
 	// EndpointUpdate describes a push triggered by an Endpoint change
 	EndpointUpdate TriggerReason = "endpoint"
+	// HeadlessEndpointUpdate describes a push triggered by an Endpoint change for headless service
+	HeadlessEndpointUpdate TriggerReason = "headlessendpoint"
 	// ConfigUpdate describes a push triggered by a config (generally and Istio CRD) change.
 	ConfigUpdate TriggerReason = "config"
 	// ServiceUpdate describes a push triggered by a Service change
@@ -481,7 +488,7 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		for conf := range pr.ConfigsUpdated {
 			merged.ConfigsUpdated[conf] = struct{}{}
 		}
@@ -802,9 +809,22 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
+func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
+	return ps.virtualServiceIndex.referencedDestinations
+}
+
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
+	gw := proxy.MergedGateway
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if gw == nil {
+		return false
+	}
+	if gw.ContainsAutoPassthroughGateways {
+		return true
+	}
+	for _, g := range gw.GatewayNameForServer {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
 			}
@@ -824,6 +844,7 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 			hosts.Insert(p.Zipkin.Service)
+		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 			hosts.Insert(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
@@ -1400,7 +1421,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
+			instances = append(instances, env.InstancesByPort(s, port.Port)...)
 			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 
@@ -1505,6 +1526,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
+	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
 
 	if features.FilterGatewayClusterConfig {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
@@ -1606,6 +1628,18 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
 				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
+			}
+		}
+
+		// For mesh virtual services, build a map of host -> referenced destinations
+		if len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway) {
+			for host := range virtualServiceDestinations(rule) {
+				for _, rhost := range rule.Hosts {
+					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
+						ps.virtualServiceIndex.referencedDestinations[rhost] = sets.New[string]()
+					}
+					ps.virtualServiceIndex.referencedDestinations[rhost].Insert(host)
+				}
 			}
 		}
 	}

@@ -23,12 +23,14 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -157,6 +159,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
 				}
+				// If unset, assume they want to just check the request succeeds
+				if opts.Check == nil {
+					opts.Check = check.OK()
+				}
 				return opts
 			}
 			if optsSpecified {
@@ -205,7 +211,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			// we only apply to config clusters
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t, apply.CleanupConditionally)
 		}
 
 		if c.call != nil && len(c.children) > 0 {

@@ -1125,23 +1125,6 @@ func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 	return out
 }
 
-// WatchConfig will use the new experimental API watching, similar with MCP.
-func (a *ADSC) WatchConfig() {
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
-	})
-
-	for _, sch := range collections.Pilot.All() {
-		_ = a.stream.Send(&discovery.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       sch.Resource().GroupVersionKind().String(),
-		})
-	}
-}
-
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	ex := a.Received[typeurl]
 	version := ""

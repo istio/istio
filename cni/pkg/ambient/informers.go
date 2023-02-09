@@ -75,7 +75,7 @@ func (s *Server) setupHandlers() {
 		)
 	})
 	_ = podInformer.SetTransform(kube.StripUnusedFields)
-	podInformer.AddEventHandler(controllers.EventHandler(func(o controllers.Event) {
+	_, _ = podInformer.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
 	}))
 	s.podLister = listerv1.NewPodLister(podInformer.GetIndexer())
@@ -83,7 +83,7 @@ func (s *Server) setupHandlers() {
 	// Namespaces could be anything though, so we watch all of those
 	ns := s.kubeClient.KubeInformer().Core().V1().Namespaces()
 	s.nsLister = ns.Lister()
-	ns.Informer().AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
+	_, _ = ns.Informer().AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
 }
 
 func (s *Server) Run(stop <-chan struct{}) {

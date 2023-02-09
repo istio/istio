@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 42400
+releaseNotes:
+- |
+  **Fixed** updating service visibility does not push XDS to gateways

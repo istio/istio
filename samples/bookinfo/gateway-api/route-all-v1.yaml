@@ -1,0 +1,56 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: reviews
+spec:
+  parentRefs:
+  - kind: Service
+    name: reviews
+    port: 9080
+  rules:
+  - backendRefs:
+    - name: reviews-v1
+      port: 9080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: productpage
+spec:
+  parentRefs:
+  - kind: Service
+    name: productpage
+    port: 9080
+  rules:
+  - backendRefs:
+    - name: productpage-v1
+      port: 9080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: ratings
+spec:
+  parentRefs:
+  - kind: Service
+    name: ratings
+    port: 9080
+  rules:
+  - backendRefs:
+    - name: ratings-v1
+      port: 9080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: details
+spec:
+  parentRefs:
+  - kind: Service
+    name: details
+    port: 9080
+  rules:
+  - backendRefs:
+    - name: details-v1
+      port: 9080
+---

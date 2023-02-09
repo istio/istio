@@ -210,7 +210,7 @@ func newController(
 		},
 		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
 	)
-	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
+	_, _ = webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
 	c.webhookInformer = webhookInformer
 
 	return c

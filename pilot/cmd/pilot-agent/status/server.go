@@ -34,7 +34,6 @@ import (
 	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
@@ -128,6 +127,7 @@ type Options struct {
 	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
+	EnableProfiling     bool
 }
 
 // Server provides an endpoint for handling status probes.
@@ -144,6 +144,8 @@ type Server struct {
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
 	config                Options
+	http                  *http.Client
+	enableProfiling       bool
 }
 
 func init() {
@@ -195,11 +197,13 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
+		http:                  &http.Client{},
 		appProbersDestination: config.PodIP,
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
+		enableProfiling:       config.EnableProfiling,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -247,9 +251,8 @@ func NewServer(config Options) (*Server, error) {
 			return nil, err
 		}
 		if prober.HTTPGet != nil {
-			d := &net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
 			// nolint: gosec
 			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
 			transport, err := setTransportDefaults(&http.Transport{
@@ -349,12 +352,14 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
-	// Add the handler for pprof.
-	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
-	mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
-	mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
-	mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
-	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	if s.enableProfiling {
+		// Add the handler for pprof.
+		mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
+		mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
+		mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
+		mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
+		mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	}
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
@@ -495,10 +500,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoyCancel, appCancel context.CancelFunc
 	defer func() {
 		if envoy != nil {
-			envoy.Close()
+			err = envoy.Close()
+			if err != nil {
+				log.Infof("envoy connection is not closed: %v", err)
+			}
 		}
 		if application != nil {
-			application.Close()
+			err = application.Close()
+			if err != nil {
+				log.Infof("app connection is not closed: %v", err)
+			}
 		}
 		if envoyCancel != nil {
 			envoyCancel()
@@ -572,13 +583,12 @@ func scrapeAndWriteAgentMetrics(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var errs error
 	for _, mf := range mfs {
 		if err := enc.Encode(mf); err != nil {
-			errs = multierror.Append(errs, err)
+			return err
 		}
 	}
-	return errs
+	return nil
 }
 
 func applyHeaders(into http.Header, from http.Header, keys ...string) {
@@ -624,7 +634,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 		"X-Prometheus-Scrape-Timeout-Seconds",
 	)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.http.Do(req)
 	if err != nil {
 		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
@@ -747,17 +757,19 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	d := &net.Dialer{
-		LocalAddr: s.upstreamLocalAddress,
-		Timeout:   timeout,
-	}
+	d := ProbeDialer()
+	d.LocalAddr = s.upstreamLocalAddress
+	d.Timeout = timeout
 
 	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.TCPSocket.Port.IntValue())))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		conn.Close()
+		err = conn.Close()
+		if err != nil {
+			log.Infof("tcp connection is not closed: %v", err)
+		}
 	}
 }
 

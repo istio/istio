@@ -28,6 +28,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
@@ -93,12 +94,12 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
 	gateways := rc.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
 	rc.gateways = gateways.Lister()
 	rc.gatewayInformer = gateways.Informer()
-	rc.gatewayInformer.AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
+	_, _ = rc.gatewayInformer.AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
 
 	sas := rc.client.KubeInformer().Core().V1().ServiceAccounts()
 	rc.serviceAccounts = sas.Lister()
 	rc.saInformer = sas.Informer()
-	rc.saInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	_, _ = rc.saInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// Anytime SA change, trigger all gateways in the namespace. This could probably be more efficient...
 		gws, _ := rc.gateways.Gateways(o.GetNamespace()).List(klabels.Everything())
 		for _, gw := range gws {
@@ -208,12 +209,12 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 		msg += fmt.Sprintf(" for %q service account", gatewaySA)
 	}
 	err := rc.UpdateStatus(gw, map[string]*istiogw.Condition{
-		string(v1alpha2.GatewayConditionReady): {
-			Reason:  string(v1alpha2.GatewayReasonReady),
+		string(v1beta1.GatewayConditionReady): {
+			Reason:  string(v1beta1.GatewayReasonReady),
 			Message: msg,
 		},
-		string(v1alpha2.GatewayConditionAccepted): {
-			Reason:  string(v1alpha2.GatewayReasonAccepted),
+		string(v1beta1.GatewayConditionAccepted): {
+			Reason:  string(v1beta1.GatewayReasonAccepted),
 			Message: msg,
 		},
 	}, log)

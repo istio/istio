@@ -166,7 +166,7 @@ type FakeControllerOptions struct {
 	Client                    kubelib.Client
 	NetworksWatcher           mesh.NetworksWatcher
 	MeshWatcher               mesh.Watcher
-	ServiceHandler            func(service *model.Service, event model.Event)
+	ServiceHandler            model.ServiceHandler
 	Mode                      EndpointMode
 	ClusterID                 cluster.ID
 	WatchedNamespaces         string

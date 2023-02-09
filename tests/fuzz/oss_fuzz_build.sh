@@ -19,11 +19,19 @@ set -o pipefail
 set -o errexit
 set -x
 
+cd "${SRC}"
+git clone https://github.com/AdamKorcz/instrumentation
+cd instrumentation
+go run main.go "${SRC}"/istio
+cd "${SRC}"/istio
+
+sed -i 's/\"testing\"/\"github.com\/AdamKorcz\/go-118-fuzz-build\/testing\"/g' "${SRC}"/istio/pkg/fuzz/util.go
+
 sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
-# Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/utils"
+# Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/testing"
 # This is a small hack to install this dependency, since it is not used anywhere,
 # and Go would therefore remove it from go.mod once we run "go mod tidy && go mod vendor".
-printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/utils\"\n" > register.go
+printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\"\n" > register.go
 go mod tidy
 
 mv "${SRC}"/istio/security/pkg/server/ca/server_test.go "${SRC}"/istio/security/pkg/server/ca/server_test_fuzz.go

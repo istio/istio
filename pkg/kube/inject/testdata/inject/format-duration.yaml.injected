@@ -75,7 +75,7 @@ spec:
               fieldPath: status.hostIP
         - name: PROXY_CONFIG
           value: |
-            {"drainDuration":"23s","parentShutdownDuration":"42s"}
+            {"drainDuration":"23s"}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -85,6 +85,10 @@ spec:
           value: hello
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME

@@ -26,19 +26,21 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admitv1 "k8s.io/api/admissionregistration/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
+	name2 "istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config"
@@ -194,7 +196,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 
 	// Get a list of all CRs which are installed in this cluster
-	iopcrs, err := getAllIstioOperatorCRs(client)
+	iopcrs, err := getAllMergedIstioOperatorCRs(client, logger)
 	if err != nil {
 		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
 	}
@@ -203,12 +205,16 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		if ri := revisions[rev]; ri == nil {
 			revisions[rev] = &tag.RevisionDescription{}
 		}
+		cs, err := getEnabledComponents(iop)
+		if err != nil {
+			return fmt.Errorf("error while getting IstioOperator Components: %v", err)
+		}
 		iopInfo := &tag.IstioOperatorCRInfo{
 			IOP:            iop,
 			Namespace:      iop.GetNamespace(),
 			Name:           iop.GetName(),
-			Profile:        iop.Spec.GetProfile(),
-			Components:     getEnabledComponents(iop.Spec),
+			Profile:        manifest.GetProfile(iop),
+			Components:     cs,
 			Customizations: nil,
 		}
 		if args.verbose {
@@ -275,7 +281,7 @@ func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*tag.Revisi
 	outer:
 		for _, iop := range rd.IstioOperatorCRs {
 			for _, c := range iop.Components {
-				if c == "istiod" {
+				if c == name2.UserFacingComponentName(name2.PilotComponentName) {
 					isIstiodEnabled = true
 					break outer
 				}
@@ -305,84 +311,74 @@ func printControlPlaneSummaryTable(w io.Writer, revisions map[string]*tag.Revisi
 }
 
 func printGatewaySummaryTable(w io.Writer, revisions map[string]*tag.RevisionDescription) error {
-	if err := printIngressGatewaySummaryTable(w, revisions); err != nil {
+	if err := printGatewaySummaryTableWithType(ingressGWTyp, w, revisions); err != nil {
 		return fmt.Errorf("error while printing ingress gateway summary: %v", err)
 	}
-	if err := printEgressGatewaySummaryTable(w, revisions); err != nil {
+	if err := printGatewaySummaryTableWithType(egressGWTyp, w, revisions); err != nil {
 		return fmt.Errorf("error while printing egress gateway summary: %v", err)
 	}
 	return nil
 }
 
-func printIngressGatewaySummaryTable(w io.Writer, revisions map[string]*tag.RevisionDescription) error {
-	fmt.Fprintf(w, "\nINGRESS GATEWAYS:\n")
-	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
-	fmt.Fprintf(tw, "REVISION\tDECLARED-GATEWAYS\tGATEWAY-POD\n")
-	for rev, rd := range revisions {
-		enabledIngressGateways := []string{}
-		for _, iop := range rd.IstioOperatorCRs {
-			for _, c := range iop.Components {
-				if strings.HasPrefix(c, "ingress") {
-					enabledIngressGateways = append(enabledIngressGateways, c)
-				}
-			}
-		}
-		maxRows := max(max(1, len(enabledIngressGateways)), len(rd.IngressGatewayPods))
-		for i := 0; i < maxRows; i++ {
-			var rowRev, rowEnabled, rowPod string
-			if i == 0 {
-				rowRev = rev
-			}
-			if i == 0 && len(enabledIngressGateways) == 0 {
-				rowEnabled = "<no-ingress-enabled>"
-			} else if i < len(enabledIngressGateways) {
-				rowEnabled = enabledIngressGateways[i]
-			}
-			if i == 0 && len(rd.IngressGatewayPods) == 0 {
-				rowPod = "<no-ingress-pod>"
-			} else if i < len(rd.IngressGatewayPods) {
-				rowPod = fmt.Sprintf("%s/%s",
-					rd.IngressGatewayPods[i].Namespace,
-					rd.IngressGatewayPods[i].Name)
-			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", rowRev, rowEnabled, rowPod)
-		}
-	}
-	return tw.Flush()
-}
+type gwType int
 
-// TODO(su225): This is a copy paste of corresponding function of ingress. Refactor these parts!
-func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*tag.RevisionDescription) error {
-	fmt.Fprintf(w, "\nEGRESS GATEWAYS:\n")
+const (
+	ingressGWTyp gwType = 0
+	egressGWTyp  gwType = 1
+)
+
+func printGatewaySummaryTableWithType(gT gwType, w io.Writer, revisions map[string]*tag.RevisionDescription) error {
+	gTypeName := name2.IngressComponentName
+	noEnabled := "<no-ingress-enabled>"
+	noPod := "<no-ingress-pod>"
+	if gT == ingressGWTyp {
+		fmt.Fprintf(w, "\nINGRESS GATEWAYS:\n")
+	} else {
+		gTypeName = name2.EgressComponentName
+		fmt.Fprintf(w, "\nEGRESS GATEWAYS:\n")
+		noEnabled = "<no-egress-enabled>"
+		noPod = "<no-egress-pod>"
+	}
+
+	getRowPodAndEnabled := func(index int, enableGws []string, gwPods []*tag.PodFilteredInfo) (rEnabled string, rPod string) {
+		if index == 0 && len(enableGws) == 0 {
+			rEnabled = noEnabled
+		} else if index < len(enableGws) {
+			rEnabled = enableGws[index]
+		}
+		if index == 0 && len(gwPods) == 0 {
+			rPod = noPod
+		} else if index < len(gwPods) {
+			rPod = fmt.Sprintf("%s/%s",
+				gwPods[index].Namespace,
+				gwPods[index].Name)
+		}
+		return
+	}
+
+	prefix := name2.UserFacingComponentName(gTypeName) + ":"
 	tw := new(tabwriter.Writer).Init(w, 0, 8, 1, ' ', 0)
 	fmt.Fprintf(tw, "REVISION\tDECLARED-GATEWAYS\tGATEWAY-POD\n")
 	for rev, rd := range revisions {
-		enabledEgressGateways := []string{}
+		enabledGateways := []string{}
 		for _, iop := range rd.IstioOperatorCRs {
 			for _, c := range iop.Components {
-				if strings.HasPrefix(c, "egress") {
-					enabledEgressGateways = append(enabledEgressGateways, c)
+				if strings.HasPrefix(c, prefix) {
+					enabledGateways = append(enabledGateways, strings.TrimPrefix(c, prefix))
 				}
 			}
 		}
-		maxRows := max(max(1, len(enabledEgressGateways)), len(rd.EgressGatewayPods))
+		gwPods := rd.IngressGatewayPods
+		if gT == egressGWTyp {
+			gwPods = rd.EgressGatewayPods
+		}
+		maxRows := max(max(1, len(enabledGateways)), len(gwPods))
 		for i := 0; i < maxRows; i++ {
 			var rowRev, rowEnabled, rowPod string
 			if i == 0 {
 				rowRev = rev
 			}
-			if i == 0 && len(enabledEgressGateways) == 0 {
-				rowEnabled = "<no-egress-enabled>"
-			} else if i < len(enabledEgressGateways) {
-				rowEnabled = enabledEgressGateways[i]
-			}
-			if i == 0 && len(rd.EgressGatewayPods) == 0 {
-				rowPod = "<no-egress-pod>"
-			} else if i < len(rd.EgressGatewayPods) {
-				rowPod = fmt.Sprintf("%s/%s",
-					rd.EgressGatewayPods[i].Namespace,
-					rd.EgressGatewayPods[i].Name)
-			}
+			rowEnabled, rowPod = getRowPodAndEnabled(i, enabledGateways, gwPods)
 			fmt.Fprintf(tw, "%s\t%s\t%s\n", rowRev, rowEnabled, rowPod)
 		}
 	}
@@ -393,9 +389,9 @@ func printEgressGatewaySummaryTable(w io.Writer, revisions map[string]*tag.Revis
 func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*tag.RevisionDescription) error {
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	if verbose {
-		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
+		_, _ = tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\tCUSTOMIZATIONS\n"))
 	} else {
-		tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\n"))
+		_, _ = tw.Write([]byte("REVISION\tTAG\tISTIO-OPERATOR-CR\tPROFILE\tREQD-COMPONENTS\n"))
 	}
 	for r, ri := range revisions {
 		rowID, tags := 0, []string{}
@@ -469,7 +465,7 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*tag
 	return tw.Flush()
 }
 
-func getAllIstioOperatorCRs(client kube.CLIClient) ([]*iopv1alpha1.IstioOperator, error) {
+func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]*iopv1alpha1.IstioOperator, error) {
 	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
 		List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -485,7 +481,16 @@ func getAllIstioOperatorCRs(client kube.CLIClient) ([]*iopv1alpha1.IstioOperator
 				fmt.Errorf("error while converting to IstioOperator CR - %s/%s: %v",
 					u.GetNamespace(), u.GetName(), err)
 		}
-		iopCRs = append(iopCRs, iop)
+		by, err := yaml.Marshal(iop)
+		if err != nil {
+			return nil, fmt.Errorf("error while marshaling IstioOperator CR - %s/%s to yaml: %v", u.GetNamespace(), u.GetName(), err)
+		}
+		profile := manifest.GetProfile(iop)
+		mergedIOP, err := manifest.GetMergedIOP(string(by), profile, "", "", client, logger)
+		if err != nil {
+			return nil, fmt.Errorf("error while merging IstioOperator CR - %s/%s with profile %s: %v", u.GetNamespace(), u.GetName(), profile, err)
+		}
+		iopCRs = append(iopCRs, mergedIOP)
 	}
 	return iopCRs, nil
 }
@@ -497,7 +502,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
 			kubeconfig, configContext, err)
 	}
-	allIops, err := getAllIstioOperatorCRs(client)
+	allIops, err := getAllMergedIstioOperatorCRs(client, logger)
 	if err != nil {
 		return fmt.Errorf("error while fetching IstioOperator CR: %v", err)
 	}
@@ -507,7 +512,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		return fmt.Errorf("error while fetching mutating webhook configurations: %v", err)
 	}
 	webhooks := filterWebhooksWithRevision(allWebhooks, revision)
-	revDescription := getBasicRevisionDescription(iopsInCluster, webhooks)
+	revDescription := getBasicRevisionDescription(iopsInCluster, webhooks, logger)
 	if err = annotateWithIOPCustomization(revDescription, args.manifestsPath, logger); err != nil {
 		return err
 	}
@@ -619,19 +624,23 @@ func annotateWithIOPCustomization(revDesc *tag.RevisionDescription, manifestsPat
 }
 
 func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
-	mutatingWebhooks []admitv1.MutatingWebhookConfiguration,
+	mutatingWebhooks []admitv1.MutatingWebhookConfiguration, logger clog.Logger,
 ) *tag.RevisionDescription {
 	revDescription := &tag.RevisionDescription{
 		IstioOperatorCRs: []*tag.IstioOperatorCRInfo{},
 		Webhooks:         []*tag.MutatingWebhookConfigInfo{},
 	}
 	for _, iop := range iopCRs {
+		cs, err := getEnabledComponents(iop)
+		if err != nil {
+			logger.LogAndErrorf("error while getting IstioOperator %s/%s Components: %v", iop.Namespace, iop.Name, err)
+		}
 		revDescription.IstioOperatorCRs = append(revDescription.IstioOperatorCRs, &tag.IstioOperatorCRInfo{
 			IOP:            iop,
 			Namespace:      iop.Namespace,
 			Name:           iop.Name,
-			Profile:        renderWithDefault(iop.Spec.Profile, "default"),
-			Components:     getEnabledComponents(iop.Spec),
+			Profile:        manifest.GetProfile(iop),
+			Components:     cs,
 			Customizations: nil,
 		})
 	}
@@ -664,7 +673,7 @@ func filterWebhooksWithRevision(webhooks []admitv1.MutatingWebhookConfiguration,
 	return whFiltered
 }
 
-func transformToFilteredPodInfo(pods []v1.Pod) []*tag.PodFilteredInfo {
+func transformToFilteredPodInfo(pods []corev1.Pod) []*tag.PodFilteredInfo {
 	pfilInfo := []*tag.PodFilteredInfo{}
 	for _, p := range pods {
 		pfilInfo = append(pfilInfo, getFilteredPodInfo(&p))
@@ -672,7 +681,7 @@ func transformToFilteredPodInfo(pods []v1.Pod) []*tag.PodFilteredInfo {
 	return pfilInfo
 }
 
-func getFilteredPodInfo(pod *v1.Pod) *tag.PodFilteredInfo {
+func getFilteredPodInfo(pod *corev1.Pod) *tag.PodFilteredInfo {
 	return &tag.PodFilteredInfo{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -882,34 +891,38 @@ func printPodTable(w io.Writer, pods []*tag.PodFilteredInfo) error {
 	return podTableW.Flush()
 }
 
-func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
-	if iops == nil || iops.Components == nil {
-		return []string{}
+func getEnabledComponents(iop *iopv1alpha1.IstioOperator) ([]string, error) {
+	if iop == nil {
+		return nil, nil
 	}
-	enabledComponents := []string{}
-	if iops.Components.Base != nil && iops.Components.Base.Enabled.GetValue() {
-		enabledComponents = append(enabledComponents, "base")
-	}
-	if iops.Components.Cni != nil && iops.Components.Cni.Enabled.GetValue() {
-		enabledComponents = append(enabledComponents, "cni")
-	}
-	if iops.Components.Pilot != nil && iops.Components.Pilot.Enabled.GetValue() {
-		enabledComponents = append(enabledComponents, "istiod")
-	}
-	for _, gw := range iops.Components.IngressGateways {
-		if gw.Enabled.GetValue() {
-			enabledComponents = append(enabledComponents, fmt.Sprintf("ingress:%s", gw.GetName()))
+
+	var enabledComponents []string
+	if iop.Spec.Components != nil {
+		for _, c := range name2.AllCoreComponentNames {
+			enabled, err := translate.IsComponentEnabledInSpec(c, iop.Spec)
+			if err != nil {
+				return nil, fmt.Errorf("error while resolving whether the component is enabled: %v", err)
+			}
+			if enabled {
+				enabledComponents = append(enabledComponents, name2.UserFacingComponentName(c))
+			}
+		}
+		for _, c := range iop.Spec.Components.IngressGateways {
+			if c.Enabled.GetValue() {
+				enabledComponents = append(enabledComponents, fmt.Sprintf("%s:%s", name2.UserFacingComponentName(name2.IngressComponentName), c.Name))
+			}
+		}
+		for _, c := range iop.Spec.Components.EgressGateways {
+			if c.Enabled.GetValue() {
+				enabledComponents = append(enabledComponents, fmt.Sprintf("%s:%s", name2.UserFacingComponentName(name2.EgressComponentName), c.Name))
+			}
 		}
 	}
-	for _, gw := range iops.Components.EgressGateways {
-		if gw.Enabled.GetValue() {
-			enabledComponents = append(enabledComponents, fmt.Sprintf("egress:%s", gw.GetName()))
-		}
-	}
-	return enabledComponents
+
+	return enabledComponents, nil
 }
 
-func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, error) {
+func getPodsForComponent(client kube.CLIClient, component string) ([]corev1.Pod, error) {
 	return getPodsWithSelector(client, istioNamespace, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),
@@ -918,15 +931,15 @@ func getPodsForComponent(client kube.CLIClient, component string) ([]v1.Pod, err
 	})
 }
 
-func getPodsWithSelector(client kube.CLIClient, ns string, selector *metav1.LabelSelector) ([]v1.Pod, error) {
+func getPodsWithSelector(client kube.CLIClient, ns string, selector *metav1.LabelSelector) ([]corev1.Pod, error) {
 	labelSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
-		return []v1.Pod{}, err
+		return []corev1.Pod{}, err
 	}
 	podList, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(),
 		metav1.ListOptions{LabelSelector: labelSelector.String()})
 	if err != nil {
-		return []v1.Pod{}, err
+		return []corev1.Pod{}, err
 	}
 	return podList.Items, nil
 }

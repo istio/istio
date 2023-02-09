@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -136,40 +136,40 @@ func TestGetRevisionFromPodAnnotation(t *testing.T) {
 func TestFindProtocolForPort(t *testing.T) {
 	http := "HTTP"
 	cases := []struct {
-		port             v1.ServicePort
+		port             corev1.ServicePort
 		expectedProtocol string
 	}{
 		{
-			port: v1.ServicePort{
+			port: corev1.ServicePort{
 				Name:     "http",
-				Protocol: v1.ProtocolTCP,
+				Protocol: corev1.ProtocolTCP,
 			},
 			expectedProtocol: "HTTP",
 		},
 		{
-			port: v1.ServicePort{
+			port: corev1.ServicePort{
 				Name:     "GRPC-port",
-				Protocol: v1.ProtocolTCP,
+				Protocol: corev1.ProtocolTCP,
 			},
 			expectedProtocol: "GRPC",
 		},
 		{
-			port: v1.ServicePort{
+			port: corev1.ServicePort{
 				AppProtocol: &http,
-				Protocol:    v1.ProtocolTCP,
+				Protocol:    corev1.ProtocolTCP,
 			},
 			expectedProtocol: "HTTP",
 		},
 		{
-			port: v1.ServicePort{
-				Protocol: v1.ProtocolTCP,
+			port: corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
 				Port:     80,
 			},
 			expectedProtocol: "auto-detect",
 		},
 		{
-			port: v1.ServicePort{
-				Protocol: v1.ProtocolUDP,
+			port: corev1.ServicePort{
+				Protocol: corev1.ProtocolUDP,
 				Port:     80,
 			},
 			expectedProtocol: "UDP",
@@ -241,21 +241,21 @@ func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {
 	tests := []struct {
 		name         string
 		inputConfig  string
-		inputService v1.Service
+		inputService corev1.Service
 		inputPort    int32
 		expected     string
 	}{
 		{
 			name:        "test tls config",
 			inputConfig: "testdata/describe/tls_config.json",
-			inputService: v1.Service{
+			inputService: corev1.Service{
 				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "productpage",
 					Namespace: "default",
 				},
-				Spec:   v1.ServiceSpec{},
-				Status: v1.ServiceStatus{},
+				Spec:   corev1.ServiceSpec{},
+				Status: corev1.ServiceStatus{},
 			},
 			inputPort: int32(9080),
 			expected:  "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo",
@@ -263,14 +263,14 @@ func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {
 		{
 			name:        "test http config",
 			inputConfig: "testdata/describe/http_config.json",
-			inputService: v1.Service{
+			inputService: corev1.Service{
 				TypeMeta: metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "productpage",
 					Namespace: "default",
 				},
-				Spec:   v1.ServiceSpec{},
-				Status: v1.ServiceStatus{},
+				Spec:   corev1.ServiceSpec{},
+				Status: corev1.ServiceStatus{},
 			},
 			inputPort: int32(9080),
 			expected:  "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo",

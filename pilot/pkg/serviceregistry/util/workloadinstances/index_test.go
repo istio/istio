@@ -40,7 +40,7 @@ var selector = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 			{Number: 445, Name: "http-445", Protocol: "http"},
 		},

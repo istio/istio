@@ -45,7 +45,8 @@ type EndpointBuilder struct {
 	hostname string
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	subDomain string
-	nodeName  string
+	// If in k8s, the node where the pod resides
+	nodeName string
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
@@ -79,10 +80,11 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		namespace:    namespace,
 		hostname:     hostname,
 		subDomain:    subdomain,
+		labels:       podLabels,
 		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
+	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
 	if c.AmbientEnabled(pod) {
 		out.labels[ambient.LabelStatus] = ambient.TypeEnabled
 	} else {
@@ -102,13 +104,13 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 			ClusterID: c.Cluster(),
 		},
 		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Labels),
-		nodeName: proxy.Metadata.NodeName,
+		nodeName: proxy.GetNodeName(),
 	}
 	var networkID network.ID
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 

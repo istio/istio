@@ -1,6 +1,7 @@
 ARG BASE_VERSION=latest
+ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
 
-FROM gcr.io/istio-release/base:${BASE_VERSION}
+FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION}
 
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/client /usr/local/bin/client

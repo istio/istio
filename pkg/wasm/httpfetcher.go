@@ -97,19 +97,36 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			body, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			// Limit wasm module to 256mb; in reality it must be much smaller
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
+			if err != nil {
+				return nil, err
+			}
+			err = resp.Body.Close()
+			if err != nil {
+				wasmLog.Infof("wasm server connection is not closed: %v", err)
+			}
 			return unboxIfPossible(body), err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
-			body, _ := io.ReadAll(resp.Body)
+			// Limit wasm module to 256mb; in reality it must be much smaller
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
+			if err != nil {
+				return nil, err
+			}
 			wasmLog.Debugf("wasm module download failed: status code %v, body %v", resp.StatusCode, string(body))
-			resp.Body.Close()
+			err = resp.Body.Close()
+			if err != nil {
+				wasmLog.Infof("wasm server connection is not closed: %v", err)
+			}
 			time.Sleep(b.NextBackOff())
 			continue
 		}
-		resp.Body.Close()
+		err = resp.Body.Close()
+		if err != nil {
+			wasmLog.Infof("wasm server connection is not closed: %v", err)
+		}
 		break
 	}
 	return nil, fmt.Errorf("wasm module download failed after %v attempts, last error: %v", attempts, lastError)
@@ -130,7 +147,8 @@ func isPosixTar(b []byte) bool {
 func getFirstFileFromTar(b []byte) []byte {
 	buf := bytes.NewBuffer(b)
 
-	tr := tar.NewReader(buf)
+	// Limit wasm module to 256mb; in reality it must be much smaller
+	tr := tar.NewReader(io.LimitReader(buf, 1024*1024*256))
 
 	h, err := tr.Next()
 	if err != nil {

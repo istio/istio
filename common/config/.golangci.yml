@@ -239,6 +239,8 @@ linters-settings:
     packages-with-error-message:
     - github.com/gogo/protobuf: "gogo/protobuf is deprecated, use golang/protobuf"
     - golang.org/x/net/http2/h2c: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
+    - github.com/golang/protobuf/jsonpb: "don't use the jsonpb package directly; use util/protomarshal instead"
+    - google.golang.org/protobuf/encoding/protojson: "don't use the protojson package directly; use util/protomarshal instead"
   gosec:
     includes:
     - G401

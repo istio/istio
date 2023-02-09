@@ -28,11 +28,16 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -41,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -86,6 +92,10 @@ const (
 
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
+
+	// Envoy Stateful Session Filter
+	// TODO: Move to well known.
+	StatefulSessionFilter = "envoy.filters.http.stateful_session"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -118,9 +128,6 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
-
-// RegexEngine is the default google RE2 regex engine.
-var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 
 func ListContains(haystack []string, needle string) bool {
 	for _, n := range haystack {
@@ -270,6 +277,12 @@ func IsIstioVersionGE117(version *model.IstioVersion) bool {
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
 }
 
+// IsIstioVersionGE118 checks whether the given Istio version is greater than or equals 1.18.
+func IsIstioVersionGE118(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 18, Patch: -1}) >= 0
+}
+
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
@@ -288,7 +301,7 @@ func ConvertLocality(locality string) *core.Locality {
 		return &core.Locality{}
 	}
 
-	region, zone, subzone := model.SplitLocalityLabel(locality)
+	region, zone, subzone := label.SplitLocalityLabel(locality)
 	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
@@ -334,7 +347,7 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 }
 
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	ruleRegion, ruleZone, ruleSubzone := model.SplitLocalityLabel(ruleLocality)
+	ruleRegion, ruleZone, ruleSubzone := label.SplitLocalityLabel(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
 	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
@@ -477,17 +490,26 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	return retVal, nil
 }
 
-// BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
+// BuildNewLbEndpointMetadata adds metadata values to a lb endpoint
+func BuildNewLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
 	clusterID cluster.ID, lbls labels.Instance,
 ) *core.Metadata {
+	out := &core.Metadata{}
+	BuildLbEndpointMetadata(networkID, tlsMode, workloadname, namespace, clusterID, lbls, out)
+	return out
+}
+
+// BuildLbEndpointMetadata adds metadata values to a lb endpoint
+func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
+	clusterID cluster.ID, lbls labels.Instance, metadata *core.Metadata,
+) {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
-		return nil
+		return
 	}
 
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{},
+	if metadata.FilterMetadata == nil {
+		metadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
 
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
@@ -526,8 +548,6 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 		sb.WriteString(clusterID.String())
 		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
-
-	return metadata
 }
 
 // MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
@@ -636,8 +656,7 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 		return &matcher.StringMatcher{
 			MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: RegexEngine,
-					Regex:      m.Regex,
+					Regex: m.Regex,
 				},
 			},
 		}
@@ -798,6 +817,58 @@ func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort i
 		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
 	})
 	return st
+}
+
+func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
+	filterConfig := MaybeBuildStatefulSessionFilterConfig(svc)
+	if filterConfig == nil {
+		return nil
+	}
+
+	return &hcm.HttpFilter{
+		Name: StatefulSessionFilter,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(filterConfig),
+		},
+	}
+}
+
+func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
+	if svc == nil {
+		return nil
+	}
+	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
+	sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
+
+	switch {
+	case sessionCookie != "":
+		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
+		if !found {
+			cookiePath = "/"
+		}
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.cookie",
+				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+					Cookie: &httpv3.Cookie{
+						Path: cookiePath,
+						Ttl:  &durationpb.Duration{Seconds: 120},
+						Name: cookieName,
+					},
+				}),
+			},
+		}
+	case sessionHeader != "":
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.header",
+				TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
+					Name: sessionHeader,
+				}),
+			},
+		}
+	}
+	return nil
 }
 
 // InternalListenerSetAddressFilter is a filter for internal listeners that overrides the address based on the metadata
