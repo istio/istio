@@ -162,7 +162,7 @@ func TestServices(t *testing.T) {
 }
 
 func TestPodIP(t *testing.T) {
-	framework.NewTest(t).Run(func(t framework.TestContext) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
 				srcWl := srcWl
