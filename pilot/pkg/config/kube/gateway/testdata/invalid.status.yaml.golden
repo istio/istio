@@ -565,6 +565,58 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
+  name: invalid-parentRef-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: port 1234 not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      port: 1234
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-sectionname-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "fake" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: fake
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
   name: no-backend
   namespace: default
 spec: null
