@@ -16,13 +16,15 @@ package fuzz
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/ingress"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
 )
