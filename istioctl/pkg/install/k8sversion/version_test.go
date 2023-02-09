@@ -59,6 +59,11 @@ var (
 		Minor:      "22",
 		GitVersion: "v1.22",
 	}
+	version1_23 = &version.Info{
+		Major:      "1",
+		Minor:      "23",
+		GitVersion: "v1.23",
+	}
 	version1_19RC = &version.Info{
 		Major:      "1",
 		Minor:      "19",
@@ -204,6 +209,11 @@ func TestIsK8VersionSupported(t *testing.T) {
 		},
 		{
 			version: version1_22,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_22.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_23,
 			isValid: true,
 		},
 	}
