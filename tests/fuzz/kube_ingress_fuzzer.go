@@ -21,8 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
-	"istio.io/istio/pilot/pkg/config/kube/ingress"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pkg/config"
