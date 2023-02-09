@@ -211,6 +211,11 @@ var (
 			"port":    15008,
 		})
 
+	ConnectAuthorityEnabledSidecar = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
+		map[string]interface{}{
+			"enabled": true,
+		})
+
 	SetDstAddress = &listener.ListenerFilter{
 		Name: "set_dst_address",
 		ConfigType: &listener.ListenerFilter_TypedConfig{

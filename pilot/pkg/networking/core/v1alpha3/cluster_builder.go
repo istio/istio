@@ -436,6 +436,16 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	}
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
+	if cb.hbone && clusterType == cluster.Cluster_ORIGINAL_DST {
+		localCluster.cluster.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UseHttpHeader:        false,
+				HttpHeaderName:       "",
+				UpstreamPortOverride: wrappers.UInt32(uint32(clusterPort)),
+			},
+		}
+	}
+
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,

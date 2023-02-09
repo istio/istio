@@ -29,6 +29,7 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -180,6 +181,9 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: destination},
 			}},
+			TypedPerFilterConfig: map[string]*anypb.Any{
+				xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabledSidecar,
+			},
 		})
 	}
 	l := &listener.Listener{
@@ -243,7 +247,7 @@ func buildHBONEConnectionManager(vhost *route.VirtualHost) *listener.Filter {
 			ValidateClusters: proto.BoolFalse,
 		},
 	}
-	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.Router}
+	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.ConnectAuthorityFilter, xdsfilters.Router}
 	connMgr.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
 	}
