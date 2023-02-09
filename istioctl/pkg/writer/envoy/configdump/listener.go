@@ -225,7 +225,7 @@ func recurse(name string, match *matcher.Matcher) ([]string, bool) {
 		case IPMatcher:
 			ip := protoconv.SilentlyUnmarshalAny[matcher.IPMatcher](tc)
 			m = map[string]*matcher.Matcher_OnMatch{}
-			for _, rm := range ip.RangeMatchers {
+			for _, rm := range ip.GetRangeMatchers() {
 				for _, r := range rm.Ranges {
 					cidr := r.AddressPrefix
 					pl := r.PrefixLen.GetValue()
