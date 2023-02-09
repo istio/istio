@@ -37,6 +37,9 @@ type Monitor interface {
 	Run(<-chan struct{})
 	AppendEventHandler(config2.GroupVersionKind, Handler)
 	ScheduleProcessEvent(ConfigEvent)
+	// HasCompleted returns true if all the ConfigEvents have been
+	// processed in async mode or returns directly in sync mode.
+	HasCompleted() bool
 }
 
 // ConfigEvent defines the event to be processed
@@ -55,6 +58,8 @@ type configStoreMonitor struct {
 	// Indicates if the monitor is exited.
 	closed atomic.Bool
 	lock   sync.Locker
+	// indicates all the events have been processed in async mode.
+	completed chan struct{}
 }
 
 // NewMonitor returns new Monitor implementation with a default event buffer size.
@@ -76,11 +81,12 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, syncMode bool) 
 	}
 
 	return &configStoreMonitor{
-		store:    store,
-		handlers: handlers,
-		eventCh:  make(chan ConfigEvent, bufferSize),
-		sync:     syncMode,
-		lock:     &sync.RWMutex{},
+		store:     store,
+		handlers:  handlers,
+		eventCh:   make(chan ConfigEvent, bufferSize),
+		sync:      syncMode,
+		lock:      &sync.RWMutex{},
+		completed: make(chan struct{}),
 	}
 }
 
@@ -97,13 +103,13 @@ func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 	m.eventCh <- configEvent
 }
 
-func (m *configStoreMonitor) waitAndCleanUp(stop <-chan struct{}) {
-	<-stop
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.closed.Store(true)
-	// indicating the monitor has exited.
-	close(m.eventCh)
+func (m *configStoreMonitor) HasCompleted() bool {
+	if m.sync {
+		return true
+	}
+
+	<-m.completed
+	return true
 }
 
 func (m *configStoreMonitor) Run(stop <-chan struct{}) {
@@ -112,11 +118,20 @@ func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 		return
 	}
 
-	go m.waitAndCleanUp(stop)
+	go func() {
+		for ce := range m.eventCh {
+			m.processConfigEvent(ce)
+		}
+		close(m.completed)
+	}()
 
-	for ce := range m.eventCh {
-		m.processConfigEvent(ce)
-	}
+	<-stop
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.closed.Store(true)
+	// indicating the monitor has exited.
+	close(m.eventCh)
+
 }
 
 func (m *configStoreMonitor) processConfigEvent(ce ConfigEvent) {
