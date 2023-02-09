@@ -1741,32 +1741,32 @@ func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
 func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if meshMTLS := mesh.MeshMTLS; meshMTLS != nil {
 		if meshMTLS.EcdhCurves != nil {
-			errs = multierror.Append(errs, errors.New("mesh tls does not support ecdh curves configuration"))
+			errs = multierror.Append(errs, errors.New("mesh TLS does not support ECDH curves configuration"))
 		}
 	}
 	return errs
 }
 
 func ValidateMeshExternalTLSConfig(mesh *meshconfig.MeshConfig) (v Validation) {
-	invalidEcdhCurves := sets.New[string]()
-	validEcdhCurves := sets.New[string]()
-	duplicateEcdhCurves := sets.New[string]()
+	unrecognizedECDHCurves := sets.New[string]()
+	validECDHCurves := sets.New[string]()
+	duplicateECDHCurves := sets.New[string]()
 	if meshExternalTLS := mesh.MeshExternal_TLS; meshExternalTLS != nil {
 		for _, cs := range meshExternalTLS.EcdhCurves {
 			if !security.IsValidECDHCurve(cs) {
-				invalidEcdhCurves.Insert(cs)
-			} else if validEcdhCurves.InsertContains(cs) {
-				duplicateEcdhCurves.Insert(cs)
+				unrecognizedECDHCurves.Insert(cs)
+			} else if validECDHCurves.InsertContains(cs) {
+				duplicateECDHCurves.Insert(cs)
 			}
 		}
 	}
 
-	if len(invalidEcdhCurves) > 0 {
-		v = appendWarningf(v, "detected invalid ecdh curves: %v", sets.SortedList(invalidEcdhCurves))
+	if len(unrecognizedECDHCurves) > 0 {
+		v = appendWarningf(v, "detected unrecognized ECDH curves: %v", sets.SortedList(unrecognizedECDHCurves))
 	}
 
-	if len(duplicateEcdhCurves) > 0 {
-		v = appendWarningf(v, "detected duplicate ecdh curves: %v", sets.SortedList(duplicateEcdhCurves))
+	if len(duplicateECDHCurves) > 0 {
+		v = appendWarningf(v, "detected duplicate ECDH curves: %v", sets.SortedList(duplicateECDHCurves))
 	}
 	return
 }

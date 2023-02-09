@@ -441,7 +441,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
-			"mesh tls does not support ecdh curves configuration",
+			"mesh TLS does not support ECDH curves configuration",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
@@ -463,8 +463,8 @@ func TestValidateMeshConfig(t *testing.T) {
 		t.Errorf("expected a warning on invalid proxy mesh config: %v", invalid)
 	} else {
 		wantWarnings := []string{
-			"detected invalid ecdh curves",
-			"detected duplicate ecdh curves",
+			"detected unrecognized ECDH curves",
+			"detected duplicate ECDH curves",
 		}
 		switch warn := warning.(type) {
 		case *multierror.Error:
