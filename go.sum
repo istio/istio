@@ -82,8 +82,8 @@ github.com/Masterminds/semver/v3 v3.2.0/go.mod h1:qvl/7zhW3nngYb5+80sSMF+FG2BjYr
 github.com/Masterminds/sprig/v3 v3.2.3 h1:eL2fZNezLomi0uOLqjQoN6BfsDD+fyLtgbJMAj9n6YA=
 github.com/Masterminds/sprig/v3 v3.2.3/go.mod h1:rXcFaZ2zZbLRJv/xSysmlgIM1u11eBaRMhvYXJNkGuM=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
-github.com/Nordix/api v0.0.0-20230206200104-27678ac2475d h1:PKHIt0hXGgbXln86ylJYKXlLD6nLM/JwxKBpq/8eZtI=
-github.com/Nordix/api v0.0.0-20230206200104-27678ac2475d/go.mod h1:owGDRg9uqMob8CN1gxaOzk6nJxnbT8wrP7PmggpJHHY=
+github.com/Nordix/api v0.0.0-20230209081200-a67641cf5d06 h1:3bsQobyaJwvsUSNwmPF5FTAkisYDpMtb332S44db7IY=
+github.com/Nordix/api v0.0.0-20230209081200-a67641cf5d06/go.mod h1:owGDRg9uqMob8CN1gxaOzk6nJxnbT8wrP7PmggpJHHY=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
@@ -1443,8 +1443,6 @@ istio.io/api v0.0.0-20230208145535-734032cd4c32 h1:5d4FJPyoyAWz6f1XafmWV06D7ExEU
 istio.io/api v0.0.0-20230208145535-734032cd4c32/go.mod h1:owGDRg9uqMob8CN1gxaOzk6nJxnbT8wrP7PmggpJHHY=
 istio.io/client-go v1.12.0-alpha.5.0.20230208145936-90c8e62c74b6 h1:BOZwXjnGmIkjzEUCU6LGM3RgTV/LSS/a093k2Nx0I/g=
 istio.io/client-go v1.12.0-alpha.5.0.20230208145936-90c8e62c74b6/go.mod h1:rjYOmWqi/G4Bm30yLaEw8nXGmrfQP/rv7RmVVMAQD44=
-istio.io/client-go v1.12.0-alpha.5.0.20230208021641-fd549c9652b1 h1:JTrG9pRgNGY4/bpn30o3tYbS/15yQGKff1SD8yEPH1I=
-istio.io/client-go v1.12.0-alpha.5.0.20230208021641-fd549c9652b1/go.mod h1:wYZpuPseTQBvFgWAN1SWdLuOG/VNTWbp6J9cHAqp3SI=
 istio.io/pkg v0.0.0-20230203225929-102620a3ea67 h1:z8n+vYU4ijTMd0p7voKyp7D6qhfVp7nk8Ub32SD7R44=
 istio.io/pkg v0.0.0-20230203225929-102620a3ea67/go.mod h1:BrWkMDfL8n60pWeRnHoNBckpgBOzMFasZsGUGCP9grE=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=

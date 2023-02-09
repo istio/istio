@@ -415,12 +415,15 @@ func TestValidateMeshConfig(t *testing.T) {
 				},
 			},
 		},
+		MeshMTLS: &meshconfig.MeshConfig_TLSConfig{
+			EcdhCurves: []string{"P-256"},
+		},
 		MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
 			EcdhCurves: []string{"P-256", "P-256", "invalid"},
 		},
 	}
 
-	_, err := ValidateMeshConfig(invalid)
+	warning, err := ValidateMeshConfig(invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -438,8 +441,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
-			"detected invalid ecdh curves",
-			"detected duplicate ecdh curves",
+			"mesh tls does not support ecdh curves configuration",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
@@ -450,6 +452,29 @@ func TestValidateMeshConfig(t *testing.T) {
 				for i := 0; i < len(wantErrors); i++ {
 					if !strings.HasPrefix(err.Errors[i].Error(), wantErrors[i]) {
 						t.Errorf("expected error %q at index %d but found %q", wantErrors[i], i, err.Errors[i])
+					}
+				}
+			}
+		default:
+			t.Errorf("expected a multi error as output")
+		}
+	}
+	if warning == nil {
+		t.Errorf("expected a warning on invalid proxy mesh config: %v", invalid)
+	} else {
+		wantWarnings := []string{
+			"detected invalid ecdh curves",
+			"detected duplicate ecdh curves",
+		}
+		switch warn := warning.(type) {
+		case *multierror.Error:
+			// each field must cause an error in the field
+			if len(warn.Errors) != len(wantWarnings) {
+				t.Errorf("expected %d warnings but found %v", len(wantWarnings), warn)
+			} else {
+				for i := 0; i < len(wantWarnings); i++ {
+					if !strings.HasPrefix(warn.Errors[i].Error(), wantWarnings[i]) {
+						t.Errorf("expected warning %q at index %d but found %q", wantWarnings[i], i, warn.Errors[i])
 					}
 				}
 			}
