@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	knetworking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -58,7 +58,7 @@ func TestGoldenConversion(t *testing.T) {
 			serviceLister := createFakeLister(ctx)
 			cfgs := map[string]*config.Config{}
 			for _, obj := range input {
-				ingress := obj.(*v1beta1.Ingress)
+				ingress := obj.(*knetworking.Ingress)
 				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, serviceLister)
 			}
 			ordered := []config.Config{}
@@ -66,7 +66,7 @@ func TestGoldenConversion(t *testing.T) {
 				ordered = append(ordered, *v)
 			}
 			for _, obj := range input {
-				ingress := obj.(*v1beta1.Ingress)
+				ingress := obj.(*knetworking.Ingress)
 				m := mesh.DefaultMeshConfig()
 				gws := ConvertIngressV1alpha3(*ingress, m, "mydomain")
 				ordered = append(ordered, gws)
@@ -136,33 +136,37 @@ func TestConversion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	prefix := v1beta1.PathTypePrefix
-	exact := v1beta1.PathTypeExact
+	prefix := knetworking.PathTypePrefix
+	exact := knetworking.PathTypeExact
 
-	ingress := v1beta1.Ingress{
+	ingress := knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
+		Spec: knetworking.IngressSpec{
+			Rules: []knetworking.IngressRule{
 				{
 					Host: "my.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: knetworking.IngressRuleValue{
+						HTTP: &knetworking.HTTPIngressRuleValue{
+							Paths: []knetworking.HTTPIngressPath{
 								{
 									Path: "/test",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "foo",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 								{
 									Path:     "/test/foo",
 									PathType: &prefix,
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "foo",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 							},
@@ -171,14 +175,16 @@ func TestConversion(t *testing.T) {
 				},
 				{
 					Host: "my2.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: knetworking.IngressRuleValue{
+						HTTP: &knetworking.HTTPIngressRuleValue{
+							Paths: []knetworking.HTTPIngressPath{
 								{
 									Path: "/test1.*",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "bar",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "bar",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 							},
@@ -187,14 +193,16 @@ func TestConversion(t *testing.T) {
 				},
 				{
 					Host: "my3.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: knetworking.IngressRuleValue{
+						HTTP: &knetworking.HTTPIngressRuleValue{
+							Paths: []knetworking.HTTPIngressPath{
 								{
 									Path: "/test/*",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "bar",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "bar",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 							},
@@ -204,38 +212,44 @@ func TestConversion(t *testing.T) {
 			},
 		},
 	}
-	ingress2 := v1beta1.Ingress{
+	ingress2 := knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
+		Spec: knetworking.IngressSpec{
+			Rules: []knetworking.IngressRule{
 				{
 					Host: "my.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: knetworking.IngressRuleValue{
+						HTTP: &knetworking.HTTPIngressRuleValue{
+							Paths: []knetworking.HTTPIngressPath{
 								{
 									Path: "/test2",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "foo",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 								{
 									Path:     "/test/foo/bar",
 									PathType: &prefix,
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "foo",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 								{
 									Path:     "/test/foo/bar",
 									PathType: &exact,
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "foo",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
 									},
 								},
 							},
@@ -325,25 +339,25 @@ func TestEncoding(t *testing.T) {
 
 func TestIngressClass(t *testing.T) {
 	istio := mesh.DefaultMeshConfig().IngressClass
-	ingressClassIstio := &v1beta1.IngressClass{
+	ingressClassIstio := &knetworking.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "istio",
 		},
-		Spec: v1beta1.IngressClassSpec{
+		Spec: knetworking.IngressClassSpec{
 			Controller: IstioIngressController,
 		},
 	}
-	ingressClassOther := &v1beta1.IngressClass{
+	ingressClassOther := &knetworking.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo",
 		},
-		Spec: v1beta1.IngressClassSpec{
+		Spec: knetworking.IngressClassSpec{
 			Controller: "foo",
 		},
 	}
 	cases := []struct {
 		annotation    string
-		ingressClass  *v1beta1.IngressClass
+		ingressClass  *knetworking.IngressClass
 		ingressMode   meshconfig.MeshConfig_IngressControllerMode
 		shouldProcess bool
 	}{
@@ -378,16 +392,18 @@ func TestIngressClass(t *testing.T) {
 			className = c.ingressClass.Name
 		}
 		t.Run(fmt.Sprintf("%d %s %s %s", i, c.ingressMode, c.annotation, className), func(t *testing.T) {
-			ing := v1beta1.Ingress{
+			ing := knetworking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-ingress",
 					Namespace:   "default",
 					Annotations: make(map[string]string),
 				},
-				Spec: v1beta1.IngressSpec{
-					Backend: &v1beta1.IngressBackend{
-						ServiceName: "default-http-backend",
-						ServicePort: intstr.FromInt(80),
+				Spec: knetworking.IngressSpec{
+					DefaultBackend: &knetworking.IngressBackend{
+						Service: &knetworking.IngressServiceBackend{
+							Name: "default-http-backend",
+							Port: knetworking.ServiceBackendPort{Number: 8000},
+						},
 					},
 				},
 			}
@@ -411,22 +427,24 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ingress := v1beta1.Ingress{
+	ingress := knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
+		Spec: knetworking.IngressSpec{
+			Rules: []knetworking.IngressRule{
 				{
 					Host: "host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: knetworking.IngressRuleValue{
+						HTTP: &knetworking.HTTPIngressRuleValue{
+							Paths: []knetworking.HTTPIngressPath{
 								{
 									Path: "/test/*",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "test-svc-port"},
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "foo",
+											Port: knetworking.ServiceBackendPort{Name: "test-svc-port"},
+										},
 									},
 								},
 							},

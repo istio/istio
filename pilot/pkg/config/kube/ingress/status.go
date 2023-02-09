@@ -21,14 +21,14 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	listerv1beta1 "k8s.io/client-go/listers/networking/v1beta1"
+	ingresslister "k8s.io/client-go/listers/networking/v1"
 
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -47,11 +47,11 @@ type StatusSyncer struct {
 	client     kubernetes.Interface
 
 	queue              queue.Instance
-	ingressLister      listerv1beta1.IngressLister
+	ingressLister      ingresslister.IngressLister
 	podLister          listerv1.PodLister
 	serviceLister      listerv1.ServiceLister
 	nodeLister         listerv1.NodeLister
-	ingressClassLister listerv1beta1.IngressClassLister
+	ingressClassLister ingresslister.IngressClassLister
 }
 
 // Run the syncer until stopCh is closed
@@ -62,23 +62,17 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSyncer {
-	// as in controller, ingressClassListener can be nil since not supported in k8s version <1.18
-	var ingressClassLister listerv1beta1.IngressClassLister
-	if NetworkingIngressAvailable(client) {
-		ingressClassLister = client.KubeInformer().Networking().V1beta1().IngressClasses().Lister()
-	}
-
 	// queue requires a time duration for a retry delay after a handler error
 	q := queue.NewQueue(5 * time.Second)
 
 	return &StatusSyncer{
 		meshHolder:         meshHolder,
 		client:             client.Kube(),
-		ingressLister:      client.KubeInformer().Networking().V1beta1().Ingresses().Lister(),
+		ingressLister:      client.KubeInformer().Networking().V1().Ingresses().Lister(),
 		podLister:          client.KubeInformer().Core().V1().Pods().Lister(),
 		serviceLister:      client.KubeInformer().Core().V1().Services().Lister(),
 		nodeLister:         client.KubeInformer().Core().V1().Nodes().Lister(),
-		ingressClassLister: ingressClassLister,
+		ingressClassLister: client.KubeInformer().Networking().V1().IngressClasses().Lister(),
 		queue:              q,
 	}
 }
@@ -119,7 +113,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 }
 
 // updateStatus updates ingress status with the list of IP
-func (s *StatusSyncer) updateStatus(status []v1beta1.IngressLoadBalancerIngress) error {
+func (s *StatusSyncer) updateStatus(status []knetworking.IngressLoadBalancerIngress) error {
 	l, err := s.ingressLister.List(labels.Everything())
 	if err != nil {
 		return err
@@ -151,7 +145,7 @@ func (s *StatusSyncer) updateStatus(status []v1beta1.IngressLoadBalancerIngress)
 
 		currIng.Status.LoadBalancer.Ingress = status
 
-		_, err = s.client.NetworkingV1beta1().Ingresses(currIng.Namespace).UpdateStatus(context.TODO(), currIng, metav1.UpdateOptions{})
+		_, err = s.client.NetworkingV1().Ingresses(currIng.Namespace).UpdateStatus(context.TODO(), currIng, metav1.UpdateOptions{})
 		if err != nil {
 			log.Warnf("error updating ingress status: %v", err)
 		}
@@ -232,20 +226,20 @@ func addressInSlice(addr string, list []string) bool {
 }
 
 // sliceToStatus converts a slice of IP and/or hostnames to LoadBalancerIngress
-func sliceToStatus(endpoints []string) []v1beta1.IngressLoadBalancerIngress {
-	lbi := make([]v1beta1.IngressLoadBalancerIngress, 0, len(endpoints))
+func sliceToStatus(endpoints []string) []knetworking.IngressLoadBalancerIngress {
+	lbi := make([]knetworking.IngressLoadBalancerIngress, 0, len(endpoints))
 	for _, ep := range endpoints {
 		if !netutil.IsValidIPAddress(ep) {
-			lbi = append(lbi, v1beta1.IngressLoadBalancerIngress{Hostname: ep})
+			lbi = append(lbi, knetworking.IngressLoadBalancerIngress{Hostname: ep})
 		} else {
-			lbi = append(lbi, v1beta1.IngressLoadBalancerIngress{IP: ep})
+			lbi = append(lbi, knetworking.IngressLoadBalancerIngress{IP: ep})
 		}
 	}
 
 	return lbi
 }
 
-func lessLoadBalancerIngress(addrs []v1beta1.IngressLoadBalancerIngress) func(int, int) bool {
+func lessLoadBalancerIngress(addrs []knetworking.IngressLoadBalancerIngress) func(int, int) bool {
 	return func(a, b int) bool {
 		switch strings.Compare(addrs[a].Hostname, addrs[b].Hostname) {
 		case -1:
@@ -257,7 +251,7 @@ func lessLoadBalancerIngress(addrs []v1beta1.IngressLoadBalancerIngress) func(in
 	}
 }
 
-func ingressSliceEqual(lhs, rhs []v1beta1.IngressLoadBalancerIngress) bool {
+func ingressSliceEqual(lhs, rhs []knetworking.IngressLoadBalancerIngress) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}
@@ -274,8 +268,8 @@ func ingressSliceEqual(lhs, rhs []v1beta1.IngressLoadBalancerIngress) bool {
 }
 
 // shouldTargetIngress determines whether the status watcher should target a given ingress resource
-func (s *StatusSyncer) shouldTargetIngress(ingress *v1beta1.Ingress) (bool, error) {
-	var ingressClass *v1beta1.IngressClass
+func (s *StatusSyncer) shouldTargetIngress(ingress *knetworking.Ingress) (bool, error) {
+	var ingressClass *knetworking.IngressClass
 	if s.ingressClassLister != nil && ingress.Spec.IngressClassName != nil {
 		c, err := s.ingressClassLister.Get(*ingress.Spec.IngressClassName)
 		if err != nil && !kerrors.IsNotFound(err) {
