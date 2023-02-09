@@ -16,6 +16,7 @@ package xds
 
 import (
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -454,9 +454,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		if dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
 			workloads := findWaypoints(b.push, e)
 			if len(workloads) > 0 {
-				// TODO: only ready
 				// TODO: load balance
-				tunnelAddress = workloads[0].PodIP
+				tunnelAddress = workloads[0].String()
 			}
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
@@ -473,26 +472,13 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	return ep
 }
 
-func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []ambient.Workload {
-	// TODO: unify this logic with ztunnel lookup
-	workloads := push.AmbientIndex.Waypoints.ByNamespace[e.Namespace]
-	sas := make([]ambient.Workload, 0, len(workloads))
-	namespace := make([]ambient.Workload, 0, len(workloads))
+func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
 	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
-	is := ident.ServiceAccount
-	for _, w := range workloads {
-		if sa, f := w.Annotations[constants.WaypointServiceAccount]; f && is == sa {
-			sas = append(sas, w)
-		} else if !f {
-			namespace = append(namespace, w)
-		}
-	}
-	if len(sas) > 0 {
-		// SA waypoint has priority
-		return sas
-	}
-	// Else return the namespace-wide instances (if any)
-	return namespace
+	ips := push.WaypointsFor(model.WaypointScope{
+		Namespace:      e.Namespace,
+		ServiceAccount: ident.ServiceAccount,
+	}).UnsortedList()
+	return ips
 }
 
 // TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvements

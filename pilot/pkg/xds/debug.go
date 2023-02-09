@@ -192,7 +192,6 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
-	s.addDebugHandler(mux, internalMux, "/debug/ambientz", "Debug support for ambient workloads", s.ambientz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
@@ -1080,54 +1079,6 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		con.proxy.RUnlock()
 	}
 	writeJSON(w, instances, req)
-}
-
-type ambientz struct {
-	Workloads []workloadSummary `json:"workloads"`
-	Waypoints []workloadSummary `json:"waypoints"`
-	ZTunnels  []workloadSummary `json:"ztunnels"`
-}
-
-type workloadSummary struct {
-	Name      string
-	Namespace string
-	Address   string
-	Identity  string
-	Node      string
-}
-
-func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
-	d := s.globalPushContext().AmbientIndex
-	res := ambientz{}
-	for _, wl := range d.Waypoints.All() {
-		res.Waypoints = append(res.Waypoints, workloadSummary{
-			Name:      wl.Name,
-			Namespace: wl.Namespace,
-			Address:   wl.PodIP,
-			Identity:  wl.Identity(),
-			Node:      wl.NodeName,
-		})
-	}
-	for _, wl := range d.ZTunnels.All() {
-		res.ZTunnels = append(res.ZTunnels, workloadSummary{
-			Name:      wl.Name,
-			Namespace: wl.Namespace,
-			Address:   wl.PodIP,
-			Identity:  wl.Identity(),
-			Node:      wl.NodeName,
-		})
-	}
-	for _, wl := range d.Workloads.All() {
-		res.Workloads = append(res.Workloads, workloadSummary{
-			Name:      wl.Name,
-			Namespace: wl.Namespace,
-			Address:   wl.PodIP,
-			Identity:  wl.Identity(),
-			Node:      wl.NodeName,
-		})
-	}
-
-	writeJSON(w, res, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {

@@ -753,10 +753,69 @@ type ServiceDiscovery interface {
 	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
 	AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
 	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
+	AmbientSnapshot() *AmbientSnapshot
+}
+
+type AmbientSnapshot struct {
+	// byPod indexes by Pod IP address.
+	workloads []*WorkloadInfo
+
+	// Map of ServiceAccount -> IP
+	waypoints map[WaypointScope]sets.String
+}
+
+func NewAmbientSnapshot(workloads []*WorkloadInfo, waypoints map[WaypointScope]sets.String) *AmbientSnapshot {
+	return &AmbientSnapshot{
+		workloads: workloads,
+		waypoints: waypoints,
+	}
+}
+
+func (a *AmbientSnapshot) Merge(other *AmbientSnapshot) *AmbientSnapshot {
+	if other == nil {
+		return a
+	}
+	if len(a.waypoints) == 0 && len(a.workloads) == 0 {
+		return other
+	}
+	if len(other.waypoints) == 0 && len(other.workloads) == 0 {
+		return a
+	}
+	a.workloads = append(a.workloads, other.workloads...)
+	for s, i := range other.waypoints {
+		a.waypoints[s].Merge(i)
+	}
+	return a
+}
+
+func (a *AmbientSnapshot) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+	res := []*WorkloadInfo{}
+	// TODO: try to precompute
+	for _, w := range a.workloads {
+		if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
+			continue
+		}
+		if w.Namespace != scope.Namespace {
+			continue
+		}
+		res = append(res, w)
+	}
+	return res
+}
+
+func (a *AmbientSnapshot) Waypoint(scope WaypointScope) sets.Set[netip.Addr] {
+	res := sets.New[netip.Addr]()
+	for ip := range a.waypoints[scope] {
+		res.Insert(netip.MustParseAddr(ip))
+	}
+
+	return res
 }
 
 type WorkloadInfo struct {
 	*workloadapi.Workload
+	// Labels for the workload. Note these are only used internally, not sent over XDS
+	Labels map[string]string
 }
 
 func (i WorkloadInfo) ResourceName() string {

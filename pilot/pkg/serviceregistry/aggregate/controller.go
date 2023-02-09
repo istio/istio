@@ -70,6 +70,14 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
+func (c *Controller) AmbientSnapshot() *model.AmbientSnapshot {
+	m := &model.AmbientSnapshot{}
+	for _, p := range c.registries {
+		m = m.Merge(p.AmbientSnapshot())
+	}
+	return m
+}
+
 func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	i := []*model.WorkloadInfo{}
 	removed := sets.New[string]()

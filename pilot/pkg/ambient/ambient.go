@@ -15,13 +15,10 @@
 package ambient
 
 import (
-	"encoding/json"
-	"sync"
 	"time"
 
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/spiffe"
 )
@@ -116,152 +113,5 @@ const (
 
 	TypeWorkload NodeType = "workload"
 	TypeNone     NodeType = "none"
-	TypeZTunnel  NodeType = "ztunnel"
 	TypeWaypoint NodeType = "waypoint"
 )
-
-// Cache holds Indexes of client workloads, waypoint proxies, and ztunnels
-type Cache interface {
-	AmbientWorkloads() Indexes
-}
-
-type Indexes struct {
-	Workloads *WorkloadIndex `json:"workloads"`
-	None      *WorkloadIndex `json:"none"`
-	Waypoints *WorkloadIndex `json:"waypoints"`
-	ZTunnels  *WorkloadIndex `json:"ztunnels"`
-}
-
-type WorkloadIndex struct {
-	sync.RWMutex
-
-	ByNamespacedName  map[types.NamespacedName]Workload
-	ByNode            map[string][]Workload
-	ByNamespace       map[string][]Workload
-	ByIdentity        map[string][]Workload
-	ByNodeAndIdentity map[string]map[string][]Workload
-	ByIP              map[string]Workload
-}
-
-func (wi *WorkloadIndex) MarshalJSON() ([]byte, error) {
-	return json.Marshal(wi.All())
-}
-
-func NewWorkloadIndex() *WorkloadIndex {
-	// TODO take opts that disable individual indexes if needed
-	return &WorkloadIndex{
-		ByNamespacedName:  map[types.NamespacedName]Workload{},
-		ByNode:            map[string][]Workload{},
-		ByNamespace:       map[string][]Workload{},
-		ByIdentity:        map[string][]Workload{},
-		ByNodeAndIdentity: map[string]map[string][]Workload{},
-		ByIP:              map[string]Workload{},
-	}
-}
-
-func (wi *WorkloadIndex) NodeLocalBySA(node string) map[string][]Workload {
-	if node == "" {
-		return wi.ByIdentity
-	}
-	out := wi.ByNodeAndIdentity[node]
-	if out == nil {
-		out = map[string][]Workload{}
-	}
-	return out
-}
-
-func (wi *WorkloadIndex) NodeLocal(node string) []Workload {
-	if node == "" {
-		return wi.All()
-	}
-	return wi.ByNode[node]
-}
-
-func (wi *WorkloadIndex) All() []Workload {
-	var out []Workload
-	for _, workload := range wi.ByNamespacedName {
-		out = append(out, workload)
-	}
-	return out
-}
-
-func (wi *WorkloadIndex) Insert(workload Workload) {
-	wi.Lock()
-	defer wi.Unlock()
-	node, sa := workload.NodeName, workload.Identity()
-	ip := workload.PodIP // TODO eventually support multi-IP
-	namespacedName := types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}
-
-	// TODO if we start indexing by a mutable key, call Remove here
-
-	wi.ByNamespacedName[namespacedName] = workload
-	if node != "" {
-		wi.ByNode[node] = append(wi.ByNode[node], workload)
-	}
-	if sa != "" {
-		wi.ByIdentity[sa] = append(wi.ByIdentity[sa], workload)
-	}
-	wi.ByNamespace[workload.Namespace] = append(wi.ByNamespace[workload.Namespace], workload)
-	if node != "" && sa != "" {
-		if wi.ByNodeAndIdentity[node] == nil {
-			wi.ByNodeAndIdentity[node] = map[string][]Workload{}
-		}
-		if sa != "" {
-			wi.ByNodeAndIdentity[node][sa] = append(wi.ByNodeAndIdentity[node][sa], workload)
-		}
-	}
-	if ip != "" {
-		wi.ByIP[ip] = workload
-	}
-}
-
-func (wi *WorkloadIndex) MergeInto(other *WorkloadIndex) *WorkloadIndex {
-	wi.RLock()
-	defer wi.RUnlock()
-	for _, v := range wi.ByNamespacedName {
-		other.Insert(v)
-	}
-	return other
-}
-
-func (wi *WorkloadIndex) Remove(namespacedName types.NamespacedName) {
-	wi.Lock()
-	defer wi.Unlock()
-	wl, ok := wi.ByNamespacedName[namespacedName]
-	if !ok {
-		return
-	}
-	node, sa, ip := wl.NodeName, wl.Identity(), wl.PodIP
-	delete(wi.ByNamespacedName, namespacedName)
-	deleteFrom(wi.ByNamespace, namespacedName.Namespace, wl)
-	deleteFrom(wi.ByNode, node, wl)
-	deleteFrom(wi.ByIdentity, sa, wl)
-	delete(wi.ByIP, ip)
-	deleteFrom(wi.ByNodeAndIdentity[node], sa, wl)
-	if len(wi.ByNodeAndIdentity[node]) == 0 {
-		delete(wi.ByNodeAndIdentity, node)
-	}
-}
-
-func (wi *WorkloadIndex) Copy() *WorkloadIndex {
-	return wi.MergeInto(NewWorkloadIndex())
-}
-
-// deleteFrom will delete wl from the indexer, and it will delete the key once all the workloads under a key deleted.
-func deleteFrom(indexer map[string][]Workload, key string, wl Workload) {
-	wls, ok := indexer[key]
-	if !ok {
-		return
-	}
-	index := slices.IndexFunc(wls, func(item Workload) bool {
-		// maybe compare namespace + name
-		return item.UID == wl.UID
-	})
-	if index == -1 {
-		return
-	}
-	indexer[key] = append(wls[:index], wls[index+1:]...)
-	if len(indexer[key]) == 0 {
-		delete(indexer, key)
-	}
-}

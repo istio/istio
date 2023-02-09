@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net/netip"
 	"strconv"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
@@ -31,7 +32,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -49,42 +49,26 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
-// WaypointScope is either an entire namespace or an individual service account in the namespace.
-type WaypointScope struct {
-	Namespace      string
-	ServiceAccount string // optional
-}
-
-func GetWaypointScope(node *model.Proxy) WaypointScope {
-	return WaypointScope{
+func GetWaypointScope(node *model.Proxy) model.WaypointScope {
+	return model.WaypointScope{
 		Namespace:      node.ConfigNamespace,
 		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
 	}
 }
 
 type WorkloadAndServices struct {
-	WorkloadInfo ambient.Workload
+	WorkloadInfo *model.WorkloadInfo
 	Services     []*model.Service
 }
 
 func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
 	scope := GetWaypointScope(node)
-	var workloads []ambient.Workload
-	if scope.ServiceAccount != "" {
-		ident := spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount)
-		workloads = push.AmbientIndex.Workloads.ByIdentity[ident]
-	} else {
-		workloads = push.AmbientIndex.Workloads.ByNamespace[scope.Namespace]
-	}
+	workloads := push.WorkloadsForWaypoint(scope)
 	for _, wl := range workloads {
-		if wl.Labels[ambient.LabelType] != ambient.TypeWorkload {
-			continue
-		}
 		wls = append(wls, WorkloadAndServices{WorkloadInfo: wl})
 	}
 	svcs := map[host.Name]*model.Service{}
@@ -192,7 +176,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 				TransportSocket: &core.TransportSocket{
 					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(lb.node, nil, lb.push, true),
+						CommonTlsContext: buildCommonTLSContext(lb.node, lb.push),
 					})},
 				},
 				Filters: []*listener.Filter{
@@ -292,7 +276,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		// Workload IP filtering happens here.
 		ipRange := []*xds.CidrRange{}
 		for _, wlx := range wls {
-			cidr := util.ConvertAddressToCidr(wlx.WorkloadInfo.PodIP)
+			addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
+			cidr := util.ConvertAddressToCidr(addr.String())
 			ipRange = append(ipRange, &xds.CidrRange{
 				AddressPrefix: cidr.AddressPrefix,
 				PrefixLen:     cidr.PrefixLen,
@@ -668,21 +653,10 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 }
 
 // TODO remove dupe with ztunnelgen
-func buildCommonTLSContext(proxy *model.Proxy, workload *ambient.Workload, push *model.PushContext, inbound bool) *tls.CommonTlsContext {
+func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), inbound)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
 
-	// TODO always use the below flow, always specify which workload
-	if workload != nil {
-		// present the workload cert if possible
-		workloadSecret := workload.Identity()
-		if workload.UID != "" {
-			workloadSecret += "~" + workload.Name + "~" + workload.UID
-		}
-		ctx.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			security.ConstructSdsSecretConfig(workloadSecret),
-		}
-	}
 	ctx.AlpnProtocols = []string{"h2"}
 
 	ctx.TlsParams = &tls.TlsParameters{

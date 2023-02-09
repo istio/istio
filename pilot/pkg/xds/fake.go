@@ -35,7 +35,6 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient/controller"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -58,7 +57,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -173,22 +171,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
-	var ambient *controller.Aggregate
-	if !opts.DisableAmbient {
-		ambient = controller.NewAggregate(
-			"istio-system",
-			opts.DefaultClusterName,
-			"fake-istiod",
-			"",
-			webhookConfigNoop,
-			s,
-			true,
-			func(func()) {},
-			func(k config.GroupVersionKind, stop <-chan struct{}) bool {
-				return true
-			},
-		)
-	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
@@ -230,11 +212,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
 			t.Fatal(err)
 		}
-		if ambient != nil {
-			if err := ambient.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
-				t.Fatal(err)
-			}
-		}
 	}
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
@@ -274,7 +251,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
-	s.Env.Cache = ambient
 	s.Generators["api"] = apigen.NewGenerator(s.Env.ConfigStore)
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
@@ -386,10 +362,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	return fake
-}
-
-func webhookConfigNoop() inject.WebhookConfig {
-	return inject.WebhookConfig{}
 }
 
 func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {
