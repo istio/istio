@@ -63,7 +63,7 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
 ### Overview
 
 - [istio-cni Helm chart](../manifests/charts/istio-cni/templates)
-    - `istio-cni-node` daemonset (consists of `install-cni` container)
+    - `install-cni` daemonset
     - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
     - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 

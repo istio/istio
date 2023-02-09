@@ -15,7 +15,6 @@
 package caclient
 
 import (
-	context2 "context"
 	"reflect"
 	"testing"
 
@@ -83,7 +82,7 @@ func TestGoogleCASClient(t *testing.T) {
 			t.Errorf("Test case [%s] Client Init: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context2.Background(), []byte{0o1}, 1)
+		resp, err := cli.CSRSign([]byte{0o1}, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr.Error() {
 				t.Errorf("Test case [%s] Cert Check: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr.Error())

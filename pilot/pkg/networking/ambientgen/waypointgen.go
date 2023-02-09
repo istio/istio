@@ -39,10 +39,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-const (
-	ZTunnelOutboundCapturePort uint32 = 15001
-)
-
 var _ model.XdsResourceGenerator = &WaypointGenerator{}
 
 /*

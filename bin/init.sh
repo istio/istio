@@ -153,7 +153,6 @@ function download_wasm_if_necessary () {
   fi
 }
 
-
 mkdir -p "${TARGET_OUT}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)

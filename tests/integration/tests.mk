@@ -120,10 +120,6 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# Allow legacy name
-test.integration.uproxy.kube: test.integration.ambient.kube
-	@:
-
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
 # In presubmit, this target runs a minimal set. In postsubmit, all tests are run
 .PHONY: test.integration.kube.environment

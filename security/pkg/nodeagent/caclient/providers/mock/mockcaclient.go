@@ -15,7 +15,6 @@
 package mock
 
 import (
-	"context"
 	"encoding/pem"
 	"fmt"
 	"path"
@@ -64,7 +63,7 @@ func NewMockCAClient(certLifetime time.Duration, mockTrustAnchor bool) (*CAClien
 func (c *CAClient) Close() {}
 
 // CSRSign returns the certificate or errors depending on the settings.
-func (c *CAClient) CSRSign(ctx context.Context, csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+func (c *CAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	atomic.AddUint64(&c.SignInvokeCount, 1)
 	signingCert, signingKey, certChain, rootCert := c.bundle.GetAll()
 	csr, err := util.ParsePemEncodedCSR(csrPEM)

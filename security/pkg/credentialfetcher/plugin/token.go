@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"context"
 	"os"
 	"strings"
 
@@ -35,7 +34,7 @@ func CreateTokenPlugin(path string) *KubernetesTokenPlugin {
 	}
 }
 
-func (t KubernetesTokenPlugin) GetPlatformCredential(ctx context.Context) (string, error) {
+func (t KubernetesTokenPlugin) GetPlatformCredential() (string, error) {
 	if t.path == "" {
 		return "", nil
 	}

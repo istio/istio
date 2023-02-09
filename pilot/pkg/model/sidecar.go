@@ -600,11 +600,6 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
-// TODO delete me
-func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
-	return sc.servicesByHostname
-}
-
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hosts map[string][]host.Name) []*Service {

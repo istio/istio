@@ -103,7 +103,7 @@ func (q Queue) AddObject(obj Object) {
 
 // Run the queue. This is synchronous, so should typically be called in a goroutine.
 func (q Queue) Run(stop <-chan struct{}) {
-	defer q.ShutDown()
+	defer q.queue.ShutDown()
 	q.log.Infof("starting")
 	q.queue.Add(defaultSyncSignal)
 	done := make(chan struct{})
@@ -118,12 +118,6 @@ func (q Queue) Run(stop <-chan struct{}) {
 	case <-done:
 	}
 	q.log.Infof("stopped")
-}
-
-// ShutDown will cause q to ignore all new items added to it and
-// immediately instruct the worker goroutines to exit.
-func (q Queue) ShutDown() {
-	q.queue.ShutDown()
 }
 
 // syncSignal defines a dummy signal that is enqueued when .Run() is called. This allows us to detect

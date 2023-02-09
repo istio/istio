@@ -52,12 +52,10 @@ func main() {
 	// As a result, the flow is:
 	// * CNI plugin is called with no args, skipping this section.
 	// * CNI code invokes iptables code with CNIMode=true. This in turn runs 'nsenter -- istio-cni configure-routes'
-	if len(os.Args) > 1 {
-		if os.Args[1] == constants.CommandConfigureRoutes {
-			if err := cmd.GetRouteCommand().Execute(); err != nil {
-				log.Errorf("failed to configure routes: %v", err)
-				os.Exit(1)
-			}
+	if len(os.Args) > 1 && os.Args[1] == constants.CommandConfigureRoutes {
+		if err := cmd.GetRouteCommand().Execute(); err != nil {
+			log.Errorf("failed to configure routes: %v", err)
+			os.Exit(1)
 		}
 		return
 	}
