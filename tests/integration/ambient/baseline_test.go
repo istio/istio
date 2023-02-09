@@ -234,9 +234,13 @@ func TestServerSideLB(t *testing.T) {
 				hostnames[i] = r.Hostname
 			}
 			unique := sets.SortedList(sets.New(hostnames...))
-			want := dst.WorkloadsOrFail(t).Len()
-			if len(unique) != want {
-				return fmt.Errorf("excepted all destinations (%v), got: %v", want, unique)
+			want := dst.WorkloadsOrFail(t)
+			wn := []string{}
+			for _, w := range want {
+				wn = append(wn, w.PodName())
+			}
+			if len(unique) != len(wn) {
+				return fmt.Errorf("excepted all destinations (%v), got: %v", wn, unique)
 			}
 			return nil
 		}
