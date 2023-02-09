@@ -85,22 +85,19 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, syncMode bool) 
 }
 
 func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
-	m.lock.Lock()
-	if m.closed.Load() {
-		m.lock.Unlock()
+	if m.sync {
+		m.processConfigEvent(configEvent)
 		return
 	}
-
-	if m.sync {
-		m.lock.Unlock()
-		m.processConfigEvent(configEvent)
-	} else {
-		m.eventCh <- configEvent
-		m.lock.Unlock()
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if m.closed.Load() {
+		return
 	}
+	m.eventCh <- configEvent
 }
 
-func (m *configStoreMonitor) waitAndCleanup(stop <-chan struct{}) {
+func (m *configStoreMonitor) waitAndCleanUp(stop <-chan struct{}) {
 	<-stop
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -111,10 +108,11 @@ func (m *configStoreMonitor) waitAndCleanup(stop <-chan struct{}) {
 
 func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	if m.sync {
-		m.waitAndCleanup(stop)
+		<-stop
 		return
 	}
-	go m.waitAndCleanup(stop)
+
+	go m.waitAndCleanUp(stop)
 
 	for ce := range m.eventCh {
 		m.processConfigEvent(ce)
