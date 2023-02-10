@@ -38,8 +38,6 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
-	"istio.io/istio/pkg/test/framework/components/crd"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
