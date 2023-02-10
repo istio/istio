@@ -109,6 +109,9 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
 				continue
 			}
+			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
+				continue
+			}
 			wl := wl.Clone()
 			addrs := make([][]byte, 0, len(wl.WaypointAddresses))
 			filtered := false
@@ -133,6 +136,9 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 	} else {
 		for _, wl := range a.byPod {
 			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
+				continue
+			}
+			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
 				continue
 			}
 			found := false
