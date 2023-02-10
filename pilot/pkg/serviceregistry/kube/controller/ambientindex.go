@@ -291,7 +291,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           false,
+			Full:           addressChangeFullPush,
 			ConfigsUpdated: updates,
 			Reason:         []model.TriggerReason{model.AmbientUpdate},
 		})
@@ -579,6 +579,8 @@ func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
 	}
 }
 
+const addressChangeFullPush = true // TODO: // TODO(https://github.com/istio/istio/issues/42318)
+
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService: map[string][]*model.WorkloadInfo{},
@@ -660,7 +662,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		}
 		if len(updates) > 0 {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:           false,
+				Full:           addressChangeFullPush,
 				ConfigsUpdated: updates,
 				Reason:         []model.TriggerReason{model.AmbientUpdate},
 			})
@@ -674,7 +676,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(nil, obj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -686,7 +688,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(oldObj, newObj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -698,7 +700,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(nil, obj, true)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -755,7 +757,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handleService(obj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -776,7 +778,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -788,7 +790,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handleService(obj, true)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           false,
+					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})

@@ -1262,7 +1262,7 @@ func (ps *PushContext) updateContext(
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, addressesChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1294,6 +1294,8 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case kind.ProxyConfig:
 			proxyConfigsChanged = true
+		case kind.Address:
+			addressesChanged = true
 		}
 	}
 
@@ -1388,9 +1390,11 @@ func (ps *PushContext) updateContext(
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
 
-	// TODO(stevenctl,ambient) can we optimize this to only happen on "if changed"
-	// TODO(stevenctl,ambient) how will SidecarScope work with this stuff?
-	ps.initAmbient(env)
+	if addressesChanged {
+		ps.initAmbient(env)
+	} else {
+		ps.AmbientSnapshot = oldPushContext.AmbientSnapshot
+	}
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
