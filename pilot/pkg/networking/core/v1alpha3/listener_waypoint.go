@@ -275,15 +275,18 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		// Direct pod access chain.
 		directChain := &listener.FilterChain{
 			Name: "direct",
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       "direct",
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "encap"},
-					}),
+			Filters: []*listener.Filter{
+				xdsfilters.ConnectAuthorityNetworkFilter,
+				{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+							StatPrefix:       "direct",
+							ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "encap"},
+						}),
+					},
 				},
-			}},
+			},
 		}
 		// Workload IP filtering happens here.
 		ipRange := []*xds.CidrRange{}

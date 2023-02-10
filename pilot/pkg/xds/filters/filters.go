@@ -198,6 +198,13 @@ var (
 		},
 	}
 
+	ConnectAuthorityNetworkFilter = &listener.Filter{
+		Name: "connect_authority",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_authority.Config"),
+		},
+	}
+
 	ConnectAuthorityEnabled = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
 		map[string]interface{}{
 			"enabled": true,
