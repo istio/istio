@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"istio.io/istio/pkg/config/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,9 +28,8 @@ import (
 	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
+	gwlister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
@@ -92,7 +92,7 @@ func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
 		controllers.WithReconciler(rc.Reconcile),
 		controllers.WithMaxAttempts(5))
 
-	gateways := rc.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
+	gateways := rc.client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
 	rc.gateways = gateways.Lister()
 	rc.gatewayInformer = gateways.Informer()
 	_, _ = rc.gatewayInformer.AddEventHandler(controllers.ObjectHandler(rc.queue.AddObject))
@@ -149,7 +149,8 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 		return nil
 	}
 
-	if gw.Spec.GatewayClassName != v1beta1.ObjectName(constants.WaypointGatewayClassName) {
+	// TODO(https://github.com/istio/istio/issues/43264): actually use a real GatewayClass
+	if gw.Spec.GatewayClassName != constants.WaypointClass {
 		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return nil
 	}
@@ -207,7 +208,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 }
 
 func (rc *WaypointProxyController) registerWaypointUpdate(
-	gw *v1alpha2.Gateway,
+	gw *v1beta1.Gateway,
 	gatewaySA string,
 	log *istiolog.Scope,
 ) {
@@ -215,14 +216,22 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 	if gatewaySA != "" {
 		msg += fmt.Sprintf(" for %q service account", gatewaySA)
 	}
+	accept := msg
+	if unexpectedListener(gw) {
+		accept += "; WARN: expected a single listener on port 15008 with protocol \"ALL\""
+	}
 	err := rc.UpdateStatus(gw, map[string]*istiogw.Condition{
 		string(v1beta1.GatewayConditionReady): {
 			Reason:  string(v1beta1.GatewayReasonReady),
 			Message: msg,
 		},
+		string(v1beta1.ListenerConditionProgrammed): {
+			Reason:  string(v1beta1.GatewayReasonProgrammed),
+			Message: msg,
+		},
 		string(v1beta1.GatewayConditionAccepted): {
 			Reason:  string(v1beta1.GatewayReasonAccepted),
-			Message: msg,
+			Message: accept,
 		},
 	}, log)
 	if err != nil {
@@ -230,15 +239,33 @@ func (rc *WaypointProxyController) registerWaypointUpdate(
 	}
 }
 
+// Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
+// We don't *really* care about the listener, but it may make sense to add a warning if users do not
+// configure it in an expected way so that we have consistency and can make changes in the future as needed.
+// We could completely reject but that seems more likely to cause pain.
+func unexpectedListener(gw *v1beta1.Gateway) bool {
+	if len(gw.Spec.Listeners) != 1 {
+		return true
+	}
+	l := gw.Spec.Listeners[0]
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != "ALL" {
+		return true
+	}
+	return false
+}
+
 func (rc *WaypointProxyController) UpdateStatus(
-	gw *v1alpha2.Gateway,
+	gw *v1beta1.Gateway,
 	conditions map[string]*istiogw.Condition,
 	log *istiolog.Scope,
 ) error {
 	if gw == nil {
 		return nil
 	}
-	gws := &v1alpha2.Gateway{
+	gws := &v1beta1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
 			APIVersion: gvk.KubernetesGateway.Group + "/" + gvk.KubernetesGateway.Version,
@@ -247,7 +274,7 @@ func (rc *WaypointProxyController) UpdateStatus(
 			Name:      gw.Name,
 			Namespace: gw.Namespace,
 		},
-		Status: v1alpha2.GatewayStatus{
+		Status: v1beta1.GatewayStatus{
 			Conditions: istiogw.SetConditions(gw.Generation, nil, conditions),
 		},
 	}

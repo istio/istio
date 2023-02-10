@@ -76,18 +76,18 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 	server.id = ctx.TrackResource(server)
 
 	// TODO: detect from UseWaypointProxy in echo.Config
-	if err := ctx.ConfigIstio().Eval(ns.Name(), map[string]any{
-		"name":  sa,
-		"sa":    sa,
-		"class": constants.WaypointGatewayClassName,
-	}, `apiVersion: gateway.networking.k8s.io/v1beta1
+	if err := ctx.ConfigIstio().Eval(ns.Name(), sa, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: {{.name}}
   annotations:
     istio.io/for-service-account: {{.sa}}
 spec:
-  gatewayClassName: {{.class}}`).Apply(apply.NoCleanup); err != nil {
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: ALL`).Apply(apply.NoCleanup); err != nil {
 		return nil, err
 	}
 	cls := ctx.Clusters().Kube().Default()

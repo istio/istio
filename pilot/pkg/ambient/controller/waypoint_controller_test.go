@@ -21,11 +21,12 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"istio.io/istio/pkg/config/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
@@ -153,14 +154,14 @@ global:
 	})
 }
 
-func makeGateway(s string, sa string) *v1alpha2.Gateway {
-	gw := &v1alpha2.Gateway{
+func makeGateway(s string, sa string) *v1beta1.Gateway {
+	gw := &v1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      s,
 			Namespace: "test",
 		},
-		Spec: v1alpha2.GatewaySpec{
-			GatewayClassName: v1beta1.ObjectName(constants.WaypointGatewayClassName),
+		Spec: v1beta1.GatewaySpec{
+			GatewayClassName: constants.WaypointClass,
 		},
 	}
 	if sa != "" {
@@ -191,13 +192,13 @@ func HaveOwner(name, kind string) gomega.OmegaMatcher {
 					gomega.HaveField("Kind", kind)))))
 }
 
-func createGatewaysAndWait(g gomega.Gomega, cc *WaypointProxyController, ns string, gws ...*v1alpha2.Gateway) {
+func createGatewaysAndWait(g gomega.Gomega, cc *WaypointProxyController, ns string, gws ...*v1beta1.Gateway) {
 	for _, gw := range gws {
-		g.Expect(cc.client.GatewayAPI().GatewayV1alpha2().Gateways(ns).
+		g.Expect(cc.client.GatewayAPI().GatewayV1beta1().Gateways(ns).
 			Create(context.Background(), gw, metav1.CreateOptions{})).
 			Error().NotTo(gomega.HaveOccurred())
 	}
-	g.Eventually(func() ([]*v1alpha2.Gateway, error) {
+	g.Eventually(func() ([]*v1beta1.Gateway, error) {
 		return cc.gateways.Gateways(ns).List(labels.Everything())
 	}).Should(gomega.ConsistOf(gws))
 }
