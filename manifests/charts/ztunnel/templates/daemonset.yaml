@@ -264,6 +264,11 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        {{- if .Values.spireConfig.enable }}  
+        - mountPath: {{ .Values.spireConfig.socketPath }}
+          name: workload-socket
+          readOnly: true
+        {{- end}}  
       volumes:
       - name: istio-token
         projected:
@@ -275,3 +280,8 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+      {{- if .Values.spireConfig.enable }}    
+      - name: workload-socket
+        csi:
+          driver: "csi.spiffe.io"
+      {{- end}}    

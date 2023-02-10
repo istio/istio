@@ -57,3 +57,9 @@ revision: ""
 meshConfig:
   defaultConfig:
     proxyMetadata: {}
+
+spireConfig:
+  # Enable functionality to use spire with ambient mesh
+  enable: false
+  # Fixed socket path for spire
+  socketPath: /run/secrets/workload-spiffe-uds
