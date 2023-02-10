@@ -27,9 +27,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/crd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"istio.io/istio/pkg/test/framework/components/crd"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
