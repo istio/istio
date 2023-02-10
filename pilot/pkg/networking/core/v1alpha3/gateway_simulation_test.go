@@ -877,9 +877,12 @@ spec:
   - host: example.com
     http:
       paths:
-      - backend:
-          serviceName: {{.Name}}
-          servicePort: 80
+      - pathType: Prefix
+        backend:
+          service:
+            name: {{.Name}}
+            port:
+              number: 80
         path: /{{.Name}}
   tls:
   - hosts:
