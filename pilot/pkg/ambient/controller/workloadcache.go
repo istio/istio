@@ -29,15 +29,15 @@ import (
 var _ ambient.Cache = &workloadCache{}
 
 type workloadCache struct {
-	xds     model.XDSUpdater
-	indexes map[ambient.NodeType]*ambient.WorkloadIndex
-	pods    func(namespace string) v1.PodNamespaceLister
+	xds       model.XDSUpdater
+	indexes   map[ambient.NodeType]*ambient.WorkloadIndex
+	podLister v1.PodLister
 }
 
 func initWorkloadCache(opts Options) *workloadCache {
 	wc := &workloadCache{
-		xds:  opts.xds,
-		pods: opts.Client.KubeInformer().Core().V1().Pods().Lister().Pods,
+		xds:       opts.xds,
+		podLister: opts.Client.KubeInformer().Core().V1().Pods().Lister(),
 		// 3 types of things here: ztunnels, waypoint proxies, and Workloads.
 		// While we don't have to look up all of these by the same keys, the indexes should be pretty cheap.
 		indexes: map[ambient.NodeType]*ambient.WorkloadIndex{
@@ -62,50 +62,33 @@ func initWorkloadCache(opts Options) *workloadCache {
 }
 
 func (wc *workloadCache) Reconcile(key types.NamespacedName) error {
-	pod, err := wc.pods(key.Namespace).Get(key.Name)
-	if kubeErrors.IsNotFound(err) {
-		log.Debugf("trigger full push on delete pod %s", key)
-		wc.removeFromAll(key)
-		wc.xds.ConfigUpdate(&model.PushRequest{
-			Full: true, // TODO: find a better way?
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.Pod,
-				Name:      key.Name,
-				Namespace: key.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.AmbientUpdate},
-		})
-		return nil
-	} else if err != nil {
+	pod, err := wc.podLister.Pods(key.Namespace).Get(key.Name)
+	if err != nil {
+		if kubeErrors.IsNotFound(err) {
+			log.Debugf("trigger full push on delete pod %s", key)
+			wc.removeFromAll(key)
+			wc.triggerPush(key)
+			return nil
+		}
 		return err
 	}
 
 	w := ambientpod.WorkloadFromPod(pod)
 	index, ok := wc.indexes[pod.Labels[ambient.LabelType]]
-	update := true
 	if ok && wc.validate(w) {
 		cur := index.ByNamespacedName[key]
-		if cur.Equals(w) {
-			update = false
+		if !cur.Equals(w) {
+			// known type, cache it
+			index.Insert(w)
+			log.Debugf("trigger full push on update pod %s", key)
+			wc.triggerPush(key)
 		}
-		// known type, cache it
-		index.Insert(w)
 	} else {
 		// if this Pod went from valid -> empty/invalid we need to remove it from every index
 		wc.removeFromAll(key)
+		wc.triggerPush(key)
 	}
-	if update {
-		log.Debugf("trigger full push on update pod %s", key)
-		wc.xds.ConfigUpdate(&model.PushRequest{
-			Full: true, // TODO: find a better way?
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      kind.Pod,
-				Name:      key.Name,
-				Namespace: key.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.AmbientUpdate},
-		})
-	}
+
 	return nil
 }
 
@@ -129,4 +112,16 @@ func (wc *workloadCache) AmbientWorkloads() ambient.Indexes {
 		Waypoints: wc.indexes[ambient.TypeWaypoint].Copy(),
 		ZTunnels:  wc.indexes[ambient.TypeZTunnel].Copy(),
 	}
+}
+
+func (wc *workloadCache) triggerPush(key types.NamespacedName) {
+	wc.xds.ConfigUpdate(&model.PushRequest{
+		Full: true, // TODO: find a better way?
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			Kind:      kind.Pod,
+			Name:      key.Name,
+			Namespace: key.Namespace,
+		}: {}},
+		Reason: []model.TriggerReason{model.AmbientUpdate},
+	})
 }
