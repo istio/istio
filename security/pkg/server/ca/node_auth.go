@@ -29,7 +29,7 @@ import (
 
 // NodeAuthorizer is a component that implements a subset of Kubernetes Node Authorization
 // (https://kubernetes.io/docs/reference/access-authn-authz/node/) for Istio CA. Specifically, it
-// validates that a node proxy which requests certificates for workloads on its own node is request
+// validates that a node proxy which requests certificates for workloads on its own node is requesting
 // valid identities which run on that node (rather than arbitrary ones).
 type NodeAuthorizer struct {
 	podLister           listerv1.PodLister
