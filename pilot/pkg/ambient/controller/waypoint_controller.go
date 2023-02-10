@@ -149,7 +149,7 @@ func (rc *WaypointProxyController) Reconcile(name types.NamespacedName) error {
 	}
 
 	// TODO(https://github.com/istio/istio/issues/43264): actually use a real GatewayClass
-	if gw.Spec.GatewayClassName != constants.WaypointClass {
+	if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
 		log.Debugf("mismatched class %q", gw.Spec.GatewayClassName)
 		return nil
 	}

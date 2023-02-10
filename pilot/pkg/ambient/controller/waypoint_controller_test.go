@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -132,7 +131,7 @@ global:
 		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
 		g.Expect(gws.Items).To(
 			gomega.And(
-				gomega.ConsistOf(Names("gateway-istio-mesh")),
+				gomega.ConsistOf(Names("gateway-istio-waypoint")),
 				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
 			),
 		)
@@ -146,7 +145,7 @@ global:
 		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
 		g.Expect(gws.Items).To(
 			gomega.And(
-				gomega.ConsistOf(Names("gateway-istio-mesh")),
+				gomega.ConsistOf(Names("gateway-istio-waypoint")),
 				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
 			),
 		)
@@ -160,7 +159,7 @@ func makeGateway(s string, sa string) *v1beta1.Gateway {
 			Namespace: "test",
 		},
 		Spec: v1beta1.GatewaySpec{
-			GatewayClassName: constants.WaypointClass,
+			GatewayClassName: constants.WaypointGatewayClassName,
 		},
 	}
 	if sa != "" {

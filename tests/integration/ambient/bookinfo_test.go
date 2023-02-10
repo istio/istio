@@ -232,7 +232,7 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 	if err := t.ConfigIstio().YAML(nsConfig.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
-  name: bookinfo-waypoints
+  name: bookinfo
   annotations:
     istio.io/for-service-account: bookinfo-reviews
 spec:
