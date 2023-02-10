@@ -1458,14 +1458,24 @@ data:
                   requests:
                     cpu: 100m
                     memory: 128Mi
-                readinessProbe:
+                startupProbe:
                   failureThreshold: 30
                   httpGet:
                     path: /healthz/ready
-                    port: 15020 # TODO: use 15021, but its spammy
+                    port: 15021
                     scheme: HTTP
                   initialDelaySeconds: 1
-                  periodSeconds: 2
+                  periodSeconds: 1
+                  successThreshold: 1
+                  timeoutSeconds: 1
+                readinessProbe:
+                  failureThreshold: 4
+                  httpGet:
+                    path: /healthz/ready
+                    port: 15021
+                    scheme: HTTP
+                  initialDelaySeconds: 0
+                  periodSeconds: 15
                   successThreshold: 1
                   timeoutSeconds: 1
                 securityContext:
