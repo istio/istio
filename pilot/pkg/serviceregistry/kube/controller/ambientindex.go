@@ -285,7 +285,9 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	for ip, pod := range pods {
 		newWl := c.extractWorkload(pod)
 		// Update the pod, since it now has new VIP info
+		c.ambientIndex.mu.Lock()
 		c.ambientIndex.byPod[ip] = newWl
+		c.ambientIndex.mu.Unlock()
 		updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 	}
 
