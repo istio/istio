@@ -236,7 +236,11 @@ metadata:
   annotations:
     istio.io/for-service-account: bookinfo-reviews
 spec:
-  gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: ALL`).Apply(apply.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
 	waypointError := retry.UntilSuccess(func() error {
