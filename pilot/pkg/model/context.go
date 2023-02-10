@@ -32,7 +32,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -69,9 +68,6 @@ type Environment struct {
 
 	// Config interface for listing routing rules
 	ConfigStore
-
-	// For getting sidecarless/ambient info
-	ambient.Cache
 
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
 	mesh.Watcher

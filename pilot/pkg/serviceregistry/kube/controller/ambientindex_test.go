@@ -236,14 +236,14 @@ func TestAmbientIndex(t *testing.T) {
 
 	// Add another one, expect the same result
 	addPods("127.0.0.201", "waypoint2-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshController}, nil)
-	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.200", "127.0.0.201", "127.0.0.3")
+	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
 		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice()})
-	// Waypoints also have waypoints
+	// Waypoints do not have waypoints
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.200")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice()})
+		[][]byte{})
 
 	createService(controller, "svc1", "ns1",
 		map[string]string{},
@@ -258,7 +258,7 @@ func TestAmbientIndex(t *testing.T) {
 
 	// Delete a waypoint
 	deletePod("waypoint2-ns")
-	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.200", "127.0.0.201", "127.0.0.3")
+	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3")
 	// Workload should be updated
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
@@ -271,6 +271,7 @@ func TestAmbientIndex(t *testing.T) {
 	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshController},
 		map[string]string{constants.WaypointServiceAccount: "sa2"})
+	assertEvent("127.0.0.201")
 	// Unrelated SA should not change anything
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,

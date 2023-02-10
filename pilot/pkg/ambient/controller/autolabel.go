@@ -30,25 +30,25 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
+	istiolog "istio.io/pkg/log"
 )
 
-var autoLabel = env.RegisterBoolVar("AMBIENT_AUTO_LABEL", false, "").Get()
+var log = istiolog.RegisterScope("ambient", "ambient mesh controllers", 0)
 
-func initAutolabel(opts Options) {
-	if !autoLabel && !opts.forceAutoLabel {
-		return
-	}
+var EnableAutoLabel = env.RegisterBoolVar("AMBIENT_AUTO_LABEL", false, "").Get()
+
+func InitAutolabel(client kubelib.Client, systemNamespace string, stop <-chan struct{}) {
 	log.Infof("Starting ambient mesh auto-labeler")
 
 	queue := controllers.NewQueue("ambient label controller",
-		controllers.WithReconciler(ambientLabelPatcher(opts.Client)),
+		controllers.WithReconciler(ambientLabelPatcher(client)),
 		controllers.WithMaxAttempts(5),
 	)
 
-	ignored := sets.New(append(strings.Split(features.AmbientAutolabelIgnore, ","), opts.SystemNamespace)...)
+	ignored := sets.New(append(strings.Split(features.AmbientAutolabelIgnore, ","), systemNamespace)...)
 	workloadHandler := controllers.FilteredObjectHandler(queue.AddObject, ambientLabelFilter(ignored))
-	_, _ = opts.Client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(workloadHandler)
-	go queue.Run(opts.Stop)
+	_, _ = client.KubeInformer().Core().V1().Pods().Informer().AddEventHandler(workloadHandler)
+	go queue.Run(stop)
 }
 
 var labelPatch = []byte(fmt.Sprintf(

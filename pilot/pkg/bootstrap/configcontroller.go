@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	ambientcontroller "istio.io/istio/pilot/pkg/ambient/controller"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -214,6 +215,24 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
+	// Ambient controllers
+	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AmbientController, args.Revision, s.kubeClient).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				if ambientcontroller.EnableAutoLabel {
+					ambientcontroller.InitAutolabel(s.kubeClient, args.Namespace, leaderStop)
+				}
+				if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+					waypointController := ambientcontroller.NewWaypointProxyController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
+
+					waypointController.Run(leaderStop)
+				}
+			}).
+			Run(stop)
+		return nil
+	})
+
 	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	if err != nil {
 		return err

@@ -97,6 +97,10 @@ func (sd *ServiceDiscovery) Policies(requested sets.Set[model.ConfigKey]) []*wor
 	return nil
 }
 
+func (sd *ServiceDiscovery) AmbientSnapshot() *model.AmbientSnapshot {
+	return nil
+}
+
 var _ model.ServiceDiscovery = &ServiceDiscovery{}
 
 // NewServiceDiscovery builds an in-memory ServiceDiscovery

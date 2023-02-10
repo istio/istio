@@ -133,6 +133,10 @@ func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return nil
 }
 
+func (s *Controller) AmbientSnapshot() *model.AmbientSnapshot {
+	return nil
+}
+
 type Option func(*Controller)
 
 func WithClusterID(clusterID cluster.ID) Option {

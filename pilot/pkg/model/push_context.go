@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"math"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -29,7 +30,6 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -261,7 +261,7 @@ type PushContext struct {
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
 
-	AmbientIndex ambient.Indexes
+	AmbientSnapshot *AmbientSnapshot
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -1262,7 +1262,7 @@ func (ps *PushContext) updateContext(
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, addressesChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1294,6 +1294,8 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case kind.ProxyConfig:
 			proxyConfigsChanged = true
+		case kind.Address:
+			addressesChanged = true
 		}
 	}
 
@@ -1388,9 +1390,11 @@ func (ps *PushContext) updateContext(
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
 
-	// TODO(stevenctl,ambient) can we optimize this to only happen on "if changed"
-	// TODO(stevenctl,ambient) how will SidecarScope work with this stuff?
-	ps.initAmbient(env)
+	if addressesChanged {
+		ps.initAmbient(env)
+	} else {
+		ps.AmbientSnapshot = oldPushContext.AmbientSnapshot
+	}
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
@@ -2096,10 +2100,13 @@ func (ps *PushContext) initGateways(env *Environment) error {
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {
-	// only set for istiod, not agent
-	if env.Cache != nil {
-		ps.AmbientIndex = env.AmbientWorkloads()
-	}
+	ps.AmbientSnapshot = env.AmbientSnapshot()
+}
+
+// WaypointScope is either an entire namespace or an individual service account in the namespace.
+type WaypointScope struct {
+	Namespace      string
+	ServiceAccount string // optional
 }
 
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
@@ -2271,4 +2278,13 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 		namespace: namespace,
 		port:      port,
 	}]
+}
+
+func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
+	return ps.AmbientSnapshot.Waypoint(scope)
+}
+
+// WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
+func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+	return ps.AmbientSnapshot.WorkloadsForWaypoint(scope)
 }
