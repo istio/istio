@@ -32,6 +32,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
@@ -788,17 +789,34 @@ func (a *AmbientSnapshot) Merge(other *AmbientSnapshot) *AmbientSnapshot {
 	return a
 }
 
+func (a *AmbientSnapshot) matchesScope(scope WaypointScope, w *WorkloadInfo) bool {
+	if len(scope.ServiceAccount) == 0 {
+		// We are a namespace wide waypoint. SA scope take precedence.
+		// Check if there is one for this workloads service account
+		if _, f := a.waypoints[WaypointScope{Namespace: scope.Namespace, ServiceAccount: w.ServiceAccount}]; f {
+			return false
+		}
+	}
+	if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
+		return false
+	}
+	if w.Namespace != scope.Namespace {
+		return false
+	}
+	// Filter out waypoints.
+	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
+		return false
+	}
+	return true
+}
+
 func (a *AmbientSnapshot) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
 	res := []*WorkloadInfo{}
 	// TODO: try to precompute
 	for _, w := range a.workloads {
-		if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
-			continue
+		if a.matchesScope(scope, w) {
+			res = append(res, w)
 		}
-		if w.Namespace != scope.Namespace {
-			continue
-		}
-		res = append(res, w)
 	}
 	return res
 }
@@ -816,6 +834,13 @@ type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
+}
+
+func (i *WorkloadInfo) Clone() *WorkloadInfo {
+	return &WorkloadInfo{
+		Workload: proto.Clone(i).(*workloadapi.Workload),
+		Labels:   maps.Clone(i.Labels),
+	}
 }
 
 func (i WorkloadInfo) ResourceName() string {

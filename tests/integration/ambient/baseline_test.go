@@ -1662,6 +1662,15 @@ func TestDirect(t *testing.T) {
 				HBONE:   hb,
 				Check:   check.Error(),
 			})
+			run("Waypoint destination", echo.CallOptions{
+				To:      apps.Waypoint,
+				Count:   1,
+				Address: apps.WaypointProxy.PodIP(),
+				Port:    echo.Port{ServicePort: 15000},
+				Scheme:  scheme.HTTP,
+				HBONE:   hb,
+				Check:   check.Error(),
+			})
 		})
 	})
 }

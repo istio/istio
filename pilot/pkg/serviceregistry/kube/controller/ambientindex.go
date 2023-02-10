@@ -109,10 +109,7 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
 				continue
 			}
-			wl := &model.WorkloadInfo{
-				Workload: proto.Clone(wl).(*workloadapi.Workload),
-				Labels:   wl.Labels,
-			}
+			wl := wl.Clone()
 			addrs := make([][]byte, 0, len(wl.WaypointAddresses))
 			filtered := false
 			for _, a := range wl.WaypointAddresses {
@@ -146,10 +143,7 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 				}
 			}
 			if !found {
-				wl := &model.WorkloadInfo{
-					Workload: proto.Clone(wl).(*workloadapi.Workload),
-					Labels:   wl.Labels,
-				}
+				wl := wl.Clone()
 				wl.WaypointAddresses = append(wl.WaypointAddresses, addr)
 				// If there was a change, also update the VIPs and record for a push
 				updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
@@ -537,6 +531,10 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	if len(waypoints) == 0 {
 		// if there are none, check namespace wide waypoints
 		waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
+	}
+	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
+		// Waypoints do not have waypoints
+		waypoints = nil
 	}
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
 	wl := c.constructWorkload(p, sets.SortedList(waypoints), policies)

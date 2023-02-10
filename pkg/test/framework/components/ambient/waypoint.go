@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
@@ -36,10 +38,15 @@ type kubeComponent struct {
 	ns       namespace.Instance
 	inbound  istioKube.PortForwarder
 	outbound istioKube.PortForwarder
+	pod      v1.Pod
 }
 
 func (k kubeComponent) Namespace() namespace.Instance {
 	return k.ns
+}
+
+func (k kubeComponent) PodIP() string {
+	return k.pod.Status.PodIP
 }
 
 func (k kubeComponent) Inbound() string {
@@ -65,6 +72,7 @@ type WaypointProxy interface {
 	Namespace() namespace.Instance
 	Inbound() string
 	Outbound() string
+	PodIP() string
 }
 
 // NewWaypointProxy creates a new WaypointProxy.
@@ -116,6 +124,7 @@ spec:
 	}
 	server.inbound = inbound
 	server.outbound = outbound
+	server.pod = pod
 	return server, nil
 }
 
