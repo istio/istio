@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"istio.io/istio/pkg/config/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
