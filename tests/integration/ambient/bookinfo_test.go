@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -229,20 +230,15 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 }
 
 func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
-	if err := t.ConfigIstio().YAML(nsConfig.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  name: bookinfo
-  annotations:
-    istio.io/for-service-account: bookinfo-reviews
-spec:
-  gatewayClassName: istio-waypoint
-  listeners:
-  - name: mesh
-    port: 15008
-    protocol: ALL`).Apply(apply.NoCleanup); err != nil {
-		t.Fatal(err)
-	}
+	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		"x",
+		"waypoint",
+		"apply",
+		"--namespace",
+		nsConfig.Name(),
+		"--service-account",
+		"bookinfo-reviews",
+	})
 	waypointError := retry.UntilSuccess(func() error {
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), "ambient-type=waypoint")); err != nil {
 			return fmt.Errorf("gateway is not ready: %v", err)
