@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -55,8 +56,12 @@ func (k kubeComponent) ID() resource.ID {
 }
 
 func (k kubeComponent) Close() error {
-	k.inbound.Close()
-	k.outbound.Close()
+	if k.inbound != nil {
+		k.inbound.Close()
+	}
+	if k.outbound != nil {
+		k.outbound.Close()
+	}
 	return nil
 }
 
@@ -74,6 +79,9 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 		sa: sa,
 	}
 	server.id = ctx.TrackResource(server)
+	if err := crd.DeployGatewayAPI(ctx); err != nil {
+		return nil, err
+	}
 
 	// TODO: detect from UseWaypointProxy in echo.Config
 	if err := ctx.ConfigIstio().Eval(ns.Name(), sa, `apiVersion: gateway.networking.k8s.io/v1beta1

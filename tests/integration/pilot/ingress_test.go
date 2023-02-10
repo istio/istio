@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/crd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -54,7 +55,7 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			DeployGatewayAPICRD(t)
+			crd.DeployGatewayAPIOrSkip(t)
 
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 				false, t.Clusters().Configs()...)
