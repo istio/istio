@@ -87,9 +87,9 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 	if err := ctx.ConfigIstio().Eval(ns.Name(), sa, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: {{.name}}
+  name: {{.}}
   annotations:
-    istio.io/for-service-account: {{.sa}}
+    istio.io/for-service-account: {{.}}
 spec:
   gatewayClassName: istio-waypoint
   listeners:
