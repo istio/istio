@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/ambientgen"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -562,12 +561,6 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
 	s.Generators["grpc/"+v3.ExtensionConfigurationType] = ecdsGen
-
-	waypointGen := &ambientgen.WaypointGenerator{
-		ConfigGenerator: s.ConfigGenerator,
-	}
-	s.Generators["waypoint/"+v3.ListenerType] = waypointGen
-	s.Generators["waypoint/"+v3.ClusterType] = waypointGen
 
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
