@@ -18,8 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
+	"istio.io/istio/pkg/test/env"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -39,7 +41,7 @@ func SupportsGatewayAPI(t resource.Context) bool {
 	return true
 }
 
-var errSkip = errors.New("not supported; requires CRDv1 support.")
+var errSkip = errors.New("not supported; requires CRDv1 support")
 
 func DeployGatewayAPIOrSkip(ctx framework.TestContext) {
 	res := DeployGatewayAPI(ctx)
@@ -56,7 +58,7 @@ func DeployGatewayAPI(ctx resource.Context) error {
 		return errSkip
 	}
 	if err := ctx.ConfigIstio().
-		File("", "testdata/gateway-api-crd.yaml").
+		File("", filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-crd.yaml")).
 		Apply(apply.NoCleanup); err != nil {
 		return err
 	}
