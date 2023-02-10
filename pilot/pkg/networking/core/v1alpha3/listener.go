@@ -1682,8 +1682,6 @@ func sidecarOutboundTunnelListener(push *model.PushContext, proxy *model.Proxy) 
 						canonicalName, canonicalRevision,
 					),
 				}},
-				// TODO: remove this. But the ztunnel requires it for terrible reasons
-				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			},
 		},
 	}

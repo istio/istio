@@ -347,9 +347,6 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 							Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
-							HeadersToAdd: []*core.HeaderValueOption{
-								{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-							},
 						},
 					}),
 				},
@@ -705,9 +702,6 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
-			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{Key: "x-envoy-original-dst-host", Value: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			},
 		},
 	}
 
