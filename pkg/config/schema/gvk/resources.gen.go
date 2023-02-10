@@ -18,7 +18,7 @@ var (
 	Gateway                      = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"}
 	GatewayClass                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "GatewayClass"}
 	HTTPRoute                    = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "HTTPRoute"}
-	Ingress                      = config.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"}
+	Ingress                      = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"}
 	KubernetesGateway            = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "Gateway"}
 	MeshConfig                   = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshConfig"}
 	MeshNetworks                 = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshNetworks"}

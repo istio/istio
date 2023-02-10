@@ -105,7 +105,7 @@ var (
 		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
 		"k8s.io/api/apps/v1":                                       "appsv1",
 		"k8s.io/api/core/v1":                                       "corev1",
-		"k8s.io/api/extensions/v1beta1":                            "extensionsv1beta1",
+		"k8s.io/api/networking/v1":                                 "networkingv1",
 	}
 	// Mapping from istio/api path import to client go import path
 	clientGoImport = map[string]string{
@@ -120,7 +120,7 @@ var (
 		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
 		"k8s.io/api/apps/v1":                                       "appsv1",
 		"k8s.io/api/core/v1":                                       "corev1",
-		"k8s.io/api/extensions/v1beta1":                            "extensionsv1beta1",
+		"k8s.io/api/networking/v1":                                 "networkingv1",
 	}
 	// Translates an api import path to the top level path in client-go
 	clientGoAccessPath = map[string]string{
@@ -135,7 +135,7 @@ var (
 		"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1": "apiextensionsv1",
 		"k8s.io/api/apps/v1":                                       "appsv1",
 		"k8s.io/api/core/v1":                                       "corev1",
-		"k8s.io/api/extensions/v1beta1":                            "extensionsv1beta1",
+		"k8s.io/api/networking/v1":                                 "networkingv1",
 	}
 	// Translates a plural type name to the type path in client-go
 	// TODO: can we automatically derive this? I don't think we can, its internal to the kubegen
