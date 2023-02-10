@@ -64,6 +64,8 @@ type AmbientIndex struct {
 }
 
 func (a *AmbientIndex) ToSnapshot() *model.AmbientSnapshot {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return model.NewAmbientSnapshot(maps.Values(a.byPod), maps.Clone(a.waypoints))
 }
 
