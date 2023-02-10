@@ -234,7 +234,7 @@ kind: Gateway
 metadata:
   name: bookinfo-waypoints
   annotations:
-    istio.io/service-account: bookinfo-reviews
+    istio.io/for-service-account: bookinfo-reviews
 spec:
   gatewayClassName: istio-mesh`).Apply(apply.NoCleanup); err != nil {
 		t.Fatal(err)

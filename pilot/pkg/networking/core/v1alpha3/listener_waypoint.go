@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -61,7 +62,7 @@ type WaypointScope struct {
 func GetWaypointScope(node *model.Proxy) WaypointScope {
 	return WaypointScope{
 		Namespace:      node.ConfigNamespace,
-		ServiceAccount: node.Metadata.Annotations["istio.io/service-account"],
+		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
 	}
 }
 

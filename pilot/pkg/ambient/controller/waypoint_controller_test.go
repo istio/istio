@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/env"
@@ -130,7 +132,7 @@ global:
 		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
 		g.Expect(gws.Items).To(
 			gomega.And(
-				gomega.ConsistOf(Names("gateway")),
+				gomega.ConsistOf(Names("gateway-istio-mesh")),
 				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
 			),
 		)
@@ -144,7 +146,7 @@ global:
 		gws, _ := cc.client.Kube().AppsV1().Deployments("test").List(context.Background(), metav1.ListOptions{})
 		g.Expect(gws.Items).To(
 			gomega.And(
-				gomega.ConsistOf(Names("gateway")),
+				gomega.ConsistOf(Names("gateway-istio-mesh")),
 				gomega.HaveEach(HaveOwner("gateway", "Gateway")),
 			),
 		)
@@ -158,12 +160,12 @@ func makeGateway(s string, sa string) *v1alpha2.Gateway {
 			Namespace: "test",
 		},
 		Spec: v1alpha2.GatewaySpec{
-			GatewayClassName: "istio-mesh",
+			GatewayClassName: v1beta1.ObjectName(constants.WaypointGatewayClassName),
 		},
 	}
 	if sa != "" {
 		gw.Annotations = map[string]string{
-			"istio.io/service-account": sa,
+			constants.WaypointServiceAccount: sa,
 		}
 	}
 	return gw
