@@ -32,10 +32,8 @@ func TestMonitorLifecycle(t *testing.T) {
 		m := NewMonitor(store)
 
 		stop := make(chan struct{})
-		exit := make(chan struct{})
 		go func() {
 			m.Run(stop)
-			close(exit)
 		}()
 		go func() {
 			for i := 0; i < 100; i++ {
@@ -49,7 +47,7 @@ func TestMonitorLifecycle(t *testing.T) {
 			}
 		}()
 		go close(stop)
-		<-exit
+		m.WaitCompleted()
 	}
 }
 
@@ -65,10 +63,8 @@ func TestMonitorGracefulExit(t *testing.T) {
 	})
 
 	stop := make(chan struct{})
-	exit := make(chan struct{})
 	go func() {
 		m.Run(stop)
-		close(exit)
 	}()
 	eventsNumber := 100
 	for i := 0; i < eventsNumber; i++ {
@@ -81,7 +77,7 @@ func TestMonitorGracefulExit(t *testing.T) {
 		})
 	}
 	close(stop)
-	<-exit
+	m.WaitCompleted()
 	if number != eventsNumber {
 		t.Fatalf("should process the handler %d times, get got %d", eventsNumber, number)
 	}

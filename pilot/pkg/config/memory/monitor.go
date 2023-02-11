@@ -37,9 +37,9 @@ type Monitor interface {
 	Run(<-chan struct{})
 	AppendEventHandler(config2.GroupVersionKind, Handler)
 	ScheduleProcessEvent(ConfigEvent)
-	// HasCompleted returns true if all the ConfigEvents have been
-	// processed in async mode or returns directly in sync mode.
-	HasCompleted() bool
+	// WaitCompleted blocks until all the ConfigEvents have been processed
+	// in async mode.
+	WaitCompleted()
 }
 
 // ConfigEvent defines the event to be processed
@@ -103,13 +103,11 @@ func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 	m.eventCh <- configEvent
 }
 
-func (m *configStoreMonitor) HasCompleted() bool {
+func (m *configStoreMonitor) WaitCompleted() {
 	if m.sync {
-		return true
+		return
 	}
-
 	<-m.completed
-	return true
 }
 
 func (m *configStoreMonitor) Run(stop <-chan struct{}) {
@@ -131,7 +129,6 @@ func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	m.closed.Store(true)
 	// indicating the monitor has exited.
 	close(m.eventCh)
-
 }
 
 func (m *configStoreMonitor) processConfigEvent(ce ConfigEvent) {
