@@ -56,7 +56,7 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	s.initStatusController(args, features.EnableStatus)
+	s.initStatusController(args, features.EnableStatus && features.EnableDistributionTracking)
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
