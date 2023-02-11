@@ -1060,28 +1060,25 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 		TcpReportingDuration:      filterConfig.ReportingInterval,
 	}
 
-	metricCfg := filterConfig.MetricsForClass(class)
-	if !metricCfg.Disabled {
-		for _, override := range metricCfg.Overrides {
-			metricName, f := metricToPrometheusMetric[override.Name]
-			if !f {
-				// Not a predefined metric, must be a custom one
-				metricName = override.Name
-			}
-			mc := &stats.MetricConfig{
-				Dimensions: map[string]string{},
-				Name:       metricName,
-				Drop:       override.Disabled,
-			}
-			for _, t := range override.Tags {
-				if t.Remove {
-					mc.TagsToRemove = append(mc.TagsToRemove, t.Name)
-				} else {
-					mc.Dimensions[t.Name] = t.Value
-				}
-			}
-			cfg.Metrics = append(cfg.Metrics, mc)
+	for _, override := range listenerCfg.Overrides {
+		metricName, f := metricToPrometheusMetric[override.Name]
+		if !f {
+			// Not a predefined metric, must be a custom one
+			metricName = override.Name
 		}
+		mc := &stats.MetricConfig{
+			Dimensions: map[string]string{},
+			Name:       metricName,
+			Drop:       override.Disabled,
+		}
+		for _, t := range override.Tags {
+			if t.Remove {
+				mc.TagsToRemove = append(mc.TagsToRemove, t.Name)
+			} else {
+				mc.Dimensions[t.Name] = t.Value
+			}
+		}
+		cfg.Metrics = append(cfg.Metrics, mc)
 	}
 
 	return protoconv.MessageToAny(&cfg)

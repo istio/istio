@@ -5,4 +5,4 @@ issues:
   - 43178
 releaseNotes:
   - |
-    **Fixed** disabling ALL_METERS does not work as expected.
+    **Fixed** disabling ALL_METRICS does not work as expected.
