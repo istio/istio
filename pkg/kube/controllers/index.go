@@ -63,10 +63,7 @@ func CreateIndex[O runtime.Object, K comparable](
 		o := ro.(O)
 		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {
-			if _, f := idx.objects[indexKey]; !f {
-				idx.objects[indexKey] = sets.New[string]()
-			}
-			idx.objects[indexKey].Insert(objectKey)
+			sets.InsertOrNew(idx.objects, indexKey, objectKey)
 		}
 	}
 	deleteObj := func(obj any) {
@@ -74,7 +71,7 @@ func CreateIndex[O runtime.Object, K comparable](
 		o := ro.(O)
 		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {
-			idx.objects[indexKey].Delete(objectKey)
+			sets.DeleteCleanupLast(idx.objects, indexKey, objectKey)
 		}
 	}
 	handler := cache.ResourceEventHandlerFuncs{

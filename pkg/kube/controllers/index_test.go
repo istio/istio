@@ -138,4 +138,9 @@ func TestIndex(t *testing.T) {
 	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod1Alt.Name, metav1.DeleteOptions{})
 	assertIndex(k1, pod3) // Shouldn't impact others
 	assertIndex(keyNew)   // but should be removed
+
+	// Should fully cleanup the index on deletes
+	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod2.Name, metav1.DeleteOptions{})
+	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod3.Name, metav1.DeleteOptions{})
+	assert.EventuallyEqual(t, func() int { return len(index.objects) }, 0)
 }
