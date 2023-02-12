@@ -199,6 +199,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cdn_loop/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/composite/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/connect_grpc_bridge/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/csrf/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/custom_response/v3"
