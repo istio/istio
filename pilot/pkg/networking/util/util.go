@@ -218,11 +218,6 @@ func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *m
 	return additionalAddresses
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildInternalAddress(name string) *core.Address {
-	return BuildInternalAddressWithIdentifier(name, "")
-}
-
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil

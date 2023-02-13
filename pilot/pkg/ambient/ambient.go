@@ -107,11 +107,7 @@ type NodeType = string
 const (
 	LabelStatus = "istio.io/ambient-status"
 	TypeEnabled = "enabled"
-	// LabelType == "workload" -> intercept into ztunnel
-	// TODO this could be an annotation – eventually move it into api repo
-	LabelType = "ambient-type"
 
-	TypeWorkload NodeType = "workload"
-	TypeNone     NodeType = "none"
+	LabelType             = "ambient-type"
 	TypeWaypoint NodeType = "waypoint"
 )

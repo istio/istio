@@ -92,10 +92,7 @@ func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode s
 
 // @TODO Interim function for waypoint proxy, to be replaced after design meeting
 func PodHasOptOut(pod *corev1.Pod) bool {
-	if val, ok := pod.Labels["ambient-type"]; ok {
-		return val == "waypoint" || val == "none"
-	}
-	return false
+	return pod.Labels[ambient.LabelType] == ambient.TypeWaypoint
 }
 
 func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {

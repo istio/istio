@@ -425,10 +425,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
-	// Other side is a waypoint proxy. TODO: can this really happen?
-	if al := e.Labels[ambient.LabelType]; al == ambient.TypeWaypoint {
-		supportsTunnel = true
-	}
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
 	if al := e.Labels[ambient.LabelStatus]; al == ambient.TypeEnabled {
 		supportsTunnel = true

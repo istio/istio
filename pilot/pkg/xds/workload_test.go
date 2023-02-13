@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -231,9 +230,7 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 			Name:      name,
 			Namespace: "default",
 			Labels: map[string]string{
-				// TODO: shouldn't really need this
-				ambient.LabelType: ambient.TypeWorkload,
-				"app":             sa,
+				"app": sa,
 			},
 		},
 		Spec: corev1.PodSpec{
