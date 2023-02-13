@@ -43,9 +43,12 @@ spec:
         - router
         - --domain
         - $(POD_NAMESPACE).svc.<no value>
-        - --proxyLogLevel=<nil>
-        - --proxyComponentLogLevel=<nil>
-        - --log_output_level=<nil>
+        - --proxyLogLevel
+        - <nil>
+        - --proxyComponentLogLevel
+        - <nil>
+        - --log_output_level
+        - <nil>
         env:
         - name: JWT_POLICY
           value: <no value>

@@ -404,7 +404,6 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 // apply server-side applies a template to the cluster.
 func (d *DeploymentController) apply(controller string, yml string) error {
 	data := map[string]any{}
-	fmt.Println(yml)
 	err := yaml.Unmarshal([]byte(yml), &data)
 	if err != nil {
 		return err

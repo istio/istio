@@ -1,18 +1,18 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "{{ .ServiceAccount }}"
-  namespace: "{{.Namespace}}"
+  name: {{.ServiceAccount | quote}}
+  namespace: {{.Namespace | quote}}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{.DeploymentName}}
-  namespace: {{.Namespace}}
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
   annotations:
-    {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
   labels:
-    {{ toYamlMap .Labels | nindent 4}}
+    {{- toJsonMap .Labels | nindent 4 }}
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
@@ -25,8 +25,8 @@ spec:
   template:
     metadata:
       annotations:
-        {{ toYamlMap
-          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") 
+        {{- toJsonMap
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
           (strdict
             "ambient.istio.io/redirection": "disabled"
             "prometheus.io/path" "/stats/prometheus"
@@ -34,7 +34,7 @@ spec:
             "prometheus.io/scrape" "true"
           ) | nindent 8 }}
       labels:
-        {{ toYamlMap
+        {{- toJsonMap
           (strdict
             "sidecar.istio.io/inject" "false"
             "service.istio.io/canonical-name" .DeploymentName
@@ -46,7 +46,7 @@ spec:
           ) | nindent 8}}
     spec:
       terminationGracePeriodSeconds: 2
-      serviceAccountName: {{.ServiceAccount}}
+      serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - args:
         - proxy
@@ -55,9 +55,12 @@ spec:
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - {{.ServiceAccount}}.$(POD_NAMESPACE)
-        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-        - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+        - --proxyLogLevel
+        - {{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel | quote}}
+        - --proxyComponentLogLevel
+        - {{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel | quote}}
+        - --log_output_level
+        - {{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level | quote}}
         {{- if .Values.global.logAsJson }}
         - --log_as_json
         {{- end }}

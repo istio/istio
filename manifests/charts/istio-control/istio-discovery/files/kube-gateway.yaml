@@ -1,18 +1,18 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: "{{ .ServiceAccount }}"
-  namespace: "{{.Namespace}}"
+  name: {{.ServiceAccount | quote}}
+  namespace: {{.Namespace | quote}}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{.DeploymentName}}
-  namespace: {{.Namespace}}
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
   annotations:
-    {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
   labels:
-    {{ toYamlMap .Labels | nindent 4}}
+    {{- toJsonMap .Labels | nindent 4 }}
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
@@ -25,16 +25,16 @@ spec:
   template:
     metadata:
       annotations:
-        {{ toYamlMap
-          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") 
+        {{- toJsonMap
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
           (strdict
             "prometheus.io/path" "/stats/prometheus"
             "prometheus.io/port" "15020"
             "prometheus.io/scrape" "true"
           ) | nindent 8 }}
       labels:
-        {{ toYamlMap
-          (strdict 
+        {{- toJsonMap
+          (strdict
             "sidecar.istio.io/inject" "false"
             "service.istio.io/canonical-name" .DeploymentName
             "service.istio.io/canonical-revision" "latest"
@@ -49,7 +49,7 @@ spec:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
       {{- end }}
-      serviceAccountName: {{ .ServiceAccount }}
+      serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
         image: "{{ .ProxyImage }}"
@@ -90,9 +90,12 @@ spec:
         - router
         - --domain
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-        - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+        - --proxyLogLevel
+        - {{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel | quote}}
+        - --proxyComponentLogLevel
+        - {{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel | quote}}
+        - --log_output_level
+        - {{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level | quote}}
       {{- if .Values.global.sts.servicePort }}
         - --stsPort={{ .Values.global.sts.servicePort }}
       {{- end }}
@@ -154,9 +157,9 @@ spec:
           value: "{{ .Values.global.network }}"
         {{- end }}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: {{.DeploymentName}}
+          value: {{.DeploymentName|quote}}
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}
+          value: "kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}"
         {{- if .Values.global.meshID }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.meshID }}"
@@ -277,12 +280,11 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+    {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
   labels:
-    {{ toYamlMap .Labels
-      | nindent 4}}
-  name: {{ .DeploymentName }}
-  namespace: {{.Namespace}}
+    {{ toJsonMap .Labels | nindent 4}}
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1alpha2
     kind: Gateway
