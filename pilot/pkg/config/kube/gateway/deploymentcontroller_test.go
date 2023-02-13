@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -122,6 +123,23 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 		},
+		{
+			"waypoint",
+			v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []v1beta1.Listener{{
+						Name:     "mesh",
+						Port:     v1beta1.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+		},
 	}
 	vc, err := inject.NewValuesConfig(`
 global:
@@ -130,9 +148,10 @@ global:
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmplPath := filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")
-	tmplStr := file.AsStringOrFail(t, tmplPath)
-	tmpl, err := inject.ParseTemplates(map[string]string{"kube-gateway": tmplStr})
+	tmpl, err := inject.ParseTemplates(map[string]string{
+		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
+		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -152,12 +152,12 @@ const (
 	CertProviderNone = "none"
 
 	GatewayNameLabel             = "istio.io/gateway-name"
-	ManagedGatewayLabel          = "gateway.istio.io/managed"
-	WaypointServiceAccount       = "istio.io/for-service-account"
-	WaypointGatewayClassName     = "istio-waypoint"
+	ManagedGatewayLabel               = "gateway.istio.io/managed"
+	WaypointServiceAccount            = "istio.io/for-service-account"
+	WaypointGatewayClassName          = "istio-waypoint"
 	ManagedGatewayController          = "istio.io/gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
-	ManagedGatewayMeshController = "istio.io/mesh-controller"
+	ManagedGatewayMeshController      = "istio.io/mesh-controller"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode = "istio.io/dataplane-mode"
