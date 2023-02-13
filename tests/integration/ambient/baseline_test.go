@@ -591,9 +591,6 @@ spec:
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
-			if dst.Config().HasWaypointProxy() {
-				t.Skip("https://github.com/istio/istio/issues/43009")
-			}
 
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -612,7 +609,21 @@ spec:
 					"Destination": dst.Config().Service,
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
-				}, `apiVersion: security.istio.io/v1beta1
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -624,6 +635,7 @@ spec:
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+---
 `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				overrideCheck(&opt)
@@ -689,9 +701,6 @@ spec:
 		runTest(t, func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
-			}
-			if dst.Config().HasWaypointProxy() {
-				t.Skip("https://github.com/istio/istio/issues/43009")
 			}
 
 			// sidecar-uncaptured is failing the Ambient destination port test
@@ -830,9 +839,6 @@ spec:
 			if src.Config().IsUncaptured() {
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
-			if dst.Config().HasWaypointProxy() {
-				t.Skip("https://github.com/istio/istio/issues/43009")
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": dst.Config().Service,

@@ -295,6 +295,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			util.InternalListenerSetAddressFilter(),
+			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
 			xdsfilters.HTTPInspector,
 		},
 		TrafficDirection: core.TrafficDirection_INBOUND,
