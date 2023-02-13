@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
@@ -186,11 +187,13 @@ func TestAuthenticate(t *testing.T) {
 			expectedCaller := &security.Caller{
 				AuthSource: security.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
+				KubernetesInfo: security.KubernetesInfo{
+					PodNamespace:      "default",
+					PodServiceAccount: "example-pod-sa",
+				},
 			}
 
-			if !reflect.DeepEqual(actualCaller, expectedCaller) {
-				t.Errorf("Case %q: Unexpected token: want %v but got %v", id, expectedCaller, actualCaller)
-			}
+			assert.Equal(t, actualCaller, expectedCaller)
 		})
 	}
 }
