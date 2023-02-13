@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -276,8 +277,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 	// httpStaticOverlayUpdatedNop is the same as httpStaticOverlayUpdated but with a NOP change
 	httpStaticOverlayUpdatedNop := func() *config.Config {
-		c := httpStaticOverlayUpdated.DeepCopy()
-		return &c
+		return ptr.Of(httpStaticOverlayUpdated.DeepCopy())
 	}()
 
 	// httpStaticOverlayUpdatedNs is the same as httpStaticOverlay but with an extra endpoint and different namespace added to test updates
