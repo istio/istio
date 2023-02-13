@@ -68,8 +68,8 @@ var (
 type Level int
 
 const (
-	defaultLoggerName  = "level"
-	defaultOutputLevel = WarningLevel
+	defaultLoggerName       = "level"
+	defaultEnvoyOutputLevel = WarningLevel
 )
 
 const (
@@ -149,6 +149,7 @@ var stringToLevel = map[string]Level{
 	"debug":    DebugLevel,
 	"info":     InfoLevel,
 	"warning":  WarningLevel,
+	"warn":     WarningLevel,
 	"error":    ErrorLevel,
 	"critical": CriticalLevel,
 	"off":      OffLevel,
@@ -158,6 +159,17 @@ var (
 	loggerLevelString = ""
 	reset             = false
 )
+
+func ztunnelLogLevel(level string) string {
+	switch level {
+	case "warning":
+		return "warn"
+	case "critical":
+		return "error"
+	default:
+		return level
+	}
+}
 
 func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
@@ -850,9 +862,9 @@ func logCmd() *cobra.Command {
 				if ok {
 					destLoggerLevels[defaultLoggerName] = level
 				} else {
-					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value: %v",
-						levelToString[defaultOutputLevel])
-					destLoggerLevels[defaultLoggerName] = defaultOutputLevel
+					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value %q for envoy proxies and \"info\" for ztunnel",
+						levelToString[defaultEnvoyOutputLevel])
+					destLoggerLevels[defaultLoggerName] = defaultEnvoyOutputLevel
 				}
 			} else if loggerLevelString != "" {
 				levels := strings.Split(loggerLevelString, ",")
@@ -886,16 +898,17 @@ func logCmd() *cobra.Command {
 			var errs *multierror.Error
 			for _, podName := range podNames {
 				if strings.HasPrefix(podName, "ztunnel") {
-					q := "level=" + loggerLevelString
+					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
 					}
 					resp, err := setupEnvoyLogConfig(q, podName, podNamespace)
-					if err != nil {
-						return err
+					if err == nil {
+						_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v\n", podName, podNamespace, resp)
+					} else {
+						errs = multierror.Append(fmt.Errorf("%v.%v: %v", podName, podNamespace, err))
 					}
-					_, _ = fmt.Fprint(c.OutOrStdout(), resp)
-					return nil
+					continue
 				}
 				if len(destLoggerLevels) == 0 {
 					resp, err = setupEnvoyLogConfig("", podName, podNamespace)
