@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -563,6 +564,37 @@ spec:
 				return nil
 			})
 		src.CallOrFail(t, opt)
+	})
+}
+
+func TestSplitService(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		// Deploy a service that selects all workloads
+		t.ConfigKube().Eval(apps.Namespace.Name(), map[string]int{
+			"Port":       ports.All().MustForName("http").ServicePort,
+			"TargetPort": ports.All().MustForName("http").WorkloadPort,
+		},
+			`apiVersion: v1
+kind: Service
+metadata:
+  name: all-workloads
+spec:
+  ports:
+  - name: http
+    port: {{.Port}}
+    targetPort: {{.TargetPort}}
+  selector:
+    test.istio.io/class: standard`).ApplyOrFail(t)
+		for _, src := range apps.All {
+			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+				src.CallOrFail(t, echo.CallOptions{
+					Count:   25,
+					Address: "all-workloads",
+					Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+					Check:   check.OK(),
+				})
+			})
+		}
 	})
 }
 

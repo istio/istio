@@ -2103,12 +2103,6 @@ func (ps *PushContext) initAmbient(env *Environment) {
 	ps.AmbientSnapshot = env.AmbientSnapshot()
 }
 
-// WaypointScope is either an entire namespace or an individual service account in the namespace.
-type WaypointScope struct {
-	Namespace      string
-	ServiceAccount string // optional
-}
-
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
 // only used internally to transfer information from the Kubernetes Gateway API to the Istio Gateway API
 // which does not have a field to represent this.

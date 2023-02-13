@@ -1215,6 +1215,19 @@ func (node *Proxy) EnableHBONE() bool {
 	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
 }
 
+// WaypointScope is either an entire namespace or an individual service account in the namespace.
+type WaypointScope struct {
+	Namespace      string
+	ServiceAccount string // optional
+}
+
+func (node *Proxy) WaypointScope() WaypointScope {
+	return WaypointScope{
+		Namespace:      node.ConfigNamespace,
+		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
+	}
+}
+
 type GatewayController interface {
 	ConfigStoreController
 	// Reconcile updates the internal state of the gateway controller for a given input. This should be
