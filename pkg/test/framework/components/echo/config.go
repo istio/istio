@@ -23,6 +23,7 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
+	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -326,7 +327,7 @@ func (c Config) HasSidecar() bool {
 }
 
 func (c Config) IsUncaptured() bool {
-	return len(c.Subsets) == 0 || c.Subsets[0].Labels == nil || c.Subsets[0].Labels["ambient-type"] == "none"
+	return len(c.Subsets) == 0 || c.Subsets[0].Labels == nil || c.Subsets[0].Annotations.Get(AmbientType) == ambientmodel.TypeDisabled
 }
 
 func (c Config) HasProxyCapabilities() bool {

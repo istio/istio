@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
+	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -887,10 +888,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		wl.WaypointAddresses = ips
 	}
 
-	// In node mode, we can assume all of the cluster uses h2 connect
-	// May need to be more precise though
-	// wl.Protocol = workloadapi.Protocol_HTTP2CONNECT
-	if c.AmbientEnabled(pod) {
+	if pod.Annotations[ambientmodel.AnnotationType] == ambientmodel.TypeMesh {
 		// Configured for override
 		wl.Protocol = workloadapi.Protocol_HTTP
 	}

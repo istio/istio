@@ -1150,9 +1150,8 @@ templates:
       name: {{.Name}}
       namespace: {{.Namespace}}
       labels:
-        ambient-type: waypoint
         gateway.istio.io/managed: "istio.io-mesh-controller"
-        istio.io/gateway-name: "{{.Name}}"
+        istio.io/gateway-name: "{{.GatewayName}}"
       ownerReferences:
       - apiVersion: gateway.networking.k8s.io/v1beta1
         kind: Gateway
@@ -1161,18 +1160,18 @@ templates:
     spec:
       selector:
         matchLabels:
-          istio.io/gateway-name: "{{.Name}}"
+          istio.io/gateway-name: "{{.GatewayName}}"
       template:
         metadata:
           annotations:
+            ambient.istio.io/type: waypoint
             prometheus.io/path: /stats/prometheus
             prometheus.io/port: "15020"
             prometheus.io/scrape: "true"
             {{with .ForServiceAccount}}istio.io/for-service-account: "{{.}}"{{end}}
           labels:
-            ambient-type: waypoint
             gateway.istio.io/managed: "istio.io-mesh-controller"
-            istio.io/gateway-name: "{{.Name}}"
+            istio.io/gateway-name: "{{.GatewayName}}"
             sidecar.istio.io/inject: "false"
         spec:
           terminationGracePeriodSeconds: 2

@@ -31,8 +31,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient/ambientpod"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -212,7 +210,6 @@ type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
 	Network(endpointIP string, labels labels.Instance) network.ID
 	Cluster() cluster.ID
-	AmbientEnabled(pod *v1.Pod) bool
 }
 
 var (
@@ -291,20 +288,6 @@ type Controller struct {
 
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
-}
-
-func (c *Controller) AmbientEnabled(pod *v1.Pod) bool {
-	if pod == nil {
-		return false
-	}
-	ambientConfig := c.meshWatcher.Mesh().AmbientMesh
-	if ambientConfig.GetMode() == meshconfig.MeshConfig_AmbientMeshConfig_OFF {
-		return false
-	}
-
-	ns, _ := c.nsLister.Get(pod.Namespace) // Nil namespace is valid, we may not care if mode is ON
-
-	return ambientpod.ShouldPodBeInIpset(ns, pod, ambientConfig.GetMode().String(), true)
 }
 
 // NewController creates a new Kubernetes controller

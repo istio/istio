@@ -25,6 +25,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
@@ -175,16 +176,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas: 1,
 					Version:  "v1",
-					Labels: map[string]string{
-						"ambient-type": "workload",
-					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
-					Labels: map[string]string{
-						"ambient-type": "workload",
-					},
 				},
 			},
 		}).
@@ -195,18 +190,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"ambient-type": "none",
-					},
+					Replicas:    1,
+					Version:     "v1",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
 				},
 				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"ambient-type": "none",
-					},
+					Replicas:    1,
+					Version:     "v2",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
 				},
 			},
 		})
@@ -273,18 +264,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
-					Replicas: 1,
-					Version:  "v1",
+					Replicas:    1,
+					Version:     "v1",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
 					Labels: map[string]string{
-						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
 				},
 				{
-					Replicas: 1,
-					Version:  "v2",
+					Replicas:    1,
+					Version:     "v2",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
 					Labels: map[string]string{
-						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
 				},

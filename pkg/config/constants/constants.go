@@ -151,6 +151,7 @@ const (
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
 
+	GatewayNameLabel             = "istio.io/gateway-name"
 	ManagedGatewayLabel          = "gateway.istio.io/managed"
 	WaypointServiceAccount       = "istio.io/for-service-account"
 	WaypointGatewayClassName     = "istio-waypoint"

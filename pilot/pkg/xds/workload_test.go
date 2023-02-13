@@ -230,10 +230,11 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
+			Annotations: map[string]string{
+				ambient.AnnotationType: ambient.TypeMesh,
+			},
 			Labels: map[string]string{
-				// TODO: shouldn't really need this
-				ambient.LabelType: ambient.TypeWorkload,
-				"app":             sa,
+				"app": sa,
 			},
 		},
 		Spec: corev1.PodSpec{

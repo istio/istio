@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
+	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
@@ -51,10 +52,9 @@ func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode s
 	return false
 }
 
-// @TODO Interim function for waypoint proxy, to be replaced after design meeting
 func PodHasOptOut(pod *corev1.Pod) bool {
-	if val, ok := pod.Labels["ambient-type"]; ok {
-		return val == "waypoint" || val == "none"
+	if val, ok := pod.Annotations[ambientmodel.AnnotationType]; ok {
+		return val != ambientmodel.TypeMesh
 	}
 	return false
 }

@@ -253,10 +253,6 @@ type testController struct {
 	network  network.ID
 }
 
-func (c testController) AmbientEnabled(pod *v1.Pod) bool {
-	return false
-}
-
 func (c testController) getPodLocality(*v1.Pod) string {
 	return c.locality
 }
