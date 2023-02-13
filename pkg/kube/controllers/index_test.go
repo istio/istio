@@ -142,5 +142,9 @@ func TestIndex(t *testing.T) {
 	// Should fully cleanup the index on deletes
 	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod2.Name, metav1.DeleteOptions{})
 	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod3.Name, metav1.DeleteOptions{})
-	assert.EventuallyEqual(t, func() int { return len(index.objects) }, 0)
+	assert.EventuallyEqual(t, func() int {
+		index.mu.RLock()
+		defer index.mu.RUnlock()
+		return len(index.objects)
+	}, 0)
 }
