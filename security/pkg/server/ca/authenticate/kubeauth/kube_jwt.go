@@ -154,14 +154,16 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT from cluster %q: %v", clusterID, err)
 	}
-	if len(id) != 2 {
-		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
+	if id.PodServiceAccount == "" {
+		return nil, fmt.Errorf("failed to parse the JWT; service account required")
 	}
-	callerNamespace := id[0]
-	callerServiceAccount := id[1]
+	if id.PodNamespace == "" {
+		return nil, fmt.Errorf("failed to parse the JWT; namespace required")
+	}
 	return &security.Caller{
-		AuthSource: security.AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), callerNamespace, callerServiceAccount)},
+		AuthSource:     security.AuthSourceIDToken,
+		Identities:     []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), id.PodNamespace, id.PodServiceAccount)},
+		KubernetesInfo: id,
 	}, nil
 }
 

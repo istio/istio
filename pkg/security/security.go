@@ -140,7 +140,14 @@ const (
 
 	// CertSigner info
 	CertSigner = "CertSigner"
+
+	// ImpersonatedIdentity declares the identity we are requesting a certificate on behalf of.
+	// This is constrained to only allow identities in CATrustedNodeAccounts, and only to impersonate identities
+	// on their node.
+	ImpersonatedIdentity = "ImpersonatedIdentity"
 )
+
+type ImpersonatedIdentityContextKey struct{}
 
 // Options provides all of the configuration parameters for secret discovery service
 // and CA configuration. Used in both Istiod and Agent.
@@ -393,6 +400,21 @@ func (ac *AuthContext) Header(header string) []string {
 type Caller struct {
 	AuthSource AuthSource
 	Identities []string
+
+	KubernetesInfo KubernetesInfo
+}
+
+// KubernetesInfo defines Kubernetes specific information extracted from the caller.
+// This involves additional metadata about the caller beyond just its SPIFFE identity.
+type KubernetesInfo struct {
+	PodName           string
+	PodNamespace      string
+	PodUID            string
+	PodServiceAccount string
+}
+
+func (k KubernetesInfo) String() string {
+	return fmt.Sprintf("Pod{Name: %s, Namespace: %s, UID: %s, ServiceAccount: %s}", k.PodName, k.PodNamespace, k.PodUID, k.PodServiceAccount)
 }
 
 // Authenticator determines the caller identity based on request context.

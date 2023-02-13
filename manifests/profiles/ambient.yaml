@@ -12,3 +12,4 @@ spec:
       env:
         PILOT_ENABLE_INBOUND_PASSTHROUGH: "false"
         PILOT_ENABLE_HBONE: "true"
+        CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
