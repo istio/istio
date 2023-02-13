@@ -17,9 +17,16 @@ package ambient
 type NodeType = string
 
 const (
-	AnnotationType          = "ambient.istio.io/type"
-	TypeMesh       NodeType = "mesh"
-	TypeDisabled   NodeType = "disabled"
-	TypeZtunnel    NodeType = "ztunnel"
-	TypeWaypoint   NodeType = "waypoint"
+	// AnnotationType determines the type of workload this is.
+	AnnotationType = "ambient.istio.io/type"
+	// TypeMesh indicates this workload is in the mesh and has redirection to ztunnel.
+	// This is added by the CNI when redirection is configured, not by the user.
+	TypeMesh NodeType = "mesh"
+	// TypeDisabled indicates this workload does NOT have redirection enabled. Workloads without any
+	// value should be assumed to be "disabled" as well, but explicitly setting this acts as an opt-out.
+	TypeDisabled NodeType = "disabled"
+	// TypeZtunnel indicates this workload is a ztunnel.
+	TypeZtunnel NodeType = "ztunnel"
+	// TypeWaypoint indicates this workload is a waypoint.
+	TypeWaypoint NodeType = "waypoint"
 )
