@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/integration/security/util/reachability"
 	util "istio.io/istio/tests/integration/telemetry"
+	"istio.io/pkg/log"
 )
 
 func IsL7() echo.Checker {
@@ -798,6 +799,7 @@ spec:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
+				log.Errorf("howardjohn: dst %v: %v", dst.Config().Service, dst.Config().IsUncaptured())
 				switch {
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject

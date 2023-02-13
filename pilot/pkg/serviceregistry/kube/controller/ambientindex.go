@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
-	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -888,7 +887,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		wl.WaypointAddresses = ips
 	}
 
-	if pod.Annotations[ambientmodel.AnnotationType] == ambientmodel.TypeMesh {
+	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
 		// Configured for override
 		wl.Protocol = workloadapi.Protocol_HTTP
 	}

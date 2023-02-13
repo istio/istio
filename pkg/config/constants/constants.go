@@ -160,4 +160,12 @@ const (
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode = "istio.io/dataplane-mode"
+
+	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
+	AmbientRedirection = "ambient.istio.io/redirection"
+	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI when it
+	// actually sets up redirection, rather than by the user.
+	AmbientRedirectionEnabled = "enabled"
+	// AmbientRedirectionDisabled is an opt-out, configured by user.
+	AmbientRedirectionDisabled = "disabled"
 )

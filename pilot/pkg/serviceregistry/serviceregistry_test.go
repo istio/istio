@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -156,9 +157,10 @@ func TestWorkloadInstances(t *testing.T) {
 	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod",
-			Namespace: namespace,
-			Labels:    labels,
+			Name:        "pod",
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: map[string]string{},
 		},
 		Status: v1.PodStatus{
 			PodIP: "1.2.3.4",
@@ -871,8 +873,9 @@ func TestWorkloadInstances(t *testing.T) {
 		m := mesh.DefaultMeshConfig()
 		var nodeMeta *model.NodeMetadata
 		if ambient {
-			m.AmbientMesh = &meshconfig.MeshConfig_AmbientMeshConfig{Mode: meshconfig.MeshConfig_AmbientMeshConfig_ON}
-			nodeMeta = &model.NodeMetadata{EnableHBONE: model.StringBool(true)}
+			nodeMeta = &model.NodeMetadata{EnableHBONE: true}
+			pod = pod.DeepCopy()
+			pod.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionEnabled
 		}
 		opts := xds.FakeOptions{DisableAmbient: !ambient, MeshConfig: m}
 		t.Run("ambient "+name, func(t *testing.T) {

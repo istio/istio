@@ -25,10 +25,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -231,7 +231,7 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 			Name:      name,
 			Namespace: "default",
 			Annotations: map[string]string{
-				ambient.AnnotationType: ambient.TypeMesh,
+				constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
 			},
 			Labels: map[string]string{
 				"app": sa,

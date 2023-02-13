@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
-	ambientmodel "istio.io/istio/pilot/pkg/ambient"
+	pconstants "istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -127,13 +127,13 @@ func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
 
 var annotationPatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":"%s"}}}`,
-	ambientmodel.AnnotationType,
-	ambientmodel.TypeMesh,
+	pconstants.AmbientRedirection,
+	pconstants.AmbientRedirectionEnabled,
 ))
 
 var annotationRemovePatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":null}}}`,
-	ambientmodel.AnnotationType,
+	pconstants.AmbientRedirection,
 ))
 
 func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
@@ -150,7 +150,7 @@ func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 }
 
 func annotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
-	if pod.Annotations[ambientmodel.AnnotationType] != ambientmodel.TypeMesh {
+	if pod.Annotations[pconstants.AmbientRedirection] != pconstants.AmbientRedirectionEnabled {
 		return nil
 	}
 	// TODO: do not overwrite if already none

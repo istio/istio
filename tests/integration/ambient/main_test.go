@@ -25,7 +25,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
@@ -192,12 +191,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 				{
 					Replicas:    1,
 					Version:     "v2",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 			},
 		})
@@ -266,7 +265,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 					Labels: map[string]string{
 						"sidecar.istio.io/inject": "true",
 					},
@@ -274,7 +273,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v2",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, ambientmodel.TypeDisabled),
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 					Labels: map[string]string{
 						"sidecar.istio.io/inject": "true",
 					},

@@ -1360,7 +1360,7 @@ data:
           template:
             metadata:
               annotations:
-                ambient.istio.io/type: waypoint
+                ambient.istio.io/redirection: disabled
                 prometheus.io/path: /stats/prometheus
                 prometheus.io/port: "15020"
                 prometheus.io/scrape: "true"

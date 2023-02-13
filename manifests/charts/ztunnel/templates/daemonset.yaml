@@ -24,7 +24,7 @@ spec:
         {{ $key }}: "{{ $val }}"
         {{- end }}
       annotations:
-        ambient.istio.io/type: ztunnel
+        ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
         {{- if .Values.ztunnel.podAnnotations }}
 {{ toYaml .Values.ztunnel.podAnnotations | indent 8 }}

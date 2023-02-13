@@ -240,7 +240,8 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 		"bookinfo-reviews",
 	})
 	waypointError := retry.UntilSuccess(func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-waypoints")); err != nil {
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-waypoints")
+		if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
 			return fmt.Errorf("gateway is not ready: %v", err)
 		}
 		return nil
