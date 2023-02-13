@@ -104,6 +104,8 @@ type classInfo struct {
 	enabled func(gw *gateway.Gateway) bool
 	// conditions to set on gateway status
 	conditions func(gw *gateway.Gateway) map[string]*Condition
+	// reportGatewayClassStatus, if enabled, will set the GatewayClass to be accepted when it is first created.
+	reportGatewayClassStatus bool
 }
 
 var classInfos = map[string]classInfo{
@@ -131,6 +133,7 @@ var classInfos = map[string]classInfo{
 			// we manage all "mesh" gateways
 			return true
 		},
+		reportGatewayClassStatus: true,
 		conditions: func(gw *gateway.Gateway) map[string]*Condition {
 			msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
 			forSa := gw.Annotations[constants.WaypointServiceAccount]
