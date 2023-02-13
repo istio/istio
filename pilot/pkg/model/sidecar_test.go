@@ -2154,7 +2154,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 	}
 }
 
-func TestRootNsSidecarDependencies(t *testing.T) {
+func TestClusterScopedSidecarDependencies(t *testing.T) {
 	cases := []struct {
 		name   string
 		egress []string
@@ -2166,6 +2166,12 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 		}},
 		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "ns1"}: false,
+		}},
+		{"WasmPlugin in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", "default"}: true,
+		}},
+		{"WasmPlugin in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", "ns1"}: false,
 		}},
 	}
 

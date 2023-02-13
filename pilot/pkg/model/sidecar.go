@@ -50,6 +50,7 @@ var (
 		kind.EnvoyFilter:           {},
 		kind.AuthorizationPolicy:   {},
 		kind.RequestAuthentication: {},
+		kind.WasmPlugin:            {},
 	}
 )
 
