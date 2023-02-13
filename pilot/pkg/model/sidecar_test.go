@@ -2154,7 +2154,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 	}
 }
 
-func TestClusterScopedSidecarDependencies(t *testing.T) {
+func TestNamespaceScopedSidecarDependencies(t *testing.T) {
 	cases := []struct {
 		name   string
 		egress []string
