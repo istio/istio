@@ -193,7 +193,7 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 	}
 
 	if err := annotateUnenrollPod(client, pod); err != nil {
-		log.Errorf("failed to annotate pod enrollment: %v", err)
+		log.Errorf("failed to annotate pod unenrollment: %v", err)
 	}
 }
 
