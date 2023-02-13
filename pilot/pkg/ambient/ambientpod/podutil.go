@@ -26,44 +26,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-func WorkloadFromPod(pod *corev1.Pod) ambient.Workload {
-	var containers, ips []string
-	for _, container := range pod.Spec.Containers {
-		containers = append(containers, container.Name)
-	}
-	for _, ip := range pod.Status.PodIPs {
-		ips = append(ips, ip.IP)
-	}
-
-	var controllerName, controllerKind string
-	for _, ref := range pod.GetOwnerReferences() {
-		if ref.Controller != nil && *ref.Controller {
-			controllerName, controllerKind = ref.Name, ref.Kind
-			break
-		}
-	}
-
-	return ambient.Workload{
-		UID:               string(pod.UID),
-		Name:              pod.Name,
-		Namespace:         pod.Namespace,
-		Labels:            pod.Labels, // TODO copy?
-		Annotations:       pod.Annotations,
-		ServiceAccount:    pod.Spec.ServiceAccountName,
-		NodeName:          pod.Spec.NodeName,
-		HostNetwork:       pod.Spec.HostNetwork,
-		PodIP:             pod.Status.PodIP,
-		PodIPs:            ips,
-		CreationTimestamp: pod.CreationTimestamp.Time,
-		WorkloadMetadata: ambient.WorkloadMetadata{
-			GenerateName:   pod.GenerateName,
-			Containers:     containers,
-			ControllerName: controllerName,
-			ControllerKind: controllerKind,
-		},
-	}
-}
-
 func hasPodIP(pod *corev1.Pod) bool {
 	return pod.Status.PodIP != ""
 }

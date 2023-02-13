@@ -29,7 +29,6 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
@@ -92,31 +90,6 @@ func NewListenerBuilder(configgen *ConfigGeneratorImpl, node *model.Proxy, push 
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node)
 	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node)
 	return builder
-}
-
-func (lb *ListenerBuilder) WithWorkload(wl ambient.Workload) *ListenerBuilder {
-	dummy := &model.Proxy{
-		ConfigNamespace: wl.Namespace,
-		Labels:          wl.Labels,
-		Type:            lb.node.Type,
-	}
-	return &ListenerBuilder{
-		node:                    lb.node,
-		push:                    lb.push,
-		gatewayListeners:        lb.gatewayListeners,
-		inboundListeners:        lb.inboundListeners,
-		outboundListeners:       lb.outboundListeners,
-		httpProxyListener:       lb.httpProxyListener,
-		virtualOutboundListener: lb.virtualOutboundListener,
-		virtualInboundListener:  lb.virtualInboundListener,
-		envoyFilterWrapper:      lb.envoyFilterWrapper,
-		authnBuilder:            lb.authnBuilder,
-		authzBuilder: authz.NewBuilderWithOptions(authz.Local, lb.push, dummy, builder.Option{
-			IsAmbient: true,
-		}),
-		authzCustomBuilder: authz.NewBuilder(authz.Custom, lb.push, dummy),
-		Discovery:          lb.Discovery,
-	}
 }
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
