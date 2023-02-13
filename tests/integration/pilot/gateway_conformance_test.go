@@ -32,23 +32,17 @@
 package pilot
 
 import (
-	"context"
-	"fmt"
-	"strings"
 	"testing"
 
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -77,7 +71,7 @@ func TestGatewayConformance(t *testing.T) {
 		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
-			DeployGatewayAPICRD(ctx)
+			crd.DeployGatewayAPIOrSkip(ctx)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
@@ -138,43 +132,4 @@ func TestGatewayConformance(t *testing.T) {
 				})
 			}
 		})
-}
-
-func DeployGatewayAPICRD(ctx framework.TestContext) {
-	if !supportsGatewayAPI(ctx) {
-		ctx.Skip("Not supported; requires CRDv1 support.")
-	}
-	if err := ctx.ConfigIstio().
-		File("", "testdata/gateway-api-crd.yaml").
-		Apply(apply.NoCleanup); err != nil {
-		ctx.Fatal(err)
-	}
-	// Wait until our GatewayClass is ready
-	retry.UntilSuccessOrFail(ctx, func() error {
-		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			crdl, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
-			if err != nil {
-				return err
-			}
-			for _, crd := range crdl.Items {
-				if !strings.HasSuffix(crd.Name, "gateway.networking.k8s.io") {
-					continue
-				}
-				found := false
-				for _, c := range crd.Status.Conditions {
-					if c.Type == apiextensions.Established && c.Status == apiextensions.ConditionTrue {
-						found = true
-					}
-				}
-				if !found {
-					return fmt.Errorf("crd %v not ready: %+v", crd.Name, crd.Status)
-				}
-			}
-		}
-		return nil
-	})
 }

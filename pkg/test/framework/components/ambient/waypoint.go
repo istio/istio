@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -62,8 +63,12 @@ func (k kubeComponent) ID() resource.ID {
 }
 
 func (k kubeComponent) Close() error {
-	k.inbound.Close()
-	k.outbound.Close()
+	if k.inbound != nil {
+		k.inbound.Close()
+	}
+	if k.outbound != nil {
+		k.outbound.Close()
+	}
 	return nil
 }
 
@@ -82,20 +87,23 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 		sa: sa,
 	}
 	server.id = ctx.TrackResource(server)
+	if err := crd.DeployGatewayAPI(ctx); err != nil {
+		return nil, err
+	}
 
 	// TODO: detect from UseWaypointProxy in echo.Config
-	if err := ctx.ConfigIstio().Eval(ns.Name(), map[string]any{
-		"name":  sa,
-		"sa":    sa,
-		"class": constants.WaypointGatewayClassName,
-	}, `apiVersion: gateway.networking.k8s.io/v1beta1
+	if err := ctx.ConfigIstio().Eval(ns.Name(), sa, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: {{.name}}
+  name: {{.}}
   annotations:
-    istio.io/for-service-account: {{.sa}}
+    istio.io/for-service-account: {{.}}
 spec:
-  gatewayClassName: {{.class}}`).Apply(apply.NoCleanup); err != nil {
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: ALL`).Apply(apply.NoCleanup); err != nil {
 		return nil, err
 	}
 	cls := ctx.Clusters().Kube().Default()

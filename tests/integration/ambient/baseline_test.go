@@ -366,7 +366,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      istio.io/gateway-name: "{{.Destination}}-istio-mesh"
+      istio.io/gateway-name: "{{.Destination}}-istio-waypoint"
   configPatches:
   - applyTo: HTTP_FILTER
     match:
