@@ -26,9 +26,11 @@ import (
 	"github.com/vishvananda/netlink"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
+	ambientmodel "istio.io/istio/pilot/pkg/ambient"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -69,7 +71,7 @@ func RouteExists(rte []string) bool {
 	return output == "1"
 }
 
-func AddPodToMesh(pod *corev1.Pod, ip string) {
+func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
 	if ip == "" {
 		ip = pod.Status.PodIP
 	}
@@ -117,9 +119,54 @@ func AddPodToMesh(pod *corev1.Pod, ip string) {
 	if err != nil {
 		log.Warnf("Failed to set rp_filter to 0 for device %s", dev)
 	}
+
+	if err := annotateEnrolledPod(client, pod); err != nil {
+		log.Errorf("failed to annotate pod enrollment: %v", err)
+	}
 }
 
-func DelPodFromMesh(pod *corev1.Pod) {
+var annotationPatch = []byte(fmt.Sprintf(
+	`{"metadata":{"annotations":{"%s":"%s"}}}`,
+	ambientmodel.AnnotationType,
+	ambientmodel.TypeMesh,
+))
+
+var annotationRemovePatch = []byte(fmt.Sprintf(
+	`{"metadata":{"annotations":{"%s":null}}}`,
+	ambientmodel.AnnotationType,
+))
+
+func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
+	_, err := client.CoreV1().
+		Pods(pod.Namespace).
+		Patch(
+			context.Background(),
+			pod.Name,
+			types.MergePatchType,
+			annotationPatch,
+			metav1.PatchOptions{},
+		)
+	return err
+}
+
+func annotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
+	if pod.Annotations[ambientmodel.AnnotationType] != ambientmodel.TypeMesh {
+		return nil
+	}
+	// TODO: do not overwrite if already none
+	_, err := client.CoreV1().
+		Pods(pod.Namespace).
+		Patch(
+			context.Background(),
+			pod.Name,
+			types.MergePatchType,
+			annotationRemovePatch,
+			metav1.PatchOptions{},
+		)
+	return err
+}
+
+func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 	log.Debugf("Removing pod '%s/%s' (%s) from mesh", pod.Name, pod.Namespace, string(pod.UID))
 	if IsPodInIpset(pod) {
 		log.Infof("Removing pod '%s' (%s) from ipset", pod.Name, string(pod.UID))
@@ -143,6 +190,10 @@ func DelPodFromMesh(pod *corev1.Pod) {
 		if err != nil {
 			log.Warnf("Failed to delete route (%s) for pod %s: %v", rte, pod.Name, err)
 		}
+	}
+
+	if err := annotateUnenrollPod(client, pod); err != nil {
+		log.Errorf("failed to annotate pod enrollment: %v", err)
 	}
 }
 

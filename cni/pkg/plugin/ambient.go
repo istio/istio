@@ -72,7 +72,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		_ = ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
 
 		for _, ip := range podIPs {
-			ambient.AddPodToMesh(pod, ip.IP.String())
+			ambient.AddPodToMesh(client, pod, ip.IP.String())
 		}
 		return true, nil
 	}

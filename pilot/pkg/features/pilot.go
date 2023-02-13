@@ -749,6 +749,3 @@ func EnableEndpointSliceController() (value bool, ok bool) {
 func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
-
-var AmbientAutolabelIgnore = env.RegisterStringVar("AMBIENT_AUTOLABEL_IGNORE", "istio-system,metallb-system,kube-system",
-	"ignored namespaces").Get()

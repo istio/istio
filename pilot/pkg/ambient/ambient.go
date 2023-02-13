@@ -17,6 +17,11 @@ package ambient
 type NodeType = string
 
 const (
+	AnnotationType = "ambient.istio.io/type"
+	TypeMesh       = "mesh"
+	TypeZtunnel    = "ztunnel"
+	// TypeWaypoint = "waypoint"
+
 	LabelStatus = "istio.io/ambient-status"
 	TypeEnabled = "enabled"
 	// LabelType == "workload" -> intercept into ztunnel

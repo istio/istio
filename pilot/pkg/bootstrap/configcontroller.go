@@ -220,9 +220,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AmbientController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
-				if ambientcontroller.EnableAutoLabel {
-					ambientcontroller.InitAutolabel(s.kubeClient, args.Namespace, leaderStop)
-				}
 				if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
 					waypointController := ambientcontroller.NewWaypointProxyController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
 

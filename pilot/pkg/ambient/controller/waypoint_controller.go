@@ -63,6 +63,8 @@ var (
 	waypointFM  = "waypoint proxy controller"
 )
 
+var log = istiolog.RegisterScope("ambient", "ambient mesh controllers", 0)
+
 func NewWaypointProxyController(client kubelib.Client, clusterID cluster.ID,
 	config func() inject.WebhookConfig, addHandler func(func()),
 ) *WaypointProxyController {
