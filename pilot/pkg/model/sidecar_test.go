@@ -2161,17 +2161,23 @@ func TestClusterScopedSidecarDependencies(t *testing.T) {
 
 		contains map[ConfigKey]bool
 	}{
-		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"AuthorizationPolicy in the same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "default"}: true,
 		}},
-		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"AuthorizationPolicy in a different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "ns1"}: false,
+		}},
+		{"AuthorizationPolicy in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.AuthorizationPolicy, "authz", constants.IstioSystemNamespace}: true,
 		}},
 		{"WasmPlugin in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.WasmPlugin, "wasm", "default"}: true,
 		}},
 		{"WasmPlugin in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.WasmPlugin, "wasm", "ns1"}: false,
+		}},
+		{"WasmPlugin in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", constants.IstioSystemNamespace}: true,
 		}},
 	}
 
