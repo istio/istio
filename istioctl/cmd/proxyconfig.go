@@ -897,26 +897,25 @@ func logCmd() *cobra.Command {
 						errs = multierror.Append(fmt.Errorf("%v.%v: %v", podName, podNamespace, err))
 					}
 					continue
+				}
+				if len(destLoggerLevels) == 0 {
+					resp, err = setupEnvoyLogConfig("", podName, podNamespace)
 				} else {
-					if len(destLoggerLevels) == 0 {
-						resp, err = setupEnvoyLogConfig("", podName, podNamespace)
-					} else {
-						if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
-							// update levels of all loggers first
-							resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
-						}
-						for lg, ll := range destLoggerLevels {
-							if lg == defaultLoggerName {
-								continue
-							}
-							resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
-						}
+					if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
+						// update levels of all loggers first
+						resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
 					}
-					if err != nil {
-						errs = multierror.Append(errs, fmt.Errorf("error configuring log level for %v.%v: %v", podName, podNamespace, err))
-					} else {
-						_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v", podName, podNamespace, resp)
+					for lg, ll := range destLoggerLevels {
+						if lg == defaultLoggerName {
+							continue
+						}
+						resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
 					}
+				}
+				if err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("error configuring log level for %v.%v: %v", podName, podNamespace, err))
+				} else {
+					_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v", podName, podNamespace, resp)
 				}
 			}
 			if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
