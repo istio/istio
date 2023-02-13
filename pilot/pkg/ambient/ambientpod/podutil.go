@@ -21,7 +21,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
