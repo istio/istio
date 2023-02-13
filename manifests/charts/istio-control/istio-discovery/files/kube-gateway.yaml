@@ -7,15 +7,14 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: {{.DeploymentName}}
+  namespace: {{.Namespace}}
   annotations:
     {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
   labels:
-    {{ toYamlMap .Labels
-      | nindent 4}}
-  name: {{ .DeploymentName }}
-  namespace: {{.Namespace}}
+    {{ toYamlMap .Labels | nindent 4}}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1alpha2
+  - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
     name: {{.Name}}
     uid: {{.UID}}
@@ -26,9 +25,10 @@ spec:
   template:
     metadata:
       annotations:
-        {{ toYamlMap
-          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
-          | nindent 8}}
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 8}}
       labels:
         {{ toYamlMap
           (strdict 
@@ -37,8 +37,7 @@ spec:
             "service.istio.io/canonical-revision" "latest"
            )
           .Labels
-          (strdict "istio.io/gateway-name" .Name)
-          | nindent 8}}
+          (strdict "istio.io/gateway-name" .Name) | nindent 8}}
     spec:
       {{- if .KubeVersion122 }}
       {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}

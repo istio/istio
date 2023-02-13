@@ -23,11 +23,6 @@ import (
 	"text/template"
 	"time"
 
-	meshapi "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/istio/pkg/util/sets"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,12 +38,17 @@ import (
 	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -109,7 +109,7 @@ type infos struct {
 }
 
 var info = map[string]infos{
-	DefaultClassName: infos{
+	DefaultClassName: {
 		controller: ControllerName,
 		templates:  "kube-gateway",
 		enabled: func(gw *gateway.Gateway) bool {
@@ -117,7 +117,7 @@ var info = map[string]infos{
 			return IsManaged(&gw.Spec)
 		},
 	},
-	constants.WaypointGatewayClassName: infos{
+	constants.WaypointGatewayClassName: {
 		controller: constants.ManagedGatewayMeshController,
 		templates:  "waypoint",
 		enabled: func(gw *gateway.Gateway) bool {
@@ -126,6 +126,7 @@ var info = map[string]infos{
 		},
 	},
 }
+
 var knownControllers = func() sets.String {
 	res := sets.New[string]()
 	for _, v := range info {
@@ -285,7 +286,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		return fmt.Errorf("failed to render template: %v", err)
 	}
 	for _, t := range rendered {
-		if err := d.apply(t); err != nil {
+		if err := d.apply(gi.controller, t); err != nil {
 			return fmt.Errorf("apply failed: %v", err)
 		}
 	}
@@ -374,7 +375,7 @@ func (d *DeploymentController) render(templateName string, mi MergedInput) ([]st
 }
 
 // ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) apply(yml string) error {
+func (d *DeploymentController) apply(controller string, yml string) error {
 	data := map[string]any{}
 	err := yaml.Unmarshal([]byte(yml), &data)
 	if err != nil {
@@ -382,7 +383,8 @@ func (d *DeploymentController) apply(yml string) error {
 	}
 	us := unstructured.Unstructured{Object: data}
 	// set managed-by label
-	err = unstructured.SetNestedField(us.Object, ManagedByControllerValue, "metadata", "labels", ManagedByControllerLabel)
+	clabel := strings.ReplaceAll(controller, "/", "-")
+	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", ManagedByControllerLabel)
 	if err != nil {
 		return err
 	}
