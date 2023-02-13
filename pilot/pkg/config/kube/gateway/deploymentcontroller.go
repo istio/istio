@@ -50,11 +50,6 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-const (
-	ManagedByControllerLabel = "gateway.istio.io/managed"
-	ManagedByControllerValue = "istio.io-gateway-controller"
-)
-
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
 // to serve requests from. This is implemented with a Deployment and Service today.
 // The implementation makes a few non-obvious choices - namely using Server Side Apply from go templates
@@ -107,6 +102,8 @@ type classInfo struct {
 	templates string
 	// enabled determines if we should handle a gateway
 	enabled func(gw *gateway.Gateway) bool
+	// conditions to set on gateway status
+	conditions func(gw *gateway.Gateway) map[string]*Condition
 }
 
 var classInfos = map[string]classInfo{
@@ -117,6 +114,15 @@ var classInfos = map[string]classInfo{
 			// Some gateways are manually managed, ignore them
 			return IsManaged(&gw.Spec)
 		},
+		conditions: func(gw *gateway.Gateway) map[string]*Condition {
+			return map[string]*Condition{
+				// Just mark it as accepted, rest are set by the controller reading Gateway
+				string(gateway.GatewayConditionAccepted): {
+					Reason:  string(gateway.GatewayReasonAccepted),
+					Message: "Deployed gateway to the cluster",
+				},
+			}
+		},
 	},
 	constants.WaypointGatewayClassName: {
 		controller: constants.ManagedGatewayMeshController,
@@ -124,6 +130,32 @@ var classInfos = map[string]classInfo{
 		enabled: func(gw *gateway.Gateway) bool {
 			// we manage all "mesh" gateways
 			return true
+		},
+		conditions: func(gw *gateway.Gateway) map[string]*Condition {
+			msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
+			forSa := gw.Annotations[constants.WaypointServiceAccount]
+			if forSa != "" {
+				msg += fmt.Sprintf(" for %q service account", forSa)
+			}
+			accept := msg
+			if unexpectedWaypointListener(gw) {
+				accept += "; WARN: expected a single listener on port 15008 with protocol \"ALL\""
+			}
+			// For waypoint, we don't have another controller setting status, so set all fields
+			return map[string]*Condition{
+				string(gateway.GatewayConditionReady): {
+					Reason:  string(gateway.GatewayReasonReady),
+					Message: msg,
+				},
+				string(gateway.ListenerConditionProgrammed): {
+					Reason:  string(gateway.GatewayReasonProgrammed),
+					Message: msg,
+				},
+				string(gateway.GatewayConditionAccepted): {
+					Reason:  string(gateway.GatewayReasonAccepted),
+					Message: accept,
+				},
+			}
 		},
 	},
 }
@@ -292,6 +324,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		}
 	}
 
+	cond := gi.conditions(&gw)
 	gws := &gateway.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
@@ -302,17 +335,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 			Namespace: gw.Namespace,
 		},
 		Status: gateway.GatewayStatus{
-			Conditions: SetConditions(gw.Generation, nil, map[string]*Condition{
-				string(gateway.GatewayConditionAccepted): {
-					Reason:  string(gateway.GatewayReasonAccepted),
-					Message: "Deployed gateway to the cluster",
-				},
-				// nolint: staticcheck // Deprecated condition, set both until 1.17
-				string(gateway.GatewayConditionScheduled): {
-					Reason:  "ResourcesAvailable",
-					Message: "Deployed gateway to the cluster",
-				},
-			}),
+			Conditions: SetConditions(gw.Generation, nil, cond),
 		},
 	}
 	if err := d.ApplyObject(gws, "status"); err != nil {
@@ -386,7 +409,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	us := unstructured.Unstructured{Object: data}
 	// set managed-by label
 	clabel := strings.ReplaceAll(controller, "/", "-")
-	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", ManagedByControllerLabel)
+	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", constants.ManagedGatewayLabel)
 	if err != nil {
 		return err
 	}
@@ -457,4 +480,22 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		})
 	}
 	return svcPorts
+}
+
+// Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
+// We don't *really* care about the listener, but it may make sense to add a warning if users do not
+// configure it in an expected way so that we have consistency and can make changes in the future as needed.
+// We could completely reject but that seems more likely to cause pain.
+func unexpectedWaypointListener(gw *gateway.Gateway) bool {
+	if len(gw.Spec.Listeners) != 1 {
+		return true
+	}
+	l := gw.Spec.Listeners[0]
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != "ALL" {
+		return true
+	}
+	return false
 }
