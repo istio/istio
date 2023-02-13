@@ -21,9 +21,7 @@ import (
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
 	authzpb "istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -163,52 +161,6 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 			}
 		}
 	}
-}
-
-// Update rules for ambient based on listener name. Because the Waypoint Proxy receives
-// the destination as envoy://listener_name/, Envoy will not have a port to evaluate. This
-// will precalculate the RBAC rules with regard to destination port for any matches and replace
-// as necessary. For not matches, we add an `any: true` as it will always match. For value match,
-// we replace with a nil, which the generator replaces with an `any: true` if there are no other
-// rules to evaluate. We leave non-matching ports so they do not match any requests.
-func (m *Model) AmbientDestinationPortAdaptations(listenerName string) {
-	// Extract port from listener name (e.g. inbound-pod|80||10.244.2.4)
-	_, _, _, portInt := model.ParseSubsetKey(listenerName)
-	port := fmt.Sprint(portInt) // the value and notValues from permissions is a string
-
-	count := 0
-	for i, p := range m.permissions {
-		for j, r := range p.rules {
-			if r.key == attrDestPort {
-				if len(r.values) == 0 && len(r.notValues) == 0 {
-					continue
-				}
-				for _, v := range r.values {
-					// Check if v matches the extracted port
-					if v == port {
-						// We do not use anyGenerator here, as this will always insert a `any: true` rule, which will
-						// always match. If we leave nil, nil, the permission generator inserts an `any: true`
-						m.permissions[i].replaceRule(j, destPortGenerator{}, attrDestPort, nil, nil)
-						count++
-						break
-					}
-				}
-
-				for _, v := range r.notValues {
-					// Check if v matches the extracted port
-					if v == port {
-						// We insert an any rule here, which will always match, because a matching notPorts will always have
-						// a match in this case
-						m.permissions[i].replaceRule(j, anyGenerator{}, attrAny, nil, []string{""})
-						count++
-						break
-					}
-				}
-			}
-		}
-	}
-
-	log.Infof("Updated %d ambient rules for listener %s", count, listenerName)
 }
 
 // Generate generates the Envoy RBAC config from the model.

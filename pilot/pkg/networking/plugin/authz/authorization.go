@@ -86,7 +86,7 @@ func (b *Builder) BuildTCP() []*listener.Filter {
 	return b.tcpFilters
 }
 
-func (b *Builder) BuildHTTPWithListener(class networking.ListenerClass, listener string) []*hcm.HttpFilter {
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	if b == nil || b.builder == nil {
 		return nil
 	}
@@ -98,15 +98,7 @@ func (b *Builder) BuildHTTPWithListener(class networking.ListenerClass, listener
 		return b.httpFilters
 	}
 	b.httpBuilt = true
-	if listener != "" {
-		b.httpFilters = b.builder.BuildHTTPAmbient(listener)
-	} else {
-		b.httpFilters = b.builder.BuildHTTP()
-	}
+	b.httpFilters = b.builder.BuildHTTP()
 
 	return b.httpFilters
-}
-
-func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
-	return b.BuildHTTPWithListener(class, "")
 }

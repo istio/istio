@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -845,12 +844,6 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
-	}
-
-	// Never set telemetry filters on the pod listener for ambient. They should
-	// only apply in the internal inbound-vip listener.
-	if strings.HasPrefix(cc.clusterName, string(model.TrafficDirectionInboundPod)) && lb.node.IsAmbient() {
-		httpOpts.skipTelemetryFilters = true
 	}
 
 	return httpOpts
