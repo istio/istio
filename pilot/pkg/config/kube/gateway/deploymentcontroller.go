@@ -15,12 +15,10 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
-	"text/template"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -83,7 +81,6 @@ const (
 type DeploymentController struct {
 	client             kube.Client
 	queue              controllers.Queue
-	templates          *template.Template
 	patcher            Patcher
 	gatewayLister      lister.GatewayLister
 	gatewayClassLister lister.GatewayClassLister
@@ -102,13 +99,17 @@ type DeploymentController struct {
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
 type Patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
-type infos struct {
+// classInfo holds information about a gateway class
+type classInfo struct {
+	// controller name for this class
 	controller string
-	templates  string
-	enabled    func(gw *gateway.Gateway) bool
+	// The key in the templates to use for this class
+	templates string
+	// enabled determines if we should handle a gateway
+	enabled func(gw *gateway.Gateway) bool
 }
 
-var info = map[string]infos{
+var classInfos = map[string]classInfo{
 	DefaultClassName: {
 		controller: ControllerName,
 		templates:  "kube-gateway",
@@ -129,7 +130,7 @@ var info = map[string]infos{
 
 var knownControllers = func() sets.String {
 	res := sets.New[string]()
-	for _, v := range info {
+	for _, v := range classInfos {
 		res.Insert(v.controller)
 	}
 	return res
@@ -141,8 +142,7 @@ func NewDeploymentController(client kube.Client, webhookConfig func() inject.Web
 	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
 	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	dc := &DeploymentController{
-		client:    client,
-		templates: processTemplates(),
+		client: client,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -176,6 +176,7 @@ func NewDeploymentController(client kube.Client, webhookConfig func() inject.Web
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
+				// All types of gateways have this label
 				options.LabelSelector = constants.ManagedGatewayLabel
 			},
 		)
@@ -239,8 +240,8 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 			return nil
 		}
 	} else {
-		// Didn't find gateway class, and it wasn't an implicitly know one
-		if _, f := info[string(gw.Spec.GatewayClassName)]; !f {
+		// Didn't find gateway class, and it wasn't an implicitly known one
+		if _, f := classInfos[string(gw.Spec.GatewayClassName)]; !f {
 			return nil
 		}
 	}
@@ -252,7 +253,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	gi, f := info[string(gw.Spec.GatewayClassName)]
+	gi, f := classInfos[string(gw.Spec.GatewayClassName)]
 	if !f {
 		return nil
 	}
@@ -273,7 +274,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		gatewaySA = saOverride
 	}
 
-	input := MergedInput{
+	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: deploymentName,
 		ServiceAccount: gatewaySA,
@@ -321,7 +322,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	return nil
 }
 
-func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
+func (d *DeploymentController) RenderServiceAccountApply(input TemplateInput) *corev1ac.ServiceAccountApplyConfiguration {
 	// TODO: GregHanson
 	// race condition with pod delete and service account delete, need to re-add owner reference labels once resolved
 	// related issues:
@@ -338,7 +339,7 @@ func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *cor
 }
 
 type derivedInput struct {
-	MergedInput
+	TemplateInput
 
 	// Inserted from injection config
 	ProxyImage  string
@@ -347,7 +348,7 @@ type derivedInput struct {
 	Values      map[string]any
 }
 
-func (d *DeploymentController) render(templateName string, mi MergedInput) ([]string, error) {
+func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
 	cfg := d.injectConfig()
 
 	// TODO watch for template changes, update the Deployment if it does
@@ -356,7 +357,7 @@ func (d *DeploymentController) render(templateName string, mi MergedInput) ([]st
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 	input := derivedInput{
-		MergedInput: mi,
+		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
 			cfg.Values.Struct(),
 			cfg.MeshConfig.GetDefaultConfig().GetImage(),
@@ -374,9 +375,10 @@ func (d *DeploymentController) render(templateName string, mi MergedInput) ([]st
 	return yml.SplitString(results), nil
 }
 
-// ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
+// apply server-side applies a template to the cluster.
 func (d *DeploymentController) apply(controller string, yml string) error {
 	data := map[string]any{}
+	fmt.Println(yml)
 	err := yaml.Unmarshal([]byte(yml), &data)
 	if err != nil {
 		return err
@@ -399,39 +401,9 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 
 	log.Debugf("applying %v", string(j))
 	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
-		return fmt.Errorf("patch %v/%v: %v", us.GetNamespace(), us.GetName(), err)
+		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)
 	}
 	return nil
-}
-
-// ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyTemplate(template string, input metav1.Object, subresources ...string) error {
-	var buf bytes.Buffer
-	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
-		return err
-	}
-	data := map[string]any{}
-	err := yaml.Unmarshal(buf.Bytes(), &data)
-	if err != nil {
-		return err
-	}
-	us := unstructured.Unstructured{Object: data}
-	// set managed-by label
-	err = unstructured.SetNestedField(us.Object, ManagedByControllerValue, "metadata", "labels", ManagedByControllerLabel)
-	if err != nil {
-		return err
-	}
-	gvr, err := controllers.UnstructuredToGVR(us)
-	if err != nil {
-		return err
-	}
-	j, err := json.Marshal(us.Object)
-	if err != nil {
-		return err
-	}
-
-	log.Debugf("applying %v", string(j))
-	return d.patcher(gvr, us.GetName(), input.GetNamespace(), j, subresources...)
 }
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
@@ -450,21 +422,7 @@ func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources 
 	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
-// Merge maps merges multiple maps. Latter maps take precedence over previous maps on overlapping fields
-func mergeMaps(maps ...map[string]string) map[string]string {
-	if len(maps) == 0 {
-		return nil
-	}
-	res := make(map[string]string, len(maps[0]))
-	for _, m := range maps {
-		for k, v := range m {
-			res[k] = v
-		}
-	}
-	return res
-}
-
-type MergedInput struct {
+type TemplateInput struct {
 	*gateway.Gateway
 	DeploymentName string
 	ServiceAccount string

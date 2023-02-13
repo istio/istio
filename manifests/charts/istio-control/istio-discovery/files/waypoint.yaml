@@ -17,7 +17,7 @@ metadata:
   - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
     name: {{.Name}}
-    uid: {{.UID}}
+    uid: "{{.UID}}"
 spec:
   selector:
     matchLabels:
@@ -25,11 +25,14 @@ spec:
   template:
     metadata:
       annotations:
-        ambient.istio.io/redirection: disabled
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15020"
-        prometheus.io/scrape: "true"
-        {{ toYamlMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 8}}
+        {{ toYamlMap
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") 
+          (strdict
+            "ambient.istio.io/redirection": "disabled"
+            "prometheus.io/path" "/stats/prometheus"
+            "prometheus.io/port" "15020"
+            "prometheus.io/scrape" "true"
+          ) | nindent 8 }}
       labels:
         {{ toYamlMap
           (strdict
