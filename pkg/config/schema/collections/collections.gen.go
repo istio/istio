@@ -502,6 +502,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SCoreV1Serviceaccounts describes the collection
+	// k8s/core/v1/serviceaccounts
+	K8SCoreV1Serviceaccounts = collection.Builder{
+		Name:         "k8s/core/v1/serviceaccounts",
+		VariableName: "K8SCoreV1Serviceaccounts",
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "ServiceAccount",
+			Plural:        "serviceaccounts",
+			Version:       "v1",
+			Proto:         "k8s.io.api.core.v1.ServiceAccount",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceAccount{}).Elem(),
+			ProtoPackage:  "k8s.io/api/core/v1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
 	K8SCoreV1Services = collection.Builder{
 		Name:         "k8s/core/v1/services",
@@ -681,6 +699,7 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Serviceaccounts).
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
@@ -722,6 +741,7 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Serviceaccounts).
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
@@ -744,6 +764,7 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Serviceaccounts).
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		Build()

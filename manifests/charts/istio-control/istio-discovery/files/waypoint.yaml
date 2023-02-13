@@ -1,7 +1,13 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ .ServiceAccount }}"
+  namespace: "{{.Namespace}}"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{.Name}}
+  name: {{.DeploymentName}}
   namespace: {{.Namespace}}
   labels:
     gateway.istio.io/managed: "istio.io-mesh-controller"
@@ -9,7 +15,7 @@ metadata:
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
-    name: {{.GatewayName}}
+    name: {{.Name}}
     uid: "{{.UID}}"
 spec:
   selector:
@@ -22,7 +28,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        {{with .ForServiceAccount}}istio.io/for-service-account: "{{.}}"{{end}}
+        {{with (index .ObjectMeta.Annotations "istio.io/for-service-account") }}istio.io/for-service-account: "{{.}}"{{end}}
       labels:
         gateway.istio.io/managed: "istio.io-mesh-controller"
         istio.io/gateway-name: "{{.GatewayName}}"
@@ -35,12 +41,15 @@ spec:
         - proxy
         - waypoint
         - --domain
-        - $(POD_NAMESPACE).svc.cluster.local
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - {{.ServiceAccount}}.$(POD_NAMESPACE)
-        - --proxyLogLevel=warning
-        - --proxyComponentLogLevel=misc:error
-        - --trust-domain=cluster.local
+        - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
+        - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
+        - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+        {{- if .Values.global.logAsJson }}
+        - --log_as_json
+        {{- end }}
         - --concurrency
         - "2"
         env:
@@ -53,11 +62,15 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         - name: JWT_POLICY
-          value: third-party-jwt
+          value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
-          value: istiod
+          value: {{ .Values.global.pilotCertProvider }}
         - name: CA_ADDR
-          value: istiod.istio-system.svc:15012
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+        {{- end }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -78,35 +91,26 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: CANONICAL_SERVICE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-name']
-        - name: CANONICAL_REVISION
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-revision']
-        - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-            ]
-        - name: ISTIO_META_APP_CONTAINERS
-          value: proxy
-        - name: ISTIO_META_CLUSTER_ID
-          value: {{.Cluster}}
-        - name: ISTIO_META_INTERCEPTION_MODE
-          value: REDIRECT
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: {{.Name}}
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.Name}}
-        - name: ISTIO_META_MESH_ID
-          value: cluster.local
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
-        image: {{.Image}}
-        {{with .ImagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+        - name: ISTIO_META_CLUSTER_ID
+          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: {{.DeploymentName}}
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}
+        {{- if .Values.global.meshID }}
+        - name: ISTIO_META_MESH_ID
+          value: "{{ .Values.global.meshID }}"
+        {{- else if (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
+        - name: ISTIO_META_MESH_ID
+          value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
+        {{- end }}
+        image: {{.ProxyImage}}
+        {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         name: istio-proxy
         resources:
           limits:
@@ -184,3 +188,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}

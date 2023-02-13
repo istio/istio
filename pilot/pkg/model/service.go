@@ -804,7 +804,7 @@ func (a *AmbientSnapshot) matchesScope(scope WaypointScope, w *WorkloadInfo) boo
 		return false
 	}
 	// Filter out waypoints.
-	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
+	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		return false
 	}
 	return true

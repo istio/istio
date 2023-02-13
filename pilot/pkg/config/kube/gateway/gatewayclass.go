@@ -17,6 +17,9 @@ package gateway
 import (
 	"context"
 
+	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/istiomultierror"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +43,12 @@ type ClassController struct {
 	directClient gatewayclient.GatewayClassInterface
 }
 
+// Classes contains a mapping of known classes to controller names
+var Classes = map[string]string{
+	DefaultClassName:                   ControllerName,
+	constants.WaypointGatewayClassName: constants.ManagedGatewayMeshController,
+}
+
 func NewClassController(client kube.Client) *ClassController {
 	gc := &ClassController{}
 	gc.queue = controllers.NewQueue("gateway class",
@@ -51,41 +60,50 @@ func NewClassController(client kube.Client) *ClassController {
 	gc.directClient = client.GatewayAPI().GatewayV1beta1().GatewayClasses()
 	_, _ = class.Informer().
 		AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-			return o.GetName() == DefaultClassName
+			_, f := Classes[o.GetName()]
+			return f
 		}))
 	return gc
 }
 
 func (c *ClassController) Run(stop <-chan struct{}) {
 	// Ensure we initially reconcile the current state
-	c.queue.Add(types.NamespacedName{Name: DefaultClassName})
+	c.queue.Add(types.NamespacedName{})
 	c.queue.Run(stop)
 }
 
-func (c *ClassController) Reconcile(name types.NamespacedName) error {
-	_, err := c.classes.Get(DefaultClassName)
+func (c *ClassController) Reconcile(types.NamespacedName) error {
+	err := istiomultierror.New()
+	for class := range Classes {
+		err = multierror.Append(err, c.reconcileClass(class))
+	}
+	return err.ErrorOrNil()
+}
+
+func (c *ClassController) reconcileClass(class string) error {
+	_, err := c.classes.Get(class)
 	if err := controllers.IgnoreNotFound(err); err != nil {
 		log.Errorf("unable to fetch GatewayClass: %v", err)
 		return err
 	}
 	if !kerrors.IsNotFound(err) {
-		log.Debugf("GatewayClass/%v already exists, no action", DefaultClassName)
+		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
 	desc := "The default Istio GatewayClass"
 	gc := &gateway.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: DefaultClassName,
+			Name: class,
 		},
 		Spec: gateway.GatewayClassSpec{
-			ControllerName: ControllerName,
+			ControllerName: gateway.GatewayController(Classes[class]),
 			Description:    &desc,
 		},
 	}
 	_, err = c.directClient.Create(context.Background(), gc, metav1.CreateOptions{})
 	if kerrors.IsConflict(err) {
 		// This is not really an error, just a race condition
-		log.Infof("Attempted to create GatewayClass/%v, but it was already created", DefaultClassName)
+		log.Infof("Attempted to create GatewayClass/%v, but it was already created", class)
 		return nil
 	}
 	return err

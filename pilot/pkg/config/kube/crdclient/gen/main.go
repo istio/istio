@@ -171,6 +171,7 @@ var (
 		"nodes":                         "Nodes",
 		"secrets":                       "Secrets",
 		"ingresses":                     "Ingresses",
+		"serviceaccounts":               "ServiceAccount",
 	}
 	clientGoTypeOverrides = map[string]string{
 		"ReferencePolicy": "ReferenceGrantSpec",
@@ -180,6 +181,7 @@ var (
 		"secrets":                       {},
 		"endpoints":                     {},
 		"configmaps":                    {},
+		"serviceaccounts":               {},
 		"mutatingwebhookconfigurations": {},
 	}
 )
