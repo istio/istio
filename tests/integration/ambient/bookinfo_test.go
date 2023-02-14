@@ -198,7 +198,7 @@ func TestBookinfo(t *testing.T) {
 			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
 				// check that waypoint deployment is unmodified
 				g := gomega.NewGomegaWithT(t)
-				pod, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-waypoints")()
+				pod, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 				haveEnvVar := gomega.ContainElement(gomega.BeEquivalentTo(v1.EnvVar{Name: "FOO", Value: "bar"}))
 				g.Expect(pod[0].Spec.Containers[0].Env).NotTo(haveEnvVar)
@@ -209,7 +209,7 @@ func TestBookinfo(t *testing.T) {
 				}, cleanup.Conditionally)
 				// wait to see modified waypoint deployment
 				getPodEnvVars := func() []v1.EnvVar {
-					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-waypoints")()
+					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
 					g.Expect(err).NotTo(gomega.HaveOccurred())
 					var result []v1.EnvVar
 					// if old pods haven't shut down yet, include all pods env vars
@@ -240,7 +240,7 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 		"bookinfo-reviews",
 	})
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-waypoints")
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")
 		if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
 			return fmt.Errorf("gateway is not ready: %v", err)
 		}
