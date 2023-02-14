@@ -410,8 +410,8 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 
 	// Last filter must be router.
 	router := h.HttpFilters[len(h.HttpFilters)-1]
-	h.HttpFilters = append(pre, h.HttpFilters...)
-	h.HttpFilters = append(h.HttpFilters[:len(h.HttpFilters)-1], post...)
+	h.HttpFilters = append(pre, h.HttpFilters[:len(h.HttpFilters)-1]...)
+	h.HttpFilters = append(h.HttpFilters, post...)
 	h.HttpFilters = append(h.HttpFilters, router)
 
 	filters = append(filters, &listener.Filter{
