@@ -22,8 +22,9 @@ fail() {
 }
 
 API_TMP="$(mktemp -d -u)"
+GATEWAY_API_TMP="$(mktemp -d -u)"
 
-trap 'rm -rf "${API_TMP}"' EXIT
+trap 'rm -rf "${API_TMP}" && rm -rf "${GATEWAY_API_TMP}"' EXIT
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
@@ -51,3 +52,15 @@ if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
 fi
 rm -f "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
 cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
+
+cd "${ROOTDIR}"
+GATEWAY_VER=$(grep "sigs.k8s.io/gateway-api" go.mod | head -n1 | awk -F " " '{print $NF}')
+GATEWAY_REPO="github.com/kubernetes-sigs/gateway-api"
+git clone "https://${GATEWAY_REPO}" "${GATEWAY_API_TMP}" && cd "${GATEWAY_API_TMP}"
+git checkout "${GATEWAY_VER}"
+if [ ! -f "${GATEWAY_API_TMP}/config/crd/experimental/kustomization.yaml" ]; then
+  echo "The kustomization.yaml file does not exist in the version ${GATEWAY_VER}. Not updating the CRD file."
+  exit
+fi
+rm -f "${ROOTDIR}/manifests/charts/base/crds/crd-gateway-api.yaml"
+kubectl kustomize "${GATEWAY_API_TMP}/config/crd/experimental" > "${ROOTDIR}/manifests/charts/base/crds/crd-gateway-api.yaml"
