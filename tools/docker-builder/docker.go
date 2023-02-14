@@ -172,7 +172,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if err != nil {
 			return fmt.Errorf("command failed: %v", err)
 		}
-		matches := regexp.MustCompile(`Driver: (.*)`).FindStringSubmatch(out.String())
+		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
 			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
 				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3" +
