@@ -386,11 +386,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
-
-		var httpauthz []*hcm.HttpFilter
-		httpauthz = lb.authzBuilder.BuildHTTP(httpOpts.class)
-		filters = append(filters, httpauthz...)
-
+		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)

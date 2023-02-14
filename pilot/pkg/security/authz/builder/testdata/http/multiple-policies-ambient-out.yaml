@@ -59,7 +59,10 @@ typedConfig:
         permissions:
         - andRules:
             rules:
-            - any: true
+            - orRules:
+                rules:
+                - destinationPort: 80
+                - destinationPort: 90
         principals:
         - andIds:
             ids:

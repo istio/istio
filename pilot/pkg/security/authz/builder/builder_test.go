@@ -279,12 +279,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
-			var got []*hcm.HttpFilter
-			if tc.ambient {
-				got = g.BuildHTTPAmbient(tc.listener)
-			} else {
-				got = g.BuildHTTP()
-			}
+			got := g.BuildHTTP()
 			verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
 		})
 	}

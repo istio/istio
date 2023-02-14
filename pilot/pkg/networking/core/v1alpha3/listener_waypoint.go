@@ -351,22 +351,17 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
 // Authn/authz filters are pre-pended. Telemetry filters are appended.
 func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
-	// TODO(): consider dedicated listener class for waypoint filters
+	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 		Class: cls,
 	})
-
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHN)
 	pre = append(pre, lb.authnBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHZ)
-
-	var httpauthz []*hcm.HttpFilter
-	httpauthz = lb.authzBuilder.BuildHTTP(cls)
-	pre = append(pre, httpauthz...)
-
+	pre = append(pre, lb.authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppend(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppend(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
