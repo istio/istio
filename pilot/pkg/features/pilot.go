@@ -418,9 +418,6 @@ var (
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
-	EnableCAServer = env.Register("ENABLE_CA_SERVER", true,
-		"If this is set to false, will not create CA server in istiod.").Get()
-
 	EnableDebugOnHTTP = env.Register("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
 

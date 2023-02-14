@@ -267,7 +267,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		caOpts.ExternalCASigner = k8sSigner
 	}
 	// CA signing certificate must be created first if needed.
-	if err := s.maybeCreateCA(caOpts); err != nil {
+	if err := s.maybeCreateCA(caOpts, args.ServerOptions.TLSOptions); err != nil {
 		return nil, err
 	}
 
@@ -954,7 +954,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 			log.Errorf("error initializing certificate watches: %v", err)
 			return nil
 		}
-	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
+	} else if features.PilotCertProvider == constants.CertProviderIstiod {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
 		err = s.initDNSCerts()
 	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
@@ -1147,9 +1147,9 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
-func (s *Server) maybeCreateCA(caOpts *caOptions) error {
-	// CA signing certificate must be created only if CA is enabled.
-	if features.EnableCAServer {
+func (s *Server) maybeCreateCA(caOpts *caOptions, tlsOptions TLSOptions) error {
+	// CA signing certificate must be created only if custom certificates are not provided
+	if hasCustomCertArgsOrWellKnown, _, _, _ := hasCustomTLSCerts(tlsOptions); !hasCustomCertArgsOrWellKnown {
 		log.Info("creating CA and initializing public key")
 		var err error
 		if useRemoteCerts.Get() {

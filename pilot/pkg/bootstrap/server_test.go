@@ -110,7 +110,6 @@ func TestNewServerCertInit(t *testing.T) {
 		name                      string
 		FSCertsPaths              TLSFSLoadPaths
 		tlsOptions                *TLSOptions
-		enableCA                  bool
 		certProvider              string
 		expNewCert                bool
 		expCert                   []byte
@@ -125,7 +124,6 @@ func TestNewServerCertInit(t *testing.T) {
 				KeyFile:    tlsArgkeyFile,
 				CaCertFile: tlsArgcaCertFile,
 			},
-			enableCA:                  false,
 			certProvider:              constants.CertProviderKubernetes,
 			expNewCert:                false,
 			expCert:                   testcerts.ServerCert,
@@ -133,29 +131,14 @@ func TestNewServerCertInit(t *testing.T) {
 			expSecureDiscoveryService: true,
 		},
 		{
-			name:         "Create new DNS cert using Istiod",
-			FSCertsPaths: TLSFSLoadPaths{},
-			tlsOptions: &TLSOptions{
-				CertFile:   "",
-				KeyFile:    "",
-				CaCertFile: "",
-			},
-			enableCA:                  true,
+			name:                      "Create new DNS cert using Istiod",
+			FSCertsPaths:              TLSFSLoadPaths{},
+			tlsOptions:                &TLSOptions{},
 			certProvider:              constants.CertProviderIstiod,
 			expNewCert:                true,
 			expCert:                   []byte{},
 			expKey:                    []byte{},
 			expSecureDiscoveryService: true,
-		},
-		{
-			name:         "No DNS cert created because CA is disabled",
-			FSCertsPaths: TLSFSLoadPaths{},
-			tlsOptions:   &TLSOptions{},
-			enableCA:     false,
-			certProvider: constants.CertProviderIstiod,
-			expNewCert:   false,
-			expCert:      []byte{},
-			expKey:       []byte{},
 		},
 		{
 			name: "DNS cert loaded because it is in known even if CA is Disabled",
@@ -165,7 +148,6 @@ func TestNewServerCertInit(t *testing.T) {
 				constants.DefaultPilotTLSCaCert,
 			},
 			tlsOptions:                &TLSOptions{},
-			enableCA:                  false,
 			certProvider:              constants.CertProviderNone,
 			expNewCert:                false,
 			expCert:                   testcerts.ServerCert,
@@ -180,7 +162,6 @@ func TestNewServerCertInit(t *testing.T) {
 				constants.DefaultPilotTLSCaCertAlternatePath,
 			},
 			tlsOptions:                &TLSOptions{},
-			enableCA:                  false,
 			certProvider:              constants.CertProviderNone,
 			expNewCert:                false,
 			expCert:                   testcerts.ServerCert,
@@ -191,7 +172,6 @@ func TestNewServerCertInit(t *testing.T) {
 			name:         "No cert provider",
 			FSCertsPaths: TLSFSLoadPaths{},
 			tlsOptions:   &TLSOptions{},
-			enableCA:     true,
 			certProvider: constants.CertProviderNone,
 			expNewCert:   false,
 			expCert:      []byte{},
@@ -202,7 +182,6 @@ func TestNewServerCertInit(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
-			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 
 			// check if we have some tls assets to write for test
 			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
