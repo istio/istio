@@ -20,15 +20,12 @@ FROM ${BASE_DISTRIBUTION:-debug}
 
 WORKDIR /
 
-ARG proxy_version
 ARG istio_version
 
 # Install ztunnel.
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/ztunnel /usr/local/bin/ztunnel
 
-# Environment variable indicating the exact proxy sha - for debugging or version-specific configs
-ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 # Environment variable indicating the exact build, for debugging
 ENV ISTIO_META_ISTIO_VERSION $istio_version
 
