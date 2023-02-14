@@ -214,9 +214,17 @@ spec:
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
         securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
           capabilities:
+            drop:
+            - ALL
             add:
             - NET_ADMIN
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
         readinessProbe:
           httpGet:
             port: 15021
