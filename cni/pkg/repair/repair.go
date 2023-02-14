@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/multierr"
+	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client "k8s.io/client-go/kubernetes"
@@ -48,12 +48,13 @@ func newBrokenPodReconciler(client client.Interface, cfg *config.RepairConfig) b
 func (bpr brokenPodReconciler) ReconcilePod(pod corev1.Pod) (err error) {
 	repairLog.Debugf("Reconciling pod %s", pod.Name)
 
+	var multierr *multierror.Error
 	if bpr.cfg.DeletePods {
-		err = multierr.Append(err, bpr.deleteBrokenPod(pod))
+		multierr = multierror.Append(err, bpr.deleteBrokenPod(pod))
 	} else if bpr.cfg.LabelPods {
-		err = multierr.Append(err, bpr.labelBrokenPod(pod))
+		multierr = multierror.Append(err, bpr.labelBrokenPod(pod))
 	}
-	return err
+	return multierr.ErrorOrNil()
 }
 
 // Label all pods detected as broken by ListPods with a customizable label
@@ -64,10 +65,11 @@ func (bpr brokenPodReconciler) LabelBrokenPods() (err error) {
 		return err
 	}
 
+	var multierr *multierror.Error
 	for _, pod := range podList.Items {
-		err = multierr.Append(err, bpr.labelBrokenPod(pod))
+		multierr = multierror.Append(err, bpr.labelBrokenPod(pod))
 	}
-	return err
+	return multierr.ErrorOrNil()
 }
 
 func (bpr brokenPodReconciler) labelBrokenPod(pod corev1.Pod) (err error) {
@@ -244,14 +246,14 @@ func StartRepair(ctx context.Context, cfg *config.RepairConfig) {
 		}
 		rc.Run(ctx.Done())
 	} else {
-		err = nil
+		var multierr *multierror.Error
 		if podFixer.cfg.LabelPods {
-			err = multierr.Append(err, podFixer.LabelBrokenPods())
+			multierr = multierror.Append(err, podFixer.LabelBrokenPods())
 		}
 		if podFixer.cfg.DeletePods {
-			err = multierr.Append(err, podFixer.DeleteBrokenPods())
+			multierr = multierror.Append(err, podFixer.DeleteBrokenPods())
 		}
-		if err != nil {
+		if multierr.ErrorOrNil() != nil {
 			repairLog.Fatalf(err.Error())
 		}
 	}
