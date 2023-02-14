@@ -62,7 +62,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"env":                 env,
 		"omit":                omit,
 		"strdict":             strdict,
-		"toJsonMap":           toJsonMap,
+		"toJsonMap":           toJSONMap,
 	}
 }
 
@@ -342,7 +342,7 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	return proto.Message(pc)
 }
 
-func toJsonMap(mps ...map[string]string) string {
+func toJSONMap(mps ...map[string]string) string {
 	data, err := json.Marshal(mergeMaps(mps...))
 	if err != nil {
 		return ""

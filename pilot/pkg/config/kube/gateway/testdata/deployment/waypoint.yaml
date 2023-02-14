@@ -26,11 +26,12 @@ spec:
   template:
     metadata:
       annotations:
+        ambient.istio.io/redirection: disabled
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
-        ambient-type: waypoint
+        gateway.istio.io/managed: istio.io-mesh-controller
         istio.io/gateway-name: namespace
         service.istio.io/canonical-name: namespace-istio-waypoint
         service.istio.io/canonical-revision: latest

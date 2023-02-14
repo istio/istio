@@ -123,6 +123,11 @@ var classInfos = map[string]classInfo{
 					Reason:  string(gateway.GatewayReasonAccepted),
 					Message: "Deployed gateway to the cluster",
 				},
+				// nolint: staticcheck // Deprecated condition, set both until 1.17
+				string(gateway.GatewayConditionScheduled): {
+					Reason:  "ResourcesAvailable",
+					Message: "Deployed gateway to the cluster",
+				},
 			}
 		},
 	},

@@ -1385,6 +1385,7 @@ data:
                   .Labels
                   (strdict
                     "istio.io/gateway-name" .Name
+                    "gateway.istio.io/managed" "istio.io-mesh-controller"
                   ) | nindent 8}}
             spec:
               terminationGracePeriodSeconds: 2
