@@ -646,7 +646,21 @@ spec:
 					"Destination": dst.Config().Service,
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
-				}, `apiVersion: security.istio.io/v1beta1
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint-istio-waypoint
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/something/sa/else"]
+---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -658,6 +672,7 @@ spec:
   - from:
     - source:
         principals: ["cluster.local/ns/something/sa/else"]
+---
 `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
