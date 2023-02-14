@@ -44,9 +44,9 @@ var (
 		kind.Sidecar:         {},
 	}
 
-	// namespaceScopedConfigTypes includes configs when they are in root namespace,
+	// clusterScopedConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
-	namespaceScopedConfigTypes = map[kind.Kind]struct{}{
+	clusterScopedConfigTypes = map[kind.Kind]struct{}{
 		kind.EnvoyFilter:           {},
 		kind.AuthorizationPolicy:   {},
 		kind.RequestAuthentication: {},
@@ -533,7 +533,7 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	}
 
 	// This kind of config will trigger a change if made in the root namespace or the same namespace
-	if _, f := namespaceScopedConfigTypes[config.Kind]; f {
+	if _, f := clusterScopedConfigTypes[config.Kind]; f {
 		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Namespace
 	}
 
