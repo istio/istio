@@ -617,7 +617,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      istio.io/gateway-name: waypoint-istio-waypoint
   rules:
   - from:
     - source:
