@@ -113,15 +113,11 @@ function maybe_build_ztunnel() {
   popd
 }
 
-# TODO(https://github.com/istio/ztunnel/issues/394) use TARGET_ARCH
-# For now, we use amd64 even on arm64 just so we can actually do a release properly
-ZTUNNEL_ARCH="amd64"
-
 # ztunnel binary vars (TODO handle debug builds, centos, arm, darwin etc.)
 ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com/istio-build/ztunnel}"
 ZTUNNEL_REPO_SHA="${ZTUNNEL_REPO_SHA:-$(grep ZTUNNEL_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 ISTIO_ZTUNNEL_VERSION="${ISTIO_ZTUNNEL_VERSION:-${ZTUNNEL_REPO_SHA}}"
-ISTIO_ZTUNNEL_RELEASE_URL="${ISTIO_ZTUNNEL_RELEASE_URL:-${ISTIO_ZTUNNEL_BASE_URL}/ztunnel-${ISTIO_ZTUNNEL_VERSION}-${ZTUNNEL_ARCH}}"
+ISTIO_ZTUNNEL_RELEASE_URL="${ISTIO_ZTUNNEL_RELEASE_URL:-${ISTIO_ZTUNNEL_BASE_URL}/ztunnel-${ISTIO_ZTUNNEL_VERSION}-${TARGET_ARCH}}"
 ISTIO_ZTUNNEL_LINUX_RELEASE_NAME="${ISTIO_ZTUNNEL_LINUX_RELEASE_NAME:-ztunnel-${ISTIO_ZTUNNEL_VERSION}}"
 ISTIO_ZTUNNEL_LINUX_RELEASE_DIR="${ISTIO_ZTUNNEL_LINUX_RELEASE_DIR:-${TARGET_OUT_LINUX}/release}"
 ISTIO_ZTUNNEL_LINUX_DEBUG_DIR="${ISTIO_ZTUNNEL_LINUX_DEBUG_DIR:-${TARGET_OUT_LINUX}/debug}"
