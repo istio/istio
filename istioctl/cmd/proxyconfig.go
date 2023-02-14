@@ -592,8 +592,8 @@ func workloadConfigCmd() *cobra.Command {
   # Retrieve full workload dump of workloads with address XXXX for a given ztunnel
   istioctl proxy-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
 
-  # Retrieve workload summary without using Kubernetes API
-  ssh <user@hostname> 'curl localhost:15000/config_dump' > ztunnel-config.json
+  # Retrieve workload summary
+  kubectl exec -it $ZTUNNEL -n istio-system -- curl localhost:15000/config_dump > ztunnel-config.json
   istioctl proxy-config workloads --file ztunnel-config.json
 `,
 		Aliases: []string{"workloads", "w"},
