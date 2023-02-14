@@ -346,6 +346,7 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
 // Authn/authz filters are pre-pended. Telemetry filters are appended.
 func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
+	fmt.Printf("building authz: %s, %v\n", lb.GetNodeName(), lb.Labels)
 	// TODO(): consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{

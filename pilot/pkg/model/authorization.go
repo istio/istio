@@ -15,6 +15,8 @@
 package model
 
 import (
+	"fmt"
+
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -73,6 +75,7 @@ type AuthorizationPoliciesResult struct {
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Instance) AuthorizationPoliciesResult {
+	fmt.Printf("Listing policies for %s, %v\n", namespace, workload)
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return ret
@@ -109,5 +112,6 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 		}
 	}
 
+	fmt.Printf("%d, %d, %d\n", len(ret.Allow), len(ret.Deny), len(ret.Audit))
 	return ret
 }
