@@ -18,7 +18,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -51,11 +50,12 @@ type EndpointBuilder struct {
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 	var locality, sa, namespace, hostname, subdomain, ip, node string
-	var podLabels labels.Instance
+	var podLabels, podAnnotations labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
 		podLabels = pod.Labels
+		podAnnotations = pod.Annotations
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
 		if subdomain != "" {
@@ -84,12 +84,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
-	if c.AmbientEnabled(pod) {
-		out.labels[ambient.LabelStatus] = ambient.TypeEnabled
-	} else {
-		delete(out.labels, ambient.LabelStatus)
-	}
+	out.labels = labelutil.AugmentLabels(podLabels, podAnnotations, c.Cluster(), locality, node, networkID)
 	return out
 }
 
@@ -110,7 +105,7 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, nil, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 

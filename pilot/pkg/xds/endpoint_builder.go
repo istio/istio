@@ -27,7 +27,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/ambient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -415,12 +415,12 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
-	// Other side is a waypoint proxy. TODO: can this really happen?
-	if al := e.Labels[ambient.LabelType]; al == ambient.TypeWaypoint {
+	// Other side is a waypoint proxy.
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshController {
 		supportsTunnel = true
 	}
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if al := e.Labels[ambient.LabelStatus]; al == ambient.TypeEnabled {
+	if al := e.Labels[constants.AmbientRedirection]; al == constants.AmbientRedirectionEnabled {
 		supportsTunnel = true
 	}
 	// Otherwise supports tunnel

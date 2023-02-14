@@ -144,7 +144,7 @@ func (s *Server) Reconcile(input any) error {
 		oldPod := event.Old.(*corev1.Pod)
 		if ambientpod.PodHasOptOut(newPod) && !ambientpod.PodHasOptOut(oldPod) {
 			log.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
-			DelPodFromMesh(newPod)
+			DelPodFromMesh(s.kubeClient.Kube(), newPod)
 			return nil
 		}
 
@@ -154,12 +154,12 @@ func (s *Server) Reconcile(input any) error {
 				log.Debugf("Pod %s matches opt out, skipping", pod.Name)
 				return nil
 			}
-			AddPodToMesh(pod, "")
+			AddPodToMesh(s.kubeClient.Kube(), pod, "")
 		}
 	case controllers.EventDelete:
 		if IsPodInIpset(pod) {
 			log.Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
-			DelPodFromMesh(pod)
+			DelPodFromMesh(s.kubeClient.Kube(), pod)
 		}
 		return nil
 	}

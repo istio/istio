@@ -20,11 +20,11 @@ spec:
       labels:
         sidecar.istio.io/inject: "false"
         app: ztunnel
-        ambient-type: ztunnel
         {{- range $key, $val := .Values.ztunnel.podLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
       annotations:
+        ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
         {{- if .Values.ztunnel.podAnnotations }}
 {{ toYaml .Values.ztunnel.podAnnotations | indent 8 }}

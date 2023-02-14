@@ -887,10 +887,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		wl.WaypointAddresses = ips
 	}
 
-	// In node mode, we can assume all of the cluster uses h2 connect
-	// May need to be more precise though
-	// wl.Protocol = workloadapi.Protocol_HTTP2CONNECT
-	if c.AmbientEnabled(pod) {
+	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
 		// Configured for override
 		wl.Protocol = workloadapi.Protocol_HTTP
 	}

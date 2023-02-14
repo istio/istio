@@ -175,16 +175,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas: 1,
 					Version:  "v1",
-					Labels: map[string]string{
-						"ambient-type": "workload",
-					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
-					Labels: map[string]string{
-						"ambient-type": "workload",
-					},
 				},
 			},
 		}).
@@ -195,18 +189,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"ambient-type": "none",
-					},
+					Replicas:    1,
+					Version:     "v1",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"ambient-type": "none",
-					},
+					Replicas:    1,
+					Version:     "v2",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 			},
 		})
@@ -273,18 +263,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			ServiceAccount: true,
 			Subsets: []echo.SubsetConfig{
 				{
-					Replicas: 1,
-					Version:  "v1",
+					Replicas:    1,
+					Version:     "v1",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 					Labels: map[string]string{
-						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
 				},
 				{
-					Replicas: 1,
-					Version:  "v2",
+					Replicas:    1,
+					Version:     "v2",
+					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 					Labels: map[string]string{
-						"ambient-type":            "none",
 						"sidecar.istio.io/inject": "true",
 					},
 				},
