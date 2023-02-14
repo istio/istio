@@ -163,7 +163,7 @@ $(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps | $(TARGET_OUT)
 
 .PHONY: init-ztunnel-rs
 init-ztunnel-rs:
-	@TARGET_OUT=$(TARGET_OUT) bin/build_ztunnel.sh
+	TARGET_OUT=$(TARGET_OUT) bin/build_ztunnel.sh
 
 # Pull dependencies such as envoy
 depend: init | $(TARGET_OUT)

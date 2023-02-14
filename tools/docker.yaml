@@ -67,7 +67,6 @@ images:
   - ${TARGET_OUT_LINUX}/istio-cni-taint
 
 - name: ztunnel
-  emulationRequired: true # TODO this is a hack to skip building in our release job; currently ztunnel is amd64 only
   dockerfile: pilot/docker/Dockerfile.ztunnel
   files:
   - ${TARGET_OUT_LINUX}/ztunnel # TODO "${RELEASE_MODE}" to allow separate debug builds
