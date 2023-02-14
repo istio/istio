@@ -113,8 +113,6 @@ function maybe_build_ztunnel() {
   popd
 }
 
-
-
 # ztunnel binary vars (TODO handle debug builds, centos, arm, darwin etc.)
 ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com/istio-build/ztunnel}"
 ZTUNNEL_REPO_SHA="${ZTUNNEL_REPO_SHA:-$(grep ZTUNNEL_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
@@ -125,10 +123,6 @@ ISTIO_ZTUNNEL_LINUX_RELEASE_DIR="${ISTIO_ZTUNNEL_LINUX_RELEASE_DIR:-${TARGET_OUT
 ISTIO_ZTUNNEL_LINUX_DEBUG_DIR="${ISTIO_ZTUNNEL_LINUX_DEBUG_DIR:-${TARGET_OUT_LINUX}/debug}"
 ISTIO_ZTUNNEL_LINUX_RELEASE_PATH="${ISTIO_ZTUNNEL_LINUX_RELEASE_PATH:-${ISTIO_ZTUNNEL_LINUX_RELEASE_DIR}/${ISTIO_ZTUNNEL_LINUX_RELEASE_NAME}}"
 
-if [[ "${TARGET_ARCH}" == "amd64" ]]; then
-  set_download_command
-  maybe_build_ztunnel
-  download_ztunnel_if_necessary "${ISTIO_ZTUNNEL_RELEASE_URL}" "$ISTIO_ZTUNNEL_LINUX_RELEASE_PATH" "ztunnel"
-else
-  echo "Skipping ztunnel; only supports amd64"
-fi
+set_download_command
+maybe_build_ztunnel
+download_ztunnel_if_necessary "${ISTIO_ZTUNNEL_RELEASE_URL}" "$ISTIO_ZTUNNEL_LINUX_RELEASE_PATH" "ztunnel"
