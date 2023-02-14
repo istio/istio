@@ -61,7 +61,7 @@ If you [disabled FIPs](https://github.com/istio/ztunnel/#building-on-non-linuxx8
 
 ## Setup Ambient
 
-Install gateway CRD (required if you plan to deploy waypoint proxies): https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#setup
+Follow [the instruction](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#setup) to install gateway CRD (required if you plan to deploy waypoint proxies).
 
 ```shell
 # Mesh config options are optional to improve debugging
@@ -85,6 +85,12 @@ k exec -it $(k get po -lapp=sleep -ojsonpath='{.items[0].metadata.name}') -- sh
 
 # (From the client pod) Send traffic
 curl helloworld:5000/hello
+```
+
+## Deploy a waypoint proxy
+
+```shell
+go run istioctl/cmd/istioctl/main.go x waypoint apply --service-account helloworld --namespace default
 ```
 
 ## Tests with Sidecar Continue to Work
