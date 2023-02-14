@@ -8006,7 +8006,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 			},
-			"must be set set when operation is UPSERT", "",
+			"must be set when operation is UPSERT", "",
 		},
 		{
 			"good metrics operation",
