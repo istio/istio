@@ -725,18 +725,7 @@ spec:
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Source":      "istio-ingressgateway-service-account",
-				"Namespace":   apps.Namespace.Name(),
-			}, `apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"
+			policySpec := `
   rules:
   - to:
     - operation:
@@ -756,6 +745,29 @@ spec:
     - operation:
         paths: ["/denied-identity"]
         methods: ["GET"]
+`
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Source":      "istio-ingressgateway-service-account",
+				"Namespace":   apps.Namespace.Name(),
+			}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+`+policySpec+`
+---
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+policySpec+`
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
