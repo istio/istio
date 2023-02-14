@@ -44,7 +44,6 @@ const (
 	prometheusMergedOutput = "prom-merged"
 
 	defaultProxyAdminPort = 15000
-	loggerIDs             = "https://github.com/envoyproxy/envoy/blob/a62fa454ffa4c28bec01d37788a38e71a0e230d3//source/common/common/logger.h#L29"
 )
 
 var (
