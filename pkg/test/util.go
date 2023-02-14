@@ -22,6 +22,15 @@ import (
 	"golang.org/x/net/context"
 )
 
+// SetForTest sets a variable for the duration of a test, then resets it once the test is complete.
+func SetForTest[T any](t Failer, vv *T, v T) {
+	old := *vv
+	*vv = v
+	t.Cleanup(func() {
+		*vv = old
+	})
+}
+
 // SetEnvForTest sets an environment variable for the duration of a test, then resets it once the test is complete.
 func SetEnvForTest(t Failer, k, v string) {
 	old := os.Getenv(k)
