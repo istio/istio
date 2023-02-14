@@ -617,7 +617,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint-istio-waypoint
+      istio.io/gateway-name: waypoint
   rules:
   - from:
     - source:
@@ -654,7 +654,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint-istio-waypoint
+      istio.io/gateway-name: waypoint
   rules:
   - from:
     - source:
@@ -855,18 +855,7 @@ spec:
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Source":      src.Config().Service,
-				"Namespace":   apps.Namespace.Name(),
-			}, `apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"
+			policySpec := `
   rules:
   - to:
     - operation:
@@ -901,6 +890,36 @@ spec:
   - to:
     - operation:
         methods: ["POST"]
+`
+			denySpec := `
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/explicit-deny"]
+`
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Source":      src.Config().Service,
+				"Namespace":   apps.Namespace.Name(),
+			}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"`+policySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint`+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -909,13 +928,16 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: "{{ .Destination }}"
-  action: DENY
-  rules:
-  - to:
-    - operation:
-        paths: ["/explicit-deny"]
-`).ApplyOrFail(t)
+      app: "{{ .Destination }}"`+denySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint`+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
