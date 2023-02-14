@@ -605,6 +605,12 @@ spec:
 				}
 			}
 			t.NewSubTest("allow").Run(func(t framework.TestContext) {
+				policySpec := `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+`
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
 					"Source":      src.Config().Service,
@@ -613,15 +619,12 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy
+  name: policy-waypoint
 spec:
   selector:
     matchLabels:
       istio.io/gateway-name: waypoint
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+`+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -631,17 +634,18 @@ spec:
   selector:
     matchLabels:
       app: "{{ .Destination }}"
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
----
-`).ApplyOrFail(t)
+`+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("not allow").Run(func(t framework.TestContext) {
+				policySpec := `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/something/sa/else"]
+`
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
 					"Source":      src.Config().Service,
@@ -654,26 +658,18 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/something/sa/else"]
+      app: "{{ .Destination }}"
+`+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy
+  name: policy-waypoint
 spec:
   selector:
     matchLabels:
-      app: "{{ .Destination }}"
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/something/sa/else"]
----
-`).ApplyOrFail(t)
+      istio.io/gateway-name: waypoint
+`+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
@@ -910,25 +906,18 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: "{{ .Destination }}"`+policySpec+`
+      app: "{{ .Destination }}"
+`+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy
+  name: policy-waypoint
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint`+policySpec+`
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: deny-policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"`+denySpec+`
+      istio.io/gateway-name: waypoint
+`+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -937,7 +926,18 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint`+denySpec).ApplyOrFail(t)
+      app: "{{ .Destination }}"
+`+denySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy-waypoint
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
