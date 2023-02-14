@@ -40,7 +40,7 @@ spec:
         image: "{{ .Values.image }}"
 {{- else }}
         {{/*  TODO(https://github.com/istio/istio/issues/43243): use distroless, but we are depending on a variant of things not in the distroless image */}}
-        image: "{{ .Values.hub }}/{{ .Values.image | default "proxyv2" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
 {{- end }}
 {{- with .Values.imagePullPolicy }}
         imagePullPolicy: {{ . }}
@@ -204,7 +204,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.hub }}/{{ .Values.image | default "proxyv2" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
 {{- end }}
 {{- with .Values.imagePullPolicy }}
         imagePullPolicy: {{ . }}
