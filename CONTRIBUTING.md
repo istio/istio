@@ -61,6 +61,8 @@ If you [disabled FIPs](https://github.com/istio/ztunnel/#building-on-non-linuxx8
 
 ## Setup Ambient
 
+Install gateway CRD (required if you plan to deploy waypoint proxies): https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#setup
+
 ```shell
 # Mesh config options are optional to improve debugging
 CGO_ENABLED=0 go run istioctl/cmd/istioctl/main.go install -d manifests/ --set hub=$HUB --set tag=$TAG -y \
