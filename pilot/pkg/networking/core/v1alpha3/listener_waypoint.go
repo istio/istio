@@ -225,7 +225,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundVIPHTTPFilters(svc, cc, pre, post),
+				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc, pre, post),
 				Name:    httpName,
 			}
 			if port.Protocol.IsUnsupported() {
@@ -259,20 +259,22 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 
 	{
 		// Direct pod access chain.
-		directChain := &listener.FilterChain{
-			Name: "direct",
-			Filters: []*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter,
-				{
-					Name: wellknown.TCPProxy,
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-							StatPrefix:       "direct",
-							ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "encap"},
-						}),
-					},
-				},
+		cc := inboundChainConfig{
+			clusterName: "encap",
+			port: ServiceInstancePort{
+				Name:     "unknown",
+				Protocol: protocol.TCP,
 			},
+			bind:  "0.0.0.0",
+			hbone: true,
+		}
+		tcpChain := &listener.FilterChain{
+			Filters: lb.buildInboundNetworkFilters(cc),
+			Name:    "direct-tcp",
+		}
+		httpChain := &listener.FilterChain{
+			Filters: lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post),
+			Name:    "direct-http",
 		}
 		// Workload IP filtering happens here.
 		ipRange := []*xds.CidrRange{}
@@ -284,11 +286,14 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 				PrefixLen:     cidr.PrefixLen,
 			})
 		}
-		chains = append(chains, directChain)
+		chains = append(chains, tcpChain, httpChain)
 		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
 			&matcher.IPMatcher_IPRangeMatcher{
-				Ranges:  ipRange,
-				OnMatch: match.ToChain(directChain.Name),
+				Ranges: ipRange,
+				OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+					TCP:  match.ToChain(tcpChain.Name),
+					HTTP: match.ToChain(httpChain.Name),
+				})),
 			})
 	}
 	l := &listener.Listener{
@@ -369,9 +374,9 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 	return
 }
 
-// buildWaypointInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.
+// buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
+func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
 	var filters []*listener.Filter
 	if !lb.node.IsAmbient() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
@@ -422,6 +427,10 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 }
 
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
+	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
+	if svc == nil {
+		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+	}
 	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
