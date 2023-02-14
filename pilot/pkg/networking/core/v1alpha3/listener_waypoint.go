@@ -269,12 +269,17 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			hbone: true,
 		}
 		tcpChain := &listener.FilterChain{
-			Filters: lb.buildInboundNetworkFilters(cc),
-			Name:    "direct-tcp",
+			Filters: append([]*listener.Filter{
+				xdsfilters.ConnectAuthorityNetworkFilter},
+				lb.buildInboundNetworkFilters(cc)...),
+			Name: "direct-tcp",
 		}
+		// TODO: maintains undesirable persistent HTTP connections to "encap"
 		httpChain := &listener.FilterChain{
-			Filters: lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post),
-			Name:    "direct-http",
+			Filters: append([]*listener.Filter{
+				xdsfilters.ConnectAuthorityNetworkFilter},
+				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
+			Name: "direct-http",
 		}
 		// Workload IP filtering happens here.
 		ipRange := []*xds.CidrRange{}
