@@ -121,7 +121,7 @@ var BaggagePassthroughTransportSocket = util.InternalUpstreamTransportSocket(uti
 func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 	{
-		// This cluster routes to "internal" listener.
+		// This TCP cluster routes to "internal" listener.
 		clusterType := cluster.Cluster_STATIC
 		llb := util.BuildInternalEndpoint("internal", nil)
 		localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
@@ -131,13 +131,16 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 		clusters = append(clusters, localCluster.build())
 	}
 	{
-		// This cluster routes from "internal" listener.
+		// This TCP/HTTP cluster routes from "internal" listener.
 		clusterType := cluster.Cluster_STATIC
 		llb := util.BuildInternalEndpoint("inbound_CONNECT_originate", nil)
 		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
 		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
+		localCluster.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: PassthroughHttpProtocolOptions,
+		}
 		clusters = append(clusters, localCluster.build())
 	}
 	return clusters
