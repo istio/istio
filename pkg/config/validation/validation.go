@@ -3799,7 +3799,7 @@ func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
 				switch to.Operation {
 				case telemetry.MetricsOverrides_TagOverride_UPSERT:
 					if to.Value == "" {
-						v = appendErrorf(v, "tagOverrides.value must be set set when operation is UPSERT")
+						v = appendErrorf(v, "tagOverrides.value must be set when operation is UPSERT")
 					}
 				case telemetry.MetricsOverrides_TagOverride_REMOVE:
 					if to.Value != "" {
