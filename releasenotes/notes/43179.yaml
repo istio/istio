@@ -5,4 +5,4 @@ issues:
   - 43178
 releaseNotes:
   - |
-    **Fixed** disabling ALL_METRICS does not work as expected.
+    **Fixed**  an issue where `ALL_METRICS` does not disable metrics as expected.
