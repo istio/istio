@@ -83,9 +83,11 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	}
 
 	injectedNamespaces := make(map[string]string)
-
+	namespaceMismatchedPods := make(map[string][]string)
+	namespaceResources := make(map[string]*resource.Instance)
 	// Collect the list of namespaces that have istio injection enabled.
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+		namespaceResources[r.Metadata.FullName.String()] = r
 		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue || okNewInjectionLabel {
 			if okNewInjectionLabel {
@@ -117,7 +119,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for i, container := range pod.Containers {
+		for _, container := range pod.Containers {
 			if container.Name != util.IstioProxyName {
 				continue
 			}
@@ -127,18 +129,17 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 				return true
 			}
 			if container.Image != proxyImage {
-				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
-
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ImageInContainer, i)); ok {
-					m.Line = line
-				}
-
-				c.Report(collections.K8SCoreV1Pods.Name(), m)
+				namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()] = append(
+					namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()], r.Metadata.FullName.Name.String())
 			}
 		}
 
 		return true
 	})
+	for ns, pods := range namespaceMismatchedPods {
+		c.Report(collections.K8SCoreV1Namespaces.Name(),
+			msg.NewPodsIstioProxyImageMismatchInNamespace(namespaceResources[ns], pods))
+	}
 }
 
 // GetIstioProxyImage retrieves the proxy image name defined in the sidecar injector

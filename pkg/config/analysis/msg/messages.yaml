@@ -608,3 +608,13 @@ messages:
       type: string
     - name: namespace
       type: string
+
+  - name: "PodsIstioProxyImageMismatchInNamespace"
+    code: IST0158
+    level: Warning
+    description: "The Istio proxy image of the pods running in the namespace do not match the image defined in the injection configuration."
+    template: "The Istio proxy images of the pods running in the namespace do not match the image defined in the injection configuration (pod names: %v). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pods."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0105/"
+    args:
+      - name: podNames
+        type: "[]string"

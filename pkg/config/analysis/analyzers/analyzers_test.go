@@ -207,7 +207,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
 		},
 	},
 	{
@@ -218,7 +218,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
 		},
 	},
 	{
@@ -230,8 +230,8 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
-			{msg.IstioProxyImageMismatch, "Pod revision-namespace/revision-details-v1-pod-old"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace revision-namespace"},
 		},
 	},
 	{
