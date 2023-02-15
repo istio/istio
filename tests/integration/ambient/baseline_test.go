@@ -125,14 +125,6 @@ func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	return (s || d) && isL7Scheme
 }
 
-// Waypoint does not currently do L7 for pod IP traffic
-func supportsL7PodIP(opt echo.CallOptions, src, dst echo.Instance) bool {
-	s := src.Config().HasSidecar()
-	d := dst.Config().HasSidecar()
-	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
-	return (s || d) && isL7Scheme
-}
-
 func TestServices(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
@@ -179,7 +171,7 @@ func TestPodIP(t *testing.T) {
 								for _, opt := range callOptions {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
-									if supportsL7PodIP(opt, src, dst) {
+									if supportsL7(opt, src, dst) {
 										opt.Check = httpValidator
 									} else {
 										opt.Check = tcpValidator
@@ -623,9 +615,6 @@ spec:
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
-			if dst.Config().HasWaypointProxy() {
-				t.Skip("https://github.com/istio/istio/issues/43009")
-			}
 
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -640,11 +629,28 @@ spec:
 				}
 			}
 			t.NewSubTest("allow").Run(func(t framework.TestContext) {
+				policySpec := `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+`
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
-				}, `apiVersion: security.istio.io/v1beta1
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-waypoint
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+policySpec+`
+---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -652,21 +658,24 @@ spec:
   selector:
     matchLabels:
       app: "{{ .Destination }}"
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
-`).ApplyOrFail(t)
+`+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("not allow").Run(func(t framework.TestContext) {
+				policySpec := `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/something/sa/else"]
+`
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
-				}, `apiVersion: security.istio.io/v1beta1
+				}, `
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -674,11 +683,17 @@ spec:
   selector:
     matchLabels:
       app: "{{ .Destination }}"
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/something/sa/else"]
-`).ApplyOrFail(t)
+`+policySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-waypoint
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
@@ -722,9 +737,6 @@ spec:
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
-			if dst.Config().HasWaypointProxy() {
-				t.Skip("https://github.com/istio/istio/issues/43009")
-			}
 
 			// sidecar-uncaptured is failing the Ambient destination port test
 			// seems like a bug in the sidecar HBONE implementation that
@@ -737,18 +749,7 @@ spec:
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Source":      "istio-ingressgateway-service-account",
-				"Namespace":   apps.Namespace.Name(),
-			}, `apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"
+			policySpec := `
   rules:
   - to:
     - operation:
@@ -768,6 +769,31 @@ spec:
     - operation:
         paths: ["/denied-identity"]
         methods: ["GET"]
+`
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Source":      "istio-ingressgateway-service-account",
+				"Namespace":   apps.Namespace.Name(),
+			}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+`+policySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-waypoint
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+policySpec+`
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -863,21 +889,7 @@ spec:
 				// TODO: fix this and remove this skip
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
-			if dst.Config().HasWaypointProxy() {
-				t.Skip("https://github.com/istio/istio/issues/43009")
-			}
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Source":      src.Config().Service,
-				"Namespace":   apps.Namespace.Name(),
-			}, `apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"
+			policySpec := `
   rules:
   - to:
     - operation:
@@ -912,6 +924,38 @@ spec:
   - to:
     - operation:
         methods: ["POST"]
+`
+			denySpec := `
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/explicit-deny"]
+`
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Source":      src.Config().Service,
+				"Namespace":   apps.Namespace.Name(),
+			}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+`+policySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-waypoint
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -921,12 +965,17 @@ spec:
   selector:
     matchLabels:
       app: "{{ .Destination }}"
-  action: DENY
-  rules:
-  - to:
-    - operation:
-        paths: ["/explicit-deny"]
-`).ApplyOrFail(t)
+`+denySpec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy-waypoint
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: waypoint
+`+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():

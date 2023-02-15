@@ -7,10 +7,15 @@ typedConfig:
         permissions:
         - andRules:
             rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
+                - destinationPort: 90
             - notRule:
                 orRules:
                   rules:
-                  - any: true
+                  - destinationPort: 80
+                  - destinationPort: 90
         principals:
         - andIds:
             ids:

@@ -65,9 +65,6 @@ type Builder struct {
 	allowPolicies []model.AuthorizationPolicy
 	auditPolicies []model.AuthorizationPolicy
 
-	// For AmbientAdapations
-	AmbientListenerName string
-
 	// logger emits logs about policies
 	logger *AuthzLogger
 }
@@ -97,16 +94,6 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 		trustDomainBundle: trustDomainBundle,
 		option:            option,
 	}
-}
-
-func (b Builder) BuildHTTPAmbient(listener string) []*hcm.HttpFilter {
-	b.AmbientListenerName = listener
-	return b.BuildHTTP()
-}
-
-func (b Builder) BuildTCPAmbient(listener string) []*listener.Filter {
-	b.AmbientListenerName = listener
-	return b.BuildTCP()
 }
 
 // BuildHTTP returns the HTTP filters built from the authorization policy.
@@ -241,10 +228,6 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			m.MigrateTrustDomain(b.trustDomainBundle)
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
 				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
-			}
-
-			if b.option.IsAmbient {
-				m.AmbientDestinationPortAdaptations(b.AmbientListenerName)
 			}
 
 			generated, err := m.Generate(forTCP, b.option.UseAuthenticated, action)

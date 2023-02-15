@@ -31,10 +31,12 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
@@ -128,11 +130,10 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 			VirtualHosts:     []*route.VirtualHost{vhost},
 			ValidateClusters: proto.BoolFalse,
 		},
-		statPrefix:           "inbound_hcm",
-		protocol:             protocol.HTTP2,
-		class:                istionetworking.ListenerClassSidecarInbound,
-		skipTelemetryFilters: true, // do not include telemetry filters on the CONNECT termination chain
-		skipRBACFilters:      true,
+		statPrefix: "inbound_hcm",
+		protocol:   protocol.HTTP2,
+		class:      istionetworking.ListenerClassSidecarInbound,
+		isWaypoint: true,
 		connectionManager: &hcm.HttpConnectionManager{
 			// Append and forward client cert to backend.
 			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
@@ -187,6 +188,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
+	pre, post := lb.buildWaypointHTTPFilters()
 	for _, svc := range svcs {
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
@@ -215,9 +217,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundVIPHTTPFilters(svc, cc),
-				// Filters: wlBuilder.buildInboundNetworkFiltersForHTTP(cc),
-				Name: httpName,
+				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc, pre, post),
+				Name:    httpName,
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
@@ -250,20 +251,29 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 
 	{
 		// Direct pod access chain.
-		directChain := &listener.FilterChain{
-			Name: "direct",
-			Filters: []*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter,
-				{
-					Name: wellknown.TCPProxy,
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-							StatPrefix:       "direct",
-							ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "encap"},
-						}),
-					},
-				},
+		cc := inboundChainConfig{
+			clusterName: "encap",
+			port: ServiceInstancePort{
+				Name:     "unknown",
+				Protocol: protocol.TCP,
 			},
+			bind:  "0.0.0.0",
+			hbone: true,
+		}
+		tcpChain := &listener.FilterChain{
+			Filters: append([]*listener.Filter{
+				xdsfilters.ConnectAuthorityNetworkFilter,
+			},
+				lb.buildInboundNetworkFilters(cc)...),
+			Name: "direct-tcp",
+		}
+		// TODO: maintains undesirable persistent HTTP connections to "encap"
+		httpChain := &listener.FilterChain{
+			Filters: append([]*listener.Filter{
+				xdsfilters.ConnectAuthorityNetworkFilter,
+			},
+				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
+			Name: "direct-http",
 		}
 		// Workload IP filtering happens here.
 		ipRange := []*xds.CidrRange{}
@@ -275,11 +285,14 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 				PrefixLen:     cidr.PrefixLen,
 			})
 		}
-		chains = append(chains, directChain)
+		chains = append(chains, tcpChain, httpChain)
 		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
 			&matcher.IPMatcher_IPRangeMatcher{
-				Ranges:  ipRange,
-				OnMatch: match.ToChain(directChain.Name),
+				Ranges: ipRange,
+				OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+					TCP:  match.ToChain(tcpChain.Name),
+					HTTP: match.ToChain(httpChain.Name),
+				})),
 			})
 	}
 	l := &listener.Listener{
@@ -287,6 +300,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			util.InternalListenerSetAddressFilter(),
+			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
 			xdsfilters.HTTPInspector,
 		},
 		TrafficDirection: core.TrafficDirection_INBOUND,
@@ -333,9 +347,30 @@ func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.List
 	return l
 }
 
-// buildWaypointInboundVIPHTTPFilters builds the network filters that should be inserted before an HCM.
+// buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
+// Authn/authz filters are pre-pended. Telemetry filters are appended.
+func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
+	// TODO: consider dedicated listener class for waypoint filters
+	cls := istionetworking.ListenerClassSidecarInbound
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Class: cls,
+	})
+	// TODO: how to deal with ext-authz? It will be in the ordering twice
+	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
+	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHN)
+	pre = append(pre, lb.authnBuilder.BuildHTTP(cls)...)
+	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHZ)
+	pre = append(pre, lb.authzBuilder.BuildHTTP(cls)...)
+	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
+	post = extension.PopAppend(post, wasm, extensions.PluginPhase_STATS)
+	post = extension.PopAppend(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls)...)
+	return
+}
+
+// buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
 	var filters []*listener.Filter
 	if !lb.node.IsAmbient() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
@@ -355,10 +390,10 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 			},
 			ServerName: EnvoyServerName,
 		},
-		protocol:        cc.port.Protocol,
-		class:           istionetworking.ListenerClassSidecarInbound,
-		statPrefix:      cc.StatPrefix(),
-		skipRBACFilters: true, // Handled by pod listener
+		protocol:   cc.port.Protocol,
+		class:      istionetworking.ListenerClassSidecarInbound,
+		statPrefix: cc.StatPrefix(),
+		isWaypoint: true,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
@@ -372,6 +407,12 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
+	// Last filter must be router.
+	router := h.HttpFilters[len(h.HttpFilters)-1]
+	h.HttpFilters = append(pre, h.HttpFilters[:len(h.HttpFilters)-1]...)
+	h.HttpFilters = append(h.HttpFilters, post...)
+	h.HttpFilters = append(h.HttpFilters, router)
+
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
@@ -380,6 +421,10 @@ func (lb *ListenerBuilder) buildWaypointInboundVIPHTTPFilters(svc *model.Service
 }
 
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
+	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
+	if svc == nil {
+		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+	}
 	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)

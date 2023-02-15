@@ -370,32 +370,23 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Port:  httpOpts.port,
-		Class: httpOpts.class,
-	})
+	if !httpOpts.isWaypoint {
+		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+			Port:  httpOpts.port,
+			Class: httpOpts.class,
+		})
 
-	// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
-	// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
-	if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
-		filters = append(filters, xdsfilters.HTTPMx)
-	}
-
-	if !httpOpts.skipRBACFilters { // TODO poorly named, probably should skip more. Meant for outer HBONE listener
+		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
+		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
+		if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
+			filters = append(filters, xdsfilters.HTTPMx)
+		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
-
-		var httpauthz []*hcm.HttpFilter
-		if lb.node.Type == model.Waypoint {
-			httpauthz = lb.authzBuilder.BuildHTTPWithListener(httpOpts.class, httpOpts.routeConfig.Name)
-		} else {
-			httpauthz = lb.authzBuilder.BuildHTTP(httpOpts.class)
-		}
-		filters = append(filters, httpauthz...)
-
+		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
@@ -418,7 +409,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	// TypedPerFilterConfig in route needs these filters.
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
-	if !httpOpts.skipTelemetryFilters {
+	if !httpOpts.isWaypoint {
 		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
 	}
 	// Add EmptySessionFilter so that it can be overridden at route level per service.

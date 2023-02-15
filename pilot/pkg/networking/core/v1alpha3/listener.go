@@ -1085,9 +1085,8 @@ type httpListenerOpts struct {
 	port  int
 	hbone bool
 
-	// controls whether or not the filter chain should have telemetry filters.
-	skipTelemetryFilters bool
-	skipRBACFilters      bool
+	// Waypoint-specific modifications in HCM
+	isWaypoint bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
