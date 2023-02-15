@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	ambientcontroller "istio.io/istio/pilot/pkg/ambient/controller"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -195,7 +194,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-							controller := gateway.NewDeploymentController(s.kubeClient)
+							controller := gateway.NewDeploymentController(s.kubeClient, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -215,20 +214,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	// Ambient controllers
-	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AmbientController, args.Revision, s.kubeClient).
-			AddRunFunction(func(leaderStop <-chan struct{}) {
-				if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-					waypointController := ambientcontroller.NewWaypointProxyController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
-
-					waypointController.Run(leaderStop)
-				}
-			}).
-			Run(stop)
-		return nil
-	})
 
 	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	if err != nil {

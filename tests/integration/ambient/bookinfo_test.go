@@ -22,15 +22,14 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -51,7 +51,7 @@ const (
 	bookinfoGateway = bookinfoDir + "networking/bookinfo-gateway.yaml"
 	routingV1       = bookinfoDir + "networking/virtual-service-all-v1.yaml"
 	headerRouting   = bookinfoDir + "networking/virtual-service-reviews-test-v2.yaml"
-	templateFile    = "testdata/modified-waypoint-template.yaml"
+	templateFile    = "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml"
 )
 
 func TestBookinfo(t *testing.T) {
@@ -196,29 +196,32 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
+				// Test will modify grace period as an arbitrary change to check we re-deploy the waypoint
+				getGracePeriod := func(want int64) bool {
+					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
+					assert.NoError(t, err)
+					for _, p := range pods {
+						grace := p.Spec.TerminationGracePeriodSeconds
+						if grace != nil && *grace == want {
+							return true
+						}
+					}
+					return false
+				}
 				// check that waypoint deployment is unmodified
-				g := gomega.NewGomegaWithT(t)
-				pod, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
-				g.Expect(err).NotTo(gomega.HaveOccurred())
-				haveEnvVar := gomega.ContainElement(gomega.BeEquivalentTo(v1.EnvVar{Name: "FOO", Value: "bar"}))
-				g.Expect(pod[0].Spec.Containers[0].Env).NotTo(haveEnvVar)
+				retry.UntilOrFail(t, func() bool {
+					return getGracePeriod(2)
+				})
 				// modify template
 				istio.GetOrFail(t, t).UpdateInjectionConfig(t, func(c *inject.Config) error {
-					c.RawTemplates["waypoint"] = file.MustAsString(templateFile)
+					mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
+					c.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
 					return nil
-				}, cleanup.Conditionally)
-				// wait to see modified waypoint deployment
-				getPodEnvVars := func() []v1.EnvVar {
-					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
-					g.Expect(err).NotTo(gomega.HaveOccurred())
-					var result []v1.EnvVar
-					// if old pods haven't shut down yet, include all pods env vars
-					for _, pod := range pods {
-						result = append(result, pod.Spec.Containers[0].Env...)
-					}
-					return result
-				}
-				g.Eventually(getPodEnvVars, time.Minute).Should(haveEnvVar)
+				}, cleanup.Always)
+				// check that waypoint deployment is modified
+				retry.UntilOrFail(t, func() bool {
+					return getGracePeriod(3)
+				})
 			})
 		})
 }

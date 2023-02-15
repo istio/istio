@@ -27,7 +27,12 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/file"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -118,6 +123,44 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 		},
+		{
+			"waypoint",
+			v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []v1beta1.Listener{{
+						Name:     "mesh",
+						Port:     v1beta1.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+		},
+	}
+	vc, err := inject.NewValuesConfig(`
+global:
+  hub: test
+  tag: test`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl, err := inject.ParseTemplates(map[string]string{
+		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
+		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	injConfig := func() inject.WebhookConfig {
+		return inject.WebhookConfig{
+			Templates:  tmpl,
+			Values:     vc,
+			MeshConfig: mesh.DefaultMeshConfig(),
+		}
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -127,7 +170,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
 					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
 				),
-				templates: processTemplates(),
+				injectConfig: injConfig,
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 					b, err := yaml.JSONToYAML(data)
 					if err != nil {

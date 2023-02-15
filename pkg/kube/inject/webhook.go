@@ -310,6 +310,10 @@ func (v ValuesConfig) Struct() *opconfig.Values {
 	return v.asStruct
 }
 
+func (v ValuesConfig) Map() map[string]any {
+	return v.asMap
+}
+
 func NewValuesConfig(v string) (ValuesConfig, error) {
 	c := ValuesConfig{raw: v}
 	valuesStruct := &opconfig.Values{}

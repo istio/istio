@@ -33,6 +33,7 @@ const (
 	RequestAuthentication
 	Secret
 	Service
+	ServiceAccount
 	ServiceEntry
 	Sidecar
 	TCPRoute
@@ -96,6 +97,8 @@ func (k Kind) String() string {
 		return "Secret"
 	case Service:
 		return "Service"
+	case ServiceAccount:
+		return "ServiceAccount"
 	case ServiceEntry:
 		return "ServiceEntry"
 	case Sidecar:
@@ -194,6 +197,9 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	}
 	if gvk.Kind == "Service" && gvk.Group == "" && gvk.Version == "v1" {
 		return Service
+	}
+	if gvk.Kind == "ServiceAccount" && gvk.Group == "" && gvk.Version == "v1" {
+		return ServiceAccount
 	}
 	if gvk.Kind == "ServiceEntry" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
 		return ServiceEntry
