@@ -129,7 +129,6 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
 	gwc.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		o.GetName()
 		gws, _ := dc.gatewayLister.List(klabels.Everything())
 		for _, g := range gws {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
