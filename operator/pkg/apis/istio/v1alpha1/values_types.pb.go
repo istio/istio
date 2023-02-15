@@ -200,7 +200,7 @@ func (x OutboundTrafficPolicyConfig_Mode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OutboundTrafficPolicyConfig_Mode.Descriptor instead.
 func (OutboundTrafficPolicyConfig_Mode) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{19, 0}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{20, 0}
 }
 
 // Types of Access logs to export.
@@ -255,7 +255,7 @@ func (x TelemetryV2StackDriverConfig_AccessLogging) Number() protoreflect.EnumNu
 
 // Deprecated: Use TelemetryV2StackDriverConfig_AccessLogging.Descriptor instead.
 func (TelemetryV2StackDriverConfig_AccessLogging) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{27, 0}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{28, 0}
 }
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x, arm64)
@@ -366,7 +366,8 @@ type CNIConfig struct {
 	// The Container seccompProfile
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
-	SeccompProfile *structpb.Struct `protobuf:"bytes,19,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	SeccompProfile *structpb.Struct  `protobuf:"bytes,19,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	Ambient        *CNIAmbientConfig `protobuf:"bytes,21,opt,name=ambient,proto3" json:"ambient,omitempty"`
 }
 
 func (x *CNIConfig) Reset() {
@@ -549,6 +550,61 @@ func (x *CNIConfig) GetSeccompProfile() *structpb.Struct {
 	return nil
 }
 
+func (x *CNIConfig) GetAmbient() *CNIAmbientConfig {
+	if x != nil {
+		return x.Ambient
+	}
+	return nil
+}
+
+type CNIAmbientConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Controls whether ambient redirection is enabled
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+}
+
+func (x *CNIAmbientConfig) Reset() {
+	*x = CNIAmbientConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CNIAmbientConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CNIAmbientConfig) ProtoMessage() {}
+
+func (x *CNIAmbientConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CNIAmbientConfig.ProtoReflect.Descriptor instead.
+func (*CNIAmbientConfig) Descriptor() ([]byte, []int) {
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CNIAmbientConfig) GetEnabled() *wrapperspb.BoolValue {
+	if x != nil {
+		return x.Enabled
+	}
+	return nil
+}
+
 type CNITaintConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -561,7 +617,7 @@ type CNITaintConfig struct {
 func (x *CNITaintConfig) Reset() {
 	*x = CNITaintConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -574,7 +630,7 @@ func (x *CNITaintConfig) String() string {
 func (*CNITaintConfig) ProtoMessage() {}
 
 func (x *CNITaintConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +643,7 @@ func (x *CNITaintConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CNITaintConfig.ProtoReflect.Descriptor instead.
 func (*CNITaintConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{2}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CNITaintConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -620,7 +676,7 @@ type CNIRepairConfig struct {
 func (x *CNIRepairConfig) Reset() {
 	*x = CNIRepairConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -633,7 +689,7 @@ func (x *CNIRepairConfig) String() string {
 func (*CNIRepairConfig) ProtoMessage() {}
 
 func (x *CNIRepairConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -646,7 +702,7 @@ func (x *CNIRepairConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CNIRepairConfig.ProtoReflect.Descriptor instead.
 func (*CNIRepairConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{3}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CNIRepairConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -733,7 +789,7 @@ type ResourceQuotas struct {
 func (x *ResourceQuotas) Reset() {
 	*x = ResourceQuotas{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -746,7 +802,7 @@ func (x *ResourceQuotas) String() string {
 func (*ResourceQuotas) ProtoMessage() {}
 
 func (x *ResourceQuotas) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -759,7 +815,7 @@ func (x *ResourceQuotas) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceQuotas.ProtoReflect.Descriptor instead.
 func (*ResourceQuotas) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{4}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ResourceQuotas) GetEnabled() *wrapperspb.BoolValue {
@@ -791,7 +847,7 @@ type CPUTargetUtilizationConfig struct {
 func (x *CPUTargetUtilizationConfig) Reset() {
 	*x = CPUTargetUtilizationConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -804,7 +860,7 @@ func (x *CPUTargetUtilizationConfig) String() string {
 func (*CPUTargetUtilizationConfig) ProtoMessage() {}
 
 func (x *CPUTargetUtilizationConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -817,7 +873,7 @@ func (x *CPUTargetUtilizationConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CPUTargetUtilizationConfig.ProtoReflect.Descriptor instead.
 func (*CPUTargetUtilizationConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{5}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CPUTargetUtilizationConfig) GetTargetAverageUtilization() int32 {
@@ -840,7 +896,7 @@ type Resources struct {
 func (x *Resources) Reset() {
 	*x = Resources{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -853,7 +909,7 @@ func (x *Resources) String() string {
 func (*Resources) ProtoMessage() {}
 
 func (x *Resources) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -866,7 +922,7 @@ func (x *Resources) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Resources.ProtoReflect.Descriptor instead.
 func (*Resources) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{6}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Resources) GetLimits() map[string]string {
@@ -895,7 +951,7 @@ type ServiceAccount struct {
 func (x *ServiceAccount) Reset() {
 	*x = ServiceAccount{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -908,7 +964,7 @@ func (x *ServiceAccount) String() string {
 func (*ServiceAccount) ProtoMessage() {}
 
 func (x *ServiceAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -921,7 +977,7 @@ func (x *ServiceAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceAccount.ProtoReflect.Descriptor instead.
 func (*ServiceAccount) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{7}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ServiceAccount) GetAnnotations() *structpb.Struct {
@@ -946,7 +1002,7 @@ type DefaultPodDisruptionBudgetConfig struct {
 func (x *DefaultPodDisruptionBudgetConfig) Reset() {
 	*x = DefaultPodDisruptionBudgetConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -959,7 +1015,7 @@ func (x *DefaultPodDisruptionBudgetConfig) String() string {
 func (*DefaultPodDisruptionBudgetConfig) ProtoMessage() {}
 
 func (x *DefaultPodDisruptionBudgetConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -972,7 +1028,7 @@ func (x *DefaultPodDisruptionBudgetConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DefaultPodDisruptionBudgetConfig.ProtoReflect.Descriptor instead.
 func (*DefaultPodDisruptionBudgetConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{8}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DefaultPodDisruptionBudgetConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -997,7 +1053,7 @@ type DefaultResourcesConfig struct {
 func (x *DefaultResourcesConfig) Reset() {
 	*x = DefaultResourcesConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1010,7 +1066,7 @@ func (x *DefaultResourcesConfig) String() string {
 func (*DefaultResourcesConfig) ProtoMessage() {}
 
 func (x *DefaultResourcesConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1023,7 +1079,7 @@ func (x *DefaultResourcesConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DefaultResourcesConfig.ProtoReflect.Descriptor instead.
 func (*DefaultResourcesConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{9}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DefaultResourcesConfig) GetRequests() *ResourcesRequestsConfig {
@@ -1140,7 +1196,7 @@ type EgressGatewayConfig struct {
 func (x *EgressGatewayConfig) Reset() {
 	*x = EgressGatewayConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1153,7 +1209,7 @@ func (x *EgressGatewayConfig) String() string {
 func (*EgressGatewayConfig) ProtoMessage() {}
 
 func (x *EgressGatewayConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +1222,7 @@ func (x *EgressGatewayConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EgressGatewayConfig.ProtoReflect.Descriptor instead.
 func (*EgressGatewayConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{10}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *EgressGatewayConfig) GetAutoscaleEnabled() *wrapperspb.BoolValue {
@@ -1384,7 +1440,7 @@ type GatewaysConfig struct {
 func (x *GatewaysConfig) Reset() {
 	*x = GatewaysConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1397,7 +1453,7 @@ func (x *GatewaysConfig) String() string {
 func (*GatewaysConfig) ProtoMessage() {}
 
 func (x *GatewaysConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +1466,7 @@ func (x *GatewaysConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewaysConfig.ProtoReflect.Descriptor instead.
 func (*GatewaysConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{11}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GatewaysConfig) GetIstioEgressgateway() *EgressGatewayConfig {
@@ -1584,7 +1640,7 @@ type GlobalConfig struct {
 func (x *GlobalConfig) Reset() {
 	*x = GlobalConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1597,7 +1653,7 @@ func (x *GlobalConfig) String() string {
 func (*GlobalConfig) ProtoMessage() {}
 
 func (x *GlobalConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1610,7 +1666,7 @@ func (x *GlobalConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GlobalConfig.ProtoReflect.Descriptor instead.
 func (*GlobalConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{12}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{13}
 }
 
 // Deprecated: Do not use.
@@ -1934,7 +1990,7 @@ type STSConfig struct {
 func (x *STSConfig) Reset() {
 	*x = STSConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1947,7 +2003,7 @@ func (x *STSConfig) String() string {
 func (*STSConfig) ProtoMessage() {}
 
 func (x *STSConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1960,7 +2016,7 @@ func (x *STSConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use STSConfig.ProtoReflect.Descriptor instead.
 func (*STSConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{13}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *STSConfig) GetServicePort() uint32 {
@@ -1982,7 +2038,7 @@ type IstiodConfig struct {
 func (x *IstiodConfig) Reset() {
 	*x = IstiodConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1995,7 +2051,7 @@ func (x *IstiodConfig) String() string {
 func (*IstiodConfig) ProtoMessage() {}
 
 func (x *IstiodConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2008,7 +2064,7 @@ func (x *IstiodConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IstiodConfig.ProtoReflect.Descriptor instead.
 func (*IstiodConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{14}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *IstiodConfig) GetEnableAnalysis() *wrapperspb.BoolValue {
@@ -2033,7 +2089,7 @@ type GlobalLoggingConfig struct {
 func (x *GlobalLoggingConfig) Reset() {
 	*x = GlobalLoggingConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2046,7 +2102,7 @@ func (x *GlobalLoggingConfig) String() string {
 func (*GlobalLoggingConfig) ProtoMessage() {}
 
 func (x *GlobalLoggingConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2059,7 +2115,7 @@ func (x *GlobalLoggingConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GlobalLoggingConfig.ProtoReflect.Descriptor instead.
 func (*GlobalLoggingConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{15}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GlobalLoggingConfig) GetLevel() string {
@@ -2161,7 +2217,7 @@ type IngressGatewayConfig struct {
 func (x *IngressGatewayConfig) Reset() {
 	*x = IngressGatewayConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2174,7 +2230,7 @@ func (x *IngressGatewayConfig) String() string {
 func (*IngressGatewayConfig) ProtoMessage() {}
 
 func (x *IngressGatewayConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2187,7 +2243,7 @@ func (x *IngressGatewayConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IngressGatewayConfig.ProtoReflect.Descriptor instead.
 func (*IngressGatewayConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{16}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *IngressGatewayConfig) GetAutoscaleEnabled() *wrapperspb.BoolValue {
@@ -2438,7 +2494,7 @@ type IngressGatewayZvpnConfig struct {
 func (x *IngressGatewayZvpnConfig) Reset() {
 	*x = IngressGatewayZvpnConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2451,7 +2507,7 @@ func (x *IngressGatewayZvpnConfig) String() string {
 func (*IngressGatewayZvpnConfig) ProtoMessage() {}
 
 func (x *IngressGatewayZvpnConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2464,7 +2520,7 @@ func (x *IngressGatewayZvpnConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IngressGatewayZvpnConfig.ProtoReflect.Descriptor instead.
 func (*IngressGatewayZvpnConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{17}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *IngressGatewayZvpnConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -2498,7 +2554,7 @@ type MultiClusterConfig struct {
 func (x *MultiClusterConfig) Reset() {
 	*x = MultiClusterConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2511,7 +2567,7 @@ func (x *MultiClusterConfig) String() string {
 func (*MultiClusterConfig) ProtoMessage() {}
 
 func (x *MultiClusterConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2524,7 +2580,7 @@ func (x *MultiClusterConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MultiClusterConfig.ProtoReflect.Descriptor instead.
 func (*MultiClusterConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{18}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *MultiClusterConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -2567,7 +2623,7 @@ type OutboundTrafficPolicyConfig struct {
 func (x *OutboundTrafficPolicyConfig) Reset() {
 	*x = OutboundTrafficPolicyConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2580,7 +2636,7 @@ func (x *OutboundTrafficPolicyConfig) String() string {
 func (*OutboundTrafficPolicyConfig) ProtoMessage() {}
 
 func (x *OutboundTrafficPolicyConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2593,7 +2649,7 @@ func (x *OutboundTrafficPolicyConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutboundTrafficPolicyConfig.ProtoReflect.Descriptor instead.
 func (*OutboundTrafficPolicyConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{19}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *OutboundTrafficPolicyConfig) GetMode() OutboundTrafficPolicyConfig_Mode {
@@ -2720,7 +2776,7 @@ type PilotConfig struct {
 func (x *PilotConfig) Reset() {
 	*x = PilotConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2733,7 +2789,7 @@ func (x *PilotConfig) String() string {
 func (*PilotConfig) ProtoMessage() {}
 
 func (x *PilotConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2746,7 +2802,7 @@ func (x *PilotConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PilotConfig.ProtoReflect.Descriptor instead.
 func (*PilotConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{20}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PilotConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -2994,7 +3050,7 @@ type PilotIngressConfig struct {
 func (x *PilotIngressConfig) Reset() {
 	*x = PilotIngressConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3007,7 +3063,7 @@ func (x *PilotIngressConfig) String() string {
 func (*PilotIngressConfig) ProtoMessage() {}
 
 func (x *PilotIngressConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3020,7 +3076,7 @@ func (x *PilotIngressConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PilotIngressConfig.ProtoReflect.Descriptor instead.
 func (*PilotIngressConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{21}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PilotIngressConfig) GetIngressService() string {
@@ -3057,7 +3113,7 @@ type PilotPolicyConfig struct {
 func (x *PilotPolicyConfig) Reset() {
 	*x = PilotPolicyConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3070,7 +3126,7 @@ func (x *PilotPolicyConfig) String() string {
 func (*PilotPolicyConfig) ProtoMessage() {}
 
 func (x *PilotPolicyConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3083,7 +3139,7 @@ func (x *PilotPolicyConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PilotPolicyConfig.ProtoReflect.Descriptor instead.
 func (*PilotPolicyConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{22}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PilotPolicyConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -3108,7 +3164,7 @@ type TelemetryConfig struct {
 func (x *TelemetryConfig) Reset() {
 	*x = TelemetryConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3121,7 +3177,7 @@ func (x *TelemetryConfig) String() string {
 func (*TelemetryConfig) ProtoMessage() {}
 
 func (x *TelemetryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3134,7 +3190,7 @@ func (x *TelemetryConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemetryConfig.ProtoReflect.Descriptor instead.
 func (*TelemetryConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{23}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *TelemetryConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -3168,7 +3224,7 @@ type TelemetryV2Config struct {
 func (x *TelemetryV2Config) Reset() {
 	*x = TelemetryV2Config{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3181,7 +3237,7 @@ func (x *TelemetryV2Config) String() string {
 func (*TelemetryV2Config) ProtoMessage() {}
 
 func (x *TelemetryV2Config) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3194,7 +3250,7 @@ func (x *TelemetryV2Config) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemetryV2Config.ProtoReflect.Descriptor instead.
 func (*TelemetryV2Config) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{24}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *TelemetryV2Config) GetEnabled() *wrapperspb.BoolValue {
@@ -3244,7 +3300,7 @@ type TelemetryV2MetadataExchangeConfig struct {
 func (x *TelemetryV2MetadataExchangeConfig) Reset() {
 	*x = TelemetryV2MetadataExchangeConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3257,7 +3313,7 @@ func (x *TelemetryV2MetadataExchangeConfig) String() string {
 func (*TelemetryV2MetadataExchangeConfig) ProtoMessage() {}
 
 func (x *TelemetryV2MetadataExchangeConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3270,7 +3326,7 @@ func (x *TelemetryV2MetadataExchangeConfig) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use TelemetryV2MetadataExchangeConfig.ProtoReflect.Descriptor instead.
 func (*TelemetryV2MetadataExchangeConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{25}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *TelemetryV2MetadataExchangeConfig) GetWasmEnabled() *wrapperspb.BoolValue {
@@ -3297,7 +3353,7 @@ type TelemetryV2PrometheusConfig struct {
 func (x *TelemetryV2PrometheusConfig) Reset() {
 	*x = TelemetryV2PrometheusConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3310,7 +3366,7 @@ func (x *TelemetryV2PrometheusConfig) String() string {
 func (*TelemetryV2PrometheusConfig) ProtoMessage() {}
 
 func (x *TelemetryV2PrometheusConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3323,7 +3379,7 @@ func (x *TelemetryV2PrometheusConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemetryV2PrometheusConfig.ProtoReflect.Descriptor instead.
 func (*TelemetryV2PrometheusConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{26}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *TelemetryV2PrometheusConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -3368,7 +3424,7 @@ type TelemetryV2StackDriverConfig struct {
 func (x *TelemetryV2StackDriverConfig) Reset() {
 	*x = TelemetryV2StackDriverConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3381,7 +3437,7 @@ func (x *TelemetryV2StackDriverConfig) String() string {
 func (*TelemetryV2StackDriverConfig) ProtoMessage() {}
 
 func (x *TelemetryV2StackDriverConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3394,7 +3450,7 @@ func (x *TelemetryV2StackDriverConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemetryV2StackDriverConfig.ProtoReflect.Descriptor instead.
 func (*TelemetryV2StackDriverConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{27}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *TelemetryV2StackDriverConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -3468,7 +3524,7 @@ type TelemetryV2AccessLogPolicyFilterConfig struct {
 func (x *TelemetryV2AccessLogPolicyFilterConfig) Reset() {
 	*x = TelemetryV2AccessLogPolicyFilterConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3481,7 +3537,7 @@ func (x *TelemetryV2AccessLogPolicyFilterConfig) String() string {
 func (*TelemetryV2AccessLogPolicyFilterConfig) ProtoMessage() {}
 
 func (x *TelemetryV2AccessLogPolicyFilterConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3494,7 +3550,7 @@ func (x *TelemetryV2AccessLogPolicyFilterConfig) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use TelemetryV2AccessLogPolicyFilterConfig.ProtoReflect.Descriptor instead.
 func (*TelemetryV2AccessLogPolicyFilterConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{28}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *TelemetryV2AccessLogPolicyFilterConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -3526,7 +3582,7 @@ type PilotConfigSource struct {
 func (x *PilotConfigSource) Reset() {
 	*x = PilotConfigSource{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3539,7 +3595,7 @@ func (x *PilotConfigSource) String() string {
 func (*PilotConfigSource) ProtoMessage() {}
 
 func (x *PilotConfigSource) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3552,7 +3608,7 @@ func (x *PilotConfigSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PilotConfigSource.ProtoReflect.Descriptor instead.
 func (*PilotConfigSource) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{29}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PilotConfigSource) GetSubscribedResources() []string {
@@ -3583,7 +3639,7 @@ type PortsConfig struct {
 func (x *PortsConfig) Reset() {
 	*x = PortsConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3596,7 +3652,7 @@ func (x *PortsConfig) String() string {
 func (*PortsConfig) ProtoMessage() {}
 
 func (x *PortsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3609,7 +3665,7 @@ func (x *PortsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortsConfig.ProtoReflect.Descriptor instead.
 func (*PortsConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{30}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *PortsConfig) GetName() string {
@@ -3717,7 +3773,7 @@ type ProxyConfig struct {
 func (x *ProxyConfig) Reset() {
 	*x = ProxyConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3730,7 +3786,7 @@ func (x *ProxyConfig) String() string {
 func (*ProxyConfig) ProtoMessage() {}
 
 func (x *ProxyConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3743,7 +3799,7 @@ func (x *ProxyConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProxyConfig.ProtoReflect.Descriptor instead.
 func (*ProxyConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{31}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ProxyConfig) GetAutoInject() string {
@@ -3914,7 +3970,7 @@ type ProxyInitConfig struct {
 func (x *ProxyInitConfig) Reset() {
 	*x = ProxyInitConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3927,7 +3983,7 @@ func (x *ProxyInitConfig) String() string {
 func (*ProxyInitConfig) ProtoMessage() {}
 
 func (x *ProxyInitConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3940,7 +3996,7 @@ func (x *ProxyInitConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProxyInitConfig.ProtoReflect.Descriptor instead.
 func (*ProxyInitConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{32}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ProxyInitConfig) GetImage() string {
@@ -3971,7 +4027,7 @@ type ResourcesRequestsConfig struct {
 func (x *ResourcesRequestsConfig) Reset() {
 	*x = ResourcesRequestsConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3984,7 +4040,7 @@ func (x *ResourcesRequestsConfig) String() string {
 func (*ResourcesRequestsConfig) ProtoMessage() {}
 
 func (x *ResourcesRequestsConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3997,7 +4053,7 @@ func (x *ResourcesRequestsConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourcesRequestsConfig.ProtoReflect.Descriptor instead.
 func (*ResourcesRequestsConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{33}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ResourcesRequestsConfig) GetCpu() string {
@@ -4027,7 +4083,7 @@ type SDSConfig struct {
 func (x *SDSConfig) Reset() {
 	*x = SDSConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4040,7 +4096,7 @@ func (x *SDSConfig) String() string {
 func (*SDSConfig) ProtoMessage() {}
 
 func (x *SDSConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4053,7 +4109,7 @@ func (x *SDSConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDSConfig.ProtoReflect.Descriptor instead.
 func (*SDSConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{34}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{35}
 }
 
 // Deprecated: Do not use.
@@ -4080,7 +4136,7 @@ type SecretVolume struct {
 func (x *SecretVolume) Reset() {
 	*x = SecretVolume{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4093,7 +4149,7 @@ func (x *SecretVolume) String() string {
 func (*SecretVolume) ProtoMessage() {}
 
 func (x *SecretVolume) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4106,7 +4162,7 @@ func (x *SecretVolume) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SecretVolume.ProtoReflect.Descriptor instead.
 func (*SecretVolume) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{35}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *SecretVolume) GetMountPath() string {
@@ -4145,7 +4201,7 @@ type ServiceConfig struct {
 func (x *ServiceConfig) Reset() {
 	*x = ServiceConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4158,7 +4214,7 @@ func (x *ServiceConfig) String() string {
 func (*ServiceConfig) ProtoMessage() {}
 
 func (x *ServiceConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4171,7 +4227,7 @@ func (x *ServiceConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceConfig.ProtoReflect.Descriptor instead.
 func (*ServiceConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{36}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ServiceConfig) GetAnnotations() *structpb.Struct {
@@ -4253,7 +4309,7 @@ type SidecarInjectorConfig struct {
 func (x *SidecarInjectorConfig) Reset() {
 	*x = SidecarInjectorConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4266,7 +4322,7 @@ func (x *SidecarInjectorConfig) String() string {
 func (*SidecarInjectorConfig) ProtoMessage() {}
 
 func (x *SidecarInjectorConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4279,7 +4335,7 @@ func (x *SidecarInjectorConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SidecarInjectorConfig.ProtoReflect.Descriptor instead.
 func (*SidecarInjectorConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{37}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SidecarInjectorConfig) GetEnableNamespacesByDefault() *wrapperspb.BoolValue {
@@ -4372,7 +4428,7 @@ type TracerConfig struct {
 func (x *TracerConfig) Reset() {
 	*x = TracerConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4385,7 +4441,7 @@ func (x *TracerConfig) String() string {
 func (*TracerConfig) ProtoMessage() {}
 
 func (x *TracerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4398,7 +4454,7 @@ func (x *TracerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracerConfig.ProtoReflect.Descriptor instead.
 func (*TracerConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{38}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *TracerConfig) GetDatadog() *TracerDatadogConfig {
@@ -4442,7 +4498,7 @@ type TracerDatadogConfig struct {
 func (x *TracerDatadogConfig) Reset() {
 	*x = TracerDatadogConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4455,7 +4511,7 @@ func (x *TracerDatadogConfig) String() string {
 func (*TracerDatadogConfig) ProtoMessage() {}
 
 func (x *TracerDatadogConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4468,7 +4524,7 @@ func (x *TracerDatadogConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracerDatadogConfig.ProtoReflect.Descriptor instead.
 func (*TracerDatadogConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{39}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *TracerDatadogConfig) GetAddress() string {
@@ -4493,7 +4549,7 @@ type TracerLightStepConfig struct {
 func (x *TracerLightStepConfig) Reset() {
 	*x = TracerLightStepConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4506,7 +4562,7 @@ func (x *TracerLightStepConfig) String() string {
 func (*TracerLightStepConfig) ProtoMessage() {}
 
 func (x *TracerLightStepConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4519,7 +4575,7 @@ func (x *TracerLightStepConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracerLightStepConfig.ProtoReflect.Descriptor instead.
 func (*TracerLightStepConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{40}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *TracerLightStepConfig) GetAddress() string {
@@ -4551,7 +4607,7 @@ type TracerZipkinConfig struct {
 func (x *TracerZipkinConfig) Reset() {
 	*x = TracerZipkinConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4564,7 +4620,7 @@ func (x *TracerZipkinConfig) String() string {
 func (*TracerZipkinConfig) ProtoMessage() {}
 
 func (x *TracerZipkinConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4577,7 +4633,7 @@ func (x *TracerZipkinConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracerZipkinConfig.ProtoReflect.Descriptor instead.
 func (*TracerZipkinConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{41}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *TracerZipkinConfig) GetAddress() string {
@@ -4606,7 +4662,7 @@ type TracerStackdriverConfig struct {
 func (x *TracerStackdriverConfig) Reset() {
 	*x = TracerStackdriverConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4619,7 +4675,7 @@ func (x *TracerStackdriverConfig) String() string {
 func (*TracerStackdriverConfig) ProtoMessage() {}
 
 func (x *TracerStackdriverConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4632,7 +4688,7 @@ func (x *TracerStackdriverConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TracerStackdriverConfig.ProtoReflect.Descriptor instead.
 func (*TracerStackdriverConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{42}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *TracerStackdriverConfig) GetDebug() *wrapperspb.BoolValue {
@@ -4680,7 +4736,7 @@ type BaseConfig struct {
 func (x *BaseConfig) Reset() {
 	*x = BaseConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4693,7 +4749,7 @@ func (x *BaseConfig) String() string {
 func (*BaseConfig) ProtoMessage() {}
 
 func (x *BaseConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4706,7 +4762,7 @@ func (x *BaseConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BaseConfig.ProtoReflect.Descriptor instead.
 func (*BaseConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{43}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *BaseConfig) GetEnableCRDTemplates() *wrapperspb.BoolValue {
@@ -4751,7 +4807,7 @@ type IstiodRemoteConfig struct {
 func (x *IstiodRemoteConfig) Reset() {
 	*x = IstiodRemoteConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4764,7 +4820,7 @@ func (x *IstiodRemoteConfig) String() string {
 func (*IstiodRemoteConfig) ProtoMessage() {}
 
 func (x *IstiodRemoteConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4777,7 +4833,7 @@ func (x *IstiodRemoteConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IstiodRemoteConfig.ProtoReflect.Descriptor instead.
 func (*IstiodRemoteConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{44}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *IstiodRemoteConfig) GetInjectionURL() string {
@@ -4821,7 +4877,7 @@ type Values struct {
 func (x *Values) Reset() {
 	*x = Values{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4834,7 +4890,7 @@ func (x *Values) String() string {
 func (*Values) ProtoMessage() {}
 
 func (x *Values) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4847,7 +4903,7 @@ func (x *Values) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Values.ProtoReflect.Descriptor instead.
 func (*Values) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{45}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *Values) GetCni() *CNIConfig {
@@ -4969,7 +5025,7 @@ type ZeroVPNConfig struct {
 func (x *ZeroVPNConfig) Reset() {
 	*x = ZeroVPNConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4982,7 +5038,7 @@ func (x *ZeroVPNConfig) String() string {
 func (*ZeroVPNConfig) ProtoMessage() {}
 
 func (x *ZeroVPNConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4995,7 +5051,7 @@ func (x *ZeroVPNConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ZeroVPNConfig.ProtoReflect.Descriptor instead.
 func (*ZeroVPNConfig) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{46}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ZeroVPNConfig) GetEnabled() *wrapperspb.BoolValue {
@@ -5034,7 +5090,7 @@ type IntOrString struct {
 func (x *IntOrString) Reset() {
 	*x = IntOrString{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[48]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5047,7 +5103,7 @@ func (x *IntOrString) String() string {
 func (*IntOrString) ProtoMessage() {}
 
 func (x *IntOrString) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[48]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5060,7 +5116,7 @@ func (x *IntOrString) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IntOrString.ProtoReflect.Descriptor instead.
 func (*IntOrString) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{47}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *IntOrString) GetType() int64 {
@@ -5100,7 +5156,7 @@ type TelemetryV2PrometheusConfig_ConfigOverride struct {
 func (x *TelemetryV2PrometheusConfig_ConfigOverride) Reset() {
 	*x = TelemetryV2PrometheusConfig_ConfigOverride{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[52]
+		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[53]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5113,7 +5169,7 @@ func (x *TelemetryV2PrometheusConfig_ConfigOverride) String() string {
 func (*TelemetryV2PrometheusConfig_ConfigOverride) ProtoMessage() {}
 
 func (x *TelemetryV2PrometheusConfig_ConfigOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[52]
+	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[53]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5126,7 +5182,7 @@ func (x *TelemetryV2PrometheusConfig_ConfigOverride) ProtoReflect() protoreflect
 
 // Deprecated: Use TelemetryV2PrometheusConfig_ConfigOverride.ProtoReflect.Descriptor instead.
 func (*TelemetryV2PrometheusConfig_ConfigOverride) Descriptor() ([]byte, []int) {
-	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{26, 0}
+	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{27, 0}
 }
 
 func (x *TelemetryV2PrometheusConfig_ConfigOverride) GetGateway() *structpb.Struct {
@@ -5170,7 +5226,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x70, 0x70, 0x63, 0x36, 0x34, 0x6c, 0x65, 0x12, 0x14, 0x0a,
 	0x05, 0x73, 0x33, 0x39, 0x30, 0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x73, 0x33,
 	0x39, 0x30, 0x78, 0x12, 0x14, 0x0a, 0x05, 0x61, 0x72, 0x6d, 0x36, 0x34, 0x18, 0x04, 0x20, 0x01,
-	0x28, 0x0d, 0x52, 0x05, 0x61, 0x72, 0x6d, 0x36, 0x34, 0x22, 0xaf, 0x07, 0x0a, 0x09, 0x43, 0x4e,
+	0x28, 0x0d, 0x52, 0x05, 0x61, 0x72, 0x6d, 0x36, 0x34, 0x22, 0xe5, 0x07, 0x0a, 0x09, 0x43, 0x4e,
 	0x49, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x34, 0x0a, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c,
 	0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
 	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56,
@@ -5229,7 +5285,15 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x63, 0x63, 0x6f, 0x6d, 0x70, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x18, 0x13, 0x20, 0x01,
 	0x28, 0x0b, 0x32, 0x17, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x52, 0x0e, 0x73, 0x65, 0x63,
-	0x63, 0x6f, 0x6d, 0x70, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x22, 0x46, 0x0a, 0x0e, 0x43,
+	0x63, 0x6f, 0x6d, 0x70, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x12, 0x34, 0x0a, 0x07, 0x61,
+	0x6d, 0x62, 0x69, 0x65, 0x6e, 0x74, 0x18, 0x15, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x76,
+	0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x43, 0x4e, 0x49, 0x41, 0x6d, 0x62, 0x69, 0x65,
+	0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x07, 0x61, 0x6d, 0x62, 0x69, 0x65, 0x6e,
+	0x74, 0x22, 0x48, 0x0a, 0x10, 0x43, 0x4e, 0x49, 0x41, 0x6d, 0x62, 0x69, 0x65, 0x6e, 0x74, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x34, 0x0a, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56, 0x61, 0x6c,
+	0x75, 0x65, 0x52, 0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x22, 0x46, 0x0a, 0x0e, 0x43,
 	0x4e, 0x49, 0x54, 0x61, 0x69, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x34, 0x0a,
 	0x07, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
 	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
@@ -6290,7 +6354,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP() []byte {
 }
 
 var file_pkg_apis_istio_v1alpha1_values_types_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []interface{}{
 	(IngressControllerMode)(0),                         // 0: v1alpha1.ingressControllerMode
 	(Tracer)(0),                                        // 1: v1alpha1.tracer
@@ -6298,254 +6362,257 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []interface{}{
 	(TelemetryV2StackDriverConfig_AccessLogging)(0),    // 3: v1alpha1.TelemetryV2StackDriverConfig.AccessLogging
 	(*ArchConfig)(nil),                                 // 4: v1alpha1.ArchConfig
 	(*CNIConfig)(nil),                                  // 5: v1alpha1.CNIConfig
-	(*CNITaintConfig)(nil),                             // 6: v1alpha1.CNITaintConfig
-	(*CNIRepairConfig)(nil),                            // 7: v1alpha1.CNIRepairConfig
-	(*ResourceQuotas)(nil),                             // 8: v1alpha1.ResourceQuotas
-	(*CPUTargetUtilizationConfig)(nil),                 // 9: v1alpha1.CPUTargetUtilizationConfig
-	(*Resources)(nil),                                  // 10: v1alpha1.Resources
-	(*ServiceAccount)(nil),                             // 11: v1alpha1.ServiceAccount
-	(*DefaultPodDisruptionBudgetConfig)(nil),           // 12: v1alpha1.DefaultPodDisruptionBudgetConfig
-	(*DefaultResourcesConfig)(nil),                     // 13: v1alpha1.DefaultResourcesConfig
-	(*EgressGatewayConfig)(nil),                        // 14: v1alpha1.EgressGatewayConfig
-	(*GatewaysConfig)(nil),                             // 15: v1alpha1.GatewaysConfig
-	(*GlobalConfig)(nil),                               // 16: v1alpha1.GlobalConfig
-	(*STSConfig)(nil),                                  // 17: v1alpha1.STSConfig
-	(*IstiodConfig)(nil),                               // 18: v1alpha1.IstiodConfig
-	(*GlobalLoggingConfig)(nil),                        // 19: v1alpha1.GlobalLoggingConfig
-	(*IngressGatewayConfig)(nil),                       // 20: v1alpha1.IngressGatewayConfig
-	(*IngressGatewayZvpnConfig)(nil),                   // 21: v1alpha1.IngressGatewayZvpnConfig
-	(*MultiClusterConfig)(nil),                         // 22: v1alpha1.MultiClusterConfig
-	(*OutboundTrafficPolicyConfig)(nil),                // 23: v1alpha1.OutboundTrafficPolicyConfig
-	(*PilotConfig)(nil),                                // 24: v1alpha1.PilotConfig
-	(*PilotIngressConfig)(nil),                         // 25: v1alpha1.PilotIngressConfig
-	(*PilotPolicyConfig)(nil),                          // 26: v1alpha1.PilotPolicyConfig
-	(*TelemetryConfig)(nil),                            // 27: v1alpha1.TelemetryConfig
-	(*TelemetryV2Config)(nil),                          // 28: v1alpha1.TelemetryV2Config
-	(*TelemetryV2MetadataExchangeConfig)(nil),          // 29: v1alpha1.TelemetryV2MetadataExchangeConfig
-	(*TelemetryV2PrometheusConfig)(nil),                // 30: v1alpha1.TelemetryV2PrometheusConfig
-	(*TelemetryV2StackDriverConfig)(nil),               // 31: v1alpha1.TelemetryV2StackDriverConfig
-	(*TelemetryV2AccessLogPolicyFilterConfig)(nil),     // 32: v1alpha1.TelemetryV2AccessLogPolicyFilterConfig
-	(*PilotConfigSource)(nil),                          // 33: v1alpha1.PilotConfigSource
-	(*PortsConfig)(nil),                                // 34: v1alpha1.PortsConfig
-	(*ProxyConfig)(nil),                                // 35: v1alpha1.ProxyConfig
-	(*ProxyInitConfig)(nil),                            // 36: v1alpha1.ProxyInitConfig
-	(*ResourcesRequestsConfig)(nil),                    // 37: v1alpha1.ResourcesRequestsConfig
-	(*SDSConfig)(nil),                                  // 38: v1alpha1.SDSConfig
-	(*SecretVolume)(nil),                               // 39: v1alpha1.SecretVolume
-	(*ServiceConfig)(nil),                              // 40: v1alpha1.ServiceConfig
-	(*SidecarInjectorConfig)(nil),                      // 41: v1alpha1.SidecarInjectorConfig
-	(*TracerConfig)(nil),                               // 42: v1alpha1.TracerConfig
-	(*TracerDatadogConfig)(nil),                        // 43: v1alpha1.TracerDatadogConfig
-	(*TracerLightStepConfig)(nil),                      // 44: v1alpha1.TracerLightStepConfig
-	(*TracerZipkinConfig)(nil),                         // 45: v1alpha1.TracerZipkinConfig
-	(*TracerStackdriverConfig)(nil),                    // 46: v1alpha1.TracerStackdriverConfig
-	(*BaseConfig)(nil),                                 // 47: v1alpha1.BaseConfig
-	(*IstiodRemoteConfig)(nil),                         // 48: v1alpha1.IstiodRemoteConfig
-	(*Values)(nil),                                     // 49: v1alpha1.Values
-	(*ZeroVPNConfig)(nil),                              // 50: v1alpha1.ZeroVPNConfig
-	(*IntOrString)(nil),                                // 51: v1alpha1.IntOrString
-	nil,                                                // 52: v1alpha1.Resources.LimitsEntry
-	nil,                                                // 53: v1alpha1.Resources.RequestsEntry
-	nil,                                                // 54: v1alpha1.EgressGatewayConfig.LabelsEntry
-	nil,                                                // 55: v1alpha1.IngressGatewayConfig.LabelsEntry
-	(*TelemetryV2PrometheusConfig_ConfigOverride)(nil), // 56: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride
-	(*wrapperspb.BoolValue)(nil),                       // 57: google.protobuf.BoolValue
-	(*structpb.Value)(nil),                             // 58: google.protobuf.Value
-	(*structpb.Struct)(nil),                            // 59: google.protobuf.Struct
-	(*durationpb.Duration)(nil),                        // 60: google.protobuf.Duration
-	(*wrapperspb.Int32Value)(nil),                      // 61: google.protobuf.Int32Value
-	(*wrapperspb.StringValue)(nil),                     // 62: google.protobuf.StringValue
+	(*CNIAmbientConfig)(nil),                           // 6: v1alpha1.CNIAmbientConfig
+	(*CNITaintConfig)(nil),                             // 7: v1alpha1.CNITaintConfig
+	(*CNIRepairConfig)(nil),                            // 8: v1alpha1.CNIRepairConfig
+	(*ResourceQuotas)(nil),                             // 9: v1alpha1.ResourceQuotas
+	(*CPUTargetUtilizationConfig)(nil),                 // 10: v1alpha1.CPUTargetUtilizationConfig
+	(*Resources)(nil),                                  // 11: v1alpha1.Resources
+	(*ServiceAccount)(nil),                             // 12: v1alpha1.ServiceAccount
+	(*DefaultPodDisruptionBudgetConfig)(nil),           // 13: v1alpha1.DefaultPodDisruptionBudgetConfig
+	(*DefaultResourcesConfig)(nil),                     // 14: v1alpha1.DefaultResourcesConfig
+	(*EgressGatewayConfig)(nil),                        // 15: v1alpha1.EgressGatewayConfig
+	(*GatewaysConfig)(nil),                             // 16: v1alpha1.GatewaysConfig
+	(*GlobalConfig)(nil),                               // 17: v1alpha1.GlobalConfig
+	(*STSConfig)(nil),                                  // 18: v1alpha1.STSConfig
+	(*IstiodConfig)(nil),                               // 19: v1alpha1.IstiodConfig
+	(*GlobalLoggingConfig)(nil),                        // 20: v1alpha1.GlobalLoggingConfig
+	(*IngressGatewayConfig)(nil),                       // 21: v1alpha1.IngressGatewayConfig
+	(*IngressGatewayZvpnConfig)(nil),                   // 22: v1alpha1.IngressGatewayZvpnConfig
+	(*MultiClusterConfig)(nil),                         // 23: v1alpha1.MultiClusterConfig
+	(*OutboundTrafficPolicyConfig)(nil),                // 24: v1alpha1.OutboundTrafficPolicyConfig
+	(*PilotConfig)(nil),                                // 25: v1alpha1.PilotConfig
+	(*PilotIngressConfig)(nil),                         // 26: v1alpha1.PilotIngressConfig
+	(*PilotPolicyConfig)(nil),                          // 27: v1alpha1.PilotPolicyConfig
+	(*TelemetryConfig)(nil),                            // 28: v1alpha1.TelemetryConfig
+	(*TelemetryV2Config)(nil),                          // 29: v1alpha1.TelemetryV2Config
+	(*TelemetryV2MetadataExchangeConfig)(nil),          // 30: v1alpha1.TelemetryV2MetadataExchangeConfig
+	(*TelemetryV2PrometheusConfig)(nil),                // 31: v1alpha1.TelemetryV2PrometheusConfig
+	(*TelemetryV2StackDriverConfig)(nil),               // 32: v1alpha1.TelemetryV2StackDriverConfig
+	(*TelemetryV2AccessLogPolicyFilterConfig)(nil),     // 33: v1alpha1.TelemetryV2AccessLogPolicyFilterConfig
+	(*PilotConfigSource)(nil),                          // 34: v1alpha1.PilotConfigSource
+	(*PortsConfig)(nil),                                // 35: v1alpha1.PortsConfig
+	(*ProxyConfig)(nil),                                // 36: v1alpha1.ProxyConfig
+	(*ProxyInitConfig)(nil),                            // 37: v1alpha1.ProxyInitConfig
+	(*ResourcesRequestsConfig)(nil),                    // 38: v1alpha1.ResourcesRequestsConfig
+	(*SDSConfig)(nil),                                  // 39: v1alpha1.SDSConfig
+	(*SecretVolume)(nil),                               // 40: v1alpha1.SecretVolume
+	(*ServiceConfig)(nil),                              // 41: v1alpha1.ServiceConfig
+	(*SidecarInjectorConfig)(nil),                      // 42: v1alpha1.SidecarInjectorConfig
+	(*TracerConfig)(nil),                               // 43: v1alpha1.TracerConfig
+	(*TracerDatadogConfig)(nil),                        // 44: v1alpha1.TracerDatadogConfig
+	(*TracerLightStepConfig)(nil),                      // 45: v1alpha1.TracerLightStepConfig
+	(*TracerZipkinConfig)(nil),                         // 46: v1alpha1.TracerZipkinConfig
+	(*TracerStackdriverConfig)(nil),                    // 47: v1alpha1.TracerStackdriverConfig
+	(*BaseConfig)(nil),                                 // 48: v1alpha1.BaseConfig
+	(*IstiodRemoteConfig)(nil),                         // 49: v1alpha1.IstiodRemoteConfig
+	(*Values)(nil),                                     // 50: v1alpha1.Values
+	(*ZeroVPNConfig)(nil),                              // 51: v1alpha1.ZeroVPNConfig
+	(*IntOrString)(nil),                                // 52: v1alpha1.IntOrString
+	nil,                                                // 53: v1alpha1.Resources.LimitsEntry
+	nil,                                                // 54: v1alpha1.Resources.RequestsEntry
+	nil,                                                // 55: v1alpha1.EgressGatewayConfig.LabelsEntry
+	nil,                                                // 56: v1alpha1.IngressGatewayConfig.LabelsEntry
+	(*TelemetryV2PrometheusConfig_ConfigOverride)(nil), // 57: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride
+	(*wrapperspb.BoolValue)(nil),                       // 58: google.protobuf.BoolValue
+	(*structpb.Value)(nil),                             // 59: google.protobuf.Value
+	(*structpb.Struct)(nil),                            // 60: google.protobuf.Struct
+	(*durationpb.Duration)(nil),                        // 61: google.protobuf.Duration
+	(*wrapperspb.Int32Value)(nil),                      // 62: google.protobuf.Int32Value
+	(*wrapperspb.StringValue)(nil),                     // 63: google.protobuf.StringValue
 }
 var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
-	57,  // 0: v1alpha1.CNIConfig.enabled:type_name -> google.protobuf.BoolValue
-	58,  // 1: v1alpha1.CNIConfig.tag:type_name -> google.protobuf.Value
-	59,  // 2: v1alpha1.CNIConfig.affinity:type_name -> google.protobuf.Struct
-	59,  // 3: v1alpha1.CNIConfig.podAnnotations:type_name -> google.protobuf.Struct
-	7,   // 4: v1alpha1.CNIConfig.repair:type_name -> v1alpha1.CNIRepairConfig
-	57,  // 5: v1alpha1.CNIConfig.chained:type_name -> google.protobuf.BoolValue
-	6,   // 6: v1alpha1.CNIConfig.taint:type_name -> v1alpha1.CNITaintConfig
-	8,   // 7: v1alpha1.CNIConfig.resource_quotas:type_name -> v1alpha1.ResourceQuotas
-	10,  // 8: v1alpha1.CNIConfig.resources:type_name -> v1alpha1.Resources
-	57,  // 9: v1alpha1.CNIConfig.privileged:type_name -> google.protobuf.BoolValue
-	59,  // 10: v1alpha1.CNIConfig.seccompProfile:type_name -> google.protobuf.Struct
-	57,  // 11: v1alpha1.CNITaintConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 12: v1alpha1.CNIRepairConfig.enabled:type_name -> google.protobuf.BoolValue
-	58,  // 13: v1alpha1.CNIRepairConfig.tag:type_name -> google.protobuf.Value
-	57,  // 14: v1alpha1.ResourceQuotas.enabled:type_name -> google.protobuf.BoolValue
-	52,  // 15: v1alpha1.Resources.limits:type_name -> v1alpha1.Resources.LimitsEntry
-	53,  // 16: v1alpha1.Resources.requests:type_name -> v1alpha1.Resources.RequestsEntry
-	59,  // 17: v1alpha1.ServiceAccount.annotations:type_name -> google.protobuf.Struct
-	57,  // 18: v1alpha1.DefaultPodDisruptionBudgetConfig.enabled:type_name -> google.protobuf.BoolValue
-	37,  // 19: v1alpha1.DefaultResourcesConfig.requests:type_name -> v1alpha1.ResourcesRequestsConfig
-	57,  // 20: v1alpha1.EgressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	9,   // 21: v1alpha1.EgressGatewayConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
-	57,  // 22: v1alpha1.EgressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
-	57,  // 23: v1alpha1.EgressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
-	59,  // 24: v1alpha1.EgressGatewayConfig.env:type_name -> google.protobuf.Struct
-	54,  // 25: v1alpha1.EgressGatewayConfig.labels:type_name -> v1alpha1.EgressGatewayConfig.LabelsEntry
-	59,  // 26: v1alpha1.EgressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
-	59,  // 27: v1alpha1.EgressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
-	59,  // 28: v1alpha1.EgressGatewayConfig.podAntiAffinityLabelSelector:type_name -> google.protobuf.Struct
-	59,  // 29: v1alpha1.EgressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> google.protobuf.Struct
-	34,  // 30: v1alpha1.EgressGatewayConfig.ports:type_name -> v1alpha1.PortsConfig
-	10,  // 31: v1alpha1.EgressGatewayConfig.resources:type_name -> v1alpha1.Resources
-	39,  // 32: v1alpha1.EgressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
-	59,  // 33: v1alpha1.EgressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	50,  // 34: v1alpha1.EgressGatewayConfig.zvpn:type_name -> v1alpha1.ZeroVPNConfig
-	59,  // 35: v1alpha1.EgressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
-	51,  // 36: v1alpha1.EgressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 37: v1alpha1.EgressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
-	59,  // 38: v1alpha1.EgressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
-	59,  // 39: v1alpha1.EgressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
-	57,  // 40: v1alpha1.EgressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
-	11,  // 41: v1alpha1.EgressGatewayConfig.serviceAccount:type_name -> v1alpha1.ServiceAccount
-	14,  // 42: v1alpha1.GatewaysConfig.istio_egressgateway:type_name -> v1alpha1.EgressGatewayConfig
-	57,  // 43: v1alpha1.GatewaysConfig.enabled:type_name -> google.protobuf.BoolValue
-	20,  // 44: v1alpha1.GatewaysConfig.istio_ingressgateway:type_name -> v1alpha1.IngressGatewayConfig
-	4,   // 45: v1alpha1.GlobalConfig.arch:type_name -> v1alpha1.ArchConfig
-	57,  // 46: v1alpha1.GlobalConfig.configValidation:type_name -> google.protobuf.BoolValue
-	59,  // 47: v1alpha1.GlobalConfig.defaultNodeSelector:type_name -> google.protobuf.Struct
-	12,  // 48: v1alpha1.GlobalConfig.defaultPodDisruptionBudget:type_name -> v1alpha1.DefaultPodDisruptionBudgetConfig
-	13,  // 49: v1alpha1.GlobalConfig.defaultResources:type_name -> v1alpha1.DefaultResourcesConfig
-	59,  // 50: v1alpha1.GlobalConfig.defaultTolerations:type_name -> google.protobuf.Struct
-	57,  // 51: v1alpha1.GlobalConfig.logAsJson:type_name -> google.protobuf.BoolValue
-	19,  // 52: v1alpha1.GlobalConfig.logging:type_name -> v1alpha1.GlobalLoggingConfig
-	59,  // 53: v1alpha1.GlobalConfig.meshNetworks:type_name -> google.protobuf.Struct
-	22,  // 54: v1alpha1.GlobalConfig.multiCluster:type_name -> v1alpha1.MultiClusterConfig
-	57,  // 55: v1alpha1.GlobalConfig.omitSidecarInjectorConfigMap:type_name -> google.protobuf.BoolValue
-	57,  // 56: v1alpha1.GlobalConfig.oneNamespace:type_name -> google.protobuf.BoolValue
-	57,  // 57: v1alpha1.GlobalConfig.operatorManageWebhooks:type_name -> google.protobuf.BoolValue
-	35,  // 58: v1alpha1.GlobalConfig.proxy:type_name -> v1alpha1.ProxyConfig
-	36,  // 59: v1alpha1.GlobalConfig.proxy_init:type_name -> v1alpha1.ProxyInitConfig
-	38,  // 60: v1alpha1.GlobalConfig.sds:type_name -> v1alpha1.SDSConfig
-	58,  // 61: v1alpha1.GlobalConfig.tag:type_name -> google.protobuf.Value
-	42,  // 62: v1alpha1.GlobalConfig.tracer:type_name -> v1alpha1.TracerConfig
-	57,  // 63: v1alpha1.GlobalConfig.useMCP:type_name -> google.protobuf.BoolValue
-	18,  // 64: v1alpha1.GlobalConfig.istiod:type_name -> v1alpha1.IstiodConfig
-	17,  // 65: v1alpha1.GlobalConfig.sts:type_name -> v1alpha1.STSConfig
-	57,  // 66: v1alpha1.GlobalConfig.mountMtlsCerts:type_name -> google.protobuf.BoolValue
-	57,  // 67: v1alpha1.GlobalConfig.externalIstiod:type_name -> google.protobuf.BoolValue
-	57,  // 68: v1alpha1.GlobalConfig.configCluster:type_name -> google.protobuf.BoolValue
-	57,  // 69: v1alpha1.GlobalConfig.autoscalingv2API:type_name -> google.protobuf.BoolValue
-	57,  // 70: v1alpha1.IstiodConfig.enableAnalysis:type_name -> google.protobuf.BoolValue
-	57,  // 71: v1alpha1.IngressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	9,   // 72: v1alpha1.IngressGatewayConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
-	57,  // 73: v1alpha1.IngressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
-	57,  // 74: v1alpha1.IngressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
-	59,  // 75: v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
-	55,  // 76: v1alpha1.IngressGatewayConfig.labels:type_name -> v1alpha1.IngressGatewayConfig.LabelsEntry
-	59,  // 77: v1alpha1.IngressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
-	59,  // 78: v1alpha1.IngressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
-	59,  // 79: v1alpha1.IngressGatewayConfig.podAntiAffinityLabelSelector:type_name -> google.protobuf.Struct
-	59,  // 80: v1alpha1.IngressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> google.protobuf.Struct
-	34,  // 81: v1alpha1.IngressGatewayConfig.ports:type_name -> v1alpha1.PortsConfig
-	59,  // 82: v1alpha1.IngressGatewayConfig.resources:type_name -> google.protobuf.Struct
-	39,  // 83: v1alpha1.IngressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
-	59,  // 84: v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	21,  // 85: v1alpha1.IngressGatewayConfig.zvpn:type_name -> v1alpha1.IngressGatewayZvpnConfig
-	51,  // 86: v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 87: v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
-	59,  // 88: v1alpha1.IngressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
-	59,  // 89: v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
-	59,  // 90: v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
-	59,  // 91: v1alpha1.IngressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
-	57,  // 92: v1alpha1.IngressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
-	11,  // 93: v1alpha1.IngressGatewayConfig.serviceAccount:type_name -> v1alpha1.ServiceAccount
-	57,  // 94: v1alpha1.IngressGatewayZvpnConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 95: v1alpha1.MultiClusterConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 96: v1alpha1.MultiClusterConfig.includeEnvoyFilter:type_name -> google.protobuf.BoolValue
-	2,   // 97: v1alpha1.OutboundTrafficPolicyConfig.mode:type_name -> v1alpha1.OutboundTrafficPolicyConfig.Mode
-	57,  // 98: v1alpha1.PilotConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 99: v1alpha1.PilotConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	10,  // 100: v1alpha1.PilotConfig.resources:type_name -> v1alpha1.Resources
-	9,   // 101: v1alpha1.PilotConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
-	59,  // 102: v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
-	60,  // 103: v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
-	59,  // 104: v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
-	59,  // 105: v1alpha1.PilotConfig.podLabels:type_name -> google.protobuf.Struct
-	57,  // 106: v1alpha1.PilotConfig.configMap:type_name -> google.protobuf.BoolValue
-	57,  // 107: v1alpha1.PilotConfig.useMCP:type_name -> google.protobuf.BoolValue
-	59,  // 108: v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
-	51,  // 109: v1alpha1.PilotConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 110: v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
-	59,  // 111: v1alpha1.PilotConfig.tolerations:type_name -> google.protobuf.Struct
-	57,  // 112: v1alpha1.PilotConfig.enableProtocolSniffingForOutbound:type_name -> google.protobuf.BoolValue
-	57,  // 113: v1alpha1.PilotConfig.enableProtocolSniffingForInbound:type_name -> google.protobuf.BoolValue
-	59,  // 114: v1alpha1.PilotConfig.podAnnotations:type_name -> google.protobuf.Struct
-	59,  // 115: v1alpha1.PilotConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	33,  // 116: v1alpha1.PilotConfig.configSource:type_name -> v1alpha1.PilotConfigSource
-	58,  // 117: v1alpha1.PilotConfig.tag:type_name -> google.protobuf.Value
-	59,  // 118: v1alpha1.PilotConfig.seccompProfile:type_name -> google.protobuf.Struct
-	0,   // 119: v1alpha1.PilotIngressConfig.ingressControllerMode:type_name -> v1alpha1.ingressControllerMode
-	57,  // 120: v1alpha1.PilotPolicyConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 121: v1alpha1.TelemetryConfig.enabled:type_name -> google.protobuf.BoolValue
-	28,  // 122: v1alpha1.TelemetryConfig.v2:type_name -> v1alpha1.TelemetryV2Config
-	57,  // 123: v1alpha1.TelemetryV2Config.enabled:type_name -> google.protobuf.BoolValue
-	29,  // 124: v1alpha1.TelemetryV2Config.metadata_exchange:type_name -> v1alpha1.TelemetryV2MetadataExchangeConfig
-	30,  // 125: v1alpha1.TelemetryV2Config.prometheus:type_name -> v1alpha1.TelemetryV2PrometheusConfig
-	31,  // 126: v1alpha1.TelemetryV2Config.stackdriver:type_name -> v1alpha1.TelemetryV2StackDriverConfig
-	32,  // 127: v1alpha1.TelemetryV2Config.access_log_policy:type_name -> v1alpha1.TelemetryV2AccessLogPolicyFilterConfig
-	57,  // 128: v1alpha1.TelemetryV2MetadataExchangeConfig.wasmEnabled:type_name -> google.protobuf.BoolValue
-	57,  // 129: v1alpha1.TelemetryV2PrometheusConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 130: v1alpha1.TelemetryV2PrometheusConfig.wasmEnabled:type_name -> google.protobuf.BoolValue
-	56,  // 131: v1alpha1.TelemetryV2PrometheusConfig.config_override:type_name -> v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride
-	57,  // 132: v1alpha1.TelemetryV2StackDriverConfig.enabled:type_name -> google.protobuf.BoolValue
-	57,  // 133: v1alpha1.TelemetryV2StackDriverConfig.logging:type_name -> google.protobuf.BoolValue
-	57,  // 134: v1alpha1.TelemetryV2StackDriverConfig.monitoring:type_name -> google.protobuf.BoolValue
-	57,  // 135: v1alpha1.TelemetryV2StackDriverConfig.topology:type_name -> google.protobuf.BoolValue
-	57,  // 136: v1alpha1.TelemetryV2StackDriverConfig.disableOutbound:type_name -> google.protobuf.BoolValue
-	59,  // 137: v1alpha1.TelemetryV2StackDriverConfig.configOverride:type_name -> google.protobuf.Struct
-	3,   // 138: v1alpha1.TelemetryV2StackDriverConfig.outboundAccessLogging:type_name -> v1alpha1.TelemetryV2StackDriverConfig.AccessLogging
-	3,   // 139: v1alpha1.TelemetryV2StackDriverConfig.inboundAccessLogging:type_name -> v1alpha1.TelemetryV2StackDriverConfig.AccessLogging
-	57,  // 140: v1alpha1.TelemetryV2AccessLogPolicyFilterConfig.enabled:type_name -> google.protobuf.BoolValue
-	60,  // 141: v1alpha1.TelemetryV2AccessLogPolicyFilterConfig.logWindowDuration:type_name -> google.protobuf.Duration
-	57,  // 142: v1alpha1.ProxyConfig.enableCoreDump:type_name -> google.protobuf.BoolValue
-	57,  // 143: v1alpha1.ProxyConfig.privileged:type_name -> google.protobuf.BoolValue
-	10,  // 144: v1alpha1.ProxyConfig.resources:type_name -> v1alpha1.Resources
-	1,   // 145: v1alpha1.ProxyConfig.tracer:type_name -> v1alpha1.tracer
-	59,  // 146: v1alpha1.ProxyConfig.lifecycle:type_name -> google.protobuf.Struct
-	57,  // 147: v1alpha1.ProxyConfig.holdApplicationUntilProxyStarts:type_name -> google.protobuf.BoolValue
-	10,  // 148: v1alpha1.ProxyInitConfig.resources:type_name -> v1alpha1.Resources
-	59,  // 149: v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
-	59,  // 150: v1alpha1.ServiceConfig.annotations:type_name -> google.protobuf.Struct
-	57,  // 151: v1alpha1.SidecarInjectorConfig.enableNamespacesByDefault:type_name -> google.protobuf.BoolValue
-	59,  // 152: v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> google.protobuf.Struct
-	59,  // 153: v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> google.protobuf.Struct
-	57,  // 154: v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
-	59,  // 155: v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
-	59,  // 156: v1alpha1.SidecarInjectorConfig.objectSelector:type_name -> google.protobuf.Struct
-	59,  // 157: v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
-	57,  // 158: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
-	43,  // 159: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
-	44,  // 160: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
-	45,  // 161: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
-	46,  // 162: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
-	57,  // 163: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
-	57,  // 164: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
-	57,  // 165: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
-	57,  // 166: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
-	5,   // 167: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
-	15,  // 168: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
-	16,  // 169: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
-	24,  // 170: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
-	58,  // 171: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
-	27,  // 172: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
-	41,  // 173: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
-	5,   // 174: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIConfig
-	58,  // 175: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
-	47,  // 176: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
-	48,  // 177: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
-	57,  // 178: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
-	61,  // 179: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	62,  // 180: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
-	59,  // 181: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.gateway:type_name -> google.protobuf.Struct
-	59,  // 182: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.inboundSidecar:type_name -> google.protobuf.Struct
-	59,  // 183: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.outboundSidecar:type_name -> google.protobuf.Struct
-	184, // [184:184] is the sub-list for method output_type
-	184, // [184:184] is the sub-list for method input_type
-	184, // [184:184] is the sub-list for extension type_name
-	184, // [184:184] is the sub-list for extension extendee
-	0,   // [0:184] is the sub-list for field type_name
+	58,  // 0: v1alpha1.CNIConfig.enabled:type_name -> google.protobuf.BoolValue
+	59,  // 1: v1alpha1.CNIConfig.tag:type_name -> google.protobuf.Value
+	60,  // 2: v1alpha1.CNIConfig.affinity:type_name -> google.protobuf.Struct
+	60,  // 3: v1alpha1.CNIConfig.podAnnotations:type_name -> google.protobuf.Struct
+	8,   // 4: v1alpha1.CNIConfig.repair:type_name -> v1alpha1.CNIRepairConfig
+	58,  // 5: v1alpha1.CNIConfig.chained:type_name -> google.protobuf.BoolValue
+	7,   // 6: v1alpha1.CNIConfig.taint:type_name -> v1alpha1.CNITaintConfig
+	9,   // 7: v1alpha1.CNIConfig.resource_quotas:type_name -> v1alpha1.ResourceQuotas
+	11,  // 8: v1alpha1.CNIConfig.resources:type_name -> v1alpha1.Resources
+	58,  // 9: v1alpha1.CNIConfig.privileged:type_name -> google.protobuf.BoolValue
+	60,  // 10: v1alpha1.CNIConfig.seccompProfile:type_name -> google.protobuf.Struct
+	6,   // 11: v1alpha1.CNIConfig.ambient:type_name -> v1alpha1.CNIAmbientConfig
+	58,  // 12: v1alpha1.CNIAmbientConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 13: v1alpha1.CNITaintConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 14: v1alpha1.CNIRepairConfig.enabled:type_name -> google.protobuf.BoolValue
+	59,  // 15: v1alpha1.CNIRepairConfig.tag:type_name -> google.protobuf.Value
+	58,  // 16: v1alpha1.ResourceQuotas.enabled:type_name -> google.protobuf.BoolValue
+	53,  // 17: v1alpha1.Resources.limits:type_name -> v1alpha1.Resources.LimitsEntry
+	54,  // 18: v1alpha1.Resources.requests:type_name -> v1alpha1.Resources.RequestsEntry
+	60,  // 19: v1alpha1.ServiceAccount.annotations:type_name -> google.protobuf.Struct
+	58,  // 20: v1alpha1.DefaultPodDisruptionBudgetConfig.enabled:type_name -> google.protobuf.BoolValue
+	38,  // 21: v1alpha1.DefaultResourcesConfig.requests:type_name -> v1alpha1.ResourcesRequestsConfig
+	58,  // 22: v1alpha1.EgressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
+	10,  // 23: v1alpha1.EgressGatewayConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
+	58,  // 24: v1alpha1.EgressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
+	58,  // 25: v1alpha1.EgressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
+	60,  // 26: v1alpha1.EgressGatewayConfig.env:type_name -> google.protobuf.Struct
+	55,  // 27: v1alpha1.EgressGatewayConfig.labels:type_name -> v1alpha1.EgressGatewayConfig.LabelsEntry
+	60,  // 28: v1alpha1.EgressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
+	60,  // 29: v1alpha1.EgressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
+	60,  // 30: v1alpha1.EgressGatewayConfig.podAntiAffinityLabelSelector:type_name -> google.protobuf.Struct
+	60,  // 31: v1alpha1.EgressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> google.protobuf.Struct
+	35,  // 32: v1alpha1.EgressGatewayConfig.ports:type_name -> v1alpha1.PortsConfig
+	11,  // 33: v1alpha1.EgressGatewayConfig.resources:type_name -> v1alpha1.Resources
+	40,  // 34: v1alpha1.EgressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
+	60,  // 35: v1alpha1.EgressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	51,  // 36: v1alpha1.EgressGatewayConfig.zvpn:type_name -> v1alpha1.ZeroVPNConfig
+	60,  // 37: v1alpha1.EgressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
+	52,  // 38: v1alpha1.EgressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
+	52,  // 39: v1alpha1.EgressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	60,  // 40: v1alpha1.EgressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
+	60,  // 41: v1alpha1.EgressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
+	58,  // 42: v1alpha1.EgressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
+	12,  // 43: v1alpha1.EgressGatewayConfig.serviceAccount:type_name -> v1alpha1.ServiceAccount
+	15,  // 44: v1alpha1.GatewaysConfig.istio_egressgateway:type_name -> v1alpha1.EgressGatewayConfig
+	58,  // 45: v1alpha1.GatewaysConfig.enabled:type_name -> google.protobuf.BoolValue
+	21,  // 46: v1alpha1.GatewaysConfig.istio_ingressgateway:type_name -> v1alpha1.IngressGatewayConfig
+	4,   // 47: v1alpha1.GlobalConfig.arch:type_name -> v1alpha1.ArchConfig
+	58,  // 48: v1alpha1.GlobalConfig.configValidation:type_name -> google.protobuf.BoolValue
+	60,  // 49: v1alpha1.GlobalConfig.defaultNodeSelector:type_name -> google.protobuf.Struct
+	13,  // 50: v1alpha1.GlobalConfig.defaultPodDisruptionBudget:type_name -> v1alpha1.DefaultPodDisruptionBudgetConfig
+	14,  // 51: v1alpha1.GlobalConfig.defaultResources:type_name -> v1alpha1.DefaultResourcesConfig
+	60,  // 52: v1alpha1.GlobalConfig.defaultTolerations:type_name -> google.protobuf.Struct
+	58,  // 53: v1alpha1.GlobalConfig.logAsJson:type_name -> google.protobuf.BoolValue
+	20,  // 54: v1alpha1.GlobalConfig.logging:type_name -> v1alpha1.GlobalLoggingConfig
+	60,  // 55: v1alpha1.GlobalConfig.meshNetworks:type_name -> google.protobuf.Struct
+	23,  // 56: v1alpha1.GlobalConfig.multiCluster:type_name -> v1alpha1.MultiClusterConfig
+	58,  // 57: v1alpha1.GlobalConfig.omitSidecarInjectorConfigMap:type_name -> google.protobuf.BoolValue
+	58,  // 58: v1alpha1.GlobalConfig.oneNamespace:type_name -> google.protobuf.BoolValue
+	58,  // 59: v1alpha1.GlobalConfig.operatorManageWebhooks:type_name -> google.protobuf.BoolValue
+	36,  // 60: v1alpha1.GlobalConfig.proxy:type_name -> v1alpha1.ProxyConfig
+	37,  // 61: v1alpha1.GlobalConfig.proxy_init:type_name -> v1alpha1.ProxyInitConfig
+	39,  // 62: v1alpha1.GlobalConfig.sds:type_name -> v1alpha1.SDSConfig
+	59,  // 63: v1alpha1.GlobalConfig.tag:type_name -> google.protobuf.Value
+	43,  // 64: v1alpha1.GlobalConfig.tracer:type_name -> v1alpha1.TracerConfig
+	58,  // 65: v1alpha1.GlobalConfig.useMCP:type_name -> google.protobuf.BoolValue
+	19,  // 66: v1alpha1.GlobalConfig.istiod:type_name -> v1alpha1.IstiodConfig
+	18,  // 67: v1alpha1.GlobalConfig.sts:type_name -> v1alpha1.STSConfig
+	58,  // 68: v1alpha1.GlobalConfig.mountMtlsCerts:type_name -> google.protobuf.BoolValue
+	58,  // 69: v1alpha1.GlobalConfig.externalIstiod:type_name -> google.protobuf.BoolValue
+	58,  // 70: v1alpha1.GlobalConfig.configCluster:type_name -> google.protobuf.BoolValue
+	58,  // 71: v1alpha1.GlobalConfig.autoscalingv2API:type_name -> google.protobuf.BoolValue
+	58,  // 72: v1alpha1.IstiodConfig.enableAnalysis:type_name -> google.protobuf.BoolValue
+	58,  // 73: v1alpha1.IngressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
+	10,  // 74: v1alpha1.IngressGatewayConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
+	58,  // 75: v1alpha1.IngressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
+	58,  // 76: v1alpha1.IngressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
+	60,  // 77: v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
+	56,  // 78: v1alpha1.IngressGatewayConfig.labels:type_name -> v1alpha1.IngressGatewayConfig.LabelsEntry
+	60,  // 79: v1alpha1.IngressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
+	60,  // 80: v1alpha1.IngressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
+	60,  // 81: v1alpha1.IngressGatewayConfig.podAntiAffinityLabelSelector:type_name -> google.protobuf.Struct
+	60,  // 82: v1alpha1.IngressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> google.protobuf.Struct
+	35,  // 83: v1alpha1.IngressGatewayConfig.ports:type_name -> v1alpha1.PortsConfig
+	60,  // 84: v1alpha1.IngressGatewayConfig.resources:type_name -> google.protobuf.Struct
+	40,  // 85: v1alpha1.IngressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
+	60,  // 86: v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	22,  // 87: v1alpha1.IngressGatewayConfig.zvpn:type_name -> v1alpha1.IngressGatewayZvpnConfig
+	52,  // 88: v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
+	52,  // 89: v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	60,  // 90: v1alpha1.IngressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
+	60,  // 91: v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
+	60,  // 92: v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
+	60,  // 93: v1alpha1.IngressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
+	58,  // 94: v1alpha1.IngressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
+	12,  // 95: v1alpha1.IngressGatewayConfig.serviceAccount:type_name -> v1alpha1.ServiceAccount
+	58,  // 96: v1alpha1.IngressGatewayZvpnConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 97: v1alpha1.MultiClusterConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 98: v1alpha1.MultiClusterConfig.includeEnvoyFilter:type_name -> google.protobuf.BoolValue
+	2,   // 99: v1alpha1.OutboundTrafficPolicyConfig.mode:type_name -> v1alpha1.OutboundTrafficPolicyConfig.Mode
+	58,  // 100: v1alpha1.PilotConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 101: v1alpha1.PilotConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
+	11,  // 102: v1alpha1.PilotConfig.resources:type_name -> v1alpha1.Resources
+	10,  // 103: v1alpha1.PilotConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
+	60,  // 104: v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
+	61,  // 105: v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
+	60,  // 106: v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
+	60,  // 107: v1alpha1.PilotConfig.podLabels:type_name -> google.protobuf.Struct
+	58,  // 108: v1alpha1.PilotConfig.configMap:type_name -> google.protobuf.BoolValue
+	58,  // 109: v1alpha1.PilotConfig.useMCP:type_name -> google.protobuf.BoolValue
+	60,  // 110: v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
+	52,  // 111: v1alpha1.PilotConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
+	52,  // 112: v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	60,  // 113: v1alpha1.PilotConfig.tolerations:type_name -> google.protobuf.Struct
+	58,  // 114: v1alpha1.PilotConfig.enableProtocolSniffingForOutbound:type_name -> google.protobuf.BoolValue
+	58,  // 115: v1alpha1.PilotConfig.enableProtocolSniffingForInbound:type_name -> google.protobuf.BoolValue
+	60,  // 116: v1alpha1.PilotConfig.podAnnotations:type_name -> google.protobuf.Struct
+	60,  // 117: v1alpha1.PilotConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	34,  // 118: v1alpha1.PilotConfig.configSource:type_name -> v1alpha1.PilotConfigSource
+	59,  // 119: v1alpha1.PilotConfig.tag:type_name -> google.protobuf.Value
+	60,  // 120: v1alpha1.PilotConfig.seccompProfile:type_name -> google.protobuf.Struct
+	0,   // 121: v1alpha1.PilotIngressConfig.ingressControllerMode:type_name -> v1alpha1.ingressControllerMode
+	58,  // 122: v1alpha1.PilotPolicyConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 123: v1alpha1.TelemetryConfig.enabled:type_name -> google.protobuf.BoolValue
+	29,  // 124: v1alpha1.TelemetryConfig.v2:type_name -> v1alpha1.TelemetryV2Config
+	58,  // 125: v1alpha1.TelemetryV2Config.enabled:type_name -> google.protobuf.BoolValue
+	30,  // 126: v1alpha1.TelemetryV2Config.metadata_exchange:type_name -> v1alpha1.TelemetryV2MetadataExchangeConfig
+	31,  // 127: v1alpha1.TelemetryV2Config.prometheus:type_name -> v1alpha1.TelemetryV2PrometheusConfig
+	32,  // 128: v1alpha1.TelemetryV2Config.stackdriver:type_name -> v1alpha1.TelemetryV2StackDriverConfig
+	33,  // 129: v1alpha1.TelemetryV2Config.access_log_policy:type_name -> v1alpha1.TelemetryV2AccessLogPolicyFilterConfig
+	58,  // 130: v1alpha1.TelemetryV2MetadataExchangeConfig.wasmEnabled:type_name -> google.protobuf.BoolValue
+	58,  // 131: v1alpha1.TelemetryV2PrometheusConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 132: v1alpha1.TelemetryV2PrometheusConfig.wasmEnabled:type_name -> google.protobuf.BoolValue
+	57,  // 133: v1alpha1.TelemetryV2PrometheusConfig.config_override:type_name -> v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride
+	58,  // 134: v1alpha1.TelemetryV2StackDriverConfig.enabled:type_name -> google.protobuf.BoolValue
+	58,  // 135: v1alpha1.TelemetryV2StackDriverConfig.logging:type_name -> google.protobuf.BoolValue
+	58,  // 136: v1alpha1.TelemetryV2StackDriverConfig.monitoring:type_name -> google.protobuf.BoolValue
+	58,  // 137: v1alpha1.TelemetryV2StackDriverConfig.topology:type_name -> google.protobuf.BoolValue
+	58,  // 138: v1alpha1.TelemetryV2StackDriverConfig.disableOutbound:type_name -> google.protobuf.BoolValue
+	60,  // 139: v1alpha1.TelemetryV2StackDriverConfig.configOverride:type_name -> google.protobuf.Struct
+	3,   // 140: v1alpha1.TelemetryV2StackDriverConfig.outboundAccessLogging:type_name -> v1alpha1.TelemetryV2StackDriverConfig.AccessLogging
+	3,   // 141: v1alpha1.TelemetryV2StackDriverConfig.inboundAccessLogging:type_name -> v1alpha1.TelemetryV2StackDriverConfig.AccessLogging
+	58,  // 142: v1alpha1.TelemetryV2AccessLogPolicyFilterConfig.enabled:type_name -> google.protobuf.BoolValue
+	61,  // 143: v1alpha1.TelemetryV2AccessLogPolicyFilterConfig.logWindowDuration:type_name -> google.protobuf.Duration
+	58,  // 144: v1alpha1.ProxyConfig.enableCoreDump:type_name -> google.protobuf.BoolValue
+	58,  // 145: v1alpha1.ProxyConfig.privileged:type_name -> google.protobuf.BoolValue
+	11,  // 146: v1alpha1.ProxyConfig.resources:type_name -> v1alpha1.Resources
+	1,   // 147: v1alpha1.ProxyConfig.tracer:type_name -> v1alpha1.tracer
+	60,  // 148: v1alpha1.ProxyConfig.lifecycle:type_name -> google.protobuf.Struct
+	58,  // 149: v1alpha1.ProxyConfig.holdApplicationUntilProxyStarts:type_name -> google.protobuf.BoolValue
+	11,  // 150: v1alpha1.ProxyInitConfig.resources:type_name -> v1alpha1.Resources
+	60,  // 151: v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
+	60,  // 152: v1alpha1.ServiceConfig.annotations:type_name -> google.protobuf.Struct
+	58,  // 153: v1alpha1.SidecarInjectorConfig.enableNamespacesByDefault:type_name -> google.protobuf.BoolValue
+	60,  // 154: v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> google.protobuf.Struct
+	60,  // 155: v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> google.protobuf.Struct
+	58,  // 156: v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
+	60,  // 157: v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
+	60,  // 158: v1alpha1.SidecarInjectorConfig.objectSelector:type_name -> google.protobuf.Struct
+	60,  // 159: v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
+	58,  // 160: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
+	44,  // 161: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
+	45,  // 162: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
+	46,  // 163: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
+	47,  // 164: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
+	58,  // 165: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
+	58,  // 166: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
+	58,  // 167: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
+	58,  // 168: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
+	5,   // 169: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
+	16,  // 170: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
+	17,  // 171: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
+	25,  // 172: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
+	59,  // 173: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
+	28,  // 174: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
+	42,  // 175: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
+	5,   // 176: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIConfig
+	59,  // 177: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
+	48,  // 178: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
+	49,  // 179: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
+	58,  // 180: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
+	62,  // 181: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
+	63,  // 182: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	60,  // 183: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.gateway:type_name -> google.protobuf.Struct
+	60,  // 184: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.inboundSidecar:type_name -> google.protobuf.Struct
+	60,  // 185: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.outboundSidecar:type_name -> google.protobuf.Struct
+	186, // [186:186] is the sub-list for method output_type
+	186, // [186:186] is the sub-list for method input_type
+	186, // [186:186] is the sub-list for extension type_name
+	186, // [186:186] is the sub-list for extension extendee
+	0,   // [0:186] is the sub-list for field type_name
 }
 
 func init() { file_pkg_apis_istio_v1alpha1_values_types_proto_init() }
@@ -6579,7 +6646,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CNITaintConfig); i {
+			switch v := v.(*CNIAmbientConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6591,7 +6658,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CNIRepairConfig); i {
+			switch v := v.(*CNITaintConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6603,7 +6670,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceQuotas); i {
+			switch v := v.(*CNIRepairConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6615,7 +6682,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CPUTargetUtilizationConfig); i {
+			switch v := v.(*ResourceQuotas); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6627,7 +6694,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Resources); i {
+			switch v := v.(*CPUTargetUtilizationConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6639,7 +6706,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ServiceAccount); i {
+			switch v := v.(*Resources); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6651,7 +6718,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DefaultPodDisruptionBudgetConfig); i {
+			switch v := v.(*ServiceAccount); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6663,7 +6730,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DefaultResourcesConfig); i {
+			switch v := v.(*DefaultPodDisruptionBudgetConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6675,7 +6742,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EgressGatewayConfig); i {
+			switch v := v.(*DefaultResourcesConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6687,7 +6754,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GatewaysConfig); i {
+			switch v := v.(*EgressGatewayConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6699,7 +6766,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GlobalConfig); i {
+			switch v := v.(*GatewaysConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6711,7 +6778,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*STSConfig); i {
+			switch v := v.(*GlobalConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6723,7 +6790,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IstiodConfig); i {
+			switch v := v.(*STSConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6735,7 +6802,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GlobalLoggingConfig); i {
+			switch v := v.(*IstiodConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6747,7 +6814,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IngressGatewayConfig); i {
+			switch v := v.(*GlobalLoggingConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6759,7 +6826,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IngressGatewayZvpnConfig); i {
+			switch v := v.(*IngressGatewayConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6771,7 +6838,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MultiClusterConfig); i {
+			switch v := v.(*IngressGatewayZvpnConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6783,7 +6850,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OutboundTrafficPolicyConfig); i {
+			switch v := v.(*MultiClusterConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6795,7 +6862,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PilotConfig); i {
+			switch v := v.(*OutboundTrafficPolicyConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6807,7 +6874,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PilotIngressConfig); i {
+			switch v := v.(*PilotConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6819,7 +6886,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PilotPolicyConfig); i {
+			switch v := v.(*PilotIngressConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6831,7 +6898,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TelemetryConfig); i {
+			switch v := v.(*PilotPolicyConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6843,7 +6910,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TelemetryV2Config); i {
+			switch v := v.(*TelemetryConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6855,7 +6922,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TelemetryV2MetadataExchangeConfig); i {
+			switch v := v.(*TelemetryV2Config); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6867,7 +6934,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TelemetryV2PrometheusConfig); i {
+			switch v := v.(*TelemetryV2MetadataExchangeConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6879,7 +6946,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TelemetryV2StackDriverConfig); i {
+			switch v := v.(*TelemetryV2PrometheusConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6891,7 +6958,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TelemetryV2AccessLogPolicyFilterConfig); i {
+			switch v := v.(*TelemetryV2StackDriverConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6903,7 +6970,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PilotConfigSource); i {
+			switch v := v.(*TelemetryV2AccessLogPolicyFilterConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6915,7 +6982,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PortsConfig); i {
+			switch v := v.(*PilotConfigSource); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6927,7 +6994,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ProxyConfig); i {
+			switch v := v.(*PortsConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6939,7 +7006,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ProxyInitConfig); i {
+			switch v := v.(*ProxyConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6951,7 +7018,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourcesRequestsConfig); i {
+			switch v := v.(*ProxyInitConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6963,7 +7030,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SDSConfig); i {
+			switch v := v.(*ResourcesRequestsConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6975,7 +7042,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SecretVolume); i {
+			switch v := v.(*SDSConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6987,7 +7054,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ServiceConfig); i {
+			switch v := v.(*SecretVolume); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -6999,7 +7066,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SidecarInjectorConfig); i {
+			switch v := v.(*ServiceConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7011,7 +7078,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TracerConfig); i {
+			switch v := v.(*SidecarInjectorConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7023,7 +7090,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TracerDatadogConfig); i {
+			switch v := v.(*TracerConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7035,7 +7102,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TracerLightStepConfig); i {
+			switch v := v.(*TracerDatadogConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7047,7 +7114,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TracerZipkinConfig); i {
+			switch v := v.(*TracerLightStepConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7059,7 +7126,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TracerStackdriverConfig); i {
+			switch v := v.(*TracerZipkinConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7071,7 +7138,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BaseConfig); i {
+			switch v := v.(*TracerStackdriverConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7083,7 +7150,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IstiodRemoteConfig); i {
+			switch v := v.(*BaseConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7095,7 +7162,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Values); i {
+			switch v := v.(*IstiodRemoteConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7107,7 +7174,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ZeroVPNConfig); i {
+			switch v := v.(*Values); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -7119,6 +7186,18 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ZeroVPNConfig); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[48].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IntOrString); i {
 			case 0:
 				return &v.state
@@ -7130,7 +7209,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[53].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TelemetryV2PrometheusConfig_ConfigOverride); i {
 			case 0:
 				return &v.state
@@ -7149,7 +7228,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc,
 			NumEnums:      4,
-			NumMessages:   53,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
