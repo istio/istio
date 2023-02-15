@@ -299,7 +299,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 				Ranges: ipRange,
 				OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
 					TCP:  match.ToChain(tcpChain.Name),
-					HTTP: match.ToChain(tcpChain.Name),
+					HTTP: match.ToChain(httpChain.Name),
 				})),
 			})
 	}
