@@ -270,14 +270,16 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		}
 		tcpChain := &listener.FilterChain{
 			Filters: append([]*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter},
+				xdsfilters.ConnectAuthorityNetworkFilter,
+			},
 				lb.buildInboundNetworkFilters(cc)...),
 			Name: "direct-tcp",
 		}
 		// TODO: maintains undesirable persistent HTTP connections to "encap"
 		httpChain := &listener.FilterChain{
 			Filters: append([]*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter},
+				xdsfilters.ConnectAuthorityNetworkFilter,
+			},
 				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
 			Name: "direct-http",
 		}
@@ -297,7 +299,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 				Ranges: ipRange,
 				OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
 					TCP:  match.ToChain(tcpChain.Name),
-					HTTP: match.ToChain(httpChain.Name),
+					HTTP: match.ToChain(tcpChain.Name),
 				})),
 			})
 	}
