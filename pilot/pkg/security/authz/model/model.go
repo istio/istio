@@ -334,12 +334,3 @@ func (p *ruleList) appendLast(g generator, key string, values, notValues []strin
 
 	p.rules = append(p.rules, r)
 }
-
-func (p *ruleList) replaceRule(index int, g generator, key string, values, notValues []string) {
-	p.rules[index] = &rule{
-		key:       key,
-		values:    values,
-		notValues: notValues,
-		g:         g,
-	}
-}
