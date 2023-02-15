@@ -6,4 +6,4 @@ issue:
   - https://github.com/istio/istio/issues/43256
 releaseNotes:
   - |
-    **Added** additional istiod keepalive arguments
+    **Added** env variables to support modifying grpc keepalive values
