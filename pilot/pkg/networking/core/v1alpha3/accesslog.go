@@ -81,7 +81,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	mesh := push.Mesh
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfgs == nil {
+	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
@@ -146,8 +146,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 ) {
 	mesh := push.Mesh
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
-
-	if cfgs == nil {
+	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
@@ -174,7 +173,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfgs == nil {
+	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
