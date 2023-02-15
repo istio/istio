@@ -28,5 +28,5 @@ thrift==0.11.0
 tornado==4.5.3
 urllib3==1.26.5
 visitor==0.1.3
-Werkzeug==0.15.5
+Werkzeug==2.2.3
 wrapt==1.11.1
