@@ -94,7 +94,7 @@ func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Obj
 				log.Errorf("could not parse OwnerReference api version %q: %v", ref.APIVersion, err)
 				continue
 			}
-			if refGV == kind.Kubernetes().GroupVersion() {
+			if refGV.Group == kind.Group && ref.Kind == kind.Kind {
 				// We found a parent we care about, add it to the queue
 				q.Add(types.NamespacedName{
 					// Reference doesn't have namespace, but its always same-namespace, so use objects
