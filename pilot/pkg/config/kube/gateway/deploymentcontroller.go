@@ -15,12 +15,10 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
-	"text/template"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,7 +28,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -38,17 +35,18 @@ import (
 	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
-)
-
-const (
-	ManagedByControllerLabel = "gateway.istio.io/managed"
-	ManagedByControllerValue = "istio.io-gateway-controller"
 )
 
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
@@ -77,7 +75,6 @@ const (
 type DeploymentController struct {
 	client             kube.Client
 	queue              controllers.Queue
-	templates          *template.Template
 	patcher            patcher
 	gatewayLister      lister.GatewayLister
 	gatewayClassLister lister.GatewayClassLister
@@ -90,19 +87,66 @@ type DeploymentController struct {
 	gwHandle           cache.ResourceEventHandlerRegistration
 	gwClassInformer    cache.SharedIndexInformer
 	gwClassHandle      cache.ResourceEventHandlerRegistration
+	injectConfig       func() inject.WebhookConfig
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
 type patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
+// classInfo holds information about a gateway class
+type classInfo struct {
+	// controller name for this class
+	controller string
+	// The key in the templates to use for this class
+	templates string
+	// enabled determines if we should handle a gateway
+	enabled func(gw *gateway.Gateway) bool
+	// conditions to set on gateway status
+	conditions func(gw *gateway.Gateway) map[string]*condition
+	// reportGatewayClassStatus, if enabled, will set the GatewayClass to be accepted when it is first created.
+	reportGatewayClassStatus bool
+}
+
+var classInfos = map[string]classInfo{
+	DefaultClassName: {
+		controller: ControllerName,
+		templates:  "kube-gateway",
+		enabled: func(gw *gateway.Gateway) bool {
+			// Some gateways are manually managed, ignore them
+			return IsManaged(&gw.Spec)
+		},
+		conditions: func(gw *gateway.Gateway) map[string]*condition {
+			return map[string]*condition{
+				// Just mark it as accepted, rest are set by the controller reading Gateway
+				string(gateway.GatewayConditionAccepted): {
+					reason:  string(gateway.GatewayReasonAccepted),
+					message: "Deployed gateway to the cluster",
+				},
+				// nolint: staticcheck // Deprecated condition, set both until 1.17
+				string(gateway.GatewayConditionScheduled): {
+					reason:  "ResourcesAvailable",
+					message: "Deployed gateway to the cluster",
+				},
+			}
+		},
+	},
+}
+
+var knownControllers = func() sets.String {
+	res := sets.New[string]()
+	for _, v := range classInfos {
+		res.Insert(v.controller)
+	}
+	return res
+}()
+
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client) *DeploymentController {
+func NewDeploymentController(client kube.Client, webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func())) *DeploymentController {
 	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
 	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	dc := &DeploymentController{
-		client:    client,
-		templates: processTemplates(),
+		client: client,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -114,6 +158,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		},
 		gatewayLister:      gw.Lister(),
 		gatewayClassLister: gwc.Lister(),
+		injectConfig:       webhookConfig,
 	}
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
@@ -135,7 +180,8 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		return appsinformersv1.NewFilteredDeploymentInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = ManagedByControllerLabel + "=" + ManagedByControllerValue
+				// All types of gateways have this label
+				options.LabelSelector = constants.ManagedGatewayLabel
 			},
 		)
 	})
@@ -155,6 +201,14 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 			}
 		}
 	}))
+
+	// On injection template change, requeue all gateways
+	injectionHandler(func() {
+		gws, _ := dc.gatewayLister.List(klabels.Everything())
+		for _, gw := range gws {
+			dc.queue.AddObject(gw)
+		}
+	})
 
 	return dc
 }
@@ -186,12 +240,12 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))
 	if gc != nil {
 		// We found the gateway class, but we do not implement it. Skip
-		if gc.Spec.ControllerName != ControllerName {
+		if !knownControllers.Contains(string(gc.Spec.ControllerName)) {
 			return nil
 		}
 	} else {
-		// Didn't find gateway class... it must use implicit Istio one.
-		if gw.Spec.GatewayClassName != DefaultClassName {
+		// Didn't find gateway class, and it wasn't an implicitly known one
+		if _, f := classInfos[string(gw.Spec.GatewayClassName)]; !f {
 			return nil
 		}
 	}
@@ -203,16 +257,20 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	if !IsManaged(&gw.Spec) {
+	gi, f := classInfos[string(gw.Spec.GatewayClassName)]
+	if !f {
+		return nil
+	}
+	if !gi.enabled(&gw) {
 		log.Debug("skip unmanaged gateway")
 		return nil
 	}
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
-	gatewayName := defaultName
+	deploymentName := defaultName
 	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
-		gatewayName = nameOverride
+		deploymentName = nameOverride
 	}
 
 	gatewaySA := defaultName
@@ -220,36 +278,25 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		gatewaySA = saOverride
 	}
 
-	input := MergedInput{
+	input := TemplateInput{
 		Gateway:        &gw,
-		GatewayName:    gatewayName,
+		DeploymentName: deploymentName,
 		ServiceAccount: gatewaySA,
 		Ports:          extractServicePorts(gw),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
 	}
 
-	ingressSa := d.RenderServiceAccountApply(input)
-	_, err := d.client.Kube().
-		CoreV1().
-		ServiceAccounts(gw.Namespace).
-		Apply(context.Background(), ingressSa, metav1.ApplyOptions{
-			Force: true, FieldManager: "istio gateway controller",
-		})
+	rendered, err := d.render(gi.templates, input)
 	if err != nil {
-		return fmt.Errorf("update service account: %v", err)
+		return fmt.Errorf("failed to render template: %v", err)
 	}
-	log.Info("service account updated")
-
-	if err := d.ApplyTemplate("service.yaml", input); err != nil {
-		return fmt.Errorf("update service: %v", err)
+	for _, t := range rendered {
+		if err := d.apply(gi.controller, t); err != nil {
+			return fmt.Errorf("apply failed: %v", err)
+		}
 	}
-	log.Info("service updated")
 
-	if err := d.ApplyTemplate("deployment.yaml", input); err != nil {
-		return fmt.Errorf("update deployment: %v", err)
-	}
-	log.Info("deployment updated")
-
+	cond := gi.conditions(&gw)
 	gws := &gateway.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
@@ -260,17 +307,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 			Namespace: gw.Namespace,
 		},
 		Status: gateway.GatewayStatus{
-			Conditions: setConditions(gw.Generation, nil, map[string]*condition{
-				string(gateway.GatewayConditionAccepted): {
-					reason:  string(gateway.GatewayReasonAccepted),
-					message: "Deployed gateway to the cluster",
-				},
-				// nolint: staticcheck // Deprecated condition, set both until 1.17
-				string(gateway.GatewayConditionScheduled): {
-					reason:  "ResourcesAvailable",
-					message: "Deployed gateway to the cluster",
-				},
-			}),
+			Conditions: setConditions(gw.Generation, nil, cond),
 		},
 	}
 	if err := d.ApplyObject(gws, "status"); err != nil {
@@ -280,36 +317,53 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	return nil
 }
 
-func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
-	// TODO: GregHanson
-	// race condition with pod delete and service account delete, need to re-add owner reference labels once resolved
-	// related issues:
-	//  - https://github.com/kubernetes/kubernetes/issues/115459
-	//  - https://github.com/kubernetes/kubernetes/issues/115511
-	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
-		WithLabels(map[string]string{GatewayNameLabel: input.Name})
-	// nolint: gocritic
-	// WithOwnerReferences(metav1ac.OwnerReference().
-	// 	WithName(input.Name).
-	// 	WithUID(input.UID).
-	// 	WithKind(gvk.KubernetesGateway.Kind).
-	// 	WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
+type derivedInput struct {
+	TemplateInput
+
+	// Inserted from injection config
+	ProxyImage  string
+	ProxyConfig *meshapi.ProxyConfig
+	MeshConfig  *meshapi.MeshConfig
+	Values      map[string]any
 }
 
-// ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyTemplate(template string, input metav1.Object, subresources ...string) error {
-	var buf bytes.Buffer
-	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
-		return err
+func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
+	cfg := d.injectConfig()
+
+	template := cfg.Templates[templateName]
+	if template == nil {
+		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
+	input := derivedInput{
+		TemplateInput: mi,
+		ProxyImage: inject.ProxyImage(
+			cfg.Values.Struct(),
+			cfg.MeshConfig.GetDefaultConfig().GetImage(),
+			mi.Annotations,
+		),
+		ProxyConfig: cfg.MeshConfig.GetDefaultConfig(),
+		MeshConfig:  cfg.MeshConfig,
+		Values:      cfg.Values.Map(),
+	}
+	results, err := tmpl.Execute(template, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return yml.SplitString(results), nil
+}
+
+// apply server-side applies a template to the cluster.
+func (d *DeploymentController) apply(controller string, yml string) error {
 	data := map[string]any{}
-	err := yaml.Unmarshal(buf.Bytes(), &data)
+	err := yaml.Unmarshal([]byte(yml), &data)
 	if err != nil {
 		return err
 	}
 	us := unstructured.Unstructured{Object: data}
 	// set managed-by label
-	err = unstructured.SetNestedField(us.Object, ManagedByControllerValue, "metadata", "labels", ManagedByControllerLabel)
+	clabel := strings.ReplaceAll(controller, "/", "-")
+	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", constants.ManagedGatewayLabel)
 	if err != nil {
 		return err
 	}
@@ -323,7 +377,10 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 	}
 
 	log.Debugf("applying %v", string(j))
-	return d.patcher(gvr, us.GetName(), input.GetNamespace(), j, subresources...)
+	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
+		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)
+	}
+	return nil
 }
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
@@ -342,23 +399,9 @@ func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources 
 	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
-// Merge maps merges multiple maps. Latter maps take precedence over previous maps on overlapping fields
-func mergeMaps(maps ...map[string]string) map[string]string {
-	if len(maps) == 0 {
-		return nil
-	}
-	res := make(map[string]string, len(maps[0]))
-	for _, m := range maps {
-		for k, v := range m {
-			res[k] = v
-		}
-	}
-	return res
-}
-
-type MergedInput struct {
+type TemplateInput struct {
 	*gateway.Gateway
-	GatewayName    string
+	DeploymentName string
 	ServiceAccount string
 	Ports          []corev1.ServicePort
 	KubeVersion122 bool

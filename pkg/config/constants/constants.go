@@ -151,6 +151,9 @@ const (
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
 
+	ManagedGatewayLabel      = "gateway.istio.io/managed"
+	ManagedGatewayController = "istio.io-gateway-controller"
+
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode        = "istio.io/dataplane-mode"
 	DataplaneModeAmbient = "ambient"
