@@ -124,14 +124,6 @@ func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	return (s || d) && isL7Scheme
 }
 
-// Waypoint does not currently do L7 for pod IP traffic
-func supportsL7PodIP(opt echo.CallOptions, src, dst echo.Instance) bool {
-	s := src.Config().HasSidecar()
-	d := dst.Config().HasSidecar()
-	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
-	return (s || d) && isL7Scheme
-}
-
 func TestServices(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
@@ -178,7 +170,7 @@ func TestPodIP(t *testing.T) {
 								for _, opt := range callOptions {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
-									if supportsL7PodIP(opt, src, dst) {
+									if supportsL7(opt, src, dst) {
 										opt.Check = httpValidator
 									} else {
 										opt.Check = tcpValidator
