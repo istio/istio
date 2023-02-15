@@ -750,7 +750,8 @@ spec:
 				"Destination": dst.Config().Service,
 				"Source":      "istio-ingressgateway-service-account",
 				"Namespace":   apps.Namespace.Name(),
-			}, `apiVersion: security.istio.io/v1beta1
+			}, `
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -760,6 +761,7 @@ spec:
       app: "{{ .Destination }}"
 `+policySpec+`
 ---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
