@@ -130,8 +130,6 @@ spec:
       cpu:
         targetAverageUtilization: 80
       nodeSelector: {}
-      keepaliveInterval: 30s
-      keepaliveTimeout: 10s
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
