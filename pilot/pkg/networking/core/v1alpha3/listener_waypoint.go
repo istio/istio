@@ -159,13 +159,12 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 		xdsfilters.ConnectBaggageFilter,
 		xdsfilters.ConnectAuthorityFilter,
 	}, h.HttpFilters...)
-	name := "inbound_CONNECT_terminate"
 	l := &listener.Listener{
-		Name:    name,
+		Name:    "connect_terminate",
 		Address: util.BuildAddress(actualWildcard, model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
-				Name: name,
+				Name: "default",
 				TransportSocket: &core.TransportSocket{
 					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
@@ -323,7 +322,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 }
 
 func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.Listener {
-	name := "inbound_CONNECT_originate"
+	name := "connect_originate"
 	l := &listener.Listener{
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),

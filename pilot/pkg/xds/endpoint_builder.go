@@ -470,9 +470,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		if supportsTunnel {
 			address := e.Address
 			tunnelPort := 15008
-			// We will connect to inbound_CONNECT_originate internal listener, telling it to tunnel to ip:15008,
+			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			tunnelOrigLis := "inbound_CONNECT_originate"
+			tunnelOrigLis := "connect_originate"
 			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
 			ep = util.BuildInternalLbEndpoint(tunnelOrigLis, ep.Metadata)
 			ep.LoadBalancingWeight = &wrappers.UInt32Value{

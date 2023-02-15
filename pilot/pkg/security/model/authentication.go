@@ -202,7 +202,8 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 	return cfg
 }
 
-func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
+// AppendURIPrefixToTrustDomain append SPIFFE prefix to URI.
+func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 	var res []string
 	for _, td := range trustDomainAliases {
 		res = append(res, spiffe.URIPrefix+td+"/")
@@ -227,7 +228,7 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
 	matchSAN := util.StringToExactMatch(subjectAltNames)
 	if len(trustDomainAliases) > 0 {
-		matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
+		matchSAN = append(matchSAN, util.StringToPrefixMatch(AppendURIPrefixToTrustDomain(trustDomainAliases))...)
 	}
 
 	// configure server listeners with SDS.
