@@ -92,6 +92,9 @@ type ComponentMaps struct {
 	ToHelmValuesTreeRoot string
 	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
 	SkipReverseTranslate bool
+	// FlattenValues, if true, means the component expects values not prefixed with ToHelmValuesTreeRoot
+	// For example `.name=foo` instead of `.component.name=foo`.
+	FlattenValues bool
 }
 
 // TranslationFunc maps a yamlStr API path into a YAML values tree.
@@ -155,6 +158,13 @@ func NewTranslator() *Translator {
 				HelmSubdir:           "istiod-remote",
 				ToHelmValuesTreeRoot: "global",
 				SkipReverseTranslate: true,
+			},
+			name.ZtunnelComponentName: {
+				ResourceType:         "DaemonSet",
+				ResourceName:         "ztunnel",
+				HelmSubdir:           "ztunnel",
+				ToHelmValuesTreeRoot: "ztunnel",
+				FlattenValues:        true,
 			},
 		},
 		// nolint: lll
@@ -580,6 +590,25 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	mergedVals, err = util.OverlayTrees(mergedVals, globalUnvalidatedVals)
 	if err != nil {
 		return "", err
+	}
+	c, f := t.ComponentMaps[componentName]
+	if f && c.FlattenValues {
+		globals, ok := mergedVals["global"].(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("global value isn't a map")
+		}
+		components, ok := mergedVals[c.ToHelmValuesTreeRoot].(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("component value isn't a map")
+		}
+		finalVals := map[string]any{}
+		for k, v := range globals {
+			finalVals[k] = v
+		}
+		for k, v := range components {
+			finalVals[k] = v
+		}
+		mergedVals = finalVals
 	}
 
 	mergedYAML, err := yaml.Marshal(mergedVals)

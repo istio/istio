@@ -109,6 +109,12 @@ func TestNewIstioOperator(t *testing.T) {
 							Options:       coreComponentOptions,
 						},
 					},
+					&component.ZtunnelComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.ZtunnelComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
 				},
 			},
 		},
