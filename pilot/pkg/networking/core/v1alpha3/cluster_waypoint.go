@@ -133,7 +133,7 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 	{
 		// This TCP/HTTP cluster routes from "internal" listener.
 		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint("inbound_CONNECT_originate", nil)
+		llb := util.BuildInternalEndpoint("connect_originate", nil)
 		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
@@ -178,10 +178,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Serv
 	return clusters
 }
 
-// inbound_CONNECT_originate. original dst with TLS added
+// CONNECT origination cluster
 func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
 
 	// Restrict upstream SAN to waypoint scope.
 	scope := proxy.WaypointScope()
@@ -196,20 +196,31 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 		}
 	}
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
+
+	// NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used.
 	validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
 		SanType: tls.SubjectAltNameMatcher_URI,
 		Matcher: m,
 	})
+	aliases := authn.TrustDomainsForValidation(push.Mesh)
+	if len(aliases) > 0 {
+		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
+		for _, matcher := range matchers {
+			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+				SanType: tls.SubjectAltNameMatcher_URI,
+				Matcher: matcher,
+			})
+		}
+	}
 
 	ctx.AlpnProtocols = []string{"h2"}
-
 	ctx.TlsParams = &tls.TlsParameters{
 		// Ensure TLS 1.3 is used everywhere
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return &cluster.Cluster{
-		Name:                          "inbound_CONNECT_originate",
+		Name:                          "connect_originate",
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),

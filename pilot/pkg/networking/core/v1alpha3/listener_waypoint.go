@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
@@ -29,6 +30,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -103,6 +105,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 }
 
 func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
+	name := "connect_terminate"
 	vhost := &route.VirtualHost{
 		Name:    "default",
 		Domains: []string{"*"},
@@ -124,48 +127,48 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 	}
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
-	httpOpts := &httpListenerOpts{
-		routeConfig: &route.RouteConfiguration{
-			Name:             "local_route",
-			VirtualHosts:     []*route.VirtualHost{vhost},
-			ValidateClusters: proto.BoolFalse,
-		},
-		statPrefix: "inbound_hcm",
-		protocol:   protocol.HTTP2,
-		class:      istionetworking.ListenerClassSidecarInbound,
-		isWaypoint: true,
-		connectionManager: &hcm.HttpConnectionManager{
-			// Append and forward client cert to backend.
-			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
-			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: proto.BoolTrue,
-				Uri:     true,
-				Dns:     true,
+	h := &hcm.HttpConnectionManager{
+		StatPrefix: name,
+		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
+			RouteConfig: &route.RouteConfiguration{
+				Name:         "default",
+				VirtualHosts: []*route.VirtualHost{vhost},
 			},
-			ServerName: EnvoyServerName,
 		},
+		// Append and forward client cert to backend.
+		ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+		SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+			Subject: proto.BoolTrue,
+			Uri:     true,
+			Dns:     true,
+		},
+		ServerName:       EnvoyServerName,
+		UseRemoteAddress: proto.BoolFalse,
 	}
 
-	h := lb.buildHTTPConnectionManager(httpOpts)
-
+	// Protocol settings
+	notimeout := durationpb.New(0 * time.Second)
+	h.StreamIdleTimeout = notimeout
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
 		UpgradeType: "CONNECT",
 	}}
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
 	}
+
 	// Filters needed to propagate the tunnel metadata to the inner streams.
-	h.HttpFilters = append([]*hcm.HttpFilter{
+	h.HttpFilters = []*hcm.HttpFilter{
 		xdsfilters.ConnectBaggageFilter,
 		xdsfilters.ConnectAuthorityFilter,
-	}, h.HttpFilters...)
-	name := "inbound_CONNECT_terminate"
+		xdsfilters.Router,
+	}
+
 	l := &listener.Listener{
 		Name:    name,
 		Address: util.BuildAddress(actualWildcard, model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
-				Name: name,
+				Name: "default",
 				TransportSocket: &core.TransportSocket{
 					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
@@ -323,7 +326,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 }
 
 func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.Listener {
-	name := "inbound_CONNECT_originate"
+	name := "connect_originate"
 	l := &listener.Listener{
 		Name:              name,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -690,9 +693,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
 	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
-
 	ctx.AlpnProtocols = []string{"h2"}
-
 	ctx.TlsParams = &tls.TlsParameters{
 		// Ensure TLS 1.3 is used everywhere
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
