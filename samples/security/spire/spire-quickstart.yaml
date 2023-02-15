@@ -388,7 +388,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - name: api
+    - name: tcp-api
       port: 8443
       protocol: TCP
   selector:
@@ -403,7 +403,8 @@ metadata:
   namespace: spire
 spec:
   ports:
-    - port: 443
+    - name: tcp
+      port: 443
       protocol: TCP
       targetPort: 9443
   selector:
