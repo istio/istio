@@ -762,7 +762,7 @@ spec:
 ---
 kind: AuthorizationPolicy
 metadata:
-  name: policy
+  name: policy-waypoint
 spec:
   selector:
     matchLabels:
