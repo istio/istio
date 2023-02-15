@@ -34,7 +34,7 @@ var (
 	// grpcKeepaliveInterval sets the gRPC KeepAlive Interval
 	grpcKeepaliveInterval = env.Register("GRPC_KEEPALIVE_INTERVAL", 30*time.Second, "gRPC Keepalive Interval").Get()
 
-	// grpcKeepAliveInterval sets the gRPC KeepAlive Timeout
+	// grpcKeepAliveTimeout sets the gRPC KeepAlive Timeout
 	grpcKeepaliveTimeout = env.Register("GRPC_KEEPALIVE_TIMEOUT", 10*time.Second, "gRPC Keepalive Timeout").Get()
 )
 
