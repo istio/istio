@@ -83,8 +83,8 @@ func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveAr
 	if orArgs.purge && orArgs.revision != "" {
 		orArgs.revision = ""
 		l.LogAndFatal("At most one of the --revision (or --set revision=<revision>) or --purge flags could be set\n")
-	} else if orArgs.revision == "default" {
-		orArgs.revision = ""
+	} else if !orArgs.purge && orArgs.revision == "" {
+		orArgs.revision = "default"
 	}
 
 	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)

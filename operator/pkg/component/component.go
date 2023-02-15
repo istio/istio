@@ -101,6 +101,8 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCNIComponent(opts)
 	case name.IstiodRemoteComponentName:
 		component = NewIstiodRemoteComponent(opts)
+	case name.ZtunnelComponentName:
+		component = NewZtunnelComponent(opts)
 	default:
 		scope.Errorf("Unknown component componentName: " + string(cn))
 	}
