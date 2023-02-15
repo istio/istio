@@ -47,7 +47,7 @@ spec:
     metadata:
       labels:
         app: sleep
-        spiffe.io/spiffe-id: true
+        spiffe.io/spiffe-id: "true"
       # Injects custom sidecar template
       annotations:
         inject.istio.io/templates: "sidecar,spire"
