@@ -112,7 +112,9 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	builder.patchListeners()
 	l := builder.getListeners()
 	if builder.node.EnableHBONE() {
-		if !builder.node.IsAmbient() {
+		if builder.node.IsAmbient() {
+			l = append(l, outboundTunnelListener(builder.push, builder.node))
+		} else {
 			l = append(l, sidecarOutboundTunnelListener(builder.push, builder.node))
 		}
 	}

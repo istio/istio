@@ -701,3 +701,31 @@ func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.Com
 	}
 	return ctx
 }
+
+// outboundTunnelListener is built for each ServiceAccount from pods on the node.
+// This listener adds the original destination headers from the dynamic EDS metadata pass through.
+// We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
+func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	name := util.OutboundTunnel
+	p := &tcp.TcpProxy{
+		StatPrefix: name,
+		// TODO
+		// AccessLog:        accessLogString("outbound tunnel"),
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
+		},
+	}
+
+	l := &listener.Listener{
+		Name:              name,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarOutbound)
+	return l
+}
