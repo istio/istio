@@ -104,6 +104,7 @@ type classInfo struct {
 	// conditions to set on gateway status
 	conditions func(gw *gateway.Gateway) map[string]*condition
 	// reportGatewayClassStatus, if enabled, will set the GatewayClass to be accepted when it is first created.
+	// nolint: unused
 	reportGatewayClassStatus bool
 }
 
