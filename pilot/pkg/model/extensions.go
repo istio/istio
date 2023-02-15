@@ -49,6 +49,10 @@ const (
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 )
 
+// This function determines if a resource is accessible to a given namespace.
+// For example, give a kubernetes secret "istio-system/wasm-secret" and a namespace of "foo",
+// this would return true only if there was a policy allowing "foo" to access wasm-secret in
+// the "istio-system" namespace.
 type ResourceReferenceAllowed func(string, string) bool
 
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
