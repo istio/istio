@@ -129,7 +129,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 				return true
 			}
 			if container.Image != proxyImage {
-				namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()] = append(namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()], r.Metadata.FullName.Name.String())
+				namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()] = append(
+					namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()], r.Metadata.FullName.Name.String())
 			}
 		}
 
