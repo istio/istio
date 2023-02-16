@@ -263,7 +263,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		return nil
 	}
 	if !gi.enabled(&gw) {
-		log.Debug("skip unmanaged gateway")
+		log.Debug("skip disabled gateway")
 		return nil
 	}
 	log.Info("reconciling")
