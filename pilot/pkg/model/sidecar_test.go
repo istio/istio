@@ -69,6 +69,34 @@ var (
 		},
 	}
 
+	port803x = []*Port{
+		{
+			Port:     8031,
+			Protocol: "TCP",
+			Name:     "tcp-1",
+		},
+		{
+			Port:     8032,
+			Protocol: "TCP",
+			Name:     "tcp-2",
+		},
+		{
+			Port:     8033,
+			Protocol: "TCP",
+			Name:     "tcp-3",
+		},
+		{
+			Port:     8034,
+			Protocol: "TCP",
+			Name:     "tcp-4",
+		},
+		{
+			Port:     8035,
+			Protocol: "TCP",
+			Name:     "tcp-5",
+		},
+	}
+
 	twoMatchingPorts = []*Port{
 		{
 			Port:     7443,
@@ -495,6 +523,56 @@ var (
 		},
 	}
 
+	configs22 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-with-multiple-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8031,
+						Protocol: "TCP",
+						Name:     "tcp-ipc1",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8032,
+						Protocol: "TCP",
+						Name:     "tcp-ipc2",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8033,
+						Protocol: "TCP",
+						Name:     "tcp-ipc3",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8034,
+						Protocol: "TCP",
+						Name:     "tcp-ipc4",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8035,
+						Protocol: "TCP",
+						Name:     "tcp-ipc5",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -913,6 +991,33 @@ var (
 	}
 
 	services22 = []*Service{
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
+	services23 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
 		{
 			Hostname: "baz.svc.cluster.local",
 			Ports:    port7443,
@@ -1842,11 +1947,27 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:          "multi-port-merge",
+			sidecarConfig: configs22,
+			services:      services23,
+			excpectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    PortList{port803x[0], port803x[1], port803x[2], port803x[3], port803x[4]},
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			var found bool
+			var serviceFound bool
+			var portsMatched bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = meshConfig
@@ -1888,34 +2009,38 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			for _, s1 := range sidecarScope.services {
-				found = false
+				serviceFound = false
+				portsMatched = false
+				var ports PortList
 				for _, s2 := range tt.excpectedServices {
 					if s1.Hostname == s2.Hostname {
+						serviceFound = true
 						if len(s2.Ports) > 0 {
 							if reflect.DeepEqual(s2.Ports, s1.Ports) {
-								found = true
-								break
+								portsMatched = true
+							} else {
+								ports = s2.Ports
 							}
-						} else {
-							found = true
-							break
 						}
+						break
 					}
 				}
-				if !found {
+				if !serviceFound {
 					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
+				} else if len(ports) > 0 && !portsMatched {
+					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, s1.Ports, ports)
 				}
 			}
 
 			for _, s1 := range tt.excpectedServices {
-				found = false
+				serviceFound = false
 				for _, s2 := range sidecarScope.services {
 					if s1.Hostname == s2.Hostname {
-						found = true
+						serviceFound = true
 						break
 					}
 				}
-				if !found {
+				if !serviceFound {
 					t.Errorf("UnExpected service %v in SidecarScope", s1.Hostname)
 				}
 			}
