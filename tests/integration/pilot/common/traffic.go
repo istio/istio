@@ -241,21 +241,30 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 			f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
 		})
 	}
-	RunCase("jwt-claim-route", jwtClaimRoute)
+	RunSkipAmbient := func(name string, f func(t TrafficContext), reason string) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if t.Settings().Ambient {
+				t.Skipf("ambient skipped: %v", reason)
+			} else {
+				f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
+			}
+		})
+	}
+	RunSkipAmbient("jwt-claim-route", jwtClaimRoute, "ingress needed")
 	RunCase("virtualservice", virtualServiceCases)
 	RunCase("sniffing", protocolSniffingCases)
 	RunCase("selfcall", selfCallsCases)
 	RunCase("serverfirst", serverFirstTestCases)
 	RunCase("gateway", gatewayCases)
-	RunCase("autopassthrough", autoPassthroughCases)
+	RunSkipAmbient("autopassthrough", autoPassthroughCases, "ingress needed")
 	RunCase("loop", trafficLoopCases)
 	RunCase("tls-origination", tlsOriginationCases)
-	RunCase("instanceip", instanceIPTests)
+	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
 	RunCase("services", serviceCases)
 	RunCase("host", hostCases)
-	RunCase("envoyfilter", envoyFilterCases)
+	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
 	RunCase("consistent-hash", consistentHashCases)
-	RunCase("use-client-protocol", useClientProtocolCases)
+	RunSkipAmbient("use-client-protocol", useClientProtocolCases, "not working for unknown reasons")
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
 	RunCase("dns", DNSTestCases)

@@ -54,9 +54,9 @@ function trace() {
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
-    gcloud auth configure-docker -q
+    gcloud auth configure-docker us-docker.pkg.dev -q
   elif [[ $(command -v docker-credential-gcr) ]]; then
-    docker-credential-gcr configure-docker
+    docker-credential-gcr configure-docker --registries=-us-docker.pkg.dev
   else
     echo "No credential helpers found, push to docker may not function properly"
   fi
@@ -123,6 +123,9 @@ function build_images() {
   fi
   if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.operator "
+  fi
+  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" ]]; then
+    targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
   # Integration tests are always running on local architecture (no cross compiling), so find out what that is.
