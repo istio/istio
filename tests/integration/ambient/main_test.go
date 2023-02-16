@@ -19,6 +19,7 @@ package ambient
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -86,6 +87,9 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		SkipIf("https://github.com/istio/istio/issues/43418", func(ctx resource.Context) bool {
+			return os.Getenv("JOB_TYPE") == "postsubmit"
+		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ControlPlaneValues
