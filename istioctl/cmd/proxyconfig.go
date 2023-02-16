@@ -713,7 +713,7 @@ func listenerConfigCmd() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	listenerConfigCmd.PersistentFlags().BoolVar(&waypointProxyConfig, "waypoint", false, "Output waypoint information")
 	// Until stabilized
-	listenerConfigCmd.PersistentFlags().MarkHidden("waypoint")
+	_ = listenerConfigCmd.PersistentFlags().MarkHidden("waypoint")
 	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
