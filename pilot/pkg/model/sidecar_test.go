@@ -1264,8 +1264,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		services        []*Service
 		virtualServices []config.Config
 		// list of services expected to be in the listener
-		excpectedServices []*Service
-		expectedDr        *config.Config
+		expectedServices []*Service
+		expectedDr       *config.Config
 	}{
 		{
 			"no-sidecar-config",
@@ -1936,7 +1936,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
-			excpectedServices: []*Service{
+			expectedServices: []*Service{
 				{
 					Hostname: "proxy",
 					Ports:    PortList{port7000[0], port7443[0], port7442[0]},
@@ -1951,7 +1951,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			name:          "multi-port-merge",
 			sidecarConfig: configs22,
 			services:      services23,
-			excpectedServices: []*Service{
+			expectedServices: []*Service{
 				{
 					Hostname: "foobar.svc.cluster.local",
 					Ports:    PortList{port803x[0], port803x[1], port803x[2], port803x[3], port803x[4]},
@@ -2012,7 +2012,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				serviceFound = false
 				portsMatched = false
 				var ports PortList
-				for _, s2 := range tt.excpectedServices {
+				for _, s2 := range tt.expectedServices {
 					if s1.Hostname == s2.Hostname {
 						serviceFound = true
 						if len(s2.Ports) > 0 {
@@ -2032,7 +2032,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 
-			for _, s1 := range tt.excpectedServices {
+			for _, s1 := range tt.expectedServices {
 				serviceFound = false
 				for _, s2 := range sidecarScope.services {
 					if s1.Hostname == s2.Hostname {
