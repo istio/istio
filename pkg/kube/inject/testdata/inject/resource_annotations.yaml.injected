@@ -25,6 +25,7 @@ spec:
       creationTimestamp: null
       labels:
         app: resource
+        istio.io/rev: default
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: resource
         service.istio.io/canonical-revision: latest
