@@ -17,8 +17,6 @@ package ambient
 import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/label"
-	"istio.io/api/mesh/v1alpha1"
 	ipsetlib "istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/env"
@@ -32,26 +30,12 @@ var (
 	HostIP       = env.RegisterStringVar("HOST_IP", "", "").Get()
 )
 
-type ConfigSourceAddressScheme string
-
-const (
-	Kubernetes ConfigSourceAddressScheme = "k8s"
-)
-
-const (
-	dataplaneLabelAmbientValue = "ambient"
-
-	AmbientMeshNamespace = v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT
-	AmbientMeshOff       = v1alpha1.MeshConfig_AmbientMeshConfig_OFF
-	AmbientMeshOn        = v1alpha1.MeshConfig_AmbientMeshConfig_ON
-)
-
 var Ipset = &ipsetlib.IPSet{
 	Name: "ztunnel-pods-ips",
 }
 
 var ambientSelectors = klabels.SelectorFromValidatedSet(map[string]string{
-	label.IoIstioDataplaneMode.Name: dataplaneLabelAmbientValue,
+	constants.DataplaneMode: constants.DataplaneModeAmbient,
 })
 
 type AmbientArgs struct {

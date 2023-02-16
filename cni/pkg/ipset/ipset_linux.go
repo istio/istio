@@ -20,7 +20,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
-	"go.uber.org/multierr"
 )
 
 type IPSet struct {
@@ -88,7 +87,7 @@ func (m *IPSet) ClearEntriesWithComment(comment string) error {
 		if entry.Comment == comment {
 			err := netlink.IpsetDel(m.Name, &entry)
 			if err != nil {
-				return multierr.Append(err, fmt.Errorf("failed to delete IP %s from ipset %s: %w", entry.IP, m.Name, err))
+				return fmt.Errorf("failed to delete IP %s from ipset %s: %w", entry.IP, m.Name, err)
 			}
 		}
 	}

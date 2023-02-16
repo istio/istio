@@ -21,12 +21,13 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"go.uber.org/multierr"
+	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/configmapwatcher"
+	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
 
@@ -204,11 +205,11 @@ func NewMulticast(impl Watcher, getter func() WebhookConfig) *WatcherMulticast {
 		Get:  getter,
 	}
 	impl.SetHandler(func(c *Config, s string) error {
-		var err error
+		err := istiomultierror.New()
 		for _, h := range res.handlers {
-			multierr.AppendInto(&err, h(c, s))
+			err = multierror.Append(err, h(c, s))
 		}
-		return err
+		return err.ErrorOrNil()
 	})
 	return res
 }

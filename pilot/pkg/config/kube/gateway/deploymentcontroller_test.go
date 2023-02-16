@@ -59,7 +59,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
-					Annotations: map[string]string{GatewaySAOverride: "custom-sa"},
+					Annotations: map[string]string{gatewaySAOverride: "custom-sa"},
 				},
 				Spec: v1alpha2.GatewaySpec{
 					GatewayClassName: DefaultClassName,
@@ -72,7 +72,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
-					Annotations: map[string]string{GatewayNameOverride: "default"},
+					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
 					GatewayClassName: DefaultClassName,
@@ -91,7 +91,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 					Annotations: map[string]string{
 						"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP),
-						GatewayNameOverride:                "default",
+						gatewayNameOverride:                "default",
 					},
 				},
 				Spec: v1beta1.GatewaySpec{
@@ -111,7 +111,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Name:        "default",
 					Namespace:   "default",
 					Labels:      map[string]string{"topology.istio.io/network": "network-1"},
-					Annotations: map[string]string{GatewayNameOverride: "default"},
+					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
 					GatewayClassName: DefaultClassName,

@@ -315,7 +315,7 @@ spec:
   controller: istio.io/ingress-controller`, apiVersion)
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: %s

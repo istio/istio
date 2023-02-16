@@ -25,8 +25,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/ambient/ambientpod"
+	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 )
@@ -34,30 +33,6 @@ import (
 var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
 	"enabled while also setting ambient mode. This is not supported and the namespace will " +
 	"be ignored from the ambient mesh."
-
-func (s *Server) newConfigMapWatcher() {
-	var newAmbientMeshConfig *mesh.MeshConfig_AmbientMeshConfig
-
-	if s.environment.Mesh().AmbientMesh == nil {
-		newAmbientMeshConfig = &mesh.MeshConfig_AmbientMeshConfig{
-			Mode: mesh.MeshConfig_AmbientMeshConfig_DEFAULT,
-		}
-	} else {
-		newAmbientMeshConfig = s.environment.Mesh().AmbientMesh
-	}
-
-	if s.meshMode != newAmbientMeshConfig.Mode {
-		log.Infof("Ambient mesh mode changed from %s to %s",
-			s.meshMode, newAmbientMeshConfig.Mode)
-		s.ReconcileNamespaces()
-	}
-	s.mu.Lock()
-	s.meshMode = newAmbientMeshConfig.Mode
-	s.disabledSelectors = ambientpod.ConvertDisabledSelectors(newAmbientMeshConfig.DisabledSelectors)
-	s.marshalableDisabledSelectors = newAmbientMeshConfig.DisabledSelectors
-	s.mu.Unlock()
-	s.UpdateConfig()
-}
 
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
@@ -102,10 +77,9 @@ func (s *Server) ReconcileNamespaces() {
 func (s *Server) EnqueueNamespace(o controllers.Object) {
 	nsLabels := o.GetLabels()
 	namespace := o.GetName()
-	matchDisabled := s.matchesDisabledSelectors(nsLabels)
 	matchAmbient := s.matchesAmbientSelectors(nsLabels)
 	pods, _ := s.podLister.Pods(namespace).List(klabels.Everything())
-	if (s.isAmbientGlobal() || (s.isAmbientNamespaced() && matchAmbient)) && !matchDisabled {
+	if matchAmbient {
 		if ambientpod.HasLegacyLabel(nsLabels) {
 			log.Errorf(ErrLegacyLabel, namespace)
 			return

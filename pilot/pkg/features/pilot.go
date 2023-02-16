@@ -455,26 +455,29 @@ var (
 		return strings.Split(cidr, ",")
 	}()
 
-	CATrustedNodeAccounts = func() map[types.NamespacedName]struct{} {
+	CATrustedNodeAccounts = func() sets.Set[types.NamespacedName] {
 		accounts := env.Register(
 			"CA_TRUSTED_NODE_ACCOUNTS",
-			"istio-system/ztunnel,kube-system/ztunnel",
+			"",
 			"If set, the list of service accounts that are allowed to use node authentication for CSRs. "+
 				"Node authentication allows an identity to create CSRs on behalf of other identities, but only if there is a pod "+
 				"running on the same node with that identity. "+
 				"This is intended for use with node proxies.",
 		).Get()
-		res := map[types.NamespacedName]struct{}{}
+		res := sets.New[types.NamespacedName]()
+		if accounts == "" {
+			return res
+		}
 		for _, v := range strings.Split(accounts, ",") {
 			ns, sa, valid := strings.Cut(v, "/")
 			if !valid {
 				log.Warnf("Invalid CA_TRUSTED_NODE_ACCOUNTS, ignoring: %v", v)
 				continue
 			}
-			res[types.NamespacedName{
+			res.Insert(types.NamespacedName{
 				Namespace: ns,
 				Name:      sa,
-			}] = struct{}{}
+			})
 		}
 		return res
 	}()

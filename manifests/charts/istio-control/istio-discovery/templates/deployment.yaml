@@ -120,11 +120,6 @@ spec:
             periodSeconds: 3
             timeoutSeconds: 5
           env:
-          # TODO: dynamically turn autolabel on/off based on meshconfig api
-          {{- if ne ((.Values.meshConfig).ambientMesh).mode "OFF"}}
-          - name: AMBIENT_AUTO_LABEL
-            value: "true"
-          {{- end }}
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
           - name: JWT_POLICY

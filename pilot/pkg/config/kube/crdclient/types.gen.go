@@ -28,7 +28,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1328,11 +1328,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SExtensionsV1Beta1Ingresses.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
-		obj := r.(*extensionsv1beta1.Ingress)
+	collections.K8SNetworkingV1Ingresses.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*networkingv1.Ingress)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SExtensionsV1Beta1Ingresses.Resource().GroupVersionKind(),
+				GroupVersionKind:  collections.K8SNetworkingV1Ingresses.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

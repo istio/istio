@@ -24,7 +24,6 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -96,7 +95,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Key:   util.AltSvcHeader,
 					Value: `h3=":8080"; ma=86400`,
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
 	})
@@ -744,28 +743,28 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Key:   "x-req-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-req-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-req-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-req-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
 		g.Expect(r.RequestHeadersToRemove).To(gomega.Equal([]string{"x-req-remove", "x-route-req-remove"}))
@@ -776,28 +775,28 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Key:   "x-resp-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-resp-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-resp-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-resp-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
 		g.Expect(r.ResponseHeadersToRemove).To(gomega.Equal([]string{"x-resp-remove", "x-route-resp-remove"}))
@@ -839,14 +838,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-req-set-blue",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-req-add-blue",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				reqRemove: []string{"x-route-req-remove-blue"},
@@ -856,14 +855,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-resp-set-blue",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-resp-add-blue",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				respRemove: []string{"x-route-resp-remove-blue"},
@@ -876,14 +875,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-req-set-green",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-req-add-green",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				reqRemove: []string{"x-route-req-remove-green"},
@@ -893,14 +892,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-resp-set-green",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-resp-add-green",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				respRemove: []string{"x-route-resp-remove-green"},
@@ -1070,7 +1069,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
 		// nolint: staticcheck
-		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
 	})
@@ -1106,7 +1105,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(directResponseAction.DirectResponse.Body.Specifier.(*core.DataSource_InlineString).InlineString).To(gomega.Equal("hello"))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
 		// nolint: staticcheck
-		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
 	})

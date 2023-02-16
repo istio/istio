@@ -151,16 +151,18 @@ const (
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
 
-	GatewayNameLabel                  = "istio.io/gateway-name"
-	ManagedGatewayLabel               = "gateway.istio.io/managed"
-	WaypointServiceAccount            = "istio.io/for-service-account"
-	WaypointGatewayClassName          = "istio-waypoint"
-	ManagedGatewayController          = "istio.io/gateway-controller"
-	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
-	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+	WaypointServiceAccount = "istio.io/for-service-account"
+
+	ManagedGatewayLabel          = "gateway.istio.io/managed"
+	ManagedGatewayController     = "istio.io-gateway-controller"
+	ManagedGatewayMeshController = "istio.io-mesh-controller"
+
+	WaypointGatewayClassName = "istio-waypoint"
+	GatewayNameLabel         = "istio.io/gateway-name"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
-	DataplaneMode = "istio.io/dataplane-mode"
+	DataplaneMode        = "istio.io/dataplane-mode"
+	DataplaneModeAmbient = "ambient"
 
 	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
 	AmbientRedirection = "ambient.istio.io/redirection"

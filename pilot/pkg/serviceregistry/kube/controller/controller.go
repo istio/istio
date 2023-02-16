@@ -47,11 +47,12 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	workloadapi "istio.io/istio/pkg/workloadapi"
@@ -240,9 +241,10 @@ type Controller struct {
 	nodeInformer cache.SharedIndexInformer
 	nodeLister   listerv1.NodeLister
 
-	exports serviceExportCache
-	imports serviceImportCache
-	pods    *PodCache
+	crdWatcher *crdwatcher.Controller
+	exports    serviceExportCache
+	imports    serviceImportCache
+	pods       *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -278,6 +280,7 @@ type Controller struct {
 	workloadInstancesIndex workloadinstances.Index
 
 	multinetwork
+
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
@@ -425,24 +428,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
 	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
-		crdMetadataInformer := kubeClient.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
-			GroupVersionResource()).Informer()
-		_ = crdMetadataInformer.SetTransform(kubelib.StripUnusedFields)
-		_, _ = crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj any) {
-				crd, ok := obj.(*metav1.PartialObjectMetadata)
-				if !ok {
-					// Shouldn't happen
-					log.Errorf("wrong type %T: %v", obj, obj)
-					return
-				}
-				for _, handler := range c.crdHandlers {
-					handler(crd.Name)
-				}
-			},
-			UpdateFunc: nil,
-			DeleteFunc: nil,
-		})
+		c.crdWatcher = crdwatcher.NewController(kubeClient)
 	}
 	c.configController = options.ConfigController
 	c.ambientIndex = c.setupIndex()
@@ -819,9 +805,24 @@ func (c *Controller) informersSynced() bool {
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeInformer.HasSynced() ||
-		!c.exports.HasSynced() ||
-		!c.imports.HasSynced() {
+		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
 		return false
+	}
+
+	// wait for mcs sync if the CRD exists, otherwise do not wait for them
+	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
+	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
+	if c.crdWatcher != nil {
+		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
+			if !c.imports.HasSynced() {
+				return false
+			}
+		}
+		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
+			if !c.exports.HasSynced() {
+				return false
+			}
+		}
 	}
 	return true
 }

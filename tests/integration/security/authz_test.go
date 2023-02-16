@@ -71,31 +71,31 @@ func TestAuthz_Principal(t *testing.T) {
 					allow := allowValue(from.NamespacedName() == allowed.NamespacedName())
 
 					cases := []struct {
-						ports []string
+						ports []echo.Port
 						path  string
 						allow allowValue
 					}{
 						{
-							ports: []string{ports.GRPC, ports.TCP},
+							ports: []echo.Port{ports.GRPC, ports.TCP},
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow?param=value",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny",
 							allow: false,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny?param=value",
 							allow: false,
 						},
@@ -148,61 +148,61 @@ func TestAuthz_DenyPrincipal(t *testing.T) {
 					allow := allowValue(from.NamespacedName() != denied.NamespacedName())
 
 					cases := []struct {
-						ports []string
+						ports []echo.Port
 						path  string
 						allow allowValue
 					}{
 						{
-							ports: []string{ports.GRPC, ports.TCP},
+							ports: []echo.Port{ports.GRPC, ports.TCP},
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny?param=value",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny/allow",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny/allow?param=value",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow?param=value",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny",
 							allow: false,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny?param=value",
 							allow: false,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny/allow",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny/allow?param=value",
 							allow: true,
 						},
@@ -252,31 +252,31 @@ func TestAuthz_Namespace(t *testing.T) {
 					allow := allowValue(from.Config().Namespace.Name() == allowed.Config().Namespace.Name())
 
 					cases := []struct {
-						ports []string
+						ports []echo.Port
 						path  string
 						allow allowValue
 					}{
 						{
-							ports: []string{ports.GRPC, ports.TCP},
+							ports: []echo.Port{ports.GRPC, ports.TCP},
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow?param=value",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny",
 							allow: false,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny?param=value",
 							allow: false,
 						},
@@ -329,61 +329,61 @@ func TestAuthz_DenyNamespace(t *testing.T) {
 					allow := allowValue(from.Config().Namespace.Name() == allowed.Config().Namespace.Name())
 
 					cases := []struct {
-						ports []string
+						ports []echo.Port
 						path  string
 						allow allowValue
 					}{
 						{
-							ports: []string{ports.GRPC, ports.TCP},
+							ports: []echo.Port{ports.GRPC, ports.TCP},
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny?param=value",
 							allow: allow,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny/allow",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/deny/allow?param=value",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/allow?param=value",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny",
 							allow: false,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny?param=value",
 							allow: false,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny/allow",
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP, ports.HTTP2},
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
 							path:  "/global-deny/allow?param=value",
 							allow: true,
 						},
@@ -521,17 +521,17 @@ func TestAuthz_NotMethod(t *testing.T) {
 				ToMatch(toMatch).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					cases := []struct {
-						ports  []string
+						ports  []echo.Port
 						method string
 						allow  allowValue
 					}{
 						{
-							ports:  []string{ports.HTTP, ports.HTTP2},
+							ports:  []echo.Port{ports.HTTP, ports.HTTP2},
 							method: "GET",
 							allow:  true,
 						},
 						{
-							ports:  []string{ports.HTTP, ports.HTTP2},
+							ports:  []echo.Port{ports.HTTP, ports.HTTP2},
 							method: "PUT",
 							allow:  false,
 						},
@@ -569,15 +569,15 @@ func TestAuthz_NotPort(t *testing.T) {
 				ToMatch(toMatch).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					cases := []struct {
-						ports []string
+						ports []echo.Port
 						allow allowValue
 					}{
 						{
-							ports: []string{ports.HTTP},
+							ports: []echo.Port{ports.HTTP},
 							allow: true,
 						},
 						{
-							ports: []string{ports.HTTP2},
+							ports: []echo.Port{ports.HTTP2},
 							allow: false,
 						},
 					}
@@ -1236,7 +1236,7 @@ func TestAuthz_EgressGateway(t *testing.T) {
 								// header will be used for routing decisions.
 								Address: "10.4.4.4",
 								Port: echo.Port{
-									Name:        ports.HTTP,
+									Name:        ports.HTTP.Name,
 									Protocol:    protocol.HTTP,
 									ServicePort: 80,
 								},
@@ -1420,7 +1420,7 @@ func TestAuthz_Conditions(t *testing.T) {
 							newAuthzTest().
 								From(from).
 								To(to).
-								PortName(ports.HTTP).
+								PortName(ports.HTTP.Name).
 								Path(c.path).
 								Allow(c.allow).
 								Headers(c.headers).
@@ -1511,7 +1511,7 @@ func TestAuthz_PathNormalization(t *testing.T) {
 							newAuthzTest().
 								From(from).
 								To(to).
-								PortName(ports.HTTP).
+								PortName(ports.HTTP.Name).
 								Path(c.path).
 								Allow(c.allow).
 								BuildAndRun(t)
@@ -1572,40 +1572,40 @@ func TestAuthz_CustomServer(t *testing.T) {
 
 							authzPath := "/custom"
 							cases := []struct {
-								ports   []string
+								ports   []echo.Port
 								path    string
 								headers http.Header
 								allow   allowValue
 								skip    bool
 							}{
 								{
-									ports: []string{ports.TCP},
+									ports: []echo.Port{ports.TCP},
 									// For TCP, we rely on the hard-coded allowed service account.
 									allow: allowValue(fromAllowed),
 								},
 								{
-									ports:   []string{ports.HTTP, ports.HTTP2, ports.GRPC},
+									ports:   []echo.Port{ports.HTTP, ports.HTTP2, ports.GRPC},
 									path:    authzPath,
 									headers: allowHeaders(),
 									allow:   true,
 									skip:    !fromAllowed,
 								},
 								{
-									ports:   []string{ports.HTTP, ports.HTTP2, ports.GRPC},
+									ports:   []echo.Port{ports.HTTP, ports.HTTP2, ports.GRPC},
 									path:    authzPath,
 									headers: denyHeaders(),
 									allow:   false,
 									skip:    !fromAllowed,
 								},
 								{
-									ports:   []string{ports.HTTP, ports.HTTP2},
+									ports:   []echo.Port{ports.HTTP, ports.HTTP2},
 									path:    "/health",
 									headers: extAuthzHeaders(authz.XExtAuthzAllow),
 									allow:   true,
 									skip:    !fromAllowed,
 								},
 								{
-									ports:   []string{ports.HTTP, ports.HTTP2},
+									ports:   []echo.Port{ports.HTTP, ports.HTTP2},
 									path:    "/health",
 									headers: extAuthzHeaders("deny"),
 									allow:   true,
@@ -1745,11 +1745,11 @@ func (b *authzTest) Build(t framework.TestContext) *authzTest {
 	return b
 }
 
-func (b *authzTest) BuildForPorts(t framework.TestContext, ports ...string) authzTests {
+func (b *authzTest) BuildForPorts(t framework.TestContext, ports ...echo.Port) authzTests {
 	out := make(authzTests, 0, len(ports))
 	for _, p := range ports {
 		opts := b.opts.DeepCopy()
-		opts.Port.Name = p
+		opts.Port.Name = p.Name
 
 		tst := (&authzTest{
 			prefix: b.prefix,
@@ -1762,7 +1762,7 @@ func (b *authzTest) BuildForPorts(t framework.TestContext, ports ...string) auth
 	return out
 }
 
-func (b *authzTest) BuildAndRunForPorts(t framework.TestContext, ports ...string) {
+func (b *authzTest) BuildAndRunForPorts(t framework.TestContext, ports ...echo.Port) {
 	tsts := b.BuildForPorts(t, ports...)
 	tsts.RunAll(t)
 }

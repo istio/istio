@@ -22,14 +22,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/cni/pkg/ambient"
-	"istio.io/istio/pilot/pkg/ambient/ambientpod"
+	"istio.io/istio/cni/pkg/ambient/ambientpod"
 )
 
 func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname string, podIPs []net.IPNet) (bool, error) {
-	if ambientConfig.Mode == ambient.AmbientMeshOff.String() {
-		return false, nil
-	}
-
 	if !ambientConfig.ZTunnelReady {
 		return false, fmt.Errorf("ztunnel not ready")
 	}
@@ -56,11 +52,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, fmt.Errorf("ambient: pod %s/%s or namespace has legacy labels", podNamespace, podName)
 	}
 
-	if ambientpod.HasSelectors(ns.Labels, ambientpod.ConvertDisabledSelectors(ambientConfig.DisabledSelectors)) {
-		return false, fmt.Errorf("ambient: namespace %s/%s has disabled selectors", podNamespace, podName)
-	}
-
-	if ambientpod.ShouldPodBeInIpset(ns, pod, ambientConfig.Mode, true) {
+	if ambientpod.ShouldPodBeInIpset(ns, pod, true) {
 		ambient.NodeName = pod.Spec.NodeName
 
 		ambient.HostIP, err = ambient.GetHostIP(client)

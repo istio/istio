@@ -189,45 +189,27 @@ func (l *lruCache) onEvict(k string, v cacheValue) {
 
 func (l *lruCache) updateConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
-		if l.configIndex[cfg] == nil {
-			l.configIndex[cfg] = sets.New[string]()
-		}
-		l.configIndex[cfg].Insert(k)
+		sets.InsertOrNew(l.configIndex, cfg, k)
 	}
 	l.recordDependentConfigSize()
 }
 
 func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
-		index := l.configIndex[cfg]
-		if index != nil {
-			index.Delete(k)
-			if index.IsEmpty() {
-				delete(l.configIndex, cfg)
-			}
-		}
+		sets.DeleteCleanupLast(l.configIndex, cfg, k)
 	}
 	l.recordDependentConfigSize()
 }
 
 func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
-		if l.typesIndex[t] == nil {
-			l.typesIndex[t] = sets.New[string]()
-		}
-		l.typesIndex[t].Insert(k)
+		sets.InsertOrNew(l.typesIndex, t, k)
 	}
 }
 
 func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
 	for _, t := range dependentTypes {
-		index := l.typesIndex[t]
-		if index != nil {
-			index.Delete(k)
-			if index.IsEmpty() {
-				delete(l.typesIndex, t)
-			}
-		}
+		sets.DeleteCleanupLast(l.typesIndex, t, k)
 	}
 }
 

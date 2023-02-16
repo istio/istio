@@ -418,6 +418,10 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 			Port:     p.GetPort(),
 			NodePort: p.GetNodePort(),
 		}
+		if p.GetAppProtocol() != "" {
+			ap := p.AppProtocol
+			port.AppProtocol = &ap
+		}
 		if p.TargetPort != nil {
 			port.TargetPort = p.TargetPort.ToKubernetes()
 		}

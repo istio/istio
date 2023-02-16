@@ -737,16 +737,13 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	out := make(map[string]sets.Set[int])
 
 	addDestination := func(host string, port *networking.PortSelector) {
-		if _, ok := out[host]; !ok {
-			out[host] = sets.New[int]()
-		}
+		// Use the value 0 as a sentinel indicating that one of the destinations
+		// in the Virtual Service does not specify a port for this host.
+		pn := 0
 		if port != nil {
-			out[host].Insert(int(port.Number))
-		} else {
-			// Use the value 0 as a sentinel indicating that one of the destinations
-			// in the Virtual Service does not specify a port for this host.
-			out[host].Insert(0)
+			pn = int(port.Number)
 		}
+		sets.InsertOrNew(out, host, pn)
 	}
 
 	for _, h := range v.Http {
@@ -1625,11 +1622,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				if _, f := ps.virtualServiceIndex.destinationsByGateway[gw]; !f {
-					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.New[string]()
-				}
 				for host := range virtualServiceDestinations(rule) {
-					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
+					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
 				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 			}

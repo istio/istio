@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ingress
+package validation
 
 import (
 	"testing"
 
-	"istio.io/istio/tests/util/leak"
+	"istio.io/istio/pkg/fuzz"
 )
 
-func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
-	leak.CheckMain(m)
+func FuzzValidateHeaderValue(f *testing.F) {
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
+		r := fuzz.Struct[string](fg)
+		validateHeaderValue(r)
+	})
 }

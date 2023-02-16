@@ -25,7 +25,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v23.0.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.1-0.20230202164348-98e9e8eacc1a
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230210215507-c077a74bfa9b
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.14.1
 	github.com/felixge/fgprof v0.9.3
@@ -72,7 +72,6 @@ require (
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/proto/otlp v0.19.0
 	go.uber.org/atomic v1.10.0
-	go.uber.org/multierr v1.9.0
 	golang.org/x/net v0.5.0
 	golang.org/x/oauth2 v0.4.0
 	golang.org/x/sync v0.1.0
@@ -86,9 +85,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.11.0
-	istio.io/api v0.0.0-20230206222915-ac48b0fe1873
-	istio.io/client-go v1.12.0-alpha.5.0.20230205000121-93c4fbc1b28d
+	helm.sh/helm/v3 v3.11.1
+	istio.io/api v0.0.0-20230216165022-481bb4006eb8
+	istio.io/client-go v1.12.0-alpha.5.0.20230215152751-88556d781896
 	istio.io/pkg v0.0.0-20230203225929-102620a3ea67
 	k8s.io/api v0.26.1
 	k8s.io/apiextensions-apiserver v0.26.1
@@ -101,7 +100,7 @@ require (
 	k8s.io/kubectl v0.26.1
 	k8s.io/utils v0.0.0-20230202215443-34013725500c
 	sigs.k8s.io/controller-runtime v0.14.2
-	sigs.k8s.io/gateway-api v0.6.0
+	sigs.k8s.io/gateway-api v0.6.1
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -116,6 +115,7 @@ require (
 	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
 

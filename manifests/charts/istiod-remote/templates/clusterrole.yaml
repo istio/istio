@@ -143,22 +143,4 @@ rules:
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "serviceaccounts"]
 {{- end }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istiod-waypoint-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-rules:
-- apiGroups: [""]
-  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-  resources: [ "pods"]
-- apiGroups: [""]
-  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-  resources: [ "services"]
-- apiGroups: [""]
-  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-  resources: [ "serviceaccounts"]
 {{- end }}

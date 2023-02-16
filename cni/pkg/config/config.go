@@ -148,6 +148,8 @@ func (c InstallConfig) String() string {
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
 	b.WriteString("HostNSEnterExec: " + fmt.Sprint(c.HostNSEnterExec) + "\n")
 
+	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
+
 	return b.String()
 }
 

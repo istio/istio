@@ -51,7 +51,8 @@ type serviceExportCache interface {
 
 	// HasSynced indicates whether the kube createClient has synced for the watched resources.
 	HasSynced() bool
-	OnCRDEvent(name string)
+	// HasCRDInstalled indicates whether the serviceExport crd has been installed.
+	HasCRDInstalled() bool
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
@@ -61,7 +62,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 			Controller:      c,
 			serviceExportCh: make(chan struct{}),
 		}
-		c.AppendCrdHandlers(ec.OnCRDEvent)
+		c.crdWatcher.AddCallBack(ec.onCRDEvent)
 
 		// Set the discoverability policy for the clusterset.local host.
 		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
@@ -218,13 +219,19 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 }
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	// This is called during the initiation of istiod.
-	// 1. If MCS CRD not installed, always return true.
-	// 2. TODO: If MCS CRD installed, we need to wait informer cache synced and also process each item.
-	return true
+	return ec.started.Load()
 }
 
-func (ec *serviceExportCacheImpl) OnCRDEvent(name string) {
+func (ec *serviceExportCacheImpl) HasCRDInstalled() bool {
+	select {
+	case <-ec.serviceExportCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (ec *serviceExportCacheImpl) onCRDEvent(name string) {
 	if name == mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group {
 		select {
 		case <-ec.serviceExportCh: // channel already closed
@@ -254,4 +261,6 @@ func (c disabledServiceExportCache) ExportedServices() []exportedService {
 	return nil
 }
 
-func (c disabledServiceExportCache) OnCRDEvent(name string) {}
+func (c disabledServiceExportCache) HasCRDInstalled() bool {
+	return false
+}

@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func createRouteStatus(gateways []routeParentReference, obj config.Config, current []k8s.RouteParentStatus, routeErr *ConfigError) []k8s.RouteParentStatus {
@@ -41,56 +43,84 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
 	// While we process these internally for-each sectionName, in the status we are just supposed to report one merged entry
-	seen := map[k8s.ParentReference]routeParentReference{}
-	failedCount := map[k8s.ParentReference]int{}
+	seen := map[k8s.ParentReference][]routeParentReference{}
+	seenReasons := sets.New[ParentErrorReason]()
 	successCount := map[k8s.ParentReference]int{}
 	for _, incoming := range gateways {
 		// We will append it if it is our first occurrence, or the existing one has an error. This means
 		// if *any* section has no errors, we will declare Admitted
-		if incoming.DeniedReason != nil {
-			failedCount[incoming.OriginalReference]++
-		} else {
+		if incoming.DeniedReason == nil {
 			successCount[incoming.OriginalReference]++
 		}
-		exist, f := seen[incoming.OriginalReference]
-		if !f {
-			exist = incoming
+		seen[incoming.OriginalReference] = append(seen[incoming.OriginalReference], incoming)
+		if incoming.DeniedReason != nil {
+			seenReasons.Insert(incoming.DeniedReason.Reason)
 		} else {
-			if incoming.DeniedReason == nil {
-				// The incoming gateway has no error; wipe out any errors
-				// When we have multiple, this means we attached without sectionName - we only need one success to be valid.
-				exist.DeniedReason = nil
-			} else if exist.DeniedReason != nil {
-				// TODO this only handles message, not reason
-				exist.DeniedReason.Message += "; " + incoming.DeniedReason.Message
-			}
+			seenReasons.Insert(ParentNoError)
 		}
-		seen[exist.OriginalReference] = exist
 	}
-	// Enhance error message when we have multiple
-	for k, gw := range seen {
-		if gw.DeniedReason == nil {
+	reasonRanking := []ParentErrorReason{
+		// No errors is preferred
+		ParentNoError,
+		// All route level errors
+		ParentErrorNotAllowed,
+		ParentErrorNoHostname,
+		ParentErrorParentRefConflict,
+		// Failures to match the Port or SectionName. These are last so that if we bind to 1 listener we
+		// just report errors for that 1 listener instead of for all sections we didn't bind to
+		ParentErrorNotAccepted,
+	}
+	// Next we want to collapse these. We need to report 1 type of error, or none.
+	report := map[k8s.ParentReference]routeParentReference{}
+	for _, wantReason := range reasonRanking {
+		if !seenReasons.Contains(wantReason) {
 			continue
 		}
-		if failedCount[k] > 1 {
-			gw.DeniedReason.Message = fmt.Sprintf("failed to bind to %d parents, errors: %v", failedCount[k], gw.DeniedReason.Message)
+		// We found our highest priority ranking, now we need to collapse this into a single message
+		for k, refs := range seen {
+			for _, ref := range refs {
+				reason := ParentNoError
+				if ref.DeniedReason != nil {
+					reason = ref.DeniedReason.Reason
+				}
+				if wantReason != reason {
+					// Skip this one, it is for a less relevant reason
+					continue
+				}
+				exist, f := report[k]
+				if f {
+					if ref.DeniedReason != nil {
+						if exist.DeniedReason != nil {
+							// join the error
+							exist.DeniedReason.Message += "; " + ref.DeniedReason.Message
+						} else {
+							exist.DeniedReason = ref.DeniedReason
+						}
+					}
+				} else {
+					exist = ref
+				}
+				report[k] = exist
+			}
 		}
+		// Once we find the best reason, do not consider any others
+		break
 	}
 
 	// Now we fill in all the parents we do own
-	for k, gw := range seen {
+	for k, gw := range report {
 		msg := "Route was valid"
 		if successCount[k] > 1 {
 			msg = fmt.Sprintf("Route was valid, bound to %d parents", successCount[k])
 		}
-		conds := map[string]*Condition{
+		conds := map[string]*condition{
 			string(k8s.RouteConditionAccepted): {
-				Reason:  string(k8s.RouteReasonAccepted),
-				Message: msg,
+				reason:  string(k8s.RouteReasonAccepted),
+				message: msg,
 			},
 			string(k8s.RouteConditionResolvedRefs): {
-				Reason:  string(k8s.RouteReasonResolvedRefs),
-				Message: "All references resolved",
+				reason:  string(k8s.RouteReasonResolvedRefs),
+				message: "All references resolved",
 			},
 		}
 		if routeErr != nil {
@@ -99,10 +129,10 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			// * ResolvedRefs - used to describe errors about binding to objects
 			// But no general errors
 			// For now, we will treat all general route errors as "Ref" errors.
-			conds[string(k8s.RouteConditionResolvedRefs)].Error = routeErr
+			conds[string(k8s.RouteConditionResolvedRefs)].error = routeErr
 		}
 		if gw.DeniedReason != nil {
-			conds[string(k8s.RouteConditionAccepted)].Error = &ConfigError{
+			conds[string(k8s.RouteConditionAccepted)].error = &ConfigError{
 				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
 				Message: gw.DeniedReason.Message,
 			}
@@ -110,7 +140,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		gws = append(gws, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: ControllerName,
-			Conditions:     SetConditions(obj.Generation, nil, conds),
+			Conditions:     setConditions(obj.Generation, nil, conds),
 		})
 	}
 	// Ensure output is deterministic.
@@ -124,9 +154,11 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 type ParentErrorReason string
 
 const (
+	ParentErrorNotAccepted       = ParentErrorReason(k8sbeta.RouteReasonNoMatchingParent)
 	ParentErrorNotAllowed        = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
 	ParentErrorNoHostname        = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
 	ParentErrorParentRefConflict = ParentErrorReason("ParentRefConflict")
+	ParentNoError                = ParentErrorReason("")
 )
 
 type ConfigErrorReason = string
@@ -166,23 +198,23 @@ type ConfigError struct {
 	Message string
 }
 
-type Condition struct {
-	// Reason defines the Reason to report on success. Ignored if error is set
-	Reason string
-	// Message defines the Message to report on success. Ignored if error is set
-	Message string
-	// Status defines the Status to report on success. The inverse will be set if error is set
+type condition struct {
+	// reason defines the reason to report on success. Ignored if error is set
+	reason string
+	// message defines the message to report on success. Ignored if error is set
+	message string
+	// status defines the status to report on success. The inverse will be set if error is set
 	// If not set, will default to StatusTrue
-	Status metav1.ConditionStatus
-	// Error defines an Error state; the Reason and Message will be replaced with that of the Error and
-	// the Status inverted
-	Error *ConfigError
-	// SetOnce, if enabled, will only set the Condition if it is not yet present or set to this Reason
-	SetOnce string
+	status metav1.ConditionStatus
+	// error defines an error state; the reason and message will be replaced with that of the error and
+	// the status inverted
+	error *ConfigError
+	// setOnce, if enabled, will only set the condition if it is not yet present or set to this reason
+	setOnce string
 }
 
-// SetConditions sets the existingConditions with the new conditions
-func SetConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*Condition) []metav1.Condition {
+// setConditions sets the existingConditions with the new conditions
+func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
 	// Sort keys for deterministic ordering
 	condKeys := make([]string, 0, len(conditions))
 	for k := range conditions {
@@ -192,29 +224,29 @@ func SetConditions(generation int64, existingConditions []metav1.Condition, cond
 	for _, k := range condKeys {
 		cond := conditions[k]
 		setter := kstatus.UpdateConditionIfChanged
-		if cond.SetOnce != "" {
+		if cond.setOnce != "" {
 			setter = func(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-				return kstatus.CreateCondition(conditions, condition, cond.SetOnce)
+				return kstatus.CreateCondition(conditions, condition, cond.setOnce)
 			}
 		}
-		// A Condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
-		// ListenerValid), so in order to determine the status we should set each `Condition` defines its
+		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
+		// ListenerValid), so in order to determine the status we should set each `condition` defines its
 		// default positive status. When there is an error, we will invert that. Example: If we have
-		// Condition ListenerInvalid, the status will be set to StatusFalse. If an error is reported, it
+		// condition ListenerInvalid, the status will be set to StatusFalse. If an error is reported, it
 		// will be inverted to StatusTrue to indicate listeners are invalid. See
 		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 		// for more information
-		if cond.Error != nil {
+		if cond.error != nil {
 			existingConditions = setter(existingConditions, metav1.Condition{
 				Type:               k,
-				Status:             kstatus.InvertStatus(cond.Status),
+				Status:             kstatus.InvertStatus(cond.status),
 				ObservedGeneration: generation,
 				LastTransitionTime: metav1.Now(),
-				Reason:             cond.Error.Reason,
-				Message:            cond.Error.Message,
+				Reason:             cond.error.Reason,
+				Message:            cond.error.Message,
 			})
 		} else {
-			status := cond.Status
+			status := cond.status
 			if status == "" {
 				status = kstatus.StatusTrue
 			}
@@ -223,18 +255,18 @@ func SetConditions(generation int64, existingConditions []metav1.Condition, cond
 				Status:             status,
 				ObservedGeneration: generation,
 				LastTransitionTime: metav1.Now(),
-				Reason:             cond.Reason,
-				Message:            cond.Message,
+				Reason:             cond.reason,
+				Message:            cond.message,
 			})
 		}
 	}
 	return existingConditions
 }
 
-func reportGatewayCondition(obj config.Config, conditions map[string]*Condition) {
+func reportGatewayCondition(obj config.Config, conditions map[string]*condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
-		gs.Conditions = SetConditions(obj.Generation, gs.Conditions, conditions)
+		gs.Conditions = setConditions(obj.Generation, gs.Conditions, conditions)
 		return gs
 	})
 }
@@ -252,7 +284,7 @@ func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 	})
 }
 
-func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*Condition) {
+func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
 		for index >= len(gs.Listeners) {
@@ -261,17 +293,17 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 		cond := gs.Listeners[index].Conditions
 		supported, valid := generateSupportedKinds(l)
 		if !valid {
-			conditions[string(k8sbeta.ListenerConditionResolvedRefs)] = &Condition{
-				Reason:  string(k8sbeta.ListenerReasonInvalidRouteKinds),
-				Status:  metav1.ConditionFalse,
-				Message: "Invalid route kinds",
+			conditions[string(k8sbeta.ListenerConditionResolvedRefs)] = &condition{
+				reason:  string(k8sbeta.ListenerReasonInvalidRouteKinds),
+				status:  metav1.ConditionFalse,
+				message: "Invalid route kinds",
 			}
 		}
 		gs.Listeners[index] = k8s.ListenerStatus{
 			Name:           l.Name,
 			AttachedRoutes: 0, // this will be reported later
 			SupportedKinds: supported,
-			Conditions:     SetConditions(obj.Generation, cond, conditions),
+			Conditions:     setConditions(obj.Generation, cond, conditions),
 		}
 		return gs
 	})
@@ -282,14 +314,14 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	switch l.Protocol {
 	case k8sbeta.HTTPProtocolType, k8sbeta.HTTPSProtocolType:
 		// Only terminate allowed, so its always HTTP
-		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)}}
+		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)}}
 	case k8sbeta.TCPProtocolType:
-		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
+		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
 	case k8sbeta.TLSProtocolType:
 		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8sbeta.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)}}
+			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)}}
 		} else {
-			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(StrPointer(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
+			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
 		}
 		// UDP route note support
 	}
@@ -315,5 +347,5 @@ func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
 }
 
 func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
-	return k8s.Group(defaultIfNil((*string)(rgk.Group), gvk.KubernetesGateway.Group))
+	return ptr.OrDefault(rgk.Group, k8s.Group(gvk.KubernetesGateway.Group))
 }

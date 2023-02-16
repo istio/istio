@@ -109,7 +109,7 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
 				continue
 			}
-			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
 				continue
 			}
 			wl := wl.Clone()
@@ -138,7 +138,7 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
 				continue
 			}
-			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
 				continue
 			}
 			found := false
@@ -540,7 +540,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 		// if there are none, check namespace wide waypoints
 		waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
 	}
-	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
 		// Waypoints do not have waypoints
 		waypoints = nil
 	}
@@ -595,7 +595,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		p := controllers.Extract[*v1.Pod](newObj)
 		updates := sets.New[model.ConfigKey]()
 		// This is a waypoint update
-		if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
 			n := model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}
 			ip := p.Status.PodIP
 			if isDelete || !IsPodReady(p) {

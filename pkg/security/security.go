@@ -139,7 +139,11 @@ const (
 	K8sTokenPrefix = "Istio "
 
 	// CertSigner info
-	CertSigner           = "CertSigner"
+	CertSigner = "CertSigner"
+
+	// ImpersonatedIdentity declares the identity we are requesting a certificate on behalf of.
+	// This is constrained to only allow identities in CATrustedNodeAccounts, and only to impersonate identities
+	// on their node.
 	ImpersonatedIdentity = "ImpersonatedIdentity"
 )
 

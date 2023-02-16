@@ -28,57 +28,39 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/cni/pkg/ambient/constants"
-	"istio.io/istio/pilot/pkg/ambient/ambientpod"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/lazy"
 )
 
 type Server struct {
-	kubeClient  kube.Client
-	environment *model.Environment
-	ctx         context.Context
-	queue       controllers.Queue
+	kubeClient kube.Client
+	ctx        context.Context
+	queue      controllers.Queue
 
 	nsLister  listerv1.NamespaceLister
 	podLister listerv1.PodLister
 
-	meshMode          v1alpha1.MeshConfig_AmbientMeshConfig_AmbientMeshMode
-	disabledSelectors []labels.Selector
-	// disabledSelectors can be used to filter objects, but not to marshal. So we have 2 copies:
-	// one that can be marshaled, and one that can select.
-	marshalableDisabledSelectors []*metav1.LabelSelector
-	mu                           sync.Mutex
-	ztunnelPod                   *corev1.Pod
+	mu         sync.Mutex
+	ztunnelPod *corev1.Pod
 
 	iptablesCommand lazy.Lazy[string]
 }
 
 type AmbientConfigFile struct {
-	Mode              string                  `json:"mode"`
-	DisabledSelectors []*metav1.LabelSelector `json:"disabledSelectors"`
-	ZTunnelReady      bool                    `json:"ztunnelReady"`
+	ZTunnelReady bool `json:"ztunnelReady"`
 }
 
 func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
-	e := &model.Environment{
-		PushContext: model.NewPushContext(),
-	}
 	client, err := buildKubeClient(args.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 	// Set some defaults
 	s := &Server{
-		environment:                  e,
-		ctx:                          ctx,
-		meshMode:                     v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT,
-		disabledSelectors:            ambientpod.LegacySelectors,
-		marshalableDisabledSelectors: ambientpod.LegacyLabelSelector,
-		kubeClient:                   client,
+		ctx:        ctx,
+		kubeClient: client,
 	}
 	s.iptablesCommand = lazy.New(func() (string, error) {
 		return s.detectIptablesCommand(), nil
@@ -92,17 +74,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	HostIP = h
 	log.Infof("HostIP=%v", HostIP)
 
-	s.initMeshConfiguration(args)
-	s.environment.AddMeshHandler(s.newConfigMapWatcher)
 	s.setupHandlers()
-
-	if s.environment.Mesh().AmbientMesh != nil {
-		s.mu.Lock()
-		s.meshMode = s.environment.Mesh().AmbientMesh.Mode
-		s.disabledSelectors = ambientpod.ConvertDisabledSelectors(s.environment.Mesh().AmbientMesh.DisabledSelectors)
-		s.marshalableDisabledSelectors = s.environment.Mesh().AmbientMesh.DisabledSelectors
-		s.mu.Unlock()
-	}
 
 	s.UpdateConfig()
 
@@ -146,9 +118,7 @@ func (s *Server) UpdateConfig() {
 	log.Debug("Generating new ambient config file")
 
 	cfg := &AmbientConfigFile{
-		Mode:              s.meshMode.String(),
-		DisabledSelectors: s.marshalableDisabledSelectors,
-		ZTunnelReady:      s.isZTunnelRunning(),
+		ZTunnelReady: s.isZTunnelRunning(),
 	}
 
 	if err := cfg.write(); err != nil {
@@ -253,7 +223,6 @@ func ReadAmbientConfig() (*AmbientConfigFile, error) {
 
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return &AmbientConfigFile{
-			Mode:         "OFF",
 			ZTunnelReady: false,
 		}, nil
 	}

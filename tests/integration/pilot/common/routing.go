@@ -471,7 +471,7 @@ spec:
 							return err
 						}
 						return ExpectString(r.ResponseHeaders.Get("Location"),
-							fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), ports.All().MustForName("http").ServicePort),
+							fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), ports.HTTP.ServicePort),
 							"Location")
 					})),
 		},
@@ -975,8 +975,8 @@ func autoPassthroughCases(t TrafficContext) {
 
 	mtlsHost := host.Name(t.Apps.A.Config().ClusterLocalFQDN())
 	nakedHost := host.Name(t.Apps.Naked.Config().ClusterLocalFQDN())
-	httpsPort := ports.All().MustForName("https").ServicePort
-	httpsAutoPort := ports.All().MustForName("auto-https").ServicePort
+	httpsPort := ports.HTTP.ServicePort
+	httpsAutoPort := ports.AutoHTTPS.ServicePort
 	snis := []string{
 		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
 		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
@@ -1056,7 +1056,7 @@ func gatewayCases(t TrafficContext) {
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
 			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-			"Port":               dest.PortForName("http").ServicePort,
+			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
 		}
@@ -1197,7 +1197,7 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               dest.PortForName("http").ServicePort,
+				"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			}
 		},
 	})
@@ -1369,7 +1369,7 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.All().MustForName("auto-http").ServicePort,
+				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
 			}
 		},
 	})
@@ -1416,7 +1416,7 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.All().MustForName("auto-http").ServicePort,
+				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
 			}
 		},
 	})
@@ -1492,12 +1492,12 @@ spec:
 				"Gateway":            "gateway",
 				"VirtualServiceHost": "*.example.com",
 				"DestinationHost":    dests[0].Config().ClusterLocalFQDN(),
-				"Port":               ports.All().MustForName(ports.HTTP).ServicePort,
+				"Port":               ports.HTTP.ServicePort,
 			}
 		},
 	})
 
-	for _, port := range []string{"auto-http", "http", "http2"} {
+	for _, port := range []echo.Port{ports.AutoHTTP, ports.HTTP, ports.HTTP2} {
 		for _, h2 := range []bool{true, false} {
 			port, h2 := port, h2
 			protoName := "http1"
@@ -1550,7 +1550,7 @@ spec:
 					return map[string]any{
 						"Gateway":            "gateway",
 						"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-						"Port":               ports.All().MustForName(port).ServicePort,
+						"Port":               port.ServicePort,
 					}
 				},
 			})
@@ -1628,7 +1628,7 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
 			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
-				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
+				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
 			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:                1,
@@ -1686,7 +1686,7 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
 			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
 			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
-				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
+				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
 			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -1716,7 +1716,6 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
 	gatewayListenPort := 80
-	gatewayListenPortName := "http"
 
 	destinationSets := []echo.Instances{
 		apps.A,
@@ -1730,8 +1729,8 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
 			name: d[0].Config().Service,
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP") +
-				httpVirtualService("gateway", fqdn, d[0].PortForName(gatewayListenPortName).ServicePort),
+			config: httpGateway("*", gatewayListenPort, ports.HTTP.Name, "HTTP") +
+				httpVirtualService("gateway", fqdn, ports.HTTP.ServicePort),
 			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -1900,7 +1899,7 @@ func hostCases(t TrafficContext) {
 	}
 	for _, c := range t.Apps.A {
 		cfg := t.Apps.Headless.Config()
-		port := ports.All().MustForName("auto-http").WorkloadPort
+		port := ports.AutoHTTP.WorkloadPort
 		wl := t.Apps.Headless[0].WorkloadsOrFail(t)
 		if len(wl) == 0 {
 			t.Fatalf("no workloads found")
@@ -1947,7 +1946,7 @@ func hostCases(t TrafficContext) {
 				},
 			})
 		}
-		port = ports.All().MustForName("http").WorkloadPort
+		port = ports.HTTP.WorkloadPort
 		hosts = []string{
 			cfg.ClusterLocalFQDN(),
 			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
@@ -2032,7 +2031,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, ports.All().MustForName("http").ServicePort, ports.All().MustForName("http").WorkloadPort)
+    app: b`, ports.HTTP.ServicePort, ports.HTTP.WorkloadPort)
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -2040,7 +2039,7 @@ spec:
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-1",
-				Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Timeout: time.Millisecond * 100,
 				Check:   check.OK(),
 			},
@@ -2061,7 +2060,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, ports.All().MustForName("http").ServicePort, ports.All().GetWorkloadOnlyPorts()[0].WorkloadPort)
+    app: b`, ports.HTTP.ServicePort, ports.All().GetWorkloadOnlyPorts()[0].WorkloadPort)
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -2069,7 +2068,7 @@ spec:
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-2",
-				Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.TCP},
+				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.TCP},
 				Scheme:  scheme.TCP,
 				Timeout: time.Millisecond * 100,
 				Check:   check.OK(),
@@ -2090,7 +2089,7 @@ spec:
     port: 12345
     targetPort: %d
   selector:
-    app: b`, ports.All().MustForName("http").WorkloadPort)
+    app: b`, ports.HTTP.WorkloadPort)
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -2171,12 +2170,12 @@ spec:
 `, map[string]any{
 				"Service":        svcName,
 				"Network":        c.Config().Cluster.NetworkName(),
-				"Port":           ports.All().MustForName("http").ServicePort,
-				"TargetPort":     ports.All().MustForName("http").WorkloadPort,
-				"TcpPort":        ports.All().MustForName("tcp").ServicePort,
-				"TcpTargetPort":  ports.All().MustForName("tcp").WorkloadPort,
-				"GrpcPort":       ports.All().MustForName("grpc").ServicePort,
-				"GrpcTargetPort": ports.All().MustForName("grpc").WorkloadPort,
+				"Port":           ports.HTTP.ServicePort,
+				"TargetPort":     ports.HTTP.WorkloadPort,
+				"TcpPort":        ports.TCP.ServicePort,
+				"TcpTargetPort":  ports.TCP.WorkloadPort,
+				"GrpcPort":       ports.GRPC.ServicePort,
+				"GrpcTargetPort": ports.GRPC.WorkloadPort,
 			})
 
 			destRule := fmt.Sprintf(`
@@ -2201,7 +2200,7 @@ spec:
 				opts: echo.CallOptions{
 					Count:   10,
 					Address: svcName,
-					Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+					Port:    echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 					Check: check.And(
 						check.OK(),
 						func(result echo.CallResult, rerr error) error {
@@ -2221,7 +2220,7 @@ spec:
 					Path:    "/?some-query-param=bar",
 					Headers: headers.New().With("x-some-header", "baz").Build(),
 				},
-				Port: echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
@@ -2230,14 +2229,14 @@ spec:
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
-				Port:    echo.Port{ServicePort: ports.All().MustForName("tcp").ServicePort, Protocol: protocol.TCP},
+				Port:    echo.Port{ServicePort: ports.TCP.ServicePort, Protocol: protocol.TCP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
 				),
 			}
 			if c.Config().WorkloadClass() == echo.Proxyless {
-				callOpts.Port = echo.Port{ServicePort: ports.All().MustForName("grpc").ServicePort, Protocol: protocol.GRPC}
+				callOpts.Port = echo.Port{ServicePort: ports.GRPC.ServicePort, Protocol: protocol.GRPC}
 			}
 			// Setup tests for various forms of the API
 			// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
@@ -2416,8 +2415,8 @@ func protocolSniffingCases(t TrafficContext) {
 		})
 	}
 
-	autoPort := ports.All().MustForName("auto-http")
-	httpPort := ports.All().MustForName("http")
+	autoPort := ports.AutoHTTP
+	httpPort := ports.HTTP
 	// Tests for http1.0. Golang does not support 1.0 client requests at all
 	// To simulate these, we use TCP and hand-craft the requests.
 	t.RunTraffic(TrafficTestCase{
@@ -2511,7 +2510,7 @@ func instanceIPTests(t TrafficContext) {
 		name            string
 		endpoint        string
 		disableSidecar  bool
-		port            string
+		port            echo.Port
 		code            int
 		minIstioVersion string
 	}{
@@ -2520,25 +2519,25 @@ func instanceIPTests(t TrafficContext) {
 		//{
 		//	name:           "instance IP without sidecar",
 		//	disableSidecar: true,
-		//	port:           "http-instance",
+		//	port:           ports.HTTPInstance,
 		//	code:           http.StatusOK,
 		//},
 		{
 			name:     "instance IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
-			port:     "http-instance",
+			port:     ports.HTTPInstance,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "instance IP with localhost sidecar",
 			endpoint: "127.0.0.1",
-			port:     "http-instance",
+			port:     ports.HTTPInstance,
 			code:     http.StatusServiceUnavailable,
 		},
 		//{
 		//	name:     "instance IP with empty sidecar",
 		//	endpoint: "",
-		//	port:     "http-instance",
+		//	port:     ports.HTTPInstance,
 		//	code:     http.StatusOK,
 		//},
 
@@ -2546,7 +2545,7 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:           "localhost IP without sidecar",
 			disableSidecar: true,
-			port:           "http-localhost",
+			port:           ports.HTTPLocalHost,
 			code:           http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
@@ -2554,19 +2553,19 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:     "localhost IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
-			port:     "http-localhost",
+			port:     ports.HTTPLocalHost,
 			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
 			endpoint: "127.0.0.1",
-			port:     "http-localhost",
+			port:     ports.HTTPLocalHost,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "localhost IP with empty sidecar",
 			endpoint: "",
-			port:     "http-localhost",
+			port:     ports.HTTPLocalHost,
 			code:     http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
@@ -2576,25 +2575,25 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:           "wildcard IP without sidecar",
 			disableSidecar: true,
-			port:           "http",
+			port:           ports.HTTP,
 			code:           http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
-			port:     "http",
+			port:     ports.HTTP,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with localhost sidecar",
 			endpoint: "127.0.0.1",
-			port:     "http",
+			port:     ports.HTTP,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with empty sidecar",
 			endpoint: "",
-			port:     "http",
+			port:     ports.HTTP,
 			code:     http.StatusOK,
 		},
 	}
@@ -2622,18 +2621,16 @@ spec:
       number: %d
       protocol: HTTP
     defaultEndpoint: %s:%d
-`, ports.All().MustForName(ipCase.port).WorkloadPort, ipCase.endpoint, ports.All().MustForName(ipCase.port).WorkloadPort)
+`, ipCase.port.WorkloadPort, ipCase.endpoint, ipCase.port.WorkloadPort)
 			}
 			t.RunTraffic(TrafficTestCase{
 				name:   ipCase.name,
 				call:   client.CallOrFail,
 				config: config,
 				opts: echo.CallOptions{
-					Count: 1,
-					To:    to,
-					Port: echo.Port{
-						Name: ipCase.port,
-					},
+					Count:   1,
+					To:      to,
+					Port:    ipCase.port,
 					Scheme:  scheme.HTTP,
 					Timeout: time.Second * 5,
 					Check:   check.Status(ipCase.code),

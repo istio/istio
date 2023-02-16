@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
-// ClassController is a controller that creates the default Istio GatewayClass. This will not
+// ClassController is a controller that creates the default Istio GatewayClass(s). This will not
 // continually reconcile the full state of the GatewayClass object, and instead only create the class
 // if it doesn't exist. This allows users to manage it through other means or modify it as they wish.
 // If it is deleted, however, it will be added back.

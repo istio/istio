@@ -156,9 +156,9 @@ collections:
     group: ""
     builtin: true
 
-  - name: "k8s/extensions/v1beta1/ingresses"
+  - name: "k8s/networking/v1/ingresses"
     kind: "Ingress"
-    group: "extensions"
+    group: "networking.k8s.io"
     builtin: true
 
   - kind: "GatewayClass"
@@ -263,12 +263,12 @@ resources:
 
   - kind: "Ingress"
     plural: "ingresses"
-    group: "extensions"
-    version: "v1beta1"
-    proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
-    protoPackage: "k8s.io/api/extensions/v1beta1"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.IngressStatus"
-    statusProtoPackage: "k8s.io/api/extensions/v1beta1"
+    group: "networking.k8s.io"
+    version: "v1"
+    proto: "k8s.io.api.networking.v1.IngressSpec"
+    protoPackage: "k8s.io/api/networking/v1"
+    statusProto: "k8s.io.api.networking.v1.IngressStatus"
+    statusProtoPackage: "k8s.io/api/networking/v1"
 
   - kind: "GatewayClass"
     plural: "gatewayclasses"

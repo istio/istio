@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -60,20 +61,17 @@ func CreateIndex[O runtime.Object, K comparable](
 	addObj := func(obj any) {
 		ro := ExtractObject(obj)
 		o := ro.(O)
-		objectKey := KeyFunc(ro.GetName(), ro.GetNamespace())
+		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {
-			if _, f := idx.objects[indexKey]; !f {
-				idx.objects[indexKey] = sets.New[string]()
-			}
-			idx.objects[indexKey].Insert(objectKey)
+			sets.InsertOrNew(idx.objects, indexKey, objectKey)
 		}
 	}
 	deleteObj := func(obj any) {
 		ro := ExtractObject(obj)
 		o := ro.(O)
-		objectKey := KeyFunc(ro.GetName(), ro.GetNamespace())
+		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
 		for _, indexKey := range extract(o) {
-			idx.objects[indexKey].Delete(objectKey)
+			sets.DeleteCleanupLast(idx.objects, indexKey, objectKey)
 		}
 	}
 	handler := cache.ResourceEventHandlerFuncs{
@@ -96,13 +94,4 @@ func CreateIndex[O runtime.Object, K comparable](
 	}
 	_, _ = informer.AddEventHandler(handler)
 	return &idx
-}
-
-// KeyFunc is the internal API key function that returns "namespace"/"name" or
-// "name" if "namespace" is empty
-func KeyFunc(name, namespace string) string {
-	if len(namespace) == 0 {
-		return name
-	}
-	return namespace + "/" + name
 }

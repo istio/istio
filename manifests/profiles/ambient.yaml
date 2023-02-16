@@ -3,8 +3,6 @@ kind: IstioOperator
 spec:
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
-    ambientMesh:
-      mode: DEFAULT
     defaultConfig:
       proxyMetadata:
         ISTIO_META_ENABLE_HBONE: "true"
@@ -34,6 +32,8 @@ spec:
     cni:
       logLevel: "debug"
       privileged: true
+      ambient:
+        enabled: true
       # TODO: https://github.com/istio/istio/issues/43243
       # variant: distroless
     telemetry:
