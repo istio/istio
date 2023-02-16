@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -132,8 +133,14 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 }
 
 type metricsConfig struct {
-	ClientMetrics []metricsOverride
-	ServerMetrics []metricsOverride
+	ClientMetrics metricConfig
+	ServerMetrics metricConfig
+}
+
+type metricConfig struct {
+	// if ture, do not add filter to chain
+	Disabled  bool
+	Overrides []metricsOverride
 }
 
 type telemetryFilterConfig struct {
@@ -144,7 +151,7 @@ type telemetryFilterConfig struct {
 	LogsFilter    *tpb.AccessLogging_Filter
 }
 
-func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
+func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) metricConfig {
 	switch c {
 	case networking.ListenerClassGateway:
 		return t.ClientMetrics
@@ -682,17 +689,21 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 			for _, o := range m.Overrides {
 				// if we disable all metrics, we should drop the entire filter
 				if isAllMetrics(o.GetMatch()) && o.Disabled.GetValue() {
-					disabledAllMetricsProviders.Insert(provider)
+					for _, mode := range getModes(o.GetMatch().GetMode()) {
+						key := metricProviderModeKey(provider, mode)
+						disabledAllMetricsProviders.Insert(key)
+					}
+
 					continue
 				}
-
-				// root namespace disables all, but then enables them by namespace scoped
-				disabledAllMetricsProviders.Delete(provider)
 
 				metricsNames := getMatches(o.GetMatch())
 				// If client or server is set explicitly, only apply there. Otherwise, we will apply to both.
 				// Note: client and server keys may end up the same, which is fine
 				for _, mode := range getModes(o.GetMatch().GetMode()) {
+					// root namespace disables all, but then enables them by namespace scoped
+					key := metricProviderModeKey(provider, mode)
+					disabledAllMetricsProviders.Delete(key)
 					// Next, get all matches.
 					// This is a bit funky because the matches are oneof of ENUM and customer metric. We normalize
 					// these to strings, so we may end up with a list like [REQUEST_COUNT, my-customer-metric].
@@ -722,11 +733,20 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 
 	processed := map[string]metricsConfig{}
 	for provider, modeMap := range providers {
-		if disabledAllMetricsProviders.Contains(provider) {
-			continue
-		}
+		tmm := processed[provider]
 
 		for mode, metricMap := range modeMap {
+			key := metricProviderModeKey(provider, mode)
+			if disabledAllMetricsProviders.Contains(key) {
+				switch mode {
+				case tpb.WorkloadMode_CLIENT:
+					tmm.ClientMetrics.Disabled = true
+				case tpb.WorkloadMode_SERVER:
+					tmm.ServerMetrics.Disabled = true
+				}
+				continue
+			}
+
 			for metric, override := range metricMap {
 				tags := []tagOverride{}
 				for k, v := range override.TagOverrides {
@@ -750,28 +770,30 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					Disabled: override.Disabled.GetValue(),
 					Tags:     tags,
 				}
-				tmm := processed[provider]
+
 				switch mode {
 				case tpb.WorkloadMode_CLIENT:
-					tmm.ClientMetrics = append(tmm.ClientMetrics, mo)
+					tmm.ClientMetrics.Overrides = append(tmm.ClientMetrics.Overrides, mo)
 				default:
-					tmm.ServerMetrics = append(tmm.ServerMetrics, mo)
+					tmm.ServerMetrics.Overrides = append(tmm.ServerMetrics.Overrides, mo)
 				}
-				processed[provider] = tmm
 			}
 		}
 
 		// Keep order deterministic
-		tmm := processed[provider]
-		sort.Slice(tmm.ServerMetrics, func(i, j int) bool {
-			return tmm.ServerMetrics[i].Name < tmm.ServerMetrics[j].Name
+		sort.Slice(tmm.ServerMetrics.Overrides, func(i, j int) bool {
+			return tmm.ServerMetrics.Overrides[i].Name < tmm.ServerMetrics.Overrides[j].Name
 		})
-		sort.Slice(tmm.ClientMetrics, func(i, j int) bool {
-			return tmm.ClientMetrics[i].Name < tmm.ClientMetrics[j].Name
+		sort.Slice(tmm.ClientMetrics.Overrides, func(i, j int) bool {
+			return tmm.ClientMetrics.Overrides[i].Name < tmm.ClientMetrics.Overrides[j].Name
 		})
 		processed[provider] = tmm
 	}
 	return processed
+}
+
+func metricProviderModeKey(provider string, mode tpb.WorkloadMode) string {
+	return fmt.Sprintf("%s/%s", provider, mode)
 }
 
 func getProviderNames(providers []*tpb.ProviderRef) []string {
@@ -830,35 +852,33 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 	for _, cfg := range metricsCfg {
 		switch cfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			if !cfg.Metrics {
-				// No logging for prometheus
-				continue
-			}
 			if features.EnableNativeStats {
-				statsCfg := generateStatsConfig(class, cfg, true)
-				f := &hcm.HttpFilter{
-					Name:       xds.StatsFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
+				if statsCfg := generateStatsConfig(class, cfg, true); statsCfg != nil {
+					f := &hcm.HttpFilter{
+						Name:       xds.StatsFilterName,
+						ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
+					}
+					res = append(res, f)
 				}
-				res = append(res, f)
 			} else {
-				statsCfg := generateStatsConfig(class, cfg, false)
-				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-				root := statsRootIDForClass(class)
-				vmConfig.VmConfig.VmId = root
+				if statsCfg := generateStatsConfig(class, cfg, false); statsCfg != nil {
+					vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+					root := statsRootIDForClass(class)
+					vmConfig.VmConfig.VmId = root
 
-				wasmConfig := &httpwasm.Wasm{
-					Config: &wasm.PluginConfig{
-						RootId:        root,
-						Vm:            vmConfig,
-						Configuration: statsCfg,
-					},
+					wasmConfig := &httpwasm.Wasm{
+						Config: &wasm.PluginConfig{
+							RootId:        root,
+							Vm:            vmConfig,
+							Configuration: statsCfg,
+						},
+					}
+					f := &hcm.HttpFilter{
+						Name:       xds.StatsFilterName,
+						ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+					}
+					res = append(res, f)
 				}
-				f := &hcm.HttpFilter{
-					Name:       xds.StatsFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-				}
-				res = append(res, f)
 			}
 
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
@@ -893,32 +913,34 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 			if features.EnableNativeStats {
-				cfg := generateStatsConfig(class, telemetryCfg, true)
-				f := &listener.Filter{
-					Name:       xds.StatsFilterName,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
+				if cfg := generateStatsConfig(class, telemetryCfg, true); cfg != nil {
+					f := &listener.Filter{
+						Name:       xds.StatsFilterName,
+						ConfigType: &listener.Filter_TypedConfig{TypedConfig: cfg},
+					}
+					res = append(res, f)
 				}
-				res = append(res, f)
 			} else {
-				cfg := generateStatsConfig(class, telemetryCfg, false)
-				vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
-				root := statsRootIDForClass(class)
-				vmConfig.VmConfig.VmId = "tcp_" + root
+				if cfg := generateStatsConfig(class, telemetryCfg, false); cfg != nil {
 
-				wasmConfig := &wasmfilter.Wasm{
-					Config: &wasm.PluginConfig{
-						RootId:        root,
-						Vm:            vmConfig,
-						Configuration: cfg,
-					},
+					vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+					root := statsRootIDForClass(class)
+					vmConfig.VmConfig.VmId = "tcp_" + root
+
+					wasmConfig := &wasmfilter.Wasm{
+						Config: &wasm.PluginConfig{
+							RootId:        root,
+							Vm:            vmConfig,
+							Configuration: cfg,
+						},
+					}
+					f := &listener.Filter{
+						Name:       xds.StatsFilterName,
+						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+					}
+					res = append(res, f)
 				}
-				f := &listener.Filter{
-					Name:       xds.StatsFilterName,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-				}
-				res = append(res, f)
 			}
-
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
@@ -991,31 +1013,34 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	if class == networking.ListenerClassSidecarInbound {
 		metricNameMap = metricToSDServerMetrics
 	}
-	for _, override := range telemetryConfig.MetricsForClass(class) {
-		metricName, f := metricNameMap[override.Name]
-		if !f {
-			// Not a predefined metric, must be a custom one
-			metricName = override.Name
-		}
-		if metricName == "" {
-			continue
-		}
-		if cfg.MetricsOverrides == nil {
-			cfg.MetricsOverrides = map[string]*sd.MetricsOverride{}
-		}
-		if _, f := cfg.MetricsOverrides[metricName]; !f {
-			cfg.MetricsOverrides[metricName] = &sd.MetricsOverride{}
-		}
-		cfg.MetricsOverrides[metricName].Drop = override.Disabled
-		for _, t := range override.Tags {
-			if t.Remove {
-				// Remove is not supported by SD
+	metricCfg := telemetryConfig.MetricsForClass(class)
+	if !metricCfg.Disabled {
+		for _, override := range metricCfg.Overrides {
+			metricName, f := metricNameMap[override.Name]
+			if !f {
+				// Not a predefined metric, must be a custom one
+				metricName = override.Name
+			}
+			if metricName == "" {
 				continue
 			}
-			if cfg.MetricsOverrides[metricName].TagOverrides == nil {
-				cfg.MetricsOverrides[metricName].TagOverrides = map[string]string{}
+			if cfg.MetricsOverrides == nil {
+				cfg.MetricsOverrides = map[string]*sd.MetricsOverride{}
 			}
-			cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
+			if _, f := cfg.MetricsOverrides[metricName]; !f {
+				cfg.MetricsOverrides[metricName] = &sd.MetricsOverride{}
+			}
+			cfg.MetricsOverrides[metricName].Drop = override.Disabled
+			for _, t := range override.Tags {
+				if t.Remove {
+					// Remove is not supported by SD
+					continue
+				}
+				if cfg.MetricsOverrides[metricName].TagOverrides == nil {
+					cfg.MetricsOverrides[metricName].TagOverrides = map[string]string{}
+				}
+				cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
+			}
 		}
 	}
 
@@ -1061,11 +1086,17 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig, native bool) *anypb.Any {
+func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryFilterConfig, native bool) *anypb.Any {
+	listenerCfg := filterConfig.MetricsForClass(class)
+	if listenerCfg.Disabled {
+		return nil
+	}
+
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	for _, override := range metricsCfg.MetricsForClass(class) {
+
+	for _, override := range listenerCfg.Overrides {
 		metricName, f := metricToPrometheusMetric[override.Name]
 		if !f {
 			// Not a predefined metric, must be a custom one
