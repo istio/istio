@@ -2028,7 +2028,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				if !serviceFound {
 					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
 				} else if len(ports) > 0 && !portsMatched {
-					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, s1.Ports, ports)
+					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, ports, s1.Ports)
 				}
 			}
 
