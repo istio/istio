@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	AuthorizationPolicy Kind = iota
+	Address Kind = iota
+	AuthorizationPolicy
 	ConfigMap
 	CustomResourceDefinition
 	Deployment
@@ -46,6 +47,8 @@ const (
 
 func (k Kind) String() string {
 	switch k {
+	case Address:
+		return "Address"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
 	case ConfigMap:
@@ -120,6 +123,9 @@ func (k Kind) String() string {
 }
 
 func FromGvk(gvk config.GroupVersionKind) Kind {
+	if gvk.Kind == "Address" && gvk.Group == "internal" && gvk.Version == "internal" {
+		return Address
+	}
 	if gvk.Kind == "AuthorizationPolicy" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
 		return AuthorizationPolicy
 	}

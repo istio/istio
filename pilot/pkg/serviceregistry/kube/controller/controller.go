@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -49,7 +50,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/kube/mcs"
-	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
@@ -148,7 +149,9 @@ type Options struct {
 	SyncTimeout time.Duration
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
-	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+
+	ConfigController model.ConfigStoreController
 }
 
 // DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
@@ -278,6 +281,12 @@ type Controller struct {
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
+	meshWatcher mesh.Watcher
+	podLister   listerv1.PodLister
+	podInformer informer.FilteredSharedIndexInformer
+
+	ambientIndex     *AmbientIndex
+	configController model.ConfigStoreController
 }
 
 // NewController creates a new Kubernetes controller
@@ -337,6 +346,20 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	_ = c.nsInformer.SetTransform(kubelib.StripUnusedFields)
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+	if features.EnableAmbientControllers {
+		// Update namespace when dataplane mode changes
+		filtered := informer.NewFilteredSharedIndexInformer(func(obj any) bool {
+			return true
+		}, c.nsInformer)
+		c.registerHandlers(filtered, "Namespaces", func(old any, cur any, event model.Event) error {
+			oldLabel := getNamespaceLabel(old, constants.DataplaneMode)
+			newLabel := getNamespaceLabel(cur, constants.DataplaneMode)
+			if oldLabel != newLabel {
+				c.handleSelectedNamespace(c.opts.EndpointMode, getNamespaceName(old, cur))
+			}
+			return nil
+		}, nil)
+	}
 	if c.opts.SystemNamespace != "" {
 		nsInformer := informer.NewFilteredSharedIndexInformer(func(obj any) bool {
 			ns, ok := obj.(*v1.Namespace)
@@ -350,7 +373,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	if c.opts.DiscoveryNamespacesFilter == nil {
-		c.opts.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
+		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
 
 	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
@@ -378,9 +401,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	_ = c.nodeInformer.SetTransform(stripNodeUnusedFields)
 	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
 
+	c.podLister = kubeClient.KubeInformer().Core().V1().Pods().Lister()
 	sharedPodInformer := kubeClient.KubeInformer().Core().V1().Pods().Informer()
 	podInformer := informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, sharedPodInformer)
 	_ = sharedPodInformer.SetTransform(stripPodUnusedFields)
+	c.podInformer = podInformer
 	c.pods = newPodCache(c, podInformer, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
 		if err != nil {
@@ -402,10 +427,36 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
 		c.crdWatcher = crdwatcher.NewController(kubeClient)
 	}
+	if features.EnableAmbientControllers {
+		c.configController = options.ConfigController
+		c.ambientIndex = c.setupIndex()
+	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
+	c.meshWatcher = options.MeshWatcher
+
 	return c
+}
+
+func getNamespaceLabel(old any, s string) string {
+	nsOld, ok := old.(*v1.Namespace)
+	if !ok {
+		return ""
+	}
+	return nsOld.GetLabels()[s]
+}
+
+func getNamespaceName(old, cur any) string {
+	nsOld, ok := old.(*v1.Namespace)
+	if ok && nsOld != nil {
+		return nsOld.GetName()
+	}
+	nsNew, ok := cur.(*v1.Namespace)
+	if ok && nsNew != nil {
+		return nsNew.GetName()
+	}
+	panic("neither objects were namespaces")
 }
 
 func (c *Controller) Provider() provider.ID {
@@ -1460,8 +1511,6 @@ func stripPodUnusedFields(obj any) (any, error) {
 	}
 	// ManagedFields is large and we never use it
 	t.GetObjectMeta().SetManagedFields(nil)
-	// Annotation is never used
-	t.GetObjectMeta().SetAnnotations(nil)
 	// only container ports can be used
 	if pod := obj.(*v1.Pod); pod != nil {
 		containers := []v1.Container{}

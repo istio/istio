@@ -155,7 +155,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	// tests for kind-affect-proxy.
 	for k, types := range configKindAffectedProxyTypes {
-		for _, nodeType := range model.NodeTypes {
+		for _, nodeType := range []model.NodeType{model.Router, model.SidecarProxy} {
 			affected := false
 			for _, affectedType := range types {
 				if nodeType == affectedType {
