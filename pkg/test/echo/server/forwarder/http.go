@@ -157,7 +157,7 @@ func newHTTPTransportGetter(cfg *Config) (httpTransportGetter, func()) {
 		}
 		out := &http.Transport{
 			// No connection pooling.
-			DisableKeepAlives: true,
+			DisableKeepAlives: cfg.newConnectionPerRequest,
 			TLSClientConfig:   cfg.tlsConfig,
 			DialContext:       dialContext,
 		}
@@ -171,10 +171,18 @@ func newHTTPTransportGetter(cfg *Config) (httpTransportGetter, func()) {
 	}
 	noCloseFn := func() {}
 
+	if cfg.newConnectionPerRequest {
+		// Create a new transport (i.e. connection) for each request.
+		return func() (http.RoundTripper, func(), error) {
+			conn := newConn()
+			return conn, noCloseFn, nil
+		}, noCloseFn
+	}
+
 	// Always create a new HTTP transport for each request, since HTTP can't multiplex over
 	// a single connection.
+	conn := newConn()
 	return func() (http.RoundTripper, func(), error) {
-		conn := newConn()
 		return conn, noCloseFn, nil
 	}, noCloseFn
 }

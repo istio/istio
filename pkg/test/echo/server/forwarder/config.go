@@ -122,7 +122,7 @@ func (c *Config) fillDefaults() error {
 	case scheme.DNS:
 		c.newConnectionPerRequest = true
 		c.forceDNSLookup = true
-	case scheme.TCP, scheme.TLS, scheme.WebSocket, scheme.HTTPS:
+	case scheme.TCP, scheme.TLS, scheme.WebSocket:
 		c.newConnectionPerRequest = true
 		c.forceDNSLookup = c.Request.ForceDNSLookup
 	default:
