@@ -47,6 +47,12 @@ type PolicyApplier interface {
 	GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode
 }
 
+type MtlsChecker interface {
+	// GetMutualTLSModeForPort gets the mTLS mode for the given port. If there is no port level setting, it
+	// returns the inherited namespace/mesh level setting.
+	GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode
+}
+
 // MTLSSettings describes the mTLS options for a filter chain
 type MTLSSettings struct {
 	// Port is the port this option applies for
