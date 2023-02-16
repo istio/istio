@@ -38,16 +38,6 @@ var (
 	apps = deployment.SingleNamespaceView{}
 )
 
-// supportsGatewayAPI checks if the gateway API is supported.
-func supportsGatewayAPI(t resource.Context) bool {
-	for _, cluster := range t.Clusters() {
-		if !cluster.MinKubeVersion(19) {
-			return false
-		}
-	}
-	return true
-}
-
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.

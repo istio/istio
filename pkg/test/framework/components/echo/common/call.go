@@ -143,7 +143,18 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 		ServerName:              opts.TLS.ServerName,
 		NewConnectionPerRequest: opts.NewConnectionPerRequest,
 		ForceDNSLookup:          opts.ForceDNSLookup,
-		ProxyProtocolVersion:    getProxyProtoVersion(opts.ProxyProtocolVersion),
+		Hbone: &proto.HBONE{
+			Address:            opts.HBONE.Address,
+			Headers:            common.HTTPToProtoHeaders(opts.HBONE.Headers),
+			Cert:               opts.HBONE.Cert,
+			Key:                opts.HBONE.Key,
+			CaCert:             opts.HBONE.CaCert,
+			CertFile:           opts.HBONE.CertFile,
+			KeyFile:            opts.HBONE.KeyFile,
+			CaCertFile:         opts.HBONE.CaCertFile,
+			InsecureSkipVerify: opts.HBONE.InsecureSkipVerify,
+		},
+		ProxyProtocolVersion: getProxyProtoVersion(opts.ProxyProtocolVersion),
 	}
 }
 

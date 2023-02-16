@@ -72,6 +72,23 @@ type TLS struct {
 	ServerName string
 }
 
+type HBONE struct {
+	Address string
+	Headers http.Header
+	// If non-empty, make the request with the corresponding cert and key.
+	Cert string
+	Key  string
+	// If non-empty, verify the server CA
+	CaCert string
+	// If non-empty, make the request with the corresponding cert and key file.
+	CertFile string
+	KeyFile  string
+	// If non-empty, verify the server CA with the ca cert file.
+	CaCertFile string
+	// Skip verifying peer's certificate.
+	InsecureSkipVerify bool
+}
+
 // Retry settings
 type Retry struct {
 	// NoRetry if true, no retry will be attempted.
@@ -150,6 +167,9 @@ type CallOptions struct {
 
 	// TLS settings.
 	TLS TLS
+
+	// HBONE settings.
+	HBONE HBONE
 
 	// Message to be sent.
 	Message string
