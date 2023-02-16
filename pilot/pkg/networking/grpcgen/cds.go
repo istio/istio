@@ -65,10 +65,7 @@ func newClusterFilter(names []string) map[string]sets.String {
 	for _, name := range names {
 		dir, _, hn, p := model.ParseSubsetKey(name)
 		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
-		if _, ok := filter[defaultKey]; !ok {
-			filter[defaultKey] = sets.New[string]()
-		}
-		filter[defaultKey].Insert(name)
+		sets.InsertOrNew(filter, defaultKey, name)
 	}
 	return filter
 }

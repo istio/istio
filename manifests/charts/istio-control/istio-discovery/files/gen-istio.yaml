@@ -1987,25 +1987,6 @@ rules:
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "serviceaccounts"]
 ---
-# Source: istiod/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istiod-waypoint-controller-istio-system
-  labels:
-    app: istiod
-    release: istio
-rules:
-- apiGroups: [""]
-  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-  resources: [ "pods"]
-- apiGroups: [""]
-  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-  resources: [ "services"]
-- apiGroups: [""]
-  verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-  resources: [ "serviceaccounts"]
----
 # Source: istiod/templates/reader-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -2050,9 +2031,6 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
-  - apiGroups: [""]
-    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-    resources: [ "pods", "namespaces", "serviceaccounts"]
 ---
 # Source: istiod/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2083,23 +2061,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: istiod-gateway-controller-istio-system
-subjects:
-- kind: ServiceAccount
-  name: istiod
-  namespace: istio-system
----
-# Source: istiod/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istiod-waypoint-controller-istio-system
-  labels:
-    app: istiod
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istiod-waypoint-controller-istio-system
 subjects:
 - kind: ServiceAccount
   name: istiod
@@ -2265,9 +2226,6 @@ spec:
             periodSeconds: 3
             timeoutSeconds: 5
           env:
-          # TODO: dynamically turn autolabel on/off based on meshconfig api
-          - name: AMBIENT_AUTO_LABEL
-            value: "true"
           - name: REVISION
             value: "default"
           - name: JWT_POLICY

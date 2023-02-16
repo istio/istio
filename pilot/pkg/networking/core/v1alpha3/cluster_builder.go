@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -370,10 +371,22 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		if cb.supportsIPv4 {
+		if networkutil.AllIPv4(cb.proxyIPAddresses) {
+			// IPv4 only
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		} else {
+		} else if networkutil.AllIPv6(cb.proxyIPAddresses) {
+			// IPv6 only
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+		} else {
+			// Dual Stack
+			if features.EnableDualStack {
+				// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
+				c.DnsLookupFamily = cluster.Cluster_ALL
+			} else {
+				// keep the original logic if Dual Stack is disable
+				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+			}
 		}
 		dnsRate := cb.req.Push.Mesh.DnsRefreshRate
 		c.DnsRefreshRate = dnsRate
@@ -486,9 +499,9 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
 		// https://github.com/envoyproxy/envoy/issues/9811
 		// https://github.com/envoyproxy/envoy/pull/22639
-		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
-		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
-		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
+		// the extra source address for UpstreamBindConfig shoulde be added if dual stack is enabled and there are
+		// more than 1 IP for proxy
+		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 {
 			// add extra source addresses to cluster builder
 			var extraSrcAddrs []*core.ExtraSourceAddress
 			for _, extraBdIP := range cb.passThroughBindIPs[1:] {

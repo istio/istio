@@ -71,8 +71,6 @@ var ControlPlaneValues = `
 profile: ambient
 values:
   meshConfig:
-    ambientMesh:
-      mode: "DEFAULT"
     defaultConfig:
       proxyMetadata:
         ISTIO_META_DNS_CAPTURE: "false"

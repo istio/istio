@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -8006,7 +8007,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 			},
-			"must be set set when operation is UPSERT", "",
+			"must be set when operation is UPSERT", "",
 		},
 		{
 			"good metrics operation",
@@ -8287,4 +8288,54 @@ func TestRecurseMissingTypedConfig(t *testing.T) {
 	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
 	assert.Equal(t, recurseMissingTypedConfig(ecds.ProtoReflect()), []string{}, "config discovery set")
 	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
+}
+
+func TestValidateHTTPHeaderValue(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected error
+	}{
+		{
+			input:    "foo",
+			expected: nil,
+		},
+		{
+			input:    "%HOSTNAME%",
+			expected: nil,
+		},
+		{
+			input:    "100%%",
+			expected: nil,
+		},
+		{
+			input:    "prefix %HOSTNAME% suffix",
+			expected: nil,
+		},
+		{
+			input:    "%DOWNSTREAM_PEER_CERT_V_END(%b %d %H:%M:%S %Y %Z)%",
+			expected: nil,
+		},
+		{
+			input: "%DYNAMIC_METADATA(com.test.my_filter)%",
+		},
+		{
+			input:    "%START_TIME%%",
+			expected: errors.New("header value configuration %START_TIME%% is invalid"),
+		},
+		{
+			input:    "abc%123",
+			expected: errors.New("header value configuration abc%123 is invalid"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			got := ValidateHTTPHeaderValue(tc.input)
+			if tc.expected == nil {
+				assert.NoError(t, got)
+			} else {
+				assert.Error(t, got)
+			}
+		})
+	}
 }

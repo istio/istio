@@ -140,7 +140,6 @@ type meshConfig struct {
 	OutboundTrafficPolicy          *v1alpha13.MeshConfig_OutboundTrafficPolicy               `json:"outboundTrafficPolicy" patchStrategy:"merge"`
 	TCPKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
 	DefaultConfig                  *proxyConfig                                              `json:"defaultConfig" patchStrategy:"merge"`
-	AmbientMesh                    *v1alpha13.MeshConfig_AmbientMeshConfig_AmbientMeshMode   `json:"ambientMesh" patchStrategy:"merge"`
 	ConfigSources                  []*v1alpha13.ConfigSource                                 `json:"configSources" patchStrategy:"merge" patchMergeKey:"address"`
 	TrustDomainAliases             []string                                                  `json:"trustDomainAliases" patchStrategy:"merge"`
 	DefaultServiceExportTo         []string                                                  `json:"defaultServiceExportTo" patchStrategy:"merge"`

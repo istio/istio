@@ -50,8 +50,6 @@ const (
 
 	TableMangle = "mangle"
 	TableNat    = "nat"
-	TableRaw    = "raw"
-	TableFilter = "filter"
 
 	DNSCapturePort = 15053
 )

@@ -15,8 +15,6 @@ data:
     networks: {}
 
   mesh: |-
-    ambientMesh:
-      mode: "OFF"
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
       proxyMetadata: {}

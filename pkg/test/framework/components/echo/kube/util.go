@@ -15,8 +15,11 @@
 package kube
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
@@ -57,6 +60,9 @@ func serviceAccount(cfg echo.Config) string {
 
 // workloadHasSidecar returns true if the input endpoint is deployed with sidecar injected based on the config.
 func workloadHasSidecar(pod *corev1.Pod) bool {
+	if strings.HasPrefix(pod.Annotations[annotation.InjectTemplates.Name], "grpc-") {
+		return false
+	}
 	for _, c := range pod.Spec.Containers {
 		if c.Name == "istio-proxy" {
 			return true

@@ -160,7 +160,7 @@ func init() {
 		"Binaries that should not be installed. Currently Istio only installs one binary `istio-cni`")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
-	registerBooleanParameter(constants.AmbientEnabled, true, "Whether ambient controller is enabled")
+	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
 
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")

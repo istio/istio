@@ -24,13 +24,12 @@ import (
 	"sync/atomic"
 
 	"github.com/hashicorp/go-multierror"
-	ingress "k8s.io/api/networking/v1beta1"
+	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/version"
-	"k8s.io/client-go/informers/networking/v1beta1"
+	ingressinformer "k8s.io/client-go/informers/networking/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	networkinglister "k8s.io/client-go/listers/networking/v1beta1"
+	networkinglister "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -46,7 +45,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -89,14 +87,14 @@ type controller struct {
 
 	mutex sync.RWMutex
 	// processed ingresses
-	ingresses map[types.NamespacedName]*ingress.Ingress
+	ingresses map[types.NamespacedName]*knetworking.Ingress
 
 	filteredIngressInformer informer.FilteredSharedIndexInformer
 	ingressLister           networkinglister.IngressLister
 	serviceInformer         cache.SharedInformer
 	serviceLister           listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
-	classes v1beta1.IngressClassInformer
+	classes ingressinformer.IngressClassInformer
 
 	started atomic.Bool
 }
@@ -106,44 +104,6 @@ var ingressNamespace = env.Register("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
-// Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
-func V1Available(client kube.Client) bool {
-	// check kubernetes version to use new ingress package or not
-	version119, _ := version.ParseGeneric("v1.19.0")
-
-	serverVersion, err := client.GetKubernetesVersion()
-	if err != nil {
-		return false
-	}
-
-	runningVersion, err := version.ParseGeneric(serverVersion.String())
-	if err != nil {
-		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
-		return false
-	}
-
-	return runningVersion.AtLeast(version119)
-}
-
-// Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
-func NetworkingIngressAvailable(client kube.Client) bool {
-	// check kubernetes version to use new ingress package or not
-	version118, _ := version.ParseGeneric("v1.18.0")
-
-	serverVersion, err := client.GetKubernetesVersion()
-	if err != nil {
-		return false
-	}
-
-	runningVersion, err := version.ParseGeneric(serverVersion.String())
-	if err != nil {
-		log.Errorf("unexpected error parsing running Kubernetes version: %v", err)
-		return false
-	}
-
-	return runningVersion.AtLeast(version118)
-}
-
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options,
@@ -152,45 +112,32 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	ingressInformer := client.KubeInformer().Networking().V1beta1().Ingresses()
+	ingressInformer := client.KubeInformer().Networking().V1().Ingresses()
 	_ = ingressInformer.Informer().SetTransform(kube.StripUnusedFields)
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
-	var classes v1beta1.IngressClassInformer
-	if NetworkingIngressAvailable(client) {
-		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
-		// Register the informer now, so it will be properly started
-		_ = classes.Informer().SetTransform(kube.StripUnusedFields)
-	} else {
-		log.Infof("Skipping IngressClass, resource not supported")
-	}
+	classes := client.KubeInformer().Networking().V1().IngressClasses()
+	_ = classes.Informer().SetTransform(kube.StripUnusedFields)
 
 	c := &controller{
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
-		ingresses:       make(map[types.NamespacedName]*ingress.Ingress),
+		ingresses:       make(map[types.NamespacedName]*knetworking.Ingress),
 		ingressLister:   ingressInformer.Lister(),
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
 		serviceLister:   serviceInformer.Lister(),
 	}
-
+	c.queue = controllers.NewQueue("ingress",
+		controllers.WithReconciler(c.onEvent),
+		controllers.WithMaxAttempts(5))
 	if options.DiscoveryNamespacesFilter != nil {
 		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(options.DiscoveryNamespacesFilter.Filter, ingressInformer.Informer())
 	} else {
 		c.filteredIngressInformer = informer.NewFilteredSharedIndexInformer(nil, ingressInformer.Informer())
 	}
-	c.queue = controllers.NewQueue("ingress",
-		controllers.WithReconciler(c.onEvent),
-		controllers.WithMaxAttempts(5))
-
 	c.filteredIngressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
-
 	return c
-}
-
-func (c *controller) HasStarted() bool {
-	return c.started.Load()
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -198,8 +145,8 @@ func (c *controller) Run(stop <-chan struct{}) {
 	c.queue.Run(stop)
 }
 
-func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingress.Ingress) (bool, error) {
-	var class *ingress.IngressClass
+func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
+	var class *knetworking.IngressClass
 	if c.classes != nil && i.Spec.IngressClassName != nil {
 		c, err := c.classes.Lister().Get(*i.Spec.IngressClassName)
 		if err != nil && !kerrors.IsNotFound(err) {
@@ -211,7 +158,8 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, error) {
+func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool, error) {
+	// ingress add/update
 	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
 		return false, err
@@ -313,12 +261,14 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 	if err := c.filteredIngressInformer.SetWatchErrorHandler(handler); err != nil {
 		errs = multierror.Append(err, errs)
 	}
-	if c.classes != nil {
-		if err := c.classes.Informer().SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(err, errs)
-		}
+	if err := c.classes.Informer().SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
 	}
 	return errs
+}
+
+func (c *controller) HasStarted() bool {
+	return c.started.Load()
 }
 
 func (c *controller) HasSynced() bool {
@@ -337,10 +287,10 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(configs []any) []*ingress.Ingress {
-	ingr := make([]*ingress.Ingress, 0, len(configs))
+func sortIngressByCreationTime(configs []any) []*knetworking.Ingress {
+	ingr := make([]*knetworking.Ingress, 0, len(configs))
 	for _, i := range configs {
-		ingr = append(ingr, i.(*ingress.Ingress))
+		ingr = append(ingr, i.(*knetworking.Ingress))
 	}
 	sort.Slice(ingr, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can

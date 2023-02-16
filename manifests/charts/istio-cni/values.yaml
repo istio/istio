@@ -44,6 +44,12 @@ cni:
   # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
   privileged: false
 
+  # Configure ambient settings
+  ambient:
+    # If enabled, ambient redirection will be enabled
+    enabled: false
+    # Eventually this will have switch for iptables vs eBPF
+
   repair:
     enabled: true
     hub: ""

@@ -28,7 +28,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -76,7 +75,7 @@ import (
 type DeploymentController struct {
 	client             kube.Client
 	queue              controllers.Queue
-	patcher            Patcher
+	patcher            patcher
 	gatewayLister      lister.GatewayLister
 	gatewayClassLister lister.GatewayClassLister
 
@@ -92,7 +91,7 @@ type DeploymentController struct {
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
-type Patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
+type patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
 // classInfo holds information about a gateway class
 type classInfo struct {
@@ -103,8 +102,9 @@ type classInfo struct {
 	// enabled determines if we should handle a gateway
 	enabled func(gw *gateway.Gateway) bool
 	// conditions to set on gateway status
-	conditions func(gw *gateway.Gateway) map[string]*Condition
+	conditions func(gw *gateway.Gateway) map[string]*condition
 	// reportGatewayClassStatus, if enabled, will set the GatewayClass to be accepted when it is first created.
+	// nolint: unused
 	reportGatewayClassStatus bool
 }
 
@@ -116,17 +116,17 @@ var classInfos = map[string]classInfo{
 			// Some gateways are manually managed, ignore them
 			return IsManaged(&gw.Spec)
 		},
-		conditions: func(gw *gateway.Gateway) map[string]*Condition {
-			return map[string]*Condition{
+		conditions: func(gw *gateway.Gateway) map[string]*condition {
+			return map[string]*condition{
 				// Just mark it as accepted, rest are set by the controller reading Gateway
 				string(gateway.GatewayConditionAccepted): {
-					Reason:  string(gateway.GatewayReasonAccepted),
-					Message: "Deployed gateway to the cluster",
+					reason:  string(gateway.GatewayReasonAccepted),
+					message: "Deployed gateway to the cluster",
 				},
 				// nolint: staticcheck // Deprecated condition, set both until 1.17
 				string(gateway.GatewayConditionScheduled): {
-					Reason:  "ResourcesAvailable",
-					Message: "Deployed gateway to the cluster",
+					reason:  "ResourcesAvailable",
+					message: "Deployed gateway to the cluster",
 				},
 			}
 		},
@@ -139,7 +139,7 @@ var classInfos = map[string]classInfo{
 			return true
 		},
 		reportGatewayClassStatus: true,
-		conditions: func(gw *gateway.Gateway) map[string]*Condition {
+		conditions: func(gw *gateway.Gateway) map[string]*condition {
 			msg := fmt.Sprintf("Deployed waypoint proxy to %q namespace", gw.Namespace)
 			forSa := gw.Annotations[constants.WaypointServiceAccount]
 			if forSa != "" {
@@ -150,18 +150,18 @@ var classInfos = map[string]classInfo{
 				accept += "; WARN: expected a single listener on port 15008 with protocol \"ALL\""
 			}
 			// For waypoint, we don't have another controller setting status, so set all fields
-			return map[string]*Condition{
+			return map[string]*condition{
 				string(gateway.GatewayConditionReady): {
-					Reason:  string(gateway.GatewayReasonReady),
-					Message: msg,
+					reason:  string(gateway.GatewayReasonReady),
+					message: msg,
 				},
 				string(gateway.ListenerConditionProgrammed): {
-					Reason:  string(gateway.GatewayReasonProgrammed),
-					Message: msg,
+					reason:  string(gateway.GatewayReasonProgrammed),
+					message: msg,
 				},
 				string(gateway.GatewayConditionAccepted): {
-					Reason:  string(gateway.GatewayReasonAccepted),
-					Message: accept,
+					reason:  string(gateway.GatewayReasonAccepted),
+					message: accept,
 				},
 			}
 		},
@@ -227,7 +227,7 @@ func NewDeploymentController(client kube.Client, webhookConfig func() inject.Web
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	dc.gwInformer = gw.Informer()
-	dc.gwClassHandle, _ = dc.gwInformer.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	dc.gwHandle, _ = dc.gwInformer.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
 	dc.gwClassInformer = gwc.Informer()
 	dc.gwClassHandle, _ = dc.gwClassInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		gws, _ := dc.gatewayLister.List(klabels.Everything())
@@ -298,19 +298,19 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		return nil
 	}
 	if !gi.enabled(&gw) {
-		log.Debug("skip unmanaged gateway")
+		log.Debug("skip disabled gateway")
 		return nil
 	}
 	log.Info("reconciling")
 
-	defaultName := GetDefaultGatewayName(gw.Name, &gw.Spec)
+	defaultName := getDefaultName(gw.Name, &gw.Spec)
 	deploymentName := defaultName
-	if nameOverride, exists := gw.Annotations[GatewayNameOverride]; exists {
+	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
 		deploymentName = nameOverride
 	}
 
 	gatewaySA := defaultName
-	if saOverride, exists := gw.Annotations[GatewaySAOverride]; exists {
+	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
 		gatewaySA = saOverride
 	}
 
@@ -343,7 +343,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 			Namespace: gw.Namespace,
 		},
 		Status: gateway.GatewayStatus{
-			Conditions: SetConditions(gw.Generation, nil, cond),
+			Conditions: setConditions(gw.Generation, nil, cond),
 		},
 	}
 	if err := d.ApplyObject(gws, "status"); err != nil {
@@ -351,22 +351,6 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("gateway updated")
 	return nil
-}
-
-func (d *DeploymentController) RenderServiceAccountApply(input TemplateInput) *corev1ac.ServiceAccountApplyConfiguration {
-	// TODO: GregHanson
-	// race condition with pod delete and service account delete, need to re-add owner reference labels once resolved
-	// related issues:
-	//  - https://github.com/kubernetes/kubernetes/issues/115459
-	//  - https://github.com/kubernetes/kubernetes/issues/115511
-	return corev1ac.ServiceAccount(input.ServiceAccount, input.Namespace).
-		WithLabels(map[string]string{GatewayNameLabel: input.Name})
-	// nolint: gocritic
-	// WithOwnerReferences(metav1ac.OwnerReference().
-	// 	WithName(input.Name).
-	// 	WithUID(input.UID).
-	// 	WithKind(gvk.KubernetesGateway.Kind).
-	// 	WithAPIVersion(gvk.KubernetesGateway.GroupVersion()))
 }
 
 type derivedInput struct {
@@ -382,7 +366,6 @@ type derivedInput struct {
 func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
 	cfg := d.injectConfig()
 
-	// TODO watch for template changes, update the Deployment if it does
 	template := cfg.Templates[templateName]
 	if template == nil {
 		return nil, fmt.Errorf("no %q template defined", templateName)

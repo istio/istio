@@ -358,16 +358,7 @@ func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clust
 }
 
 func setupFileClustersWriter(filename string, out io.Writer) (*clusters.ConfigWriter, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			log.Errorf("failed to close %s: %s", filename, err)
-		}
-	}()
-	data, err := io.ReadAll(file)
+	data, err := readFile(filename)
 	if err != nil {
 		return nil, err
 	}

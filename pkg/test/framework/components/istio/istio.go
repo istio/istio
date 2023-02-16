@@ -112,7 +112,6 @@ type Instance interface {
 	// PatchMeshConfig with the given patch yaml.
 	PatchMeshConfig(resource.Context, string) error
 	PatchMeshConfigOrFail(resource.Context, test.Failer, string)
-
 	UpdateInjectionConfig(resource.Context, func(*inject.Config) error, cleanup.Strategy) error
 	InjectionConfig() (*inject.Config, error)
 }

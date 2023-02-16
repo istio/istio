@@ -128,7 +128,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	sidecarNamespaceScopeTypes := []kind.Kind{
-		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication,
+		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication, kind.WasmPlugin,
 	}
 	for _, k := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
@@ -143,6 +143,12 @@ func TestProxyNeedsPush(t *testing.T) {
 				proxy:   sidecar,
 				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: "invalid-namespace"}),
 				want:    false,
+			},
+			Case{
+				name:    fmt.Sprintf("%s config in the root namespace", k.String()),
+				proxy:   sidecar,
+				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsRoot}),
+				want:    true,
 			},
 		)
 	}

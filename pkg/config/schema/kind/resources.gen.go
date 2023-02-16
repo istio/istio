@@ -156,7 +156,7 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	if gvk.Kind == "HTTPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
 		return HTTPRoute
 	}
-	if gvk.Kind == "Ingress" && gvk.Group == "extensions" && gvk.Version == "v1beta1" {
+	if gvk.Kind == "Ingress" && gvk.Group == "networking.k8s.io" && gvk.Version == "v1" {
 		return Ingress
 	}
 	if gvk.Kind == "Gateway" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {

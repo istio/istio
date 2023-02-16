@@ -222,6 +222,10 @@ type Port struct {
 	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
 
+func (p Port) String() string {
+	return fmt.Sprintf("Name:%s Port:%d Protocol:%v", p.Name, p.Port, p.Protocol)
+}
+
 // PortList is a set of ports
 type PortList []*Port
 
@@ -803,7 +807,7 @@ func (a *AmbientSnapshot) matchesScope(scope WaypointScope, w *WorkloadInfo) boo
 		return false
 	}
 	// Filter out waypoints.
-	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshController {
 		return false
 	}
 	return true
@@ -915,6 +919,14 @@ func (ports PortList) Equals(other PortList) bool {
 		}
 	}
 	return true
+}
+
+func (ports PortList) String() string {
+	var sp []string
+	for _, p := range ports {
+		sp = append(sp, p.String())
+	}
+	return strings.Join(sp, ", ")
 }
 
 // External predicate checks whether the service is external

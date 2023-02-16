@@ -22,8 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-
-	"istio.io/api/mesh/v1alpha1"
 )
 
 type ExecList struct {
@@ -78,26 +76,6 @@ func execute(cmd string, args ...string) error {
 
 func (s *Server) matchesAmbientSelectors(lbl map[string]string) bool {
 	return ambientSelectors.Matches(labels.Set(lbl))
-}
-
-func (s *Server) matchesDisabledSelectors(lbl map[string]string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, sel := range s.disabledSelectors {
-		if sel.Matches(labels.Set(lbl)) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (s *Server) isAmbientGlobal() bool {
-	return s.meshMode == v1alpha1.MeshConfig_AmbientMeshConfig_ON
-}
-
-func (s *Server) isAmbientNamespaced() bool {
-	return s.meshMode == v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT
 }
 
 func getEnvFromPod(pod *corev1.Pod, envName string) string {

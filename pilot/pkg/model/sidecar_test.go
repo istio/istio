@@ -69,6 +69,34 @@ var (
 		},
 	}
 
+	port803x = []*Port{
+		{
+			Port:     8031,
+			Protocol: "TCP",
+			Name:     "tcp-1",
+		},
+		{
+			Port:     8032,
+			Protocol: "TCP",
+			Name:     "tcp-2",
+		},
+		{
+			Port:     8033,
+			Protocol: "TCP",
+			Name:     "tcp-3",
+		},
+		{
+			Port:     8034,
+			Protocol: "TCP",
+			Name:     "tcp-4",
+		},
+		{
+			Port:     8035,
+			Protocol: "TCP",
+			Name:     "tcp-5",
+		},
+	}
+
 	twoMatchingPorts = []*Port{
 		{
 			Port:     7443,
@@ -490,6 +518,56 @@ var (
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"foo/virtualbar"},
+				},
+			},
+		},
+	}
+
+	configs22 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-with-multiple-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8031,
+						Protocol: "TCP",
+						Name:     "tcp-ipc1",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8032,
+						Protocol: "TCP",
+						Name:     "tcp-ipc2",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8033,
+						Protocol: "TCP",
+						Name:     "tcp-ipc3",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8034,
+						Protocol: "TCP",
+						Name:     "tcp-ipc4",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8035,
+						Protocol: "TCP",
+						Name:     "tcp-ipc5",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 			},
 		},
@@ -923,6 +1001,33 @@ var (
 		},
 	}
 
+	services23 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -1159,8 +1264,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		services        []*Service
 		virtualServices []config.Config
 		// list of services expected to be in the listener
-		excpectedServices []*Service
-		expectedDr        *config.Config
+		expectedServices []*Service
+		expectedDr       *config.Config
 	}{
 		{
 			"no-sidecar-config",
@@ -1831,7 +1936,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
-			excpectedServices: []*Service{
+			expectedServices: []*Service{
 				{
 					Hostname: "proxy",
 					Ports:    PortList{port7000[0], port7443[0], port7442[0]},
@@ -1842,11 +1947,27 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:          "multi-port-merge",
+			sidecarConfig: configs22,
+			services:      services23,
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    PortList{port803x[0], port803x[1], port803x[2], port803x[3], port803x[4]},
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			var found bool
+			var serviceFound bool
+			var portsMatched bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = meshConfig
@@ -1888,34 +2009,38 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			for _, s1 := range sidecarScope.services {
-				found = false
-				for _, s2 := range tt.excpectedServices {
+				serviceFound = false
+				portsMatched = false
+				var ports PortList
+				for _, s2 := range tt.expectedServices {
 					if s1.Hostname == s2.Hostname {
+						serviceFound = true
 						if len(s2.Ports) > 0 {
 							if reflect.DeepEqual(s2.Ports, s1.Ports) {
-								found = true
-								break
+								portsMatched = true
+							} else {
+								ports = s2.Ports
 							}
-						} else {
-							found = true
-							break
 						}
-					}
-				}
-				if !found {
-					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
-				}
-			}
-
-			for _, s1 := range tt.excpectedServices {
-				found = false
-				for _, s2 := range sidecarScope.services {
-					if s1.Hostname == s2.Hostname {
-						found = true
 						break
 					}
 				}
-				if !found {
+				if !serviceFound {
+					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
+				} else if len(ports) > 0 && !portsMatched {
+					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, ports, s1.Ports)
+				}
+			}
+
+			for _, s1 := range tt.expectedServices {
+				serviceFound = false
+				for _, s2 := range sidecarScope.services {
+					if s1.Hostname == s2.Hostname {
+						serviceFound = true
+						break
+					}
+				}
+				if !serviceFound {
 					t.Errorf("UnExpected service %v in SidecarScope", s1.Hostname)
 				}
 			}
@@ -2161,11 +2286,23 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 
 		contains map[ConfigKey]bool
 	}{
-		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"AuthorizationPolicy in the same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "default"}: true,
 		}},
-		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"AuthorizationPolicy in a different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "ns1"}: false,
+		}},
+		{"AuthorizationPolicy in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.AuthorizationPolicy, "authz", constants.IstioSystemNamespace}: true,
+		}},
+		{"WasmPlugin in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", "default"}: true,
+		}},
+		{"WasmPlugin in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", "ns1"}: false,
+		}},
+		{"WasmPlugin in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", constants.IstioSystemNamespace}: true,
 		}},
 	}
 

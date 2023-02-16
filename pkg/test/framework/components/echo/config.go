@@ -172,6 +172,7 @@ type Config struct {
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
 
+	// WaypointProxy specifies if this workload should have an associated Waypoint
 	WaypointProxy bool
 }
 

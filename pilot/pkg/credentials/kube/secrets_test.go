@@ -67,7 +67,7 @@ var (
 		GenericScrtCaCert: "split-ca",
 	}, corev1.SecretTypeTLS)
 	tlsCert = makeSecret("tls", map[string]string{
-		TLSSecretCert: "tls-cert", TLSSecretKey: "tls-key",
+		TLSSecretCert: "tls-cert", TLSSecretKey: "tls-key", TLSSecretOcspStaple: "tls-ocsp-staple",
 	}, corev1.SecretTypeTLS)
 	tlsMtlsCert = makeSecret("tls-mtls", map[string]string{
 		TLSSecretCert: "tls-mtls-cert", TLSSecretKey: "tls-mtls-key", TLSSecretCaCert: "tls-mtls-ca",
@@ -115,6 +115,7 @@ func TestSecretsController(t *testing.T) {
 		namespace       string
 		cert            string
 		key             string
+		staple          string
 		caCert          string
 		expectedError   string
 		expectedCAError string
@@ -158,7 +159,8 @@ func TestSecretsController(t *testing.T) {
 			namespace:       "default",
 			cert:            "tls-cert",
 			key:             "tls-key",
-			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: tls.crt, tls.key",
+			staple:          "tls-ocsp-staple",
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: tls.crt, tls.key, tls.ocsp-staple, and 0 more...",
 		},
 		{
 			name:      "tls-mtls",
@@ -201,12 +203,15 @@ func TestSecretsController(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			key, cert, err := sc.GetKeyAndCert(tt.name, tt.namespace)
+			key, cert, staple, err := sc.GetKeyCertAndStaple(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}
 			if tt.cert != string(cert) {
 				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
+			}
+			if tt.staple != string(staple) {
+				t.Errorf("got staple %q, wanted %q", string(staple), tt.staple)
 			}
 			if tt.expectedError != errString(err) {
 				t.Errorf("got err %q, wanted %q", errString(err), tt.expectedError)
@@ -448,7 +453,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key, cert, _ := con.GetKeyAndCert(tt.name, tt.namespace)
+			key, cert, _, _ := con.GetKeyCertAndStaple(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}

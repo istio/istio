@@ -168,6 +168,30 @@ func TestNameTable(t *testing.T) {
 		},
 	}
 
+	serviceWithVIP1 := &model.Service{
+		Hostname:       host.Name("mysql.foo.bar"),
+		DefaultAddress: "10.0.0.5",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp",
+				Port:     3306,
+				Protocol: protocol.TCP,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "mysql-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.External,
+		},
+	}
+	serviceWithVIP2 := serviceWithVIP1.DeepCopy()
+	serviceWithVIP2.DefaultAddress = "10.0.0.6"
+
+	decoratedService := serviceWithVIP1.DeepCopy()
+	decoratedService.DefaultAddress = "10.0.0.7"
+	decoratedService.Attributes.ServiceRegistry = provider.Kubernetes
+
 	push := model.NewPushContext()
 	push.Mesh = mesh
 	push.AddPublicServices([]*model.Service{headlessService})
@@ -186,7 +210,7 @@ func TestNameTable(t *testing.T) {
 
 	cpush := model.NewPushContext()
 	cpush.Mesh = mesh
-	wpush.AddPublicServices([]*model.Service{cidrService})
+	cpush.AddPublicServices([]*model.Service{cidrService})
 
 	sepush := model.NewPushContext()
 	sepush.Mesh = mesh
@@ -416,6 +440,64 @@ func TestNameTable(t *testing.T) {
 					"foo.bar.com": {
 						Ips:      []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
 						Registry: "External",
+					},
+				},
+			},
+		},
+		{
+			name:  "service entry with multiple VIPs",
+			proxy: proxy,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{serviceWithVIP1, serviceWithVIP2})
+				return push
+			}(),
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					serviceWithVIP1.Hostname.String(): {
+						Ips:      []string{serviceWithVIP1.DefaultAddress, serviceWithVIP2.DefaultAddress},
+						Registry: provider.External.String(),
+					},
+				},
+			},
+		},
+		{
+			name:  "service entry as a decorator(created before k8s service)",
+			proxy: proxy,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{serviceWithVIP1, decoratedService})
+				return push
+			}(),
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					serviceWithVIP1.Hostname.String(): {
+						Ips:       []string{decoratedService.DefaultAddress},
+						Registry:  provider.Kubernetes.String(),
+						Shortname: decoratedService.Attributes.Name,
+						Namespace: decoratedService.Attributes.Namespace,
+					},
+				},
+			},
+		},
+		{
+			name:  "service entry as a decorator(created after k8s service)",
+			proxy: proxy,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{decoratedService, serviceWithVIP2})
+				return push
+			}(),
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					serviceWithVIP1.Hostname.String(): {
+						Ips:       []string{decoratedService.DefaultAddress},
+						Registry:  provider.Kubernetes.String(),
+						Shortname: decoratedService.Attributes.Name,
+						Namespace: decoratedService.Attributes.Namespace,
 					},
 				},
 			},

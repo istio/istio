@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
@@ -33,18 +32,16 @@ func isRunning(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning
 }
 
-func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, meshMode string, ignoreNotRunning bool) bool {
+func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRunning bool) bool {
 	// Pod must:
 	// - Be running
 	// - Have an IP address
-	// - Ambient mesh not be off
 	// - Cannot have a legacy label (istio.io/rev or istio-injection=enabled)
 	// - If mesh is in namespace mode, must be in active namespace
 	if (ignoreNotRunning || (isRunning(pod) && hasPodIP(pod))) &&
-		meshMode != AmbientMeshOff.String() &&
 		!HasLegacyLabel(pod.GetLabels()) &&
 		!PodHasOptOut(pod) &&
-		IsNamespaceActive(namespace, meshMode) {
+		IsNamespaceActive(namespace) {
 		return true
 	}
 
@@ -58,17 +55,12 @@ func PodHasOptOut(pod *corev1.Pod) bool {
 	return false
 }
 
-func IsNamespaceActive(namespace *corev1.Namespace, meshMode string) bool {
-	// Must:
-	// - MeshConfig be in an "ON" mode
-	// - MeshConfig must be in a "DEFAULT" mode, plus:
+func IsNamespaceActive(namespace *corev1.Namespace) bool {
 	//   - Namespace cannot have "legacy" labels (ie. istio.io/rev or istio-injection=enabled)
 	//   - Namespace must have label istio.io/dataplane-mode=ambient
-	if meshMode == AmbientMeshOn.String() ||
-		(meshMode == AmbientMeshNamespace.String() &&
-			namespace != nil &&
-			!HasLegacyLabel(namespace.GetLabels()) &&
-			namespace.GetLabels()[constants.DataplaneMode] == "ambient") {
+	if namespace != nil &&
+		!HasLegacyLabel(namespace.GetLabels()) &&
+		namespace.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient {
 		return true
 	}
 
@@ -133,9 +125,3 @@ func HasLegacyLabel(lbl map[string]string) bool {
 
 	return false
 }
-
-const (
-	AmbientMeshNamespace = v1alpha1.MeshConfig_AmbientMeshConfig_DEFAULT
-	AmbientMeshOff       = v1alpha1.MeshConfig_AmbientMeshConfig_OFF
-	AmbientMeshOn        = v1alpha1.MeshConfig_AmbientMeshConfig_ON
-)
