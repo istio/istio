@@ -239,6 +239,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(preCheck())
 	experimentalCmd.AddCommand(statsConfigCmd())
 	experimentalCmd.AddCommand(checkInjectCommand())
+	experimentalCmd.AddCommand(waypointCmd())
 
 	analyzeCmd := Analyze()
 	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
