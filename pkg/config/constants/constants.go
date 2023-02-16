@@ -154,6 +154,9 @@ const (
 	ManagedGatewayLabel      = "gateway.istio.io/managed"
 	ManagedGatewayController = "istio.io-gateway-controller"
 
+	WaypointGatewayClassName = "istio-waypoint"
+	GatewayNameLabel         = "istio.io/gateway-name"
+
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode        = "istio.io/dataplane-mode"
 	DataplaneModeAmbient = "ambient"

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config/constants"
 )
 
 type AnnotationType string
@@ -47,6 +48,7 @@ var (
 	SidecarIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
 	SidecarProxyConfig             = workloadAnnotation(annotation.ProxyConfig.Name, "")
 	SidecarInjectTemplates         = workloadAnnotation(annotation.InjectTemplates.Name, "")
+	AmbientType                    = workloadAnnotation(constants.AmbientRedirection, "")
 )
 
 type AnnotationValue struct {

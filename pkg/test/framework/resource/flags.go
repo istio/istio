@@ -178,6 +178,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
 
+	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
+		"Indicate the use of ambient mesh.")
+
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
 		"Transparently deploy echo instances pointing to each revision set in `Revisions`")
 

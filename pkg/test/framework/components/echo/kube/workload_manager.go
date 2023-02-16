@@ -188,7 +188,7 @@ func (m *workloadManager) onPodAddOrUpdate(pod *corev1.Pod) error {
 	// Add the pod to the end of the workload list.
 	newWorkload, err := newWorkload(workloadConfig{
 		pod:        *pod,
-		hasSidecar: workloadHasSidecar(m.cfg, pod.Name),
+		hasSidecar: workloadHasSidecar(pod),
 		cluster:    m.cfg.Cluster,
 		grpcPort:   m.grpcPort,
 		tls:        m.tls,
