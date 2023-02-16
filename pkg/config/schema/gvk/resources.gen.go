@@ -32,6 +32,7 @@ var (
 	RequestAuthentication        = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"}
 	Secret                       = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 	Service                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
+	ServiceAccount               = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 	ServiceEntry                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
 	Sidecar                      = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
 	TCPRoute                     = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}

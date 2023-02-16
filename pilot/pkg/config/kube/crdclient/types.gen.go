@@ -1292,6 +1292,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
+	collections.K8SCoreV1Serviceaccounts.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.ServiceAccount)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Serviceaccounts.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: obj,
+		}
+	},
 	collections.K8SCoreV1Services.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Service)
 		return config.Config{
