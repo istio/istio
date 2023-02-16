@@ -20,10 +20,10 @@ iptables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABL
 iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
-iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp -m multiport ! --dports 53,15008 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
-iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-ports 15053
@@ -70,10 +70,10 @@ ip6tables -t mangle -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTAB
 ip6tables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
-ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp -m multiport ! --dports 53,15008 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
-ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 15008 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN

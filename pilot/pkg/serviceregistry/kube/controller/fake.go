@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"sort"
+	"strings"
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -40,12 +42,14 @@ type FakeXdsUpdater struct {
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	var id string
+	names := []string{}
 	if req != nil && len(req.ConfigsUpdated) > 0 {
 		for key := range req.ConfigsUpdated {
-			id = key.Name
+			names = append(names, key.Name)
 		}
 	}
+	sort.Strings(names)
+	id := strings.Join(names, ",")
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "xds", ID: id}:
 	default:
@@ -115,10 +119,12 @@ func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
 }
 
 func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, et string) *FakeXdsEvent {
+	t.Helper()
 	return fx.WaitForDurationOrFail(t, et, 5*time.Second)
 }
 
 func (fx *FakeXdsUpdater) WaitForDurationOrFail(t test.Failer, et string, d time.Duration) *FakeXdsEvent {
+	t.Helper()
 	ev := fx.WaitForDuration(et, d)
 	if ev == nil {
 		t.Fatalf("Timeout creating %q after %s", et, d)
@@ -169,6 +175,7 @@ type FakeControllerOptions struct {
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	Stop                      chan struct{}
 	SkipRun                   bool
+	ConfigController          model.ConfigStoreController
 }
 
 type FakeController struct {
@@ -204,6 +211,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		ClusterID:                 opts.ClusterID,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
+		ConfigController:          opts.ConfigController,
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

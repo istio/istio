@@ -71,6 +71,7 @@ func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
 		log.Errorf("failed to sync default watcher")
 		return
 	}
+
 	p.queue.Run(stopCh)
 }
 

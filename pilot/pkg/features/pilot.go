@@ -608,6 +608,11 @@ var (
 		"If enabled, HBONE support can be configured for proxies. "+
 			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
 
+	EnableAmbientControllers = env.Register(
+		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
+		false,
+		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
+
 	StripHostPort = env.Register("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
 		"If enabled, Gateway will remove any port from host/authority header "+
 			"before any processing of request by HTTP filters or routing. Deprecated: in Istio 1.15+ port is ignored in domain matching.").Get()

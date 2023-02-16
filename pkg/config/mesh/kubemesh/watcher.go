@@ -63,7 +63,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 	return w
 }
 
-func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key, userMeshConfig string, stop chan struct{}) {
+func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key, userMeshConfig string, stop <-chan struct{}) {
 	c := configmapwatcher.NewController(client, namespace, userMeshConfig, func(cm *v1.ConfigMap) {
 		meshConfig := meshConfigMapData(cm, key)
 		watcher.HandleUserMeshConfig(meshConfig)
