@@ -1,0 +1,32 @@
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=debug
+
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=debug
+FROM gcr.io/istio-release/base:${BASE_VERSION} as debug
+
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+# This image is a custom built debian11 distroless image with multiarchitecture support.
+# It is built on the base distroless image, with iptables binary and libraries added
+# The source can be found at https://github.com/istio/distroless/tree/iptables
+# This version is from commit 6faf2f9348d382c6a95bbc3171b89406103cb0ad.
+FROM gcr.io/istio-release/iptables@sha256:64ba191166d2c3f87815148cc1a9f530b770e0dfe81acb164ab79cbb31da582c as distroless
+
+# This will build the final image based on either debug or distroless from above
+# hadolint ignore=DL3006
+FROM ${BASE_DISTRIBUTION:-debug}
+
+WORKDIR /
+
+ARG istio_version
+
+# Install ztunnel.
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/ztunnel /usr/local/bin/ztunnel
+
+# Environment variable indicating the exact build, for debugging
+ENV ISTIO_META_ISTIO_VERSION $istio_version
+
+ENTRYPOINT ["/usr/local/bin/ztunnel"]

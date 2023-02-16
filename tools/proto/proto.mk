@@ -14,7 +14,7 @@
 
 .PHONY: proto operator-proto dns-proto
 
-proto: operator-proto dns-proto echo-proto
+proto: operator-proto dns-proto echo-proto workload-proto
 
 operator-proto:
 	buf generate --config tools/proto/buf.yaml --path operator/pkg/ --output operator  --template tools/proto/buf.golang.yaml
@@ -24,3 +24,6 @@ dns-proto:
 
 echo-proto:
 	buf generate --config tools/proto/buf.yaml --path pkg/test/echo --output pkg  --template tools/proto/buf.golang.yaml
+
+workload-proto:
+	buf generate --config tools/proto/buf.yaml --path pkg/workloadapi --output pkg  --template tools/proto/buf.golang.yaml

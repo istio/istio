@@ -284,6 +284,11 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 
+	subs := sets.New(req.ResourceNamesSubscribe...).Delete("*")
+	// InitialResourceVersions are essential subscriptions on the first request, since we don't care about the version
+	for k := range req.InitialResourceVersions {
+		subs.Insert(k)
+	}
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
@@ -294,8 +299,9 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		// we may end up overriding active cache entries with stale ones.
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
-			Subscribed:   sets.New(req.ResourceNamesSubscribe...),
-			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...),
+			// Record sub/unsub, but drop synthetic wildcard info
+			Subscribed:   subs,
+			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
 		},
 	}
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
@@ -337,14 +343,17 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		if len(request.InitialResourceVersions) > 0 {
-			deltaLog.Debugf("ADS:%s: RECONNECT %s %s", stype, con.conID, request.ResponseNonce)
+			deltaLog.Debugf("ADS:%s: RECONNECT %s %s resources:%v", stype, con.conID, request.ResponseNonce, len(request.InitialResourceVersions))
 		} else {
 			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
 		}
 		con.proxy.Lock()
+		res, wildcard := deltaWatchedResources(nil, request)
+		// A request is wildcard if they explicitly subscribe to "*" or subscribe to nothing
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
-			ResourceNames: deltaWatchedResources(nil, request),
+			ResourceNames: res,
+			Wildcard:      wildcard,
 		}
 		// For all EDS requests that we have already responded with in the same stream let us
 		// force the response. It is important to respond to those requests for Envoy to finish
@@ -379,7 +388,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	deltaResources := deltaWatchedResources(previousResources, request)
+	deltaResources, _ := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
 	alwaysRespond := previousInfo.AlwaysRespond
@@ -408,7 +417,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			return true
 		}
 
-		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.conID, request.ResponseNonce)
+		deltaLog.Debugf("ADS:%s: ACK %s %s", stype, con.conID, request.ResponseNonce)
 		return false
 	}
 	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
@@ -438,7 +447,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	// See https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#deleting-resources.
 	// This means if there are only removals, we will not respond.
 	var logFiltered string
-	if !req.Delta.IsEmpty() {
+	if !req.Delta.IsEmpty() && !requiresResourceNamesModification(w.TypeUrl) {
+		// Some types opt out of this and natively handle req.Delta
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
@@ -490,7 +500,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
 	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
-	if req.Delta.Subscribed == nil && isWildcardTypeURL(w.TypeUrl) {
+	if req.Delta.Subscribed == nil && isWildcardResource(w) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
 		w.ResourceNames = currentResources
@@ -521,7 +531,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case !req.Full:
+	case !req.Full && w.TypeUrl != v3.WorkloadType:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
@@ -532,11 +542,27 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 			// Add additional information to logs when debug mode enabled.
 			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
 		}
-		deltaLog.Infof("%s: %s%s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res),
+		deltaLog.Infof("%s: %s%s for node:%s resources:%d removed:%d size:%v%s%s",
+			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), len(resp.RemovedResources),
 			util.ByteCount(ResourceSize(res)), info, debug)
 	}
 
 	return nil
+}
+
+// requiresResourceNamesModification checks if a generator needs mutable access to w.ResourceNames.
+// This is used when resources are spontaneously pushed during Delta XDS
+func requiresResourceNamesModification(url string) bool {
+	return url == v3.WorkloadType
+}
+
+func isWildcardResource(w *model.WatchedResource) bool {
+	if w.TypeUrl == v3.WorkloadType {
+		// Both are supported
+		return w.Wildcard
+	}
+	// Else fallback based on type
+	return isWildcardTypeURL(w.TypeUrl)
 }
 
 func newDeltaConnection(peerAddr string, stream DeltaDiscoveryStream) *Connection {
@@ -563,7 +589,7 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 	}
 }
 
-func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) []string {
+func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) ([]string, bool) {
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
 	// This is set by Envoy on first request on reconnection so that we are aware of what Envoy knows
@@ -572,7 +598,20 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 		res.Insert(k)
 	}
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
-	return sets.SortedList(res)
+	wildcard := false
+	if res.Contains("*") {
+		wildcard = true
+		res.Delete("*")
+	}
+	// "if the client sends a request but has never explicitly subscribed to any resource names, the
+	// server should treat that identically to how it would treat the client having explicitly
+	// subscribed to *"
+	// NOTE: this means you cannot subscribe to nothing, which is useful for on-demand loading; to workaround this
+	// Istio clients will send and initial request both subscribing+unsubscribing to `*`.
+	if len(request.ResourceNamesSubscribe) == 0 {
+		wildcard = true
+	}
+	return sets.SortedList(res), wildcard
 }
 
 func extractNames(res []*discovery.Resource) []string {

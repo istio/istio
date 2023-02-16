@@ -202,6 +202,7 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 	return cfg
 }
 
+// appendURIPrefixToTrustDomain append SPIFFE prefix to URI.
 func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 	var res []string
 	for _, td := range trustDomainAliases {

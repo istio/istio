@@ -22,7 +22,7 @@ set -o nounset
 set -o pipefail
 
 if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
-  echo "Environment variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
+  echo "Environment variables not set. Make sure you run through the makefile (\`make init\`) rather than directly."
   exit 1
 fi
 

@@ -257,6 +257,11 @@ func WriteKind(packageName string, m *ast.Metadata) (string, error) {
 			Resource: r,
 		})
 	}
+	// Insert synthetic types used for XDS events
+	entries = append(entries, colEntry{
+		Resource: &ast.Resource{Kind: "Address", Version: "internal", Group: "internal"},
+		Type:     "Address",
+	})
 
 	sort.Slice(entries, func(i, j int) bool {
 		return strings.Compare(entries[i].Type, entries[j].Type) < 0

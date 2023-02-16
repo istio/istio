@@ -629,6 +629,18 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if con.proxy.IsZTunnel() {
+		resources := s.getConfigDumpByResourceType(con, nil, []string{v3.WorkloadType})
+		configDump := &admin.ConfigDump{}
+		for _, resource := range resources {
+			for _, rr := range resource {
+				configDump.Configs = append(configDump.Configs, rr.Resource)
+			}
+		}
+		writeJSON(w, configDump, req)
+		return
+	}
+
 	includeEds := req.URL.Query().Get("include_eds") == "true"
 	dump, err := s.connectionConfigDump(con, includeEds)
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
@@ -91,6 +92,22 @@ func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String 
 	for conf := range configs {
 		if conf.Kind == kind {
 			ret.Insert(conf.Name)
+		}
+	}
+
+	return ret
+}
+
+// ConfigNamespacedNameOfKind extracts config names of the specified kind.
+func ConfigNamespacedNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[types.NamespacedName]struct{} {
+	ret := map[types.NamespacedName]struct{}{}
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret[types.NamespacedName{
+				Namespace: conf.Namespace,
+				Name:      conf.Name,
+			}] = struct{}{}
 		}
 	}
 
