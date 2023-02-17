@@ -33,6 +33,7 @@ import (
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	anypb "github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -1088,7 +1089,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 		Name:                 "outbound-tunnel",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		CleanupInterval:      durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
