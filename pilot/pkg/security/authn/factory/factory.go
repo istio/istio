@@ -30,8 +30,8 @@ func NewPolicyApplier(push *model.PushContext, namespace string, labels labels.I
 		push.AuthnPolicies.GetPeerAuthenticationsForWorkload(namespace, labels), push)
 }
 
-// NewMtlsChecker returns a checker used to detect proxy mtls mode.
-func NewMtlsChecker(push *model.PushContext, namespace string, labels labels.Instance) authn.MtlsChecker {
+// NewMtlsPolicy returns a checker used to detect proxy mtls mode.
+func NewMtlsPolicy(push *model.PushContext, namespace string, labels labels.Instance) authn.MtlsPolicy {
 	return v1beta1.NewPolicyApplier(
 		push.AuthnPolicies.GetRootNamespace(),
 		nil,

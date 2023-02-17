@@ -55,11 +55,11 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mt
 		mtlsDisabledHosts:    map[string]struct{}{},
 		peerAuthDisabledMTLS: map[string]bool{},
 		subsetPolicyMode:     map[string]*networkingapi.ClientTLSSettings_TLSmode{},
-		rootPolicyMode:       mtlsModeForDefaultTrafficPolicy(dr, svcPort),
+		rootPolicyMode:       tlsModeForDefaultTrafficPolicy(dr, svcPort),
 	}
 }
 
-// mTLSDisabled returns true if the given lbEp has mTLS disabled due to any of:
+// isMtlsDisabled returns true if the given lbEp has mTLS disabled due to any of:
 // - disabled tlsMode
 // - DestinationRule disabling mTLS on the entire host or the port
 // - PeerAuthentication disabling mTLS at any applicable level (mesh, ns, workload, port)
@@ -73,7 +73,7 @@ func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 
 // computeForEndpoint checks destination rule, peer authentication and tls mode labels to determine if mTLS was turned off.
 func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
-	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
+	if drMode := c.tlsModeForDestinationRule(ep); drMode != nil {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:
 			c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
@@ -98,7 +98,7 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 			return value
 		}
 		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-			NewMtlsChecker(c.push, ep.Namespace, ep.Labels).
+			NewMtlsPolicy(c.push, ep.Namespace, ep.Labels).
 			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
 		return c.peerAuthDisabledMTLS[peerAuthnKey]
 	}
@@ -109,7 +109,7 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	}
 }
 
-func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {
+func (c *mtlsChecker) tlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {
 	if c.destinationRule == nil || len(c.destinationRule.Subsets) == 0 {
 		return c.rootPolicyMode
 	}
@@ -134,8 +134,8 @@ func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *netwo
 	return subsetValue
 }
 
-// mtlsModeForDefaultTrafficPolicy returns true if the default traffic policy on a given dr disables mTLS
-func mtlsModeForDefaultTrafficPolicy(destinationRule *config.Config, port int) *networkingapi.ClientTLSSettings_TLSmode {
+// tlsModeForDefaultTrafficPolicy returns the tls mode of the port defined by a given destinationrule.
+func tlsModeForDefaultTrafficPolicy(destinationRule *config.Config, port int) *networkingapi.ClientTLSSettings_TLSmode {
 	if destinationRule == nil {
 		return nil
 	}
