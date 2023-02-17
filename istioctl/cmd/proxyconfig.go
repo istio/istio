@@ -601,7 +601,7 @@ func workloadConfigCmd() *cobra.Command {
 			var configWriter *ztunnelDump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
 				if !strings.Contains(podName, "ztunnel") {
@@ -1412,6 +1412,10 @@ func getPodNames(podflag string) ([]string, string, error) {
 }
 
 func getPodName(podflag string) (string, string, error) {
+	return getPodNameWithDefaultNamespace(podflag, defaultNamespace)
+}
+
+func getPodNameWithDefaultNamespace(podflag, defaultNamespace string) (string, string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
@@ -1424,6 +1428,10 @@ func getPodName(podflag string) (string, string, error) {
 		return "", "", err
 	}
 	return podName, ns, nil
+}
+
+func getComponentPodName(podflag string) (string, string, error) {
+	return getPodNameWithDefaultNamespace(podflag, istioNamespace)
 }
 
 func getPodNameBySelector(labelSelector string) ([]string, string, error) {
