@@ -1,7 +1,7 @@
 # To simplify the deployment, disable non-essential components
 alertmanager:
   enabled: false
-pushgateway:
+prometheus-pushgateway:
   enabled: false
 kube-state-metrics:
   enabled: false

@@ -14,18 +14,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: "1.5.0"
 ---
-# Source: prometheus/charts/prometheus-pushgateway/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  labels:
-    helm.sh/chart: prometheus-pushgateway-2.0.4
-    app.kubernetes.io/name: prometheus-pushgateway
-    app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: "v1.5.1"
-    app.kubernetes.io/managed-by: Helm
-  name: prometheus-prometheus-pushgateway
----
 # Source: prometheus/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -455,30 +443,6 @@ spec:
     app.kubernetes.io/name: prometheus-node-exporter
     app.kubernetes.io/instance: prometheus
 ---
-# Source: prometheus/charts/prometheus-pushgateway/templates/service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    prometheus.io/probe: pushgateway
-  labels:
-    helm.sh/chart: prometheus-pushgateway-2.0.4
-    app.kubernetes.io/name: prometheus-pushgateway
-    app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: "v1.5.1"
-    app.kubernetes.io/managed-by: Helm
-  name: prometheus-prometheus-pushgateway
-spec:
-  type: ClusterIP
-  ports:
-    - port: 9091
-      targetPort: 9091
-      protocol: TCP
-      name: http
-  selector:
-    app.kubernetes.io/name: prometheus-pushgateway
-    app.kubernetes.io/instance: prometheus
----
 # Source: prometheus/templates/service.yaml
 apiVersion: v1
 kind: Service
@@ -613,67 +577,6 @@ spec:
         - name: root
           hostPath:
             path: /
----
-# Source: prometheus/charts/prometheus-pushgateway/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    helm.sh/chart: prometheus-pushgateway-2.0.4
-    app.kubernetes.io/name: prometheus-pushgateway
-    app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: "v1.5.1"
-    app.kubernetes.io/managed-by: Helm
-  name: prometheus-prometheus-pushgateway
-spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: prometheus-pushgateway
-      app.kubernetes.io/instance: prometheus
-  template:
-    metadata:
-      labels:
-        helm.sh/chart: prometheus-pushgateway-2.0.4
-        app.kubernetes.io/name: prometheus-pushgateway
-        app.kubernetes.io/instance: prometheus
-        app.kubernetes.io/version: "v1.5.1"
-        app.kubernetes.io/managed-by: Helm
-    spec:
-      serviceAccountName: prometheus-prometheus-pushgateway
-      containers:
-        - name: pushgateway
-          image: "prom/pushgateway:v1.5.1"
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: metrics
-              containerPort: 9091
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /-/ready
-              port: 9091
-            initialDelaySeconds: 10
-            timeoutSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /-/ready
-              port: 9091
-            initialDelaySeconds: 10
-            timeoutSeconds: 10
-          volumeMounts:
-            - name: storage-volume
-              mountPath: "/data"
-              subPath: ""
-      securityContext:
-        fsGroup: 65534
-        runAsNonRoot: true
-        runAsUser: 65534
-      volumes:
-        - name: storage-volume
-          emptyDir: {}
 ---
 # Source: prometheus/templates/deploy.yaml
 apiVersion: apps/v1
