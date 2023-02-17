@@ -192,7 +192,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 			{
 				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
 				Filters: []*listener.Filter{
-					xdsfilters.IstioNetworkAuthenticationFilter,
+					xdsfilters.IstioNetworkAuthenticationFilterShared,
 					buildHBONEConnectionManager(vhost),
 				},
 			},

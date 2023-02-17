@@ -184,6 +184,15 @@ var (
 		},
 	}
 
+	IstioNetworkAuthenticationFilterShared = &listener.Filter{
+		Name: AuthnFilterName,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.network.authn.Config",
+				map[string]interface{}{
+					"shared": true,
+				}),
+		},
+	}
 	ConnectBaggageFilter = &hcm.HttpFilter{
 		Name: "connect_baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
