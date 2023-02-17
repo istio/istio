@@ -19,6 +19,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/network"
 )
@@ -33,7 +34,7 @@ const (
 )
 
 // AugmentLabels adds additional labels to the those provided.
-func AugmentLabels(in labels.Instance, clusterID cluster.ID, locality, k8sNode string, networkID network.ID) labels.Instance {
+func AugmentLabels(in labels.Instance, annotations labels.Instance, clusterID cluster.ID, locality, k8sNode string, networkID network.ID) labels.Instance {
 	// Copy the original labels to a new map.
 	out := make(labels.Instance, len(in)+6)
 	for k, v := range in {
@@ -58,6 +59,9 @@ func AugmentLabels(in labels.Instance, clusterID cluster.ID, locality, k8sNode s
 	}
 	if len(networkID) > 0 {
 		out[label.TopologyNetwork.Name] = networkID.String()
+	}
+	if annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
+		out[constants.AmbientRedirection] = constants.AmbientRedirectionEnabled
 	}
 	return out
 }

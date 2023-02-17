@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
@@ -69,6 +70,7 @@ type Multicluster struct {
 	closing bool
 
 	serviceEntryController *serviceentry.Controller
+	configController       model.ConfigStoreController
 	XDSUpdater             model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
@@ -90,6 +92,7 @@ func NewMulticluster(
 	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
+	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	startNsController bool,
@@ -101,6 +104,7 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
+		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
@@ -210,6 +214,9 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 	if !configCluster {
 		options.DiscoveryNamespacesFilter = nil
 	}
+	if configCluster {
+		options.ConfigController = m.configController
+	}
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 	kubeController := &kubeController{
@@ -228,6 +235,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
+	}
+	if m.configController != nil {
+		m.configController.RegisterEventHandler(gvk.AuthorizationPolicy, kubeRegistry.AuthorizationPolicyHandler)
 	}
 
 	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {

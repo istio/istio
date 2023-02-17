@@ -111,7 +111,9 @@ type classInfo struct {
 	reportGatewayClassStatus bool
 }
 
-var classInfos = func() map[string]classInfo {
+var classInfos = getClassInfos()
+
+func getClassInfos() map[string]classInfo {
 	m := map[string]classInfo{
 		DefaultClassName: {
 			controller:  ControllerName,
@@ -176,7 +178,7 @@ var classInfos = func() map[string]classInfo {
 		}
 	}
 	return m
-}()
+}
 
 var knownControllers = func() sets.String {
 	res := sets.New[string]()

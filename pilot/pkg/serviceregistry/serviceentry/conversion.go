@@ -274,7 +274,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(wle)
-	labels := labelutil.AugmentLabels(wle.Labels, clusterID, wle.Locality, "", networkID)
+	labels := labelutil.AugmentLabels(wle.Labels, nil, clusterID, wle.Locality, "", networkID)
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
@@ -423,7 +423,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
-	labels := labelutil.AugmentLabels(we.Labels, clusterID, we.Locality, "", networkID)
+	labels := labelutil.AugmentLabels(we.Labels, nil, clusterID, we.Locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
