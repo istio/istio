@@ -232,7 +232,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 // * waypointServices: all services owned by this waypoint
 // * all services
 // We want to find any VirtualServices that are from a waypointServices to a non-waypointService
-func filterWaypointOutboundServices(referencedServices map[string]sets.String, waypointServices map[host.Name]*model.Service, services []*model.Service) []*model.Service {
+func filterWaypointOutboundServices(
+	referencedServices map[string]sets.String,
+	waypointServices map[host.Name]*model.Service,
+	services []*model.Service,
+) []*model.Service {
 	outboundServices := sets.New[string]()
 	for waypointService := range waypointServices {
 		refs := referencedServices[waypointService.String()]
