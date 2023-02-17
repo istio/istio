@@ -439,6 +439,8 @@ func canUseEdsCache(req *model.PushRequest) bool {
 		return false
 	}
 	for cfg := range req.ConfigsUpdated {
+		// peer authentication may change endpoints' tls mode, as we donot add pa as eds key (difficult),
+		// so donot use eds cache whenever PA updated.
 		if cfg.Kind == kind.PeerAuthentication {
 			return false
 		}
