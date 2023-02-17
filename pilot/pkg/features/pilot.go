@@ -176,13 +176,6 @@ var (
 		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
 	).Get()
 
-	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
-	// mTLS is enabled in authentication policy.
-	SkipValidateTrustDomain = env.Register(
-		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
-		false,
-		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
-
 	EnableAutomTLSCheckPolicies = env.Register(
 		"ENABLE_AUTO_MTLS_CHECK_POLICIES", true,
 		"Enable the auto mTLS EDS output to consult the PeerAuthentication Policy, only set the {tlsMode: istio} "+

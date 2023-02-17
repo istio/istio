@@ -34,7 +34,7 @@ type Builder struct {
 
 func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
 	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels)
-	trustDomains := TrustDomainsForValidation(push.Mesh)
+	trustDomains := TrustDomains(push.Mesh)
 	return &Builder{
 		applier:      applier,
 		proxy:        proxy,

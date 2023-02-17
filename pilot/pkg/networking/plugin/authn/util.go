@@ -16,15 +16,10 @@ package authn
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/util/sets"
 )
 
-func TrustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
-	if features.SkipValidateTrustDomain {
-		return nil
-	}
-
+func TrustDomains(meshConfig *meshconfig.MeshConfig) []string {
 	tds := append([]string{meshConfig.TrustDomain}, meshConfig.TrustDomainAliases...)
 	return dedupTrustDomains(tds)
 }

@@ -1112,7 +1112,7 @@ func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster
 
 func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), false)
+	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomains(push.Mesh), false)
 
 	ctx.AlpnProtocols = util.ALPNH2Only
 

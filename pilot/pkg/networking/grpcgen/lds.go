@@ -141,7 +141,7 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 		tlsContext = &tls.DownstreamTlsContext{
 			CommonTlsContext: buildCommonTLSContext(nil),
 			// TODO match_subject_alt_names field in validation context is not supported on the server
-			// CommonTlsContext: buildCommonTLSContext(authnplugin.TrustDomainsForValidation(push.Mesh)),
+			// CommonTlsContext: buildCommonTLSContext(authnplugin.TrustDomains(push.Mesh)),
 			// TODO plain TLS support
 			RequireClientCertificate: &wrappers.BoolValue{Value: true},
 		}
