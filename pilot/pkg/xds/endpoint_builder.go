@@ -416,7 +416,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 
 	supportsTunnel := false
 	// Other side is a waypoint proxy.
-	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshController {
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
 		supportsTunnel = true
 	}
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.

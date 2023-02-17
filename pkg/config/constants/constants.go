@@ -153,9 +153,10 @@ const (
 
 	WaypointServiceAccount = "istio.io/for-service-account"
 
-	ManagedGatewayLabel          = "gateway.istio.io/managed"
-	ManagedGatewayController     = "istio.io-gateway-controller"
-	ManagedGatewayMeshController = "istio.io-mesh-controller"
+	ManagedGatewayLabel               = "gateway.istio.io/managed"
+	ManagedGatewayController          = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
+	ManagedGatewayMeshController      = "istio.io/mesh-controller"
 
 	WaypointGatewayClassName = "istio-waypoint"
 	GatewayNameLabel         = "istio.io/gateway-name"
