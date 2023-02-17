@@ -57,8 +57,6 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
-
-	CaptureTLSFilterName = "capture_tls"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -186,37 +184,43 @@ var (
 		},
 	}
 
-	CaptureTLS = &listener.Filter{
-		Name: CaptureTLSFilterName,
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.CaptureTLS"),
-		},
-	}
-
-	RestoreTLS = &listener.Filter{
-		Name: "restore_tls",
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.RestoreTLS"),
-		},
-	}
-
-	Baggage = &hcm.HttpFilter{
-		Name: "istio.filters.http.baggage_handler",
+	ConnectBaggageFilter = &hcm.HttpFilter{
+		Name: "connect_baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.baggagehandler.v1.Config"),
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_baggage.Config"),
 		},
 	}
+
+	ConnectAuthorityFilter = &hcm.HttpFilter{
+		Name: "connect_authority",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_authority.Config"),
+		},
+	}
+
+	ConnectAuthorityNetworkFilter = &listener.Filter{
+		Name: "connect_authority",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_authority.Config"),
+		},
+	}
+
+	ConnectAuthorityEnabled = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
+		map[string]interface{}{
+			"enabled": true,
+			"port":    15008,
+		})
+
+	ConnectAuthorityEnabledSidecar = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
+		map[string]interface{}{
+			"enabled": true,
+		})
 
 	SetDstAddress = &listener.ListenerFilter{
 		Name: "set_dst_address",
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.set_internal_dst_address.v1.Config"),
 		},
-	}
-
-	MetadataToPeerNode = &listener.ListenerFilter{
-		Name:       "envoy.filters.listener.metadata_to_peer_node",
-		ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config")},
 	}
 )
 

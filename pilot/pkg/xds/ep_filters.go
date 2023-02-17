@@ -17,6 +17,7 @@ package xds
 import (
 	"math"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -129,7 +130,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				Locality: model.Locality{
 					ClusterID: gw.Cluster,
 				},
-				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", "", gw.Network),
+				Labels: labelutil.AugmentLabels(nil, nil, gw.Cluster, "", "", gw.Network),
 			}
 
 			// Generate the EDS endpoint for this gateway.
@@ -142,10 +143,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				LoadBalancingWeight: &wrappers.UInt32Value{
 					Value: epWeight,
 				},
+				Metadata: &core.Metadata{},
 			}
 			// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-			gwEp.Metadata = util.BuildLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
-				"", "", b.clusterID, labels.Instance{})
+			util.BuildLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
+				"", "", b.clusterID, labels.Instance{}, gwEp.Metadata)
 			// Currently gateway endpoint does not support tunnel.
 			lbEndpoints.append(gwIstioEp, gwEp)
 		}

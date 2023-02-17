@@ -630,7 +630,7 @@ func setTopologyLabels(proxy *model.Proxy) {
 
 	locality := util.LocalityToString(proxy.Locality)
 	// add topology labels to proxy labels
-	proxy.Labels = labelutil.AugmentLabels(proxy.Labels, proxy.Metadata.ClusterID, locality, proxy.GetNodeName(), proxy.Metadata.Network)
+	proxy.Labels = labelutil.AugmentLabels(proxy.Labels, nil, proxy.Metadata.ClusterID, locality, proxy.GetNodeName(), proxy.Metadata.Network)
 }
 
 // initializeProxy completes the initialization of a proxy. It is expected to be called only after

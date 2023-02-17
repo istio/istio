@@ -399,7 +399,7 @@ func translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    translateRouteMatch(node, virtualService, match),
+		Match:    TranslateRouteMatch(node, virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
@@ -409,16 +409,16 @@ func translateRoute(
 
 	authority := ""
 	if in.Headers != nil {
-		operations := translateHeadersOperations(in.Headers)
-		out.RequestHeadersToAdd = operations.requestHeadersToAdd
-		out.ResponseHeadersToAdd = operations.responseHeadersToAdd
-		out.RequestHeadersToRemove = operations.requestHeadersToRemove
-		out.ResponseHeadersToRemove = operations.responseHeadersToRemove
-		authority = operations.authority
+		operations := TranslateHeadersOperations(in.Headers)
+		out.RequestHeadersToAdd = operations.RequestHeadersToAdd
+		out.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+		out.RequestHeadersToRemove = operations.RequestHeadersToRemove
+		out.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+		authority = operations.Authority
 	}
 
 	if in.Redirect != nil {
-		applyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
+		ApplyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		applyDirectResponse(out, in.DirectResponse)
 	} else {
@@ -426,11 +426,11 @@ func translateRoute(
 	}
 
 	out.Decorator = &route.Decorator{
-		Operation: getRouteOperation(out, virtualService.Name, listenPort),
+		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
-		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(translateFault(in.Fault))
+		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
@@ -461,7 +461,7 @@ func applyHTTPRouteDestination(
 		policy = mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        translateCORSPolicy(in.CorsPolicy),
+		Cors:        TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
@@ -501,7 +501,7 @@ func applyHTTPRouteDestination(
 	}
 
 	if in.Mirror != nil {
-		if mp := mirrorPercent(in); mp != nil {
+		if mp := MirrorPercent(in); mp != nil {
 			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
 				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
 				RuntimeFraction: mp,
@@ -530,14 +530,14 @@ func applyHTTPRouteDestination(
 			Weight: weight,
 		}
 		if dst.Headers != nil {
-			operations := translateHeadersOperations(dst.Headers)
-			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
-			if operations.authority != "" {
+			operations := TranslateHeadersOperations(dst.Headers)
+			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+			if operations.Authority != "" {
 				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.authority,
+					HostRewriteLiteral: operations.Authority,
 				}
 			}
 		}
@@ -576,7 +576,7 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySemantics bool) {
+func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySemantics bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
@@ -680,8 +680,8 @@ func buildHTTP3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
 type SortHeaderValueOption []*core.HeaderValueOption
 
-// mirrorPercent computes the mirror percent to be used based on "Mirror" data in route.
-func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
+// MirrorPercent computes the mirror percent to be used based on "Mirror" data in route.
+func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 	switch {
 	case in.MirrorPercentage != nil:
 		if in.MirrorPercentage.GetValue() > 0 {
@@ -760,12 +760,12 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) ([]*core
 	return headerValueOptionList, authority
 }
 
-type headersOperations struct {
-	requestHeadersToAdd     []*core.HeaderValueOption
-	responseHeadersToAdd    []*core.HeaderValueOption
-	requestHeadersToRemove  []string
-	responseHeadersToRemove []string
-	authority               string
+type HeadersOperations struct {
+	RequestHeadersToAdd     []*core.HeaderValueOption
+	ResponseHeadersToAdd    []*core.HeaderValueOption
+	RequestHeadersToRemove  []string
+	ResponseHeadersToRemove []string
+	Authority               string
 }
 
 // isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy
@@ -789,8 +789,8 @@ func dropInternal(keys []string) []string {
 	return result
 }
 
-// translateHeadersOperations translates headers operations
-func translateHeadersOperations(headers *networking.Headers) headersOperations {
+// TranslateHeadersOperations translates headers operations
+func TranslateHeadersOperations(headers *networking.Headers) HeadersOperations {
 	req := headers.GetRequest()
 	resp := headers.GetResponse()
 
@@ -807,17 +807,17 @@ func translateHeadersOperations(headers *networking.Headers) headersOperations {
 		// If authority is set in 'add' and 'set', pick the one from 'set'
 		auth = setAuthority
 	}
-	return headersOperations{
-		requestHeadersToAdd:     requestHeadersToAdd,
-		responseHeadersToAdd:    responseHeadersToAdd,
-		requestHeadersToRemove:  dropInternal(req.GetRemove()),
-		responseHeadersToRemove: dropInternal(resp.GetRemove()),
-		authority:               auth,
+	return HeadersOperations{
+		RequestHeadersToAdd:     requestHeadersToAdd,
+		ResponseHeadersToAdd:    responseHeadersToAdd,
+		RequestHeadersToRemove:  dropInternal(req.GetRemove()),
+		ResponseHeadersToRemove: dropInternal(resp.GetRemove()),
+		Authority:               auth,
 	}
 }
 
-// translateRouteMatch translates match condition
-func translateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
+// TranslateRouteMatch translates match condition
+func TranslateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -987,8 +987,8 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	return out
 }
 
-// translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+// TranslateCORSPolicy translates CORS policy
+func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -1021,8 +1021,8 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	return &out
 }
 
-// getRouteOperation returns readable route description for trace.
-func getRouteOperation(in *route.Route, vsName string, port int) string {
+// GetRouteOperation returns readable route description for trace.
+func GetRouteOperation(in *route.Route, vsName string, port int) string {
 	path := "/*"
 	m := in.GetMatch()
 	ps := m.GetPathSpecifier()
@@ -1067,7 +1067,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
-		Match: translateRouteMatch(nil, config.Config{}, nil),
+		Match: TranslateRouteMatch(nil, config.Config{}, nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -1132,8 +1132,8 @@ func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 	}
 }
 
-// translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
-func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+// TranslateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
+func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	if in == nil {
 		return nil
 	}

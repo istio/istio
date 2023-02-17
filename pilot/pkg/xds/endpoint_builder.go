@@ -16,8 +16,10 @@ package xds
 
 import (
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -32,10 +34,12 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/hash"
 )
 
@@ -54,6 +58,7 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
+	nodeType               model.NodeType
 	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
@@ -62,12 +67,17 @@ type EndpointBuilder struct {
 	port       int
 	push       *model.PushContext
 	proxy      *model.Proxy
+	dir        model.TrafficDirection
 
 	mtlsChecker *mtlsChecker
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
-	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	if dir == model.TrafficDirectionInboundVIP {
+		subsetName = strings.TrimPrefix(subsetName, "http/")
+		subsetName = strings.TrimPrefix(subsetName, "tcp/")
+	}
 	svc := push.ServiceForHostname(proxy, hostname)
 
 	var dr *model.ConsolidatedDestRule
@@ -83,12 +93,14 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
+		nodeType:        proxy.Type,
 
 		push:       push,
 		proxy:      proxy,
 		subsetName: subsetName,
 		hostname:   hostname,
 		port:       port,
+		dir:        dir,
 	}
 
 	b.populateFailoverPriorityLabels()
@@ -119,9 +131,11 @@ func (b EndpointBuilder) Key() string {
 	h.Write(Separator)
 	h.Write([]byte(b.clusterID))
 	h.Write(Separator)
+	h.Write([]byte(b.nodeType))
+	h.Write(Separator)
 	h.Write([]byte(strconv.FormatBool(b.clusterLocal)))
 	h.Write(Separator)
-	if features.EnableHBONE {
+	if features.EnableHBONE && b.proxy != nil {
 		h.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
 		h.Write(Separator)
 	}
@@ -303,7 +317,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			// client proxy supports HBONE or not. This breaks the cache.
 			// For now, just disable caching if the global HBONE flag is enabled.
 			if ep.EnvoyEndpoint == nil || features.EnableHBONE {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(b.proxy.IsProxylessGrpc(), ep)
+				eep := buildEnvoyLbEndpoint(b, ep)
+				if eep == nil {
+					continue
+				}
+				ep.EnvoyEndpoint = eep
 			}
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
@@ -364,7 +382,7 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := core.HealthStatus_HEALTHY
 	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
@@ -388,33 +406,74 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 				Address: addr,
 			},
 		},
+		Metadata: &core.Metadata{},
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove pilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
+	util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
+	// Other side is a waypoint proxy.
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
+		supportsTunnel = true
+	}
+	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
+	if al := e.Labels[constants.AmbientRedirection]; al == constants.AmbientRedirectionEnabled {
+		supportsTunnel = true
+	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
 	// need to pick the right one based on our support overlap.
 	if e.SupportsTunnel(model.TunnelHTTP) {
 		supportsTunnel = true
 	}
-	if proxyless {
+	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
 		supportsTunnel = false
 	}
-	if !features.EnableHBONE {
+
+	if !b.proxy.EnableHBONE() {
 		supportsTunnel = false
 	}
 
-	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
-	if supportsTunnel {
+	// Setup tunnel information, if needed
+	if b.dir == model.TrafficDirectionInboundVIP {
+		// This is only used in waypoint proxy
+		inScope := waypointInScope(b.proxy, e)
+		if !inScope {
+			// A waypoint can *partially* select a Service in edge cases. In this case, some % of requests will
+			// go through the waypoint, and the rest direct. Since these have already been load balanced across,
+			// we want to make sure we only send to workloads behind our waypoint
+			return nil
+		}
+		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
+		if supportsTunnel {
+			address := e.Address
+			tunnelPort := 15008
+			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
+			// and add some detunnel metadata that had the original port.
+			tunnelOrigLis := "connect_originate"
+			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
+			ep = util.BuildInternalLbEndpoint(tunnelOrigLis, ep.Metadata)
+			ep.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: e.GetLoadBalancingWeight(),
+			}
+		}
+	} else if supportsTunnel {
+		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
+		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+			workloads := findWaypoints(b.push, e)
+			if len(workloads) > 0 {
+				// TODO: load balance
+				tunnelAddress = workloads[0].String()
+			}
+		}
+		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(util.OutboundTunnel, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
@@ -427,6 +486,28 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 	}
 
 	return ep
+}
+
+// waypointInScope computes whether the endpoint is owned by the waypoint
+func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
+	scope := waypoint.WaypointScope()
+	if scope.Namespace != e.Namespace {
+		return false
+	}
+	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
+	if scope.ServiceAccount != "" && (scope.ServiceAccount != ident.ServiceAccount) {
+		return false
+	}
+	return true
+}
+
+func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
+	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
+	ips := push.WaypointsFor(model.WaypointScope{
+		Namespace:      e.Namespace,
+		ServiceAccount: ident.ServiceAccount,
+	}).UnsortedList()
+	return ips
 }
 
 // TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvements

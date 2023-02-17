@@ -60,7 +60,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	efw := req.Push.EnvoyFilters(node)
 	hit, miss := 0, 0
 	switch node.Type {
-	case model.SidecarProxy:
+	case model.SidecarProxy, model.Waypoint:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
 		envoyfilterKeys := efw.KeysApplyingTo(
