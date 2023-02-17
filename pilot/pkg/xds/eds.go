@@ -436,10 +436,10 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 
 func canUseEdsCache(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) == 0 {
-		return true
+		return false
 	}
 	for cfg := range req.ConfigsUpdated {
-		if cfg.Kind != kind.PeerAuthentication {
+		if cfg.Kind == kind.PeerAuthentication {
 			return false
 		}
 	}
