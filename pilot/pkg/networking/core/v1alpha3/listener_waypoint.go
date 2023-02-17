@@ -176,7 +176,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 					})},
 				},
 				Filters: []*listener.Filter{
-					xdsfilters.IstioNetworkAuthenticationFilter,
+					xdsfilters.IstioNetworkAuthenticationFilterShared,
 					{
 						Name:       wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
