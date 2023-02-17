@@ -120,27 +120,31 @@ type ClusterBuilder struct {
 	req                   *model.PushRequest
 	cache                 model.XdsCache
 	credentialSocketExist bool
+
+	// TODO: this is not safe since its not in cache
+	unsafeWaypointOnlyProxy *model.Proxy
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceInstances:   proxy.ServiceInstances,
-		proxyID:            proxy.ID,
-		proxyType:          proxy.Type,
-		proxyVersion:       proxy.Metadata.IstioVersion,
-		sidecarScope:       proxy.SidecarScope,
-		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
-		supportsIPv4:       proxy.SupportsIPv4(),
-		supportsIPv6:       proxy.SupportsIPv6(),
-		hbone:              proxy.EnableHBONE(),
-		locality:           proxy.Locality,
-		proxyLabels:        proxy.Labels,
-		proxyView:          proxy.GetView(),
-		proxyIPAddresses:   proxy.IPAddresses,
-		configNamespace:    proxy.ConfigNamespace,
-		req:                req,
-		cache:              cache,
+		serviceInstances:        proxy.ServiceInstances,
+		proxyID:                 proxy.ID,
+		proxyType:               proxy.Type,
+		proxyVersion:            proxy.Metadata.IstioVersion,
+		sidecarScope:            proxy.SidecarScope,
+		passThroughBindIPs:      getPassthroughBindIPs(proxy.GetIPMode()),
+		supportsIPv4:            proxy.SupportsIPv4(),
+		supportsIPv6:            proxy.SupportsIPv6(),
+		hbone:                   proxy.EnableHBONE() || proxy.IsWaypointProxy(),
+		locality:                proxy.Locality,
+		proxyLabels:             proxy.Labels,
+		proxyView:               proxy.GetView(),
+		proxyIPAddresses:        proxy.IPAddresses,
+		configNamespace:         proxy.ConfigNamespace,
+		req:                     req,
+		cache:                   cache,
+		unsafeWaypointOnlyProxy: proxy,
 	}
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
@@ -558,6 +562,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: instance.Endpoint.GetLoadBalancingWeight(),
 			},
+			Metadata: &core.Metadata{},
 		}
 
 		labels := instance.Endpoint.Labels
@@ -576,8 +581,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			}
 		}
 
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
-			ns, instance.Endpoint.Locality.ClusterID, labels)
+		util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			ns, instance.Endpoint.Locality.ClusterID, labels, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
@@ -1007,7 +1012,24 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 				defaultTransportSocketMatch(),
 			}
 		} else {
-			c.TransportSocketMatches = HboneOrPlaintextSocket
+			if c.TransportSocket == nil {
+				c.TransportSocketMatches = HboneOrPlaintextSocket
+			} else {
+				ts := c.TransportSocket
+				c.TransportSocket = nil
+
+				c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					{
+						Name:            "hbone",
+						Match:           hboneTransportSocketMatch,
+						TransportSocket: InternalUpstreamSocket,
+					},
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						TransportSocket: ts,
+					},
+				}
+			}
 		}
 	}
 }

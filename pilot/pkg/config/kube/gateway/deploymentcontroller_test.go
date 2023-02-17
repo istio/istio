@@ -40,6 +40,8 @@ import (
 
 func TestConfigureIstioGateway(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	// Recompute with ambient enabled
+	classInfos = getClassInfos()
 	tests := []struct {
 		name string
 		gw   v1beta1.Gateway

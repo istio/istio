@@ -173,16 +173,24 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
-
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
-		if proxy.EnableHBONE() {
-			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, instances)...)
-		}
+	case model.Waypoint:
+		_, svcs := FindAssociatedResources(proxy, req.Push)
+		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
+		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
+		cacheStats = cacheStats.merge(cs)
+		resources = append(resources, ob...)
+		// Setup inbound clusters
+		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, svcs)...)
+		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
@@ -205,7 +213,6 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
-
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
@@ -215,6 +222,39 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		return resources, model.DefaultXdsLogDetails
 	}
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
+}
+
+// filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.
+// Waypoints typically only have inbound clusters, except in cases where we have a route from
+// a service owned by the waypoint to a service not owned by the waypoint.
+// It looks at:
+// * referencedServices: all services referenced by mesh virtual services
+// * waypointServices: all services owned by this waypoint
+// * all services
+// We want to find any VirtualServices that are from a waypointServices to a non-waypointService
+func filterWaypointOutboundServices(
+	referencedServices map[string]sets.String,
+	waypointServices map[host.Name]*model.Service,
+	services []*model.Service,
+) []*model.Service {
+	outboundServices := sets.New[string]()
+	for waypointService := range waypointServices {
+		refs := referencedServices[waypointService.String()]
+		for ref := range refs {
+			// We reference this service. Is it "inbound" for the waypoint or "outbound"?
+			ws, f := waypointServices[host.Name(ref)]
+			if !f || ws.MeshExternal {
+				outboundServices.Insert(ref)
+			}
+		}
+	}
+	res := make([]*model.Service, 0, len(outboundServices))
+	for _, s := range services {
+		if outboundServices.Contains(s.Hostname.String()) {
+			res = append(res, s)
+		}
+	}
+	return res
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
@@ -996,19 +1036,6 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 		}
 	}
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
-}
-
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, instances []*model.ServiceInstance) []*cluster.Cluster {
-	clusters := make([]*cluster.Cluster, 0)
-	names := sets.New[string]()
-	for _, i := range instances {
-		p := i.Endpoint.EndpointPort
-		name := "inbound-hbone" + "|" + strconv.Itoa(int(p))
-		if !names.InsertContains(name) {
-			clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
-		}
-	}
-	return clusters
 }
 
 func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
