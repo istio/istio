@@ -434,6 +434,18 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 	return true
 }
 
+func canUseEdsCache(req *model.PushRequest) bool {
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for cfg := range req.ConfigsUpdated {
+		if cfg.Kind != kind.PeerAuthentication {
+			return false
+		}
+	}
+	return true
+}
+
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
@@ -452,6 +464,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	empty := 0
 	cached := 0
 	regenerated := 0
+	useCache := canUseEdsCache(req)
 	for _, clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
@@ -462,11 +475,16 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
+		if useCache {
+			if marshalledEndpoint, f := eds.Server.Cache.Get(&builder); f && !features.EnableUnsafeAssertions {
+				// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+				resources = append(resources, marshalledEndpoint)
+				cached++
+				continue
+			}
+		}
+		// generate eds from beginning
+		{
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
@@ -481,7 +499,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, model.XdsLogDetails{
@@ -515,7 +533,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			removed = append(removed, clusterName)
 			continue
 		}
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+		if marshalledEndpoint, f := eds.Server.Cache.Get(&builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
@@ -534,7 +552,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, removed, model.XdsLogDetails{
