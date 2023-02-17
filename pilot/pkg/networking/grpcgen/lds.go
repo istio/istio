@@ -292,7 +292,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				filters := supportedFilters
 				if sessionFilter := util.BuildStatefulSessionFilter(sv); sessionFilter != nil {
-					filters = append(filters, sessionFilter)
+					filters = append([]*hcm.HttpFilter{sessionFilter}, filters...)
 				}
 				ll := &listener.Listener{
 					Name: net.JoinHostPort(matchedHost, sPort),
