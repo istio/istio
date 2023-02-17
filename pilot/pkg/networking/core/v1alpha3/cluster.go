@@ -184,7 +184,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, svcs := FindAssociatedResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterServices(req.Push.ServicesAttachedToMesh(), svcs, services))
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
@@ -224,12 +224,15 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-// filterServices looks at:
+// filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.
+// Waypoints typically only have inbound clusters, except in cases where we have a route from
+// a service owned by the waypoint to a service not owned by the waypoint.
+// It looks at:
 // * referencedServices: all services referenced by mesh virtual services
-// * waypointServices: all services referenced by this waypoint
+// * waypointServices: all services owned by this waypoint
 // * all services
 // We want to find any VirtualServices that are from a waypointServices to a non-waypointService
-func filterServices(referencedServices map[string]sets.String, waypointServices map[host.Name]*model.Service, services []*model.Service) []*model.Service {
+func filterWaypointOutboundServices(referencedServices map[string]sets.String, waypointServices map[host.Name]*model.Service, services []*model.Service) []*model.Service {
 	outboundServices := sets.New[string]()
 	for waypointService := range waypointServices {
 		refs := referencedServices[waypointService.String()]
