@@ -201,12 +201,6 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
 	return configs
 }
 
-var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
-
-func (b EndpointBuilder) DependentTypes() []kind.Kind {
-	return edsDependentTypes
-}
-
 type LocalityEndpoints struct {
 	istioEndpoints []*model.IstioEndpoint
 	// The protobuf message which contains LbEndpoint slice.

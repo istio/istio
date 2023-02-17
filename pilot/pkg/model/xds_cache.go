@@ -26,7 +26,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
@@ -77,10 +76,6 @@ func size(cs int) {
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
-	// DependentTypes are config types that this cache key is dependant on.
-	// Whenever any configs of this type changes, we should invalidate this cache entry.
-	// Note: DependentConfigs should be preferred wherever possible.
-	DependentTypes() []kind.Kind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []ConfigHash
@@ -117,7 +112,6 @@ func NewXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      map[ConfigHash]sets.String{},
-		typesIndex:       map[kind.Kind]sets.String{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -129,7 +123,6 @@ func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
 		configIndex:      map[ConfigHash]sets.String{},
-		typesIndex:       map[kind.Kind]sets.String{},
 	}
 	cache.store = newLru(cache.onEvict)
 
@@ -144,7 +137,6 @@ type lruCache struct {
 	token       CacheToken
 	mu          sync.RWMutex
 	configIndex map[ConfigHash]sets.String
-	typesIndex  map[kind.Kind]sets.String
 
 	// mark whether a key is evicted on Clear call, passively.
 	evictedOnClear bool
@@ -204,21 +196,8 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	l.recordDependentConfigSize()
 }
 
-func (l *lruCache) updateTypesIndex(k string, dependentTypes []kind.Kind) {
-	for _, t := range dependentTypes {
-		sets.InsertOrNew(l.typesIndex, t, k)
-	}
-}
-
-func (l *lruCache) clearTypesIndex(k string, dependentTypes []kind.Kind) {
-	for _, t := range dependentTypes {
-		sets.DeleteCleanupLast(l.typesIndex, t, k)
-	}
-}
-
 func (l *lruCache) clearIndexes(key string, value cacheValue) {
 	l.clearConfigIndex(key, value.dependentConfigs)
-	l.clearTypesIndex(key, value.dependentTypes)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
@@ -280,12 +259,10 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	}
 
 	dependentConfigs := entry.DependentConfigs()
-	dependentTypes := entry.DependentTypes()
-	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs, dependentTypes: dependentTypes}
+	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs}
 	l.store.Add(k, toWrite)
 	l.token = token
 	l.updateConfigIndex(k, dependentConfigs)
-	l.updateTypesIndex(k, dependentTypes)
 	size(l.store.Len())
 }
 
@@ -293,7 +270,6 @@ type cacheValue struct {
 	value            *discovery.Resource
 	token            CacheToken
 	dependentConfigs []ConfigHash
-	dependentTypes   []kind.Kind
 }
 
 func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
@@ -330,11 +306,6 @@ func (l *lruCache) Clear(configs sets.Set[ConfigKey]) {
 		for key := range referenced {
 			l.store.Remove(key)
 		}
-		tReferenced := l.typesIndex[ckey.Kind]
-		delete(l.typesIndex, ckey.Kind)
-		for key := range tReferenced {
-			l.store.Remove(key)
-		}
 	}
 	size(l.store.Len())
 }
@@ -348,7 +319,6 @@ func (l *lruCache) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.String{}
-	l.typesIndex = map[kind.Kind]sets.String{}
 	size(l.store.Len())
 }
 

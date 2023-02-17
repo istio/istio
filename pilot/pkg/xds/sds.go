@@ -55,11 +55,6 @@ func (sr SecretResource) Key() string {
 	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
-// DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []kind.Kind {
-	return nil
-}
-
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
