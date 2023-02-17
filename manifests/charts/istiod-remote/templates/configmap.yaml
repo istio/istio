@@ -9,6 +9,22 @@
     # is processed as if it were declared in the leaf namespace.
     rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
 
+  {{ $prom := include "prometheus" . }}
+  {{ $sdMetrics := include "sd-metrics" . }}
+  {{ $sdLogs := include "sd-logs" . }}
+  {{- if or $prom $sdMetrics $sdLogs }}
+    defaultProviders:
+    {{- if or $prom $sdMetrics }}
+      metrics:
+      {{ if $prom }}- prometheus{{ end }}
+      {{ if $sdMetrics }}- stackdriver{{ end }}
+    {{- end }}
+    {{- if $sdLogs }}
+      accessLogging:
+      - stackdriver
+    {{- end }}
+  {{- end }}
+
     defaultConfig:
       {{- if .Values.global.meshID }}
       meshId: "{{ .Values.global.meshID }}"
