@@ -345,13 +345,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 
 type typedConfigGenFromClusterFn func(serviceName, hostname, clusterName string) (*anypb.Any, error)
 
-func zipkinConfigGen(hostname, cluster string, enableTraceId128Bit bool) (*anypb.Any, error) {
+func zipkinConfigGen(hostname, cluster string, enable128BitTraceID bool) (*anypb.Any, error) {
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
 		CollectorHostname:        hostname,                          // http host header
-		TraceId_128Bit:           enableTraceId128Bit,               // istio default enable 128 bit trace id
+		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 	return protoconv.MessageToAnyWithError(zc)

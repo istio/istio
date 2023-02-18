@@ -99,7 +99,7 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:            "zipkin enable 64bit trace id",
-			inSpec:          fakeTracingSpec(fakeZipkinEnable64bitTraceId(), 99.999, false, true),
+			inSpec:          fakeTracingSpec(fakeZipkinEnable64bitTraceID(), 99.999, false, true),
 			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
 			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, false), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
@@ -318,7 +318,7 @@ func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
-func fakeZipkinEnable64bitTraceId() *meshconfig.MeshConfig_ExtensionProvider {
+func fakeZipkinEnable64bitTraceID() *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "foo",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
@@ -584,13 +584,13 @@ var fakeEnvTag = &tracing.CustomTag{
 	},
 }
 
-func fakeZipkinProvider(expectClusterName, expectAuthority string, enableTraceId bool) *tracingcfg.Tracing_Http {
+func fakeZipkinProvider(expectClusterName, expectAuthority string, enableTraceID bool) *tracingcfg.Tracing_Http {
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
 		CollectorEndpoint:        "/api/v2/spans",
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
 		CollectorHostname:        expectAuthority,
-		TraceId_128Bit:           enableTraceId,
+		TraceId_128Bit:           enableTraceID,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 	fakeZipkinAny := protoconv.MessageToAny(fakeZipkinProviderConfig)
