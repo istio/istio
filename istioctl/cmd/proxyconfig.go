@@ -1412,26 +1412,27 @@ func getPodNames(podflag string) ([]string, string, error) {
 }
 
 func getPodName(podflag string) (string, string, error) {
-	return getPodNameWithDefaultNamespace(podflag, defaultNamespace)
+	return getPodNameWithNamespace(podflag, defaultNamespace)
 }
 
-func getPodNameWithDefaultNamespace(podflag, defaultNamespace string) (string, string, error) {
+func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	var podName, ns string
-	podName, ns, err = handlers.InferPodInfoFromTypedResource(podflag,
-		handlers.HandleNamespace(namespace, defaultNamespace),
+	var podName, podNamespace string
+	podName, podNamespace, err = handlers.InferPodInfoFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, ns),
 		kubeClient.UtilFactory())
 	if err != nil {
 		return "", "", err
 	}
-	return podName, ns, nil
+	return podName, podNamespace, nil
 }
 
+// getComponentPodName returns the pod name and namespace of the Istio component
 func getComponentPodName(podflag string) (string, string, error) {
-	return getPodNameWithDefaultNamespace(podflag, istioNamespace)
+	return getPodNameWithNamespace(podflag, istioNamespace)
 }
 
 func getPodNameBySelector(labelSelector string) ([]string, string, error) {
