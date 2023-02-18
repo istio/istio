@@ -193,7 +193,8 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	// Set TLS parameters if they are non-default
 	var ecdhCurves []string
-	if mesh != nil && mesh.MeshExternal_TLS != nil {
+	if mesh != nil && mesh.MeshExternal_TLS != nil &&
+		(serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL || serverTLSSettings.Mode == networking.ServerTLSSettings_SIMPLE) {
 		ecdhCurves = mesh.MeshExternal_TLS.EcdhCurves
 	}
 	if len(serverTLSSettings.CipherSuites) > 0 || len(ecdhCurves) > 0 ||
