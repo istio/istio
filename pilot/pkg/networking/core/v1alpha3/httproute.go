@@ -412,7 +412,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			if features.SidecarIgnorePort {
+			if features.SidecarIgnorePort && !node.IsProxylessGrpc() {
 				domains = []string{util.IPv6Compliant(hostname)}
 			} else {
 				domains = []string{util.IPv6Compliant(hostname), name}

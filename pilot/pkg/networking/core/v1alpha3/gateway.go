@@ -506,7 +506,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		Name:                     routeName,
 		VirtualHosts:             virtualHosts,
 		ValidateClusters:         proto.BoolFalse,
-		IgnorePortInHostMatching: true,
+		IgnorePortInHostMatching: !node.IsProxylessGrpc(),
 	}
 
 	return routeCfg
@@ -1051,7 +1051,7 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 
 func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" {
+	if features.StripHostPort || hostname == "*" || !node.IsProxylessGrpc() {
 		return domains
 	}
 
