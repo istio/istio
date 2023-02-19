@@ -17,6 +17,7 @@ package file
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -125,7 +126,7 @@ func ReadTarFile(filePath string) (string, error) {
 	tr := tar.NewReader(bytes.NewBuffer(b))
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break // End of archive
 		}
 		if err != nil {

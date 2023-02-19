@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -123,7 +124,7 @@ func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
 
 	var err error
 	defer func() {
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			_ = forceClose(conn)
 		} else {
 			_ = conn.Close()
@@ -155,7 +156,7 @@ func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
 			firstReply = false
 		}
 
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			epLog.WithLabels("id", id).Warnf("TCP read failed: %v", err)
 			break
 		}
@@ -170,7 +171,7 @@ func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
 		}
 
 		// Read can return n > 0 with EOF, do this last.
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 	}

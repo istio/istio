@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -71,7 +72,7 @@ func handleConnection(conn net.Conn, prefix string) {
 		// read client request data
 		bytes, err := reader.ReadBytes(byte('\n'))
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				fmt.Println("failed to read data, err:", err)
 			}
 			return

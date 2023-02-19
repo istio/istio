@@ -17,6 +17,7 @@ package kubeyaml
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"unicode"
@@ -98,7 +99,7 @@ func (r *YAMLReader) Read() ([]byte, int, error) {
 	for {
 		r.currLine++
 		line, err := r.reader.Read()
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return nil, startLine, err
 		}
 
@@ -117,12 +118,12 @@ func (r *YAMLReader) Read() ([]byte, int, error) {
 				if buffer.Len() != 0 {
 					return buffer.Bytes(), startLine, nil
 				}
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return nil, startLine, err
 				}
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			if buffer.Len() != 0 {
 				// If we're at EOF, we have a final, non-terminated line. Return it.
 				return buffer.Bytes(), startLine, nil

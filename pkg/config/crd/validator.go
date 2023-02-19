@@ -15,6 +15,7 @@
 package crd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -101,7 +102,7 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 		for {
 			un := &unstructured.Unstructured{}
 			err = yamlDecoder.Decode(&un)
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

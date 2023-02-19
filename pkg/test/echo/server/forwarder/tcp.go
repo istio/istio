@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -115,13 +116,13 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 	buf := make([]byte, 1024+len(message))
 	for {
 		n, err := conn.Read(buf)
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			fwLog.Warnf("TCP read failed (already read %d bytes): %v", len(resBuffer.String()), err)
 			return msgBuilder.String(), err
 		}
 		resBuffer.Write(buf[:n])
 		// the message is sent last - when we get the whole message we can stop reading
-		if err == io.EOF || strings.Contains(resBuffer.String(), message) {
+		if errors.Is(err, io.EOF) || strings.Contains(resBuffer.String(), message) {
 			break
 		}
 	}

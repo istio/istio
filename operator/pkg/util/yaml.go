@@ -17,6 +17,7 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -224,7 +225,7 @@ func yamlStringsToList(str string) []string {
 	res := make([]string, 0)
 	for {
 		doc, err := decoder.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

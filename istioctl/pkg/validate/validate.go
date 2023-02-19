@@ -242,7 +242,7 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 		// YAML allows non-string keys and the produces generic keys for nested fields
 		raw := make(map[any]any)
 		err := decoder.Decode(&raw)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return warnings, errs
 		}
 		if err != nil {

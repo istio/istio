@@ -17,6 +17,7 @@ package forwarder
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -82,7 +83,7 @@ func (c *udpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 	var resBuffer bytes.Buffer
 	buf := make([]byte, 1024+len(message))
 	n, err := conn.Read(buf)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		fwLog.Warnf("UDP read failed (already read %d bytes): %v", len(resBuffer.String()), err)
 		return msgBuilder.String(), err
 	}
