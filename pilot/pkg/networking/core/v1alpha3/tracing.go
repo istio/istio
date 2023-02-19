@@ -264,17 +264,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
-				// prior to Istio 1.14, token path was absolute. this was changed
-				// in Istio 1.14 to the relative path used here. to prevent issues
-				// with OpenCensus configuration across version upgrades, we must
-				// preserve behavior for older version even in the face of control
-				// plane upgrades.
 				tokenPath := constants.TrustworthyJWTPath
-				if !util.IsIstioVersionGE114(model.ParseIstioVersion(meta.IstioVersion)) {
-					// use legacy path
-					tokenPath = "/var/run/secrets/tokens/istio-token"
-				}
-
 				sd.StackdriverGrpcService = &core.GrpcService{
 					InitialMetadata: []*core.HeaderValue{
 						{

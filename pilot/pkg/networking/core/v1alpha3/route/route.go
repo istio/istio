@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -856,21 +855,7 @@ func TranslateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTT
 		case *networking.StringMatch_Prefix:
 			if (model.UseIngressSemantics(vs) || model.UseGatewaySemantics(vs)) && m.Prefix != "/" {
 				path := strings.TrimSuffix(m.Prefix, "/")
-				if util.IsIstioVersionGE114(node.IstioVersion) {
-					out.PathSpecifier = &route.RouteMatch_PathSeparatedPrefix{PathSeparatedPrefix: path}
-				} else {
-					// For older versions, we have to use the regex hack.
-					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
-					// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar/baz. We cannot simply strip the
-					// trailing "/" and do a prefix match since we'll match unwanted continuations and we cannot add
-					// a "/" if not present since we won't match the prefix without trailing "/". Must be smarter and
-					// use regex.
-					out.PathSpecifier = &route.RouteMatch_SafeRegex{
-						SafeRegex: &matcher.RegexMatcher{
-							Regex: regexp.QuoteMeta(path) + prefixMatchRegex,
-						},
-					}
-				}
+				out.PathSpecifier = &route.RouteMatch_PathSeparatedPrefix{PathSeparatedPrefix: path}
 			} else {
 				out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 			}
