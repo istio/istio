@@ -6,5 +6,3 @@ issue:
 releaseNotes:
   - |
     **Fixed** overwriting `istio.io/rev` in injected gateways what causes spinning pods indefinitely.
-  - |
-    **Added** back label `istio.io/rev` to sidecars.
