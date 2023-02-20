@@ -202,7 +202,7 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 		SanType: tls.SubjectAltNameMatcher_URI,
 		Matcher: m,
 	})
-	aliases := authn.TrustDomainsForValidation(push.Mesh)
+	aliases := authn.TrustDomains(push.Mesh)
 	if len(aliases) > 0 {
 		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
 		for _, matcher := range matchers {

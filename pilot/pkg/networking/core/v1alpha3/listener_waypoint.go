@@ -692,7 +692,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 // TODO remove dupe with ztunnelgen
 func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomains(push.Mesh), true)
 	ctx.AlpnProtocols = []string{"h2"}
 	ctx.TlsParams = &tls.TlsParameters{
 		// Ensure TLS 1.3 is used everywhere
