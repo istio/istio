@@ -90,7 +90,9 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		} else if HostIP != h {
 			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
 			HostIP = h
-			s.ebpfServer.UpdateHostIP([]string{HostIP})
+			if err := s.ebpfServer.UpdateHostIP([]string{HostIP}); err != nil {
+				log.Errorf("failed to update host IP: %v", err)
+			}
 		}
 	}
 
@@ -213,7 +215,9 @@ func (s *Server) ReconcileZtunnel() error {
 		} else if HostIP != h {
 			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
 			HostIP = h
-			s.ebpfServer.UpdateHostIP([]string{HostIP})
+			if err := s.ebpfServer.UpdateHostIP([]string{HostIP}); err != nil {
+				log.Errorf("failed to update host IP: %v", err)
+			}
 		}
 
 		if veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP); err != nil {

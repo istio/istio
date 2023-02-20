@@ -272,7 +272,11 @@ func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get cur nshandler: %v", err)
 	}
-	defer curNs.Close()
+	defer func() {
+		if err := curNs.Close(); err != nil {
+			log.Errorf("close ns handler failure: %v", err)
+		}
+	}()
 
 	ns = filepath.Base(ns)
 	nsHdlr, err := netns.GetFromName(ns)
@@ -285,7 +289,11 @@ func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to switch to net ns(%s): %v", ns, err)
 	}
-	defer netns.Set(curNs)
+	defer func() {
+		if err := netns.Set(curNs); err != nil {
+			log.Errorf("set back ns failure: %v", err)
+		}
+	}()
 
 	link, err := netlink.LinkByName(podIfName)
 	if err != nil {
@@ -306,8 +314,6 @@ func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
 }
 
 func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
-	// runtime.LockOSThread()
-	// defer runtime.UnlockOSThread()
 	nsHdlr, err := netns.GetFromName(ns)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
@@ -401,7 +407,12 @@ func GetHostIPByRoute(kubeClient kubernetes.Interface) (string, error) {
 	// We assume per node POD's CIDR is the same block, so the route to the POD
 	// from host should be "same". Otherwise, there may multiple host IPs will be
 	// used as source to dial to PODs.
-	pods, err := kubeClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel", FieldSelector: "spec.nodeName=" + NodeName})
+	pods, err := kubeClient.CoreV1().Pods(metav1.NamespaceAll).List(
+		context.TODO(),
+		metav1.ListOptions{
+			LabelSelector: "app=ztunnel",
+			FieldSelector: "spec.nodeName=" + NodeName,
+		})
 	if err != nil {
 		return "", fmt.Errorf("error getting ztunnel node: %v", err)
 	}

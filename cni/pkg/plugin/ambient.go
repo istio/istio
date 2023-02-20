@@ -20,12 +20,12 @@ import (
 	"net"
 	"net/netip"
 
-	ebpf "istio.io/istio/cni/pkg/ebpf/server"
-	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
+	ebpf "istio.io/istio/cni/pkg/ebpf/server"
+	"istio.io/pkg/log"
 )
 
 func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {

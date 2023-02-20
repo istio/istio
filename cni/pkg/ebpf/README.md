@@ -18,9 +18,7 @@ Here is the rpf related change in calico:
 
 [calico/pull/5742](https://github.com/projectcalico/calico/pull/5742)
 
-
 Steps to allow ztunnel "spoofing" the source ip:
-
 1. For calico side, refer to [felix/configuration](https://docs.tigera.io/calico/3.25/reference/felix/configuration)
    1. For deployed by operator,  `kubectl patch felixconfigurations default --type='json' -p='[{"op": "add", "path": "/spec/workloadSourceSpoofing", "value": "Any"}]'`
    2. For deployed by manifest, add env `FELIX_WORKLOADSOURCESPOOFING` with value `Any` in `spec.template.spec.containers.env` for daemonset `calico-node`. (This will allow PODs with specified annotation to skip the rpf check. )
@@ -33,4 +31,3 @@ Steps to allow ztunnel "spoofing" the source ip:
 * You can confirm if the above configuration is taking effect by checking if there is any related ***ACCEPT*** rule using the command `iptables -t raw -vL cali-rpf-skip`.
 
 * Moreover, may confirm that `/proc/sys/net/ipv4/conf/all/rp_filter` and `/proc/sys/net/ipv4/conf/<intf>/rp_filter` are all disabled(set to 0).
-

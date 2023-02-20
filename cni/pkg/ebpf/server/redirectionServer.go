@@ -15,6 +15,21 @@
 package server
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpf -cflags "-D__TARGET_ARCH_x86"  ambient_redirect ../app/ambient_redirect.bpf.c
+//go:generate sh -c "echo '// Copyright Istio Authors' > banner.tmp"
+//go:generate sh -c "echo '//' >> banner.tmp"
+//go:generate sh -c "echo '// Licensed under the Apache License, Version 2.0 (the \"License\");' >> banner.tmp"
+//go:generate sh -c "echo '// you may not use this file except in compliance with the License.' >> banner.tmp"
+//go:generate sh -c "echo '// You may obtain a copy of the License at' >> banner.tmp"
+//go:generate sh -c "echo '//' >> banner.tmp"
+//go:generate sh -c "echo '//     http://www.apache.org/licenses/LICENSE-2.0' >> banner.tmp"
+//go:generate sh -c "echo '//' >> banner.tmp"
+//go:generate sh -c "echo '// Unless required by applicable law or agreed to in writing, software' >> banner.tmp"
+//go:generate sh -c "echo '// distributed under the License is distributed on an \"AS IS\" BASIS,' >> banner.tmp"
+//go:generate sh -c "echo '// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.' >> banner.tmp"
+//go:generate sh -c "echo '// See the License for the specific language governing permissions and' >> banner.tmp"
+//go:generate sh -c "echo '// limitations under the License.\n' >> banner.tmp"
+//go:generate sh -c "cat banner.tmp ambient_redirect_bpf.go > tmp.go && mv tmp.go ambient_redirect_bpf.go && rm banner.tmp"
+
 import (
 	"errors"
 	"fmt"
@@ -22,9 +37,8 @@ import (
 	"net/netip"
 	"os"
 
-	"github.com/florianl/go-tc"
-
 	"github.com/cilium/ebpf"
+	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/hashicorp/go-multierror"
 	"github.com/josharian/native"
@@ -283,7 +297,7 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 	if ztunnel {
 		if remove {
 			if ifindex != 0 && namespace != "" {
-				if err := r.detachTCForZtunnel(ifindex, uint32(peerIndex), namespace); err != nil {
+				if err := r.detachTCForZtunnel(ifindex, peerIndex, namespace); err != nil {
 					multiErr = multierror.Append(multiErr, err)
 				}
 			} else {
@@ -538,6 +552,7 @@ func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error 
 	return err
 }
 
+//nolint:unused
 func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	var info mapInfo
 	if err := r.obj.ZtunnelInfo.Lookup(uint32(0), &info); err != nil {
@@ -546,6 +561,7 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
+//nolint:unused
 func (r *RedirectServer) dumpAppInfo() ([]uint32, []mapInfo) {
 	var keyOut uint32
 	var valueOut mapInfo
@@ -567,6 +583,7 @@ func htons(a uint16) uint16 {
 	return (a&0xff)<<8 | (a&0xff00)>>8
 }
 
+//nolint:unused
 func htonl(a uint32) uint32 {
 	if isBigEndian {
 		return a
