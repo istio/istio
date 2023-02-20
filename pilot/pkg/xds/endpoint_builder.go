@@ -506,13 +506,3 @@ func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr
 	}).UnsortedList()
 	return ips
 }
-
-func lbEpKey(b *endpoint.LbEndpoint) string {
-	if addr := b.GetEndpoint().GetAddress().GetSocketAddress(); addr != nil {
-		return addr.Address + ":" + strconv.Itoa(int(addr.GetPortValue()))
-	}
-	if addr := b.GetEndpoint().GetAddress().GetPipe(); addr != nil {
-		return addr.GetPath() + ":" + strconv.Itoa(int(addr.GetMode()))
-	}
-	return ""
-}

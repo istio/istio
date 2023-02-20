@@ -163,3 +163,13 @@ func trafficPolicyTLSModeForPort(tp *networkingapi.TrafficPolicy, port int) *net
 	}
 	return mode
 }
+
+func lbEpKey(b *endpoint.LbEndpoint) string {
+	if addr := b.GetEndpoint().GetAddress().GetSocketAddress(); addr != nil {
+		return addr.Address + ":" + strconv.Itoa(int(addr.GetPortValue()))
+	}
+	if addr := b.GetEndpoint().GetAddress().GetPipe(); addr != nil {
+		return addr.GetPath() + ":" + strconv.Itoa(int(addr.GetMode()))
+	}
+	return ""
+}
