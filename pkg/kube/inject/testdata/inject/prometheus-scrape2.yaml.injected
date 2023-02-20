@@ -8,7 +8,6 @@ metadata:
     sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
   creationTimestamp: null
   labels:
-    istio.io/rev: default
     security.istio.io/tlsMode: istio
     service.istio.io/canonical-name: hellopod
     service.istio.io/canonical-revision: latest

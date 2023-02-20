@@ -26,7 +26,6 @@ items:
         creationTimestamp: null
         labels:
           app: hello
-          istio.io/rev: default
           security.istio.io/tlsMode: istio
           service.istio.io/canonical-name: hello
           service.istio.io/canonical-revision: v1
@@ -249,7 +248,6 @@ items:
         creationTimestamp: null
         labels:
           app: hello
-          istio.io/rev: default
           security.istio.io/tlsMode: istio
           service.istio.io/canonical-name: hello
           service.istio.io/canonical-revision: v2
