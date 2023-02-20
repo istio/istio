@@ -884,13 +884,20 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	if err != nil {
 		return nil, err
 	}
-	if len(pods) == 0 {
-		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
+	// Pod maybe running but not ready, so we need to check the container status
+	readyPods := make([]v1.Pod, 0)
+	for _, pod := range pods {
+		if CheckPodReady(&pod) == nil {
+			readyPods = append(readyPods, pod)
+		}
+	}
+	if len(readyPods) == 0 {
+		return nil, fmt.Errorf("no ready Istio pods in %q", namespace)
 	}
 
 	var errs error
 	res := version.MeshInfo{}
-	for _, pod := range pods {
+	for _, pod := range readyPods {
 		component := pod.Labels["istio"]
 		server := version.ServerInfo{Component: component}
 
