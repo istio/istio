@@ -52,6 +52,8 @@ func ApplyListenerPatches(
 		return
 	}
 
+	lis = protoconv.Clone(lis) // copy-on-write
+
 	return patchListeners(patchContext, efw, lis, skipAdds)
 }
 

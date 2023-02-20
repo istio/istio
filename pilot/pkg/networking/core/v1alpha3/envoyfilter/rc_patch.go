@@ -45,6 +45,8 @@ func ApplyRouteConfigurationPatches(
 		return out
 	}
 
+	routeConfiguration = proto.Clone(routeConfiguration).(*route.RouteConfiguration) // copy-on-write
+
 	var portMap model.GatewayPortMap
 	if proxy.MergedGateway != nil {
 		portMap = proxy.MergedGateway.PortMap

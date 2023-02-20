@@ -82,3 +82,11 @@ func UnmarshalAny[T any](a *anypb.Any) (*T, error) {
 	}
 	return any(dst).(*T), nil
 }
+
+func Clone[T proto.Message](in []T) []T {
+	out := make([]T, len(in))
+	for i := range in {
+		out[i] = proto.Clone(in[i]).(T)
+	}
+	return out
+}

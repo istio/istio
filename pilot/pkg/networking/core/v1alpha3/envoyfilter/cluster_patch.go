@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/proto/merge"
+	syncutil "istio.io/istio/pkg/util/sync"
 	"istio.io/pkg/log"
 )
 
@@ -43,27 +44,30 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 	if efw == nil {
 		return
 	}
+
+	cow := syncutil.NewCopyOnWrite(c) // copy-on-write
+
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		applied := false
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 			continue
 		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
+		if commonConditionMatch(pctx, cp) && clusterMatch(cow.Value(), cp, hosts) {
 
-			ret, err := mergeTransportSocketCluster(c, cp)
+			ret, err := mergeTransportSocketCluster(cow.Mutable(), cp)
 			if err != nil {
 				log.Debugf("Merge of transport socket failed for cluster: %v", err)
 				continue
 			}
 			applied = true
 			if !ret {
-				merge.Merge(c, cp.Value)
+				merge.Merge(cow.Mutable(), cp.Value)
 			}
 		}
 		IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 	}
-	return c
+	return cow.Value()
 }
 
 // Test if the patch contains a config for TransportSocket
