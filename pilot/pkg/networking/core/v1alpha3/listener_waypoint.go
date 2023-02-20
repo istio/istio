@@ -278,25 +278,27 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
 			Name: "direct-http",
 		}
-		// Workload IP filtering happens here.
-		ipRange := []*xds.CidrRange{}
-		for _, wlx := range wls {
-			addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
-			cidr := util.ConvertAddressToCidr(addr.String())
-			ipRange = append(ipRange, &xds.CidrRange{
-				AddressPrefix: cidr.AddressPrefix,
-				PrefixLen:     cidr.PrefixLen,
-			})
-		}
 		chains = append(chains, tcpChain, httpChain)
-		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
-			&matcher.IPMatcher_IPRangeMatcher{
-				Ranges: ipRange,
-				OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
-					TCP:  match.ToChain(tcpChain.Name),
-					HTTP: match.ToChain(httpChain.Name),
-				})),
-			})
+		if len(wls) > 0 {
+			// Workload IP filtering happens here.
+			ipRange := []*xds.CidrRange{}
+			for _, wlx := range wls {
+				addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
+				cidr := util.ConvertAddressToCidr(addr.String())
+				ipRange = append(ipRange, &xds.CidrRange{
+					AddressPrefix: cidr.AddressPrefix,
+					PrefixLen:     cidr.PrefixLen,
+				})
+			}
+			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
+				&matcher.IPMatcher_IPRangeMatcher{
+					Ranges: ipRange,
+					OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+						TCP:  match.ToChain(tcpChain.Name),
+						HTTP: match.ToChain(httpChain.Name),
+					})),
+				})
+		}
 	}
 	l := &listener.Listener{
 		Name:              "internal",
