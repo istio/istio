@@ -503,12 +503,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	routeCfg := &route.RouteConfiguration{
 		// Retain the routeName as its used by EnvoyFilter patching logic
-		Name:             routeName,
-		VirtualHosts:     virtualHosts,
-		ValidateClusters: proto.BoolFalse,
-	}
-	if GatewayIgnorePort(node) {
-		routeCfg.IgnorePortInHostMatching = true
+		Name:                     routeName,
+		VirtualHosts:             virtualHosts,
+		ValidateClusters:         proto.BoolFalse,
+		IgnorePortInHostMatching: !node.IsProxylessGrpc(),
 	}
 
 	return routeCfg
@@ -1053,7 +1051,7 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 
 func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" || GatewayIgnorePort(node) {
+	if features.StripHostPort || hostname == "*" || !node.IsProxylessGrpc() {
 		return domains
 	}
 
