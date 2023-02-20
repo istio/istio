@@ -173,40 +173,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].Name).To(gomega.Equal("route 1.catch-all for 8080"))
 	})
 
-	t.Run("for internally generated virtual service with gateway semantics (istio version<1.14)", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		vs := virtualServiceWithCatchAllRoute
-		if vs.Annotations == nil {
-			vs.Annotations = make(map[string]string)
-		}
-		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
-
-		proxy := node(cg)
-		proxy.IstioVersion = &model.IstioVersion{
-			Major: 1,
-			Minor: 13,
-		}
-		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
-		xdstest.ValidateRoutes(t, routes)
-
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
-			SafeRegex: &matcher.RegexMatcher{
-				Regex: `/route/v1((\/).*)?`,
-			},
-		}))
-		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
-			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
-		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
-			Prefix: "/",
-		}))
-		g.Expect(routes[1].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
-			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
-	})
-
 	t.Run("for internally generated virtual service with ingress semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
