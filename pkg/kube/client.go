@@ -887,10 +887,8 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	// Pod maybe running but not ready, so we need to check the container status
 	readyPods := make([]v1.Pod, 0)
 	for _, pod := range pods {
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == "discovery" && status.Ready {
-				readyPods = append(readyPods, pod)
-			}
+		if CheckPodReady(&pod) == nil {
+			readyPods = append(readyPods, pod)
 		}
 	}
 	if len(readyPods) == 0 {
