@@ -1498,7 +1498,7 @@ func ecdsConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 
-	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml")
+	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	ecdsConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "", "Envoy config dump JSON file")
 
 	return ecdsConfigCmd
