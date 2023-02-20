@@ -348,7 +348,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 	}
 	if args.JwtRule != "" {
-		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
+		jwtAuthn, err := initOIDC(args)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing OIDC: %v", err)
 		}
@@ -390,7 +390,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	return s, nil
 }
 
-func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
+func initOIDC(args *PilotArgs) (security.Authenticator, error) {
 	// JWTRule is from the JWT_RULE environment variable.
 	// An example of json string for JWTRule is:
 	// `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
@@ -400,7 +400,7 @@ func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, erro
 		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
 	}
 	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
-	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule, trustDomain)
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
 	}
