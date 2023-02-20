@@ -178,7 +178,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
-		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, opts.TrustDomain)
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
 		if err == nil {
 			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
