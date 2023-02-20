@@ -478,7 +478,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		marshalledEndpoint, token := eds.Server.Cache.Get(&builder)
 		if marshalledEndpoint != nil && !features.EnableUnsafeAssertions {
 			// If PA does not change or it has changed but the eds cache has already been refreshed in this period.
-			if useCache || (!useCache && token == model.CacheToken(req.Start.UnixNano())) {
+			if useCache || (!useCache && token >= model.CacheToken(req.Start.UnixNano())) {
 				// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 				resources = append(resources, marshalledEndpoint)
 				cached++
