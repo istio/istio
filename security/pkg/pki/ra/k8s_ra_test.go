@@ -192,6 +192,7 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 					continue
 				}
 				csr.Status.Certificate = certificate
+				time.Sleep(time.Millisecond)
 				client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
 			}
 		}
