@@ -96,7 +96,7 @@ type XdsCache interface {
 	Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource)
 	// Get retrieves the cached value if it exists. The boolean indicates
 	// whether the entry exists in the cache.
-	Get(entry XdsCacheEntry) (*discovery.Resource, bool)
+	Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken)
 	// Clear removes the cache entries that are dependent on the configs passed.
 	Clear(sets.Set[ConfigKey])
 	// ClearAll clears the entire cache.
@@ -272,9 +272,9 @@ type cacheValue struct {
 	dependentConfigs []ConfigHash
 }
 
-func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
+func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken) {
 	if !entry.Cacheable() {
-		return nil, false
+		return nil, 0
 	}
 	k := entry.Key()
 	l.mu.Lock()
@@ -282,14 +282,14 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	cv, ok := l.store.Get(k)
 	if !ok {
 		miss()
-		return nil, false
+		return nil, 0
 	}
 	if cv.value == nil {
 		miss()
-		return nil, false
+		return nil, 0
 	}
 	hit()
-	return cv.value, true
+	return cv.value, cv.token
 }
 
 func (l *lruCache) Clear(configs sets.Set[ConfigKey]) {
@@ -351,8 +351,8 @@ var _ XdsCache = &DisabledCache{}
 
 func (d DisabledCache) Add(key XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {}
 
-func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, bool) {
-	return nil, false
+func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, CacheToken) {
+	return nil, 0
 }
 
 func (d DisabledCache) Clear(configsUpdated sets.Set[ConfigKey]) {}
