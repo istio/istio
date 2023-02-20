@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+  - |
+    **Improved** removed `PILOT_SKIP_VALIDATE_TRUST_DOMAIN` env from pilot which was unused for a long time.
