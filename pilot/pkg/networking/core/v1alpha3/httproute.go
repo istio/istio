@@ -412,7 +412,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			if features.SidecarIgnorePort && !node.IsProxylessGrpc() {
+			if SidecarIgnorePort(node) {
 				domains = []string{util.IPv6Compliant(hostname)}
 			} else {
 				domains = []string{util.IPv6Compliant(hostname), name}
@@ -541,10 +541,14 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	return virtualHosts
 }
 
+func SidecarIgnorePort(node *model.Proxy) bool {
+	return !node.IsProxylessGrpc() && features.SidecarIgnorePort
+}
+
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, listenerPort int, port int, node *model.Proxy) ([]string, []string) {
-	if features.SidecarIgnorePort && listenerPort != 0 {
+	if SidecarIgnorePort(node) && listenerPort != 0 {
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
 		port = portNoAppendPortSuffix
 	}
