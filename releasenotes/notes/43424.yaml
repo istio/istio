@@ -4,4 +4,4 @@ area: security
 
 releaseNotes:
   - |
-    **Improved** removed `PILOT_SKIP_VALIDATE_TRUST_DOMAIN` env from pilot which was unused for a long time.
+    **Removed** `PILOT_SKIP_VALIDATE_TRUST_DOMAIN` env from pilot which was unused for a long time.
