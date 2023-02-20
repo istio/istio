@@ -83,6 +83,9 @@ type InstallConfig struct {
 	// Whether ambient is enabled
 	AmbientEnabled bool
 
+	// Whether ebpf is enabled
+	EbpfEnabled bool
+
 	// Use the external nsenter command for network namespace switching
 	HostNSEnterExec bool
 }

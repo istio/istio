@@ -18,18 +18,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/netip"
 	"os"
+	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
+	ebpf "istio.io/istio/cni/pkg/ebpf/server"
 	pconstants "istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/pkg/log"
 )
@@ -72,6 +79,10 @@ func RouteExists(rte []string) bool {
 }
 
 func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
+	addPodToMeshWithIptables(client, pod, ip)
+}
+
+func addPodToMeshWithIptables(client kubernetes.Interface, pod *corev1.Pod, ip string) {
 	if ip == "" {
 		ip = pod.Status.PodIP
 	}
@@ -120,7 +131,7 @@ func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
 		log.Warnf("Failed to set rp_filter to 0 for device %s", dev)
 	}
 
-	if err := annotateEnrolledPod(client, pod); err != nil {
+	if err := AnnotateEnrolledPod(client, pod); err != nil {
 		log.Errorf("failed to annotate pod enrollment: %v", err)
 	}
 }
@@ -136,7 +147,7 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 	pconstants.AmbientRedirection,
 ))
 
-func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
+func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	_, err := client.CoreV1().
 		Pods(pod.Namespace).
 		Patch(
@@ -149,7 +160,7 @@ func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	return err
 }
 
-func annotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
+func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	if pod.Annotations[pconstants.AmbientRedirection] != pconstants.AmbientRedirectionEnabled {
 		return nil
 	}
@@ -192,7 +203,7 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 		}
 	}
 
-	if err := annotateUnenrollPod(client, pod); err != nil {
+	if err := AnnotateUnenrollPod(client, pod); err != nil {
 		log.Errorf("failed to annotate pod unenrollment: %v", err)
 	}
 }
@@ -219,25 +230,201 @@ func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
 	}, nil
 }
 
-func getDeviceWithDestinationOf(ip string) (string, error) {
+func buildEbpfArgsByIP(ip string, isZtuunel, isRemove bool) (*ebpf.RedirectArgs, error) {
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ip(%s): %v", ip, err)
+	}
+	veth, err := getVethWithDestinationOf(ip)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get device: %v", err)
+	}
+	peerIndex, err := netlink.VethPeerIndex(veth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get veth peerIndex: %v", err)
+	}
+
+	peerNs, err := getNsNameFromNsID(veth.Attrs().NetNsID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ns name: %v", err)
+	}
+
+	mac, err := getMacFromNsIdx(peerNs, peerIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ebpf.RedirectArgs{
+		IPAddrs:   []netip.Addr{ipAddr},
+		MacAddr:   mac,
+		Ifindex:   veth.Attrs().Index,
+		PeerIndex: peerIndex,
+		PeerNs:    peerNs,
+		IsZtunnel: isZtuunel,
+		Remove:    isRemove,
+	}, nil
+}
+
+func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	curNs, err := netns.Get()
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get cur nshandler: %v", err)
+	}
+	defer curNs.Close()
+
+	ns = filepath.Base(ns)
+	nsHdlr, err := netns.GetFromName(ns)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
+	}
+	defer nsHdlr.Close()
+
+	err = netns.Set(nsHdlr)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to switch to net ns(%s): %v", ns, err)
+	}
+	defer netns.Set(curNs)
+
+	link, err := netlink.LinkByName(podIfName)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get link(%s) in ns(%s): %v", podIfName, ns, err)
+	}
+
+	veth, ok := link.(*netlink.Veth)
+	if !ok {
+		return 0, nil, errors.New("not veth implemented CNI")
+	}
+
+	hostIfIndex, err := netlink.VethPeerIndex(veth)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return hostIfIndex, veth.Attrs().HardwareAddr, nil
+}
+
+func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
+	// runtime.LockOSThread()
+	// defer runtime.UnlockOSThread()
+	nsHdlr, err := netns.GetFromName(ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
+	}
+	defer nsHdlr.Close()
+	nl, err := netlink.NewHandleAt(nsHdlr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link handler for ns(%s): %v", ns, err)
+	}
+	defer nl.Close()
+	link, err := nl.LinkByIndex(ifIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, ns, err)
+	}
+	return link.Attrs().HardwareAddr, nil
+}
+
+func getNsNameFromNsID(nsid int) (string, error) {
+	foundNs := errors.New("nsid found, stop iterating")
+	nsName := ""
+	err := filepath.WalkDir("/var/run/netns", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		fd, err := unix.Open(p, unix.O_RDONLY, 0)
+		if err != nil {
+			log.Warnf("failed to open: %v", err)
+			return nil
+		}
+		defer unix.Close(fd)
+
+		id, err := netlink.GetNetNsIdByFd(fd)
+		if err != nil {
+			log.Warnf("failed to open: %v", err)
+			return nil
+		}
+		if id == nsid {
+			nsName = path.Base(p)
+			return foundNs
+		}
+		return nil
+	})
+	if err == foundNs {
+		return nsName, nil
+	}
+	return "", fmt.Errorf("failed to get namespace for %d", nsid)
+}
+
+func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
 	routes, err := netlink.RouteListFiltered(
 		netlink.FAMILY_V4,
 		&netlink.Route{Dst: &net.IPNet{IP: net.ParseIP(ip), Mask: net.CIDRMask(32, 32)}},
 		netlink.RT_FILTER_DST)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(routes) == 0 {
-		return "", errors.New("no routes found")
+		return nil, fmt.Errorf("no routes found for %s", ip)
 	}
 
 	linkIndex := routes[0].LinkIndex
-	link, err := netlink.LinkByIndex(linkIndex)
+	return netlink.LinkByIndex(linkIndex)
+}
+
+func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
+	link, err := getLinkWithDestinationOf(ip)
+	if err != nil {
+		return nil, err
+	}
+	veth, ok := link.(*netlink.Veth)
+	if !ok {
+		return nil, errors.New("not veth implemented CNI")
+	}
+	return veth, nil
+}
+
+func getDeviceWithDestinationOf(ip string) (string, error) {
+	link, err := getLinkWithDestinationOf(ip)
 	if err != nil {
 		return "", err
 	}
 	return link.Attrs().Name, nil
+}
+
+// GetHostIPByRoute get the automatically chosen host ip to the Pod's CIDR
+func GetHostIPByRoute(kubeClient kubernetes.Interface) (string, error) {
+	// We assume per node POD's CIDR is the same block, so the route to the POD
+	// from host should be "same". Otherwise, there may multiple host IPs will be
+	// used as source to dial to PODs.
+	pods, err := kubeClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel", FieldSelector: "spec.nodeName=" + NodeName})
+	if err != nil {
+		return "", fmt.Errorf("error getting ztunnel node: %v", err)
+	}
+	for _, pod := range pods.Items {
+		targetIP := pod.Status.PodIP
+		if hostIP := getOutboundIP(targetIP); hostIP != nil {
+			return hostIP.String(), nil
+		}
+	}
+	return "", fmt.Errorf("failed to get outbound IP to Pods")
+}
+
+// Get preferred outbound ip of this machine
+func getOutboundIP(ip string) net.IP {
+	conn, err := net.Dial("udp", ip+":80")
+	if err != nil {
+		return nil
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
 }
 
 func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
@@ -286,7 +473,12 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 			}
 		}
 	}
-
+	// fall back to use Node Internal IP
+	for _, address := range node.Status.Addresses {
+		if address.Type == corev1.NodeInternalIP {
+			return address.Address, nil
+		}
+	}
 	return "", nil
 }
 
@@ -729,8 +921,132 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	return nil
 }
 
+func (s *Server) updateZtunnelEbpfOnNode(pod *corev1.Pod, captureDNS bool) error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+
+	ip := pod.Status.PodIP
+	args, err := buildEbpfArgsByIP(ip, true, false)
+	if err != nil {
+		return err
+	}
+	args.CaptureDNS = captureDNS
+
+	log.Debugf("update ztunnel ebpf args: %+v", args)
+	s.ebpfServer.AcceptRequest(args)
+	return nil
+}
+
+func (s *Server) delZtunnelEbpfOnNode() error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+
+	args := &ebpf.RedirectArgs{
+		Ifindex:   0,
+		IsZtunnel: true,
+		Remove:    true,
+	}
+	log.Debugf("del ztunnel ebpf args: %+v", args)
+	s.ebpfServer.AcceptRequest(args)
+	return nil
+}
+
+func (s *Server) updatePodEbpfOnNode(pod *corev1.Pod) error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+
+	ip := pod.Status.PodIP
+	if ip == "" {
+		log.Debugf("skip adding pod %s/%s, IP not yet allocated", pod.Name, pod.Namespace)
+		return nil
+	}
+
+	args, err := buildEbpfArgsByIP(ip, false, false)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("update POD ebpf args: %+v", args)
+	s.ebpfServer.AcceptRequest(args)
+	return nil
+}
+
+func (s *Server) AddPodToMesh(pod *corev1.Pod) {
+	switch s.redirectMode {
+	case IptablesMode:
+		addPodToMeshWithIptables(s.kubeClient.Kube(), pod, "")
+	case EbpfMode:
+		if err := s.updatePodEbpfOnNode(pod); err != nil {
+			log.Errorf("failed to update POD ebpf: %v", err)
+		}
+		if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
+			log.Errorf("failed to annotate pod enrollment: %v", err)
+		}
+	}
+}
+
+func (s *Server) delPodEbpfOnNode(ip string) error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+
+	if ip == "" {
+		log.Debugf("nothing could be performed to delete ebpf for empty ip")
+		return nil
+	}
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return fmt.Errorf("failed to parse ip(%s): %v", ip, err)
+	}
+
+	ifIndex := 0
+
+	if veth, err := getVethWithDestinationOf(ip); err != nil {
+		log.Infof("failed to get device: %v", err) // Change to debug, it's expected intf has been destroyed
+	} else {
+		ifIndex = veth.Attrs().Index
+	}
+
+	args := &ebpf.RedirectArgs{
+		IPAddrs:   []netip.Addr{ipAddr},
+		Ifindex:   ifIndex,
+		IsZtunnel: false,
+		Remove:    true,
+	}
+	log.Debugf("del POD ebpf args: %+v", args)
+	s.ebpfServer.AcceptRequest(args)
+	return nil
+}
+
+func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
+	switch s.redirectMode {
+	case IptablesMode:
+		DelPodFromMesh(s.kubeClient.Kube(), pod)
+	case EbpfMode:
+		if pod.Spec.HostNetwork {
+			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
+			return
+		}
+		if err := s.delPodEbpfOnNode(pod.Status.PodIP); err != nil {
+			log.Errorf("failed to del POD ebpf: %v", err)
+		}
+		if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+			log.Errorf("failed to annotate pod unenrollment: %v", err)
+		}
+	}
+}
+
 func (s *Server) cleanup() {
 	log.Infof("server terminated, cleaning up")
+	if s.redirectMode == EbpfMode {
+		if err := s.delZtunnelEbpfOnNode(); err != nil {
+			log.Error(err)
+		}
+		return
+	}
 	s.cleanRules()
 
 	// Clean up ip route tables

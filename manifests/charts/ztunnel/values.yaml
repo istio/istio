@@ -50,3 +50,5 @@ multiCluster:
 meshConfig:
   defaultConfig:
     proxyMetadata: {}
+
+ebpfRedirect: true

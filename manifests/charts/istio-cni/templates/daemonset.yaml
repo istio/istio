@@ -153,6 +153,12 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
               name: cni-ambientconfig
+            - mountPath: /var/run/netns
+              mountPropagation: HostToContainer
+              name: cni-netns-dir
+            - mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+              name: cni-bpffs-dir
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
@@ -242,3 +248,9 @@ spec:
         - name: cni-log-dir
           hostPath:
             path: /var/run/istio-cni
+        - name: cni-netns-dir
+          hostPath:
+            path: /var/run/netns
+        - name: cni-bpffs-dir
+          hostPath:
+            path: /sys/fs/bpf

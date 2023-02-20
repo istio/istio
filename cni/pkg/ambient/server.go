@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
+	ebpf "istio.io/istio/cni/pkg/ebpf/server"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/lazy"
@@ -46,10 +47,13 @@ type Server struct {
 	ztunnelPod *corev1.Pod
 
 	iptablesCommand lazy.Lazy[string]
+	redirectMode    RedirectMode
+	ebpfServer      *ebpf.RedirectServer
 }
 
 type AmbientConfigFile struct {
-	ZTunnelReady bool `json:"ztunnelReady"`
+	ZTunnelReady bool   `json:"ztunnelReady"`
+	RedirectMode string `json:"redirectMode"` // TODO,  define enum into istio/api?
 }
 
 func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
@@ -62,17 +66,33 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		ctx:        ctx,
 		kubeClient: client,
 	}
-	s.iptablesCommand = lazy.New(func() (string, error) {
-		return s.detectIptablesCommand(), nil
-	})
 
-	// We need to find our Host IP -- is there a better way to do this?
-	h, err := GetHostIP(s.kubeClient.Kube())
-	if err != nil || h == "" {
-		return nil, fmt.Errorf("error getting host IP: %v", err)
+	switch args.RedirectMode {
+	case IptablesMode:
+		s.redirectMode = IptablesMode
+		s.iptablesCommand = lazy.New(func() (string, error) {
+			return s.detectIptablesCommand(), nil
+		})
+		// We need to find our Host IP -- is there a better way to do this?
+		h, err := GetHostIP(s.kubeClient.Kube())
+		if err != nil || h == "" {
+			return nil, fmt.Errorf("error getting host IP: %v", err)
+		}
+		HostIP = h
+		log.Infof("HostIP=%v", HostIP)
+	case EbpfMode:
+		s.redirectMode = EbpfMode
+		s.ebpfServer = ebpf.NewRedirectServer()
+		s.ebpfServer.Start(ctx.Done())
+		h, err := GetHostIPByRoute(s.kubeClient.Kube())
+		if err != nil || h == "" {
+			log.Warnf("failed to getting host IP: %v", err)
+		} else if HostIP != h {
+			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
+			HostIP = h
+			s.ebpfServer.UpdateHostIP([]string{HostIP})
+		}
 	}
-	HostIP = h
-	log.Infof("HostIP=%v", HostIP)
 
 	s.setupHandlers()
 
@@ -119,6 +139,7 @@ func (s *Server) UpdateConfig() {
 
 	cfg := &AmbientConfigFile{
 		ZTunnelReady: s.isZTunnelRunning(),
+		RedirectMode: s.redirectMode.String(),
 	}
 
 	if err := cfg.write(); err != nil {
@@ -170,18 +191,45 @@ func (s *Server) ReconcileZtunnel() error {
 		return nil
 	}
 	log.Infof("active ztunnel updated to %v", activePod.Name)
-	// TODO: we should not cleanup and recreate; this has downtime. We should mutate the existing rules in place
-	s.cleanup()
-	veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP)
-	if err != nil {
-		return fmt.Errorf("failed to get device: %v", err)
-	}
 
 	captureDNS := getEnvFromPod(activePod, "ISTIO_META_DNS_CAPTURE") == "true"
-	err = s.CreateRulesOnNode(veth, activePod.Status.PodIP, captureDNS)
-	if err != nil {
-		return fmt.Errorf("failed to configure node for ztunnel: %v", err)
+
+	switch s.redirectMode {
+	case IptablesMode:
+		// TODO: we should not cleanup and recreate; this has downtime. We should mutate the existing rules in place
+		s.cleanup()
+		veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP)
+		if err != nil {
+			return fmt.Errorf("failed to get device: %v", err)
+		}
+		err = s.CreateRulesOnNode(veth, activePod.Status.PodIP, captureDNS)
+		if err != nil {
+			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
+		}
+	case EbpfMode:
+		h, err := GetHostIPByRoute(s.kubeClient.Kube())
+		if err != nil || h == "" {
+			log.Warnf("failed to getting host IP: %v", err)
+		} else if HostIP != h {
+			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
+			HostIP = h
+			s.ebpfServer.UpdateHostIP([]string{HostIP})
+		}
+
+		if veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP); err != nil {
+			log.Warnf("failed to get device: %v", err)
+		} else if err := SetProc("/proc/sys/net/ipv4/conf/"+veth+"/rp_filter", "0"); err != nil {
+			log.Warnf("failed to set rp_filter to 0 for device %s", veth)
+		}
+		if err := SetProc("/proc/sys/net/ipv4/conf/all/rp_filter", "0"); err != nil {
+			log.Warnf("failed to set all rp_filter to 0")
+		}
+
+		if err := s.updateZtunnelEbpfOnNode(activePod, captureDNS); err != nil {
+			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
+		}
 	}
+
 	// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a
 	// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 	// catch the existing pods
