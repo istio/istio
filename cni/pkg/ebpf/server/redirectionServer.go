@@ -38,11 +38,12 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/hashicorp/go-multierror"
 	"github.com/josharian/native"
-	"github.com/vishvananda/netns"
+
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/util/istiomultierror"
@@ -422,11 +423,12 @@ func (r *RedirectServer) attachTCForWorkLoad(ifindex uint32) error {
 func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction string, fd uint32, name string) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		ns, err := netns.GetFromName(namespace)
+		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
 		if err != nil {
 			return err
 		}
-		config.NetNS = int(ns)
+		defer nsHdlr.Close()
+		config.NetNS = int(nsHdlr.Fd())
 	}
 	rtnl, err := tc.Open(config)
 	if err != nil {
@@ -515,11 +517,12 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		ns, err := netns.GetFromName(namespace)
+		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
 		if err != nil {
 			return err
 		}
-		config.NetNS = int(ns)
+		defer nsHdlr.Close()
+		config.NetNS = int(nsHdlr.Fd())
 	}
 	rtnl, err := tc.Open(config)
 	if err != nil {

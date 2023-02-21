@@ -22,11 +22,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 
@@ -92,69 +91,53 @@ func getDeviceWithDestinationOf(ip string) (string, error) {
 }
 
 func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	curNs, err := netns.Get()
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed to get cur nshandler: %v", err)
-	}
-	defer func() {
-		if err := curNs.Close(); err != nil {
-			log.Errorf("close ns handler failure: %v", err)
-		}
-	}()
+	var hostIfIndex int
+	var hwAddr net.HardwareAddr
 
 	ns = filepath.Base(ns)
-	nsHdlr, err := netns.GetFromName(ns)
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
-	}
-	defer nsHdlr.Close()
-
-	err = netns.Set(nsHdlr)
-	if err != nil {
-		return 0, nil, fmt.Errorf("failed to switch to net ns(%s): %v", ns, err)
-	}
-	defer func() {
-		if err := netns.Set(curNs); err != nil {
-			log.Errorf("set back ns failure: %v", err)
+	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+		link, err := netlink.LinkByName(podIfName)
+		if err != nil {
+			return err
 		}
-	}()
 
-	link, err := netlink.LinkByName(podIfName)
+		veth, ok := link.(*netlink.Veth)
+		if !ok {
+			return fmt.Errorf("not veth implemented CNI")
+		}
+
+		ifIndex, err := netlink.VethPeerIndex(veth)
+		if err != nil {
+			return err
+		}
+
+		hwAddr = veth.Attrs().HardwareAddr
+		hostIfIndex = ifIndex
+		return nil
+	})
+
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to get link(%s) in ns(%s): %v", podIfName, ns, err)
+		return 0, nil, fmt.Errorf("failed to get info for if(%s) in ns(%s): %v", podIfName, ns, err)
 	}
 
-	veth, ok := link.(*netlink.Veth)
-	if !ok {
-		return 0, nil, errors.New("not veth implemented CNI")
-	}
-
-	hostIfIndex, err := netlink.VethPeerIndex(veth)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	return hostIfIndex, veth.Attrs().HardwareAddr, nil
+	return hostIfIndex, hwAddr, nil
 }
 
 func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
-	nsHdlr, err := netns.GetFromName(ns)
+	var hwAddr net.HardwareAddr
+	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+		link, err := netlink.LinkByIndex(ifIndex)
+		if err != nil {
+			return fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, ns, err)
+		}
+		hwAddr = link.Attrs().HardwareAddr
+		return nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
+		return nil, err
 	}
-	defer nsHdlr.Close()
-	nl, err := netlink.NewHandleAt(nsHdlr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link handler for ns(%s): %v", ns, err)
-	}
-	defer nl.Close()
-	link, err := nl.LinkByIndex(ifIndex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, ns, err)
-	}
-	return link.Attrs().HardwareAddr, nil
+	return hwAddr, nil
 }
 
 func getNsNameFromNsID(nsid int) (string, error) {

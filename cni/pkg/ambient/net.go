@@ -412,7 +412,7 @@ func (s *Server) delPodEbpfOnNode(ip string) error {
 	ifIndex := 0
 
 	if veth, err := getVethWithDestinationOf(ip); err != nil {
-		log.Infof("failed to get device: %v", err) // Change to debug, it's expected intf has been destroyed
+		log.Debugf("failed to get device: %v", err)
 	} else {
 		ifIndex = veth.Attrs().Index
 	}
