@@ -202,7 +202,7 @@ func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
 	}, nil
 }
 
-func buildEbpfArgsByIP(ip string, isZtuunel, isRemove bool) (*ebpf.RedirectArgs, error) {
+func buildEbpfArgsByIP(ip string, isZtunnel, isRemove bool) (*ebpf.RedirectArgs, error) {
 	ipAddr, err := netip.ParseAddr(ip)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ip(%s): %v", ip, err)
@@ -232,7 +232,7 @@ func buildEbpfArgsByIP(ip string, isZtuunel, isRemove bool) (*ebpf.RedirectArgs,
 		Ifindex:   veth.Attrs().Index,
 		PeerIndex: peerIndex,
 		PeerNs:    peerNs,
-		IsZtunnel: isZtuunel,
+		IsZtunnel: isZtunnel,
 		Remove:    isRemove,
 	}, nil
 }
