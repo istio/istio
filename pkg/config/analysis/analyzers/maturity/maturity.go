@@ -17,6 +17,8 @@ package maturity
 import (
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -24,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // AlphaAnalyzer checks for alpha Istio annotations in K8s resources
@@ -47,6 +50,13 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 			collections.K8SAppsV1Deployments.Name(),
 		},
 	}
+}
+
+var ignoredAnnotations = map[string]bool{
+	annotation.SidecarInterceptionMode.Name:               true,
+	annotation.SidecarTrafficIncludeInboundPorts.Name:     true,
+	annotation.SidecarTrafficExcludeInboundPorts.Name:     true,
+	annotation.SidecarTrafficIncludeOutboundIPRanges.Name: true,
 }
 
 // Analyze implements analysis.Analyzer
@@ -74,6 +84,11 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 		return
 	}
 
+	var shouldSkipDefault bool
+	if r.Metadata.Schema.GroupVersionKind() == gvk.Pod {
+		shouldSkipDefault = isCNIEnabled(r.Message.(*corev1.PodSpec))
+	}
+
 	// It is fine if the annotation is kubectl.kubernetes.io/last-applied-configuration.
 	for ann := range r.Metadata.Annotations {
 		if !istioAnnotation(ann) {
@@ -86,6 +101,10 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 				if annotationDef.Name == annotation.SidecarStatus.Name {
 					continue
 				}
+				// some annotations are set by default in istiod, don't alert on it.
+				if shouldSkipDefault && ignoredAnnotations[annotationDef.Name] {
+					continue
+				}
 				m := msg.NewAlphaAnnotation(r, ann)
 				util.AddLineNumber(r, ann, m)
 
@@ -93,6 +112,17 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 			}
 		}
 	}
+}
+
+func isCNIEnabled(pod *corev1.PodSpec) bool {
+	var hasIstioInitContainer bool
+	for _, c := range pod.InitContainers {
+		if c.Name == "istio-init" {
+			hasIstioInitContainer = true
+			break
+		}
+	}
+	return !hasIstioInitContainer
 }
 
 // istioAnnotation is true if the annotation is in Istio's namespace
