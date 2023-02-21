@@ -448,7 +448,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Name:            "svc1",
 						Namespace:       "nsa",
 						LabelSelectors:  map[string]string{"app": "prod-app"},
-						Type:            string(corev1.ServiceTypeClusterIP),
+						K8sAttributes: model.K8sAttributes{
+							Type: string(corev1.ServiceTypeClusterIP),
+						},
 					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
@@ -525,7 +527,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Name:            "svc1",
 						Namespace:       "nsa",
 						LabelSelectors:  map[string]string{"app": "prod-app"},
-						Type:            string(corev1.ServiceTypeClusterIP),
+						K8sAttributes: model.K8sAttributes{
+							Type: string(corev1.ServiceTypeClusterIP),
+						},
 					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
@@ -599,7 +603,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Name:            "svc1",
 						Namespace:       "nsa",
 						LabelSelectors:  map[string]string{"app": "prod-app"},
-						Type:            string(corev1.ServiceTypeClusterIP),
+						K8sAttributes: model.K8sAttributes{
+							Type: string(corev1.ServiceTypeClusterIP),
+						},
 					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
