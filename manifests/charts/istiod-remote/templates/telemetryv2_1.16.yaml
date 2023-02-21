@@ -1,7 +1,7 @@
 {{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
-{{ $prom := not (include "prometheus" .) }}
-{{ $sdMetrics := not (include "sd-metrics" .) }}
-{{ $sdLogs := not (include "sd-logs" .) }}
+{{ $prom := not (include "prometheus" . | eq "true") }}
+{{ $sdMetrics := not (include "sd-metrics" . | eq "true") }}
+{{ $sdLogs := not (include "sd-logs" .  | eq "true") }}
 ---
 # Note: http stats filter is wasm enabled only in sidecars.
 {{- if and .Values.telemetry.v2.prometheus.enabled $prom }}

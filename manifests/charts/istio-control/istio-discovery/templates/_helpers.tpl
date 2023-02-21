@@ -12,7 +12,7 @@
 
 {{/* SD has metrics and logging split. Metrics are enabled if SD is enabled and there are no config overrides set */}}
 {{ define "sd-metrics" }}
-{{ $sdMetrics := and
+{{ and
   (not .Values.meshConfig.defaultProviders)
   .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
   (not (or
