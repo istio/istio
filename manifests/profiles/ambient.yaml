@@ -36,6 +36,7 @@ spec:
       privileged: true
       ambient:
         enabled: true
+        redirectMode: "ebpf"
       # TODO: https://github.com/istio/istio/issues/43243
       # variant: distroless
     telemetry:

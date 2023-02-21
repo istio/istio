@@ -53,7 +53,7 @@ type Server struct {
 
 type AmbientConfigFile struct {
 	ZTunnelReady bool   `json:"ztunnelReady"`
-	RedirectMode string `json:"redirectMode"` // TODO,  define enum into istio/api?
+	RedirectMode string `json:"redirectMode"`
 }
 
 func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {

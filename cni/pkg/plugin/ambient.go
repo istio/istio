@@ -56,7 +56,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 	}
 
 	if ambientpod.ShouldPodBeInMesh(ns, pod, true) {
-		if ambientConfig.RedirectMode == "ebpf" {
+		if ambientConfig.RedirectMode == ambient.EbpfMode.String() {
 			ifIndex, mac, err := ambient.GetIndexAndPeerMac(podIfname, podNetNs)
 			if err != nil {
 				return false, err

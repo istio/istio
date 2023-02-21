@@ -142,6 +142,10 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+            - name: EBPF_ENABLED
+              value: "true"
+            {{- end }}
             {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin

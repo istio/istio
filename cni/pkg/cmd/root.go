@@ -166,7 +166,7 @@ func init() {
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
-	registerBooleanParameter(constants.EbpfEnabled, true, "Whether ebpf redirection is enabled")
+	registerBooleanParameter(constants.EbpfEnabled, false, "Whether ebpf redirection is enabled")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
