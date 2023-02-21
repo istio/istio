@@ -9,9 +9,15 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Resources not yet deployed to the cluster
-    reason: Accepted
+    reason: NoResources
     status: "False"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "eastwestgateway-istio.istio-system.svc.domain.suffix"
+      not found'
+    reason: Invalid
+    status: "False"
+    type: Programmed
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "eastwestgateway-istio.istio-system.svc.domain.suffix"
       not found'
