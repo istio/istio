@@ -638,4 +638,21 @@ func BenchmarkCache(b *testing.B) {
 			c.Get(key)
 		}
 	})
+
+	b.Run("insert and get", func(b *testing.B) {
+		c := model.NewXdsCache()
+		// First occupy cache capacity
+		for i := 0; i < features.XDSCacheMaxSize; i++ {
+			key := makeCacheKey(i)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
+			c.Add(key, req, res)
+		}
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(n)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
+			c.Add(key, req, res)
+			c.Get(key)
+		}
+	})
 }
