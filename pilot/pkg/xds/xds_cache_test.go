@@ -238,4 +238,22 @@ func TestXdsCache(t *testing.T) {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
 	})
+
+	t.Run("no use stale cache", func(t *testing.T) {
+		c := model.NewLenientXdsCache()
+		t1 := time.Now()
+
+		c.Add(ep1, &model.PushRequest{Start: t1}, any1)
+		if got := c.Get(ep1); got == nil {
+			t.Fatalf("expected cahce, but got none")
+		}
+		if got := c.GetWithRequest(ep1, &model.PushRequest{Start: t1.Add(1)}); got != nil {
+			t.Fatalf("expected no cahce, but got %v", got)
+		}
+		// cache with newer token
+		c.Add(ep1, &model.PushRequest{Start: t1.Add(1)}, any1)
+		if got := c.GetWithRequest(ep1, &model.PushRequest{Start: t1.Add(1)}); got == nil {
+			t.Fatalf("expected cahce, but got none")
+		}
+	})
 }
