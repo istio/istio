@@ -17,6 +17,8 @@ package maturity
 import (
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -25,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // AlphaAnalyzer checks for alpha Istio annotations in K8s resources
