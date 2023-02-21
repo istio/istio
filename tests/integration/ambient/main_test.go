@@ -90,7 +90,7 @@ func TestMain(m *testing.M) {
 			return os.Getenv("VARIANT") == "distroless"
 		}).
 		SkipIf("https://github.com/istio/istio/issues/43508", func(ctx resource.Context) bool {
-			return ctx.Settings().Ambient != true
+			return !ctx.Settings().Ambient
 		}).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
