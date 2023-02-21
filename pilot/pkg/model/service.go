@@ -595,10 +595,19 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
+	K8sAttributes
+}
+
+type K8sAttributes struct {
 	// Type holds the value of the corev1.Type of the Kubernetes service
+	// spec.Type
 	Type string
 
+	// spec.ExternalName
+	ExternalName string
+
 	// NodeLocal means the proxy will only forward traffic to node local endpoints
+	// spec.InternalTrafficPolicy == Local
 	NodeLocal bool
 }
 
@@ -691,8 +700,8 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 			return false
 		}
 	}
-	return s.Name == other.Name && s.Namespace == other.Namespace && s.NodeLocal == other.NodeLocal &&
-		s.ServiceRegistry == other.ServiceRegistry && s.Type == other.Type
+	return s.Name == other.Name && s.Namespace == other.Namespace &&
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
 }
 
 // ServiceDiscovery enumerates Istio service instances.

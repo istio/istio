@@ -15,7 +15,6 @@
 package kubeauth
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -31,8 +30,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 type mockMeshConfigHolder struct {
@@ -66,6 +65,7 @@ func TestAuthenticate(t *testing.T) {
 	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
+	spiffe.SetTrustDomain("example.com")
 
 	testCases := map[string]struct {
 		remoteCluster  bool
@@ -104,7 +104,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedID:     fmt.Sprintf(authenticate.IdentityTemplate, "example.com", "default", "example-pod-sa"),
+			expectedID:     spiffe.MustGenSpiffeURI("default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
 		"not found remote cluster results in error": {

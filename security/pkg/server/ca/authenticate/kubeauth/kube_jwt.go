@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -162,7 +162,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	}
 	return &security.Caller{
 		AuthSource:     security.AuthSourceIDToken,
-		Identities:     []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), id.PodNamespace, id.PodServiceAccount)},
+		Identities:     []string{spiffe.MustGenSpiffeURI(id.PodNamespace, id.PodServiceAccount)},
 		KubernetesInfo: id,
 	}, nil
 }
