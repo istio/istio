@@ -94,9 +94,6 @@ spec:
 
             $IPTABLES -t mangle -F PREROUTING
 
-            $IPTABLES-save | grep -v LOG | $IPTABLES-restore
-            $IPTABLES -t mangle -I PREROUTING -j LOG --log-prefix "mangle pre [$POD_NAME] "
-
             $IPTABLES -t mangle -A PREROUTING -p tcp -m mark --mark $EBPF_MARK_INBOUND -m tcp --dport=$POD_INBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND         --on-ip 127.0.0.1
 
             $IPTABLES -t mangle -A PREROUTING -p tcp -m mark --mark $EBPF_MARK_OUTBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_OUTBOUND --on-ip 127.0.0.1
