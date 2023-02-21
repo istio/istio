@@ -64,11 +64,11 @@ func TestXdsCacheToken(t *testing.T) {
 			go work(start, n.Load())
 		}
 		retry.UntilOrFail(t, func() bool {
-			val, _ := c.Get(k)
+			val := c.Get(k)
 			return val != nil && val.Resource.TypeUrl == fmt.Sprint(n.Load())
 		})
 		for i := 0; i < 5; i++ {
-			val, _ := c.Get(k)
+			val := c.Get(k)
 			if val == nil {
 				t.Fatalf("no cache found")
 			}
@@ -99,16 +99,16 @@ func TestXdsCache(t *testing.T) {
 		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
 			t.Fatalf("unexpected keys: %v, want %v", c.Keys(), ep1.Key())
 		}
-		if got, _ := c.Get(ep1); got != any1 {
+		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any2)
-		if got, _ := c.Get(ep1); got != any2 {
+		if got := c.Get(ep1); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo.com"}))
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -119,17 +119,17 @@ func TestXdsCache(t *testing.T) {
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)
 
-		if got, _ := c.Get(ep1); got != any1 {
+		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-		if got, _ := c.Get(ep2); got != any2 {
+		if got := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo.com"}))
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if got, _ := c.Get(ep2); got != nil {
+		if got := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -144,24 +144,24 @@ func TestXdsCache(t *testing.T) {
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)
-		if got, _ := c.Get(ep1); got != any1 {
+		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-		if got, _ := c.Get(ep2); got != any2 {
+		if got := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "a", Namespace: "b"}))
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if got, _ := c.Get(ep2); got != any2 {
+		if got := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "b", Namespace: "b"}))
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if got, _ := c.Get(ep2); got != nil {
+		if got := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -176,10 +176,10 @@ func TestXdsCache(t *testing.T) {
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if got, _ := c.Get(ep2); got != nil {
+		if got := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -187,7 +187,7 @@ func TestXdsCache(t *testing.T) {
 	t.Run("write without token does nothing", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
 		c.Add(ep1, &model.PushRequest{}, any1)
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result: %v, want none", got)
 		}
 	})
@@ -201,7 +201,7 @@ func TestXdsCache(t *testing.T) {
 		if len(c.Keys()) != 1 {
 			t.Fatalf("expected 1 keys, got: %v", c.Keys())
 		}
-		if got, _ := c.Get(ep1); got != any1 {
+		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
 	})
@@ -215,7 +215,7 @@ func TestXdsCache(t *testing.T) {
 		c.ClearAll()
 		// prevented, this is stale token
 		c.Add(ep1, &model.PushRequest{Start: t2}, any2)
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("expected no cache, but got %v", got)
 		}
 	})
@@ -228,13 +228,13 @@ func TestXdsCache(t *testing.T) {
 		c.ClearAll()
 		// prevented, this can be stale data after `disallowCacheSameToken`
 		c.Add(ep1, &model.PushRequest{Start: t1}, any2)
-		if got, _ := c.Get(ep1); got != nil {
+		if got := c.Get(ep1); got != nil {
 			t.Fatalf("expected no cache, but got %v", got)
 		}
 
 		// cache with newer token
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
-		if got, _ := c.Get(ep1); got != any1 {
+		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
 	})

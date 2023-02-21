@@ -385,7 +385,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
 
 	if features.EnableRDSCaching {
-		resource, _ := xdsCache.Get(routeCache)
+		resource := xdsCache.Get(routeCache)
 		if resource != nil && !features.EnableUnsafeAssertions {
 			return nil, resource, routeCache
 		}

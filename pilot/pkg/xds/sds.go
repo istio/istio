@@ -145,7 +145,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			}
 		}
 
-		cachedItem, _ := s.cache.Get(sr)
+		cachedItem := s.cache.Get(sr)
 		if cachedItem != nil && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
