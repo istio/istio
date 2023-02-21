@@ -115,7 +115,6 @@ func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
 		hostIfIndex = ifIndex
 		return nil
 	})
-
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get info for if(%s) in ns(%s): %v", podIfName, ns, err)
 	}
@@ -133,7 +132,6 @@ func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
 		hwAddr = link.Attrs().HardwareAddr
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}

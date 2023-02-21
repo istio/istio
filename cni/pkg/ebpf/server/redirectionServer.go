@@ -43,7 +43,6 @@ import (
 	"github.com/florianl/go-tc/core"
 	"github.com/hashicorp/go-multierror"
 	"github.com/josharian/native"
-
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/util/istiomultierror"
