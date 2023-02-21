@@ -478,17 +478,8 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	return retVal, nil
 }
 
-// BuildNewLbEndpointMetadata adds creates metadata values for a lb endpoint
-func BuildNewLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, lbls labels.Instance,
-) *core.Metadata {
-	out := &core.Metadata{}
-	BuildLbEndpointMetadata(networkID, tlsMode, workloadname, namespace, clusterID, lbls, out)
-	return out
-}
-
-// BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
+// AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
+func AppendLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
 	clusterID cluster.ID, lbls labels.Instance, metadata *core.Metadata,
 ) {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&

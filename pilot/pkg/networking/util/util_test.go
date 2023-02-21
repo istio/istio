@@ -1095,8 +1095,10 @@ func TestEndpointMetadata(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildNewLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
+			input := &core.Metadata{}
+			AppendLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels, input)
+			if !reflect.DeepEqual(input, tt.want) {
+				t.Errorf("Unexpected Endpoint metadata got %v, want %v", input, tt.want)
 			}
 		})
 	}
