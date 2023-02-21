@@ -55,6 +55,6 @@ func LookupCluster(push *model.PushContext, service string, port int) (hostname 
 		}
 	}
 
-	err = fmt.Errorf("could not find service %s in Istio service registry", service)
+	err = fmt.Errorf("could not find service %s:%d in Istio service registry", service, port)
 	return
 }
