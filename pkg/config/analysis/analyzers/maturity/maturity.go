@@ -102,7 +102,7 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 					continue
 				}
 				// some annotations are set by default in istiod, don't alert on it.
-				if shouldSkipDefault && ignoredAnnotations[annotationDef.Name] == true {
+				if shouldSkipDefault && ignoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				m := msg.NewAlphaAnnotation(r, ann)
