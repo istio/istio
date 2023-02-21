@@ -32,7 +32,7 @@ spec:
         CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
         PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
     cni:
-      logLevel: "debug"
+      logLevel: info
       privileged: true
       ambient:
         enabled: true
