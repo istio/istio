@@ -44,12 +44,14 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	istiocluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1102,6 +1104,14 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 	}
 
+	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
+		clusterID istiocluster.ID, lbls labels.Instance,
+	) *core.Metadata {
+		newmeta := &core.Metadata{}
+		util.AppendLbEndpointMetadata(networkID, tlsMode, workloadname, namespace, clusterID, lbls, newmeta)
+		return newmeta
+	}
+
 	cases := []struct {
 		name      string
 		mesh      *meshconfig.MeshConfig
@@ -1204,7 +1214,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildNewLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1224,7 +1234,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildNewLbEndpointMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
+							Metadata: buildMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1256,7 +1266,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildNewLbEndpointMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
+							Metadata: buildMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
 							},
@@ -1322,7 +1332,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildNewLbEndpointMetadata("", "", "", "", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("", "", "", "", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1443,7 +1453,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildNewLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
 								"version": "v1",
 								"app":     "example",
 							}),
