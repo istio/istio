@@ -1403,12 +1403,10 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 				reason:  string(k8sbeta.GatewayReasonAccepted),
 				message: "Resources available",
 			}
+			// We don't return before generating the config, so we can set this to a positive condition
 			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
-				error: &ConfigError{
-					Reason:  string(k8sbeta.GatewayReasonPending),
-					Message: "Config has not yet been generated for the Gateway",
-				},
-				setOnce: string(k8sbeta.GatewayReasonPending),
+				reason:  string(k8sbeta.GatewayReasonProgrammed),
+				message: "Gateway has been programmed into Istio configuration",
 			}
 			// nolint: staticcheck // Deprecated condition, set both until 1.17
 			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
