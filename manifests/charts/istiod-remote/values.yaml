@@ -180,9 +180,9 @@ meshConfig:
   # It is not clear if user should normally need to configure - the metadata is typically
   # used as an escape and to control testing and rollout, but it is not intended as a long-term
   # stable API.
+# What we may configure in mesh config is the ".global" - and use of other suffixes.
+# No hurry to do this in 1.6, we're trying to prove the code.
 
-  # What we may configure in mesh config is the ".global" - and use of other suffixes.
-  # No hurry to do this in 1.6, we're trying to prove the code.
 global:
   # Used to locate istiod.
   istioNamespace: istio-system
@@ -204,10 +204,10 @@ global:
   defaultResources:
     requests:
       cpu: 10m
-    #   memory: 128Mi
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
+      #   memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
@@ -316,8 +316,6 @@ global:
     # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
-    # Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
-    holdApplicationUntilProxyStarts: false
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2
@@ -420,34 +418,6 @@ global:
     # The service port used by Security Token Service (STS) server to handle token exchange requests.
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
-  # Configuration for each of the supported tracers
-  tracer:
-    # Configuration for envoy to send trace data to LightStep.
-    # Disabled by default.
-    # address: the <host>:<port> of the satellite pool
-    # accessToken: required for sending data to the pool
-    #
-    datadog:
-      # Host:Port for submitting traces to the Datadog agent.
-      address: "$(HOST_IP):8126"
-    lightstep:
-      address: "" # example: lightstep-satellite:443
-      accessToken: "" # example: abcdefg1234567
-    stackdriver:
-      # enables trace output to stdout.
-      debug: false
-      # The global default max number of message events per span.
-      maxNumberOfMessageEvents: 200
-      # The global default max number of annotation events per span.
-      maxNumberOfAnnotations: 200
-      # The global default max number of attributes per span.
-      maxNumberOfAttributes: 200
-    zipkin:
-      # Host:Port for reporting trace data in zipkin format. If not specified, will default to
-      # zipkin service (port 9411) in the same namespace as the other istio components.
-      address: ""
-  # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
-  useMCP: false
   # The name of the CA for workload certificates.
   # For example, when caName=GkeWorkloadCertificate, GKE workload certificates
   # will be used as the certificates for workloads.

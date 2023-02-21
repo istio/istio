@@ -51,7 +51,6 @@
       "excludeIPRanges": "",
       "excludeInboundPorts": "",
       "excludeOutboundPorts": "",
-      "holdApplicationUntilProxyStarts": false,
       "image": "proxyv2",
       "includeIPRanges": "*",
       "includeInboundPorts": "*",
@@ -98,22 +97,10 @@
     },
     "tag": "latest",
     "tracer": {
-      "datadog": {
-        "address": "$(HOST_IP):8126"
-      },
-      "lightstep": {
-        "accessToken": "",
-        "address": ""
-      },
-      "stackdriver": {
-        "debug": false,
-        "maxNumberOfAnnotations": 200,
-        "maxNumberOfAttributes": 200,
-        "maxNumberOfMessageEvents": 200
-      },
-      "zipkin": {
-        "address": ""
-      }
+      "datadog": {},
+      "lightstep": {},
+      "stackdriver": {},
+      "zipkin": {}
     },
     "useMCP": false,
     "variant": ""
