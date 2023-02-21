@@ -42,6 +42,10 @@ type PolicyApplier interface {
 	// PortLevelSetting returns port level mTLS settings.
 	PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS
 
+	MtlsPolicy
+}
+
+type MtlsPolicy interface {
 	// GetMutualTLSModeForPort gets the mTLS mode for the given port. If there is no port level setting, it
 	// returns the inherited namespace/mesh level setting.
 	GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode

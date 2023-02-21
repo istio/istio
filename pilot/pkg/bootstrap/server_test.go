@@ -632,7 +632,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args, "domain-foo")
+			_, err := initOIDC(args)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
