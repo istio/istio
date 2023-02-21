@@ -621,7 +621,9 @@ func BenchmarkCache(b *testing.B) {
 	})
 	b.Run("insert", func(b *testing.B) {
 		c := model.NewXdsCache()
-
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(n)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
@@ -630,7 +632,6 @@ func BenchmarkCache(b *testing.B) {
 	})
 	b.Run("get", func(b *testing.B) {
 		c := model.NewXdsCache()
-
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
 		c.Add(key, req, res)

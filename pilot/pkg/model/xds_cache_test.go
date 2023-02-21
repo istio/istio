@@ -60,6 +60,9 @@ func TestAddTwoEntries(t *testing.T) {
 	}
 
 	c := NewXdsCache()
+	stop := make(chan struct{})
+	defer close(stop)
+	c.Run(stop)
 	cache := c.(*lruCache)
 
 	assert.Equal(t, cache.store.Len(), 0)
@@ -109,6 +112,9 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 
 	c := NewXdsCache()
 	cache := c.(*lruCache)
+	stop := make(chan struct{})
+	defer close(stop)
+	c.Run(stop)
 
 	assert.Equal(t, cache.store.Len(), 0)
 	assert.Equal(t, cache.configIndex, map[ConfigHash]sets.String{})
@@ -219,6 +225,9 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	c := NewXdsCache()
 	cache := c.(*lruCache)
+	stop := make(chan struct{})
+	defer close(stop)
+	c.Run(stop)
 
 	c.Add(&firstEntry, req1, res)
 	c.Add(&secondEntry, req2, res)
@@ -332,6 +341,9 @@ func TestCacheClearAll(t *testing.T) {
 
 	c := NewXdsCache()
 	cache := c.(*lruCache)
+	stop := make(chan struct{})
+	defer close(stop)
+	c.Run(stop)
 
 	c.Add(&firstEntry, req1, res)
 	c.Add(&secondEntry, req2, res)
