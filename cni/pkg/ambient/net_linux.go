@@ -17,11 +17,17 @@ package ambient
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
@@ -48,25 +54,145 @@ func IsPodInIpset(pod *corev1.Pod) bool {
 	return false
 }
 
-func getDeviceWithDestinationOf(ip string) (string, error) {
+func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
 	routes, err := netlink.RouteListFiltered(
 		netlink.FAMILY_V4,
 		&netlink.Route{Dst: &net.IPNet{IP: net.ParseIP(ip), Mask: net.CIDRMask(32, 32)}},
 		netlink.RT_FILTER_DST)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(routes) == 0 {
-		return "", errors.New("no routes found")
+		return nil, fmt.Errorf("no routes found for %s", ip)
 	}
 
 	linkIndex := routes[0].LinkIndex
-	link, err := netlink.LinkByIndex(linkIndex)
+	return netlink.LinkByIndex(linkIndex)
+}
+
+func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
+	link, err := getLinkWithDestinationOf(ip)
+	if err != nil {
+		return nil, err
+	}
+	veth, ok := link.(*netlink.Veth)
+	if !ok {
+		return nil, errors.New("not veth implemented CNI")
+	}
+	return veth, nil
+}
+
+func getDeviceWithDestinationOf(ip string) (string, error) {
+	link, err := getLinkWithDestinationOf(ip)
 	if err != nil {
 		return "", err
 	}
 	return link.Attrs().Name, nil
+}
+
+func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	curNs, err := netns.Get()
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get cur nshandler: %v", err)
+	}
+	defer func() {
+		if err := curNs.Close(); err != nil {
+			log.Errorf("close ns handler failure: %v", err)
+		}
+	}()
+
+	ns = filepath.Base(ns)
+	nsHdlr, err := netns.GetFromName(ns)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
+	}
+	defer nsHdlr.Close()
+
+	err = netns.Set(nsHdlr)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to switch to net ns(%s): %v", ns, err)
+	}
+	defer func() {
+		if err := netns.Set(curNs); err != nil {
+			log.Errorf("set back ns failure: %v", err)
+		}
+	}()
+
+	link, err := netlink.LinkByName(podIfName)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get link(%s) in ns(%s): %v", podIfName, ns, err)
+	}
+
+	veth, ok := link.(*netlink.Veth)
+	if !ok {
+		return 0, nil, errors.New("not veth implemented CNI")
+	}
+
+	hostIfIndex, err := netlink.VethPeerIndex(veth)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return hostIfIndex, veth.Attrs().HardwareAddr, nil
+}
+
+func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
+	nsHdlr, err := netns.GetFromName(ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ns(%s) handler: %v", ns, err)
+	}
+	defer nsHdlr.Close()
+	nl, err := netlink.NewHandleAt(nsHdlr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link handler for ns(%s): %v", ns, err)
+	}
+	defer nl.Close()
+	link, err := nl.LinkByIndex(ifIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, ns, err)
+	}
+	return link.Attrs().HardwareAddr, nil
+}
+
+func getNsNameFromNsID(nsid int) (string, error) {
+	foundNs := errors.New("nsid found, stop iterating")
+	nsName := ""
+	err := filepath.WalkDir("/var/run/netns", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		fd, err := unix.Open(p, unix.O_RDONLY, 0)
+		if err != nil {
+			log.Warnf("failed to open: %v", err)
+			return nil
+		}
+		defer unix.Close(fd)
+
+		id, err := netlink.GetNetNsIdByFd(fd)
+		if err != nil {
+			log.Warnf("failed to open: %v", err)
+			return nil
+		}
+		if id == nsid {
+			nsName = path.Base(p)
+			return foundNs
+		}
+		return nil
+	})
+	if err == foundNs {
+		return nsName, nil
+	}
+	return "", fmt.Errorf("failed to get namespace for %d", nsid)
+}
+
+func getPeerIndex(veth *netlink.Veth) (int, error) {
+	return netlink.VethPeerIndex(veth)
 }
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.
@@ -510,6 +636,12 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 
 func (s *Server) cleanup() {
 	log.Infof("server terminated, cleaning up")
+	if s.redirectMode == EbpfMode {
+		if err := s.delZtunnelEbpfOnNode(); err != nil {
+			log.Error(err)
+		}
+		return
+	}
 	s.cleanRules()
 
 	// Clean up ip route tables
