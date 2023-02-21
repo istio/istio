@@ -25,16 +25,12 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
-
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -47,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type InstallArgs struct {
@@ -296,29 +293,7 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
-	// Save a copy of what was installed as a CR in the cluster under an internal name.
-	iop.Name = savedIOPName(iop)
-	if iop.Annotations == nil {
-		iop.Annotations = make(map[string]string)
-	}
-	iop.Annotations[istiocontrolplane.IgnoreReconcileAnnotation] = "true"
-	iopStr, err := yaml.Marshal(iop)
-	if err != nil {
-		return iop, err
-	}
-
-	return iop, saveIOPToCluster(reconciler, string(iopStr))
-}
-
-func savedIOPName(iop *v1alpha12.IstioOperator) string {
-	ret := name.InstalledSpecCRPrefix
-	if iop.Name != "" {
-		ret += "-" + iop.Name
-	}
-	if iop.Spec.Revision != "" {
-		ret += "-" + iop.Spec.Revision
-	}
-	return ret
+	return iop, nil
 }
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
