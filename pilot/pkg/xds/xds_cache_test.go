@@ -239,7 +239,7 @@ func TestXdsCache(t *testing.T) {
 		}
 	})
 
-	t.Run("no use stale cache", func(t *testing.T) {
+	t.Run("no use old cache", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
 		t1 := time.Now()
 
