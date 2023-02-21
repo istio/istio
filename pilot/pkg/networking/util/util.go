@@ -830,22 +830,24 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 		return nil
 	}
 	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
+	sessionCookiePath := svc.Attributes.Labels[features.PersistentCookiePathLabel]
 	sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
 
 	switch {
 	case sessionCookie != "":
-		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
-		if !found {
-			cookiePath = "/"
+		if sessionCookiePath != "" {
+			sessionCookiePath = strings.ReplaceAll(sessionCookiePath, ".", "/")
+		} else {
+			sessionCookiePath = "/"
 		}
 		return &statefulsession.StatefulSession{
 			SessionState: &core.TypedExtensionConfig{
 				Name: "envoy.http.stateful_session.cookie",
 				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 					Cookie: &httpv3.Cookie{
-						Path: cookiePath,
+						Path: sessionCookiePath,
 						Ttl:  &durationpb.Duration{Seconds: 120},
-						Name: cookieName,
+						Name: sessionCookie,
 					},
 				}),
 			},

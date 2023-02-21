@@ -151,7 +151,8 @@ func TestGRPC(t *testing.T) {
 	// Echo service
 	// initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
 	initRBACTests(sd, ds.Store(), "echo-rbac-mtls", port, true)
-	initPersistent(sd)
+	initPersistent(sd, "echo-persistent", ".Service.Method", 9999)
+	initPersistent(sd, "echo-persistent-default", "", 9998)
 
 	_, xdsPorts, _ := net.SplitHostPort(ds.Listener.Addr().String())
 	xdsPort, _ := strconv.Atoi(xdsPorts)
@@ -211,73 +212,10 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("persistent", func(t *testing.T) {
-		proxy := ds.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{
-			Generator: "grpc",
-		}})
-		adscConn := ds.Connect(proxy, []string{}, []string{})
-
-		adscConn.Send(&discovery.DiscoveryRequest{
-			TypeUrl: v3.ListenerType,
-		})
-
-		msg, err := adscConn.WaitVersion(5*time.Second, v3.ListenerType, "")
-		if err != nil {
-			t.Fatal("Failed to receive lds", err)
-		}
-		// Extract the cookie name from 4 layers of marshaling...
-		hcm := &hcm.HttpConnectionManager{}
-		ss := &statefulsession.StatefulSession{}
-		sc := &cookiev3.CookieBasedSessionState{}
-		filterIndex := -1
-		for _, rsc := range msg.Resources {
-			valBytes := rsc.Value
-			ll := &listener.Listener{}
-			_ = proto.Unmarshal(valBytes, ll)
-			if strings.HasPrefix(ll.Name, "echo-persistent.test.svc.cluster.local:") {
-				proto.Unmarshal(ll.ApiListener.ApiListener.Value, hcm)
-				for index, f := range hcm.HttpFilters {
-					if f.Name == util.StatefulSessionFilter {
-						proto.Unmarshal(f.GetTypedConfig().Value, ss)
-						filterIndex = index
-						if ss.GetSessionState().Name == "envoy.http.stateful_session.cookie" {
-							proto.Unmarshal(ss.GetSessionState().TypedConfig.Value, sc)
-						}
-					}
-				}
-			}
-		}
-		if sc.Cookie == nil {
-			t.Fatal("Failed to find session cookie")
-		}
-		if filterIndex == (len(hcm.HttpFilters) - 1) {
-			t.Fatal("session-cookie-filter cannot be the last filter!")
-		}
-		if sc.Cookie.Name != "test-cookie" {
-			t.Fatal("Missing expected cookie name", sc.Cookie)
-		}
-		if sc.Cookie.Path != "/Service/Method" {
-			t.Fatal("Missing expected cookie path", sc.Cookie)
-		}
-		clusterName := "outbound|9999||echo-persistent.test.svc.cluster.local"
-		adscConn.Send(&discovery.DiscoveryRequest{
-			TypeUrl:       v3.EndpointType,
-			ResourceNames: []string{clusterName},
-		})
-		_, err = adscConn.Wait(5*time.Second, v3.EndpointType)
-		if err != nil {
-			t.Fatal("Failed to receive endpoint", err)
-		}
-		ep := adscConn.GetEndpoints()[clusterName]
-		if ep == nil {
-			t.Fatal("Endpoints not found for persistent session cluster")
-		}
-		if len(ep.GetEndpoints()) == 0 {
-			t.Fatal("No endpoint not found for persistent session cluster")
-		}
-		lbep1 := ep.GetEndpoints()[0]
-		if lbep1.LbEndpoints[0].HealthStatus.Number() != 3 {
-			t.Fatal("Draining status not included")
-		}
+		testPersistent(t, ds, "echo-persistent", "/Service/Method", 9999)
+	})
+	t.Run("persistent-default", func(t *testing.T) {
+		testPersistent(t, ds, "echo-persistent-default", "/", 9998)
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
@@ -306,6 +244,76 @@ func TestGRPC(t *testing.T) {
 	})
 }
 
+func testPersistent(t *testing.T, ds *xds.FakeDiscoveryServer, svcname string, expectedCookiePath string, port int) {
+	proxy := ds.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{
+		Generator: "grpc",
+	}})
+	adscConn := ds.Connect(proxy, []string{}, []string{})
+
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl: v3.ListenerType,
+	})
+
+	msg, err := adscConn.WaitVersion(5*time.Second, v3.ListenerType, "")
+	if err != nil {
+		t.Fatal("Failed to receive lds", err)
+	}
+	// Extract the cookie name from 4 layers of marshaling...
+	hcm := &hcm.HttpConnectionManager{}
+	ss := &statefulsession.StatefulSession{}
+	sc := &cookiev3.CookieBasedSessionState{}
+	filterIndex := -1
+	for _, rsc := range msg.Resources {
+		valBytes := rsc.Value
+		ll := &listener.Listener{}
+		_ = proto.Unmarshal(valBytes, ll)
+		if strings.HasPrefix(ll.Name, svcname+".test.svc.cluster.local:") {
+			proto.Unmarshal(ll.ApiListener.ApiListener.Value, hcm)
+			for index, f := range hcm.HttpFilters {
+				if f.Name == util.StatefulSessionFilter {
+					proto.Unmarshal(f.GetTypedConfig().Value, ss)
+					filterIndex = index
+					if ss.GetSessionState().Name == "envoy.http.stateful_session.cookie" {
+						proto.Unmarshal(ss.GetSessionState().TypedConfig.Value, sc)
+					}
+				}
+			}
+		}
+	}
+	if sc.Cookie == nil {
+		t.Fatal("Failed to find session cookie")
+	}
+	if filterIndex == (len(hcm.HttpFilters) - 1) {
+		t.Fatal("session-cookie-filter cannot be the last filter!")
+	}
+	if sc.Cookie.Name != "test-cookie" {
+		t.Fatal("Missing expected cookie name", sc.Cookie)
+	}
+	if sc.Cookie.Path != expectedCookiePath {
+		t.Fatal("Missing expected cookie path", sc.Cookie.Path)
+	}
+	clusterName := "outbound|" + strconv.Itoa(port) + "||" + svcname + ".test.svc.cluster.local"
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{clusterName},
+	})
+	_, err = adscConn.Wait(5*time.Second, v3.EndpointType)
+	if err != nil {
+		t.Fatal("Failed to receive endpoint", err)
+	}
+	ep := adscConn.GetEndpoints()[clusterName]
+	if ep == nil {
+		t.Fatal("Endpoints not found for persistent session cluster")
+	}
+	if len(ep.GetEndpoints()) == 0 {
+		t.Fatal("No endpoint not found for persistent session cluster")
+	}
+	lbep1 := ep.GetEndpoints()[0]
+	if lbep1.LbEndpoints[0].HealthStatus.Number() != 3 {
+		t.Fatal("Draining status not included")
+	}
+}
+
 func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	sd.AddService(&model.Service{
 		Attributes: model.ServiceAttributes{
@@ -331,23 +339,26 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	})
 }
 
-// initPersistent creates echo-persistent.test:9999, type GRPC with one drained endpoint
-func initPersistent(sd *memory.ServiceDiscovery) {
+// initPersistent creates echo-persistent.test:port, type GRPC with one drained endpoint
+func initPersistent(sd *memory.ServiceDiscovery, svcname string, cookiePath string, port int) {
 	ns := "test"
-	svcname := "echo-persistent"
 	hn := svcname + "." + ns + ".svc.cluster.local"
+	labelMap := map[string]string{features.PersistentSessionLabel: "test-cookie"}
+	if cookiePath != "" {
+		labelMap[features.PersistentCookiePathLabel] = cookiePath
+	}
 	sd.AddService(&model.Service{
 		Attributes: model.ServiceAttributes{
 			Name:      svcname,
 			Namespace: ns,
-			Labels:    map[string]string{features.PersistentSessionLabel: "test-cookie:/Service/Method"},
+			Labels:    labelMap,
 		},
 		Hostname:       host.Name(hn),
 		DefaultAddress: "127.0.5.2",
 		Ports: model.PortList{
 			{
 				Name:     "grpc-main",
-				Port:     9999,
+				Port:     port,
 				Protocol: protocol.GRPC,
 			},
 		},
@@ -355,7 +366,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
 		{
 			Address:         "127.0.1.2",
-			EndpointPort:    uint32(9999),
+			EndpointPort:    uint32(port),
 			ServicePortName: "grpc-main",
 			HealthStatus:    model.Draining,
 		},

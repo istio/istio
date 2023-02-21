@@ -126,6 +126,12 @@ var (
 		"If not empty, services with this label will use cookie based persistent sessions",
 	).Get()
 
+	PersistentCookiePathLabel = env.Register(
+		"PILOT_PERSISTENT_COOKIE_PATH_LABEL",
+		"istio.io/persistent-cookie-path",
+		"Specifies optional cookie path for cookie based persistent sessions. '/' is default. Use '.' instead of '/' in the path.",
+	).Get()
+
 	PersistentSessionHeaderLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_HEADER_LABEL",
 		"istio.io/persistent-session-header",
