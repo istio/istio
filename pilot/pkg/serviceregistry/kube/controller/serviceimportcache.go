@@ -133,7 +133,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event m
 		}
 
 		mcsService := ic.genMCSService(curr, mcsHost, vips)
-		ic.addOrUpdateService(nil, nil, mcsService, event, false)
+		ic.addOrUpdateService(nil, mcsService, event, false)
 		return nil
 	})
 }
@@ -188,7 +188,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj any, event model.E
 
 	// Always force a rebuild of the endpoint cache in case this import caused
 	// a change to the discoverability policy.
-	ic.addOrUpdateService(nil, nil, mcsService, event, true)
+	ic.addOrUpdateService(nil, mcsService, event, true)
 
 	if needsFullPush {
 		ic.doFullPush(mcsHost, si.GetNamespace())

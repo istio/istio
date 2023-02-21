@@ -568,7 +568,7 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
+func (c *Controller) onServiceEvent(_, curr any, event model.Event) error {
 	currSvc := controllers.Extract[*v1.Service](curr)
 	if currSvc == nil {
 		return nil
@@ -581,14 +581,8 @@ func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
 	switch event {
 	case model.EventDelete:
 		c.deleteService(svcConv)
-	case model.EventAdd:
-		c.addOrUpdateService(nil, currSvc, svcConv, event, false)
-	case model.EventUpdate:
-		prevSvc := controllers.Extract[*v1.Service](prev)
-		if prevSvc == nil {
-			return nil
-		}
-		c.addOrUpdateService(prevSvc, currSvc, svcConv, event, false)
+	default:
+		c.addOrUpdateService(currSvc, svcConv, event, false)
 	}
 
 	return nil
@@ -617,7 +611,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -634,9 +628,11 @@ func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.
 		needsFullPush = c.updateServiceNodePortAddresses(currConv)
 	}
 
+	var prevConv *model.Service
 	// instance conversion is only required when service is added/updated.
 	instances := kube.ExternalNameServiceInstances(curr, currConv)
 	c.Lock()
+	prevConv = c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	if len(instances) > 0 {
 		c.externalNameSvcInstanceMap[currConv.Hostname] = instances
@@ -663,11 +659,6 @@ func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
-	var prevConv *model.Service
-	if event == model.EventUpdate && prev != nil {
-		prevConv = kube.ConvertService(*prev, c.opts.DomainSuffix, c.Cluster())
-	}
-
 	c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
 }
 
