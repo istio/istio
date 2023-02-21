@@ -462,7 +462,7 @@ func applyHTTPRouteDestination(
 
 	setTimeout(action, in.Timeout, node)
 
-	if model.UseGatewaySemantics(vs) && util.IsIstioVersionGE115(node.IstioVersion) {
+	if model.UseGatewaySemantics(vs) {
 		// return 500 for invalid backends
 		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
 		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR

@@ -56,12 +56,12 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	addr := constants.UnspecifiedIP
 	var extrAddrs []string
 	resolution := model.ClientSideLB
-	meshExternal := false
+	externalName := ""
 	nodeLocal := false
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		resolution = model.DNSLB
-		meshExternal = true
+		externalName = svc.Spec.ExternalName
 	}
 	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == corev1.ServiceInternalTrafficPolicyLocal {
 		nodeLocal = true
@@ -114,7 +114,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		Ports:           ports,
 		DefaultAddress:  addr,
 		ServiceAccounts: serviceaccounts,
-		MeshExternal:    meshExternal,
+		MeshExternal:    len(externalName) > 0,
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		ResourceVersion: svc.ResourceVersion,
@@ -125,7 +125,6 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			Labels:          svc.Labels,
 			ExportTo:        exportTo,
 			LabelSelectors:  svc.Spec.Selector,
-			NodeLocal:       nodeLocal,
 		},
 	}
 
@@ -164,6 +163,8 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	istioService.Attributes.Type = string(svc.Spec.Type)
+	istioService.Attributes.ExternalName = externalName
+	istioService.Attributes.NodeLocal = nodeLocal
 	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
 
 	return istioService
