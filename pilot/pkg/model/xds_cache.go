@@ -54,10 +54,10 @@ var (
 		"xds_cache_dependent_config_size",
 		"Current size of dependent configs"), enableStats)
 
-	xdsCacheHits              = xdsCacheReads.With(typeTag.Value("hit"))
-	xdsCacheMisses            = xdsCacheReads.With(typeTag.Value("miss"))
-	xdsCacheEvictsionsOnClear = xdsCacheEvictions.With(typeTag.Value("clear"))
-	xdsCacheEvictsionsOnSize  = xdsCacheEvictions.With(typeTag.Value("size"))
+	xdsCacheHits             = xdsCacheReads.With(typeTag.Value("hit"))
+	xdsCacheMisses           = xdsCacheReads.With(typeTag.Value("miss"))
+	xdsCacheEvictionsOnClear = xdsCacheEvictions.With(typeTag.Value("clear"))
+	xdsCacheEvictionsOnSize  = xdsCacheEvictions.With(typeTag.Value("size"))
 )
 
 func hit() {
@@ -175,9 +175,9 @@ func (l *lruCache) recordDependentConfigSize() {
 // This is the callback passed to LRU, it will be called whenever a key is removed.
 func (l *lruCache) onEvict(k string, v cacheValue) {
 	if l.evictedOnClear {
-		xdsCacheEvictsionsOnClear.Increment()
+		xdsCacheEvictionsOnClear.Increment()
 	} else {
-		xdsCacheEvictsionsOnSize.Increment()
+		xdsCacheEvictionsOnSize.Increment()
 	}
 
 	// The following cleanup logic needs to be called on every evict(whether passive or on exceeding size)
