@@ -209,7 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 		// Control plane validates 1mb max size. Set this on data plane too to increase from default of 4k
-		MaxDirectResponseBodySizeBytes: wrappers.UInt32(1024*1024),
+		MaxDirectResponseBodySizeBytes: wrappers.UInt32(1024 * 1024),
 	}
 	if SidecarIgnorePort(node) {
 		out.IgnorePortInHostMatching = true
