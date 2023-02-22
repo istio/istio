@@ -1371,17 +1371,24 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 		// Setup initial conditions to the success state. If we encounter errors, we will update this.
 		gatewayConditions := map[string]*condition{
 			string(k8sbeta.GatewayConditionReady): {
-				reason:  "ListenersValid",
+				reason:  string(k8sbeta.GatewayReasonReady),
 				message: "Listeners valid",
 			},
 		}
 		if IsManaged(kgw) {
 			gatewayConditions[string(k8sbeta.GatewayConditionAccepted)] = &condition{
 				error: &ConfigError{
-					Reason:  string(k8sbeta.GatewayReasonAccepted),
+					Reason:  string(k8sbeta.GatewayReasonNoResources),
 					Message: "Resources not yet deployed to the cluster",
 				},
 				setOnce: string(k8sbeta.GatewayReasonPending), // Default reason
+			}
+			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
+				error: &ConfigError{
+					Reason:  string(k8sbeta.GatewayReasonPending),
+					Message: "Resources not yet deployed to the cluster",
+				},
+				setOnce: string(k8sbeta.GatewayReasonPending),
 			}
 			// nolint: staticcheck // Deprecated condition, set both until 1.17
 			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
@@ -1395,6 +1402,11 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			gatewayConditions[string(k8sbeta.GatewayConditionAccepted)] = &condition{
 				reason:  string(k8sbeta.GatewayReasonAccepted),
 				message: "Resources available",
+			}
+			// We don't return before generating the config, so we can set this to a positive condition
+			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
+				reason:  string(k8sbeta.GatewayReasonProgrammed),
+				message: "Gateway has been programmed into Istio configuration",
 			}
 			// nolint: staticcheck // Deprecated condition, set both until 1.17
 			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
@@ -1478,6 +1490,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 
 		// TODO: we lose address if servers is empty due to an error
 		internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+
 		if len(skippedAddresses) > 0 {
 			warnings = append(warnings, fmt.Sprintf("Only Hostname is supported, ignoring %v", skippedAddresses))
 		}
@@ -1493,13 +1506,25 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 				Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
 				Message: msg,
 			}
+			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
+				Reason:  string(k8sbeta.GatewayReasonInvalid),
+				Message: msg,
+			}
 		} else if len(invalidListeners) > 0 {
+			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
+				Reason:  string(k8sbeta.GatewayReasonInvalid),
+				Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
+			}
 			gatewayConditions[string(k8sbeta.GatewayConditionReady)].error = &ConfigError{
 				Reason:  string(k8sbeta.GatewayReasonListenersNotValid),
 				Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
 			}
 		} else {
 			gatewayConditions[string(k8sbeta.GatewayConditionReady)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
+			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
+				reason:  string(k8sbeta.GatewayReasonProgrammed),
+				message: "Gateway has been programmed into Istio configuration",
+			}
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
