@@ -254,7 +254,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 }
 
 func setupWasmExtension(ctx resource.Context) error {
-	proxySHA, err := env.ReadProxySHA()
+	proxySHA, err := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
 	if err != nil {
 		return err
 	}
