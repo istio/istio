@@ -145,7 +145,6 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		rfCtx          *xdsfilters.RouterFilterContext
 		err            error
 		serviceCluster string
-		proxyMetaData  = proxy.Metadata
 	)
 
 	if proxy.XdsNode != nil {
@@ -252,87 +251,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		tracing, err = buildHCMTracing(envoyOpenCensus, provider.Stackdriver.GetMaxTagLength(), func() (*anypb.Any, error) {
-			proj, ok := proxyMetaData.PlatformMetadata[platform.GCPProject]
-			if !ok {
-				proj, ok = proxyMetaData.PlatformMetadata[platform.GCPProjectNumber]
-			}
-			if !ok {
-				return nil, fmt.Errorf("could not configure Stackdriver tracer - unknown project id")
-			}
-
-			sd := &tracingcfg.OpenCensusConfig{
-				StackdriverExporterEnabled: true,
-				StackdriverProjectId:       proj,
-				IncomingTraceContext:       allContexts,
-				OutgoingTraceContext:       allContexts,
-				// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
-				StdoutExporterEnabled: false,
-				TraceConfig: &opb.TraceConfig{
-					MaxNumberOfAnnotations:   200,
-					MaxNumberOfAttributes:    200,
-					MaxNumberOfMessageEvents: 200,
-				},
-			}
-
-			if proxyMetaData.StsPort != "" {
-				stsPort, err := strconv.Atoi(proxyMetaData.StsPort)
-				if err != nil || stsPort < 1 {
-					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
-				}
-				tokenPath := constants.TrustworthyJWTPath
-				sd.StackdriverGrpcService = &core.GrpcService{
-					InitialMetadata: []*core.HeaderValue{
-						{
-							Key:   "x-goog-user-project",
-							Value: proj,
-						},
-					},
-					TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-						GoogleGrpc: &core.GrpcService_GoogleGrpc{
-							TargetUri:  "cloudtrace.googleapis.com",
-							StatPrefix: "oc_stackdriver_tracer",
-							ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-								CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-									SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
-								},
-							},
-							CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-								{
-									CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
-										StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
-											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-											SubjectTokenPath:        tokenPath,
-											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
-											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-			}
-
-			// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
-			// so, we should not allow dynamic control based on provider configuration of the following params:
-			// - max number of annotations
-			// - max number of attributes
-			// - max number of message events
-			// The following code block allows control for a single configuration once during the lifecycle of a
-			// mesh.
-			// nolint: staticcheck
-			if provider.Stackdriver.GetMaxNumberOfAnnotations() != nil {
-				sd.TraceConfig.MaxNumberOfAnnotations = provider.Stackdriver.GetMaxNumberOfAnnotations().GetValue()
-			}
-			// nolint: staticcheck
-			if provider.Stackdriver.GetMaxNumberOfAttributes() != nil {
-				sd.TraceConfig.MaxNumberOfAttributes = provider.Stackdriver.GetMaxNumberOfAttributes().GetValue()
-			}
-			// nolint: staticcheck
-			if provider.Stackdriver.GetMaxNumberOfMessageEvents() != nil {
-				sd.TraceConfig.MaxNumberOfMessageEvents = provider.Stackdriver.GetMaxNumberOfMessageEvents().GetValue()
-			}
-			return protoconv.MessageToAnyWithError(sd)
+			return stackdriverConfigGen(proxy.Metadata, provider.Stackdriver)
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
@@ -395,6 +314,90 @@ func opencensusConfigGen(opencensusProvider *meshconfig.MeshConfig_ExtensionProv
 	}
 
 	return protoconv.MessageToAnyWithError(oc)
+}
+
+func stackdriverConfigGen(proxyMetaData *model.NodeMetadata, sdProvider *meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider) (*anypb.Any, error) {
+	proj, ok := proxyMetaData.PlatformMetadata[platform.GCPProject]
+	if !ok {
+		proj, ok = proxyMetaData.PlatformMetadata[platform.GCPProjectNumber]
+	}
+	if !ok {
+		return nil, fmt.Errorf("could not configure Stackdriver tracer - unknown project id")
+	}
+
+	sd := &tracingcfg.OpenCensusConfig{
+		StackdriverExporterEnabled: true,
+		StackdriverProjectId:       proj,
+		IncomingTraceContext:       allContexts,
+		OutgoingTraceContext:       allContexts,
+		// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+		StdoutExporterEnabled: false,
+		TraceConfig: &opb.TraceConfig{
+			MaxNumberOfAnnotations:   200,
+			MaxNumberOfAttributes:    200,
+			MaxNumberOfMessageEvents: 200,
+		},
+	}
+
+	if proxyMetaData.StsPort != "" {
+		stsPort, err := strconv.Atoi(proxyMetaData.StsPort)
+		if err != nil || stsPort < 1 {
+			return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
+		}
+		tokenPath := constants.TrustworthyJWTPath
+		sd.StackdriverGrpcService = &core.GrpcService{
+			InitialMetadata: []*core.HeaderValue{
+				{
+					Key:   "x-goog-user-project",
+					Value: proj,
+				},
+			},
+			TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+				GoogleGrpc: &core.GrpcService_GoogleGrpc{
+					TargetUri:  "cloudtrace.googleapis.com",
+					StatPrefix: "oc_stackdriver_tracer",
+					ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+						CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+							SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
+						},
+					},
+					CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+						{
+							CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
+								StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
+									TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
+									SubjectTokenPath:        tokenPath,
+									SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
+									Scope:                   "https://www.googleapis.com/auth/cloud-platform",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
+	// so, we should not allow dynamic control based on provider configuration of the following params:
+	// - max number of annotations
+	// - max number of attributes
+	// - max number of message events
+	// The following code block allows control for a single configuration once during the lifecycle of a
+	// mesh.
+	// nolint: staticcheck
+	if sdProvider.GetMaxNumberOfAnnotations() != nil {
+		sd.TraceConfig.MaxNumberOfAnnotations = sdProvider.GetMaxNumberOfAnnotations().GetValue()
+	}
+	// nolint: staticcheck
+	if sdProvider.GetMaxNumberOfAttributes() != nil {
+		sd.TraceConfig.MaxNumberOfAttributes = sdProvider.GetMaxNumberOfAttributes().GetValue()
+	}
+	// nolint: staticcheck
+	if sdProvider.GetMaxNumberOfMessageEvents() != nil {
+		sd.TraceConfig.MaxNumberOfMessageEvents = sdProvider.GetMaxNumberOfMessageEvents().GetValue()
+	}
+	return protoconv.MessageToAnyWithError(sd)
 }
 
 type typedConfigGenFn func() (*anypb.Any, error)
