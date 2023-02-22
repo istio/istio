@@ -375,6 +375,20 @@ type derivedInput struct {
 	Values      map[string]any
 }
 
+func setInputValue(input derivedInput, field string, value any) {
+	entry := input.Values
+	keys := strings.Split(field, ".")
+	for i := 0; i < len(keys)-1; i++ {
+		val, ok := entry[keys[i]]
+		if !ok {
+			val = map[string]any{}
+			entry[keys[i]] = val
+		}
+		entry = val.(map[string]any)
+	}
+	entry[keys[len(keys)-1]] = value
+}
+
 func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
 	cfg := d.injectConfig()
 
@@ -393,6 +407,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		MeshConfig:  cfg.MeshConfig,
 		Values:      cfg.Values.Map(),
 	}
+	setInputValue(input, "global.multiCluster.clusterName", features.ClusterName)
 	results, err := tmpl.Execute(template, input)
 	if err != nil {
 		return nil, err
