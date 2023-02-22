@@ -193,7 +193,8 @@ var knownControllers = func() sets.String {
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID,
-	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func())) *DeploymentController {
+	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()),
+) *DeploymentController {
 	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
 	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	dc := &DeploymentController{
