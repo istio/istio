@@ -164,6 +164,9 @@ func newLru(evictCallback simplelru.EvictCallback) simplelru.LRUCache {
 }
 
 func (l *lruCache) recordDependentConfigSize() {
+	if !enableStats() {
+		return
+	}
 	dsize := 0
 	for _, dependents := range l.configIndex {
 		dsize += len(dependents)
