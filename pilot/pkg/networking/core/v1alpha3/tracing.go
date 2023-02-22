@@ -222,16 +222,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 		tracing, err = buildHCMTracing(envoyOpenCensus, provider.Opencensus.GetMaxTagLength(),
 			func() (*anypb.Any, error) {
-				oc := &tracingcfg.OpenCensusConfig{
-					OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.GetService(), provider.Opencensus.GetPort()),
-					OcagentExporterEnabled: true,
-					// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
-					// is not allowed during the lifetime of a proxy.
-					IncomingTraceContext: convert(provider.Opencensus.GetContext()),
-					OutgoingTraceContext: convert(provider.Opencensus.GetContext()),
-				}
-
-				return protoconv.MessageToAnyWithError(oc)
+				return opencensusConfigGen(provider.Opencensus)
 			})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
@@ -391,6 +382,19 @@ func otelConfigGen(serviceName, hostname, cluster string) (*anypb.Any, error) {
 		ServiceName: serviceName,
 	}
 	return anypb.New(dc)
+}
+
+func opencensusConfigGen(opencensusProvider *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (*anypb.Any, error) {
+	oc := &tracingcfg.OpenCensusConfig{
+		OcagentAddress:         fmt.Sprintf("%s:%d", opencensusProvider.GetService(), opencensusProvider.GetPort()),
+		OcagentExporterEnabled: true,
+		// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
+		// is not allowed during the lifetime of a proxy.
+		IncomingTraceContext: convert(opencensusProvider.GetContext()),
+		OutgoingTraceContext: convert(opencensusProvider.GetContext()),
+	}
+
+	return protoconv.MessageToAnyWithError(oc)
 }
 
 type typedConfigGenFn func() (*anypb.Any, error)
