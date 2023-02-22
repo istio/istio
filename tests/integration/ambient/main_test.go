@@ -19,6 +19,7 @@ package ambient
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -84,6 +86,13 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
+			return os.Getenv("VARIANT") == "distroless"
+		}).
+		SkipIf("https://github.com/istio/istio/issues/43508", func(ctx resource.Context) bool {
+			return !ctx.Settings().Ambient
+		}).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ControlPlaneValues

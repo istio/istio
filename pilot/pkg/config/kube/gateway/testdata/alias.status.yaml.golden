@@ -39,8 +39,13 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
+    message: Gateway has been programmed into Istio configuration
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  - lastTransitionTime: fake
     message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: ListenersValid
+    reason: Ready
     status: "True"
     type: Ready
   - lastTransitionTime: fake
