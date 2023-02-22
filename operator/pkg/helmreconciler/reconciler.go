@@ -247,9 +247,14 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 // CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
 func (h *HelmReconciler) CheckSSAEnabled() bool {
 	if h.kubeClient != nil {
-		// SSA went GA in k8s 1.22. Earlier versions (eg: 1.18) have an issue where managedFields is not present on upgraded clusters.
-		// See: https://github.com/istio/istio/issues/37946#issuecomment-1072875625
+		// SSA went GA in k8s 1.22
 		if kube.IsAtLeastVersion(h.kubeClient, 22) {
+			return true
+		}
+		// For versions greater than 1.18, detect if SSA is enabled.
+		// There is a known issue with this detection logic for k8s clusters that were upgraded.
+		// See: https://github.com/istio/istio/issues/37946#issuecomment-1072875625
+		if kube.IsAtLeastVersion(h.kubeClient, 18) {
 			// todo(kebe7jun) a more general test method
 			// API Server does not support detecting whether ServerSideApply is enabled
 			// through the API for the time being.
