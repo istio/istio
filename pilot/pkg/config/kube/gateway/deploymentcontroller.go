@@ -37,6 +37,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -75,6 +76,7 @@ import (
 //   - This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
 	client             kube.Client
+	clusterID          cluster.ID
 	queue              controllers.Queue
 	patcher            patcher
 	gatewayLister      lister.GatewayLister
@@ -190,11 +192,12 @@ var knownControllers = func() sets.String {
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client, webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func())) *DeploymentController {
+func NewDeploymentController(client kube.Client, clusterID cluster.ID, webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func())) *DeploymentController {
 	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
 	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
 	dc := &DeploymentController{
-		client: client,
+		client:    client,
+		clusterID: clusterID,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -407,7 +410,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		MeshConfig:  cfg.MeshConfig,
 		Values:      cfg.Values.Map(),
 	}
-	setInputValue(input, "global.multiCluster.clusterName", features.ClusterName)
+	setInputValue(input, "global.multiCluster.clusterName", d.clusterID)
 	results, err := tmpl.Execute(template, input)
 	if err != nil {
 		return nil, err
