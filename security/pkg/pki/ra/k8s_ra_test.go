@@ -192,6 +192,9 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 					continue
 				}
 				csr.Status.Certificate = certificate
+				// fake clientset doesn't handle resource version, so we need to delay the update
+				// to make sure watchers can catch the event
+				time.Sleep(time.Millisecond)
 				client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
 			}
 		}
