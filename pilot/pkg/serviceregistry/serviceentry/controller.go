@@ -464,6 +464,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event model.Event) {
 	log.Debugf("Handle event %s for workload instance (%s/%s) in namespace %s", event,
 		wi.Kind, wi.Endpoint.Address, wi.Namespace)
+	var oldWi *model.WorkloadInstance
 	key := configKey{
 		kind:      podConfigType,
 		name:      wi.Name,
@@ -481,13 +482,13 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	case model.EventDelete:
 		redundantEventForPod = s.workloadInstances.Delete(wi) == nil
 	default: // add or update
-		if old := s.workloadInstances.Insert(wi); old != nil {
-			if old.Endpoint.Address != wi.Endpoint.Address {
-				addressToDelete = old.Endpoint.Address
+		if oldWi = s.workloadInstances.Insert(wi); oldWi != nil {
+			if oldWi.Endpoint.Address != wi.Endpoint.Address {
+				addressToDelete = oldWi.Endpoint.Address
 			}
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
-			if model.WorkloadInstancesEqual(old, wi) {
+			if model.WorkloadInstancesEqual(oldWi, wi) {
 				// ignore the update as nothing has changed
 				redundantEventForPod = true
 			}
@@ -512,41 +513,58 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
-			// Not a match, skip this one
-			continue
-		}
-		seNamespacedName := config.NamespacedName(cfg)
-		services := s.services.getServices(seNamespacedName)
-		instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
-		instances = append(instances, instance...)
-		if addressToDelete != "" {
-			for _, i := range instance {
-				di := i.DeepCopy()
-				di.Endpoint.Address = addressToDelete
-				instancesDeleted = append(instancesDeleted, di)
-			}
-			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-		} else if event == model.EventDelete {
-			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-		} else {
-			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
-		}
-		// If serviceentry's resolution is DNS, make a full push
-		// TODO: maybe cds?
-		if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
-			se.WorkloadSelector != nil {
+		if se.WorkloadSelector != nil {
+			// If the workload selector exists, then we need to verify that the subset still is a match (in case the workload instance labels change)
+			// We also check for cases where the oldWi had labels but the new one does not
+			if len(wi.Endpoint.Labels) == 0 || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
+				// Check that there was an oldWi (not iterating the instance for the first time)
+				if oldWi != nil {
+					// Check if the old labels matched. If they did and the current labels don't. Then we need to remove this instance
+					// if the oldWi didn't have any labels then we can safely ignore it.
+					if len(oldWi.Endpoint.Labels) > 0 && labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
+						seNamespacedName := config.NamespacedName(cfg)
+						services := s.services.getServices(seNamespacedName)
+						instance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
+						instancesDeleted = append(instancesDeleted, instance...)
+						s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+					}
+				}
+			} else {
+				// If the workload instance still matches. We take care of the possible events.
+				seNamespacedName := config.NamespacedName(cfg)
+				services := s.services.getServices(seNamespacedName)
+				instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
+				instances = append(instances, instance...)
+				if addressToDelete != "" {
+					for _, i := range instance {
+						di := i.DeepCopy()
+						di.Endpoint.Address = addressToDelete
+						instancesDeleted = append(instancesDeleted, di)
+					}
+					s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+				} else if event == model.EventDelete {
+					s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+				} else {
+					s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
+				}
+				// If serviceentry's resolution is DNS, make a full push
+				// TODO: maybe cds?
+				if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+					se.WorkloadSelector != nil {
 
-			fullPush = true
-			for _, inst := range instance {
-				configsUpdated[model.ConfigKey{
-					Kind:      kind.ServiceEntry,
-					Name:      string(inst.Service.Hostname),
-					Namespace: cfg.Namespace,
-				}] = struct{}{}
+					fullPush = true
+					for _, inst := range instance {
+						configsUpdated[model.ConfigKey{
+							Kind:      kind.ServiceEntry,
+							Name:      string(inst.Service.Hostname),
+							Namespace: cfg.Namespace,
+						}] = struct{}{}
+					}
+				}
 			}
 		}
 	}
+
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
@@ -558,7 +576,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	}
 	s.mutex.Unlock()
 
-	s.edsUpdate(instances)
+	s.edsUpdate(append(instances, instancesDeleted...))
 
 	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
 	// need to update CDS to refresh endpoints
