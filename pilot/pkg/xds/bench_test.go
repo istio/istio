@@ -21,6 +21,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"text/template"
 	"time"
@@ -637,6 +638,24 @@ func BenchmarkCache(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			c.Get(key)
 		}
+	})
+	b.Run("concurrent", func(b *testing.B) {
+		c := model.NewXdsCache()
+
+		key := makeCacheKey(1)
+		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
+		c.Add(key, req, res)
+		wg := sync.WaitGroup{}
+		wg.Add(10)
+		for worker := 0; worker < 10; worker++ {
+			go func() {
+				for n := 0; n < b.N; n++ {
+					c.Get(key)
+				}
+				wg.Done()
+			}()
+		}
+		wg.Wait()
 	})
 
 	b.Run("insert and get", func(b *testing.B) {
