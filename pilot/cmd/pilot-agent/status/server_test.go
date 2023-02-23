@@ -219,7 +219,7 @@ func TestPprof(t *testing.T) {
 	}
 
 	client := http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
 	if err != nil {
 		t.Fatalf("[%v] failed to create request", pprofPath)
 	}
@@ -842,7 +842,7 @@ func TestAppProbe(t *testing.T) {
 		}
 
 		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
 		if err != nil {
 			t.Fatalf("[%v] failed to create request", tc.probePath)
 		}
@@ -1002,7 +1002,7 @@ func TestHttpsAppProbe(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			statusPort, getAlpn := setupServer(t, tc.alpns)
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
 			if err != nil {
 				t.Fatalf("failed to create request")
 			}
@@ -1126,7 +1126,7 @@ func TestGRPCAppProbe(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
 				t.Errorf("[%v] failed to create request", tc.probePath)
 			}
@@ -1251,7 +1251,7 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
 				t.Errorf("[%v] failed to create request", tc.probePath)
 			}
@@ -1403,7 +1403,7 @@ func TestProbeHeader(t *testing.T) {
 			}
 
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
 			if err != nil {
 				t.Fatal("failed to create request: ", err)
 			}
