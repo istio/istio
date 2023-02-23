@@ -114,7 +114,7 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 		healthCheckLog.Errorf("unable to parse url: %v", err)
 		return Unknown, err
 	}
-	req, err := http.NewRequest("GET", targetURL.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, targetURL.String(), nil)
 	if err != nil {
 		return Unknown, err
 	}

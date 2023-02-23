@@ -466,7 +466,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				},
 			}
 
-			req, err := http.NewRequest("POST", "https://"+server.Listener.Addr().String(), bytes.NewBuffer([]byte("ABC")))
+			req, err := http.NewRequest(http.MethodPost, "https://"+server.Listener.Addr().String(), bytes.NewBuffer([]byte("ABC")))
 			if err != nil {
 				t.Errorf("failed to create HTTP client: %v", err)
 			}

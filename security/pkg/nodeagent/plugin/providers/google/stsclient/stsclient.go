@@ -89,7 +89,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 	var lastError error
 	for attempts < 5 {
 		attempts++
-		req, err := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(reqBytes))
+		req, err := http.NewRequest(http.MethodPost, SecureTokenEndpoint, bytes.NewBuffer(reqBytes))
 		if err != nil {
 			return nil, err
 		}

@@ -224,7 +224,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal query for get federated token request: %+v", err)
 	}
-	req, err := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	req, err := http.NewRequest(http.MethodPost, federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
 	if err != nil {
 		return req, fmt.Errorf("failed to create get federated token request: %+v", err)
 	}
@@ -239,7 +239,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 			"scope":              reqScope,
 		}
 		dJSONQuery, _ := json.Marshal(dQuery)
-		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
+		dReq, _ := http.NewRequest(http.MethodPost, federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
 
 		reqDump, _ := httputil.DumpRequest(dReq, true)
@@ -372,7 +372,7 @@ func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenRespon
 		return nil, fmt.Errorf("failed to marshal query for get access token request: %+v", err)
 	}
 	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gcpProjectNumber)
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(jsonQuery))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create get access token request: %+v", err)
 	}
