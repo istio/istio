@@ -51,4 +51,5 @@ meshConfig:
   defaultConfig:
     proxyMetadata: {}
 
-ebpfRedirect: true
+# Ambient redirection mode: "iptables" or "ebpf"
+redirectMode: "iptables"

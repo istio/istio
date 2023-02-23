@@ -51,7 +51,7 @@ spec:
             add:
             - NET_ADMIN
         command:
- {{- if .Values.ebpfRedirect }}
+{{- if eq .Values.redirectMode "ebpf"}}
           - sh
           - -c
           - |
