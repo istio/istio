@@ -119,17 +119,6 @@ func NewXdsCache() XdsCache {
 	return cache
 }
 
-// NewLenientXdsCache returns an instance of a cache that does not validate token based get/set and enable assertions.
-func NewLenientXdsCache() XdsCache {
-	cache := &lruCache{
-		enableAssertions: false,
-		configIndex:      map[ConfigHash]sets.String{},
-	}
-	cache.store = newLru(cache.onEvict)
-
-	return cache
-}
-
 type lruCache struct {
 	enableAssertions bool
 	store            simplelru.LRUCache[string, cacheValue]
