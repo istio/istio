@@ -15,6 +15,7 @@
 package model
 
 import (
+	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
@@ -133,6 +134,9 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 		}
 		if pcs[i].GetImage() != nil {
 			merged.Image = pcs[i].GetImage().DeepCopy()
+		}
+		if pcs[i].GetTracing() != nil {
+			merged.Tracing = proto.Clone(pcs[i].GetTracing()).(*meshconfig.Tracing)
 		}
 	}
 	return merged
