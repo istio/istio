@@ -4,6 +4,8 @@ cni:
   variant: ""
   image: install-cni
   pullPolicy: ""
+  # namespace allows overriding the release namespace. Do not set unless you know what you are doing.
+  namespace: ""
 
   # Configuration log level of istio-cni binary
   # by default istio-cni send all logs to UDS server

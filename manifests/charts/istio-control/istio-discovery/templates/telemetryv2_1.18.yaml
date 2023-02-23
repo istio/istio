@@ -9,7 +9,7 @@ metadata:
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
@@ -101,7 +101,7 @@ metadata:
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
@@ -184,7 +184,7 @@ metadata:
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
@@ -315,7 +315,7 @@ metadata:
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
@@ -439,7 +439,7 @@ metadata:
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}

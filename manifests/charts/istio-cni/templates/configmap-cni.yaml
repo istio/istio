@@ -7,7 +7,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: istio-cni-config
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
   labels:
     app: istio-cni
     release: {{ .Release.Name }}
@@ -37,7 +37,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: "istio-cni-taint-configmap"
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
   labels:
     app: istio-cni
     release: {{ .Release.Name }}
@@ -48,5 +48,5 @@ data:
   config: |
         - name: istio-cni
           selector: k8s-app=istio-cni-node
-          namespace: {{ .Release.Namespace }}
+          namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
   {{- end }}

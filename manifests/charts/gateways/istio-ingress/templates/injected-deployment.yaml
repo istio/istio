@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $gateway.name | default "istio-ingressgateway" }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $gateway.namespace | default .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
@@ -32,7 +32,7 @@ spec:
     metadata:
       labels:
 {{ $gateway.labels | toYaml | indent 8 }}
-{{- if eq .Release.Namespace "istio-system"}}
+{{- if eq ($gateway.namespace | default .Release.Namespace) "istio-system"}}
         heritage: Tiller
         release: istio
         chart: gateways

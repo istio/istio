@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: istio-cni-resource-quota
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
 spec:
   hard:
     pods: {{ .Values.cni.resourceQuotas.pods | quote }}

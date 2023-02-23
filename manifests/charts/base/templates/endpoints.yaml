@@ -8,7 +8,7 @@ metadata:
   {{- else }}
   name: istiod
   {{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}

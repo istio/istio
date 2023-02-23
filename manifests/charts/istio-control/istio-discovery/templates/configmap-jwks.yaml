@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}

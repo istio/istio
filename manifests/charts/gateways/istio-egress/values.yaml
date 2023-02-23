@@ -3,6 +3,8 @@
 gateways:
   istio-egressgateway:
     name: istio-egressgateway
+    # namespace allows overriding the release namespace. Do not set unless you know what you are doing.
+    namespace: ""
     ports:
     - port: 80
       targetPort: 8080

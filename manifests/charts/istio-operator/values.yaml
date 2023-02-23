@@ -1,5 +1,7 @@
 hub: gcr.io/istio-testing
 tag: latest
+# namespace allows overriding the release namespace. Do not set unless you know what you are doing.
+namespace: ""
 
 # ImagePullSecrets for operator ServiceAccount, list of secrets in the same namespace
 # used to pull operator image. Must be set for any cluster configured with private docker registry.

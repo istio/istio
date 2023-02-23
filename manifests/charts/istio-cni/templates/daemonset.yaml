@@ -10,7 +10,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: istio-cni-node
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
   labels:
     k8s-app: istio-cni-node
     release: {{ .Release.Name }}
@@ -183,7 +183,7 @@ spec:
 {{- end }}
           command: ["/opt/local/bin/istio-cni-taint"]
           securityContext:
-            runAsUser: 1337
+            runAsUser: 1337 
             runAsGroup: 1337
             runAsNonRoot: true
 {{- if .Values.cni.seccompProfile }}
@@ -196,7 +196,7 @@ spec:
           - name: "TAINT_CONFIGMAP-NAME"
             value: "istio-cni-taint-configmap"
           - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: {{ .Release.Namespace | quote }}
+            value: {{ (.Values.cni.namespace | default .Values.cni.namespace | default .Release.Namespace) | quote }}
 {{- end }}
       volumes:
         # Used to install CNI.

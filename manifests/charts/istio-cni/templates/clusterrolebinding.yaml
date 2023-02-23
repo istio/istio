@@ -15,7 +15,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: istio-cni
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
 ---
 {{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -30,7 +30,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-cni
-  namespace: {{ .Release.Namespace}}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -42,7 +42,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: istio-cni-psp
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
@@ -54,7 +54,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: istio-cni
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.cni.namespace | default .Release.Namespace }}
 {{- end }}
 ---
 {{- if .Values.cni.taint.enabled }}
@@ -70,7 +70,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: istio-cni
-    namespace: {{ .Release.Namespace}}
+    namespace: {{ .Values.cni.namespace | default .Release.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

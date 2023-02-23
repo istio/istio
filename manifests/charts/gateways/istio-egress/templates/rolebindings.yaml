@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ $gateway.name }}-sds
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $gateway.namespace | default .Release.Namespace}}
   labels:
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}

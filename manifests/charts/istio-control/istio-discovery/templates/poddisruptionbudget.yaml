@@ -7,7 +7,7 @@ apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   labels:
     app: istiod
     istio.io/rev: {{ .Values.revision | default "default" }}

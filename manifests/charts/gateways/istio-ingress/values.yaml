@@ -4,6 +4,8 @@
 gateways:
   istio-ingressgateway:
     name: istio-ingressgateway
+    # namespace allows overriding the release namespace. Do not set unless you know what you are doing.
+    namespace: ""
     labels:
       app: istio-ingressgateway
       istio: ingressgateway

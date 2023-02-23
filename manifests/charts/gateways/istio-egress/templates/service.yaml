@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ $gateway.name }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $gateway.namespace | default .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
     {{ $key }}: {{ $val | quote }}

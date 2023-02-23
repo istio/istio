@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
   {{- if .Values.pilot.serviceAnnotations }}
   annotations:
 {{ toYaml .Values.pilot.serviceAnnotations | indent 4 }}

@@ -2,6 +2,8 @@
 name: ""
 # revision declares which revision this gateway is a part of
 revision: ""
+# namespace allows overriding the release namespace. Do not set unless you know what you are doing.
+namespace: ""
 
 replicaCount: 1
 

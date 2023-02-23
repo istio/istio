@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $gateway.name }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $gateway.namespace | default .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
@@ -28,7 +28,7 @@ spec:
     metadata:
       labels:
 {{ $gateway.labels | toYaml | indent 8 }}
-{{- if eq .Release.Namespace "istio-system"}}
+{{- if eq ($gateway.namespace | default .Release.Namespace) "istio-system"}}
         heritage: Tiller
         release: istio
         chart: gateways
@@ -193,7 +193,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ ($gateway.namespace | default .Release.Namespace) }}/deployments/{{ $gateway.name }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
