@@ -110,7 +110,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	return b
 }
 
-func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
+func (b *EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 	if dr := b.destinationRule.GetRule(); dr != nil {
 		return dr.Spec.(*networkingapi.DestinationRule)
 	}
@@ -118,7 +118,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 }
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
-func (b EndpointBuilder) Key() string {
+func (b *EndpointBuilder) Key() string {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -174,14 +174,14 @@ func (b EndpointBuilder) Key() string {
 	return h.Sum()
 }
 
-func (b EndpointBuilder) Cacheable() bool {
+func (b *EndpointBuilder) Cacheable() bool {
 	// If service is not defined, we cannot do any caching as we will not have a way to
 	// invalidate the results.
 	// Service being nil means the EDS will be empty anyways, so not much lost here.
 	return b.service != nil
 }
 
-func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
+func (b *EndpointBuilder) DependentConfigs() []model.ConfigHash {
 	drs := b.destinationRule.GetFrom()
 	configs := make([]model.ConfigHash, 0, len(drs)+1)
 	if b.destinationRule != nil {
@@ -199,12 +199,6 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
 		}.HashCode())
 	}
 	return configs
-}
-
-var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
-
-func (b EndpointBuilder) DependentTypes() []kind.Kind {
-	return edsDependentTypes
 }
 
 type LocalityEndpoints struct {
