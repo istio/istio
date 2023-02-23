@@ -28,6 +28,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -629,7 +630,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -641,7 +642,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
@@ -826,7 +827,7 @@ func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *network
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	cluster.ConnectTimeout = cb.req.Push.Mesh.ConnectTimeout
+	cluster.ConnectTimeout = proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -1337,7 +1338,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: security.SDSExternalClusterName,
 			Endpoints: []*endpoint.LocalityLbEndpoints{
