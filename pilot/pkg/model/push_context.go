@@ -261,8 +261,6 @@ type PushContext struct {
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
 
-	AmbientSnapshot *AmbientSnapshot
-
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
@@ -271,6 +269,7 @@ type PushContext struct {
 
 	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
+	ambientIndex    AmbientIndexes
 }
 
 type consolidatedDestRules struct {
@@ -1260,7 +1259,7 @@ func (ps *PushContext) updateContext(
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged, addressesChanged bool
+		wasmPluginsChanged, proxyConfigsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1292,8 +1291,6 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case kind.ProxyConfig:
 			proxyConfigsChanged = true
-		case kind.Address:
-			addressesChanged = true
 		}
 	}
 
@@ -1388,11 +1385,7 @@ func (ps *PushContext) updateContext(
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
 
-	if addressesChanged {
-		ps.initAmbient(env)
-	} else {
-		ps.AmbientSnapshot = oldPushContext.AmbientSnapshot
-	}
+	ps.initAmbient(env)
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
@@ -2095,7 +2088,7 @@ func (ps *PushContext) initGateways(env *Environment) error {
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {
-	ps.AmbientSnapshot = env.AmbientSnapshot()
+	ps.ambientIndex = env
 }
 
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
@@ -2270,10 +2263,10 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 }
 
 func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
-	return ps.AmbientSnapshot.Waypoint(scope)
+	return ps.ambientIndex.Waypoint(scope)
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
 func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
-	return ps.AmbientSnapshot.WorkloadsForWaypoint(scope)
+	return ps.ambientIndex.WorkloadsForWaypoint(scope)
 }

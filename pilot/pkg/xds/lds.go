@@ -53,11 +53,20 @@ var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
 	},
 }
 
+func alwaysPushIncremental(proxy *model.Proxy, req *model.PushRequest) bool {
+	// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
+	// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
+	// incremental pushes.
+	// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+	// TODO: consider optimizing this so we only push the "internal" listener as well
+	return proxy.IsWaypointProxy() && model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address)
+}
+
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if req == nil {
 		return true
 	}
-	if !req.Full {
+	if !req.Full && !alwaysPushIncremental(proxy, req) {
 		// LDS only handles full push
 		return false
 	}

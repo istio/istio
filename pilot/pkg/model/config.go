@@ -72,6 +72,20 @@ func (key ConfigKey) String() string {
 	return key.Kind.String() + "/" + key.Namespace + "/" + key.Name
 }
 
+// HasConfigsOfKind returns true if configs has changes of type kind
+func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
+	if len(configs) == 0 {
+		// Empty means all, so a match
+		return true
+	}
+	for c := range configs {
+		if c.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigsOfKind extracts configs of the specified kind.
 func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigKey] {
 	ret := make(sets.Set[ConfigKey])

@@ -794,84 +794,40 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
+	AmbientIndexes
+}
+
+type AmbientIndexes interface {
 	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
 	AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
 	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
-	AmbientSnapshot() *AmbientSnapshot
+	Waypoint(scope WaypointScope) sets.Set[netip.Addr]
+	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
 
-type AmbientSnapshot struct {
-	// byPod indexes by Pod IP address.
-	workloads []*WorkloadInfo
+type UnimplementedAmbientIndexes struct{}
 
-	// Map of ServiceAccount -> IP
-	waypoints map[WaypointScope]sets.String
+func (u UnimplementedAmbientIndexes) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+	return nil, nil
 }
 
-func NewAmbientSnapshot(workloads []*WorkloadInfo, waypoints map[WaypointScope]sets.String) *AmbientSnapshot {
-	return &AmbientSnapshot{
-		workloads: workloads,
-		waypoints: waypoints,
-	}
+func (u UnimplementedAmbientIndexes) AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
 }
 
-func (a *AmbientSnapshot) Merge(other *AmbientSnapshot) *AmbientSnapshot {
-	if other == nil {
-		return a
-	}
-	if len(a.waypoints) == 0 && len(a.workloads) == 0 {
-		return other
-	}
-	if len(other.waypoints) == 0 && len(other.workloads) == 0 {
-		return a
-	}
-	a.workloads = append(a.workloads, other.workloads...)
-	for s, i := range other.waypoints {
-		a.waypoints[s].Merge(i)
-	}
-	return a
+func (u UnimplementedAmbientIndexes) Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization {
+	return nil
 }
 
-func (a *AmbientSnapshot) matchesScope(scope WaypointScope, w *WorkloadInfo) bool {
-	if len(scope.ServiceAccount) == 0 {
-		// We are a namespace wide waypoint. SA scope take precedence.
-		// Check if there is one for this workloads service account
-		if _, f := a.waypoints[WaypointScope{Namespace: scope.Namespace, ServiceAccount: w.ServiceAccount}]; f {
-			return false
-		}
-	}
-	if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
-		return false
-	}
-	if w.Namespace != scope.Namespace {
-		return false
-	}
-	// Filter out waypoints.
-	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		return false
-	}
-	return true
+func (u UnimplementedAmbientIndexes) Waypoint(scope WaypointScope) sets.Set[netip.Addr] {
+	return nil
 }
 
-func (a *AmbientSnapshot) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
-	res := []*WorkloadInfo{}
-	// TODO: try to precompute
-	for _, w := range a.workloads {
-		if a.matchesScope(scope, w) {
-			res = append(res, w)
-		}
-	}
-	return res
+func (u UnimplementedAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+	return nil
 }
 
-func (a *AmbientSnapshot) Waypoint(scope WaypointScope) sets.Set[netip.Addr] {
-	res := sets.New[netip.Addr]()
-	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
-	}
-
-	return res
-}
+var _ AmbientIndexes = UnimplementedAmbientIndexes{}
 
 type WorkloadInfo struct {
 	*workloadapi.Workload
