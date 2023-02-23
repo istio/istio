@@ -153,9 +153,6 @@ func (resolution Resolution) String() string {
 }
 
 const (
-	// IstioDefaultConfigNamespace constant for default namespace
-	IstioDefaultConfigNamespace = "default"
-
 	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
 	// registry's value.
 	//
