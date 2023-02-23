@@ -72,7 +72,13 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	if err != nil {
 		return
 	}
+
+	needClose := true
 	defer func() {
+		if needClose {
+			tmpFile.Close()
+		}
+
 		if Exists(tmpFile.Name()) {
 			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
 				if err != nil {
@@ -90,11 +96,10 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 
 	_, err = tmpFile.Write(data)
 	if err != nil {
-		if closeErr := tmpFile.Close(); closeErr != nil {
-			err = fmt.Errorf("%s: %w", closeErr.Error(), err)
-		}
 		return
 	}
+
+	needClose = false
 	if err = tmpFile.Close(); err != nil {
 		return
 	}
