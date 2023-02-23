@@ -463,7 +463,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	empty := 0
 	cached := 0
 	regenerated := 0
-	useFullCache := canUseOldEdsCache(req)
+	useOld := canUseOldEdsCache(req)
 	for _, clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
@@ -478,7 +478,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
 			var cachedEndpoint *discovery.Resource
-			if useFullCache {
+			if useOld {
 				// If no PA changed
 				cachedEndpoint = eds.Server.Cache.Get(&builder)
 			} else {
@@ -508,7 +508,9 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(&builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource, model.CacheOption{
+				IgnoreOldCache: !useOld,
+			})
 		}
 	}
 	return resources, model.XdsLogDetails{
