@@ -799,7 +799,11 @@ type ServiceDiscovery interface {
 
 type AmbientIndexes interface {
 	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
-	AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
+	AdditionalPodSubscriptions(
+		proxy *Proxy,
+		allAddresses sets.Set[types.NamespacedName],
+		currentSubs sets.Set[types.NamespacedName],
+	) sets.Set[types.NamespacedName]
 	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
 	Waypoint(scope WaypointScope) sets.Set[netip.Addr]
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
@@ -807,19 +811,19 @@ type AmbientIndexes interface {
 
 type UnimplementedAmbientIndexes struct{}
 
-func (u UnimplementedAmbientIndexes) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+func (u UnimplementedAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
 	return nil, nil
 }
 
-func (u UnimplementedAmbientIndexes) AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (u UnimplementedAmbientIndexes) AdditionalPodSubscriptions(*Proxy, sets.Set[types.NamespacedName], sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
 	return nil
 }
 
-func (u UnimplementedAmbientIndexes) Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization {
+func (u UnimplementedAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
 	return nil
 }
 
-func (u UnimplementedAmbientIndexes) Waypoint(scope WaypointScope) sets.Set[netip.Addr] {
+func (u UnimplementedAmbientIndexes) Waypoint(WaypointScope) sets.Set[netip.Addr] {
 	return nil
 }
 
