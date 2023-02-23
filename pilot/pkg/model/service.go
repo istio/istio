@@ -554,10 +554,6 @@ type EndpointMetadata struct {
 	ClusterID cluster.ID
 }
 
-func (epm *EndpointMetadata) IsDisabledTLS() bool {
-	return epm.TLSMode == "" || epm.TLSMode == DisabledTLSModeLabel
-}
-
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
 type EndpointDiscoverabilityPolicy interface {
 	// IsDiscoverableFromProxy indicates whether an endpoint is discoverable from the given Proxy.
