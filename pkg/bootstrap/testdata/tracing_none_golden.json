@@ -248,7 +248,7 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"google_re2":{}, "regex":"vhost\\.*\\.route\\.*"}
+          "safe_regex": {"regex":"vhost\\.*\\.route\\.*"}
           },
           {
           "prefix": "component"
@@ -425,7 +425,8 @@
            }
           }
         }
-      }      
+      }
+      
       
     ],
     "listeners":[
@@ -529,7 +530,7 @@
       }
     ]
   }
-
+  
   
   ,
   "cluster_manager": {
