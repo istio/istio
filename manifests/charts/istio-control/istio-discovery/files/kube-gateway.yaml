@@ -145,7 +145,7 @@ spec:
         - name: ISTIO_META_APP_CONTAINERS
           value: ""
         - name: ISTIO_META_CLUSTER_ID
-          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
         - name: ISTIO_META_NODE_NAME
           valueFrom:
             fieldRef:
