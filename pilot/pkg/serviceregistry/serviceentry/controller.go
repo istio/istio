@@ -515,21 +515,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		se := cfg.Spec.(*networking.ServiceEntry)
 		if se.WorkloadSelector != nil {
 			// If the workload selector exists, then we need to verify that the subset still is a match (in case the workload instance labels change)
-			// We also check for cases where the oldWi had labels but the new one does not
-			if len(wi.Endpoint.Labels) == 0 || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
-				// Check that there was an oldWi (not iterating the instance for the first time)
-				if oldWi != nil {
-					// Check if the old labels matched. If they did and the current labels don't. Then we need to remove this instance
-					// if the oldWi didn't have any labels then we can safely ignore it.
-					if len(oldWi.Endpoint.Labels) > 0 && labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
-						seNamespacedName := config.NamespacedName(cfg)
-						services := s.services.getServices(seNamespacedName)
-						instance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
-						instancesDeleted = append(instancesDeleted, instance...)
-						s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-					}
-				}
-			} else {
+			if reflect.DeepEqual(se.WorkloadSelector.Labels, wi.Endpoint.Labels) || labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
 				// If the workload instance still matches. We take care of the possible events.
 				seNamespacedName := config.NamespacedName(cfg)
 				services := s.services.getServices(seNamespacedName)
@@ -559,6 +545,19 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 							Name:      string(inst.Service.Hostname),
 							Namespace: cfg.Namespace,
 						}] = struct{}{}
+					}
+				}
+			} else {
+				// If the labels don't match, we see if we need to remove this instance
+				// Check that there was an oldWi (not iterating the instance for the first time)
+				if oldWi != nil {
+					// Check if the old labels matched. If they did and the current labels don't. Then we need to remove this instance
+					if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
+						seNamespacedName := config.NamespacedName(cfg)
+						services := s.services.getServices(seNamespacedName)
+						instance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
+						instancesDeleted = append(instancesDeleted, instance...)
+						s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 					}
 				}
 			}
