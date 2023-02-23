@@ -481,9 +481,6 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	if !features.EndpointTelemetryLabel || !features.EnableTelemetryLabel {
 		return
 	}
-	if istioMetadata.Network == "" && (istioMetadata.TLSMode == "" || istioMetadata.TLSMode == model.DisabledTLSModeLabel) {
-		return
-	}
 
 	if envoyMetadata.FilterMetadata == nil {
 		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
