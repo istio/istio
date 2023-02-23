@@ -547,23 +547,20 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 						}] = struct{}{}
 					}
 				}
-			} else {
-				// If the labels don't match, we see if we need to remove this instance
-				// Check that there was an oldWi (not iterating the instance for the first time)
-				if oldWi != nil {
-					// Check if the old labels matched. If they did and the current labels don't. Then we need to remove this instance
-					if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
-						seNamespacedName := config.NamespacedName(cfg)
-						services := s.services.getServices(seNamespacedName)
-						instance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
-						instancesDeleted = append(instancesDeleted, instance...)
-						s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-					}
+			} else if oldWi != nil {
+				// If the labels don't match and there was an oldWi (not iterating the instance for the first time)
+				// then we see if we need to remove this instance
+				// Check if the old labels matched. If they did and the current labels don't. Then we need to remove this instance
+				if reflect.DeepEqual(se.WorkloadSelector.Labels, oldWi.Endpoint.Labels) || labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
+					seNamespacedName := config.NamespacedName(cfg)
+					services := s.services.getServices(seNamespacedName)
+					instance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
+					instancesDeleted = append(instancesDeleted, instance...)
+					s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 				}
 			}
 		}
 	}
-
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
