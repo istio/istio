@@ -100,6 +100,35 @@ func TestMergeMetrics(t *testing.T) {
 			},
 		},
 	}
+	disableServerAndCustomClient := &tpb.Metrics{
+		Providers: []*tpb.ProviderRef{
+			{Name: "prometheus"},
+		},
+		Overrides: []*tpb.MetricsOverrides{
+			{
+				Match: &tpb.MetricSelector{
+					MetricMatch: &tpb.MetricSelector_Metric{
+						Metric: tpb.MetricSelector_ALL_METRICS,
+					},
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Disabled: &wrappers.BoolValue{Value: true},
+			},
+			{
+				Match: &tpb.MetricSelector{
+					MetricMatch: &tpb.MetricSelector_Metric{
+						Metric: tpb.MetricSelector_REQUEST_COUNT,
+					},
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+					"destination_canonical_service": {
+						Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+					},
+				},
+			},
+		},
+	}
 
 	cases := []struct {
 		name     string
@@ -178,6 +207,29 @@ func TestMergeMetrics(t *testing.T) {
 			expected: map[string]metricsConfig{
 				"prometheus": {
 					ClientMetrics: metricConfig{
+						Disabled: true,
+					},
+				},
+			},
+		},
+		{
+			name:    "disable server and custom client metrics",
+			metrics: []*tpb.Metrics{disableServerAndCustomClient},
+			mesh:    withMetricsProviders,
+			expected: map[string]metricsConfig{
+				"prometheus": {
+					ClientMetrics: metricConfig{
+						Disabled: false,
+						Overrides: []metricsOverride{
+							{
+								Name: "REQUEST_COUNT",
+								Tags: []tagOverride{
+									{Name: "destination_canonical_service", Remove: true},
+								},
+							},
+						},
+					},
+					ServerMetrics: metricConfig{
 						Disabled: true,
 					},
 				},

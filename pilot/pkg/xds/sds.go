@@ -55,11 +55,6 @@ func (sr SecretResource) Key() string {
 	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
-// DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []kind.Kind {
-	return nil
-}
-
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
@@ -150,8 +145,8 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			}
 		}
 
-		cachedItem, f := s.cache.Get(sr)
-		if f && !features.EnableUnsafeAssertions {
+		cachedItem := s.cache.Get(sr)
+		if cachedItem != nil && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			results = append(results, cachedItem)

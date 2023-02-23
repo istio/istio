@@ -82,15 +82,8 @@ type DeploymentController struct {
 	gatewayLister      lister.GatewayLister
 	gatewayClassLister lister.GatewayClassLister
 
-	serviceInformer    cache.SharedIndexInformer
-	serviceHandle      cache.ResourceEventHandlerRegistration
-	deploymentInformer cache.SharedIndexInformer
-	deploymentHandle   cache.ResourceEventHandlerRegistration
-	gwInformer         cache.SharedIndexInformer
-	gwHandle           cache.ResourceEventHandlerRegistration
-	gwClassInformer    cache.SharedIndexInformer
-	gwClassHandle      cache.ResourceEventHandlerRegistration
-	injectConfig       func() inject.WebhookConfig
+	injectConfig func() inject.WebhookConfig
+	handlers     *controllers.InformerHandler
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -209,6 +202,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 			}, subresources...)
 			return err
 		},
+		handlers:           controllers.NewInformerHandler(),
 		gatewayLister:      gw.Lister(),
 		gatewayClassLister: gwc.Lister(),
 		injectConfig:       webhookConfig,
@@ -224,9 +218,8 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
-	dc.serviceInformer = client.KubeInformer().Core().V1().Services().Informer()
-	dc.serviceHandle, _ = client.KubeInformer().Core().V1().Services().Informer().
-		AddEventHandler(handler)
+	serviceInformer := client.KubeInformer().Core().V1().Services().Informer()
+	dc.handlers.RegisterEventHandler(serviceInformer, handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
 	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
@@ -239,14 +232,14 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		)
 	})
 	_ = deployInformer.SetTransform(kube.StripUnusedFields)
-	dc.deploymentHandle, _ = deployInformer.AddEventHandler(handler)
-	dc.deploymentInformer = deployInformer
+	dc.handlers.RegisterEventHandler(deployInformer, handler)
 
-	// Use the full informer; we are already watching all Gateways for the core Istiod logic
-	dc.gwInformer = gw.Informer()
-	dc.gwHandle, _ = dc.gwInformer.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
-	dc.gwClassInformer = gwc.Informer()
-	dc.gwClassHandle, _ = dc.gwClassInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	serviceAccountInformer := client.KubeInformer().Core().V1().ServiceAccounts().Informer()
+	_ = serviceAccountInformer.SetTransform(kube.StripUnusedFields)
+	dc.handlers.RegisterEventHandler(serviceAccountInformer, handler)
+
+	dc.handlers.RegisterEventHandler(gw.Informer(), controllers.ObjectHandler(dc.queue.AddObject))
+	dc.handlers.RegisterEventHandler(gwc.Informer(), controllers.ObjectHandler(func(o controllers.Object) {
 		gws, _ := dc.gatewayLister.List(klabels.Everything())
 		for _, g := range gws {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
@@ -268,10 +261,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
 	d.queue.Run(stop)
-	_ = d.serviceInformer.RemoveEventHandler(d.serviceHandle)
-	_ = d.deploymentInformer.RemoveEventHandler(d.deploymentHandle)
-	_ = d.gwInformer.RemoveEventHandler(d.gwHandle)
-	_ = d.gwClassInformer.RemoveEventHandler(d.gwClassHandle)
+	d.handlers.Cleanup()
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
