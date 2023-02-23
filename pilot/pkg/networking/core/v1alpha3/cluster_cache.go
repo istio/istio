@@ -138,10 +138,6 @@ func (t clusterCache) DependentConfigs() []model.ConfigHash {
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []kind.Kind {
-	return nil
-}
-
 func (t clusterCache) Cacheable() bool {
 	return true
 }
